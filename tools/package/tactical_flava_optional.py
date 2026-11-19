@@ -446,7 +446,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
     return {'schema': 1, 'kind': 'tactical-flava-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
             'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
-            'subset_pins': class_hashes,
+            'subset_pins': class_hashes, 'subset_pins_scope': snafu_optional.SUBSET_PIN_SCOPE,
             'allowlist': allowlist, 'terms': terms, 'vanilla': vanilla_report, 'classes': dict(sorted(classes.items())),
             'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers, config.bin/config.cpp members, vendor readme hash, '
@@ -777,8 +777,8 @@ def main(argv=None):
             _refuse_git(args.out)
             if args.out.exists() or args.out.is_symlink():
                 raise ValueError('report output must be a new file')
-            report = verify_install(args.install, json.loads(args.allowlist.read_bytes()),
-                                    vanilla=load_vanilla(args.vanilla_addons))
+            allowlist = json.loads(args.allowlist.read_bytes())
+            report = verify_install(args.install, allowlist, vanilla=load_vanilla(args.vanilla_addons))
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_bytes(economy.encode(report))
             print(f'{report["status"]}: {report["counts"]}')
@@ -788,6 +788,8 @@ def main(argv=None):
                 print(f'  install problem: {problem}')
             for problem in report['vanilla']['problems']:
                 print(f'  vanilla note: {problem}')
+            if report['status'] == 'verified' and not snafu_optional._subset_pinned(allowlist):
+                print(snafu_optional.subset_pin_hint())
             return
         if args.command == 'generate':
             selected = json.loads(args.allowlist.read_bytes())

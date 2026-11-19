@@ -176,10 +176,19 @@ def _pbo_sha256(path):
     return digest.hexdigest()
 
 
+SUBSET_PIN_SCOPE = ('Subset pins hash only the parsed fields (scope, model, ammo, count, magazines, '
+                    'chamberableFrom, handAnim, attachments, inventorySlot) plus the parent chain; '
+                    'an update that only changes damage/hit values passes.')
+
+
 def subset_pins(allowlist, merged):
     """Per-class hash of the used subset's resolved config rows (class, parents inside the pack and,
     for magazines/ammo, the bullet class). Independent of PBO bytes, so a Workshop update that leaves
-    these classes unchanged keeps the pins valid; classes absent from the merged config hash as None."""
+    these classes unchanged keeps the pins valid; classes absent from the merged config hash as None.
+
+    Subset pins hash only the parsed fields (scope, model, ammo, count, magazines, chamberableFrom,
+    handAnim, attachments, inventorySlot) plus the parent chain; an update that only changes damage/hit
+    values passes. That is a deliberate trade for speed (HC-61 #191); the sentence is SUBSET_PIN_SCOPE."""
     pins = {}
     for entry in allowlist['entries']:
         root = {'weapon': 'CfgWeapons', 'magazine': 'CfgMagazines', 'ammo': 'CfgMagazines'}.get(
@@ -197,6 +206,12 @@ def subset_pins(allowlist, merged):
         pins[name] = hashlib.sha256(json.dumps(
             material, sort_keys=True, default=repr, separators=(',', ':')).encode()).hexdigest()
     return pins
+
+
+def subset_pin_hint():
+    return ('  hint: copy the report subset_pins object into allowlist hc61.class_pins to pin the '
+            'used subset (then dependency_pins may be []); whole-PBO pins fail on every Workshop update.\n  '
+            + SUBSET_PIN_SCOPE)
 
 
 def _subset_pinned(allowlist):
@@ -562,7 +577,7 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
     return {'schema': 1, 'kind': 'snafu-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
             'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
-            'subset_pins': class_hashes,
+            'subset_pins': class_hashes, 'subset_pins_scope': SUBSET_PIN_SCOPE,
             'allowlist': allowlist, 'terms': terms, 'classes': dict(sorted(classes.items())), 'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers/config.bin, vendor types, terms hash',
             'subset': {'authored_weapons': sum(e['kind'] == 'weapon' for e in allowlist['entries']),
@@ -904,7 +919,8 @@ def main(argv=None):
             _refuse_git(args.out)
             if args.out.exists() or args.out.is_symlink():
                 raise ValueError('report output must be a new file')
-            report = verify_install(args.install, json.loads(args.allowlist.read_bytes()))
+            allowlist = json.loads(args.allowlist.read_bytes())
+            report = verify_install(args.install, allowlist)
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_bytes(economy.encode(report))
             print(f'{report["status"]}: {report["counts"]}')
@@ -912,9 +928,8 @@ def main(argv=None):
                 print(f'  {row["status"]:10} {name} {" ".join(row["reasons"])}')
             for problem in report['install']['problems']:
                 print(f'  install problem: {problem}')
-            if report['status'] == 'verified' and not _subset_pinned(json.loads(args.allowlist.read_bytes())):
-                print('  hint: copy the report subset_pins object into allowlist hc61.class_pins to pin the '
-                      'used subset (then dependency_pins may be []); whole-PBO pins fail on every Workshop update.')
+            if report['status'] == 'verified' and not _subset_pinned(allowlist):
+                print(subset_pin_hint())
             return
         if args.command == 'generate':
             selected = json.loads(args.allowlist.read_bytes())
