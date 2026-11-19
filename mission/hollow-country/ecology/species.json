@@ -1,0 +1,34 @@
+{
+  "Version": 1,
+  "Enabled": true,
+  "MaxAnimals": 256,
+  "MaxFacts": 64,
+  "SamplePerTick": 8,
+  "WorkUnits": 128,
+  "MaxPlayerChecks": 16,
+  "TickMs": 1000,
+  "FactLifetimeMs": 30000,
+  "PlayerObservationRadiusM": 1000.0,
+  "RangeBasis": "Observation envelope only: approximate vanilla network bubble 1000 m and rifle gunshot hearing about 1 km; never an animal perception range.",
+  "Species": [
+    "Animal_BosTaurus",
+    "Animal_CanisLupus",
+    "Animal_CapraHircus",
+    "Animal_CapreolusCapreolus",
+    "Animal_CervusElaphus",
+    "Animal_GallusGallusDomesticus",
+    "Animal_OvisAries",
+    "Animal_SusDomesticus",
+    "Animal_SusScrofa",
+    "Animal_UrsusArctos",
+    "Animal_LepusEuropaeus",
+    "Animal_VulpesVulpes"
+  ],
+  "TargetPairs": [
+    {"Source": "animal", "Target": "animal", "Verdict": "pending_native_pair_matrix"},
+    {"Source": "animal", "Target": "ai", "Verdict": "pending_native_pair_matrix"},
+    {"Source": "animal", "Target": "infected", "Verdict": "pending_native_pair_matrix"},
+    {"Source": "ai", "Target": "animal", "Verdict": "pending_native_pair_matrix"},
+    {"Source": "infected", "Target": "animal", "Verdict": "pending_native_pair_matrix"}
+  ]
+}
