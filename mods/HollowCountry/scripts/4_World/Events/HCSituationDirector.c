@@ -127,6 +127,15 @@ class HCSituationDirector
         return row.Outcome == "dead" || row.Outcome == "departed" || row.Outcome == "unknown";
     }
 
+    // Native boot 076: the JSON-loaded first survivor came back as a fully
+    // zero-filled row. It has no identity, phase, lease or times, so it is
+    // absent; a version-0 row carrying any state is still refused.
+    static bool HCZeroFilled(HCSituationState row)
+    {
+        if (!row || row.Version != 0 || row.StorySequence != 0 || row.DueAt != 0 || row.EndsAt != 0) { return false; }
+        return row.Profile == "" && row.Id == "" && row.Phase == "" && row.Outcome == "" && row.Lease == "" && row.Refusal == "";
+    }
+
     static bool HCHistoryValid(HCStoryProgress progress)
     {
         if (!progress || !HCValid(progress.HCFirstSurvivor, progress)) { return false; }
@@ -264,6 +273,7 @@ class HCSituationDirector
         m_Effective = "refused";
         m_Reason = "SITUATION_SOURCE_UNAVAILABLE";
         if (!state || !store) { HCReport(); return false; }
+        if (state.Stories && HCZeroFilled(state.Stories.HCFirstSurvivor)) { state.Stories.HCFirstSurvivor = null; }
         if (!state.Stories || !HCStoryPolicy.HCValid(state) || !HCHistoryValid(state.Stories))
         {
             m_Reason = "SITUATION_STATE_INVALID";

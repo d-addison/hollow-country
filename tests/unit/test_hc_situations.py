@@ -407,6 +407,17 @@ class SituationBehavior(unittest.TestCase):
         zero_version = copy.deepcopy(run.images[0])
         zero_version.Stories.HCSituations[0].Version = 0
         self.assertFalse(director_fixture(zero_version).owner.m_Enabled)
+        # Native boot 076: a JSON-loaded first survivor came back fully zero-filled
+        # (Version 0, no id/phase); it carries no state and is treated as absent.
+        zero_filled = copy.deepcopy(run.images[0])
+        zero_filled.Stories.HCFirstSurvivor = N(Version=0, Profile=EStr(''), Id=EStr(''), StorySequence=0, DueAt=0,
+            EndsAt=0, Phase=EStr(''), Outcome=EStr(''), Lease=EStr(''), Refusal=EStr(''))
+        reopened = director_fixture(zero_filled)
+        self.assertTrue(reopened.owner.m_Enabled)
+        self.assertIsNone(reopened.state.Stories.HCFirstSurvivor)
+        partial = copy.deepcopy(zero_filled)
+        partial.Stories.HCFirstSurvivor.Id = EStr('hc-story-5-survivor')
+        self.assertFalse(director_fixture(partial).owner.m_Enabled, 'a version-0 row with state is still refused')
         duplicate_lease = copy.deepcopy(run.images[0])
         for row in duplicate_lease.Stories.HCSituations[:2]:
             row.Lease, row.Phase = EStr('synthetic-owned-lease'), EStr('active')

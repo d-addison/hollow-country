@@ -224,7 +224,9 @@ class EventsReadyAtBoot(unittest.TestCase):
                 scenes.m_SaveJob = None
                 live = run.state
                 if case == 'invalid':
-                    live.Stories.HCFirstSurvivor = N(Version=0)
+                    # Explicit native-shaped version-0 row that still carries an identity.
+                    live.Stories.HCFirstSurvivor = N(Version=0, Profile=EStr(''), Id=EStr('hc-story-5-survivor'),
+                        StorySequence=0, DueAt=0, EndsAt=0, Phase=EStr(''), Outcome=EStr(''), Lease=EStr(''), Refusal=EStr(''))
                 store = N(Open=lambda now: None if case == 'unavailable' else live,
                           Save=lambda value: True)
                 bindings = []
