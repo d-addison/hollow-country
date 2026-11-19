@@ -617,8 +617,14 @@ class SituationBehavior(unittest.TestCase):
             self.assertEqual('off', module.HCGetOperationalStatus().HCState(), 'legacy Events is disabled')
             module.m_Config.Enabled = True
             module.HCPublishSituations()
-            self.assertEqual(director.HCStatus().HCState(), module.HCGetOperationalStatus().HCState())
-            self.assertEqual(director.HCStatus().HCReason(), module.HCGetOperationalStatus().HCReason())
+            if director.HCProviderPending():
+                # Wave 16: director and source run, only the actor provider is missing.
+                self.assertEqual('ready', module.HCGetOperationalStatus().HCState())
+                self.assertEqual('situation_director_running_actor_provider_pending',
+                                 module.HCGetOperationalStatus().HCReason())
+            else:
+                self.assertEqual(director.HCStatus().HCState(), module.HCGetOperationalStatus().HCState())
+                self.assertEqual(director.HCStatus().HCReason(), module.HCGetOperationalStatus().HCReason())
             module.m_Config.Enabled = False
             module.HCPublishSituations()
             self.assertEqual(3, len({name for name, _, _ in published}))

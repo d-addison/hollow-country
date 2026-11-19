@@ -220,9 +220,8 @@ class HCSituationDirector
         return true;
     }
 
-    bool HCOpen(HCSceneChainState state, HCSceneChainStore store, bool enabled)
+    protected void HCEnsureRows()
     {
-        if (m_Enabled || m_Fault) { return false; }
         if (m_Rows.Count() == 0)
         {
             HCAddProfile("survivor");
@@ -231,6 +230,33 @@ class HCSituationDirector
             HCAddProfile("roadside-position");
             HCAddProfile("threatened-exodus");
         }
+    }
+
+    // Wave 16: the scene owner binds the shared source in ITS OnStart, which runs
+    // after this module's OnStart (registry order). The module resolves the source
+    // once on its first tick, so at start the director is started and waiting by
+    // design, not refused. A missing source on that first tick is then refused by
+    // name through HCOpen. Operator-off and non-server stay off.
+    void HCDeferSource(bool enabled)
+    {
+        if (m_Enabled || m_Fault) { return; }
+        HCEnsureRows();
+        m_Effective = "off";
+        m_Reason = "operator_off";
+        if (!HCV2Admission.Admitted(enabled) || !GetGame() || !GetGame().IsServer()) { HCReport(); return; }
+        m_Effective = "ready";
+        m_Reason = "situation_source_binds_on_first_tick";
+        HCReport();
+    }
+
+    // True while the director owns the bound source and only the actor provider
+    // (the optional Expansion AI addon) is missing: offers wait, nothing is stuck.
+    bool HCProviderPending() { return m_Enabled && !m_Fault && m_Effective == "refused"; }
+
+    bool HCOpen(HCSceneChainState state, HCSceneChainStore store, bool enabled)
+    {
+        if (m_Enabled || m_Fault) { return false; }
+        HCEnsureRows();
         m_Effective = "off";
         m_Reason = "operator_off";
         if (!HCV2Admission.Admitted(enabled) || !GetGame() || !GetGame().IsServer()) { HCReport(); return false; }

@@ -22,6 +22,8 @@ class HCEventModule : HCModule
     protected ref HCOperationalOwner m_TransitOwner;
     protected bool m_SituationEnabled;
     protected bool m_SourceAttempted;
+    // Last provider refusal already named in the log (one line per change).
+    protected string m_ProviderNoted;
     protected ref HCEventRuntime m_Runtime;
     protected ref HCEventNativeObserver m_NativeObserver;
     protected float m_RosterElapsed = 0;
@@ -69,7 +71,8 @@ class HCEventModule : HCModule
         if (m_SituationEnabled) { raids = HCCampRaidSituation.HCLoad(); }
         m_Raids.HCOpen(raids, m_SituationEnabled);
         m_Transit.HCOpen(m_SituationEnabled);
-        m_Situations.HCOpen(null, null, m_SituationEnabled);
+        m_ProviderNoted = "";
+        m_Situations.HCDeferSource(m_SituationEnabled);
         m_Situations.HCEnableProfile("raid", m_Raids.HCProfilesEnabled(), 0);
         m_Situations.HCEnableProfile("column", m_Raids.HCProfilesEnabled(), 0);
         HCTransitProfile roadside = m_Transit.HCFind("hc40-roadside-position");
@@ -97,6 +100,18 @@ class HCEventModule : HCModule
         // still reports legacy Events off when disabled; HC-38 retains its own
         // contributor receipt. With legacy Events enabled, use director state.
         if (!m_Config || !m_Config.Enabled) { m_SituationStatus.HCPublish("off", "operator_off"); }
+        else if (m_Situations.HCProviderPending())
+        {
+            // Director and scene source run; only the actor provider is missing, so the
+            // module is ready and the missing part is named once (never off/degraded).
+            m_SituationStatus.HCPublish("ready", "situation_director_running_actor_provider_pending");
+            string providerReason = survivorStatus.HCReason();
+            if (m_ProviderNoted != providerReason)
+            {
+                m_ProviderNoted = providerReason;
+                Print("[HC Events] situation actor provider pending reason=" + providerReason + " offers_wait=1 runtime=PENDING");
+            }
+        }
         else { m_SituationStatus.HCPublish(survivorStatus.HCState(), survivorStatus.HCReason()); }
         float observedAt = -1;
         if (GetGame()) { observedAt = GetGame().GetTickTime(); }
@@ -116,6 +131,8 @@ class HCEventModule : HCModule
         if (!m_SourceAttempted)
         {
             m_SourceAttempted = true;
+            // A missing source on the first tick is named once (refused, no retry scan).
+            if (!source || !store) { m_Situations.HCOpen(null, null, true); }
             if (source && store && m_Situations.HCOpen(source, store, true))
             {
                 // One startup reconciliation over HC-19's validated <=4 rows.
@@ -158,6 +175,7 @@ class HCEventModule : HCModule
         if (m_Transit) { m_Transit.HCClose(); }
         m_SituationEnabled = false;
         HCPublishSituations();
+        m_ProviderNoted = "";
         m_Situations = null;
         m_Raids = null;
         m_Transit = null;

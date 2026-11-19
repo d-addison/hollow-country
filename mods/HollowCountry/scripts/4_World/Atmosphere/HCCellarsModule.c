@@ -4,7 +4,8 @@
 // EnConvert.c:30 int.ToString. HCGroupJson supplies bounded JSON reads using
 // EnSystem.c:417,425,443 and 3_Game/tools/JsonFileLoader.c:69 LoadData.
 // Counts are per authored class with explicit instance geometry, never runtime
-// qualification. Pending retains every authored class while admission is closed.
+// qualification. Pending retains every authored class: the shared admission is
+// admitted unverified (wave 16), so `ready` is a start receipt, not acceptance.
 // No tick IO/work. HC-1 getters return the cached result without re-reading files.
 class HCCellarsModule : HCModule
 {
@@ -29,7 +30,9 @@ class HCCellarsModule : HCModule
     {
         m_HC31Status.HCPublish(state, reason);
         string counts = " cellar_measured=" + m_MeasuredClasses.ToString() + " admitted=0 pending=" + m_PendingClasses.ToString();
-        Print("[HC Plan] HC-31" + counts + " state=" + state + " refused=" + reason + " runtime=PENDING");
+        string key = " note=";
+        if (state != "ready") { key = " refused="; }
+        Print("[HC Plan] HC-31" + counts + " state=" + state + key + reason + " runtime=PENDING");
     }
 
     protected bool HCCountEvidence()
@@ -105,10 +108,16 @@ class HCCellarsModule : HCModule
     {
         if (m_HC31Started) { return; }
         m_HC31Started = true;
-        Print(HCV2Admission.Line("Cellars", true, "EXP-A3", HCV2Gates.Qualified("EXP-A3")));
+        bool preference = settings && settings.EnableAmbientLife;
+        Print(HCV2Admission.Line("Cellars", preference, "EXP-A3", HCV2Gates.Qualified("EXP-A3")));
+        // Admitted unverified: ready means started and the shared admission is open
+        // for the retained client heuristic. There is no server tick work here; the
+        // shared client sample is the runtime consumer (HCCellarsClient.HCSample).
+        string state = "ready";
         string reason = HCCellarAdmission.HCReason();
-        if (!HCReadCounts()) { reason = "measurement_counts_unavailable"; }
-        HCReceipt("refused", reason);
+        if (!HCCellarAdmission.HCAdmitted()) { state = "off"; reason = "cellar_admission_closed"; }
+        if (!HCReadCounts()) { state = "degraded"; reason = "measurement_counts_unavailable"; }
+        HCReceipt(state, reason);
         m_Survey = null;
         m_Measurement = null;
     }

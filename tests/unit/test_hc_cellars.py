@@ -38,7 +38,7 @@ class MeasuredCellarSlice(unittest.TestCase):
         if 'protected void HCReceipt(' in MODULE.read_text():
             module.HCReceipt = MethodType(translate(str(MODULE), 'protected void HCReceipt(', (),
                                                      Print=logs.append), module)
-        gate = N(HCAdmitted=lambda: False, HCReason=lambda: 'native_cellar_qualification_pending')
+        gate = N(HCAdmitted=lambda: True, HCReason=lambda: 'admitted_unverified_native_cellar_qualification_pending')
         start = translate(str(MODULE), 'override void OnStart(', ('HCReadCounts', 'HCReceipt'),
                           Print=logs.append, HCCellarAdmission=gate,
                           HCV2Admission=N(Line=lambda *args: 'synthetic V2 preference diagnostic'),
@@ -47,7 +47,7 @@ class MeasuredCellarSlice(unittest.TestCase):
         start(module, N(EnableAmbientLife=True))
         receipts = [line for line in logs if line.startswith('[HC Plan] HC-31 cellar_measured=')]
         self.assertEqual(len(receipts), 1, 'cellar startup must publish one measured-count receipt')
-        self.assertIn('cellar_measured=1 admitted=0 pending=3 state=refused', receipts[0])
+        self.assertIn('cellar_measured=1 admitted=0 pending=3 state=ready', receipts[0])
         self.assertEqual(reads, ['startup'])
         self.assertIs(translate(str(MODULE), 'override HCOperationalStatus HCGetOperationalStatus(', ())(module),
                       module.m_HC31Status)
@@ -57,8 +57,8 @@ class MeasuredCellarSlice(unittest.TestCase):
         getter = translate(str(MODULE), 'override HCOperationalStatus HCGetOperationalStatus(', ())
         self.assertIs(getter(module), module.m_HC31Status)
         cache.HCCapture('Cellars', True, getter(module))
-        self.assertIn('module=Cellars state=refused', cache.HCLine(0))
-        self.assertIn('reason=native_cellar_qualification_pending', cache.HCLine(0))
+        self.assertIn('module=Cellars state=ready', cache.HCLine(0))
+        self.assertIn('reason=admitted_unverified_native_cellar_qualification_pending', cache.HCLine(0))
         enabled = translate(str(MODULE), 'override bool IsEnabled(', ())
         for settings in (None, N(EnableAmbientLife=False)):
             self.assertFalse(enabled(module, settings))
@@ -138,21 +138,24 @@ class MeasuredCellarSlice(unittest.TestCase):
 
         gate.HCAdmitted = lambda: translate(str(ADMISSION), 'static bool HCAdmitted(', ())(None)
         gate.HCReason = lambda: translate(str(ADMISSION), 'static string HCReason(', ())(None)
-        self.assertFalse(gate.HCAdmitted())
-        # Execute real mission startup with no world/player/render ports: closed
-        # admission must return before helper allocation or any heuristic sample.
+        # Wave 16: the shared admission is admitted unverified (never accepted).
+        self.assertTrue(gate.HCAdmitted())
+        self.assertIn('unverified', gate.HCReason())
+        # A synthetic CLOSED gate (explicit fixture) still returns before helper
+        # allocation or any heuristic sample: the refusal path stays covered.
+        closed = N(HCAdmitted=lambda: False, HCReason=lambda: 'synthetic_closed_gate')
         events = []
         mission = N(m_HCCellars=None)
         init = translate(str(CLIENT), 'override void OnInit(', (), Print=logs.append,
                          super=N(OnInit=lambda: events.append('super')),
                          GetGame=lambda: N(IsDedicatedServer=lambda: False),
-                         HCCellarAdmission=gate,
+                         HCCellarAdmission=closed,
                          HCCellarsClient=N(HCPreferenceEnabled=lambda: True))
         init(mission)
         self.assertEqual(events, ['super'])
         self.assertIsNone(mission.m_HCCellars)
-        self.assertTrue(any('client state=refused refused=' + gate.HCReason() in line for line in logs))
-        translate(str(CLIENT), 'void HCSample(', ('HCClear',), HCCellarAdmission=gate)(N(), 1.)
+        self.assertTrue(any('client state=refused refused=' + closed.HCReason() in line for line in logs))
+        translate(str(CLIENT), 'void HCSample(', ('HCClear',), HCCellarAdmission=closed)(N(), 1.)
 
         # Explicit synthetic nine-point success, followed by a failed bottom anchor.
         row = N(StairsMeasured=True, StairTop=[0, 0, 1], StairBottom=[0, -2, 1],

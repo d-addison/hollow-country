@@ -48,11 +48,14 @@ follow `docs/RUNTIME_IMPLEMENTATION_CONTRACT.md`.
   `measurement_counts_unavailable`. Counts remain zero where unavailable; a
   validated authored pending count is retained. HC-1 caches the same refusal.
   The sampler uses `[HC Cellars] HC-31 sampler` for its separate lifecycle counts.
-- Shared 3_Game HCCellarAdmission stays closed with
-  `native_cellar_qualification_pending`. The retained client depth heuristic
-  checks it before allocation and before sampling. Local preference and server
-  EnableAmbientLife cannot open it; HCVisualActive stays false and the native
-  underground lighting/audio path remains owner. No new settings RPC is added.
+- Wave 16 (owner: enable all features by default): shared 3_Game
+  HCCellarAdmission is admitted unverified with
+  `admitted_unverified_native_cellar_qualification_pending`, the HCV2Admission
+  pattern (EXP-A3 has no native verdict; nothing is accepted). The retained
+  client depth heuristic still checks it before allocation and sampling; native
+  underground lighting/audio stays owner and wins whenever it is active. Opt-outs
+  are the existing ones: server EnableAmbientLife and the client profile
+  preference HollowCountryDarkCellars=0. No new settings RPC is added.
 - Generation requires explicit `Eligible`, `GeometryMeasured`,
   `StairAnchorsValid` and `SliceSelected` booleans on each selected instance.
   Missing evidence fails closed. At most **two spaces / four native triggers**
@@ -92,12 +95,13 @@ Installed read-only source root:
    Default installation has no marker and no additional underground triggers.
 2. With server stopped, create `<profiles>/HollowCountry/measure-cellars`.
    On a fresh profile with the shipped class list, expect exactly one
-   `[HC Plan] HC-31 cellar_measured=0 admitted=0 pending=28 state=refused refused=native_cellar_qualification_pending runtime=PENDING`.
-   HC-1 must report `module=Cellars state=refused` with that refusal reason.
-   The independent sampler should report `[HC Cellars] HC-31 sampler` with
-   `state=ready` and `refused=measurement_only_native_stair_route_unobserved`.
-   A client with its local preference on should report
-   `[HC Plan] HC-31 client state=refused refused=native_cellar_qualification_pending runtime=PENDING`.
+   `[HC Plan] HC-31 cellar_measured=0 admitted=0 pending=28 state=ready note=admitted_unverified_native_cellar_qualification_pending runtime=PENDING`.
+   HC-1 must report `module=Cellars state=ready` with that reason. Without the
+   marker the sampler reports `[HC Cellars] HC-31 sampler` with `state=ready`
+   and `note=idle_waiting_for_measure_marker` and does nothing else; with it,
+   `state=ready` and `note=measurement_only_native_stair_route_unobserved`.
+   A client with its local preference on creates the depth helper and prints no
+   refusal line (a `HollowCountryDarkCellars=0` client prints none either).
    These are expected diagnostics, not observed logs.
 3. Wait for `[HC Cellars] sampler done`. A retained 128m tile scan queries a
    91m radius and owns origins using half-open tile bounds. Results over 4,096
