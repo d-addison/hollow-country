@@ -495,9 +495,9 @@ never recorded as accepted. Every engine experiment is still PENDING.
 | #101 | Pickers and journaled scavenging | none (preference EnableEncounters) | Search a covered house, leave its observer area, then revisit houses along a picker route after a 15-minute visit interval; inspect the real supply/cache state across restart. | Pass if one real item at most moves/visit and no more than six/day, with quarantine on ambiguity; fail for created loot, replay or noiseless omniscient AI. | `[HollowCountry] V2 admission feature=Pickers preference=on gate=EXP-L5 qualified=0 result=admitted unverified: EXP-L5 has no recorded native verdict`; `[HollowCountry] V2 pickers ready parties=1 abstract=1 cap=6/day interval=900s`; `[HollowCountry] V2 picker visit phase=<phase> used=<n>/6`; `[HollowCountry] V2 pickers quarantined; no replay or replacement supply` | [ ] | [ ] | LC-T407/409; EXP-L4 also applies. Party route is currently abstract; cache/supply journals must establish the transfer, not an NPC door animation. Gate EXP-L5; runtime acceptance pending. |
 | #117 | Finite woodland dead drops | none (preference EnableEncounters) | After the daily unobserved deposit opportunity, walk to hc-drop-balota near x=4086,z=3005, inspect the crate, take any real item and revisit after restart and another day. | Pass if at most one journaled house item/day arrives and each spot stops after four lifetime deposits; fail for contents created from nothing, replay or unsafe crate placement. | `[HollowCountry] V2 admission feature=DeadDrops preference=on gate=EXP-L4 qualified=0 result=admitted unverified: EXP-L4 has no recorded native verdict`; `[HollowCountry] V2 dead drops ready spots=8 finite_deposits=4/spot interval=1/day`; `[HollowCountry] V2 dead drop deposit id=<id> phase=<phase> used=<n>/4` | [ ] | [ ] | Eight authored approximate woodland spots, not surveyed geometry; EXP-L5 also applies. An empty/refused spot is not proof of a passing deposit path. Gate EXP-L4; runtime acceptance pending. |
 | #103 | Volunteer patrols and checkpoints | none (preference EnableEncounters) | With HCX and the reviewed site policy loaded, approach an admitted checkpoint from outside exclusion, inspect the roadside table and any guards; walk the road and nearby entrances. | Pass if the empty table stays outside routes and optional guards obey fair finite-ammo settings; fail for blocked access, visible actor creation, recruit/trade or unlimited reload. | `[HollowCountry] V2 admission feature=Checkpoints preference=on gate=EXP-L1 qualified=0 result=admitted unverified: EXP-L1 has no recorded native verdict`; `[HollowCountry] Checkpoints props present: <site>; empty roadside table remains if guards unavailable`; `[HC Expansion AI] sites active: <n> sites, <n> actors` | [ ] | [ ] | LC-T410; EXP-L2 also applies. Props-only fallback is not body acceptance; subscribed provider and HCX load after HollowCountry in -mod on both peers. Gate EXP-L1; runtime acceptance pending. |
-| #105 | Camp recognition, tiers and decay | none (preference EnableCamps) | Create a group, light a fireplace within 12 m of your group member, add shelter and storage; add raised flag, food source, kitchen, three walls, two lights and radio; leave unlit for two real days and revisit. | Pass if one camp/group rises only with real nearby items and decays/downgrades without item/stat/immunity grants; fail for duplicate camps, unbounded scans or free construction. | `[HollowCountry] V2 admission feature=Camps preference=on gate=EXP-L7 qualified=0 result=admitted unverified: EXP-L7 has no recorded native verdict`; `[HollowCountry] V2 camps started camps=<n> visitors=abstract probes=abstract mailbox=notification; native acceptance pending`; `[HollowCountry] V2 camps recognised camp=<id> tier=0`; `[HollowCountry] V2 camps tier camp=<id> from=<tier> to=<tier>` | [ ] | [ ] | LC-T412. Tiers scan nearby native state; upper tiers need the full predicate, not just more storage. Gate EXP-L7; runtime acceptance pending. |
+| #105 | Camp recognition, tiers and decay | none (preference EnableCamps) | Create a group, light a fireplace within 12 m of your group member, add shelter and storage; add food source, kitchen, two lights and radio (walls and a raised flag are no longer tier requirements); leave unlit for two real days and revisit. | Pass if one camp/group rises only with real nearby items and decays/downgrades without item/stat/immunity grants; fail for duplicate camps, unbounded scans or free construction. | `[HollowCountry] V2 admission feature=Camps preference=on gate=EXP-L7 qualified=0 result=admitted unverified: EXP-L7 has no recorded native verdict`; `[HollowCountry] V2 camps started camps=<n> visitors=abstract probes=abstract mailbox=off; native acceptance pending`; `[HollowCountry] V2 camps recognised camp=<id> tier=0`; `[HollowCountry] V2 camps tier camp=<id> from=<tier> to=<tier>` | [ ] | [ ] | LC-T412. Tiers scan nearby native state; upper tiers need the full predicate, not just more storage. Gate EXP-L7; runtime acceptance pending. |
 | #106 | Camp visitors, neighbours and signals | none (preference EnableCamps) | At a tier-1+ camp between 17:00 and 21:00 game time, light the fire or powered megaphone/chemlight trail; at tier 2 leave the flag open; later conceal the camp or change flag signals. | Pass if bounded traveller/refugee messages follow native signals and permanent neighbour loss never respawns a pair; fail for repeated visitor spam, free supplies or invented body observations. | `[HollowCountry] V2 admission feature=Camps preference=on gate=EXP-L7 qualified=0 result=admitted unverified: EXP-L7 has no recorded native verdict`; `[HollowCountry] V2 camps signal camp=<id> state=<signal>`; `[HollowCountry] V2 camps visitor camp=<id> neighbours=<n> abstract=1`; `[HollowCountry] V2 camps neighbours-lost camp=<id> permanent=1 abstract=1` | [ ] | [ ] | LC-T413 feature gate EXP-L8; admission shared with Camps/EXP-L7. Current visitors/neighbours are abstract. Faction strength casualty bridge remains pending. Gate EXP-L7; runtime acceptance pending. |
-| #107 | Private camp mailbox answers | none (preference EnableCamps) | At a tier-1+ camp place a written Paper containing medicine in an unlocked WoodenCrate; stay within 60 m for a scan, then repeat/reconnect inside one real day. | Pass if one private group notification says nobody has seen any and the note text is never echoed/logged/persisted; fail for repeated answers, shared player text or a fabricated lead. | `[HollowCountry] V2 admission feature=Camps preference=on gate=EXP-L7 qualified=0 result=admitted unverified: EXP-L7 has no recorded native verdict`; `[HollowCountry] V2 camps mailbox camp=<id> answer=none player-text=private` | [ ] | [ ] | LC-T414 feature gate EXP-S1; parent admission EXP-L7. Current negative fallback has no certified-unsearched-site lookup; no answer Paper is created. Gate EXP-L7; runtime acceptance pending. |
+| #107 | Camp mailbox retired by HC-17 / #151 | none (preference EnableCamps) | Place a written Paper in native storage and revisit after a scan/restart. | Pass only for retirement if no mailbox answer, conversation or note-text ingestion occurs; ordinary native storage remains unchanged. | `[HollowCountry] V2 camps started camps=<n> visitors=abstract probes=abstract mailbox=off; native acceptance pending` | [ ] | [ ] | LC-T414 superseded by HC-17. No mailbox conversation or negative notification fallback remains. Runtime acceptance pending. |
 | #108 | Camp theft from unlocked crates (parallel landing) | none (preference EnableCamps) | At a recognized camp place distinguishable real items in unlocked storage and a lock-classified control; leave it unattended outside exclusion, then return to inspect the theft journal and recoverable thieves' cache. | Pass only after the transfer bridge lands if the same item moves once to a recoverable cache, stays absent at source after restart and locked storage is untouched; fail for copies, deletion or lock ambiguity admitted. | `[HollowCountry] V2 admission feature=Camps preference=on gate=EXP-L7 qualified=0 result=admitted unverified: EXP-L7 has no recorded native verdict`; `[HollowCountry] V2 camps theft camp=<id> items=<n> cache=<id>`; `[HollowCountry] V2 camps theft inactive: non-player journal Transfer overload absent; no items moved; EXP-L9 unverified` | [ ] | [ ] | LC-T415 gates EXP-L9/EXP-L4; parent admission EXP-L7. First line is owner-supplied future contract; inspected source still logs inactive. Locked eligibility and non-player/cache bridge pending; do not pass the theft row from inactive logs. Gate EXP-L7; runtime acceptance pending. |
 | #109 | Tier-3 raider probes | none (preference EnableCamps) | On escalation day 14+ maintain a visible tier-3 camp and watch the first warning, signs after 60 s and withdrawal within 20 minutes; conceal it or lower its tier and repeat after the three-day interval. | Pass if warning precedes signs and abstract probes respect eligibility, interval and retreat without structure damage; fail for early/unlimited probes, silent casualties or claims of spawned raiders. | `[HollowCountry] V2 admission feature=Camps preference=on gate=EXP-L7 qualified=0 result=admitted unverified: EXP-L7 has no recorded native verdict`; `[HollowCountry] V2 camps probe-warning camp=<id> day=<day> abstract=1`; `[HollowCountry] V2 camps probe-signs camp=<id> abstract=1`; `[HollowCountry] V2 camps probe-retreat camp=<id> abstract=1` | [ ] | [ ] | LC-T416 feature gates EXP-L1/EXP-L2; shared Camps admission EXP-L7. Current probes are abstract; three-member retreat and another player's camp require multiplayer observation. Gate EXP-L7; runtime acceptance pending. |
 | #110 | Client onboarding and condition hints | none (preference EnableAmbientLife) | Join with a new character and play for the first hour; open the event/group UI, become wet/cold/hungry or bandage a bleed, then reconnect with the same character. | Pass if brief native notifications give relevant hints once per character and resume without spam; fail for repeated onboarding, hidden client-authoritative state or injury/combat UI suppression. | `[HollowCountry] V2 admission feature=Hints preference=on gate=EXP-POL-1 qualified=0 result=admitted unverified: EXP-POL-1 has no recorded native verdict`; `[HollowCountry] V2 client hints shown=<n>` | [ ] | [ ] | LC-T501. Server Polish diagnostic uses EnableAmbientLife; client hints default on independently and save a character-local receipt. Gate EXP-POL-1; runtime acceptance pending. |
@@ -551,3 +551,106 @@ Failure: `AssertionError: 0 != 1 : /usr/bin/python3: No module named tools.testi
 `Ran 1 test` / `OK`. This establishes Python CLI behavior only. The lead still
 owns native Windows compile, joined-client evidence, target-load measurement and
 production decisions; nothing observed in DayZ yet.
+
+## HC-17 / #151 round 2 source review and acceptance (2026-11-18)
+
+Specification input: `.banso-writer/inputs/task.md` HC-17 and the active round-2
+review; shared interfaces: `RUNTIME_IMPLEMENTATION_CONTRACT.md`. The paths
+`docs/SPECIFICATION.md` and `docs/specs/001-survival-overhaul/spec.md` named in
+AGENTS.md are absent in this checkout. No missing specification or engine
+experiment is treated as accepted.
+
+Plan and task trace: preserve old camps and strict claim validation; normalize
+absent policy scalars; repair native expression limits and commit diagnostics;
+wire claims into the camp lifecycle; remove construction recipes on every peer;
+retain native containers, lockpicks and doors. Source tasks below are complete;
+runtime acceptance and production enablement remain pending. The existing
+HCUnitBudget/HCWorkBudget cursors, HCPerfPlayers snapshot, HCV2Admission,
+HCOperationalStatus and HCSaveScheduler/HCCampStore services are reused.
+No new distance is introduced (25 m visit default and native 2 m reach retained).
+
+Expiry uses **one full configured absence window of grace after each boot**
+(default 30 days). A live group's claim expires only when both its last observed
+visit and this boot are at least that old. Downtime alone cannot release a claim
+on first tick. Boot grace does not fabricate or persist a visit. Repeated
+restarts can extend retention indefinitely; this is the chosen grace policy,
+not accumulated running-time accounting. A confirmed disband still releases
+metadata immediately; unknown ACL state or clock rollback refuses expiry.
+Expiry/release never deletes containers, inventory or doors and never replays locks.
+
+Legacy `camps.json` with ClaimsVersion=0 and null/empty Claims migrates to an
+empty version-1 claim array before validation. Existing fire camps remain
+unchanged; populated unknown claim schemas and conflicting metadata refuse.
+Each zero config scalar (Version, ExpiryDays, VisitRadiusMeters,
+ActionReachMeters) takes its named default and emits one
+`[HC Plan] HC-17 policy <key> absent; default <n>` line. Nonzero invalid values
+still refuse. Mailbox is off; wall/flag tier requirements are retired.
+
+All fixtures in `tests/unit/test_hc_claim_round2.py` are explicitly synthetic.
+The restricted translators execute authored handlers; they cannot prove DayZ
+compilation, persistence, geometry or message delivery. Every HCCampModule
+translator found in this checkout (the new round-2 harness) supplies an explicit
+synthetic HCBuildingClaim collaborator. No existing harness referenced that file.
+
+Exact RED command, before source changes:
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round2 -v`.
+Actual result: `Ran 8 tests` / `FAILED (failures=8)`.
+The same command after implementation: `Ran 8 tests` / `OK` (each row below `ok`).
+
+| Task / test suffix | Actual RED line | GREEN |
+| --- | --- | --- |
+| boot_grace_prevents_downtime_expiry_without_renewing_visits | `AssertionError: True is not false` | `ok` |
+| camp_lifecycle_drives_claims_before_gate_and_flushes_before_stop | `AssertionError: Lists differ: ['start'] != []` | `ok` |
+| legacy_store_load_migrates_only_empty_claims_and_preserves_camps | `AssertionError: namespace(ClaimsVersion=0, Claims=None, Camps=[namespace(Id='synthetic-original-fire', Tier=2, Members=['native-ref'])]) is not None` | `ok` |
+| native_commit_refusals_are_observable_without_condition_logs | `AssertionError: [] is not true : denied native recipe must log a reason` | `ok` |
+| native_construction_recipes_unregistered_on_every_peer | `AssertionError: Lists differ: ['native', 'CraftFenceKit', 'CraftWatchtowerKit', [38 chars]Kit'] != ['native']` | `ok` |
+| owned_statements_respect_native_plus_limit | `AssertionError: Lists differ: [] != [('Camps/HCBuildingClaim.c', 14, 'return G[306 chars]s)')]` | `ok` |
+| partial_config_defaults_once_and_nonzero_invalid_refuses | `AssertionError: False is not true` | `ok` |
+| release_gates_actual_building_and_reports_server_refusal | `AssertionError: [] is not true` | `ok` |
+
+Baseline lint RED: `python3 -B -m tools.validate.enforce_lint --no-native`:
+`enforce_lint: FAIL findings=133 new=7 stale=0 native=no`.
+GREEN with the same command:
+`enforce_lint: pass findings=126 new=0 stale=0 native=no`.
+No baseline entries were added. Commit handlers emit named reasons or native
+MessageStatus; action conditions remain quiet per-frame previews. Release is
+gated on the server's actual group/building claim and rechecked at completion;
+the client preview has no replicated claim state, so completion refusals use the
+native server-to-actor MessageStatus path.
+
+Native evidence inspected in scripts-1.30.164289:
+`3_Game/Enums/EBuildingLockTypes.c:10` (LOCKPICK=1),
+`4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:11,131-141`
+(UnregisterRecipe and four native construction names),
+`4_World/Entities/ManBase/PlayerBase.c:6911-6926` (MessageStatus routing),
+`1_Core/proto/EnConvert.c:30,115` (int/float ToString).
+The HCModule HC-1 signature and HCServer status capture were checked in source;
+recipe registration has no server-only guard.
+
+Native acceptance checklist (all pending): exact-source DayZDiag compile/boot,
+normal signed PBO/server boot, Groups/Camps off paths, stop/restart cleanup,
+legacy camp migration, partial policy defaults and invalid-policy refusal.
+Grep proposed diagnostics `[HC Plan] HC-17 claims=per-group`,
+`expiry=boot_grace window_days=`, `claims_schema=1 migrated=empty_legacy`,
+`reason=claims_start_refused fire_camps=running` (fault fixture only), and camp
+startup `mailbox=off`; no emitted line alone passes acceptance.
+With two clients exercise claim/release ACL and contention, release on an
+unowned building with a visible refusal, native lockpick/raid, native stash
+contents after restart, grace expiry and disband without container deletion.
+Keep exact source/PBO/mission/config/dependency hashes with the external receipt.
+Heavy-infected vulnerability remains **unimplemented/unobserved** here and is
+traceable through the named refusal
+`[HC Plan] HC-17 state=refused reason=door_restart_and_heavy_infected_unobserved count=2 runtime=PENDING`.
+No new heavy-infected controller or native lock setter was added. Target-load
+budgets remain provisional until measured with 3–6 players.
+
+Affected-reader verification (focused modules only, no full discovery):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+# Ran 85 tests / OK
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
+# Ran 285 tests / OK
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_v1_native_noise_vision tests.unit.test_build_identity tests.unit.test_v1_combined_rpc tests.unit.test_enforce_source_parity tests.unit.test_gameplay_delta tests.unit.test_native_wiring_batch_a tests.unit.test_acceptance_optins tests.unit.test_hc_operational_status -v
+# Ran 218 tests / OK
+```

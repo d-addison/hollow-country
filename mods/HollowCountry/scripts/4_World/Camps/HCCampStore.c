@@ -100,13 +100,27 @@ class HCCampStore
         return true;
     }
 
+    static void HCClaimsMigrate(HCCampData data)
+    {
+        // Legacy fire camps are retained verbatim, never inferred as buildings.
+        // Nonempty unknown claim schemas remain refused by Valid.
+        if (data && data.ClaimsVersion == 0 && (!data.Claims || data.Claims.Count() == 0))
+        {
+            data.Claims = new array<ref HCBuildingClaimRecord>();
+            data.ClaimsVersion = 1;
+            Print("[HC Plan] HC-17 claims_schema=1 migrated=empty_legacy runtime=PENDING");
+        }
+    }
+
     static HCCampData Load(int now)
     {
         if (now < 1 || !HCV2ThreatStore<HCCampData>.CanOpen(PATH)) { return null; }
         HCCampData data;
         if (FileExist(PATH))
         {
-            if (!HCV2ThreatStore<HCCampData>.Load(PATH, BYTES, data) || !Valid(data, now)) { return null; }
+            if (!HCV2ThreatStore<HCCampData>.Load(PATH, BYTES, data)) { return null; }
+            HCClaimsMigrate(data);
+            if (!Valid(data, now)) { return null; }
             return data;
         }
         data = new HCCampData;

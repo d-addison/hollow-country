@@ -32,6 +32,7 @@ class HCCampModule : HCModule
 
     override string GetName() { return "Camps"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableCamps; }
+    override HCOperationalStatus HCGetOperationalStatus() { return HCBuildingClaim.HCObservedStatus(); }
 
     static HCCampModule Get()
     {
@@ -70,12 +71,18 @@ class HCCampModule : HCModule
         m_LastSaved = m_LastUtc;
         m_Running = true;
         s_Instance = this;
+        if (settings.EnableGroups)
+        {
+            if (!HCBuildingClaim.HCStart(this, m_Data)) { Print("[HC Plan] HC-17 claims=off reason=claims_start_refused fire_camps=running runtime=PENDING"); }
+        }
         Print(HCV2Admission.Line("CampTheft", true, "EXP-L9", HCV2Gates.Qualified("EXP-L9")));
-        Print("[HollowCountry] V2 camps started camps=" + m_Data.Camps.Count().ToString() + " visitors=abstract probes=abstract mailbox=notification; native acceptance pending");
+        Print("[HollowCountry] V2 camps started camps=" + m_Data.Camps.Count().ToString() + " visitors=abstract probes=abstract mailbox=off; native acceptance pending");
     }
 
     protected void Fail()
     {
+        HCBuildingClaim claims = HCBuildingClaim.HCGet();
+        if (claims) { claims.HCFail(); }
         m_Running = false;
         if (s_Instance == this) { s_Instance = null; }
         Print("[HollowCountry] V2 camps disabled: UTC/schema/world/persistence fault; preserve camps.json, .tmp and .bak");
@@ -215,6 +222,8 @@ class HCCampModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !(deltaTime > 0)) { return; }
+        HCBuildingClaim claims = HCBuildingClaim.HCGet();
+        if (claims) { claims.HCStep(deltaTime); }
         m_Elapsed += Math.Min(deltaTime, 5);
         if (m_Elapsed < 5) { return; }
         m_Elapsed = 0;
@@ -243,6 +252,7 @@ class HCCampModule : HCModule
 
     override void OnStop()
     {
+        HCBuildingClaim.HCStop();
         if (m_Running) { Commit(HCWorldClock.UTC()); }
         m_Running = false;
         if (s_Instance == this) { s_Instance = null; }
