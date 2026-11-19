@@ -3,6 +3,7 @@ class HCEventConfigurationIO : HCEventJournalIO
     void HCEventConfigurationIO()
     {
         m_Root = "$profile:HollowCountry/Events";
+        m_Label = "configuration directory";
     }
 }
 class HCEventSettingsCodec

@@ -212,7 +212,6 @@ class HCRadioChatter : HCModule
             HCRefuseAs("degraded", "channel_roster_invalid");
             return;
         }
-        m_Refusal = "";
         m_Channel = m_Store.Data.Channels[m_ChannelCursor];
         m_ChannelCursor = (m_ChannelCursor + 1) % 5;
         int now = HCWorldClock.UTC();
@@ -222,6 +221,8 @@ class HCRadioChatter : HCModule
             m_Channel = null;
             return;
         }
+        // Only a channel that passed the roster, cooldown and clock checks ends a standing refusal.
+        m_Refusal = "";
         array<Man> roster = HCPerfPlayers.HCGet();
         m_Listeners.Clear();
         if (roster.Count() > m_Defaults.MaxListeners)

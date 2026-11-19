@@ -103,6 +103,17 @@ class TapedPackLoaderTests(unittest.TestCase):
         self.assertEqual(2, contract["MaxPermittedPairIds"])
         self.assertIs(False, data["Qualified"])
 
+    def test_manifest_text_names_itself_the_runtime_input_without_pending_integration_claims(self):
+        text = self.real()
+        contract = json.loads(text)["SettingsContract"]
+        self.assertNotIn("lead-owned integration pending", text)
+        self.assertNotIn("DefaultsFile", text)
+        self.assertIn("HCTapedPackMounts.ReadManifest/ApplyManifest", contract["RuntimeInput"])
+        self.assertIn("no hcsettings switch", contract["RuntimeInput"].lower())
+        self.assertIn("Qualified() stays false", contract["RuntimeInput"])
+        self.assertIn("offline mirror", contract["OfflineMirror"])
+        self.assertIn("config/hollow-country-light-mounts.json", contract["OfflineMirror"])
+
     def test_real_manifest_configures_closed_defaults_without_any_attach(self):
         gate = build(self.real())
         self.assertEqual("", gate.ApplyManifest(self.real()))
