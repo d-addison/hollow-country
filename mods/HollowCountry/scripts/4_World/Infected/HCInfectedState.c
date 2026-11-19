@@ -575,11 +575,29 @@ class HCInfectedStore
         return total == snapshot.Reserved;
     }
 
+    // Native LoadData zero-fills absent scalars, including -1 sentinels.
+    // Check every horde object at Groups[] depth, not just the first key in
+    // the document; zero Living remains legitimate when explicitly stored.
+    static bool HCFieldsPresent(string text)
+    {
+        if (!HCJsonFields.Has(text, "Reserved")) { return false; }
+        return HCJsonFields.Every(text, "Living", 3) && HCJsonFields.Every(text, "Reserved", 3) && HCJsonFields.Every(text, "AdoptionStage", 3);
+    }
+
     static bool LoadSlot(string path, out HCInfectedSnapshot snapshot, string world, int memberCap, int groupCap, int now)
     {
         string content, error;
         snapshot = new HCInfectedSnapshot;
-        return ReadBounded(path, content) && JsonFileLoader<HCInfectedSnapshot>.LoadData(content, snapshot, error) && Validate(snapshot, world, memberCap, groupCap, now);
+        if (!ReadBounded(path, content) || !JsonFileLoader<HCInfectedSnapshot>.LoadData(content, snapshot, error))
+        {
+            return false;
+        }
+        if (!HCFieldsPresent(content))
+        {
+            Print("[HC Infected] refused journal reason=missing_horde_sentinel_fields; preserving files; runtime=PENDING");
+            return false;
+        }
+        return Validate(snapshot, world, memberCap, groupCap, now);
     }
 
     // Validated snapshot exactly as stored. A journal whose lifecycle paths are

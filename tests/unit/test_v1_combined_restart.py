@@ -195,7 +195,9 @@ class InfectedFiles:
             HCInfectedSnapshot=lambda: N(), DIRECTORY='synthetic/infected',
             FileExist=lambda p: p in self.files, Print=self.logs.append,
             read=lambda p: self.files.get(p, ''), decode=decode)
-        for name in ('ValidPosition', 'Validate', 'LoadSlot', 'LoadVerbatim', 'ApplyRestart'):
+        from tests.unit.json_loader_port import json_fields_port
+        self.env['HCJsonFields'] = json_fields_port()
+        for name in ('HCFieldsPresent', 'ValidPosition', 'Validate', 'LoadSlot', 'LoadVerbatim', 'ApplyRestart'):
             setattr(self.owner, name, lambda *a, name=name: self.call(name, *a))
             self.env[name] = getattr(self.owner, name)
         def load_slot(path, *args):

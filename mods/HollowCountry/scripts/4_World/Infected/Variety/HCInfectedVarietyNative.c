@@ -15,6 +15,9 @@
 // reversible lying/standing animation. Fresh-body spawning needs a shared lease.
 modded class ZombieBase
 {
+    // Failed-roll backoff on HC-14's existing clock/cursor; no callback or IO.
+    static const float HC_VARIETY_RETRY_SECONDS = 600;
+    protected float m_HCVarietyNextTry;
     protected int m_HCVarietyRole = -1;
     protected bool m_HCVarietyPosture;
     protected bool m_HCVarietySpeed;
@@ -44,15 +47,25 @@ modded class ZombieBase
         m_HCVarietyPlace = place;
     }
 
+    bool HCVarietyCanTry(float now)
+    {
+        return !m_HCVarietyTriedDormant && now >= 0 && now >= m_HCVarietyNextTry;
+    }
+
     bool HCVarietySleep(float now, bool permitted)
     {
-        // Only a started hold consumes this entity's single rest. Refusals
-        // retry through HC-14's existing bounded cursor/cadence; no new loop.
+        // Only a started hold consumes the single rest. A failed roll holds
+        // for the named cooldown, even if the bounded cursor revisits sooner.
         // Repeated calls cannot extend a hold or restart a completed actor.
-        if (m_HCVarietyTriedDormant) { return false; }
+        if (!HCVarietyCanTry(now)) { return false; }
         if (!GetGame().IsServer() || !HCInfectedVarietyModule.VarietyActive()) { return false; }
         if (!HCPostureAdmission.HCCanEnter("native_crawler_idle") || !(now >= 0)) { return false; }
-        if (!permitted || !IsAlive() || !IsCrawling() || IsBeingBackstabbed()) { return false; }
+        if (!IsAlive() || !IsCrawling() || IsBeingBackstabbed()) { return false; }
+        if (!permitted)
+        {
+            m_HCVarietyNextTry = now + HC_VARIETY_RETRY_SECONDS;
+            return false;
+        }
         DayZInfectedInputController controller = GetInputController();
         if (!controller || controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM) { return false; }
         AIAgent agent = GetAIAgent();
@@ -199,6 +212,12 @@ modded class HCInfectedVarietyModule
             state = "refused";
             reason = "rest_wake_native_proof_pending";
             if (!VarietyActive()) { reason = "infected_owner_unavailable_rest_wake_unverified"; }
+            else if (m_HCPostures)
+            {
+                HCOperationalStatus postures = m_HCPostures.HCStatus();
+                state = postures.HCState();
+                reason = postures.HCReason();
+            }
         }
         if (m_HCVarietyStatus.HCState() == state && m_HCVarietyStatus.HCReason() == reason) { return; }
         m_HCVarietyStatus.HCPublish(state, reason);
