@@ -361,15 +361,8 @@ class PostureAdmission(unittest.TestCase):
         self.assertFalse(manifest['production_enabled'])
         self.assertEqual('PENDING', manifest['runtime_acceptance'])
         self.assertEqual([], manifest['sites'])
-        # variety-sites.json predates audit #121 (shared mission file, not edited by
-        # that worker): its three tier-C rows still carry the old refusal names.
-        stale = {'SIT_WAKE_NATIVE_PROOF_PENDING', 'PRONE_WAKE_GRAPH_UNVERIFIED',
-                 'REVERSIBLE_RISE_UNEXPOSED'}
         for row in manifest['support_queue']:
-            if row['refusal'] in stale:
-                self.assertTrue(row['mode'] in ('sit_wall', 'prone_sleep', 'riser'))
-            else:
-                self.assertEqual(row['refusal'], policy.HCPostureRefusal(row['mode']))
+            self.assertEqual(row['refusal'], policy.HCPostureRefusal(row['mode']))
         # Guard the dependency/load order and lack of delayed callback lifetime.
         config = (ROOT / 'mods/HollowCountryAnims/config.cpp').read_text()
         self.assertRegex(config, r'requiredAddons\[\]\s*=\s*\{[^}]*"HollowCountry"')

@@ -47,9 +47,9 @@
     },
     {
       "mode": "sit_wall",
-      "source_support": "refused",
+      "source_support": "own_graph_command_unverified",
       "wake": "refused",
-      "refusal": "SIT_WAKE_NATIVE_PROOF_PENDING",
+      "refusal": "none_graph_admitted_unverified",
       "class_candidate": "HC_ZmbM_Sitter",
       "event_reference": null,
       "existing_assets": [
@@ -64,14 +64,14 @@
       "mode": "prone_sleep",
       "source_support": "refused",
       "wake": "refused",
-      "refusal": "PRONE_WAKE_GRAPH_UNVERIFIED",
+      "refusal": "ASSET_NOT_AUTHORED_prone_sleep",
       "required_experiment": "Find permitted installed resting and waking graph/clip entry points; never force native injury crawl as a reversible sleep"
     },
     {
       "mode": "riser",
       "source_support": "refused",
       "wake": "refused",
-      "refusal": "REVERSIBLE_RISE_UNEXPOSED",
+      "refusal": "ASSET_NOT_AUTHORED_riser",
       "required_experiment": "Demonstrate a permitted reversible living posture; never revive a real corpse, replace a fallen entity or restart completed life/loot"
     }
   ],
