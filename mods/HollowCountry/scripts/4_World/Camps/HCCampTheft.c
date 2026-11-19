@@ -156,8 +156,8 @@ class HCCampTheft
         return HCObserverTransitionGate.CanTransition(crate.GetPosition(), s_Config.ObserverRangeMeters);
     }
 
-    // Expansion's HCPartyCurrent override is invoked twice by the existing
-    // native transfer preflight, including after inventory callbacks.
+    // Expansion's HCAccessible override calls this again after the native
+    // transfer preflight's inventory callbacks (party identity stays separate).
     static bool HCGuard(HCScavengeInventory port, HCScavengeState row)
     {
         if (!port || !row) { return false; }
