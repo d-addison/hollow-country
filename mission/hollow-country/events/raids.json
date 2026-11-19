@@ -1,0 +1,20 @@
+{
+  "Version": 1,
+  "Enabled": false,
+  "Profiles": [
+    {
+      "Id": "camp-raid",
+      "Kind": "raid",
+      "PartyRole": "RAIDER",
+      "FactionId": "raiders",
+      "CooldownSeconds": 7200
+    },
+    {
+      "Id": "foot-column",
+      "Kind": "column",
+      "PartyRole": "RAIDER",
+      "FactionId": "raiders",
+      "CooldownSeconds": 7200
+    }
+  ]
+}

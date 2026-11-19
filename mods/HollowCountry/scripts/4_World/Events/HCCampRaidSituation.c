@@ -1,0 +1,180 @@
+// HC-39 / #147. Spec -> plan -> task: two content profiles for the same
+// existing HC-10 RAIDER foot party. No module, scheduler, spawner, population
+// cap, inventory owner, door override or separate gameplay state machine.
+// HC-38 owns situation validation/barriers/history; HC-16 owns funded camps;
+// HC-37 owns opposed-faction observations; HC-10 owns body/cargo fold-back.
+// HC-38 currently pins only HCFirstSurvivor: it is NOT a generic profile
+// registry. Lead must not replace that survivor with one of these profiles.
+// Generic durable situation/cooldown integration remains pending with HC-38.
+// Native scripts-1.30.164289, inspected read-only:
+// 3_Game/Global/Game.c:1120 IsServer; 3_Game/gameplay.c:636 GetGame;
+// 1_Core/proto/EnDebug.c:96 Print; EnString.c:199 Length;
+// EnScript.c:380 Count, :394 Find.
+// All remaining calls are existing HC ports. No N17 AI SDK is inferred.
+
+class HCCampRaidProfile
+{
+    string Id;
+    string Kind;
+    string PartyRole;
+    string FactionId;
+    int CooldownSeconds;
+}
+
+class HCCampRaidConfig
+{
+    // Zero (including a native missing-int load) is explicitly refused.
+    // No implicit legacy upgrade and no default-enabled preference.
+    int Version;
+    bool Enabled;
+    ref array<ref HCCampRaidProfile> Profiles = new array<ref HCCampRaidProfile>;
+}
+
+// Trusted original server addon only. This content slice has no supported
+// activation port: a JSON flag, route label or client cannot install capability.
+// Expanding this requires observed walking/retreat, combat/cargo callbacks and
+// durable HC-38 integration, not changing the refusal string into a ready flag.
+class HCCampRaidActorPort
+{
+    string HCRefusal() { return "RAID_PROVIDER_UNAVAILABLE"; }
+}
+
+class HCCampRaidActors
+{
+    protected static ref HCCampRaidActorPort s_Adapter;
+    static void HCBind(HCCampRaidActorPort adapter) { s_Adapter = adapter; }
+    static HCCampRaidActorPort HCGet()
+    {
+        if (s_Adapter) { return s_Adapter; }
+        return new HCCampRaidActorPort;
+    }
+}
+
+class HCCampRaidSituation
+{
+    protected ref HCCampRaidConfig m_Config;
+    protected bool m_Enabled;
+    protected int m_Reports;
+    protected string m_Effective = "off";
+    protected string m_Reason = "not_started";
+
+    static bool HCProfileValid(HCCampRaidProfile profile)
+    {
+        if (!profile || profile.PartyRole != "RAIDER" || profile.FactionId != "raiders") { return false; }
+        if (profile.CooldownSeconds < 60 || profile.CooldownSeconds > 604800) { return false; }
+        if (profile.Kind == "raid") { return profile.Id == "camp-raid"; }
+        if (profile.Kind == "column") { return profile.Id == "foot-column"; }
+        return false;
+    }
+
+    static bool HCValidConfig(HCCampRaidConfig config)
+    {
+        if (!config || config.Version != 1 || !config.Profiles || config.Profiles.Count() != 2) { return false; }
+        if (!HCProfileValid(config.Profiles[0]) || !HCProfileValid(config.Profiles[1])) { return false; }
+        return config.Profiles[0].Kind == "raid" && config.Profiles[1].Kind == "column";
+    }
+
+    // Read-only preflight, called ONLY by the existing budgeted server dispatch
+    // with its exact owned proposal and durable HC-38 history, never from RPC.
+    // lastEndedAt: -1/negative = unknown; 0 = explicit first-ever receipt from
+    // the durable owner; positive = observed prior closure. Never deserialize a
+    // missing history int and call its zero a first-ever receipt.
+    // Exit refs are syntactic provenance ONLY. Even a successful preflight is
+    // not surveyed geometry, route completion, cargo custody or admission.
+    static string HCValidate(HCCampRaidProfile profile, HCSituationState opportunity, HCStoryProgress progress, HCWorldProposal proposal, string targetLease, int now, int lastEndedAt, string exitRef, string returnRef)
+    {
+        if (!HCProfileValid(profile)) { return "RAID_PROFILE_INVALID"; }
+        if (!opportunity || !HCSituationDirector.HCValid(opportunity, progress)) { return "RAID_SITUATION_INVALID"; }
+        if (opportunity.Phase != "pending") { return "RAID_SITUATION_NOT_PENDING"; }
+        if (now < 1 || now > 999000000 || now < opportunity.DueAt || now >= opportunity.EndsAt) { return "RAID_SITUATION_NOT_DUE"; }
+        if (!proposal || !HCWorldLimits.Token(proposal.Id)) { return "RAID_PARTY_LEASE_UNOWNED"; }
+        HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(proposal.Id);
+        if (!HCAIPartyIdentity.HCValid(identity) || proposal.Identity != identity) { return "RAID_PARTY_LEASE_UNOWNED"; }
+        if (proposal.Kind != profile.PartyRole || proposal.FactionId != profile.FactionId) { return "RAID_PARTY_ROLE_MISMATCH"; }
+        if (lastEndedAt < 0 || lastEndedAt > now) { return "RAID_COOLDOWN_UNOBSERVED"; }
+        if (lastEndedAt > 0 && now - lastEndedAt < profile.CooldownSeconds) { return "RAID_COOLDOWN_ACTIVE"; }
+        if (!HCWorldLimits.Token(exitRef) || !HCWorldLimits.Token(returnRef) || exitRef == returnRef) { return "RAID_ROUTE_EXITS_MISSING"; }
+        // A visible column does not need a victim, enter a house or debit a camp.
+        if (profile.Kind == "column") { return ""; }
+        HCAIPartyIdentity target = HCWorldMaterializer.HCIdentity(targetLease);
+        if (!HCAIPartyIdentity.HCValid(target) || targetLease == proposal.Id) { return "RAID_TARGET_LEASE_UNOWNED"; }
+        if (target.HCGeneration() != identity.HCGeneration()) { return "RAID_TARGET_LEASE_UNOWNED"; }
+        if (target.HCPartyId() == identity.HCPartyId() || target.HCCargoId() == identity.HCCargoId()) { return "RAID_TARGET_LEASE_UNOWNED"; }
+        HCHoldouts camps = HCHoldouts.Get();
+        if (!camps) { return "RAID_FUNDED_TARGET_UNAVAILABLE"; }
+        HCAICampRoutineView view = camps.HCRoutineView(target);
+        if (!view || !view.Home || view.Level < 0 || view.Supply < 1 || view.Population < 1) { return "RAID_FUNDED_TARGET_UNAVAILABLE"; }
+        if (target.HCCampId() != "camp:" + view.Home.Id || view.Home.CacheRef.Length() < 1) { return "RAID_FUNDED_TARGET_UNAVAILABLE"; }
+        if (view.Home.State != "OCCUPIED" && view.Home.State != "ALERT") { return "RAID_FUNDED_TARGET_UNAVAILABLE"; }
+        // HC-38's scene clock has a fixed 2020 origin. Camp lockout is Unix
+        // UTC; reuse its owner clock instead of comparing unlike epochs.
+        int campNow = HCWorldClock.UTC();
+        if (campNow < 1) { return "RAID_TARGET_CLOCK_UNAVAILABLE"; }
+        if (campNow < view.Home.ReoccupyAfter) { return "RAID_TARGET_LOCKOUT"; }
+        if (HCWorldFactionCatalog.Relation(proposal.FactionId, view.Home.FactionId) != -1) { return "RAID_TARGET_NOT_HOSTILE"; }
+        return "";
+    }
+
+    void HCReport(string kind, string party, string outcome)
+    {
+        // Lifetime-bounded diagnostics; no hidden retry, scan or save loop.
+        if (m_Reports >= 16) { return; }
+        m_Reports++;
+        string line = "[HC Plan] HC-39 kind=" + kind + " party=" + party + " outcome=" + outcome;
+        line += " state=" + m_Effective + " refusal=" + m_Reason;
+        Print(line + " admitted=0 observed=0 report_cap=16 runtime=PENDING");
+    }
+
+    HCOperationalStatus HCStatus()
+    {
+        HCOperationalStatus status = new HCOperationalStatus;
+        status.HCPublish(m_Effective, m_Reason);
+        return status;
+    }
+
+    void HCOpen(HCCampRaidConfig config, bool enabled)
+    {
+        m_Enabled = false;
+        m_Config = null;
+        m_Effective = "off";
+        m_Reason = "operator_off";
+        if (HCV2Admission.Admitted(enabled) && (!config || config.Enabled))
+        {
+            m_Effective = "refused";
+            m_Reason = "RAID_CONFIG_INVALID";
+            if (HCValidConfig(config) && GetGame() && GetGame().IsServer())
+            {
+                m_Config = config;
+                m_Enabled = true;
+                m_Reason = HCCampRaidActors.HCGet().HCRefusal();
+            }
+        }
+        HCReport("raid", "none", m_Effective);
+        HCReport("column", "none", m_Effective);
+    }
+
+    bool HCAdmit(HCCampRaidProfile profile, HCSituationState opportunity, HCStoryProgress progress, HCWorldProposal proposal, string targetLease, int now, int lastEndedAt, string exitRef, string returnRef)
+    {
+        if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return false; }
+        if (!m_Config || m_Config.Profiles.Find(profile) < 0) { return false; }
+        m_Reason = HCValidate(profile, opportunity, progress, proposal, targetLease, now, lastEndedAt, exitRef, returnRef);
+        if (m_Reason == "") { m_Reason = HCCampRaidActors.HCGet().HCRefusal(); }
+        m_Effective = "refused";
+        string party = "none";
+        if (proposal && HCAIPartyIdentity.HCValid(proposal.Identity)) { party = proposal.Identity.HCPartyId(); }
+        HCReport(profile.Kind, party, "refused");
+        // NEVER begin, mutate the lifecycle, debit camp/cargo or release HC-10.
+        // Existing provider death/cleanup/result handlers retain all ownership.
+        return false;
+    }
+
+    void HCClose()
+    {
+        m_Enabled = false;
+        m_Config = null;
+        m_Effective = "off";
+        m_Reason = "owner_closed";
+        HCReport("raid", "none", "off");
+        HCReport("column", "none", "off");
+    }
+}

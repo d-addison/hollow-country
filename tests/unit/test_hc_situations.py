@@ -5,6 +5,7 @@ Plan/task: pin one HC-19 identity, reuse its store and HC-10 lease, retire UI.
 Native placement/actions, emotes and two-client acceptance remain pending.
 """
 import copy
+import json
 from pathlib import Path
 from types import SimpleNamespace as N
 import unittest
@@ -209,8 +210,129 @@ class SituationBehavior(unittest.TestCase):
         self.assertEqual('pending', unavailable.state.Stories.HCFirstSurvivor.Phase)
         self.assertEqual(1, sum('SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED' in line for line in unavailable.logs))
         self.assertFalse(any(call[0] == 'begin' for call in unavailable.calls))
+
+        # HC-39 uses this same lifecycle validator/test. Synthetic references
+        # exercise authored admission only; no route/actor success is fabricated.
+        self.check_raid_profiles()
         self.assertTrue(any('HC-38 opportunity=hc-story-5-survivor' in line and
                             'quest_ui=off' in line and 'runtime=PENDING' in line for line in run.logs))
+
+    def check_raid_profiles(self):
+        manifest = json.loads((ROOT/'mission/hollow-country/events/raids.json').read_text())
+        self.assertFalse(manifest['Enabled'])
+        self.assertEqual(['raid', 'column'], [p['Kind'] for p in manifest['Profiles']])
+        profile_rows = EArray(N(**p) for p in manifest['Profiles'])
+        config = N(Version=manifest['Version'], Enabled=True, Profiles=profile_rows)
+        calls, logs = [], []
+        camp_clock = N(now=1000)  # Explicit synthetic UTC, distinct from HC-38's epoch.
+        identity = N(HCPartyId=lambda: 'party:synthetic-raider', HCCargoId=lambda: 'cargo:synthetic-raider',
+                     HCGeneration=lambda: 7, HCRouteId=lambda: 'route:synthetic-raider')
+        target_identity = N(HCPartyId=lambda: 'holdout:synthetic-home', HCCargoId=lambda: 'cargo:synthetic-home',
+                            HCGeneration=lambda: 7, HCCampId=lambda: 'camp:synthetic-home')
+        camp = N(Level=1, Supply=8, Population=2,
+                 Home=N(Id='synthetic-home', CacheRef=EStr('existing-native-cache'), FactionId='locals',
+                        State='OCCUPIED', ReoccupyAfter=0))
+        leases = {'synthetic-lease': identity, 'synthetic-target': target_identity}
+        proposal = N(Id='synthetic-lease', Identity=identity, Kind='RAIDER', FactionId='raiders')
+        opportunity = N(Version=1, Id=EStr('hc-story-5-raid'), StorySequence=5,
+                        Phase='pending', DueAt=100, EndsAt=500, Lease=EStr(''),
+                        Outcome='', Refusal=EStr(''))
+        progress = N(LegacyThrough=4, NextSequence=6)
+        adapter_env = {}
+        adapter_source = (ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRaidAdapter.c').read_text()
+        translate(adapter_source.replace('    override ', '    '), 'HCXAIRaidAdapter', adapter_env)
+        provider = N(HCRefusal=lambda: adapter_env['HCRefusal'](N()))
+        env = dict(HCWorldLimits=N(Token=lambda s: bool(s) and len(s) <= 96),
+                   HCAIPartyIdentity=N(HCValid=lambda value: value is not None),
+                   HCWorldMaterializer=N(HCIdentity=lambda lease: leases.get(lease)),
+                   HCHoldouts=N(Get=lambda: N(HCRoutineView=lambda claim: camp if claim is target_identity else None)),
+                   HCWorldFactionCatalog=N(Relation=lambda a, b: -1 if (a, b) == ('raiders', 'locals') else 0),
+                   HCSituationDirector=N(HCValid=director_fixture().owner.HCValid),
+                   HCWorldClock=N(UTC=lambda: camp_clock.now),
+                   HCV2Admission=N(Admitted=lambda preference: preference),
+                   GetGame=lambda: N(IsServer=lambda: True), Print=logs.append,
+                   HCCampRaidActors=N(HCGet=lambda: provider),
+                   HCOperationalStatus=lambda: N(HCPublish=lambda *args: calls.append(args)))
+        source = (SCRIPTS/'4_World/Events/HCCampRaidSituation.c').read_text().replace('    protected ', '    ')
+        translate(source, 'HCCampRaidSituation', env)
+        self.assertTrue(env['HCValidConfig'](config))
+        config.Version = 0  # Native missing-int behavior: never silently upgrade or enable.
+        self.assertFalse(env['HCValidConfig'](config))
+        config.Version = 1
+        profile_rows[0].PartyRole = 'COURIER'
+        self.assertFalse(env['HCValidConfig'](config))
+        profile_rows[0].PartyRole = 'RAIDER'
+
+        def check(profile=profile_rows[0], last_ended=0, exit_ref='exit:surveyed', return_ref='return:surveyed', now=100):
+            return env['HCValidate'](profile, opportunity, progress, proposal, 'synthetic-target',
+                                     now, last_ended, exit_ref, return_ref)
+        for profile in profile_rows:
+            self.assertEqual('', check(profile))
+            self.assertEqual('RAID_COOLDOWN_ACTIVE', check(profile, last_ended=99))
+            self.assertEqual('RAID_COOLDOWN_UNOBSERVED', check(profile, last_ended=-1))
+            self.assertEqual('RAID_ROUTE_EXITS_MISSING', check(profile, exit_ref=''))
+            self.assertEqual('RAID_ROUTE_EXITS_MISSING', check(profile, return_ref=''))
+        opportunity.Phase = 'closed'
+        opportunity.Outcome = 'departed'
+        self.assertEqual('RAID_SITUATION_NOT_PENDING', check())
+        opportunity.Phase = 'pending'
+        opportunity.Outcome = ''
+        self.assertEqual('RAID_SITUATION_NOT_DUE', check(now=99))
+        leases.pop('synthetic-lease')
+        self.assertEqual('RAID_PARTY_LEASE_UNOWNED', check())
+        leases['synthetic-lease'] = identity
+        proposal.Kind = 'COURIER'
+        self.assertEqual('RAID_PARTY_ROLE_MISMATCH', check())
+        proposal.Kind = 'RAIDER'
+        camp.Supply = 0
+        self.assertEqual('RAID_FUNDED_TARGET_UNAVAILABLE', check())
+        camp.Supply = 8
+        camp.Home.ReoccupyAfter = 999
+        self.assertEqual('', check(), 'camp UTC must not be compared to the HC-38 epoch')
+        camp.Home.ReoccupyAfter = 1001
+        self.assertEqual('RAID_TARGET_LOCKOUT', check())
+        camp.Home.ReoccupyAfter = 0
+        camp.Home.FactionId = 'raiders'
+        self.assertEqual('RAID_TARGET_NOT_HOSTILE', check())
+        camp.Home.FactionId = 'locals'
+        # A column needs its owned party/route, but no target or camp raid.
+        leases.pop('synthetic-target')
+        self.assertEqual('', check(profile_rows[1]))
+        self.assertEqual('RAID_TARGET_LEASE_UNOWNED', check())
+        leases['synthetic-target'] = target_identity
+
+        owner = N(m_Config=None, m_Enabled=False, m_Reports=0,
+                  m_Effective=EStr('off'), m_Reason=EStr('not_started'))
+        table, _ = methods(source, 'HCCampRaidSituation')
+        for name, (static, _, _) in table.items():
+            setattr(owner, name, env[name] if static else MethodType(env[name], owner))
+        owner.HCOpen(None, True)
+        self.assertEqual('refused', owner.m_Effective, 'a failed config load must not look operator-disabled')
+        self.assertEqual('RAID_CONFIG_INVALID', owner.m_Reason)
+        config.Enabled = False
+        owner.HCOpen(config, True)
+        self.assertEqual('off', owner.m_Effective)
+        config.Enabled = True
+        owner.HCOpen(config, False)
+        self.assertEqual('off', owner.m_Effective)
+        self.assertFalse(owner.HCAdmit(profile_rows[0], opportunity, progress, proposal,
+                                      'synthetic-target', 100, 0, 'exit:surveyed', 'return:surveyed'))
+        owner.HCOpen(config, True)
+        self.assertEqual('refused', owner.m_Effective)
+        self.assertFalse(owner.HCAdmit(profile_rows[0], opportunity, progress, proposal,
+                                      'synthetic-target', 100, 0, 'exit:surveyed', 'return:surveyed'))
+        self.assertEqual('RAID_FOOT_ROUTE_COMBAT_CUSTODY_UNVERIFIED', owner.m_Reason)
+        # Explicit zero means a trusted durable owner observed no prior raid;
+        # it is not inferred from deserializing a missing history field.
+        self.assertTrue(any('HC-39 kind=raid party=party:synthetic-raider outcome=refused' in s
+                            and 'observed=0' in s and 'runtime=PENDING' in s for s in logs))
+        for _ in range(30):
+            owner.HCAdmit(profile_rows[1], opportunity, progress, proposal,
+                          '', 100, 0, 'exit:surveyed', 'return:surveyed')
+        self.assertLessEqual(len(logs), 16)
+        owner.HCClose()
+        self.assertFalse(owner.m_Enabled)
+        self.assertEqual([], calls)  # No engine inventory, spawner, movement or save port exists.
 
     @staticmethod
     def mission_with_vector(fixture):
