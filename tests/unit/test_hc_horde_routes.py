@@ -77,12 +77,17 @@ class HordeRoutes(unittest.TestCase):
         recovery = N()
         recovery.HCRouteRoster = authored(INFECTED/'HCHordeRecovery.c', 'HCRouteRoster', env, 'HCHordeRecovery')
         env['HCHordeRecovery'] = recovery
-        pending = EArray(N(**r) for r in manifest['Routes'])
-        document = N(SchemaVersion=1, WorldName='chernarusplus', Enabled=True, Defaults=cfg, Routes=pending)
+        # Wave 16: the shipped manifest now admits its offline-derived routes
+        # (runtime acceptance stays PENDING); an unsurveyed-only document still
+        # refuses with the named pending reason.
+        shipped = EArray(N(**{**r, 'Nodes': EArray(Vec(n) for n in r['Nodes'])}) for r in manifest['Routes'])
+        document = N(SchemaVersion=1, WorldName='chernarusplus', Enabled=True, Defaults=cfg, Routes=shipped)
+        self.assertTrue(routes.HCBind(document, 'chernarusplus'))
+        self.assertEqual('SURVEY_SOURCE_READY_NATIVE_PENDING', routes.Reason())
+        document.Routes = EArray([N(Id='x', Place='x', Surveyed=False, Evidence='', Nodes=EArray())])
         self.assertFalse(routes.HCBind(document, 'chernarusplus'))
         self.assertEqual('ROUTE_SURVEY_PENDING', routes.Reason())
         self.assertFalse(manifest['production_enabled'])
-        self.assertEqual([], manifest['Routes'][0]['Nodes'])
         self.assertTrue(manifest['pending_regional_coverage'])
         # Nothing in this fixture is a real Vybor survey.
         points = EArray([Vec([10,0,20]), Vec([60,0,20]), Vec([110,0,20])])

@@ -72,19 +72,20 @@ class PostureAdmission(unittest.TestCase):
                       'primary infected owner has no posture status hook')
         getter = fixture.module_function('override HCOperationalStatus HCGetOperationalStatus(')
         fixture.start()
-        self.assertEqual('degraded', getter(fixture.ctx).HCState(),
-                         'startup claimed readiness before requested posture owner reported')
-        self.assertEqual('posture_owner_start_pending', getter(fixture.ctx).HCReason())
+        # Wave 16: the posture owner is a separate later module with its own
+        # readiness line. The primary owner reports its own started state.
+        self.assertEqual('ready', getter(fixture.ctx).HCState(),
+                         'primary owner stayed degraded waiting for a later-starting posture owner')
+        self.assertEqual('infected_owner_running_runtime_pending', getter(fixture.ctx).HCReason())
         observed[0] = posture
         self.assertIs(posture, getter(fixture.ctx))
         self.assertEqual('degraded', getter(fixture.ctx).HCState())
         variety_owner.m_Running = False
-        self.assertEqual('degraded', getter(fixture.ctx).HCState())
+        self.assertEqual('ready', getter(fixture.ctx).HCState())
         variety_owner.m_Running = True
         observed[0] = None  # requested posture owner has not supplied a report
-        self.assertEqual('degraded', getter(fixture.ctx).HCState())
-        # #187: once the posture owner reports a non-degraded row the start
-        # placeholder is cleared; a later degraded posture still surfaces.
+        self.assertEqual('ready', getter(fixture.ctx).HCState())
+        # A later degraded posture row still surfaces through the getter.
         settled = make_row()
         settled.HCPublish('ready', 'posture_owner_running')
         observed[0] = settled
@@ -248,10 +249,10 @@ class PostureAdmission(unittest.TestCase):
         self.assertEqual(2, queue.m_Cursor)
         self.assertEqual(before_late_start + 1, len(owner_statuses),
                          'late infected start left cached posture status stale')
-        self.assertEqual(('degraded', 'native_crawler_idle_only_rest_wake_unverified'), owner_statuses[-1])
+        self.assertEqual(('ready', 'native_crawler_idle_admitted_rest_wake_unverified_runtime_pending'), owner_statuses[-1])
         for _ in range(10): owner.OnTick(1.)
         self.assertEqual(before_late_start + 1, len(owner_statuses), 'unchanged status republished')
-        self.assertEqual('degraded', statuses[-1][0])
+        self.assertEqual('ready', statuses[-1][0])
         # The inherited module's scaling service may run while posture is off.
         owner.m_Variety = False
         owner.OnTick(1.)
