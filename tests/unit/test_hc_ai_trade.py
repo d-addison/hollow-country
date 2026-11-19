@@ -10,6 +10,15 @@ AssertionError: False is not true : HC-35 second-party failure has no conserved-
 FAILED (failures=1). Native preflight extension also failed with 4 != 2 for an
 invalidated intent; HCMoveAllowed now checks the durable phase before mutation.
 GREEN: same focused command, Ran 1 test, OK. Synthetic evidence only.
+
+HC-36 extends this same feature check (no second test):
+2026-11-18 actual RED with the same command before caravan source existed:
+AssertionError: False is not true : HC-36 has no durable outbound/return corridor or loss barrier
+FAILED (failures=1).
+Turnaround/flee extension RED: 'fleeing_return_pending' != 'fleeing_returning'.
+HC-10 route provenance extension RED: HCBegin('lease') -> False (route:party).
+GREEN: same focused command, Ran 1 test, OK; synthetic ports only, never DayZ.
+
 """
 from copy import deepcopy
 from pathlib import Path
@@ -337,6 +346,209 @@ class TradeBehavior(unittest.TestCase):
         result[0], row.Phase = False, 'intent_left'
         self.assertEqual(3, io.HCMove('left', row))
         self.assertIs(right_actor, parents[0])
+
+        # HC-36 extends this ONE trade feature check. Explicit synthetic walking,
+        # custody and durable-store ports execute the authored corridor handler.
+        caravan_path = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCAICaravan.c'
+        self.assertTrue(caravan_path.exists(),
+                        'HC-36 has no durable outbound/return corridor or loss barrier')
+        caravan_source = caravan_path.read_text()
+        corridor = N(**json.loads((ROOT / 'mission/hollow-country/ai/caravans.json').read_text(),
+                                 object_hook=lambda fields: {k: EStr(v) if isinstance(v, str) else v
+                                                            for k, v in fields.items()}))
+        bind(caravan_source, 'HCCaravanCorridor', corridor, ('HCValid', 'HCAdmissionRefusal'),
+             dict(HCScavengeDefaults=lambda: N(TransferRangeMeters=2.5),
+                  HCWorldLimits=N(Token=lambda value: bool(value) and len(value) <= 96)))
+        self.assertTrue(corridor.HCValid())
+        self.assertEqual('CARAVAN_CORRIDOR_UNSURVEYED', corridor.HCAdmissionRefusal())
+        corridor.Version = 0
+        self.assertFalse(corridor.HCValid(), 'missing JSON version must refuse')
+        corridor.Version, corridor.ArrivalRangeMeters = 1, 1000
+        self.assertFalse(corridor.HCValid(), 'network bubble is not camp arrival')
+
+        caravan_names = ('HCValidState', 'HCActive', 'HCCheckpoint', 'HCQuarantine',
+                         'HCBegin', 'HCRequestWalk', 'HCStep', 'HCRestore',
+                         'HCConfirmedReturn', 'HCClose', 'HCLog')
+        def caravan_fixture(fail_write=0, ready=True, interrupt=False):
+            row = N(Version=1, Id='', Leg='idle', CargoReceipt='none', Refusal=EStr(''),
+                    LeaseId='', PartyId='', CargoId='', RouteId='', Generation=0,
+                    ActorId='', ItemId='', ItemClass='', Quantity=0)
+            place, cargo, alive, current, fleeing = ['home'], ['retained'], [True], [True], [False]
+            walks, saved, logs, writes = [], [], [], [0]
+            def save_caravan(image):
+                writes[0] += 1
+                if writes[0] == fail_write: return False
+                saved.append(deepcopy(image))
+                return True
+            def walk_caravan(image, returning):
+                self.assertEqual('returning' if returning else 'outbound', saved[-1].Leg)
+                walks.append(returning)
+                if interrupt: trip.HCClose()
+                return True
+            def bind_caravan(image):
+                image.ActorId, image.ItemId = 'carrier', 'finite-item'
+                image.ItemClass, image.Quantity = 'BandageDressing', 2
+                return True
+            port = N(HCReady=lambda: ready, HCRefusal=lambda: 'SYNTHETIC_ROUTE_REFUSED',
+                     HCBindCaravan=bind_caravan, HCCurrentCaravan=lambda image: current[0],
+                     HCCargoReceipt=lambda image: cargo[0], HCLive=lambda: alive[0],
+                     HCAtCamp=lambda image, returning: place[0] == ('home' if returning else 'away'),
+                     HCFleeObserved=lambda image: fleeing[0], HCWalkCaravan=walk_caravan,
+                     HCClear=lambda: None)
+            identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo',
+                         HCGeneration=lambda: 1, HCRouteId=lambda: 'route:party')
+            trip = N(m_State=row, m_IO=port, m_Store=N(Save=save_caravan),
+                     m_Enabled=True, m_Ready=True, m_Busy=False, m_Reports=0,
+                     m_Corridor=N(CorridorId='hc36-first-corridor', HCAdmissionRefusal=lambda: ''),
+                     m_Status=N(HCPublish=lambda *args: None))
+            bind(caravan_source, 'HCAICaravan', trip, caravan_names,
+                 dict(Print=logs.append, str=str, float=N(MAX=3.402823466e38),
+                      HCWorldLimits=N(Token=lambda value: bool(value) and len(value) <= 96),
+                      HCAIPartyIdentity=N(HCValid=lambda value: value is identity),
+                      HCWorldMaterializer=N(HCIdentity=lambda lease: identity if lease == 'lease' else None)))
+            return N(trip=trip, row=row, place=place, cargo=cargo, alive=alive,
+                     current=current, fleeing=fleeing, walks=walks, saved=saved, logs=logs)
+
+        c = caravan_fixture()
+        self.assertTrue(c.trip.HCBegin('lease'))
+        self.assertEqual([False], c.walks)
+        c.trip.HCStep()
+        self.assertEqual('outbound', c.row.Leg, 'elapsed time does not prove arrival')
+        c.fleeing[0] = True
+        c.trip.HCStep()
+        self.assertEqual('fleeing_outbound', c.row.Leg)
+        c.cargo[0] = 'lost'
+        c.trip.HCStep()
+        self.assertEqual(('fleeing_outbound', 'lost'), (c.row.Leg, c.row.CargoReceipt))
+        c.fleeing[0], c.place[0] = False, 'away'
+        c.trip.HCStep()
+        self.assertEqual('return_pending', c.row.Leg)
+        self.assertEqual([False], c.walks, 'arrival cannot cause instantaneous return')
+        c.trip.HCStep()
+        self.assertEqual([False, True], c.walks)
+        c.place[0], c.cargo[0] = 'home', 'retained'
+        c.trip.HCStep()
+        self.assertEqual(('returned', 'lost'), (c.row.Leg, c.row.CargoReceipt))
+        self.assertTrue(c.trip.HCConfirmedReturn(), 'party may return without stolen cargo')
+        self.assertFalse(c.trip.HCBegin('lease'), 'return never resets finite stock')
+        for snapshot in c.saved:
+            reboot = caravan_fixture()
+            reboot.trip.m_State = deepcopy(snapshot)
+            reboot.trip.HCRestore()
+            reboot.trip.HCStep()
+            self.assertEqual([], reboot.walks, 'restart never replays travel or cargo')
+            self.assertIn(reboot.trip.m_State.Leg, ('quarantined', 'returned'))
+            self.assertFalse(reboot.trip.HCBegin('lease'))
+
+        paused_return = caravan_fixture()
+        self.assertTrue(paused_return.trip.HCBegin('lease'))
+        paused_return.place[0] = 'away'
+        paused_return.trip.HCStep()
+        paused_return.fleeing[0] = True
+        paused_return.trip.HCStep()
+        self.assertEqual('fleeing_return_pending', paused_return.row.Leg)
+        self.assertEqual([False], paused_return.walks)
+        paused_return.fleeing[0] = False
+        paused_return.trip.HCStep()
+        self.assertEqual([False, True], paused_return.walks,
+                         'flee at turnaround must retain the unissued return request')
+
+        happy = caravan_fixture()
+        self.assertTrue(happy.trip.HCBegin('lease'))
+        happy.place[0] = 'away'
+        happy.trip.HCStep()
+        happy.trip.HCStep()
+        happy.fleeing[0] = True
+        happy.trip.HCStep()
+        self.assertEqual('fleeing_returning', happy.row.Leg)
+        happy.fleeing[0], happy.place[0] = False, 'home'
+        happy.trip.HCStep()
+        self.assertTrue(happy.trip.HCConfirmedReturn())
+        self.assertEqual(('retained', 2, 'finite-item'),
+                         (happy.row.CargoReceipt, happy.row.Quantity, happy.row.ItemId))
+        self.assertTrue(happy.trip.HCValidState(happy.row))
+        for field, bad in (('Version', 0), ('Leg', 'forged'), ('CargoReceipt', 'minted'),
+                           ('ItemId', ''), ('RouteId', ''), ('Generation', 0), ('Quantity', float('nan'))):
+            invalid = deepcopy(happy.row)
+            setattr(invalid, field, bad)
+            self.assertFalse(happy.trip.HCValidState(invalid), field)
+        for mode in ('dead', 'lease', 'unknown', 'save', 'stop', 'off', 'refused', 'callback'):
+            f = caravan_fixture(fail_write=2 if mode == 'save' else 0,
+                                ready=mode != 'refused', interrupt=mode == 'callback')
+            if mode == 'off': f.trip.m_Enabled = False
+            began = f.trip.HCBegin('lease')
+            if mode in ('off', 'refused'):
+                self.assertFalse(began)
+                self.assertEqual([], f.saved)
+            else:
+                if mode == 'dead': f.alive[0] = False
+                if mode == 'lease': f.current[0] = False
+                if mode == 'unknown': f.cargo[0] = 'unknown'
+                if mode == 'stop': f.trip.HCClose()
+                f.place[0] = 'away'
+                f.trip.HCStep()
+                self.assertIn(f.row.Leg, ('lost', 'quarantined'))
+            prior = len(f.walks)
+            f.trip.HCStep()
+            self.assertEqual(prior, len(f.walks))
+        self.assertTrue(any('HC-36 caravan=' in line and 'cargo=lost' in line and
+                            'runtime=PENDING' in line for line in c.logs))
+        # Reuse HC-35's authored persistent-ID readers, with explicit native
+        # stand-ins. No item creation/move/counting policy exists in this fixture.
+        carrier_alive, unconscious = [True], [False]
+        stock_owner, stock_quantity, stock_id = ['carrier'], [2], ['finite-item']
+        carrier = N(pid='carrier', GetIdentity=lambda: None,
+                    IsAlive=lambda: carrier_alive[0], IsUnconscious=lambda: unconscious[0])
+        stock = N(pid='finite-item', GetType=lambda: 'BandageDressing',
+                  GetHierarchyRootPlayer=lambda: carrier if stock_owner[0] == 'carrier' else None,
+                  GetQuantity=lambda: stock_quantity[0], IsRuined=lambda: False)
+        native_identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo',
+                            HCGeneration=lambda: 1, HCRouteId=lambda: 'route:party')
+        native_caravan = N(LeftActor=carrier, LeftItem=stock)
+        native_row = N(LeaseId='lease', PartyId='party', CargoId='cargo',
+                       Generation=1, Id='hc36-first-corridor', RouteId='route:party')
+        native_caravan_env = dict(GetGame=lambda: N(IsServer=lambda: True),
+            HCSearchSupplyRegistry=N(PersistentId=lambda entity: stock_id[0] if entity is stock else entity.pid),
+            HCWorldMaterializer=N(HCIdentity=lambda lease: native_identity if lease == 'lease' else None),
+            HCAIPartyIdentity=N(HCValid=lambda value: value is native_identity),
+            HCWorldLimits=N(Token=lambda value: bool(value) and len(value) <= 96))
+        bind(source, 'HCTradeInventory', native_caravan, ('HCActorId', 'HCItemId'), native_caravan_env)
+        # Syntax-only inheritance expansion: the restricted translator has no
+        # class hierarchy; native Enforce inherits these HC-35 members/methods.
+        inherited_source = caravan_source.replace('    ref HCCaravanCorridor Corridor;',
+            '    PlayerBase LeftActor;\n    ItemBase LeftItem;\n    ref HCCaravanCorridor Corridor;')
+        inherited_source = inherited_source.replace('HCActorId(true)', 'self.HCActorId(true)')
+        inherited_source = inherited_source.replace('HCItemId(true)', 'self.HCItemId(true)')
+        bind(inherited_source, 'HCCaravanInventory', native_caravan,
+             ('HCLive', 'HCCurrentCaravan', 'HCCargoReceipt', 'HCInventoryBoundCaravan'), native_caravan_env)
+        self.assertTrue(native_caravan.HCInventoryBoundCaravan(native_row))
+        self.assertTrue(native_caravan.HCCurrentCaravan(native_row))
+        self.assertEqual('retained', native_caravan.HCCargoReceipt(native_row))
+        stock_owner[0] = 'player'
+        self.assertEqual('lost', native_caravan.HCCargoReceipt(native_row))
+        stock_owner[0], stock_quantity[0] = 'carrier', 1
+        self.assertEqual('lost', native_caravan.HCCargoReceipt(native_row))
+        stock_quantity[0] = 3
+        self.assertEqual('unknown', native_caravan.HCCargoReceipt(native_row))
+        stock_quantity[0], stock_id[0] = 2, 'replacement-item'
+        self.assertEqual('unknown', native_caravan.HCCargoReceipt(native_row))
+        native_row.Generation = 2
+        self.assertFalse(native_caravan.HCCurrentCaravan(native_row))
+        unconscious[0] = True
+        self.assertFalse(native_caravan.HCLive())
+        carrier_alive[0], unconscious[0] = False, False
+        self.assertFalse(native_caravan.HCLive())
+
+        shipped = N()
+        addon = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c').read_text()
+        bind(addon, 'HCXAICaravanAdapter', shipped,
+             ('HCReady', 'HCRefusal', 'HCBindCaravan', 'HCWalkCaravan', 'HCAtCamp', 'HCFleeObserved'), {})
+        self.assertFalse(shipped.HCReady())
+        self.assertFalse(shipped.HCBindCaravan(N()))
+        self.assertFalse(shipped.HCWalkCaravan(N(), False))
+        self.assertFalse(shipped.HCAtCamp(N(), True))
+        self.assertFalse(shipped.HCFleeObserved(N()))
+        self.assertEqual('CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED', shipped.HCRefusal())
 
 
 if __name__ == '__main__':
