@@ -40,9 +40,10 @@ class HCTerritoryOutcomes
     // with maximum-length tokens and both SIZE_CEILING actor arrays.
     static const int MAX_ROWS = 128;
 
-    // Run on the bounded persisted image before JSON scalar zero-fill. A real
-    // observed 0/0 is valid; missing survivor keys never prove NONE_REMAIN.
-    // Lead wires this into HCFactionConflict.OnStart's encounter-store load.
+    // Run on the bounded persisted image: the native load zero-fills absent int
+    // keys (only ints observed). A real stored 0/0 is valid; missing survivor
+    // keys never prove NONE_REMAIN. HCFactionConflict.OnStart calls this on the
+    // raw text of the encounter-store load.
     static bool HCFieldsPresent(string text)
     {
         return HCJsonFields.Every(text, "LeftSurvivors", 3) && HCJsonFields.Every(text, "RightSurvivors", 3);

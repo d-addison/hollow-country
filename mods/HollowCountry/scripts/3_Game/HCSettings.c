@@ -1,7 +1,8 @@
 // JSON presence checks for already bounded, successfully parsed documents.
-// JsonFileLoader zeroes absent scalars (boot 057); presence must distinguish
-// absent keys from explicit operator false/0. Scan keys, never values/nested
-// lookalikes. EnString.c:33 HexToInt, :86 ToAscii, :113 Substring,
+// JsonFileLoader zeroes absent int fields (observed in boot 057; only ints were
+// observed, bool/float/string zero-fill is assumed by analogy and unobserved).
+// Presence must distinguish absent keys from explicit operator false/0. Scan
+// keys, never values/nested lookalikes. EnString.c:33 HexToInt, :86 ToAscii, :113 Substring,
 // :199 Length, :448 Get, installed scripts-1.30.164289. No new file IO/API.
 class HCJsonFields
 {

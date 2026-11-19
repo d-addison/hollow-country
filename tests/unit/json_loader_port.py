@@ -1,5 +1,6 @@
-"""Synthetic JsonFileLoader scalar semantics, based on native boot 057.
+"""Synthetic JsonFileLoader field semantics. Only int zero-fill was observed (boot 057).
 
+Bool, float and string zero-fill below is an unobserved assumption by analogy.
 Constructors still supply object/array shapes for these restricted ports. JSON
 loading zeroes primitive fields first, recursively; supplied keys then win.
 This models neither serializer type checking nor native object allocation.
