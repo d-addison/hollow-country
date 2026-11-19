@@ -1,4 +1,4 @@
-// HC-27: sole owner of the four HC presentation clients. Mission lifecycle
+// HC-27: sole owner of HC presentation clients, including HC-51 seasons. Mission lifecycle
 // is wired in HCClientPresentationMission.c; no parallel scheduler/gameplay RPC.
 // Native evidence, scripts-1.30.164289 (relative paths):
 // 3_Game/Global/Game.c:287,301,306 Get/SetProfileString, SaveProfile;
@@ -29,6 +29,8 @@ class HCClientPresentation
     protected ref HCHints m_Hints;
     protected ref HCGradeSettingsClient m_Grade;
     protected ref HCSignsOfLifeClient m_Signs;
+    protected ref HCSeasonVisualClient m_Seasons;
+    protected ref HCLightingClient m_Lighting;
     protected ref HCEnvSound m_Sound;
     protected int m_LocalMask = HCClientPresentationSettings.ALL;
     protected int m_EffectiveMask;
@@ -51,6 +53,7 @@ class HCClientPresentation
         if (!m_Stopped || !GetGame() || GetGame().IsDedicatedServer()) { return; }
         m_Stopped = false;
         s_Current = this;
+        HCSeasonVisualClient.HCReset();
         m_Settings = new HCClientPresentationSettings;
         m_LocalMask = HCClientPresentationSettings.ALL;
         string saved;
@@ -81,6 +84,11 @@ class HCClientPresentation
     void HCReceive(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
         if (m_Stopped || GetGame().IsDedicatedServer() || sender || target) { return; }
+        if (rpcType == HCSeasonSnapshotRPC.RPC_SEASON)
+        {
+            HCReceiveSeason(ctx);
+            return;
+        }
         if (rpcType != HCClientPresentationSettings.RPC_SETTINGS) { return; }
         int version;
         int revision;
@@ -93,6 +101,40 @@ class HCClientPresentation
             return;
         }
         HCApplyServer(version, revision, mask);
+    }
+
+    protected void HCReceiveSeason(ParamsReadContext ctx)
+    {
+        if (!m_Seasons) { return; }
+        int version;
+        int revision;
+        int phaseCode;
+        if (!ctx || !ctx.Read(version) || !ctx.Read(revision) || !ctx.Read(phaseCode))
+        {
+            m_Seasons.HCRejectSnapshot();
+            return;
+        }
+        // Cache validates schema/revision, -1..3 bounds and conflicting repeats;
+        // it logs one refusal per reason. No client requests or extrapolation.
+        HCSeasonVisualClient.HCApplyServer(version, revision, phaseCode);
+    }
+
+    protected void HCStartSeasonPresentation()
+    {
+        if (!GetGame() || GetGame().IsDedicatedServer()) { return; }
+        Mission mission = GetGame().GetMission();
+        if (!mission) { return; }
+        if (!m_Seasons)
+        {
+            m_Seasons = new HCSeasonVisualClient;
+            m_Seasons.HCStart();
+        }
+        if (!m_Lighting)
+        {
+            // Native 3_Game/gameplay.c:747 Mission.GetWorldLighting.
+            m_Lighting = new HCLightingClient(mission.GetWorldLighting());
+            m_Lighting.Start();
+        }
     }
 
     void HCApplyServer(int version, int revision, int mask)
@@ -135,8 +177,14 @@ class HCClientPresentation
         if ((desired & HCClientPresentationSettings.GRADE) == 0)
         {
             if (m_Grade) { m_Grade.Stop(); m_Grade = null; }
+            if (m_Lighting) { m_Lighting.Stop(); m_Lighting = null; }
+            if (m_Seasons) { m_Seasons.HCStop(); m_Seasons = null; }
         }
-        else if (!m_Grade) { m_Grade = new HCGradeSettingsClient; m_Grade.Start(); }
+        else
+        {
+            if (!m_Grade) { m_Grade = new HCGradeSettingsClient; m_Grade.Start(); }
+            HCStartSeasonPresentation();
+        }
         if ((desired & HCClientPresentationSettings.SIGNS) == 0)
         {
             if (m_Signs) { m_Signs.Stop(); m_Signs = null; }
@@ -233,6 +281,7 @@ class HCClientPresentation
         DayZGame.Event_OnRPC.Remove(HCReceive);
         HCReconcile();
         if (m_Holdouts) { m_Holdouts.Stop(); m_Holdouts = null; }
+        HCSeasonVisualClient.HCReset();
         m_Alive = false;
         m_Settings = new HCClientPresentationSettings;
         if (s_Current == this) { s_Current = null; }

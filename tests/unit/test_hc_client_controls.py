@@ -74,9 +74,26 @@ LIGHTING = ROOT / '5_Mission/Atmosphere/HCLightingClient.c'
 
 
 def install(path, env, owner, methods):
+    # HC-51 moved lighting/cache ownership into this coordinator. These are
+    # explicit synthetic presentation/native handles; the season test executes
+    # the real cache validation and lighting handler separately.
+    if owner == 'HCClientPresentation':
+        methods = tuple(methods) + ('HCStartSeasonPresentation', 'HCReceiveSeason')
+        class SyntheticSeason:
+            @staticmethod
+            def HCReset(): pass
+            def HCStart(self): pass
+            def HCStop(self): pass
+            def HCRejectSnapshot(self): pass
+        env.setdefault('HCSeasonVisualClient', SyntheticSeason)
+        env.setdefault('make_lighting', lambda handle: N(Start=lambda: None, Stop=lambda: None))
+        env.setdefault('synthetic_mission', lambda: N(GetWorldLighting=lambda: 'synthetic lighting'))
+    env.setdefault('HCSeasonSnapshotRPC', N(RPC_SEASON=4853913))
     source = path.read_text().replace('float milliseconds = 4', 'float milliseconds')
     # Explicit constructor seam for the synthetic native WorldLighting handle.
-    source = source.replace('new HCLightingClient(GetWorldLighting())', 'make_lighting(GetWorldLighting())')
+    source = source.replace('new HCLightingClient(', 'make_lighting(')
+    if owner == 'HCClientPresentation':
+        source = source.replace('GetGame().GetMission()', 'synthetic_mission()')
     # Inherited native method, absent from this modded link's member list.
     source = source.replace('!IsControlDisabled()', '!this.IsControlDisabled()')
     source = re.sub(r'([\w.]+)\.Length\(\)', r'len(\1)', source)
@@ -84,7 +101,7 @@ def install(path, env, owner, methods):
     # Native out-parameter binding only; acceptance decisions stay authored.
     source = source.replace('GetGame().GetProfileString(PROFILE_KEY, saved)',
         '((profile_value := profile_read(PROFILE_KEY))[0] && ((saved := profile_value[1]) != null))')
-    source = re.sub(r'ctx.Read\((version|revision|mask)\)',
+    source = re.sub(r'ctx.Read\((version|revision|mask|phaseCode)\)',
         r'((wire_value := ctx.ReadValue())[0] && ((\1 := wire_value[1]) != null))', source)
     for code in MethodsTranslator(source, owner, methods).classes():
         exec(compile(code, str(path) + '(synthetic ports)', 'exec'), env)
@@ -184,6 +201,8 @@ class ClientControls(unittest.TestCase):
                    HCClientPresentation=coordinator,
                    HCClientPresentationServer=N(SendTo=lambda identity: calls.append(('send', identity)),
                                                 HCTick=lambda dt: calls.append(('tick', dt))),
+                   HCSeasonSnapshotRPC=N(SendTo=lambda identity: calls.append(('season send', identity)),
+                                         HCTick=lambda dt: calls.append(('season tick', dt))),
                    GetGame=lambda: N(IsDedicatedServer=lambda: dedicated[0],
                        GetUIManager=lambda: N(GetMenu=lambda: menu[0])))
         gameplay = install(MISSION, env, 'MissionGameplay', ('OnInit', 'OnUpdate', 'OnMissionFinish'))()
@@ -205,46 +224,53 @@ class ClientControls(unittest.TestCase):
         self.assertEqual('player', server.OnClientNewEvent('identity', None, None))
         server.OnClientReadyEvent('identity', 'player')
         server.OnClientReconnectEvent('identity', 'player')
-        self.assertEqual(['super new', ('send', 'identity'), 'super ready', ('send', 'identity'),
-                          'super reconnect', ('send', 'identity')], calls[-6:])
+        self.assertEqual(['super new', ('send', 'identity'), ('season send', 'identity'),
+                          'super ready', ('send', 'identity'), ('season send', 'identity'),
+                          'super reconnect', ('send', 'identity'), ('season send', 'identity')], calls[-9:])
         server.OnUpdate(.2)
-        self.assertEqual([('super update', .2), ('tick', .2)], calls[-2:])
+        self.assertEqual([('super update', .2), ('tick', .2), ('season tick', .2)], calls[-3:])
 
     def test_lighting_is_allocated_only_for_effective_grade_and_recreated_after_off(self):
-        calls, mask, coordinator = [], [0], [True]
-        class Base:
-            def OnInit(self): pass
-            def OnUpdate(self, dt): pass
-            def OnMissionFinish(self): calls.append('finish')
+        calls, mask, dedicated = [], [0], [False]
         def lighting(handle):
-            self.assertEqual('native lighting', handle)
+            self.assertEqual('synthetic lighting', handle)
             return N(Start=lambda: calls.append('start'), Stop=lambda: calls.append('stop'))
-        current = N(HCGetEffectiveMask=lambda: mask[0])
-        env = dict(_Base_MissionGameplay=Base, make_lighting=lighting,
-                   GetWorldLighting=lambda: 'native lighting',
-                   HCClientPresentation=N(HCGet=lambda: current if coordinator[0] else None),
-                   GetGame=lambda: N(IsDedicatedServer=lambda: False))
+        env = dict(make_lighting=lighting, Print=lambda line: None, tostr=str,
+                   HCOperationalStatus=lambda: N(HCPublish=lambda *a: None),
+                   HCUnitBudget=lambda: N(), HCWorkBudget=lambda: N(),
+                   HCGradeSettingsClient=lambda: N(Start=lambda: None, Stop=lambda: None, HCHandleCount=lambda: 0),
+                   GetGame=lambda: N(IsDedicatedServer=lambda: dedicated[0]))
         install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask',))
-        mission = install(LIGHTING, env, 'MissionGameplay', ('OnInit', 'OnUpdate', 'OnMissionFinish'))()
-        mission.OnInit()
-        self.assertIsNone(mission.m_HCLightingClient, 'GRADE off still created lighting at mission init')
+        c = install(COORD, env, 'HCClientPresentation',
+                    ('HCReconcile', 'HCReport', 'HCHandleCount'))()
+        c.m_Settings = N(HCEffective=lambda local: mask[0])
+        c.m_Stopped = False
+        c.HCReconcile()
+        self.assertIsNone(c.m_Lighting)
+        self.assertIsNone(c.m_Seasons)
         mask[0] = 2
-        mission.OnUpdate(.1)
-        first = mission.m_HCLightingClient
+        dedicated[0] = True
+        c.HCReconcile()
+        self.assertIsNone(c.m_Lighting, 'dedicated server created client lighting')
+        self.assertIsNone(c.m_Seasons, 'dedicated server created client season cache')
+        dedicated[0] = False
+        c.HCReconcile()
+        first, first_cache = c.m_Lighting, c.m_Seasons
         self.assertIsNotNone(first)
-        mission.OnUpdate(.1)
+        self.assertIsNotNone(first_cache)
+        c.HCReconcile()
         self.assertEqual(['start'], calls)
         mask[0] = 0
-        mission.OnUpdate(.1)
-        self.assertIsNone(mission.m_HCLightingClient)
+        c.HCReconcile()
+        self.assertIsNone(c.m_Lighting)
+        self.assertIsNone(c.m_Seasons)
         mask[0] = 2
-        mission.OnUpdate(.1)
-        self.assertIsNot(first, mission.m_HCLightingClient)
-        coordinator[0] = False
-        mission.OnUpdate(.1)
-        self.assertIsNone(mission.m_HCLightingClient)
-        mission.OnMissionFinish()
-        self.assertEqual(['start', 'stop', 'start', 'stop', 'finish'], calls)
+        c.HCReconcile()
+        self.assertIsNot(first, c.m_Lighting)
+        self.assertIsNot(first_cache, c.m_Seasons)
+        c.m_Stopped = True
+        c.HCReconcile()
+        self.assertEqual(['start', 'stop', 'start', 'stop'], calls)
 
     def test_offline_diag_applies_full_mask_but_dedicated_never_starts(self):
         dedicated, multiplayer = [True], [False]

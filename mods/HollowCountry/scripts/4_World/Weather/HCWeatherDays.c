@@ -26,7 +26,12 @@ class HCWeatherDays
     static float HCSeasonFog(string phase, int day, float hour, float calmHours)
     {
         float baseline = HCWeatherDays.FogTarget(day, hour, calmHours);
-        return HCSeasonVisualPolicy.HCFog(phase, baseline, HCAtmospherePolicy.IsNight(hour), calmHours > 0);
+        if (!HCSeasonVisualPolicy.HCValidPhase(phase)) { return baseline; }
+        float target = HCSeasonVisualPolicy.HCFog(phase, baseline, HCAtmospherePolicy.IsNight(hour), calmHours > 0);
+        // Include selected fog mornings in the same dawn fade; their legacy
+        // baseline otherwise jumps from 0.04 to 0.60 exactly at 05:00.
+        float floorFog = HCSeasonVisualPolicy.BASELINE_FOG;
+        return floorFog + (target - floorFog) * HCSeasonVisualPolicy.HCFogDaylight(hour);
     }
 
     static float HCSeasonSnow(string phase, string profile, float cloud, float hour)
@@ -35,7 +40,7 @@ class HCWeatherDays
         return HCSeasonVisualPolicy.HCSnowfall(phase, cloud, HCAtmospherePolicy.IsNight(hour), calm);
     }
 
-    // Lead calls only on observed owner/phase changes, supplying GetActual snow
+    // Weather owner calls only on observed owner/phase changes, supplying GetActual snow
     // rather than claiming a target was rendered. count=1 is an admitted phase,
     // not a native weather/terrain success receipt. HC-50 reports its own refusal.
     static string HCSeasonLine(string phase, float observedSnowfall, bool writerAdmitted)

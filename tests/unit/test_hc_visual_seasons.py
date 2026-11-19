@@ -24,7 +24,7 @@ HC-51 TDD receipts (2026-11-18), same focused command throughout:
   Regression GREEN: 118 tests, OK, using the focused modules below:
     PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons test_v2_weather_days test_v2_lighting test_hc_client_controls test_admin_test_kit test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
 
-HC-51 plan/tasks: phase scalar forecasts, closed-table grades, single-slot fade,
+Prior HC-51 plan/tasks (superseded by Wave 6 below): phase scalar forecasts, closed-table grades, single-slot fade,
 bounded version/revision/phase cache and death/off cleanup authored here. Lead
 must integrate forecasts/observed diagnostics in the sole weather writer and
 carry the three-int snapshot in existing mission control transport (30-second
@@ -33,6 +33,37 @@ implemented by this worker. HC-6 clock/store and HC-50 refusal remain unchanged.
 docs/SPECIFICATION.md, docs/specs/001-survival-overhaul/spec.md and central Banso
 spec/plan/tasks are absent in this checkout; the HC-51 brief is the design input,
 and the lead retains central trace reconciliation. New mission/ files: none.
+Wave 6 HC-51 trace: active worker brief -> sole weather authority/active HC-6
+phase -> phase-change limits/observed receipts -> monotonic three-int RPC on
+new/ready/reconnect/change/30.0s heartbeat -> HC-27 GRADE cache + lighting owner
+-> range/sender/target rejection, off/mission cleanup, named fog boundary fade.
+Framework: HCModule tick/status, HC-6 clock, HCUnitBudget/HCWorkBudget, existing
+DayZGame.Event_OnRPC receiver and HC-27 effective mask. No new registry owner,
+client requests, gameplay controller, distances or mission/ files. The new
+4_World/Weather/HCSeasonSnapshotRPC.c uses checked-unused RPC id 4853913.
+Native: scripts-1.30.164289/3_Game/Weather.c:321 inspected exact signature
+SetSnowfallThresholds(float tMin, float tMax, float tTime), defaults :309-311;
+3_Game/gameplay.c:104-117 ScriptRPC.Send, :747 Mission.GetWorldLighting;
+3_Game/DayZGame.c:991,3144 Event_OnRPC; 2_GameLib/tools.c:120,122 Insert/Remove.
+Snow keeps stock wetness effects; white terrain remains HC-50's refused track.
+Named refusals: WEATHER_OWNER_NOT_ADMITTED, HC6_NOT_ADMITTED, snapshot_bounds,
+snapshot_version_revision, snapshot_conflict, malformed_season_rpc and revision_exhausted.
+Wave 6 actual TDD, same focused command:
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons -v
+  RED: Ran 6 tests; FAILED (failures=1): HC-51 boundary blend missing.
+  Extended RED: Ran 6 tests; FAILED (failures=1):
+    0.5599999999999999 not less than 0.001: HC-51 dawn fog-day baseline still pops.
+  GREEN: Ran 6 tests; OK. The same authored test covers authority/HC-6 gating,
+    RPC uniqueness/revision/heartbeat, real registered receiver and cache,
+    bounds/refusal deduplication, lighting precedence and off/stop cleanup.
+Wave 6 regression command (182 tests, OK; one pre-existing expected failure):
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons test_v2_weather_days test_v2_lighting test_hc_client_controls test_admin_test_kit test_admin_ui test_runtime_settings test_v1_combined_flags test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
+  PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.enforce_lint --no-native
+  pass findings=121 new=0 stale=0 native=no.
+Additional small test update: test_hc_client_controls.py's synthetic lifecycle
+ports now consume HC-51 join/tick calls and coordinator-owned cache/lighting.
+Lead: no HCModule.c/config.cpp edits, registration unchanged; reconcile the
+central Banso trace (required central spec/plan/tasks still absent).
 Distances added: none. DayZDiag, signed PBO/server, two clients, restart/downtime,
 native weather/survival controls and exact package hashes all remain PENDING.
 """
@@ -286,6 +317,99 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         for name in re.findall(r'static (?:bool|int|float|string) (\w+)\(', source):
             setattr(weather, name, translate(source, name, env, 'HCWeatherDays'))
 
+        # Wave 6: named half-hour season-fog envelope is continuous at the
+        # weather owner's 05:00 and 20:00 boundaries (synthetic hours only).
+        self.assertTrue(hasattr(policy, 'FOG_BLEND_HOURS'), 'HC-51 boundary blend missing')
+        for edge in (5., 20.):
+            left = weather.HCSeasonFog('autumn', 20701, edge - .0001, 0.)
+            right = weather.HCSeasonFog('autumn', 20701, edge + .0001, 0.)
+            self.assertLess(abs(left - right), .001)
+
+        fog_day = next(day for day in range(20700, 20800)
+                       if weather.Profile(day, 7., 0.) == 'fog')
+        self.assertLess(abs(weather.HCSeasonFog('autumn', fog_day, 5.0001, 0.) -
+                            weather.HCSeasonFog('autumn', fog_day, 4.9999, 0.)), .001,
+                        'HC-51 dawn fog-day baseline still pops')
+
+        # Execute the server authority/HC-6 gate body over synthetic handles.
+        owner_source = (WEATHER / 'HCWeatherDaysModule.c').read_text()
+        owner = N(m_HCWeatherDaysActive=True, m_Weather=N(
+            GetMissionWeather=lambda: False, GetWeatherUpdateFrozen=lambda: False),
+            m_HCVisualSeasons=N(HCActive=lambda: True, HCPhase=lambda: 2))
+        env['GetGame'] = lambda: N(IsServer=lambda: True)
+        for name in ('HCWeatherDaysAuthority', 'HCSeasonPhaseCode'):
+            fn = translate(owner_source, name, env, 'ChernarusPlusData', member=True)
+            setattr(owner, name, functools.partial(fn, owner))
+        self.assertEqual(2, owner.HCSeasonPhaseCode())
+        owner.m_HCVisualSeasons.HCActive = lambda: False
+        self.assertEqual(-1, owner.HCSeasonPhaseCode())
+        owner.m_HCVisualSeasons.HCActive = lambda: True
+        owner.m_Weather.GetMissionWeather = lambda: True
+        self.assertEqual(-1, owner.HCSeasonPhaseCode())
+        owner.m_Weather.GetMissionWeather = lambda: False
+        owner.m_Weather.GetWeatherUpdateFrozen = lambda: True
+        self.assertEqual(-1, owner.HCSeasonPhaseCode())
+        owner.m_Weather.GetWeatherUpdateFrozen = lambda: False
+        owner.m_HCWeatherDaysActive = False
+        self.assertEqual(-1, owner.HCSeasonPhaseCode())
+        for helper in ('HCSeasonCloud', 'HCSeasonRain', 'HCSeasonFog', 'HCSeasonSnow'):
+            self.assertIn('HCWeatherDays.' + helper + '(', owner_source)
+        self.assertIn('Math.Max(fog, actual)', owner_source)
+        self.assertIn('m_Weather.SetSnowfallThresholds(', owner_source)
+        self.assertIn('phase != m_HCWeatherPhase', owner_source)
+
+        rpc_path = WEATHER / 'HCSeasonSnapshotRPC.c'
+        self.assertTrue(rpc_path.is_file(), 'HC-51 snapshot transport missing')
+        rpc_source = rpc_path.read_text()
+        rpc_id = int(re.search(r'RPC_SEASON = (\d+)', rpc_source)[1])
+        self.assertGreater(rpc_id, 4853912)
+        for other in scripts.rglob('*.c'):
+            if other != rpc_path:
+                self.assertNotRegex(re.sub(r'//[^\n]*', '', other.read_text()), rf'\b{rpc_id}\b')
+        # Native broadcast is one bounded send, no per-player scan. Same-revision
+        # heartbeat revives the cache; phase changes always advance revision.
+        from tests.unit.test_hc_client_controls import install
+        packets = []
+        class SyntheticRPC:
+            def __init__(self): self.values = []
+            def Write(self, value): self.values.append(value)
+            def Send(self, *args): packets.append((tuple(self.values), args))
+        rpc_env = dict(GetGame=lambda: N(IsServer=lambda: True), ScriptRPC=SyntheticRPC,
+                       HCSeasonVisualPolicy=policy, Print=lambda line: None,
+                       HCUnitBudget=lambda: unit_budget(),
+                       HCWorkBudget=lambda: N(HCReset=lambda *a: None, HCContinue=lambda: True))
+        sender = install(rpc_path, rpc_env, 'HCSeasonSnapshotRPC',
+                         ('HCPublish', 'SendTo', 'HCSend', 'HCTick'))
+        sender.SendTo('synthetic identity')
+        self.assertEqual(((1, 1, -1), (None, rpc_id, True, 'synthetic identity')), packets[-1])
+        sender.HCPublish(2)
+        self.assertEqual((1, 2, 2), packets[-1][0])
+        before = len(packets)
+        sender.HCTick(29.)
+        self.assertEqual(before, len(packets))
+        sender.HCTick(1.)
+        self.assertEqual((1, 2, 2), packets[-1][0])
+        self.assertIsNone(packets[-1][1][-1])
+        sender.HCPublish(4)
+        self.assertEqual((1, 2, 2), packets[-1][0])
+        sender.HCPublish(-1)
+        self.assertEqual((1, 3, -1), packets[-1][0])
+        sender.s_Revision = 1999999999
+        sender.HCPublish(3)
+        self.assertEqual((1, 2000000000, -1), packets[-1][0])
+        sender.HCPublish(2)
+        self.assertEqual((1, 2000000000, -1), packets[-1][0])
+
+        coordinator = (scripts / '5_Mission/Operations/HCClientPresentation.c').read_text()
+        self.assertIn('DayZGame.Event_OnRPC.Insert(HCReceive)', coordinator)
+        self.assertIn('DayZGame.Event_OnRPC.Remove(HCReceive)', coordinator)
+        self.assertIn('HCSeasonVisualClient.HCApplyServer(version, revision, phaseCode)', coordinator)
+        self.assertIn('m_Seasons = new HCSeasonVisualClient', coordinator)
+        self.assertIn('m_Lighting = new HCLightingClient', coordinator)
+        mission = (scripts / '5_Mission/Operations/HCClientPresentationMission.c').read_text()
+        self.assertEqual(3, mission.count('HCSeasonSnapshotRPC.SendTo(identity)'))
+        self.assertIn('HCSeasonSnapshotRPC.HCTick(timeslice)', mission)
+
         phases = ('spring', 'summer', 'autumn', 'winter')
         self.assertEqual(phases, tuple(policy.HCPhaseName(i) for i in range(4)))
         self.assertEqual('unavailable', policy.HCPhaseName(-1))
@@ -332,13 +456,18 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         env['Print'] = receipts.append
         cache = N(m_Revision=0, m_Phase=-1, m_ReceivedAt=0., m_Conflict=False,
                   m_LastReceipt='', m_Status=N(HCPublish=lambda *args: states.append(args)))
-        source = client_path.read_text()
+        env['HCSeasonVisualClient'] = N(s_Current=None)
+        source = re.sub(r'(?<![.\w])s_Current\b', 'HCSeasonVisualClient.s_Current', client_path.read_text())
         start = re.search(r'class HCSeasonVisualClient\s*\{', source).end()
         source = body(source, start)
         for name in ('HCAccept', 'HCPhase', 'HCRefuse', 'HCReport', 'HCStop'):
             function = translate(source, name, env, 'HCSeasonVisualClient', member=True)
             setattr(cache, name, functools.partial(function, cache))
         self.assertEqual('unavailable', cache.HCPhase(100.))
+        for invalid in (-2, 4):
+            self.assertFalse(cache.HCAccept(1, 1, invalid, 100.))
+            self.assertEqual('unavailable', cache.HCPhase(100.))
+        self.assertEqual(1, len(receipts), 'bad bounds must log once')
         self.assertTrue(cache.HCAccept(1, 1, 2, 100.))
         self.assertEqual('autumn', cache.HCPhase(101.))
         self.assertFalse(cache.HCAccept(1, 0, 2, 101.))
@@ -364,6 +493,65 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         self.assertTrue(any('snapshot_conflict' in line for line in receipts))
         self.assertTrue(any('snapshot_expired' in line for line in receipts))
         self.assertTrue(all('runtime=PENDING' in line for line in receipts))
+
+        # Run the actual registered coordinator receiver with the actual cache;
+        # only native RPC out-parameters, clock and effect handles are synthetic.
+        subscriptions, receive_logs, stopped = [], [], []
+        dedicated = [True]
+        game = N(IsDedicatedServer=lambda: dedicated[0], IsMultiplayer=lambda: True,
+                 GetTickTime=lambda: 500.)
+        producer = lambda: N(Start=lambda: None, Stop=lambda: stopped.append('effect'),
+                             HCHandleCount=lambda: 0)
+        receiver_env = dict(GetGame=lambda: game, Print=receive_logs.append, tostr=str,
+            HCSeasonVisualPolicy=policy, HCSeasonSnapshotRPC=N(RPC_SEASON=rpc_id),
+            HCOperationalStatus=lambda: N(HCPublish=lambda *a: None),
+            HCUnitBudget=lambda: unit_budget(), HCWorkBudget=lambda: N(),
+            HCSignsOfLifeSnapshotClient=producer, HCGradeSettingsClient=producer,
+            HCHints=producer, HCEnvSound=producer, HCSignsOfLifeClient=producer,
+            make_lighting=lambda handle: producer(),
+            profile_read=lambda key: (False, ''),
+            HCV2Admission=N(Line=lambda *a: 'synthetic runtime=PENDING'),
+            DayZGame=N(Event_OnRPC=N(Insert=subscriptions.append, Remove=subscriptions.remove)))
+        real_cache = install(client_path, receiver_env, 'HCSeasonVisualClient',
+            ('HCStart', 'HCApplyServer', 'HCReset', 'HCGetPhase', 'HCAccept',
+             'HCPhase', 'HCRefuse', 'HCReport', 'HCRejectSnapshot', 'HCStop'))
+        install(scripts / '3_Game/HCClientPresentationSettings.c', receiver_env,
+                'HCClientPresentationSettings', ('HCValidMask', 'HCAccept', 'HCEffective'))
+        c = install(scripts / '5_Mission/Operations/HCClientPresentation.c', receiver_env,
+                'HCClientPresentation', ('HCStart', 'HCApplyServer', 'HCReceive',
+                    'HCReconcile', 'HCStop', 'HCReport', 'HCHandleCount', 'HCRefuse'))()
+        c.HCStart()
+        self.assertEqual([], subscriptions, 'dedicated process registered a client receiver')
+        dedicated[0] = False
+        c.HCStart()
+        c.HCStart()
+        self.assertEqual(1, len(subscriptions))
+        self.assertIsNone(c.m_Seasons, 'server presentation settings not admitted yet')
+        c.HCApplyServer(1, 1, 2)  # effective GRADE only
+        self.assertIsNotNone(c.m_Seasons)
+        def receive(values, sender=None, target=None):
+            packet = iter(values)
+            subscriptions[0](sender, target, rpc_id, N(ReadValue=lambda: (True, next(packet))))
+        receive((1, 1, 4))
+        receive((1, 1, 4))
+        self.assertEqual(1, sum('reason=snapshot_bounds' in line for line in receive_logs))
+        self.assertEqual('unavailable', real_cache.HCGetPhase())
+        receive((1, 1, 2), sender=object())
+        receive((1, 1, 2), target=object())
+        self.assertEqual('unavailable', real_cache.HCGetPhase())
+        receive((1, 1, 2))
+        self.assertEqual('autumn', real_cache.HCGetPhase())
+        c.HCReceive(None, None, rpc_id, None)
+        self.assertEqual('unavailable', real_cache.HCGetPhase())
+        self.assertTrue(any('reason=malformed_season_rpc' in line for line in receive_logs))
+        receive((1, 2, 3))
+        self.assertEqual('winter', real_cache.HCGetPhase())
+        c.HCStop()
+        self.assertEqual([], subscriptions)
+        self.assertIsNone(c.m_Seasons)
+        self.assertIsNone(c.m_Lighting)
+        self.assertEqual('unavailable', real_cache.HCGetPhase())
+        c.HCReceive(None, None, rpc_id, None)  # finished mission cannot revive
 
         # Exercise the actual lighting handler through synthetic native handles.
         # Its one slot, night/underground veto and cleanup remain authoritative.
