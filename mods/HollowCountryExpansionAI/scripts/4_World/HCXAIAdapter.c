@@ -101,11 +101,14 @@ class HCXAIAdapter extends HCModule
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
             return;
         }
-        HCSituationActors.HCBind(new HCXAISituationAdapter());
+        // Locals, not `new X` arguments: the native compiler trap (review w23-sitbind).
+        HCXAISituationAdapter situationPort = new HCXAISituationAdapter();
+        HCSituationActors.HCBind(situationPort);
         HCXAIRaidAdapter raidPort = new HCXAIRaidAdapter();
         HCCampRaidActors.HCBind(raidPort);
         HCSituationActors.HCBindRaid(raidPort);
-        HCSituationActors.HCBindTransit(new HCXAITransitAdapter());
+        HCXAITransitAdapter transitPort = new HCXAITransitAdapter();
+        HCSituationActors.HCBindTransit(transitPort);
         this.LogAddonChecks();
         m_Status = "lease spawner retired; AI_ENCOUNTER binds HC site patrols";
         Print("[HC Expansion AI] retired: expansion-ai.json lease profile, local hook port and receipt verifiers are not loaded; AI_ENCOUNTER gates on site director run + per-process session + a qualified site patrol");

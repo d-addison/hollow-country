@@ -269,11 +269,13 @@ def check_carcass_runtime(test):
             scene = N(m_Running=True, m_State=state,
                       m_Stories=N(HCReady=lambda: True, HCCandidate=lambda: None, HCStep=step),
                       SaveBarrierDone=lambda: calls.append('barrier'))
-            env = dict(HCEcologyRuntimeModule=N(HCWildlife=lambda: wildlife if present else None))
+            env = dict(HCEcologyRuntimeModule=N(HCWildlife=lambda: wildlife if present else None),
+                       HCEventModule=N(HCStoryArrived=lambda chain: calls.append(('story', chain))))
             handlers(source, 'HCScenesModule', env, only=('StoryStep',))
             env['StoryStep'](scene, 100)
             expected = ['story-save']
             if saved: expected.append('barrier')
+            if saved and advanced: expected.append(('story', arrived))
             if saved and advanced and present: expected.append(('offer', arrived, state))
             test.assertEqual(expected, calls)
 

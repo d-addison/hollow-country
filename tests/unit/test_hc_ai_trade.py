@@ -396,13 +396,21 @@ class TradeBehavior(unittest.TestCase):
                         HCGetOperationalStatus=lambda: cached, m_Ready=False,
                         m_ProviderRefusal='CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED',
                         HCActive=lambda: self.fail('refused status should not inspect active state'))
+            ports = []
             owner = N(m_Profile=None, m_Leases=EArray(), m_Caravan=None,
                       m_CaravanOperationalOwner=None, m_ReadinessLogged=True,
                       LogAddonChecks=lambda: None, LogReadiness=lambda trigger: None,
                       HasReservations=lambda: False)
             scope = dict(Print=logs.append, GetGame=lambda: N(IsServer=lambda: True, GetTickTime=lambda: 100),
                          HCXAIQualification=N(SetEncountersEnabled=lambda enabled: None),
-                         HCXAIService=N(Bind=lambda module: service_bound),
+                         HCXAIService=N(Bind=lambda module: service_bound, Adapter=lambda: owner),
+                         # Synthetic situation/raid ports; only bind order is recorded here.
+                         HCSituationActors=N(HCBind=lambda port: ports.append(('situation', port)),
+                                             HCBindRaid=lambda port: ports.append(('raid', port)),
+                                             HCBindTransit=lambda port: ports.append(('transit', port))),
+                         HCCampRaidActors=N(HCBind=lambda port: ports.append(('camp-raid', port))),
+                         HCXAISituationAdapter=lambda: 'situation-port', HCXAIRaidAdapter=lambda: 'raid-port',
+                         HCXAITransitAdapter=lambda: 'transit-port',
                          HCXAISiteDirector=lambda: N(Start=lambda: None, Step=lambda: None, Stop=lambda: None),
                          HCXAIEncounters=lambda: N(Open=lambda: None, Step=lambda: None, Close=lambda: None),
                          HCXAICampRoutine=lambda: N(Open=lambda settings: None, Step=lambda: None, Close=lambda: None),
