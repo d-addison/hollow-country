@@ -1,10 +1,16 @@
 {
   "Version": 1,
-  "RecipeId": "bandage-for-drink",
+  "RecipeId": "bandage-for-food",
   "LeftClass": "BandageDressing",
-  "RightClass": "SodaCan_Kvass",
-  "TimeoutSeconds": 120,
+  "RightClass": "TunaCan",
+  "TimeoutSeconds": 300,
   "TransferRangeMeters": 2.5,
   "GestureRequests": 3,
-  "InventoryScanLimit": 64
+  "InventoryScanLimit": 64,
+  "OfferIntervalSeconds": 900,
+  "MinimumCampReserve": 4,
+  "LossSupplyDebit": 1,
+  "MaxLossReceipts": 128,
+  "PairCandidatesPerTick": 1,
+  "MinimumCampMembers": 2
 }

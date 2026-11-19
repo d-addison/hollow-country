@@ -1,10 +1,21 @@
 {
   "Version": 1,
   "CorridorId": "hc36-first-corridor",
-  "FromCamp": "",
-  "ToCamp": "",
+  "FromCamp": "funded-source",
+  "ToCamp": "friendly-destination",
   "SurveySha256": "",
   "ArrivalRangeMeters": 2.5,
   "CooldownSeconds": 900,
-  "MaxTripHistory": 16
+  "MaxTripHistory": 16,
+  "RoadDataPath": "DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads",
+  "RoadMapWidth": 14200,
+  "RoadMapHeight": 15500,
+  "MaxRoadNodes": 40000,
+  "MaxRoadDegree": 8,
+  "RoadWorkPerTick": 256,
+  "MaxRouteNodes": 128,
+  "MaxApproachMeters": 100,
+  "MaxJourneyMeters": 250,
+  "ReturnTimeoutSeconds": 600,
+  "RoadNodesPerWorkUnit": 8
 }
