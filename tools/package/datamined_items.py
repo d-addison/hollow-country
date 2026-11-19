@@ -23,6 +23,7 @@ DATA = Path(__file__).with_name('datamined_items.json')
 SUPPLY_DATA = Path(__file__).resolve().parents[2] / 'config/loot-dispositions.json'
 # HC-22 non-weapon permission. Never widen the HC-21 firearm parent allowlist.
 SUPPLY_NEW_TYPES = frozenset({'Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'})
+SUPPLY_UNVERIFIED_FLOOR = frozenset(['DrysackBag_Green', 'DrysackBag_Orange', 'DrysackBag_Yellow', 'LeatherHat_Beige', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural', 'LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherShirt_Natural', 'LeatherShoes_Beige', 'LeatherShoes_Black', 'LeatherShoes_Brown', 'LeatherShoes_Natural', 'TortillaBag_Desert'])
 ACCEPTANCE = 'pending-local'
 FLAG_ORDER = ('count_in_cargo', 'count_in_hoarder', 'count_in_map', 'count_in_player', 'crafted', 'deloot')
 ROW_KEYS = ('class', 'nominal', 'min', 'lifetime', 'restock', 'quantmin', 'quantmax', 'cost', 'flags',
@@ -337,7 +338,9 @@ def supply_rows(rows, dispositions):
             refused.append({'class': row['class'], 'route': entry['route'],
                             'reason': entry['refusal'] or 'HC22_NON_FLOOR_ROUTE'})
             continue
-        if row['flags'][4:] != '00':
+        # Owner 2026-11-19: exact shipped proposals admitted unverified; retain native flags.
+        reviewed = next((r for r in load_rows() if r['class'] == row['class']), None)
+        if row['flags'][4:] != '00' and (row['class'] not in SUPPLY_UNVERIFIED_FLOOR or row != reviewed):
             _fail('HC22_UNQUALIFIED_FLOOR_FLAGS: ' + row['class'])
         if row['stock'] == 'absent' and row['class'] not in SUPPLY_NEW_TYPES:
             _fail('HC22_NEW_TYPE_NOT_REVIEWED: ' + row['class'])
