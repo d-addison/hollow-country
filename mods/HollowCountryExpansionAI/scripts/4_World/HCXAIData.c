@@ -171,29 +171,6 @@ class HCXAISite
     int CacheCooldownSeconds = 0;
     ref array<ref HCXAISiteLoot> CacheLoot = new array<ref HCXAISiteLoot>();
 }
-class HCXAISitePolicy
-{
-    int SchemaVersion = 1;
-    string WorldName = "chernarusplus";
-    string BuildVersion = "1.30.164289";
-    string ObserverPolicy = "native-eai";
-    int MaxActiveAI = HCAILimits.Get().MaxActiveAI;
-    int MaxActiveSites = HCAILimits.Get().MaxActiveSites;
-    float MinPlayerDistance = 200;
-    float LineOfSightRange = 1000;
-    float MaxLegLength = 400;
-    float CacheClearRadius = 300;
-    // Respawn policy block. Zero means inherit; AIRespawnSeconds=0 uses
-    // site.RespawnSeconds for legacy operator profiles. Shipped policy owns timing.
-    int AIRespawnSeconds = 900;
-    int PatrolRespawnSeconds = 0;
-    int HoldoutRespawnSeconds = 0;
-    int MilitaryRespawnSeconds = 0;
-    int MemberReplaceSeconds = 600; // zero inherits effective full-group delay
-    int RaidCooldownFloorSeconds = 0; // optional legacy operator minimum
-    float ActivationRadiusScale = 0; // absent/zero means 1.0
-    ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
-}
 // HC-18 / #143..#147 shared catalog v1. Stable locality IDs are coverage
 // identities, SiteIds reference existing reviewed gameplay inputs only. An
 // empty SiteIds list is pending route/access work, never a quiet exclusion.
@@ -290,4 +267,50 @@ class HCXAIOwnership
     int SchemaVersion = 1;
     int Session = 0;
     ref array<ref HCXAIOwnedRow> Rows = new array<ref HCXAIOwnedRow>();
+}
+
+// Numeric policy fields share the compiled operator registry. The site rules
+// additionally enforce timer holes and cross-field/native safety constraints.
+class HCRespawnSiteRegistry
+{
+    static bool HCPolicyValid(HCXAISitePolicy p)
+    {
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.SchemaVersion", p.SchemaVersion) || p.SchemaVersion != 1) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.MinPlayerDistance", p.MinPlayerDistance) || p.MinPlayerDistance < 200 || p.MinPlayerDistance > 7500) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.LineOfSightRange", p.LineOfSightRange) || p.LineOfSightRange < 200 || p.LineOfSightRange > 1500) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.MaxLegLength", p.MaxLegLength) || p.MaxLegLength < 50 || p.MaxLegLength > 600) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.CacheClearRadius", p.CacheClearRadius) || p.CacheClearRadius < 100 || p.CacheClearRadius > 1000) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.AIRespawnSeconds", p.AIRespawnSeconds) || p.AIRespawnSeconds < 0 || p.AIRespawnSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.PatrolRespawnSeconds", p.PatrolRespawnSeconds) || p.PatrolRespawnSeconds < 0 || p.PatrolRespawnSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.HoldoutRespawnSeconds", p.HoldoutRespawnSeconds) || p.HoldoutRespawnSeconds < 0 || p.HoldoutRespawnSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.MilitaryRespawnSeconds", p.MilitaryRespawnSeconds) || p.MilitaryRespawnSeconds < 0 || p.MilitaryRespawnSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.MemberReplaceSeconds", p.MemberReplaceSeconds) || p.MemberReplaceSeconds < 0 || p.MemberReplaceSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.RaidCooldownFloorSeconds", p.RaidCooldownFloorSeconds) || p.RaidCooldownFloorSeconds < 0 || p.RaidCooldownFloorSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AISites.ActivationRadiusScale", p.ActivationRadiusScale) || p.ActivationRadiusScale < 0 || p.ActivationRadiusScale > 2.0) { return false; }
+        return true;
+    }
+}
+
+class HCXAISitePolicy
+{
+    int SchemaVersion = 1;
+    string WorldName = "chernarusplus";
+    string BuildVersion = "1.30.164289";
+    string ObserverPolicy = "native-eai";
+    int MaxActiveAI = HCAILimits.Get().MaxActiveAI;
+    int MaxActiveSites = HCAILimits.Get().MaxActiveSites;
+    float MinPlayerDistance = 200;
+    float LineOfSightRange = 1000;
+    float MaxLegLength = 400;
+    float CacheClearRadius = 300;
+    // Respawn policy block. Zero means inherit; AIRespawnSeconds=0 uses
+    // site.RespawnSeconds for legacy operator profiles. Shipped policy owns timing.
+    int AIRespawnSeconds = 900;
+    int PatrolRespawnSeconds = 0;
+    int HoldoutRespawnSeconds = 0;
+    int MilitaryRespawnSeconds = 0;
+    int MemberReplaceSeconds = 600; // zero inherits effective full-group delay
+    int RaidCooldownFloorSeconds = 0; // optional legacy operator minimum
+    float ActivationRadiusScale = 0; // absent/zero means 1.0
+    ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
 }

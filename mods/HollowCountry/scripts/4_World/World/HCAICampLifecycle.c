@@ -5,48 +5,6 @@
 // Engine inventory + journal continuation is a separate, refused experiment.
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380,407 Count/Insert.
 // 1_Core/proto/EnMath.c:553,566 Min/Max; EnConvert.c:27 int.MAX.
-class HCAICampPolicy
-{
-    int FoundingStock = 48;
-    int FoundingPopulation = 12;
-    int CampAllocation = 24;
-    // Shared HCWorldClock uses UTC world days, not the accelerated sky date.
-    // Two seed camps, then one allocation / two days up to six reserves.
-    // Existing AILimits still owns occupied places and materialized actors.
-    int ReserveCap = 144;
-    int ReserveRegenPerDay = 12;
-    int ReserveDaySeconds = 86400;
-    int ReservePopulationCap = 36;
-    int ReservePopulationRegenPerDay = 3;
-    int BivouacCost = 1;
-    int HouseholdCost = 2;
-    int StableCost = 4;
-    int HubCost = 8;
-    int GrowthSeconds = 3600;
-    int UpkeepSeconds = 86400;
-    int RaidLockoutSeconds = 1800;
-    int RoleSeconds = 120;
-    // Existing holdout BindOccupant envelope (30 m), 3% of the approximately
-    // 1000 m vanilla network bubble / rifle hearing range. Not a perception boost.
-    int RoutineRangeMeters = 30;
-    // Installed eAIBase.OverrideTargetPosition default, local arrival only.
-    int ArrivalToleranceMeters = 1;
-
-    bool HCValid()
-    {
-        if (FoundingStock < 1 || FoundingStock > 256 || FoundingPopulation < 1 || FoundingPopulation > 128) { return false; }
-        if (CampAllocation < 1 || CampAllocation > FoundingStock) { return false; }
-        if (ReserveCap < FoundingStock || ReserveCap > 256 || ReserveRegenPerDay < 1 || ReserveRegenPerDay > ReserveCap) { return false; }
-        if (ReserveDaySeconds < 3600 || ReserveDaySeconds > 604800) { return false; }
-        if (ReservePopulationCap < FoundingPopulation || ReservePopulationCap > 128) { return false; }
-        if (ReservePopulationRegenPerDay < 1 || ReservePopulationRegenPerDay > ReservePopulationCap) { return false; }
-        if (BivouacCost < 1 || HouseholdCost < 1 || StableCost < 1 || HubCost < 1) { return false; }
-        if (BivouacCost + HouseholdCost + StableCost + HubCost > CampAllocation) { return false; }
-        if (GrowthSeconds < 60 || UpkeepSeconds < 3600 || RaidLockoutSeconds < 60) { return false; }
-        if (GrowthSeconds > 604800 || UpkeepSeconds > 604800 || RaidLockoutSeconds > 604800) { return false; }
-        return RoleSeconds >= 60 && RoleSeconds <= 3600 && RoutineRangeMeters >= 1 && RoutineRangeMeters <= 30 && ArrivalToleranceMeters == 1;
-    }
-}
 
 class HCAICampLife
 {
@@ -79,8 +37,29 @@ class HCAICampRoutineView
     int Population;
 }
 
+// Optional current operator timing, separate from the durable camp journal.
+// Native EnSystem.c:397 FileExist; JsonFileLoader.c:69 LoadData. Bounded reads
+// reuse HCProfileDefaults. No file means migrate historical shipped defaults.
+class HCAICampRespawnConfig
+{
+    int RaidLockoutSeconds;
+}
+
 class HCAICampLifecycle
 {
+    static int HCConfiguredLockout()
+    {
+        string path = "$profile:HollowCountry/ai-camp-policy.json";
+        if (!FileExist(path)) { return 0; }
+        string text = HCProfileDefaults.ReadText(path);
+        HCAICampRespawnConfig configured;
+        string error;
+        if (!JsonFileLoader<HCAICampRespawnConfig>.LoadData(text, configured, error) || !configured) { return -1; }
+        if (!HCJsonFields.Has(text, "RaidLockoutSeconds")) { return -1; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.RaidLockoutSeconds", configured.RaidLockoutSeconds)) { return -1; }
+        return configured.RaidLockoutSeconds;
+    }
+
     static bool HCReserveDue(HCAICampResources pool, int now, HCAICampPolicy policy)
     {
         if (!pool || !policy || now < 1 || now < pool.ReserveAt) { return false; }
@@ -224,5 +203,66 @@ class HCAICampDebug : HCDebugContributor
             Owner.HCDescribeCamp(snapshot, m_Cursor);
             m_Cursor++;
         }
+    }
+}
+
+class HCAICampPolicy
+{
+    int FoundingStock = 48;
+    int FoundingPopulation = 12;
+    int CampAllocation = 24;
+    // Shared HCWorldClock uses UTC world days, not the accelerated sky date.
+    // Two seed camps, then one allocation / two days up to six reserves.
+    // Existing AILimits still owns occupied places and materialized actors.
+    int ReserveCap = 144;
+    int ReserveRegenPerDay = 12;
+    int ReserveDaySeconds = 86400;
+    int ReservePopulationCap = 36;
+    int ReservePopulationRegenPerDay = 3;
+    int BivouacCost = 1;
+    int HouseholdCost = 2;
+    int StableCost = 4;
+    int HubCost = 8;
+    int GrowthSeconds = 3600;
+    int UpkeepSeconds = 86400;
+    int RaidLockoutSeconds = 1800;
+    int RoleSeconds = 120;
+    // Existing holdout BindOccupant envelope (30 m), 3% of the approximately
+    // 1000 m vanilla network bubble / rifle hearing range. Not a perception boost.
+    int RoutineRangeMeters = 30;
+    // Installed eAIBase.OverrideTargetPosition default, local arrival only.
+    int ArrivalToleranceMeters = 1;
+
+    bool HCValid()
+    {
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.FoundingStock", FoundingStock) || FoundingStock < 1 || FoundingStock > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.FoundingPopulation", FoundingPopulation) || FoundingPopulation < 1 || FoundingPopulation > 128) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.CampAllocation", CampAllocation) || CampAllocation < 1 || CampAllocation > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.ReserveCap", ReserveCap) || ReserveCap < 1 || ReserveCap > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.ReserveRegenPerDay", ReserveRegenPerDay) || ReserveRegenPerDay < 1 || ReserveRegenPerDay > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.ReserveDaySeconds", ReserveDaySeconds) || ReserveDaySeconds < 3600 || ReserveDaySeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.ReservePopulationCap", ReservePopulationCap) || ReservePopulationCap < 1 || ReservePopulationCap > 128) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.ReservePopulationRegenPerDay", ReservePopulationRegenPerDay) || ReservePopulationRegenPerDay < 1 || ReservePopulationRegenPerDay > 128) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.BivouacCost", BivouacCost) || BivouacCost < 1 || BivouacCost > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.HouseholdCost", HouseholdCost) || HouseholdCost < 1 || HouseholdCost > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.StableCost", StableCost) || StableCost < 1 || StableCost > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.HubCost", HubCost) || HubCost < 1 || HubCost > 256) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.GrowthSeconds", GrowthSeconds) || GrowthSeconds < 60 || GrowthSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.UpkeepSeconds", UpkeepSeconds) || UpkeepSeconds < 3600 || UpkeepSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.RaidLockoutSeconds", RaidLockoutSeconds) || RaidLockoutSeconds < 60 || RaidLockoutSeconds > 604800) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.RoleSeconds", RoleSeconds) || RoleSeconds < 60 || RoleSeconds > 3600) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.RoutineRangeMeters", RoutineRangeMeters) || RoutineRangeMeters < 1 || RoutineRangeMeters > 30) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("AICamps.ArrivalToleranceMeters", ArrivalToleranceMeters) || ArrivalToleranceMeters != 1) { return false; }
+        if (FoundingStock < 1 || FoundingStock > 256 || FoundingPopulation < 1 || FoundingPopulation > 128) { return false; }
+        if (CampAllocation < 1 || CampAllocation > FoundingStock) { return false; }
+        if (ReserveCap < FoundingStock || ReserveCap > 256 || ReserveRegenPerDay < 1 || ReserveRegenPerDay > ReserveCap) { return false; }
+        if (ReserveDaySeconds < 3600 || ReserveDaySeconds > 604800) { return false; }
+        if (ReservePopulationCap < FoundingPopulation || ReservePopulationCap > 128) { return false; }
+        if (ReservePopulationRegenPerDay < 1 || ReservePopulationRegenPerDay > ReservePopulationCap) { return false; }
+        if (BivouacCost < 1 || HouseholdCost < 1 || StableCost < 1 || HubCost < 1) { return false; }
+        if (BivouacCost + HouseholdCost + StableCost + HubCost > CampAllocation) { return false; }
+        if (GrowthSeconds < 60 || UpkeepSeconds < 3600 || RaidLockoutSeconds < 60) { return false; }
+        if (GrowthSeconds > 604800 || UpkeepSeconds > 604800 || RaidLockoutSeconds > 604800) { return false; }
+        return RoleSeconds >= 60 && RoleSeconds <= 3600 && RoutineRangeMeters >= 1 && RoutineRangeMeters <= 30 && ArrivalToleranceMeters == 1;
     }
 }

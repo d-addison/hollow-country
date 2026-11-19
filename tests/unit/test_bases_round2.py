@@ -122,9 +122,9 @@ class BasesRoundTwo(unittest.TestCase):
         state = NS(m_Running=True, m_HCBasesEnabled=True, m_HCBasesCursor=0,
                    m_Data=NS(Camps=EArray()), m_LastUtc=1000,
                    HCBasesCandidate=lambda item, now: visited.append(item))
-        # Local fixture only: the lead assigns the production consumer at landing.
+        # Synthetic budget port uses the current production consumer id.
         env.update(super=NS(OnTick=lambda delta: None), HCServer=NS(HCTickWork=lambda: budget),
-                   HCUnitBudget=NS(HC_WORK_BASES=6), HCWorldMaterializer=NS(MAX_PLAYERS=32),
+                   HCUnitBudget=NS(HC_WORK_BASES=8), HCWorldMaterializer=NS(MAX_PLAYERS=32),
                    HCBasesContainers=NS(HCCount=lambda: len(registry.s_Items),
                                         HCAt=lambda index: registry.s_Items[index]))
         run(source, 'OnTick', state, env, 1)
@@ -139,7 +139,7 @@ class BasesRoundTwo(unittest.TestCase):
         run(source, 'HCForget', registry, env, items[-1])
         run(source, 'OnTick', state, env, 1)
         self.assertNotIn(id(items[-1]), [id(item) for item in registry.s_Items])
-        self.assertTrue(all(cost == (6, 32) for cost in charged))
+        self.assertTrue(all(cost == (8, 32) for cost in charged))
 
 
 if __name__ == '__main__':

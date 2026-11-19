@@ -248,7 +248,7 @@ class VarietyRoutes(unittest.TestCase):
             step = translate(str(fixture), 'static void HCStep(', (), statics=tuple(vars(state)), STATICS=state,
                              HCInfectedVarietyModule=N(VarietyActive=lambda: True),
                              HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: grant[0])),
-                             HCUnitBudget=N(HC_WORK_INFECTED=3),
+                             HCUnitBudget=N(HC_WORK_INFECTED=0),
                              HCClearRoster=lambda: cleared.append(True))
         step(None, 10.)
         self.assertEqual(['maintain'], calls)

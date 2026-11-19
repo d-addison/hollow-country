@@ -102,6 +102,10 @@ def declarations(env):
         from tests.unit.ai_limits_fixture import install
         install(env)
     text = (SCRIPTS / "4_World/HCXAIData.c").read_text()
+    from tests.unit.settings_registry_fixture import install_registry
+    install_registry(env)
+    registry = Authored(text, env)
+    env['HCRespawnSiteRegistry'] = N(HCPolicyValid=lambda p: registry.call('HCPolicyValid', None, p))
     for match in re.finditer(r"class (HCXAI\w+)\s*\{", text):
         fields = re.findall(r"^\s*(?:ref )?([\w<> ]+?) (\w+)(?: = ([^;]+))?;",
                             block(text, match.end()), re.M)

@@ -1506,7 +1506,7 @@ class ShippedDefaultsTests(unittest.TestCase):
         self.assertEqual('operator catalog', self.files[target])
         self.assertEqual(2, len(calls))
         sites = (SCRIPTS / 'HCXAISites.c').read_text()
-        self.assertLess(sites.index('HCXAIDefaults.ProvisionLocalities()'),
+        self.assertLess(sites.index('HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json"'),
                         sites.index('m_Policy = HCXAISiteDirector.LoadPolicy()'))
 
     def test_loadout_provisioning_visits_beyond_64_catalog_rows(self):
@@ -1556,7 +1556,7 @@ class ShippedDefaultsTests(unittest.TestCase):
     def test_director_provisions_before_reading_and_encounters_use_the_trigger_radius(self):
         sites = (SCRIPTS / 'HCXAISites.c').read_text()
         start = sites[sites.index('    void Start()'):sites.index('    void Stop()')]
-        self.assertLess(start.index('HCXAIDefaults.ProvisionSites()'), start.index('LoadPolicy()'))
+        self.assertLess(start.index('HCXAIRespawnDefaults.HCEnsure(HCXAIDefaults.SitesFile(), shippedSites)'), start.index('LoadPolicy()'))
         self.assertIn('HCXAIDefaults.PolicyDrift(', start)
         wait = sites[sites.index('    protected void StepWait()'):sites.index('    protected HCXAISiteAdmission Observe()')]
         self.assertLess(wait.index('HCXAIDefaults.ProvisionLoadouts(m_Policy)'), wait.index('this.Observe()'))
