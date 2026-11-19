@@ -1,7 +1,8 @@
 // w45 #138: retain a detached document and the existing verified temp/backup/copy
-// protocol, one stage per module tick. Never delete intent on a failed stage.
+// protocol, resumable row encoding and separate assembly/write stages. Never delete intent on a failed stage.
 // Native scripts-1.30.164289: 3_Game/tools/JsonFileLoader.c:85 MakeData;
 // 1_Core/proto/EnSystem.c:397 FileExist, :528 DeleteFile, :531 CopyFile;
+// EnScript.c:380/852 Count, :887/897 map GetElement/GetKey;
 // EnString.c:199 Length; EnConvert.c:30 ToString. HCGroupIO owns bounded IO.
 class HCPerfSnapshotSave : HCSaveJob
 {
@@ -15,6 +16,9 @@ class HCPerfSnapshotSave : HCSaveJob
     protected string m_Stats;
     protected string m_Text;
     protected int m_Bytes;
+    protected int m_Row;
+    protected int m_Layer;
+    protected bool m_LayerOpen;
 
     void HCBind(string path, HCDebugDocument data, int limit)
     {
@@ -25,11 +29,19 @@ class HCPerfSnapshotSave : HCSaveJob
     }
     override string HCName() { return "DebugSnapshot"; }
     int HCBytes() { return m_Bytes; }
+    bool HCNeedsFlush() { return m_Phase >= 5; }
 
     override int HCStep()
     {
         bool ok = false;
-        if (m_Phase < 4) { ok = HCEncode(m_Phase); }
+        if (m_Phase < 4)
+        {
+            int encoded = HCEncode(m_Phase);
+            if (encoded < 0) { return STEP_FAILED; }
+            if (encoded == 0) { return STEP_MORE; }
+            ok = true;
+            m_Row = 0;
+        }
         if (m_Phase == 4) { ok = HCWriteIntent(); }
         if (m_Phase == 5) { ok = HCBackup(); }
         if (m_Phase == 6) { ok = HCPromote(); }
@@ -40,24 +52,108 @@ class HCPerfSnapshotSave : HCSaveJob
         return STEP_MORE;
     }
 
-    protected bool HCEncode(int phase)
+    // A point, route (already capped to 64 vertices), string or stat is the
+    // atomic native JSON unit. Encode returns -1 failed, 0 retained, 1 complete. Never re-encode a whole captured collection.
+    protected int HCEncode(int phase)
     {
-        if (!m_Data) { return false; }
+        if (!m_Data) { return -1; }
+        if (phase == 0) { return HCEncodeLayer(); }
+        string encoded;
         string error;
-        if (phase == 0) { return JsonFileLoader<map<string, ref array<ref HCDebugPoint>>>.MakeData(m_Data.layers, m_Layers, error, false); }
-        if (phase == 1) { return JsonFileLoader<array<ref HCDebugRoute>>.MakeData(m_Data.routes, m_Routes, error, false); }
-        if (phase == 2) { return JsonFileLoader<array<string>>.MakeData(m_Data.operational, m_Operational, error, false); }
-        return JsonFileLoader<array<ref HCDebugLayerStat>>.MakeData(m_Data.layerStats, m_Stats, error, false);
+        if (phase == 1)
+        {
+            if (m_Row == 0) { m_Routes = "["; }
+            if (m_Row < m_Data.routes.Count())
+            {
+                HCDebugRoute route = m_Data.routes[m_Row];
+                if (!JsonFileLoader<HCDebugRoute>.MakeData(route, encoded, error, false)) { return -1; }
+                if (m_Row > 0) { m_Routes += ","; }
+                m_Routes += encoded;
+                m_Row++;
+                return 0;
+            }
+            m_Routes += "]";
+        }
+        if (phase == 2)
+        {
+            if (m_Row == 0) { m_Operational = "["; }
+            if (m_Row < m_Data.operational.Count())
+            {
+                string operational = m_Data.operational[m_Row];
+                if (!JsonFileLoader<string>.MakeData(operational, encoded, error, false)) { return -1; }
+                if (m_Row > 0) { m_Operational += ","; }
+                m_Operational += encoded;
+                m_Row++;
+                return 0;
+            }
+            m_Operational += "]";
+        }
+        if (phase == 3)
+        {
+            if (m_Row == 0) { m_Stats = "["; }
+            if (m_Row < m_Data.layerStats.Count())
+            {
+                HCDebugLayerStat stat = m_Data.layerStats[m_Row];
+                if (!JsonFileLoader<HCDebugLayerStat>.MakeData(stat, encoded, error, false)) { return -1; }
+                if (m_Row > 0) { m_Stats += ","; }
+                m_Stats += encoded;
+                m_Row++;
+                return 0;
+            }
+            m_Stats += "]";
+        }
+        if (phase == 3 && !HCAssemble()) { return -1; }
+        return 1;
     }
 
-    protected bool HCWriteIntent()
+    protected int HCEncodeLayer()
+    {
+        if (m_Layer == 0 && !m_LayerOpen) { m_Layers = "{"; }
+        if (m_Layer >= m_Data.layers.Count())
+        {
+            m_Layers += "}";
+            return 1;
+        }
+        string encoded;
+        string error;
+        if (!m_LayerOpen)
+        {
+            string key = m_Data.layers.GetKey(m_Layer);
+            if (!JsonFileLoader<string>.MakeData(key, encoded, error, false)) { return -1; }
+            if (m_Layer > 0) { m_Layers += ","; }
+            m_Layers += encoded + ":[";
+            m_LayerOpen = true;
+            m_Row = 0;
+            return 0;
+        }
+        array<ref HCDebugPoint> points = m_Data.layers.GetElement(m_Layer);
+        if (m_Row < points.Count())
+        {
+            HCDebugPoint point = points[m_Row];
+            if (!JsonFileLoader<HCDebugPoint>.MakeData(point, encoded, error, false)) { return -1; }
+            if (m_Row > 0) { m_Layers += ","; }
+            m_Layers += encoded;
+            m_Row++;
+            return 0;
+        }
+        m_Layers += "]";
+        m_Layer++;
+        m_LayerOpen = false;
+        return 0;
+    }
+
+    protected bool HCAssemble()
     {
         m_Text = "{\"version\":1,\"time\":" + m_Data.time.ToString() + ",\"map\":\"chernarusplus\",\"layers\":" + m_Layers + ",\"routes\":" + m_Routes;
         m_Text += ",\"layerStats\":" + m_Stats + ",\"operational\":" + m_Operational;
         m_Text += ",\"contributors\":" + m_Data.contributors.ToString() + ",\"truncated\":" + m_Data.truncated.ToString();
         m_Text += ",\"operationalTruncated\":" + m_Data.operationalTruncated.ToString() + "}";
         m_Bytes = m_Text.Length();
-        if (m_Bytes < 1 || m_Bytes > m_Limit) { return false; }
+        return m_Bytes > 0 && m_Bytes <= m_Limit;
+    }
+
+    protected bool HCWriteIntent()
+    {
         return HCGroupIO.WriteNew(m_Path + ".tmp", m_Text, m_Limit);
     }
 
