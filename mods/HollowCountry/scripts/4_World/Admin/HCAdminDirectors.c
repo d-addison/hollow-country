@@ -91,6 +91,16 @@ modded class HCInfectedModule
         return "tracked=" + m_Actors.Count().ToString() + " tracked_cap=" + cap.ToString() + " reserved=" + m_State.Reserved.ToString() + " member_cap=" + m_MemberCap.ToString() + " groups=" + m_State.Groups.Count().ToString() + " group_cap=" + m_GroupCap.ToString();
     }
 
+    // HCLODMaterialize supplies tracked fresh bodies, but no normal service can
+    // turn a fresh standing body into a reversible dormant crawler. The native
+    // ZombieBase.c:811-818 crawl transition is injury, not a resting posture.
+    // Do not allocate a live body only to discover that missing transition.
+    bool HCAdminDormant(vector pos, out string reason)
+    {
+        reason = "missing-hook-HCRequestFreshDormant; fresh-body-rest-transition-unavailable; runtime=PENDING";
+        return false;
+    }
+
     bool HCAdminSitter(PlayerBase player, out string reason)
     {
         reason = "infected-admission-unavailable";
@@ -304,6 +314,62 @@ modded class HCCampModule
     {
         if (!m_Running || !m_Data) { return "active=n/a camp_cap=32"; }
         return "camps=" + m_Data.Camps.Count().ToString() + " camp_cap=32";
+    }
+
+    // Metadata-only controls use the existing configured camp cap and store.
+    // No distance threshold, player scan, world fact, inventory or body creation.
+    protected HCCampRecord HCAdminSelectCamp(vector pos, out string reason)
+    {
+        reason = "camp-service-unavailable";
+        if (!m_Running || !m_Data || !m_Data.Camps) { return null; }
+        reason = "camp-configured-cap-exceeded";
+        int cap = HCAILimits.Get().MaxCamps;
+        if (m_Data.Camps.Count() > cap) { return null; }
+        int now = HCWorldClock.UTC();
+        reason = "camp-clock-unavailable";
+        if (now < 1 || now < m_LastUtc) { return null; }
+        HCCampRecord selected;
+        float best = -1;
+        array<ref HCCampRecord> camps = m_Data.Camps;
+        for (int candidateIndex = 0; candidateIndex < camps.Count(); candidateIndex++)
+        {
+            reason = "camp-admin-shared-work-budget";
+            if (!HCServer.Get().HCTickWork().HCTake(1)) { return null; }
+            HCCampRecord candidate = camps[candidateIndex];
+            if (!candidate) { continue; }
+            float distance = vector.DistanceSq(pos, candidate.Position);
+            if (best < 0 || distance < best) { selected = candidate; best = distance; }
+        }
+        reason = "no-recognised-camp";
+        return selected;
+    }
+
+    bool HCAdminTier(vector pos, int requested, out string reason)
+    {
+        reason = "camp-service-unavailable";
+        if (!m_Running) { return false; }
+        // 0..3 is the existing HCCampStore schema, not a new tunable limit.
+        reason = "camp-tier-must-be-0-to-3";
+        if (requested < 0 || requested > 3) { return false; }
+        HCCampRecord selected = HCAdminSelectCamp(pos, reason);
+        if (!selected) { return false; }
+        int previous = selected.Tier;
+        selected.Tier = requested;
+        reason = "camp-tier-persistence-refused";
+        if (!Commit(HCWorldClock.UTC())) { selected.Tier = previous; return false; }
+        reason = "camp-tier-persisted; next-normal-scan-reclassifies; runtime=PENDING";
+        return true;
+    }
+
+    bool HCAdminArrival(vector pos, bool raid, out string reason)
+    {
+        HCCampRecord selected = HCAdminSelectCamp(pos, reason);
+        if (!selected) { return false; }
+        // Visitors.Step/Probes.Step only persist refusal/legacy metadata. Calling
+        // them cannot request physical arrivals. Keep their cooldowns untouched.
+        reason = "missing-hook-HCRequestVisitorParty; visitor-body-provider-unavailable; runtime=PENDING";
+        if (raid) { reason = "missing-hook-HCRequestRaidParty; raid-body-provider-unavailable; runtime=PENDING"; }
+        return false;
     }
 
     bool HCAdminCamp(vector pos, array<Man> players, out string reason)

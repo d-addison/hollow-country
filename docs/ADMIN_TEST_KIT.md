@@ -4,6 +4,176 @@ One documented way to trigger and inspect every Hollow Country (HC) feature on a
 test server. Runtime acceptance of every command here is pending: the commands are
 authored and offline-tested only, and nothing has been observed in DayZ yet.
 
+## Operator controls and removal (#203, w44)
+
+Controls default on with `EnableAdminMap=true`. To opt out of the new controls,
+create `$profile:HollowCountry/acceptance/AdminControls.disable` before startup;
+remove it and restart to opt back in. The allowlist, one-command queue, ticket
+replay guard and existing per-admin throttle remain authoritative. `status`
+continues to use the existing operational-status hook: a ready admin transport
+is not evidence that a missing body provider exists. Admission logs include
+`feature=AdminControls` and `runtime=PENDING`. Once after a successful allowlist
+startup, enabled controls log:
+
+```text
+[HC Admin] controls missing=HCRequestFreshDormant,HCRequestVisitorParty,HCRequestRaidParty runtime=PENDING
+```
+
+The server handlers below are authored. **The three new wire IDs require the
+lead's shared catalog edits below before RPC ingress or UI can offer them.**
+They remain integration-pending until then; this is not runtime acceptance.
+
+| Command | Value | Behavior and limits |
+| :--- | :--- | :--- |
+| `camptier` | 0 to 3 | Persists the nearest recognised camp's tier through `HCCampModule.Commit` / `HCCampStore`. The entire candidate set must fit configured `HCAILimits.MaxCamps` and shared `HCTickWork().HCTake(1)` per row, otherwise no camp is changed. There is no new range cutoff. UTC rollback, inactive services and failed writes refuse; failed writes restore the previous in-memory tier. The next due normal camp scan reclassifies it. No clock aging, structures, claims, world facts, bodies or loot are fabricated. |
+| `campvisit` | none | Selects a camp under the same caps; returns `missing-hook-HCRequestVisitorParty`. The current visitor service records missing-body refusals and cannot request physical arrivals. No visitor state or cooldown is changed. |
+| `campraid` | none | Selects a camp under the same caps; returns `missing-hook-HCRequestRaidParty`. The current probe service has no physical raid request port. No threat state or cooldown is changed. |
+| `dormant` | none | Existing wire ID now calls a narrow module adapter and reports `missing-hook-HCRequestFreshDormant`. LOD has tracked creation, but native crawling is an injury transition, not a reversible spawn-to-rest API. No standing substitute or orphan body is created. |
+
+Do not count successful tier persistence as a visitor/raid observation. Normal
+camp classification, cooldowns, faction resources and observer-safe materializer
+ownership still belong to their existing owners. The missing hooks must connect
+physical custody, routes and observed body outcomes before any arrival can be
+reported. This worker introduces no new distances or numeric configuration fields;
+0..3 is the existing camp store schema. COT-role authorization remains open; no
+COT files or source were read during this work.
+
+Shared integration edits (not applied in this confined worktree): in
+`scripts/3_Game/Admin/HCAdminCatalog.c`, after the existing `camp` entry, add:
+
+```c
+HCAdd("camptier", "ai", "Force camp tier", "Persist nearest camp tier; next normal scan reclassifies.", false, true, true, 0, 3, 1, "tier");
+HCAdd("campvisit", "ai", "Request camp visit", "Reports missing physical visitor request hook.", false, true, false, 0, 0, 0, "");
+HCAdd("campraid", "ai", "Request camp raid", "Reports missing physical raid request hook.", false, true, false, 0, 0, 0, "");
+```
+
+Change the existing dormant help to `Reports missing fresh-body rest transition
+hook; no body is created.` Keep `HCKnown` delegated to the catalog. Then insert these lines after `camp` in `HCAdminStatus.c:HCAdminKit` at integration:
+
+```c
+HCAdminKitLine(reply, "camptier", "Camps", "", "value 0 to 3; nearest recognised camp; opt-out AdminControls.disable");
+HCAdminKitLine(reply, "campvisit", "Camps", "missing-hook-HCRequestVisitorParty", "none; runtime=PENDING");
+HCAdminKitLine(reply, "campraid", "Camps", "missing-hook-HCRequestRaidParty", "none; runtime=PENDING");
+```
+
+The command still reports metadata opt-out. The existing `refused-by-design` dormant kit prefix is retained for
+compatibility and now names its actual missing hook. Update catalog-set tests
+in `test_admin_ui` to inspect `HCOperatorCommand` too and add `camptier: (0, 3)`
+to integer bounds; update the kit command set in `test_admin_test_kit`. These
+files are outside this worker's scope. No module slot, MISSION_FILES entry,
+config.cpp or settings-registry edit is needed.
+
+### Stopped-server overlay removal
+
+Mission overlays run before feature settings and must be removed with their
+receipt-backed installers. Stop the server, retain a backup, and run first:
+
+```sh
+python3 -B -m tools.package.overlay_remove --mission /path/to/private-mission --overlays loot vehicles --dry-run
+python3 -B -m tools.package.overlay_remove --mission /path/to/private-mission --overlays loot vehicles --server-stopped
+```
+
+The command calls `loot_boost.rollback` then `travel.rollback`, newest first.
+It rehearses both on a temporary mission copy before changing live files; a
+later-layer drift refusal therefore leaves the live mission untouched. Each
+installer still verifies its own receipts and backups at live rollback time.
+This is resumable coordination, not a cross-installer atomic transaction: if an
+external edit occurs during live rollback, preserve the remaining receipts,
+reconcile the reported drift and rerun while stopped. Absent overlays are skipped.
+`storage_*` saves are neither copied nor deleted. Symlinks, hard links and special
+files in copied input refuse. Mission targets in Steam are rejected by the
+existing target guard. `--server-stopped` is an operator acknowledgement, not a
+process detector. Dry-run does not need that acknowledgement.
+
+To remove just one layer, use `--overlays loot` or `--overlays vehicles`; receipt
+drift still refuses incompatible ordering. Later optional/coverage installers
+may pin travel's core or loot's prototype: remove those layers through their
+existing receipt rollback commands first when the rehearsal requests it. This
+tool does not silently remove unrelated installers. Output explicitly says
+inventory was not removed and keeps `runtime=PENDING`.
+
+**Inventory is a real remaining gap:** `inventory_sizes.py` is a source generator
+for the generated `CfgVehicles` block inside the shared HC addon, not a
+mission-overlay installer. It has `render_block`, `update_config`, `check_config`
+and `main`, but no installation receipt or rollback function. Selecting
+`--overlays inventory` (or omitting `--overlays`, whose default requests all
+three) refuses before any removal with `inventory receipt rollback unavailable`.
+Removing that block requires a reviewed source change, rebuilding/signing and
+redistributing matching addon packages to server and clients. This confined
+worker cannot edit config.cpp or invent a receipt for an already installed PBO.
+Keep #203's three-overlay removal acceptance open until a genuine source/package
+receipt and its rollback API exist. Feature flags alone cannot undo these bytes.
+
+### Native checks still required
+
+After shared catalog integration, run DayZDiag and normal packaged server/client
+loads with two clients. Grep `feature=AdminControls`, `[HC Admin] controls missing=`,
+`[HC Admin] cmd=camptier`, `cmd=campvisit`, `cmd=campraid`, `cmd=dormant`, and
+`SCRIPT (E)`. Confirm the existing `status` owner row follows allowlist startup,
+not catalog presence. With a recognised camp, test tiers 0 and 3, rejection of
+out-of-schema raw values, save/restart and next-scan reclassification. A forced
+tier must create no structures, items, world facts or actors. With the opt-out
+file present at restart, tier writes and dormant requests must refuse; remove
+it and restart to readmit controls. Verify an unallowlisted second client cannot
+run commands. Visit/raid/dormant outcomes must remain their named missing-hook
+refusals until their owners supply the ports; do not record them as observed
+spawns. Rehearse removal against a disposable installed mission while stopped,
+check byte hashes and untouched saves, then test a normal packaged restart.
+
+### Spec, plan and tasks for this worker
+
+Spec OPS-203: authorised commands use existing bounded owner services; missing
+physical providers are explicit; stopped-server removal uses actual receipts and
+never wipes saves. Given a stacked synthetic loot/travel installation, removal
+restores exact bytes. Given later drift, rehearsal fails before any live write.
+Given an invalid tier, unavailable camp or failed save, no successful tier change
+is reported. Given missing body ports, no physical outcome is fabricated.
+
+Plan: inspect the existing command/owner paths and installer functions; add
+standard-library synthetic behavioral tests; add metadata-only camp adapter and
+precise missing-hook adapters; coordinate receipt rollback through scratch;
+document shared catalog integration, operator opt-out and acceptance gaps.
+
+- [x] OPS-01: existing API/source inspection; shared budget, cap, persistence reuse.
+- [x] OPS-02: tier adapter and missing-body refusal adapters; default-on opt-out.
+- [x] OPS-03: loot/vehicle scratch rehearsal, live rollback, drift/link/stop guards.
+- [x] OPS-04: focused behavioral tests and required static checks.
+- [ ] OPS-05: shared catalog/kit integration and corresponding shared test updates.
+- [ ] OPS-06: physical dormant/visitor/raid ports and source/PBO inventory receipt rollback.
+- [ ] OPS-07: COT-role access (explicitly excluded); shared save switch belongs to w45.
+- [ ] OPS-08: DayZDiag, packaged server/client, two-client authorization/visibility,
+  restart/persistence/removal observations and target-load budget calibration.
+
+The required specs were absent under this worktree's `docs/`; read-only copies
+were subsequently inspected under `/code/dayzsa_mods/docs/`. Active owner decisions
+and this worker's file boundaries take precedence. No git metadata or external
+service was written, and no native/Expansion/COT source was copied.
+
+Offline TDD (explicit synthetic fixtures only):
+
+- RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove -v`
+  -> `AssertionError: Missing authored method HCCampModule.HCAdminTier in HCAdminDirectors.c`;
+  `ModuleNotFoundError: No module named 'tools.package.overlay_remove'`;
+  `Ran 12 tests`, `FAILED (failures=5, errors=7)`.
+- Shared-budget RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls.CampSelection -v`
+  -> `AssertionError: namespace(Position=2) is not None`; `Ran 1 test`, `FAILED (failures=1)`.
+- GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove -v`
+  -> `Ran 14 tests`, `OK`.
+- Required/referencing suite result: `Ran 187 tests in 332.064s`, `OK`.
+  Exact command (no full discovery):
+
+  ```sh
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.unit.test_admin_test_kit tests.unit.test_admin_ui tests.unit.test_hc_operational_snapshot tests.unit.test_hc_threat_posture_wiring tests.unit.test_infected_memory_clock tests.unit.test_map_layers tests.unit.test_menu_input tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+  ```
+
+- `python3 -B -m tools.validate.enforce_lint --no-native`
+  -> `enforce_lint: pass findings=1 new=0 stale=0 native=no`.
+- `python3 -B -m tools.validate.settings_consistency` -> `status: pass`, no errors.
+- Existing tests were retained; no old refusal expectation was deleted. Physical
+  dormant spawning is still refused for a real missing port, now explicitly named.
+  Catalog-set test changes are deferred alongside the catalog edit, not silently
+  assumed in production source. Offline results establish no DayZ behavior.
+
 ## Which tool for what
 
 | Need | Tool | Notes |
@@ -182,7 +352,7 @@ decay towns=`. Grep `[HollowCountry]` after a command to see the effect.
 | Horde migration, shelters, wreck salvage, vehicle flip | none | snapshot (shelters) | no trigger yet; play normally |
 | Signs of life, Morse, team ping, progression, crafting, meal buffs | none | none | no admin trigger; test by playing |
 | Faction conflict, camp respawn, pickers, materializer | none | snapshot (materializer) | no admin trigger; test by playing |
-| Dormant infected | `dormant` | `kit` | refused by design |
+| Dormant infected | `dormant` | `kit` | missing `HCRequestFreshDormant` fresh-body rest transition |
 
 Wildlife, visual seasons and claim-a-building bases are not in the source yet, so
 they have nothing to trigger.
