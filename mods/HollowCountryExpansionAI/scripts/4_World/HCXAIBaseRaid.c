@@ -413,7 +413,12 @@ class HCAdminVisitorParty : HCXAIBaseRaid
     // Provider readiness is independent of a currently available traveller or
     // native acceptance. Bind to this startup's adapter/director, then follow
     // the director's actual policy/settings lifecycle (HCXAISites.c:864-1006).
-    override bool HCReady() { return HCRefusal() == ""; }
+    override bool HCReady()
+    {
+        // Native 1.30 boot 077 refused the inline `HCRefusal() == ""` ("Incompatible parameter '@c00'").
+        string refusal = HCRefusal();
+        return refusal == "";
+    }
     override string HCRefusal()
     {
         if (!m_Healthy || !m_Config) { return "CAMP_VISITOR_CONFIG_UNAVAILABLE"; }
