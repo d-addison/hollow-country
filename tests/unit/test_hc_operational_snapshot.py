@@ -25,6 +25,7 @@ Round 1 related focused modules: 116 tests OK. Required checks plus formula comp
 """
 from pathlib import Path
 from types import SimpleNamespace as N
+import re
 import unittest
 
 from tests.unit.test_admin_test_kit import compile_authored, base_scope, authored_method
@@ -63,7 +64,8 @@ def bind(obj, path, cls, names, scope, fields=(), members=(), modded=False):
 def fixture():
     logs = []
     make_status, _ = authored_status(logs)
-    debug = N(s_Contributors=None, s_RegistrationRefusals=0)
+    cap = re.search(r'static const int HC_REGISTRY_CAP = (\d+);', DEBUG.read_text(encoding='utf-8'))
+    debug = N(s_Contributors=None, s_RegistrationRefusals=0, HC_REGISTRY_CAP=int(cap.group(1)))
     service = N(s_Owners=EArray(), s_ByName=NativeMap(), s_Aggregate=None,
                 s_Registered=False, s_RegistrationTried=False, s_Refused=0, MAX_SOURCE_AGE_SECONDS=60)
     scope = base_scope(array=EArray, HCOperationalContributors=service, HCDebugSnapshot=debug,
@@ -207,7 +209,7 @@ class OperationalSnapshot(unittest.TestCase):
 
     def test_full_contributor_registry_attempts_once_and_reset_clears_refusals(self):
         service, debug, _, _, _ = fixture()
-        for _ in range(16):
+        for _ in range(20):
             self.assertTrue(debug.HCRegister(object()))
         for index in range(64):
             service.HCRegisterOwner(NativeString('owner-' + str(index)))
@@ -352,17 +354,17 @@ class OperationalSnapshot(unittest.TestCase):
         send(transport, sender, delivered)
         self.assertEqual(1, len(sent))
 
-        # Existing 16-contributor ceiling remains authoritative and refusal visible.
-        for _ in range(15): self.assertTrue(debug.HCRegister(object()))
+        # The 20-contributor ceiling remains authoritative and refusal visible.
+        for _ in range(19): self.assertTrue(debug.HCRegister(object()))
         self.assertFalse(debug.HCRegister(object()))
-        self.assertEqual(16, debug.HCContributorCount())
+        self.assertEqual(20, debug.HCContributorCount())
         self.assertEqual(1, debug.s_RegistrationRefusals)
         service.HCReset()
-        self.assertEqual(15, debug.HCContributorCount())
+        self.assertEqual(19, debug.HCContributorCount())
         self.assertEqual(0, service.HCCount())
         self.assertEqual(0, service.HCRefused())
         service.HCRegisterOwner(NativeString('restart'))
-        self.assertEqual(16, debug.HCContributorCount())
+        self.assertEqual(20, debug.HCContributorCount())
         service.HCReset()
         self.assertTrue(debug.HCRegister(object()))
         service.HCRegisterOwner(NativeString('full-registry'))
@@ -398,3 +400,38 @@ class OperationalSnapshot(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DebugRegistryCapacity(unittest.TestCase):
+    """w28 #193 review P1: the built-ins plus every module/addon registrant fit the cap."""
+
+    MODS = ROOT / 'mods'
+    SNAPSHOT = MODS / 'HollowCountry/scripts/4_World/Debug/HCDebugSnapshot.c'
+    MODULE = MODS / 'HollowCountry/scripts/4_World/Debug/HCDebugSnapshotModule.c'
+
+    def cap(self):
+        text = self.SNAPSHOT.read_text(encoding='utf-8')
+        match = re.search(r'static const int HC_REGISTRY_CAP = (\d+);', text)
+        self.assertIsNotNone(match, 'registry cap must be a named constant')
+        self.assertIn('s_Contributors.Count() >= HCDebugSnapshot.HC_REGISTRY_CAP', text)
+        return int(match.group(1))
+
+    def test_lead_ledger_and_scenes_layers_are_registered_builtins(self):
+        text = self.MODULE.read_text(encoding='utf-8')
+        for name in ('HCDebugLeadLedgerContributor', 'HCDebugScenesContributor'):
+            self.assertIn('HCKeep(new %s);' % name, text)
+
+    def test_every_static_registrant_fits_under_the_cap(self):
+        builtins = len(re.findall(r'^\s*HCKeep\(', self.MODULE.read_text(encoding='utf-8'), re.M))
+        others = 0
+        for path in self.MODS.rglob('*.c'):
+            if path == self.MODULE:
+                continue
+            text = path.read_text(encoding='utf-8', errors='replace')
+            others += len(re.findall(r'HCDebugSnapshot\.HCRegister\(', text))
+        live = (self.MODS / 'HollowCountryExpansionAI/scripts/4_World/HCXAILiveMap.c').read_text(encoding='utf-8')
+        # HCXAILiveMap registers its two pages through one loop call site.
+        self.assertIn('HCDebugSnapshot.HCRegister(contributor);', live)
+        total = builtins + others + 1
+        self.assertGreaterEqual(builtins, 9)
+        self.assertLessEqual(total, self.cap(), 'registrants %d exceed the debug registry cap' % total)

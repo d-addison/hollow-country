@@ -1,5 +1,5 @@
 // W5 #122. Per core tick: at most ONE Describe (<=64 emitted points, <=8
-// routes of <=64 vertices); cursor over <=16 contributors. Every 20 s begin
+// routes of <=64 vertices); cursor over <=20 contributors. Every 20 s begin
 // a new cycle; final tick serializes <=1024 points/128 routes, <=1MiB JSON.
 // Off: no arrays, contributors, file I/O or Describe calls allocated by module.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:914 GetTickTime, :931
@@ -50,6 +50,8 @@ class HCDebugSnapshotModule : HCModule
         HCKeep(new HCDebugEventsContributor);
         HCKeep(new HCDebugLeadsContributor(players));
         HCKeep(new HCDebugMaterializerCandidatesContributor);
+        HCKeep(new HCDebugLeadLedgerContributor);
+        HCKeep(new HCDebugScenesContributor);
         m_Elapsed = 0;
         m_Running = true;
     }

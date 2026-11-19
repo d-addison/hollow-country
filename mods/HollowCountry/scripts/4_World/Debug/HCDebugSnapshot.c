@@ -3,7 +3,8 @@
 // :866,926 map Get/Insert; EnString.c:137,199,212 SubstringUtf8/Length/LengthUtf8.
 // Layers/routes are serialized by JsonFileLoader (3_Game/tools/JsonFileLoader.c:85).
 // The envelope's literal "map" key cannot be an Enforce field: map is a type.
-// Registry: 16 contributors; each Describe gets 64 points and 8 routes,
+// Registry: HC_REGISTRY_CAP (20) contributors: 9 built-ins, 6 module
+// singletons, 3 Expansion AI pages (w28 #193 review). Each Describe gets 64 points and 8 routes,
 // each route <=64 vertices. Snapshot totals <=1024 points/128 routes.
 // No entities, discovery, provider claims or inventory writes in this API.
 // w27-debugmap: the 1024-point wire cap is split. Shared contributors (ai-units,
@@ -69,6 +70,7 @@ class HCDebugSnapshot
     static const int LEAD_LAYER_CAP = 56;
     static const int SCENE_LAYER_CAP = 8;
     static const int MAX_LAYER_STATS = 16;
+    static const int HC_REGISTRY_CAP = 20;
     protected static ref array<ref HCDebugContributor> s_Contributors;
     protected ref array<ref HCDebugContributor> m_Contributors;
     protected ref HCDebugDocument m_Document;
@@ -85,7 +87,7 @@ class HCDebugSnapshot
         if (!contributor) { return false; }
         if (!s_Contributors) { s_Contributors = new array<ref HCDebugContributor>; }
         if (s_Contributors.Find(contributor) >= 0) { return true; }
-        if (s_Contributors.Count() >= 16)
+        if (s_Contributors.Count() >= HCDebugSnapshot.HC_REGISTRY_CAP)
         {
             if (s_RegistrationRefusals < 1000000) { s_RegistrationRefusals++; }
             return false;
@@ -275,7 +277,7 @@ class HCDebugSnapshot
 }
 
 // w27-debugmap: read-only Camps layer. Replaces the plain holdouts contributor
-// in its registry slot (the registry cap stays 16). w28-debugmap #193: ONE
+// in its registry slot (registry cap HC_REGISTRY_CAP). w28-debugmap #193: ONE
 // HCHoldouts.Snapshot per row per capture (each is a JSON round trip) feeds both
 // the existing `holdouts` layer (routine/occupants detail, shared pool) and the
 // reduced `camps` layer (id/position/ledger state only, own share). The overlap
