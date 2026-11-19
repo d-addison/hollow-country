@@ -164,3 +164,59 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 ```text
 -mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
 ```
+
+## Operator notes (2026-11-18 batch)
+
+None of these behaviors has been observed in DayZ yet. They describe the source.
+
+**Persistence.** Upgrading does not require wiping `storage_1`; keep it. HC state
+lives under `$profile:HollowCountry`. A store that finds damaged or unpaired files
+quarantines only itself and keeps every file. The other stores start normally.
+See [OPS_RECOVERY.md](OPS_RECOVERY.md), including the one-time `.bak` note for
+worlds that were reset by an older build.
+
+**Expansion's own patrols.** HC owns AI spawning. Install our
+`AIPatrolSettings.override.json` as `$mission:expansion/settings/AIPatrolSettings.json`
+(`Enabled: 0`, no `Patrols`, no `LoadBalancingCategories`). Without it Expansion
+also spawns its default police, wreck and roaming patrols. See
+[Expansion's own patrols](../mission/hollow-country/ai/README.md#expansions-own-patrols).
+
+**AI policy keys** (`$profile:HollowCountry/expansion-ai-sites.json`). A profile
+written by an older build keeps working: an absent key, or one set to 0, uses the
+default (the HC-5 keys also log one `[HC Plan] HC-5 policy <key> absent; default <n>`
+line). A non-zero value outside its range is refused with a named log line.
+
+| Key | 0 / absent means | Allowed range |
+| :--- | :--- | :--- |
+| `RaidCooldownFloorSeconds` | built-in six-hour / seven-day floors | 1800–604800 |
+| `ActivationRadiusScale` | 1.0 | 0.5–2.0; the result is clamped to `MinPlayerDistance`+50 … 1200 m |
+| `MaxSignalWorkPerSecond` | 8 | HC-5 gesture/betrayal work |
+| `MaxBetrayalRows` | 128 | HC-5 betrayal memory rows |
+| `BetrayalRetentionSeconds` | 172800 (48 h) | HC-5 betrayal memory lifetime |
+
+AI group sizes and counts come from the `AILimits` settings section (3–8 per
+occupation group, 10–15 groups by default). See the
+[AI README](../mission/hollow-country/ai/README.md) for every key.
+
+**Gunfire and AI caution.** This is deliberate: any audible shot within 80 m of
+an AI widens its caution range to 80 m for 10 s. A firefight nearby makes groups
+wary; a distant shot does not.
+
+**Optional weapon pack scarcity.** The optional weapon overlay generators accept
+`--nominal-scale X` (0.25–4.0, default 1.0) for gun, magazine and emitted ammo
+nominal/min, and repeatable `--tier-scale common|uncommon|rare=X`. The effective
+scale must stay within 0.25–4.0. A positive CE `min` never drops below 1.
+
+**Infected variety (HC-14).** This is optional and restart-bound. Stop the server, then:
+
+```sh
+python3 -B -m tools.package.infected_variety install --mission "$HC_MISSION" --stock-events "$HC_STOCK_EVENTS"
+python3 -B -m tools.package.infected_variety install --mission "$HC_MISSION" --off
+python3 -B -m tools.package.infected_variety rollback --mission "$HC_MISSION"
+```
+
+`--stock-events` must be the installed, unmodified `db/events.xml`, which has to
+match the pinned hash. Install refuses edited target events and preserves all
+other edits. Off and rollback restore the original bytes. Install also writes a
+receipt, and rollback refuses if that receipt is missing while the mission still
+carries the substitutions.
