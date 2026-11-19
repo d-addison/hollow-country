@@ -13,7 +13,7 @@ class CampCustody(unittest.TestCase):
         crate, home, stock = N(pid='camp-crate'), N(pid='home'), N(pid='same-item')
         io = N(Source=N(pid='survey-source'), Home=home, Item=N(pid='survey-item'),
                Actor=N(pid='actor'), HCTheftCamp=None, HCTheftOwner=None,
-               HCLive=lambda: True, HCPartyCurrent=lambda row: True,
+               HCLive=lambda: True, HCPartyCurrent=lambda row: True, HCRunHold=lambda returning, row: '',
                HCTheftNear=lambda crate: near, HCTheftFirstItem=lambda source: stock)
         row = N(Phase=phase, HCTheftDay=0, HCTheftAttempts=0, SourceId='survey-source',
                 ItemId='survey-item', CargoOwner='survey-source')
@@ -96,7 +96,7 @@ class CampCustody(unittest.TestCase):
                     return 3 if outcome == 'ambiguous' else 2
                 f.io.HCMove = move
                 bind(PICKERS.read_text(), 'HCScavengeTrip', f.trip,
-                     ('HCStep', 'HCLose', 'HCRestore', 'HCConfirmedReturn'), {})
+                     ('HCStep', 'HCLose', 'HCRestore', 'HCConfirmedReturn'), dict(HCPickRunner=N(HOLD='HOLD')))
                 self.assertEqual('', self.call(f))
                 self.assertIs(f.stock, moves[0][0])
                 if outcome == 'kill': alive[0] = False
@@ -233,10 +233,11 @@ class ReturnObservation(unittest.TestCase):
                 CargoOwner='actor', Refusal='')
         port = N(m_DepositWaitUntil=0, m_TransferState=None, Defaults=N(PartyCooldownSeconds=30),
                  HCPartyCurrent=lambda row: valid[0], HCLive=lambda: True,
+                 HCRunHold=lambda returning, row: '',
                  HCOwner=lambda: parent[0], HCAtSource=lambda: False)
         trip = N(m_State=row, m_IO=port, m_Ready=True, m_Busy=False,
                  HCCheckpoint=lambda: receipts.append(deepcopy(row)) is None)
-        bind(PICKERS.read_text(), 'HCScavengeTrip', trip, ('HCStep','HCLose'), {})
+        bind(PICKERS.read_text(), 'HCScavengeTrip', trip, ('HCStep','HCLose'), dict(HCPickRunner=N(HOLD='HOLD')))
         def move(returning, state):
             self.assertEqual('depositing', receipts[-1].Phase)
             self.assertEqual('unknown', receipts[-1].CargoOwner)

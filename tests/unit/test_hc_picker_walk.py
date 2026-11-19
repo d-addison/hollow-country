@@ -157,7 +157,8 @@ class PickerBinding(unittest.TestCase):
     def test_provider_binds_once_and_waits_for_idle_without_replacing_active_port(self):
         calls, logs = [], []
         trip = N(m_Ready=True, m_Busy=False, m_State=N(Phase='leaving'), m_IO=object())
-        module = N(m_Trip=trip, m_Survey=object(), HCLogProvider=lambda: None, m_ProviderLogged=True)
+        module = N(m_Trip=trip, m_Survey=object(), HCLogProvider=lambda: None, m_ProviderLogged=True,
+                   m_Danger=None, m_Houses=None)  # #144: the provider also receives danger memory + house port
         bind_port = method('HCPickers','HCBindProvider', members=('HCLogProvider',))
         module.HCBindProvider = lambda port: (calls.append(port), bind_port(module,port))[1]
         provider = N(Survey=None)
@@ -214,7 +215,7 @@ class PickerBinding(unittest.TestCase):
         module=N(m_Trip=N(m_IO=port,m_Ready=True,m_Busy=False,m_State=N(Phase='idle'),
                          HCLeave=lambda *a: effects.append('leave')),
                  m_Survey=N(HCFind=lambda key: object()), HCPublishReadiness=lambda: None,
-                 m_Units=N(HCReset=lambda n: None,HCTake=lambda n: True))
+                 m_Units=N(HCReset=lambda n: None,HCTake=lambda n: True), m_RunsOn=False)
         run=method('HCPickers','HCBeginSurveyed',members=('HCPublishReadiness',),
                    HCAIPartyIdentity=N(HCValid=lambda i: True))
         self.assertEqual('PICKER_ACTOR_GROUP_MISSING',run(module,N(HCRouteId=lambda:'route'),'lease',object()))

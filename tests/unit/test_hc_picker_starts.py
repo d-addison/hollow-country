@@ -4,6 +4,7 @@ No DayZ, provider pathfinding, inventory persistence or runtime evidence.
 from types import SimpleNamespace as N
 import unittest
 from copy import deepcopy
+from tests.unit import test_auditpick_harness as auditpick
 from tests.unit.test_hc_pickers_survey import ROOT, method
 from tests.unit.test_debug_map_layers import compile_authored
 from tests.unit.test_admin_test_kit import base_scope
@@ -40,7 +41,10 @@ class PickerStarts(unittest.TestCase):
         port.HCClear = lambda: (clear(), effects.append('clear'))[-1]
         trip = N(m_State=state, m_IO=port, m_Ready=True, m_Busy=False,
                  HCCheckpoint=lambda: effects.append('checkpoint') is None)
-        module = N(m_Trip=trip, m_Survey=N(HCFind=lambda key: route if key == route.RouteId else None,
+        module = N(m_RunsOn=False, m_Danger=None, m_Houses=None,
+                   # #144: party bounds and the deferred re-check are HC-owned policy calls.
+                   HCPartyRefusal=lambda members: '', HCRecheckSeconds=lambda: 600,
+                   m_Trip=trip, m_Survey=N(HCFind=lambda key: route if key == route.RouteId else None,
                                          ArrivalRangeMeters=2.5,MaxScannedObjects=128,MaxCargoScan=16),
                    m_Units=N(HCReset=lambda cap:None,HCTake=lambda cost:True),
                    HCPublishReadiness=lambda:None)
@@ -112,7 +116,7 @@ class PickerLifecycle(unittest.TestCase):
         route.SiteId=home.Id
         f.trip.m_IO.Survey=f.module.m_Survey
         f.module.HCTrip=lambda:f.trip
-        patrol=N(m_Group=group,m_HCPendingMembers=0,m_Position=f.actor.GetPosition(),
+        patrol=N(m_Group=group,m_HCPendingMembers=0,m_HCTransient=True,m_Position=f.actor.GetPosition(),
                  m_NumberOfAI=1,m_HCSiteId=home.Id)
         state=admitted_fixture(f.proposal,patrol)
         state.HCPickerSiteCursor=0;state.HCPickerHomeSite=None
@@ -125,7 +129,7 @@ class PickerLifecycle(unittest.TestCase):
             GetGame=lambda:N(IsServer=lambda:server[0]),
             HCWorldMaterializer=N(HCIdentity=lambda lease:f.identity if lease==state.ProposalId else None),
             HCAIPartyIdentity=N(HCValid=lambda identity:identity is f.identity),
-            PlayerBase=N(Cast=lambda actor:actor))
+            PlayerBase=N(Cast=lambda actor:actor), HCPickPolicy=auditpick.policy())
         run=compile_authored(HOOK,'HCXAISiteDirector','HCParty',scope,modded=True)
         f.step=lambda now=1000:run(director,state,now)
         return N(f=f,state=state,logs=logs,enabled=enabled,server=server,locked=locked,director=director)

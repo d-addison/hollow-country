@@ -8,6 +8,7 @@
 // ai/4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 eAIGroup GetGroup();
 // core/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
 // static int GetTimestamp(bool useUTC = false). No new provider API.
+// #144: HCPartyRefusal/Deferred are HC-owned policy calls (no new Expansion API).
 // Runtime acceptance PENDING. Never creates an actor, lease, group or item.
 modded class HCXAISiteState
 {
@@ -80,7 +81,16 @@ modded class HCXAISiteDirector
         {
             state.HCPickerEligibleAt = trip.m_State.NextTripAt;
         }
+        // #144: a run needs a 2..4 member party (survey bounds); re-check later, not every visit.
+        string sized = pickers.HCPartyRefusal(state.Patrol.m_Group.Count());
+        if (sized != "")
+        {
+            if (now >= state.HCPickerEligibleAt) { state.HCPickerEligibleAt = now + pickers.HCRecheckSeconds(); }
+            state.HCRefusePicker(sized, partyId, routeId);
+            return;
+        }
         string refusal = pickers.HCTryParty(identity, state.ProposalId, actor, now, state.HCPickerEligibleAt);
+        if (HCPickPolicy.Deferred(refusal)) { state.HCPickerEligibleAt = now + pickers.HCRecheckSeconds(); }
         state.HCRefusePicker(refusal, partyId, routeId);
     }
 
