@@ -12,6 +12,8 @@
 // (about 10000 ticks per ms, so 1.2 billion ticks per 120 s window, below 2^31).
 // A negative or zero delta, an interval longer than twice the window clamp, or a ticks_per_ms outside
 // [HC_PERF_MIN_TICKS_PER_MS, HC_PERF_MAX_TICKS_PER_MS] prints calibration=invalid and omits every work_* value.
+// HC-29: invalid windows publish attributed raw ticks before reset, never a
+// conversion using another window's rate. Cached conversion expires on Stop.
 // Players: the count is read at every sample; the line carries the window minimum and maximum.
 // The line is printed through the expression "" + report. Print(report) with a variable makes the engine print
 // the declaration (string report = '...'), as observed in a real RPT.
@@ -74,6 +76,7 @@ class HCPerfSampler
         m_WindowIndex = 0;
         m_CostMaxTicks.Clear();
         m_TicksPerMs = 0;
+        HCRefreshEcologyCalibration();
         m_EcologyIndex = -1;
         m_ModuleNames.Clear();
         m_ModuleMaxTicks.Clear();
@@ -118,6 +121,15 @@ class HCPerfSampler
         runtime.HCResetCostTicks();
     }
 
+    // Refresh when a window closes, including invalid calibration and Stop;
+    // waiting for the next module sample would leave a stale rate in HCReport.
+    // Passive singleton lookup only: no lifecycle callback or native query.
+    protected void HCRefreshEcologyCalibration()
+    {
+        HCEcologyRuntime runtime = HCEcologyRuntime.HCPeek();
+        if (runtime) runtime.HCSetCalibration(m_TicksPerMs);
+    }
+
     // Same validated registration index as SampleModule. Kind: 0 startup,
     // 1 native callback, 2 save, 3 admission. Raw units are never called ms.
     void SampleCost(int moduleIndex, int kind, int workTicks)
@@ -144,10 +156,27 @@ class HCPerfSampler
         {
             string cost = "[HC Cost] module=" + m_ModuleNames.Get(costIndex);
             int slot = costIndex * 4;
-            cost = cost + " startup_ms=" + FormatCost(m_CostMaxTicks.Get(slot), ticksPerMs);
-            cost = cost + " callback_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 1), ticksPerMs);
-            cost = cost + " save_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 2), ticksPerMs);
-            cost = cost + " admission_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 3), ticksPerMs);
+            if (ticksPerMs > 0)
+            {
+                cost = cost + " startup_ms=" + FormatCost(m_CostMaxTicks.Get(slot), ticksPerMs);
+                cost = cost + " callback_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 1), ticksPerMs);
+                cost = cost + " save_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 2), ticksPerMs);
+                cost = cost + " admission_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 3), ticksPerMs);
+            }
+            else
+            {
+                // -1 means unobserved, as in SampleCost. Preserve once-only
+                // startup/admission evidence even if this window cannot convert.
+                int startupTicks = m_CostMaxTicks.Get(slot);
+                int callbackTicks = m_CostMaxTicks.Get(slot + 1);
+                int saveTicks = m_CostMaxTicks.Get(slot + 2);
+                int admissionTicks = m_CostMaxTicks.Get(slot + 3);
+                cost = cost + " startup_ticks=" + startupTicks.ToString();
+                cost = cost + " callback_ticks=" + callbackTicks.ToString();
+                cost = cost + " save_ticks=" + saveTicks.ToString();
+                cost = cost + " admission_ticks=" + admissionTicks.ToString();
+                cost = cost + " calibration=invalid reason=invalid_calibration";
+            }
             Print("" + cost + "; runtime=PENDING");
             costIndex++;
         }
@@ -185,6 +214,7 @@ class HCPerfSampler
         if (!m_Active) return;
         m_Active = false;
         m_TicksPerMs = 0;
+        HCRefreshEcologyCalibration();
         ResetWindow();
         Print("[HollowCountry] Perf sampler stopped");
     }
@@ -341,8 +371,9 @@ class HCPerfSampler
         if (calibrated)
         {
             m_TicksPerMs = ticksPerMs;
-            EmitCosts(ticksPerMs);
         }
+        HCRefreshEcologyCalibration();
+        EmitCosts(m_TicksPerMs);
         Print("" + report);
         ResetWindow();
     }

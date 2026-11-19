@@ -249,7 +249,11 @@ class HCEcologyRuntime
 		}
 		m_AdmissionMaxTicks = Math.Max(m_AdmissionMaxTicks, TickCount(admissionStart));
 		m_Store = new HCEcologyRuntimeStore;
+		int openStart = TickCount(0);
 		m_Checkpoint = m_Store.Open(worldName, session);
+		// Open includes recovery/readback and the synchronous startup barrier.
+		// Save attribution overlaps total startup; neither is an additive cost.
+		HCRecordSaveTicks(TickCount(openStart));
 		if (!m_Checkpoint)
 		{
 			Print("[HC Ecology] checkpoint unavailable; observation service rejected");
@@ -694,7 +698,10 @@ class HCEcologyRuntime
 		next.Revision = m_Checkpoint.Revision + 1;
 		next.Samples = m_Checkpoint.Samples;
 		next.PathQueries = m_Checkpoint.PathQueries;
-		if (!m_Store.Save(next))
+		int saveStart = TickCount(0);
+		bool saved = m_Store.Save(next);
+		HCRecordSaveTicks(TickCount(saveStart));
+		if (!saved)
 		{
 			Print("[HC Ecology] checkpoint write/readback failed; stopped, preserve journal");
 			return false;
