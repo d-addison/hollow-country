@@ -454,5 +454,3579 @@
       "status": "pending",
       "acceptance": "Exact-source DayZDiag compile/boot, normal signed PBO/server, two-client visibility/competition, feature-off and stop/restart cleanup, no script/CE errors; record source/PBO/mission/config/dependency hashes."
     }
-  ]
+  ],
+  "gapcov_membership": {
+    "SchemaVersion": 1,
+    "Trace": "audit-cov worker E; #199; HC-48/HC-33/HC-59",
+    "RuntimeAcceptance": "PENDING",
+    "Summary": {
+      "Localities": 88,
+      "ResidentialClusters": 64,
+      "NativeHabitatFiles": 11,
+      "NativeZoneRows": 3254,
+      "LabelPointsOutsideWildlife": 31,
+      "ExistingRegionalScenes": 5,
+      "LegacyBarns": 6,
+      "AdditionalExteriorScenes": 69,
+      "ShelterGapLocalities": 14,
+      "ObservedShelters": 0
+    },
+    "Sources": [
+      {
+        "path": "cfgenvironment.xml",
+        "sha256": "3f73c9f3abe7ed3811811a147ecfcc596af6170552e372c5eaff27dd92fbf135"
+      },
+      {
+        "path": "db/globals.xml",
+        "sha256": "913abd8a464fab1ccf775f6b48c13387d9ed613af0399f6c949a61376afd35c9"
+      },
+      {
+        "path": "env/bear_territories.xml",
+        "sha256": "9aa16e734d49d70e835ebe8161f59f0d2386602f9cfc026b42471a1826a9bbf8"
+      },
+      {
+        "path": "env/cattle_territories.xml",
+        "sha256": "e785fcb76f7c1129b98786914af7b10c8cf41b9a4fcc1dd46d35fbf790e1a0bd"
+      },
+      {
+        "path": "env/fox_territories.xml",
+        "sha256": "b5824e840e7f61d60c0316d607afaab462e5db8d87e5af2dddcdc67f0632bb82"
+      },
+      {
+        "path": "env/hare_territories.xml",
+        "sha256": "885fc361597bf7e669bbc99aef6e4ff7e9553481c73d5733cd44caf09099737f"
+      },
+      {
+        "path": "env/hen_territories.xml",
+        "sha256": "8474ae86e74a0b355f2f123c306acb5b05392c083d076857e70577078b194048"
+      },
+      {
+        "path": "env/pig_territories.xml",
+        "sha256": "663a680028e17f3cb6e062731684c1a9f53492096d080a702fe667f5b7576806"
+      },
+      {
+        "path": "env/red_deer_territories.xml",
+        "sha256": "363bf229ee6a22dd5a8018532f919a485f7478eb9671fd05c60144d8bfd656d7"
+      },
+      {
+        "path": "env/roe_deer_territories.xml",
+        "sha256": "221e2cbced8f39d08b48d0e3ad82188bfa7f0491ed472519be5d854fe58a88db"
+      },
+      {
+        "path": "env/sheep_goat_territories.xml",
+        "sha256": "a63a967396b703c311725b85dc8d16cd3250ff00528e9800700d9965e8ef647a"
+      },
+      {
+        "path": "env/wild_boar_territories.xml",
+        "sha256": "aa05fba0ca6e45df639fd2e105fb56be5a8590a3d5911fafb9a3f7ca6a98b297"
+      },
+      {
+        "path": "env/wolf_territories.xml",
+        "sha256": "36738538717e378a13e0566b9888e58d06a80193506d8bd5a12bf57949aad935"
+      },
+      {
+        "path": "mapgrouppos.xml",
+        "sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+      },
+      {
+        "path": "mapgroupproto.xml",
+        "sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+      }
+    ],
+    "CensusSources": [
+      {
+        "path": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b"
+      }
+    ],
+    "RepositorySources": [
+      {
+        "path": "mission/hollow-country/ai/sites.json",
+        "sha256": "2764d4379ef23e6d38254038d2fe542772058ac078677b48978dcde5a544dbc5"
+      },
+      {
+        "path": "mission/hollow-country/ai/localities.json",
+        "sha256": "c7803266d8cf12ab8480b04ea82c2da29097f4e94e1205b1b163388bdaabb867"
+      },
+      {
+        "path": "mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c",
+        "sha256": "d60f1ead0beb166539089ca0cc21c7fd116f8d8a74e555d58ddca2c1a6489401"
+      }
+    ],
+    "Policy": "Native population and flora lifecycle unchanged. Circle membership tests label points only; nearest-label CE hosts, barns and clusters are spatial proxies. No locality boundaries, terrain access, food availability or occupancy inferred.",
+    "NativeZoneIndexBasis": "Zero-based ecology_territories.audit zones, files in NativeHabitatFiles order; includes every zone, never a second CE registration.",
+    "NativeHabitatFiles": [
+      "env/bear_territories.xml",
+      "env/cattle_territories.xml",
+      "env/fox_territories.xml",
+      "env/hare_territories.xml",
+      "env/hen_territories.xml",
+      "env/pig_territories.xml",
+      "env/red_deer_territories.xml",
+      "env/roe_deer_territories.xml",
+      "env/sheep_goat_territories.xml",
+      "env/wild_boar_territories.xml",
+      "env/wolf_territories.xml"
+    ],
+    "Localities": [
+      {
+        "Id": "balota",
+        "Anchor": [
+          4527.58,
+          0,
+          2465.32
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 52,
+          "Coast": 8,
+          "Farm": 50,
+          "Industrial": 46,
+          "Town": 5,
+          "Hunting": 2,
+          "Military": 9
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-balota-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1824
+        ]
+      },
+      {
+        "Id": "belaya-polyana",
+        "Anchor": [
+          14166,
+          0,
+          14968
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Farm": 36,
+          "Industrial": 28,
+          "Village": 18,
+          "Hunting": 4
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-belaya-polyana-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "berezhki",
+        "Anchor": [
+          15020,
+          0,
+          13905
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 7,
+          "Village": 9,
+          "Farm": 4,
+          "Industrial": 4,
+          "Coast": 23
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-berezhki-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "berezino",
+        "Anchor": [
+          12372.383,
+          0,
+          9760.981
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 348,
+          "Village": 327,
+          "Farm": 251,
+          "Town": 83,
+          "Hunting": 8,
+          "Medic": 2,
+          "SeasonalEvent": 8,
+          "Police": 6,
+          "Military": 5,
+          "Office": 4,
+          "School": 4,
+          "Coast": 46,
+          "Firefighter": 4
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-berezino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "bogatyrka",
+        "Anchor": [
+          1453.62,
+          0,
+          8870.92
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 17,
+          "Hunting": 14,
+          "Farm": 17,
+          "Industrial": 17,
+          "Town": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-bogatyrka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          3019,
+          3022,
+          3118
+        ]
+      },
+      {
+        "Id": "bor",
+        "Anchor": [
+          3316.406,
+          0,
+          4070.966
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 43,
+          "Farm": 45,
+          "Industrial": 32,
+          "Hunting": 7
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [
+          "Bor South Rest"
+        ],
+        "AdditionalSceneId": "gapcov-bor-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          2751
+        ]
+      },
+      {
+        "Id": "chernaya-polyana",
+        "Anchor": [
+          12158.54,
+          0,
+          13770.22
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 4,
+          "Village": 97,
+          "Farm": 57,
+          "Industrial": 118,
+          "Town": 14,
+          "Police": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Firefighter": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-chernaya-polyana-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "chernogorsk",
+        "Anchor": [
+          6778.619,
+          0,
+          2321.774
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Coast": 21,
+          "Industrial": 191,
+          "Farm": 101,
+          "Village": 122,
+          "Hunting": 5,
+          "Town": 248,
+          "Office": 2,
+          "School": 1,
+          "SeasonalEvent": 30,
+          "Medic": 1,
+          "Police": 3,
+          "Military": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-chernogorsk-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "devils-castle",
+        "Anchor": [
+          6900.0,
+          0.0,
+          11400.0
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 7,
+          "Farm": 11,
+          "Industrial": 11,
+          "Hunting": 18,
+          "Town": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-devils-castle-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1587
+        ]
+      },
+      {
+        "Id": "dobroye",
+        "Anchor": [
+          12996,
+          0,
+          15066
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 16,
+          "Industrial": 15,
+          "Village": 21,
+          "Town": 1,
+          "Hunting": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-dobroye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          2990
+        ]
+      },
+      {
+        "Id": "dolina",
+        "Anchor": [
+          11285.17,
+          0,
+          6633.58
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 79,
+          "Farm": 67,
+          "Industrial": 65,
+          "Hunting": 8,
+          "Police": 1,
+          "Town": 2,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1741,
+          1977
+        ]
+      },
+      {
+        "Id": "drakon",
+        "Anchor": [
+          11191,
+          0,
+          2443
+        ],
+        "Island": true,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Village": 18,
+          "Farm": 9,
+          "Industrial": 19,
+          "Coast": 12,
+          "Police": 1,
+          "Town": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "island_local_geometry_and_access_pending",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "drozhino",
+        "Anchor": [
+          3374,
+          0,
+          4861
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 13,
+          "Industrial": 11,
+          "Village": 11,
+          "Hunting": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1554
+        ]
+      },
+      {
+        "Id": "dubovo",
+        "Anchor": [
+          6754.51,
+          0,
+          3595.257
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Farm": 20,
+          "Industrial": 53,
+          "Village": 49,
+          "Town": 53,
+          "Hunting": 7,
+          "Office": 4,
+          "School": 2,
+          "SeasonalEvent": 2,
+          "Police": 1,
+          "Medic": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-dubovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "dubrovka",
+        "Anchor": [
+          10324.299,
+          0,
+          9888.237
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 31,
+          "Village": 36,
+          "Hunting": 7,
+          "Farm": 34,
+          "Military": 3,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Town": 2
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-dubrovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1678
+        ]
+      },
+      {
+        "Id": "elektrozavodsk",
+        "Anchor": [
+          10286.68,
+          0,
+          1992.77
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 288,
+          "Village": 248,
+          "Coast": 11,
+          "Farm": 149,
+          "Town": 88,
+          "Police": 5,
+          "Hunting": 4,
+          "Military": 9,
+          "Office": 3,
+          "School": 2,
+          "Firefighter": 2,
+          "Medic": 1,
+          "SeasonalEvent": 7
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [
+          "se-bus-roof"
+        ],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1629
+        ]
+      },
+      {
+        "Id": "galkino",
+        "Anchor": [
+          1102.68,
+          0,
+          8798.27
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Town": 8,
+          "Village": 48,
+          "Industrial": 33,
+          "Military": 7,
+          "Farm": 25,
+          "Hunting": 6
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-galkino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "gorka",
+        "Anchor": [
+          9524,
+          0,
+          8945
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 73,
+          "Industrial": 69,
+          "Hunting": 10,
+          "Village": 77,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Medic": 1,
+          "Town": 3,
+          "Police": 1,
+          "Coast": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-gorka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1829
+        ]
+      },
+      {
+        "Id": "green-mountain",
+        "Anchor": [
+          3700.0,
+          0.0,
+          6000.0
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 8,
+          "Town": 1,
+          "Village": 4,
+          "Industrial": 6,
+          "Farm": 7,
+          "Military": 2,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1732
+        ]
+      },
+      {
+        "Id": "grishino",
+        "Anchor": [
+          5980,
+          0,
+          10257
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Military": 11,
+          "Industrial": 41,
+          "Village": 57,
+          "Farm": 43,
+          "Hunting": 4,
+          "Town": 3,
+          "Coast": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1702,
+          2020
+        ]
+      },
+      {
+        "Id": "guglovo",
+        "Anchor": [
+          8445,
+          0,
+          6579
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 4,
+          "Farm": 33,
+          "Industrial": 26,
+          "Village": 23
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-guglovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1666
+        ]
+      },
+      {
+        "Id": "gvozdno",
+        "Anchor": [
+          8644.751,
+          0,
+          11934.115
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 65,
+          "Farm": 45,
+          "Industrial": 41,
+          "Hunting": 8,
+          "Town": 5,
+          "Office": 2,
+          "School": 2,
+          "SeasonalEvent": 2,
+          "Military": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-gvozdno-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1658
+        ]
+      },
+      {
+        "Id": "kabanino",
+        "Anchor": [
+          5300.71,
+          0,
+          8645.9
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Town": 1,
+          "Village": 23,
+          "Farm": 27,
+          "Industrial": 22,
+          "Military": 1,
+          "Hunting": 3,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-kabanino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1724,
+          2078
+        ]
+      },
+      {
+        "Id": "kalinovka",
+        "Anchor": [
+          7448,
+          0,
+          13406
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 35,
+          "Village": 42,
+          "Hunting": 6,
+          "Military": 5,
+          "Farm": 40,
+          "Town": 3,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-kalinovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1446
+        ]
+      },
+      {
+        "Id": "kamenka",
+        "Anchor": [
+          1981,
+          0,
+          2207
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Coast": 16,
+          "Industrial": 29,
+          "Village": 49,
+          "Office": 2,
+          "School": 2,
+          "SeasonalEvent": 2,
+          "Town": 3,
+          "Hunting": 6,
+          "Farm": 29
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-kamenka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "kamensk",
+        "Anchor": [
+          6748.741,
+          0,
+          14430.046
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 51,
+          "Village": 46,
+          "Industrial": 45,
+          "Hunting": 6,
+          "Town": 4,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Military": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [
+          "nc-feed-roof"
+        ],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1770
+        ]
+      },
+      {
+        "Id": "kamyshovo",
+        "Anchor": [
+          12170,
+          0,
+          3458
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 42,
+          "Village": 46,
+          "Hunting": 3,
+          "Farm": 35,
+          "Coast": 11,
+          "Town": 3,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-kamyshovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "karmanovka",
+        "Anchor": [
+          12700.628,
+          0,
+          14691.312
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 57,
+          "Village": 64,
+          "Farm": 45,
+          "Hunting": 4,
+          "Coast": 9,
+          "Town": 1,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-karmanovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "khelm",
+        "Anchor": [
+          12329.27,
+          0,
+          10771.01
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 15,
+          "Town": 9,
+          "Village": 68,
+          "Farm": 43,
+          "Industrial": 58,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-khelm-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "komarovo",
+        "Anchor": [
+          3702,
+          0,
+          2440
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 44,
+          "Hunting": 2,
+          "Town": 6,
+          "Farm": 32,
+          "Industrial": 37,
+          "Coast": 12,
+          "Police": 1,
+          "Military": 2
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1720
+        ]
+      },
+      {
+        "Id": "kozlovka",
+        "Anchor": [
+          4402,
+          0,
+          4736
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 7,
+          "Farm": 34,
+          "Industrial": 38,
+          "Village": 44,
+          "Town": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-kozlovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1553,
+          2068
+        ]
+      },
+      {
+        "Id": "krasnostav",
+        "Anchor": [
+          11203.167,
+          0,
+          12340.808
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 10,
+          "Village": 94,
+          "Farm": 83,
+          "Industrial": 87,
+          "Town": 25,
+          "Office": 2,
+          "School": 2,
+          "SeasonalEvent": 3,
+          "Police": 1,
+          "Medic": 11,
+          "Coast": 2,
+          "Military": 7
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-krasnostav-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1596
+        ]
+      },
+      {
+        "Id": "krasnoye",
+        "Anchor": [
+          6411.374,
+          0,
+          15029.961
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 13,
+          "Industrial": 26,
+          "Village": 17,
+          "Hunting": 4,
+          "Town": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-krasnoye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1865
+        ]
+      },
+      {
+        "Id": "kumyrna",
+        "Anchor": [
+          8300,
+          0,
+          6054
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 4,
+          "Farm": 3,
+          "Industrial": 4,
+          "Village": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-kumyrna-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1665
+        ]
+      },
+      {
+        "Id": "lopatino",
+        "Anchor": [
+          2801,
+          0,
+          10029
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Coast": 1,
+          "Industrial": 57,
+          "Village": 68,
+          "Farm": 47,
+          "Town": 6,
+          "Hunting": 4,
+          "Military": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-lopatino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1716
+        ]
+      },
+      {
+        "Id": "mogilevka",
+        "Anchor": [
+          7650.41,
+          0,
+          5096.46
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 5,
+          "Farm": 34,
+          "Industrial": 33,
+          "Village": 49,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Town": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-mogilevka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1785,
+          1909
+        ]
+      },
+      {
+        "Id": "msta",
+        "Anchor": [
+          11333.79,
+          0,
+          5421.4
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Town": 2,
+          "Village": 29,
+          "Farm": 34,
+          "Industrial": 28,
+          "Hunting": 9
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-msta-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "myshkino",
+        "Anchor": [
+          2048,
+          0,
+          7258
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Military": 15,
+          "Hunting": 7,
+          "Industrial": 31,
+          "Village": 35,
+          "Farm": 38,
+          "Town": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-myshkino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          213,
+          1687
+        ]
+      },
+      {
+        "Id": "nadezhdino",
+        "Anchor": [
+          5894,
+          0,
+          4780
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 7,
+          "Industrial": 33,
+          "Village": 36,
+          "Farm": 24,
+          "Police": 1,
+          "Town": 4
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-nadezhdino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1750
+        ]
+      },
+      {
+        "Id": "nagornoye",
+        "Anchor": [
+          9286,
+          0,
+          14677
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Town": 1,
+          "Village": 55,
+          "Industrial": 38,
+          "Hunting": 9,
+          "Farm": 69,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-nagornoye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "nizhnee",
+        "Anchor": [
+          12824.88,
+          0,
+          8097.7
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 58,
+          "Farm": 53,
+          "Industrial": 50,
+          "Hunting": 5,
+          "Town": 2,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Coast": 16,
+          "Military": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-nizhnee-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1718
+        ]
+      },
+      {
+        "Id": "novaya-petrovka",
+        "Anchor": [
+          3477.169,
+          0,
+          12931.243
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Farm": 82,
+          "Hunting": 6,
+          "Village": 171,
+          "Industrial": 152,
+          "Town": 74,
+          "School": 1,
+          "Coast": 3,
+          "Military": 2,
+          "Police": 2,
+          "SeasonalEvent": 1,
+          "Medic": 1,
+          "Office": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-novaya-petrovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "novodmitrovsk",
+        "Anchor": [
+          11339.77,
+          0,
+          14391.05
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 75,
+          "Industrial": 188,
+          "Village": 145,
+          "Police": 4,
+          "Town": 201,
+          "Hunting": 8,
+          "SeasonalEvent": 18,
+          "Medic": 1,
+          "Office": 3,
+          "Military": 2,
+          "School": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [
+          "ne-feed-roof"
+        ],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1707
+        ]
+      },
+      {
+        "Id": "novoselki",
+        "Anchor": [
+          6115.91,
+          0,
+          3256.36
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Town": 33,
+          "Village": 130,
+          "Farm": 98,
+          "Industrial": 121,
+          "Military": 3,
+          "Hunting": 3,
+          "Office": 2,
+          "School": 2,
+          "SeasonalEvent": 2,
+          "Police": 1,
+          "Firefighter": 3,
+          "Coast": 2
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-novoselki-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "novy-sobor",
+        "Anchor": [
+          7123.63,
+          0,
+          7774.63
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 10,
+          "Farm": 40,
+          "Village": 26,
+          "Industrial": 30,
+          "Town": 5,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Police": 1,
+          "Medic": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-novy-sobor-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1734
+        ]
+      },
+      {
+        "Id": "nw-airfield",
+        "Anchor": [
+          4600.0,
+          0.0,
+          10400.0
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Military": 73,
+          "Farm": 8,
+          "Industrial": 78,
+          "Village": 59,
+          "Firefighter": 6,
+          "Police": 1,
+          "Coast": 8,
+          "Office": 2,
+          "Town": 4,
+          "Medic": 4,
+          "Hunting": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-nw-airfield-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "olsha",
+        "Anchor": [
+          13402,
+          0,
+          12898
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 41,
+          "Village": 39,
+          "Farm": 47,
+          "Hunting": 11,
+          "Coast": 4,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Town": 2
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-olsha-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1561
+        ]
+      },
+      {
+        "Id": "orlovets",
+        "Anchor": [
+          12250,
+          0,
+          7253
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 59,
+          "Village": 50,
+          "Police": 1,
+          "Farm": 44,
+          "Hunting": 6,
+          "Town": 6,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-orlovets-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "otmel",
+        "Anchor": [
+          11581.25,
+          0,
+          3213.24
+        ],
+        "Island": true,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 5,
+          "Village": 5,
+          "Hunting": 3,
+          "Coast": 7,
+          "Farm": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "island_local_geometry_and_access_pending",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "pavlovo",
+        "Anchor": [
+          1693.98,
+          0,
+          3858.65
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 7,
+          "Industrial": 50,
+          "Farm": 34,
+          "Village": 53,
+          "Town": 4,
+          "Office": 2,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Police": 4,
+          "Military": 16,
+          "Medic": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-pavlovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1843,
+          2049
+        ]
+      },
+      {
+        "Id": "pogorevka",
+        "Anchor": [
+          4445,
+          0,
+          6322
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 18,
+          "Village": 30,
+          "Farm": 15,
+          "Town": 5
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1731
+        ]
+      },
+      {
+        "Id": "polana",
+        "Anchor": [
+          10794,
+          0,
+          8160
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 5,
+          "Farm": 27,
+          "Industrial": 32,
+          "Village": 41,
+          "Town": 22,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [
+          "Polana South Wayhouse"
+        ],
+        "AdditionalSceneId": "gapcov-polana-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "polesovo",
+        "Anchor": [
+          5955.737,
+          0,
+          13558.046
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 30,
+          "Industrial": 26,
+          "Village": 43,
+          "Hunting": 4
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-polesovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1697
+        ]
+      },
+      {
+        "Id": "prigorodki",
+        "Anchor": [
+          7760,
+          0,
+          3336
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 140,
+          "Village": 74,
+          "Farm": 27,
+          "Military": 15,
+          "Town": 3,
+          "Coast": 91,
+          "Hunting": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [
+          "sc-bus-roof"
+        ],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "prison-island",
+        "Anchor": [
+          2816.601,
+          0,
+          1277.96
+        ],
+        "Island": true,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 10,
+          "Village": 9,
+          "Military": 7,
+          "Coast": 12,
+          "Police": 1,
+          "Farm": 3,
+          "Prison": 2,
+          "Town": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "island_local_geometry_and_access_pending",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "pulkovo",
+        "Anchor": [
+          5015,
+          0,
+          5607
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 22,
+          "Farm": 28,
+          "Industrial": 27,
+          "Town": 2,
+          "Hunting": 3,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [
+          "Pulkovo Ridge Rest"
+        ],
+        "AdditionalSceneId": "gapcov-pulkovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1641,
+          1994
+        ]
+      },
+      {
+        "Id": "pusta",
+        "Anchor": [
+          9197,
+          0,
+          3873
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 10,
+          "Industrial": 23,
+          "Village": 22,
+          "Farm": 24,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-pusta-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1879
+        ]
+      },
+      {
+        "Id": "pustoshka",
+        "Anchor": [
+          3137.944,
+          0,
+          7890.925
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 73,
+          "Industrial": 78,
+          "Village": 59,
+          "Town": 7,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Hunting": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [
+          "Sosnovka Track Barn"
+        ],
+        "AdditionalSceneId": "gapcov-pustoshka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1636
+        ]
+      },
+      {
+        "Id": "ratnoye",
+        "Anchor": [
+          6195.878,
+          0,
+          12761.802
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Town": 2,
+          "Village": 34,
+          "Farm": 31,
+          "Industrial": 22,
+          "Hunting": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1736
+        ]
+      },
+      {
+        "Id": "rogovo",
+        "Anchor": [
+          4802,
+          0,
+          6748
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 8,
+          "Industrial": 24,
+          "Village": 25,
+          "Farm": 22,
+          "Town": 2,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-rogovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1715
+        ]
+      },
+      {
+        "Id": "severograd",
+        "Anchor": [
+          8168.484,
+          0,
+          12573.602
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 189,
+          "Village": 168,
+          "Town": 95,
+          "Farm": 154,
+          "Firefighter": 1,
+          "Police": 3,
+          "Hunting": 1,
+          "Office": 2,
+          "Medic": 1,
+          "School": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-severograd-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "shakhovka",
+        "Anchor": [
+          9728.64,
+          0,
+          6567.3
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 7,
+          "Farm": 29,
+          "Industrial": 23,
+          "Village": 26,
+          "Town": 2
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [
+          "Dolina Upper Refuge"
+        ],
+        "AdditionalSceneId": "gapcov-shakhovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1872
+        ]
+      },
+      {
+        "Id": "sinystok",
+        "Anchor": [
+          1538.278,
+          0,
+          11904.578
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 9,
+          "Village": 57,
+          "Farm": 51,
+          "Industrial": 44,
+          "Town": 5,
+          "Medic": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [
+          "nw-feed-roof"
+        ],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1890
+        ]
+      },
+      {
+        "Id": "skalisty",
+        "Anchor": [
+          13715.454,
+          0,
+          3118.78
+        ],
+        "Island": true,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Village": 14,
+          "Farm": 7,
+          "Industrial": 8,
+          "Coast": 11,
+          "Hunting": 2,
+          "Town": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "island_local_geometry_and_access_pending",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "skvsch-biathlon-arena",
+        "Anchor": [
+          357,
+          0,
+          11142
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 16,
+          "Village": 20,
+          "Farm": 6,
+          "Industrial": 19,
+          "Town": 10,
+          "Office": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-skvsch-biathlon-arena-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          3159,
+          3218
+        ]
+      },
+      {
+        "Id": "solnechny",
+        "Anchor": [
+          13487.724,
+          0,
+          6225.884
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 71,
+          "Hunting": 3,
+          "Farm": 46,
+          "Industrial": 75,
+          "Town": 5,
+          "Military": 1,
+          "Coast": 10,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Medic": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1635
+        ]
+      },
+      {
+        "Id": "sosnovka",
+        "Anchor": [
+          2556,
+          0,
+          6307
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 5,
+          "Village": 18,
+          "Industrial": 18,
+          "Farm": 16,
+          "Military": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-sosnovka-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1735,
+          1947
+        ]
+      },
+      {
+        "Id": "staroye",
+        "Anchor": [
+          10212.52,
+          0,
+          5385.05
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 37,
+          "Village": 54,
+          "Farm": 35,
+          "Hunting": 6,
+          "Town": 3,
+          "Medic": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Police": 1,
+          "Military": 7
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-staroye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "stary-sobor",
+        "Anchor": [
+          6114,
+          0,
+          7849
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 56,
+          "Hunting": 8,
+          "Village": 54,
+          "Farm": 49,
+          "Medic": 1,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Town": 8,
+          "Military": 13
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1794
+        ]
+      },
+      {
+        "Id": "stary-yar",
+        "Anchor": [
+          4987.86,
+          0,
+          14992.976
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 5,
+          "Village": 73,
+          "Farm": 81,
+          "Industrial": 59,
+          "Town": 4
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-stary-yar-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "svergino",
+        "Anchor": [
+          9493.52,
+          0,
+          13875.27
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Military": 2,
+          "Medic": 1,
+          "Hunting": 5,
+          "Industrial": 80,
+          "Village": 58,
+          "Farm": 80,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Town": 7,
+          "Coast": 8
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-svergino-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1754
+        ]
+      },
+      {
+        "Id": "svetloyarsk",
+        "Anchor": [
+          13989.74,
+          0,
+          13263.78
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 93,
+          "Village": 99,
+          "Town": 56,
+          "Farm": 40,
+          "Hunting": 2,
+          "Police": 2,
+          "Medic": 1,
+          "Office": 1,
+          "Coast": 14,
+          "Military": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-svetloyarsk-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "svyatoy-roman-ski-resort",
+        "Anchor": [
+          638,
+          0,
+          11667
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 8,
+          "Farm": 8,
+          "Hunting": 9,
+          "Town": 4,
+          "Industrial": 9
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-svyatoy-roman-ski-resort-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          3154
+        ]
+      },
+      {
+        "Id": "tisy",
+        "Anchor": [
+          3441.65,
+          0,
+          14799.55
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 38,
+          "Industrial": 50,
+          "Town": 8,
+          "Village": 62,
+          "Hunting": 16,
+          "Military": 4,
+          "Medic": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-tisy-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1700
+        ]
+      },
+      {
+        "Id": "tisy-military",
+        "Anchor": [
+          1684.98,
+          0,
+          14219.32
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Farm": 10,
+          "Industrial": 34,
+          "Town": 2,
+          "Village": 27,
+          "Military": 62,
+          "Hunting": 8,
+          "Coast": 6,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-tisy-military-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "topolniki",
+        "Anchor": [
+          2913.745,
+          0,
+          12366.357
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 80,
+          "Hunting": 6,
+          "Industrial": 60,
+          "Town": 16,
+          "Village": 68,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-topolniki-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1939
+        ]
+      },
+      {
+        "Id": "tulga",
+        "Anchor": [
+          12768,
+          0,
+          4384
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Farm": 16,
+          "Industrial": 18,
+          "Village": 21,
+          "Hunting": 4,
+          "Coast": 13,
+          "Town": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-tulga-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "turovo",
+        "Anchor": [
+          13630,
+          0,
+          14146
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 24,
+          "Industrial": 36,
+          "Village": 50,
+          "Hunting": 3,
+          "Town": 7,
+          "Coast": 2,
+          "Military": 5
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-turovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          109
+        ]
+      },
+      {
+        "Id": "vavilovo",
+        "Anchor": [
+          2263,
+          0,
+          11103
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Town": 1,
+          "Village": 63,
+          "Industrial": 22,
+          "Farm": 31,
+          "Hunting": 4
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-vavilovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "vybor",
+        "Anchor": [
+          3909.831,
+          0,
+          9019.614
+        ],
+        "Island": false,
+        "WildlifeDisposition": "label_gap_investigate_no_population_addition",
+        "NativeCEHostUsageCounts": {
+          "Farm": 69,
+          "Industrial": 96,
+          "Village": 71,
+          "Hunting": 2,
+          "Town": 14,
+          "Office": 2,
+          "Police": 3,
+          "Medic": 1,
+          "School": 1,
+          "SeasonalEvent": 1,
+          "Coast": 4,
+          "Military": 10
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-vybor-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "vybor-military",
+        "Anchor": [
+          4485.2,
+          0,
+          8290.67
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 4,
+          "Industrial": 7,
+          "Hunting": 3,
+          "Village": 4,
+          "Military": 13,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-vybor-military-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          76,
+          1723
+        ]
+      },
+      {
+        "Id": "vyshnaya-dubrovka",
+        "Anchor": [
+          9926.823,
+          0,
+          10468.919
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 25,
+          "Industrial": 16,
+          "Town": 4,
+          "Farm": 13,
+          "Hunting": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "",
+        "ShelterGap": "measured_stock_roof_missing_in_nearest_label_partition",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1763
+        ]
+      },
+      {
+        "Id": "vyshnoye",
+        "Anchor": [
+          6629,
+          0,
+          6051
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 12,
+          "Village": 24,
+          "Farm": 14,
+          "Hunting": 10
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-vyshnoye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1820
+        ]
+      },
+      {
+        "Id": "vysotovo",
+        "Anchor": [
+          5701.24,
+          0,
+          2556.11
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Village": 67,
+          "Farm": 18,
+          "Industrial": 74,
+          "Military": 4,
+          "Town": 71,
+          "Office": 2,
+          "School": 3,
+          "SeasonalEvent": 2,
+          "Coast": 9,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-vysotovo-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1614
+        ]
+      },
+      {
+        "Id": "zabolotye",
+        "Anchor": [
+          1256.859,
+          0,
+          9993.26
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Hunting": 7,
+          "Farm": 20,
+          "Industrial": 22,
+          "Village": 22,
+          "Coast": 4,
+          "Military": 3
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-zabolotye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          2719
+        ]
+      },
+      {
+        "Id": "zaprudnoye",
+        "Anchor": [
+          5214,
+          0,
+          12792
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 70,
+          "Hunting": 4,
+          "Industrial": 49,
+          "Village": 50,
+          "Military": 3,
+          "Town": 2
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-zaprudnoye-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          239
+        ]
+      },
+      {
+        "Id": "zelenogorsk",
+        "Anchor": [
+          2796,
+          0,
+          5166
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Industrial": 149,
+          "Village": 127,
+          "Coast": 8,
+          "Farm": 86,
+          "Hunting": 4,
+          "Military": 23,
+          "Town": 66,
+          "Firefighter": 4,
+          "Office": 1,
+          "School": 1,
+          "SeasonalEvent": 2,
+          "Medic": 1,
+          "Police": 1
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [
+          "Drozhino Hay Refuge"
+        ],
+        "AdditionalSceneId": "gapcov-zelenogorsk-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          2014
+        ]
+      },
+      {
+        "Id": "zvir",
+        "Anchor": [
+          577.33,
+          0,
+          5317.42
+        ],
+        "Island": false,
+        "WildlifeDisposition": "retain_native",
+        "NativeCEHostUsageCounts": {
+          "Farm": 60,
+          "Industrial": 41,
+          "Village": 36,
+          "Hunting": 7
+        },
+        "NativeFloraSurface": "unknown_no_surface_census",
+        "CatalogShelterIds": [],
+        "LegacyBarnNames": [],
+        "AdditionalSceneId": "gapcov-zvir-roof",
+        "ShelterGap": "",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          705,
+          1964,
+          1968
+        ]
+      }
+    ],
+    "ResidentialClusters": [
+      {
+        "Id": "R01",
+        "Anchor": [
+          1687.905,
+          0,
+          3835.782
+        ],
+        "LocalityId": "pavlovo",
+        "DistanceToLabelM": 23.661,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1843
+        ]
+      },
+      {
+        "Id": "R02",
+        "Anchor": [
+          1845.071,
+          0,
+          2240.605
+        ],
+        "LocalityId": "kamenka",
+        "DistanceToLabelM": 140.021,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1899
+        ]
+      },
+      {
+        "Id": "R03",
+        "Anchor": [
+          3292.342,
+          0,
+          3935.724
+        ],
+        "LocalityId": "bor",
+        "DistanceToLabelM": 137.366,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1835,
+          1961
+        ]
+      },
+      {
+        "Id": "R04",
+        "Anchor": [
+          3622.922,
+          0,
+          2482.207
+        ],
+        "LocalityId": "komarovo",
+        "DistanceToLabelM": 89.637,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1720
+        ]
+      },
+      {
+        "Id": "R05",
+        "Anchor": [
+          4475.699,
+          0,
+          2491.84
+        ],
+        "LocalityId": "balota",
+        "DistanceToLabelM": 58.266,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1824
+        ]
+      },
+      {
+        "Id": "R06",
+        "Anchor": [
+          6478.636,
+          0,
+          2614.211
+        ],
+        "LocalityId": "chernogorsk",
+        "DistanceToLabelM": 418.938,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R07",
+        "Anchor": [
+          8020.691,
+          0,
+          3235.784
+        ],
+        "LocalityId": "prigorodki",
+        "DistanceToLabelM": 279.29,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1681,
+          2064
+        ]
+      },
+      {
+        "Id": "R08",
+        "Anchor": [
+          9142.755,
+          0,
+          3952.695
+        ],
+        "LocalityId": "pusta",
+        "DistanceToLabelM": 96.404,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          2678
+        ]
+      },
+      {
+        "Id": "R09",
+        "Anchor": [
+          10322.695,
+          0,
+          2252.975
+        ],
+        "LocalityId": "elektrozavodsk",
+        "DistanceToLabelM": 262.686,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R10",
+        "Anchor": [
+          12071.475,
+          0,
+          3543.973
+        ],
+        "LocalityId": "kamyshovo",
+        "DistanceToLabelM": 130.761,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1694
+        ]
+      },
+      {
+        "Id": "R11",
+        "Anchor": [
+          2724.126,
+          0,
+          5282.573
+        ],
+        "LocalityId": "zelenogorsk",
+        "DistanceToLabelM": 136.949,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1776
+        ]
+      },
+      {
+        "Id": "R12",
+        "Anchor": [
+          4407.231,
+          0,
+          4655.187
+        ],
+        "LocalityId": "kozlovka",
+        "DistanceToLabelM": 80.982,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1553,
+          2070
+        ]
+      },
+      {
+        "Id": "R13",
+        "Anchor": [
+          4915.919,
+          0,
+          5646.936
+        ],
+        "LocalityId": "pulkovo",
+        "DistanceToLabelM": 106.827,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1641,
+          1993
+        ]
+      },
+      {
+        "Id": "R14",
+        "Anchor": [
+          5886.419,
+          0,
+          4777.0
+        ],
+        "LocalityId": "nadezhdino",
+        "DistanceToLabelM": 8.153,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1750,
+          2007
+        ]
+      },
+      {
+        "Id": "R15",
+        "Anchor": [
+          7548.221,
+          0,
+          5107.338
+        ],
+        "LocalityId": "mogilevka",
+        "DistanceToLabelM": 102.766,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1784
+        ]
+      },
+      {
+        "Id": "R16",
+        "Anchor": [
+          10166.442,
+          0,
+          5505.642
+        ],
+        "LocalityId": "staroye",
+        "DistanceToLabelM": 129.095,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1744
+        ]
+      },
+      {
+        "Id": "R17",
+        "Anchor": [
+          11296.713,
+          0,
+          5468.333
+        ],
+        "LocalityId": "msta",
+        "DistanceToLabelM": 59.811,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R18",
+        "Anchor": [
+          12740.832,
+          0,
+          4413.622
+        ],
+        "LocalityId": "tulga",
+        "DistanceToLabelM": 40.194,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R19",
+        "Anchor": [
+          1987.539,
+          0,
+          7271.863
+        ],
+        "LocalityId": "myshkino",
+        "DistanceToLabelM": 62.03,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1687
+        ]
+      },
+      {
+        "Id": "R20",
+        "Anchor": [
+          3063.967,
+          0,
+          7898.208
+        ],
+        "LocalityId": "pustoshka",
+        "DistanceToLabelM": 74.335,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1636,
+          2055
+        ]
+      },
+      {
+        "Id": "R21",
+        "Anchor": [
+          4469.892,
+          0,
+          6402.921
+        ],
+        "LocalityId": "pogorevka",
+        "DistanceToLabelM": 84.663,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1731
+        ]
+      },
+      {
+        "Id": "R22",
+        "Anchor": [
+          4742.097,
+          0,
+          6793.003
+        ],
+        "LocalityId": "rogovo",
+        "DistanceToLabelM": 74.924,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1715,
+          2036
+        ]
+      },
+      {
+        "Id": "R23",
+        "Anchor": [
+          6080.561,
+          0,
+          7743.427
+        ],
+        "LocalityId": "stary-sobor",
+        "DistanceToLabelM": 110.742,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1794
+        ]
+      },
+      {
+        "Id": "R24",
+        "Anchor": [
+          6547.647,
+          0,
+          6099.792
+        ],
+        "LocalityId": "vyshnoye",
+        "DistanceToLabelM": 94.863,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1820
+        ]
+      },
+      {
+        "Id": "R25",
+        "Anchor": [
+          8429.808,
+          0,
+          6648.725
+        ],
+        "LocalityId": "guglovo",
+        "DistanceToLabelM": 71.361,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1666
+        ]
+      },
+      {
+        "Id": "R26",
+        "Anchor": [
+          9668.698,
+          0,
+          6610.821
+        ],
+        "LocalityId": "shakhovka",
+        "DistanceToLabelM": 74.075,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1872
+        ]
+      },
+      {
+        "Id": "R27",
+        "Anchor": [
+          11340.632,
+          0,
+          6601.923
+        ],
+        "LocalityId": "dolina",
+        "DistanceToLabelM": 63.861,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1741,
+          1977
+        ]
+      },
+      {
+        "Id": "R28",
+        "Anchor": [
+          12134.451,
+          0,
+          7253.702
+        ],
+        "LocalityId": "orlovets",
+        "DistanceToLabelM": 115.551,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1812
+        ]
+      },
+      {
+        "Id": "R29",
+        "Anchor": [
+          12220.438,
+          0,
+          6276.284
+        ],
+        "LocalityId": "orlovets",
+        "DistanceToLabelM": 977.163,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1813
+        ]
+      },
+      {
+        "Id": "R30",
+        "Anchor": [
+          13372.75,
+          0,
+          6272.573
+        ],
+        "LocalityId": "solnechny",
+        "DistanceToLabelM": 124.092,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1635
+        ]
+      },
+      {
+        "Id": "R31",
+        "Anchor": [
+          2703.063,
+          0,
+          9870.781
+        ],
+        "LocalityId": "lopatino",
+        "DistanceToLabelM": 186.078,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1716
+        ]
+      },
+      {
+        "Id": "R32",
+        "Anchor": [
+          3815.855,
+          0,
+          8861.693
+        ],
+        "LocalityId": "vybor",
+        "DistanceToLabelM": 183.768,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1571
+        ]
+      },
+      {
+        "Id": "R33",
+        "Anchor": [
+          5359.659,
+          0,
+          8569.76
+        ],
+        "LocalityId": "kabanino",
+        "DistanceToLabelM": 96.293,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1724,
+          2074
+        ]
+      },
+      {
+        "Id": "R34",
+        "Anchor": [
+          9537.046,
+          0,
+          8822.262
+        ],
+        "LocalityId": "gorka",
+        "DistanceToLabelM": 123.429,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1829
+        ]
+      },
+      {
+        "Id": "R35",
+        "Anchor": [
+          10460.238,
+          0,
+          9795.975
+        ],
+        "LocalityId": "dubrovka",
+        "DistanceToLabelM": 164.291,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1676
+        ]
+      },
+      {
+        "Id": "R36",
+        "Anchor": [
+          10679.634,
+          0,
+          8057.423
+        ],
+        "LocalityId": "polana",
+        "DistanceToLabelM": 153.628,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1640,
+          2084,
+          2085,
+          2086
+        ]
+      },
+      {
+        "Id": "R37",
+        "Anchor": [
+          12372.848,
+          0,
+          9545.568
+        ],
+        "LocalityId": "berezino",
+        "DistanceToLabelM": 215.414,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1852
+        ]
+      },
+      {
+        "Id": "R38",
+        "Anchor": [
+          12905.887,
+          0,
+          8086.277
+        ],
+        "LocalityId": "nizhnee",
+        "DistanceToLabelM": 81.808,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1718
+        ]
+      },
+      {
+        "Id": "R39",
+        "Anchor": [
+          2314.973,
+          0,
+          11054.546
+        ],
+        "LocalityId": "vavilovo",
+        "DistanceToLabelM": 71.056,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R40",
+        "Anchor": [
+          5996.099,
+          0,
+          10355.658
+        ],
+        "LocalityId": "grishino",
+        "DistanceToLabelM": 99.963,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1730
+        ]
+      },
+      {
+        "Id": "R41",
+        "Anchor": [
+          8116.575,
+          0,
+          11576.53
+        ],
+        "LocalityId": "gvozdno",
+        "DistanceToLabelM": 637.838,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1588,
+          1988,
+          1991
+        ]
+      },
+      {
+        "Id": "R42",
+        "Anchor": [
+          9895.542,
+          0,
+          10392.347
+        ],
+        "LocalityId": "vyshnaya-dubrovka",
+        "DistanceToLabelM": 82.715,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1763
+        ]
+      },
+      {
+        "Id": "R43",
+        "Anchor": [
+          12288.557,
+          0,
+          10897.059
+        ],
+        "LocalityId": "khelm",
+        "DistanceToLabelM": 132.461,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1725
+        ]
+      },
+      {
+        "Id": "R44",
+        "Anchor": [
+          1442.55,
+          0,
+          12029.619
+        ],
+        "LocalityId": "sinystok",
+        "DistanceToLabelM": 157.477,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1890,
+          1915
+        ]
+      },
+      {
+        "Id": "R45",
+        "Anchor": [
+          2850.844,
+          0,
+          12419.028
+        ],
+        "LocalityId": "topolniki",
+        "DistanceToLabelM": 82.041,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R46",
+        "Anchor": [
+          3421.6,
+          0,
+          13039.627
+        ],
+        "LocalityId": "novaya-petrovka",
+        "DistanceToLabelM": 121.799,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R47",
+        "Anchor": [
+          5862.197,
+          0,
+          13558.592
+        ],
+        "LocalityId": "polesovo",
+        "DistanceToLabelM": 93.542,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1697
+        ]
+      },
+      {
+        "Id": "R48",
+        "Anchor": [
+          6293.208,
+          0,
+          12694.374
+        ],
+        "LocalityId": "ratnoye",
+        "DistanceToLabelM": 118.405,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1736
+        ]
+      },
+      {
+        "Id": "R49",
+        "Anchor": [
+          7539.025,
+          0,
+          13449.405
+        ],
+        "LocalityId": "kalinovka",
+        "DistanceToLabelM": 100.844,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R50",
+        "Anchor": [
+          8112.078,
+          0,
+          12566.738
+        ],
+        "LocalityId": "severograd",
+        "DistanceToLabelM": 56.822,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R51",
+        "Anchor": [
+          9511.433,
+          0,
+          13774.991
+        ],
+        "LocalityId": "svergino",
+        "DistanceToLabelM": 101.866,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1754
+        ]
+      },
+      {
+        "Id": "R52",
+        "Anchor": [
+          11071.062,
+          0,
+          12308.78
+        ],
+        "LocalityId": "krasnostav",
+        "DistanceToLabelM": 135.932,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1596
+        ]
+      },
+      {
+        "Id": "R53",
+        "Anchor": [
+          12100.433,
+          0,
+          13766.319
+        ],
+        "LocalityId": "chernaya-polyana",
+        "DistanceToLabelM": 58.238,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R54",
+        "Anchor": [
+          13313.863,
+          0,
+          12960.347
+        ],
+        "LocalityId": "olsha",
+        "DistanceToLabelM": 107.96,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1561
+        ]
+      },
+      {
+        "Id": "R55",
+        "Anchor": [
+          13911.149,
+          0,
+          13236.081
+        ],
+        "LocalityId": "svetloyarsk",
+        "DistanceToLabelM": 83.329,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R56",
+        "Anchor": [
+          4940.979,
+          0,
+          15096.968
+        ],
+        "LocalityId": "stary-yar",
+        "DistanceToLabelM": 114.071,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1683,
+          2043
+        ]
+      },
+      {
+        "Id": "R57",
+        "Anchor": [
+          6649.613,
+          0,
+          14401.352
+        ],
+        "LocalityId": "kamensk",
+        "DistanceToLabelM": 103.197,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1770
+        ]
+      },
+      {
+        "Id": "R58",
+        "Anchor": [
+          9357.052,
+          0,
+          14615.942
+        ],
+        "LocalityId": "nagornoye",
+        "DistanceToLabelM": 93.683,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1755
+        ]
+      },
+      {
+        "Id": "R59",
+        "Anchor": [
+          10753.363,
+          0,
+          14404.943
+        ],
+        "LocalityId": "novodmitrovsk",
+        "DistanceToLabelM": 586.572,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1705
+        ]
+      },
+      {
+        "Id": "R60",
+        "Anchor": [
+          11586.731,
+          0,
+          14563.87
+        ],
+        "LocalityId": "novodmitrovsk",
+        "DistanceToLabelM": 301.424,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1704
+        ]
+      },
+      {
+        "Id": "R61",
+        "Anchor": [
+          12776.686,
+          0,
+          14643.559
+        ],
+        "LocalityId": "karmanovka",
+        "DistanceToLabelM": 89.806,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R62",
+        "Anchor": [
+          12939.904,
+          0,
+          15050.015
+        ],
+        "LocalityId": "dobroye",
+        "DistanceToLabelM": 58.329,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": []
+      },
+      {
+        "Id": "R63",
+        "Anchor": [
+          13548.03,
+          0,
+          14017.931
+        ],
+        "LocalityId": "turovo",
+        "DistanceToLabelM": 152.055,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          2080
+        ]
+      },
+      {
+        "Id": "R64",
+        "Anchor": [
+          14168.223,
+          0,
+          14934.608
+        ],
+        "LocalityId": "belaya-polyana",
+        "DistanceToLabelM": 33.466,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING",
+        "WildlifeZoneIndices": [
+          1839
+        ]
+      }
+    ]
+  }
 }
