@@ -54,11 +54,37 @@ class RuntimeSettingsTests(unittest.TestCase):
             changed = dict(self.value, **{name: value})
             self.assertTrue(validate_settings(changed))
         for key in self.value:
-            if key in V2_FLAGS or key == 'AILimits':
+            if key in V2_FLAGS or key in ('AILimits', 'ClientPresentationMask'):
                 continue
             changed = dict(self.value)
             del changed[key]
             self.assertTrue(validate_settings(changed), key)
+
+    def test_optional_presentation_mask_accepts_only_ints_0_through_15(self):
+        from tests.unit.test_hc_client_controls import install, SETTINGS
+        from types import SimpleNamespace as N
+        from tools.validate.runtime import LIMITS
+        value = dict(self.value)
+        value.pop('ClientPresentationMask', None)
+        self.assertEqual([], validate_settings(value))
+        for mask in range(16):
+            with self.subTest(mask=mask):
+                self.assertEqual([], validate_settings(dict(value, ClientPresentationMask=mask)))
+        for mask in (-1, 16, True, False, 1.5, '15', None):
+            self.assertTrue(validate_settings(dict(value, ClientPresentationMask=mask)), mask)
+        self.assertNotIn('ClientPresentationMask', LIMITS)
+        self.assertEqual(15, self.value.get('ClientPresentationMask'))
+        env = dict(HCAILimits=lambda: N(Validate=lambda: None), Print=lambda line: None)
+        env['HCAILimits'].Use = lambda limits: None
+        install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask',))
+        native = install(ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c',
+                         env, 'HCSettings', ('Validate',))()
+        self.assertEqual(15, native.ClientPresentationMask)
+        for mask in range(-1, 17):
+            native.ClientPresentationMask = mask
+            self.assertEqual(0 <= mask <= 15, native.Validate(''), mask)
+        self.assertIn('ClientPresentationMask outside 0..15',
+                      (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text())
 
     def test_v1_settings_file_without_v2_preferences_loads_with_v2_defaults_on(self):
         # LC-T001 / SA-15: an operator's existing V1 settings.json stays valid and gets every V2 feature on.

@@ -40,8 +40,7 @@ class HCLightingClient
     {
         if (m_HCRunning || !m_HCLighting) return;
         m_HCRunning = true;
-        // Client-local, default on. Server EnableGrade controls admission only;
-        // clients do not read server HCSettings or invent a preference RPC.
+        // Mission creates a fresh owner only while the effective GRADE bit is on.
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, 3000, true);
     }
 
@@ -158,12 +157,26 @@ modded class MissionGameplay
 {
     protected ref HCLightingClient m_HCLightingClient;
 
-    override void OnInit()
+    override void OnUpdate(float timeslice)
     {
-        super.OnInit();
+        super.OnUpdate(timeslice);
         if (GetGame().IsDedicatedServer()) return;
-        m_HCLightingClient = new HCLightingClient(GetWorldLighting());
-        m_HCLightingClient.Start();
+        HCClientPresentation presentation = HCClientPresentation.HCGet();
+        bool grade = false;
+        if (presentation)
+        {
+            grade = (presentation.HCGetEffectiveMask() & HCClientPresentationSettings.GRADE) != 0;
+        }
+        if (grade && !m_HCLightingClient)
+        {
+            m_HCLightingClient = new HCLightingClient(GetWorldLighting());
+            m_HCLightingClient.Start();
+        }
+        if (!grade && m_HCLightingClient)
+        {
+            m_HCLightingClient.Stop();
+            m_HCLightingClient = null;
+        }
     }
 
     override void OnMissionFinish()

@@ -9,6 +9,7 @@
   "EnableGroups": true,
   "EnableAtmosphere": true,
   "EnableGrade": true,
+  "ClientPresentationMask": 15,
   "EnableAmbientLife": true,
   "EnableSignsOfLife": true,
   "EnableTravel": true,
