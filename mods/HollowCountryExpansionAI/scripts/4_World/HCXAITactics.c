@@ -138,12 +138,12 @@ class HCXAITacticsPolicy
     // bounded retries are spent.
     static string ActivateStep(bool held, bool pinned, int tries, int maxTries, int ageMs, int maxAgeMs)
     {
-        if (!pinned) { return "done"; }
         if (held)
         {
             if (ageMs > maxAgeMs) { return "give_up"; }
             return "wait";
         }
+        if (!pinned) { return "done"; }
         if (tries >= maxTries) { return "give_up"; }
         return "activate";
     }
@@ -730,7 +730,26 @@ class HCXAITactics
                 s_Lost++;
                 if (!gone) { HCXAITactics.HCRefuse("throw_not_observed"); }
             }
-            if (action == "remove_activated") { s_SmokeActivated++; }
+            if (action == "remove_activated")
+            {
+                s_SmokeActivated++;
+                // Publish only after release and observed unpin, once before removal.
+                // Native 3_Game/Entities/Object.c:287 GetPosition; Expansion
+                // 4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 GetGroup,
+                // 4_World/DayZExpansion_AI/Classes/eAIGroup.c:671 GetFaction.
+                // Zero radius/lifetime select the existing signal_smoke policy.
+                HCWorldIncidents incidents = HCWorldIncidents.HCGet();
+                if (incidents && incidents.HCActive())
+                {
+                    string faction = "";
+                    if (pending.Actor)
+                    {
+                        eAIGroup smokeGroup = pending.Actor.GetGroup();
+                        if (smokeGroup) { faction = HCXFactions.HCWorldId(HCXFactions.Id(smokeGroup.GetFaction())); }
+                    }
+                    incidents.HCPublishAs("signal_smoke", pending.Item.GetPosition(), 0, 0, pending.Item, faction);
+                }
+            }
             if (action == "activate_smoke")
             {
                 pending.Tries++;
