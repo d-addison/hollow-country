@@ -419,7 +419,7 @@ class HCInfectedLODModule : HCModule
     override HCOperationalStatus HCGetOperationalStatus()
     {
         string fault = "";
-        if (m_Running && m_Herds && m_Store && !m_Store.Healthy()) { fault = "herd_store_unhealthy"; }
+        if (m_Running && m_Store && !m_Store.Healthy()) { fault = "herd_store_unhealthy"; }
         HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, fault, "lod_config_loaded_tick_running");
         return m_Operational;
     }

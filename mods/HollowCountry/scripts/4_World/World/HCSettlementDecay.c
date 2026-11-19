@@ -106,18 +106,28 @@ class HCSettlementDecay : HCModule
     protected float m_Elapsed;
     protected ref array<string> m_RefusalReasons = new array<string>;
     protected bool m_Started;
+    protected bool m_Initialized;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "SettlementDecay"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
 
-    // Wave 16: started = OnStart ran (store and save job registered; the town state loads on the first world
-    // tick by design). m_Fault is a real persistence/clock/schema fault that halts the tick: degraded.
+    // Store allocation is only a start request; both state and catalogue must finish loading.
     override HCOperationalStatus HCGetOperationalStatus()
     {
-        string fault = "";
-        if (m_Fault) { fault = "persistence_clock_or_schema_fault"; }
-        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", fault, "decay_started_state_loads_with_world");
+        if (m_Fault)
+        {
+            m_Operational.HCPublish("degraded", "persistence_clock_or_schema_fault");
+            return m_Operational;
+        }
+        if (m_Started && !m_Initialized)
+        {
+            string pending = "settlement_state_loading";
+            if (!HCWorldModule.Get()) { pending = "world_unavailable"; }
+            m_Operational.HCPublish("requested", pending);
+            return m_Operational;
+        }
+        HCModuleReadiness.HCDerive(m_Operational, m_Started && m_Initialized, "", "", "settlement_state_catalogue_loaded");
         return m_Operational;
     }
 
@@ -144,6 +154,7 @@ class HCSettlementDecay : HCModule
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
         m_Started = true;
+        m_Initialized = false;
         // World may start after us; resolve it on the bounded module tick.
     }
 
@@ -178,7 +189,8 @@ class HCSettlementDecay : HCModule
             m_State.Epoch = world.Epoch();
             m_State.SavedUtc = now;
             m_State.WorldName = GetGame().GetWorldName();
-            foreach (HCWorldPlace place : m_Catalog.Places)
+            array<ref HCWorldPlace> initialPlaces = m_Catalog.Places;
+            foreach (HCWorldPlace place : initialPlaces)
             {
                 HCSettlementTown row = new HCSettlementTown;
                 row.Id = place.Id;
@@ -204,11 +216,13 @@ class HCSettlementDecay : HCModule
             appended = true;
         }
         if (appended && !Persist()) { return false; }
-        foreach (HCSettlementTown initialized : m_State.Towns)
+        array<ref HCSettlementTown> initializedTowns = m_State.Towns;
+        foreach (HCSettlementTown initialized : initializedTowns)
         {
             m_Clear.Insert(-1);
             m_PropSlots.Insert(0);
         }
+        m_Initialized = true;
         return true;
     }
 
@@ -303,7 +317,7 @@ class HCSettlementDecay : HCModule
         if (!world) { return; }
         int now = HCWorldClock.UTC();
         if (now < world.Epoch()) { Fail(); return; }
-        if (!m_State && !Initialize(world, now)) { Fail(); return; }
+        if (!m_Initialized && !Initialize(world, now)) { Fail(); return; }
         if (m_State.Epoch != world.Epoch() || now < m_State.SavedUtc) { Fail(); return; }
         m_WorkBudget.HCReset(1);
         if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
@@ -352,6 +366,7 @@ class HCSettlementDecay : HCModule
             HCSaveScheduler.HCUnregister(m_SaveJob);
         }
         m_Started = false;
+        m_Initialized = false;
         m_State = null;
     }
 }

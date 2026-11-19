@@ -216,10 +216,10 @@ MODULES = [
          {'HCCraftingGate_started': False}),
         ('off', OFF, {'m_Refusal': ''}, False, {'HCCraftingGate_started': False})]),
     (S / 'World/HCDeadDrops.c', 'HCDeadDrops', 'DeadDrops', None, [
-        ('ready', None, {'m_Ready': True, 'm_Refusal': ''}, False, {}),
+        ('ready', None, {'m_Ready': True, 'm_Fault': '', 'm_Refusal': ''}, False, {}),
         ('refused', 'dead_drop_state_invalid_or_save_failed',
-         {'m_Ready': False, 'm_Refusal': 'dead_drop_state_invalid_or_save_failed'}, False, {}),
-        ('off', OFF, {'m_Ready': False, 'm_Refusal': ''}, False, {})]),
+         {'m_Ready': False, 'm_Fault': '', 'm_Refusal': 'dead_drop_state_invalid_or_save_failed'}, False, {}),
+        ('off', OFF, {'m_Ready': False, 'm_Fault': '', 'm_Refusal': ''}, False, {})]),
     (S / 'Debug/HCDebugSnapshotModule.c', 'HCDebugSnapshotModule', 'DebugSnapshot', None, [
         ('ready', None, {'m_Running': True, 'm_Refusal': ''}, False, {}),
         ('refused', 'world_date_or_store_fault', {'m_Running': False, 'm_Refusal': 'world_date_or_store_fault'}, False, {}),
@@ -267,9 +267,9 @@ MODULES = [
     (S / 'Polish/HCPolishModule.c', 'HCPolishModule', 'Polish', 'm_Started', [
         ('ready', None, {'m_Started': True}, False, {}), ('off', OFF, {'m_Started': False}, False, {})]),
     (S / 'Scenes/HCScenesModule.c', 'HCScenesModule', 'Scenes', None, [
-        ('ready', None, {'m_Running': True, 'm_Refusal': ''}, False, {}),
-        ('refused', 'store_unavailable', {'m_Running': False, 'm_Refusal': 'store_unavailable'}, False, {}),
-        ('off', OFF, {'m_Running': False, 'm_Refusal': ''}, False, {})]),
+        ('ready', None, {'m_Running': True, 'm_Fault': '', 'm_Refusal': ''}, False, {}),
+        ('refused', 'store_unavailable', {'m_Running': False, 'm_Fault': '', 'm_Refusal': 'store_unavailable'}, False, {}),
+        ('off', OFF, {'m_Running': False, 'm_Fault': '', 'm_Refusal': ''}, False, {})]),
     (S / 'Loot/HCSearchBinding.c', 'HCSearchBinding', 'SearchBinding', None, [
         ('ready', None, {'m_Started': True, 'm_Stopped': False, 'm_Refusal': '', 'm_Fault': ''}, False, {}),
         ('degraded', 'measured_binding_refused',
@@ -278,9 +278,9 @@ MODULES = [
          {'m_Started': False, 'm_Stopped': False, 'm_Refusal': 'search_admission_marker_absent', 'm_Fault': ''}, False, {}),
         ('off', OFF, {'m_Started': True, 'm_Stopped': True, 'm_Refusal': '', 'm_Fault': ''}, False, {})]),
     (S / 'World/HCSettlementDecay.c', 'HCSettlementDecay', 'SettlementDecay', 'm_Started', [
-        ('ready', None, {'m_Started': True, 'm_Fault': False}, False, {}),
+        ('ready', None, {'m_Started': True, 'm_Initialized': True, 'm_Fault': False}, False, {}),
         ('degraded', 'persistence_clock_or_schema_fault', {'m_Started': True, 'm_Fault': True}, False, {}),
-        ('off', OFF, {'m_Started': False, 'm_Fault': False}, False, {})]),
+        ('off', OFF, {'m_Started': False, 'm_Initialized': False, 'm_Fault': False}, False, {})]),
     (S / 'Travel/HCShelterModule.c', 'HCShelterModule', 'Shelters', None, [
         ('ready', None, {'m_Started': True, 'm_Placed': 3}, False, {}),
         ('degraded', 'no_shelter_placed', {'m_Started': True, 'm_Placed': 0}, False, {}),
@@ -364,7 +364,8 @@ class ModuleStatusTests(unittest.TestCase):
         for path, cls, name, flag, cases in MODULES:
             body = class_text(path.read_text(), cls)
             getter = body[body.index('override HCOperationalStatus HCGetOperationalStatus()'):]
-            getter = getter[:getter.index('return m_Operational;')]
+            # Include guarded fault/pending returns before the final readiness derivation.
+            getter = getter[:getter.index('\n    }')]
             with self.subTest(module=name):
                 self.assertNotIn('HCPublish("ready"', getter)
                 self.assertIn('HCModuleReadiness.HCDerive(', getter)
