@@ -959,33 +959,6 @@
     {
       "rule": "HC-S005",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "symbol": "HCHordeRecord.Reserved",
-      "key": "HCHordeRecord.Reserved relies on JSON initializer",
-      "count": 1,
-      "line_at_review": 424,
-      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:424; :542 delegates to ValidGroupRecord. Parallel infected follow-up owns required raw-key handling; temporary integration baseline, remove/reconcile when that worker lands. No reservation recovery is accepted here."
-    },
-    {
-      "rule": "HC-S005",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "symbol": "HCHordeRecord.Living",
-      "key": "HCHordeRecord.Living relies on JSON initializer",
-      "count": 1,
-      "line_at_review": 425,
-      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:425; :542 delegates to ValidGroupRecord. Parallel infected follow-up owns missing-zero survivor handling; temporary integration baseline, remove/reconcile when that worker lands. No native population evidence."
-    },
-    {
-      "rule": "HC-S005",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
-      "symbol": "HCHordeRecord.AdoptionStage",
-      "key": "HCHordeRecord.AdoptionStage relies on JSON initializer",
-      "count": 1,
-      "line_at_review": 427,
-      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:427; :544 delegates to ValidAdoptionRecord. Parallel infected follow-up owns required raw-key handling; temporary integration baseline, remove/reconcile when that worker lands. No adoption acceptance here."
-    },
-    {
-      "rule": "HC-S005",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
       "symbol": "HCInfectedSnapshot.SchemaVersion",
       "key": "HCInfectedSnapshot.SchemaVersion relies on JSON initializer",
       "count": 1,
@@ -1045,15 +1018,6 @@
       "count": 1,
       "line_at_review": 29,
       "review": "2026-11-19 #177 wave-8 review: HCSettlementDecay.c:29; :138 requires Version != 1 refusal, so missing zero is already rejected. Strict sentinel whitelist intentionally accepts only explicit 0/-1 guards; settlement source is outside #177 ownership."
-    },
-    {
-      "rule": "HC-S005",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c",
-      "symbol": "HCXAIProfile.BuildVersion",
-      "key": "HCXAIProfile.BuildVersion relies on JSON initializer",
-      "count": 1,
-      "line_at_review": 32,
-      "review": "2026-11-19 #177 wave-8 review: HCXAIData.c:32; HCXAIRules.c:113 requires HCBuildIdentity.Matches; HCBuildIdentity.c:49-53 rejects empty via named constant comparisons. Lexical string guard does not trace those constants; Expansion source is outside #177 ownership."
     },
     {
       "rule": "HC-S005",
