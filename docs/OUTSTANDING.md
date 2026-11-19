@@ -44,7 +44,7 @@ Now:
 
 | Item | State |
 | --- | --- |
-| Next wave | The wave 14 follow-ups; republish the Workshop items and friend bundle once a batch is stable |
+| Next wave | The #196 wave 14 follow-ups; republish the Workshop items and friend bundle once a batch is stable |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -77,7 +77,8 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
 - **#192** wave 10 review follow-ups: landed in wave 11 except the kept-on-purpose notes (the `HCSearchHouses.Commit` BUSY reason, the module-wide wreck start reason).
 - **#193** wave 11 review follow-ups: landed in wave 12; the light-mount setting and per-pair receipt landed in wave 13. Still open: the trade provider is unbound (refusal-only), and the native checks (unmapped manifest keys, `static const` DTO members, the 0-byte pending file).
 - **#194** wave 12 review follow-ups: landed in wave 13. Still open: a file rewritten with the same size and mtime outside the 2 s racy window keeps its cached hash (inherent to the size+mtime key), and the native checks.
-- **#195** wave 13 review follow-ups: landed in wave 14. The remaining P3s and native checks moved to the wave 14 follow-up issue.
+- **#195** wave 13 review follow-ups: landed in wave 14. The remaining P3s and native checks moved to #196.
+- **#196** wave 14 review follow-ups: tick budget, receipt, debug map and loot map/hash cache P3s, plus the carried native checks (3 to 6 player `[HC TickWork]` measurement, live debug layers, two-client wire check).
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
