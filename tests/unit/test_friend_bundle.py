@@ -20,6 +20,8 @@ import hashlib
 import io
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -130,6 +132,30 @@ class FriendBundleTests(unittest.TestCase):
     def files(self):
         return sorted(str(p.relative_to(self.out)).replace(os.sep, '/')
                       for p in self.out.rglob('*') if p.is_file())
+
+    def test_overlay_removal_ships_and_imports_with_only_bundled_helpers(self):
+        code, text = self.run_cli()
+        self.assertEqual(0, code, text)
+        self.assertIn('tools/package/overlay_remove.py', self.files())
+        self.assertFalse((self.out / 'tools/package/inventory_sizes.py').exists())
+        # Fresh isolated interpreter: repository modules cannot satisfy imports.
+        script = """import sys
+sys.path.insert(0, sys.argv[1])
+from tools.package import overlay_remove
+assert 'tools.package.inventory_sizes' not in sys.modules
+try:
+    overlay_remove.remove('unused', ('inventory',), dry_run=True)
+except ValueError as error:
+    assert str(error) == overlay_remove.INVENTORY_GAP
+else:
+    raise AssertionError('inventory rollback must refuse')
+"""
+        result = subprocess.run([sys.executable, '-I', '-B', '-c', script, str(self.out)],
+                                cwd=self.tmp, capture_output=True, text=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        guide = (self.out / 'README.txt').read_text()
+        self.assertIn('tools.package.overlay_remove', guide)
+        self.assertIn('--server-stopped', guide)
 
     def test_overlay_bundle_preflight_and_receipted_install_smoke(self):
         # Explicit synthetic stock; no DayZ/Workshop execution or runtime claim.

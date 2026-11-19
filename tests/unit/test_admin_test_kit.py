@@ -656,7 +656,7 @@ class WeatherOverrideHook(unittest.TestCase):
 
 # ---------------------------------------------------------------- routing
 
-NEW_COMMANDS = ("kit", "list", "clear", "memory", "radio", "deaddrop", "loot", "forage", "decay", "weather")
+NEW_COMMANDS = ("camptier", "campvisit", "campraid", "kit", "list", "clear", "memory", "radio", "deaddrop", "loot", "forage", "decay", "weather")
 OLD_COMMANDS = ("status", "snapshot", "sitter", "dormant", "horde", "scene", "event", "camp", "holdout", "day")
 
 

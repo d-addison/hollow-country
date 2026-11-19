@@ -46,7 +46,7 @@ SOURCE = lts.ROOT / 'mission/hollow-country'
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
-                'datamined_items.py', 'datamined_items.json', 'loot_boost.py', 'firearms_roster.json',
+                'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'firearms_roster.json',
                 'map_overlay.py', 'infected_variety.py')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'
@@ -413,6 +413,14 @@ def readme(items, template, addon):
         'Read it once, then upload that file only: open a new issue titled "Server report <date>" on the',
         'Hollow Country GitHub repository with the "Server report" template and drag the file in, or add it under',
         'reports/friend-server/ in a pull request. Never upload the raw .RPT, .ADM or .mdmp files.',
+        '',
+        'Stopped-server overlay removal (run from this bundle folder; keep a backup):',
+        '  python3 -B -m tools.package.overlay_remove --mission /path/to/private-mission --overlays loot vehicles --dry-run',
+        '  python3 -B -m tools.package.overlay_remove --mission /path/to/private-mission --overlays loot vehicles --server-stopped',
+        '  Stop the server first. Loot rollback runs before vehicle rollback, with a scratch rehearsal.',
+        '  Removal is resumable, not atomic across installers; drift refuses and retains recovery data.',
+        '  Inventory overrides require a reviewed addon rebuild and redistribution; mission rollback cannot remove them.',
+        '  Omitting --overlays requests inventory too and refuses. Runtime acceptance remains pending.',
         '',
         'bundle-manifest.json lists the SHA-256 of every file in this bundle.',
         'Its profile_defaults catalogue includes current bytes and earlier authored defaults from git log.',

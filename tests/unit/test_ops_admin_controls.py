@@ -2,6 +2,8 @@
 from pathlib import Path
 from types import SimpleNamespace as NS
 import unittest
+import tempfile
+from tests.unit.test_admin_ui import entries
 from tests.unit.test_admin_test_kit import compile_authored, base_scope, Cell
 from tests.unit.test_group_server import EArray
 
@@ -103,3 +105,78 @@ class CommandRouting(unittest.TestCase):
         reason.value = 'module-unavailable'
         self.assertFalse(fn(owner, None, 'unknown', 0, reason))
         self.assertEqual(reason.value, 'module-unavailable')
+
+
+class CatalogRPCIngress(unittest.TestCase):
+    """Real authored ingress/catalog; explicit synthetic RPC decoding and clock.
+
+    The single source substitution supplies Enforce's native out-parameter Read;
+    authorization, lookup, throttle, tickets and queue execute authored bodies.
+    This is offline policy evidence, never native RPC evidence.
+    """
+    def test_camp_ids_obey_authorization_catalog_replay_and_single_queue(self):
+        module = ROOT / 'mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c'
+        catalog = ROOT / 'mods/HollowCountry/scripts/3_Game/Admin/HCAdminCatalog.c'
+        now = [10.0]
+        wire = NS(REQUEST=42, HCIsLootMap=lambda command: False)
+        metadata = EArray(NS(Id=entry.id) for entry in entries())
+        scope = base_scope(HCAdminWire=wire, GetGame=lambda: NS(
+            IsServer=lambda: True, GetTickTime=lambda: now[0]))
+        catalog_known = compile_authored(catalog, 'HCAdminCatalog', 'HCKnown', scope,
+                                        ('Commands',), modded=False)
+        scope['HCAdminCatalog'] = NS(HCKnown=lambda command: catalog_known(
+            NS(Commands=lambda: metadata), command))
+        replies, denied, reads = [], [], []
+        owner = NS(m_Running=True, m_Admins=NS(PlainIds=EArray(['operator'])),
+                   m_CommandAt=[0.0], m_Identities=[None], m_Tickets=[0],
+                   m_Pending=None, m_PendingSender=None)
+        authorized = compile_authored(module, 'HCAdminModule', 'HCAuthorized', scope, modded=False)
+        known = compile_authored(module, 'HCAdminModule', 'HCKnown', scope, modded=False)
+        owner.HCAuthorized = lambda sender: authorized(owner, sender)
+        owner.HCKnown = lambda command: known(owner, command)
+        owner.HCRefused = lambda sender: denied.append(sender)
+        owner.HCReply = lambda *args: replies.append(args)
+        # Native Read(out request) is the only adaptation of the source body.
+        source = module.read_text().replace('HCAdminRequest request;',
+                                            'HCAdminRequest request = ctx.Request;')
+        with tempfile.TemporaryDirectory() as temporary:
+            adapted = Path(temporary) / module.name
+            adapted.write_text(source)
+            receive = compile_authored(adapted, 'HCAdminModule', 'HCReceive', scope,
+                ('HCAuthorized', 'HCRefused', 'HCKnown', 'HCReply'), modded=False)
+        admin = NS(GetPlainId=lambda: 'operator')
+        outsider = NS(GetPlainId=lambda: 'outsider')
+        def send(command, ticket, sender=admin, advance=True):
+            if advance:
+                now[0] += 2
+            request = NS(Command=command, Ticket=ticket, Value=3)
+            ctx = NS(Request=request, Read=lambda value: reads.append(value) or True)
+            receive(owner, sender, None, wire.REQUEST, ctx)
+            return request
+        for command in ('camptier', 'campvisit', 'campraid'):
+            with self.subTest(command=command):
+                owner.m_Pending = None
+                before = len(reads)
+                send(command, 1, outsider)
+                self.assertEqual(before, len(reads))
+                self.assertIsNone(owner.m_Pending)
+                self.assertIs(outsider, denied[-1])
+                send('unknown-camp-command', 999)
+                self.assertEqual('unknown-command-or-ticket', replies[-1][-1])
+                self.assertIsNone(owner.m_Pending)
+                ticket = owner.m_Tickets[0] + 1
+                request = send(command, ticket)
+                self.assertIs(request, owner.m_Pending, command)
+                self.assertIs(admin, owner.m_PendingSender)
+                send(command, ticket + 1, advance=False)
+                self.assertEqual(ticket, owner.m_Tickets[0])  # throttled before decoding
+                send(command, ticket)
+                self.assertEqual('replayed-ticket', replies[-1][-1])
+                send(command, ticket + 1)
+                self.assertEqual('command-queue-cap=1', replies[-1][-1])
+                self.assertIs(request, owner.m_Pending)
+                owner.m_Pending = None  # synthetic consumer frees the one-command queue
+                send(command, ticket + 1)
+                self.assertEqual('replayed-ticket', replies[-1][-1])
+                fresh = send(command, ticket + 2)
+                self.assertIs(fresh, owner.m_Pending)

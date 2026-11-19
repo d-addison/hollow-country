@@ -19,9 +19,9 @@ startup, enabled controls log:
 [HC Admin] controls missing=HCRequestFreshDormant,HCRequestVisitorParty,HCRequestRaidParty runtime=PENDING
 ```
 
-The server handlers below are authored. **The three new wire IDs require the
-lead's shared catalog edits below before RPC ingress or UI can offer them.**
-They remain integration-pending until then; this is not runtime acceptance.
+The server handlers and catalog registrations below are authored. The three camp
+wire IDs use the existing authorized RPC ingress, replay guard and one-command
+queue, and are offered by the catalog-driven UI. Runtime acceptance is pending.
 
 | Command | Value | Behavior and limits |
 | :--- | :--- | :--- |
@@ -38,30 +38,14 @@ reported. This worker introduces no new distances or numeric configuration field
 0..3 is the existing camp store schema. COT-role authorization remains open; no
 COT files or source were read during this work.
 
-Shared integration edits (not applied in this confined worktree): in
-`scripts/3_Game/Admin/HCAdminCatalog.c`, after the existing `camp` entry, add:
-
-```c
-HCAdd("camptier", "ai", "Force camp tier", "Persist nearest camp tier; next normal scan reclassifies.", false, true, true, 0, 3, 1, "tier");
-HCAdd("campvisit", "ai", "Request camp visit", "Reports missing physical visitor request hook.", false, true, false, 0, 0, 0, "");
-HCAdd("campraid", "ai", "Request camp raid", "Reports missing physical raid request hook.", false, true, false, 0, 0, 0, "");
-```
-
-Change the existing dormant help to `Reports missing fresh-body rest transition
-hook; no body is created.` Keep `HCKnown` delegated to the catalog. Then insert these lines after `camp` in `HCAdminStatus.c:HCAdminKit` at integration:
-
-```c
-HCAdminKitLine(reply, "camptier", "Camps", "", "value 0 to 3; nearest recognised camp; opt-out AdminControls.disable");
-HCAdminKitLine(reply, "campvisit", "Camps", "missing-hook-HCRequestVisitorParty", "none; runtime=PENDING");
-HCAdminKitLine(reply, "campraid", "Camps", "missing-hook-HCRequestRaidParty", "none; runtime=PENDING");
-```
-
-The command still reports metadata opt-out. The existing `refused-by-design` dormant kit prefix is retained for
-compatibility and now names its actual missing hook. Update catalog-set tests
-in `test_admin_ui` to inspect `HCOperatorCommand` too and add `camptier: (0, 3)`
-to integer bounds; update the kit command set in `test_admin_test_kit`. These
-files are outside this worker's scope. No module slot, MISSION_FILES entry,
-config.cpp or settings-registry edit is needed.
+Catalog integration is applied in `scripts/3_Game/Admin/HCAdminCatalog.c`:
+`camptier`, `campvisit` and `campraid` follow `camp`, with tier bounds 0 to 3.
+Dormant help reports the missing fresh-body rest transition hook. `HCKnown`
+continues to delegate to the catalog. `HCAdminStatus.c:HCAdminKit` lists the three
+camp commands after `camp`; the compatibility `refused-by-design` dormant prefix
+still names its actual missing hook. Catalog/dispatch equality includes
+`HCOperatorCommand`, and kit tests include all three IDs. No module slot,
+MISSION_FILES entry, config.cpp or settings-registry edit is needed.
 
 ### Stopped-server overlay removal
 
@@ -106,7 +90,7 @@ receipt and its rollback API exist. Feature flags alone cannot undo these bytes.
 
 ### Native checks still required
 
-After shared catalog integration, run DayZDiag and normal packaged server/client
+With catalog integration applied, run DayZDiag and normal packaged server/client
 loads with two clients. Grep `feature=AdminControls`, `[HC Admin] controls missing=`,
 `[HC Admin] cmd=camptier`, `cmd=campvisit`, `cmd=campraid`, `cmd=dormant`, and
 `SCRIPT (E)`. Confirm the existing `status` owner row follows allowlist startup,
@@ -138,7 +122,9 @@ document shared catalog integration, operator opt-out and acceptance gaps.
 - [x] OPS-02: tier adapter and missing-body refusal adapters; default-on opt-out.
 - [x] OPS-03: loot/vehicle scratch rehearsal, live rollback, drift/link/stop guards.
 - [x] OPS-04: focused behavioral tests and required static checks.
-- [ ] OPS-05: shared catalog/kit integration and corresponding shared test updates.
+- [x] OPS-05: shared catalog/kit integration and corresponding shared test updates.
+- [x] OPS-09: authorized catalog/RPC ingress regression; friend/PBO helper packaging
+  and isolated bundle import, retaining explicit inventory refusal.
 - [ ] OPS-06: physical dormant/visitor/raid ports and source/PBO inventory receipt rollback.
 - [ ] OPS-07: COT-role access (explicitly excluded); shared save switch belongs to w45.
 - [ ] OPS-08: DayZDiag, packaged server/client, two-client authorization/visibility,
@@ -171,8 +157,68 @@ Offline TDD (explicit synthetic fixtures only):
 - `python3 -B -m tools.validate.settings_consistency` -> `status: pass`, no errors.
 - Existing tests were retained; no old refusal expectation was deleted. Physical
   dormant spawning is still refused for a real missing port, now explicitly named.
-  Catalog-set test changes are deferred alongside the catalog edit, not silently
-  assumed in production source. Offline results establish no DayZ behavior.
+  Round 2 applies the catalog-set changes and retains the physical refusal
+  expectations. Offline results establish no DayZ behavior.
+
+### Round 2 integration record (2026-11-19)
+
+Spec/plan extension: expose the already-authored camp controls through the shared
+catalog and kit; prove ingress authorization, unknown-ID refusal, throttle,
+replay and bounded queue using authored methods and explicit synthetic RPC
+out-parameter decoding; ship the removal coordinator with its existing helpers.
+No new engine calls or settings were added. OPS-05 and OPS-09 are complete offline;
+OPS-06 through OPS-08 remain open. Bundled `README.txt` contains removal commands,
+stopped-server/backup instructions and the source-rebuild inventory limitation.
+
+Actual RED commands/results before the corresponding implementations:
+
+```sh
+python3 -B -m unittest tests.unit.test_ops_admin_controls.CatalogRPCIngress tests.unit.test_admin_ui.CatalogContracts tests.unit.test_admin_test_kit.KnownCommands tests.unit.test_admin_test_kit.KitListing tests.unit.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
+```
+
+`Ran 15 tests`, `FAILED (failures=8)`, including
+`AssertionError: namespace(Command='camptier', Ticket=1, Value=3) is not None : camptier`.
+All three IDs failed to queue; catalog/kit sets, tier bounds and bundled helper
+presence also failed. Existing set tests were expanded to include the actual
+operator handler and three newly exposed IDs; old refusal behavior was retained.
+
+```sh
+python3 -B -m unittest tests.unit.test_friend_bundle.FriendBundleTests.test_overlay_removal_ships_and_imports_with_only_bundled_helpers -v
+```
+
+After shipping the file but before removing the eager import: `Ran 1 test`,
+`FAILED (failures=1)`,
+`ImportError: cannot import name 'inventory_sizes' from 'tools.package' (unknown location)`.
+The subprocess runs with `-I`, outside the checkout, using only bundle modules;
+it also verifies the exact inventory refusal without importing that generator.
+
+```sh
+python3 -B -m unittest tests.unit.test_ops_overlay_remove.PortableHandoff -v
+```
+
+Before the PBO helper allowlist updates: `Ran 1 test`, `FAILED (failures=1)`,
+`AssertionError: 'tools/package/overlay_remove.py' not found` in the handoff.
+The test now checks both the exporter and `verify_handoff` allowlist.
+
+GREEN:
+
+```sh
+python3 -B -m unittest tests.unit.test_ops_admin_controls tests.unit.test_ops_overlay_remove tests.unit.test_admin_ui tests.unit.test_admin_test_kit tests.unit.test_friend_bundle -v
+```
+
+`Ran 123 tests in 41.629s`, `OK`.
+
+`python3 -B -m tools.validate.enforce_lint --no-native`:
+`enforce_lint: pass findings=1 new=0 stale=0 native=no`.
+
+Additional GREEN (package/deploy, installer, required static and referencing suites):
+
+```sh
+python3 -B -m unittest tests.unit.test_package tests.unit.test_deploy tests.unit.test_package_manifest tests.unit.test_friend_install tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene tests.unit.test_admin_lootmap tests.unit.test_admin_start_refusals tests.unit.test_fuel_probe_runner tests.unit.test_hc_furnishing tests.unit.test_hc_horde_routes tests.unit.test_hc_locality_rotation tests.unit.test_hc_operational_snapshot tests.unit.test_hc_recovery_integrity tests.unit.test_hc_threat_posture_wiring tests.unit.test_hc_wildlife_wiring tests.unit.test_infected_memory_clock tests.unit.test_local_test_session tests.unit.test_loot_boost tests.unit.test_map_layers tests.unit.test_menu_input tests.unit.test_native_startup_runner tests.unit.test_v2_optional_overlays tests.unit.test_workshop_meta -v
+```
+
+`Ran 655 tests in 711.072s`, `OK (skipped=1)`. The existing skip remains pending;
+no native acceptance follows from these checks. `git diff --check` passed.
 
 ## Which tool for what
 

@@ -60,6 +60,9 @@ modded class HCServer
         HCAdminKitLine(reply, "scene", "Scenes", "", "none; nearest due scene");
         HCAdminKitLine(reply, "event", "Events", "", "none; nearest reviewed site");
         HCAdminKitLine(reply, "camp", "Camps", "", "none; camp within 100 m");
+        HCAdminKitLine(reply, "camptier", "Camps", "", "value 0 to 3; nearest recognised camp; opt-out AdminControls.disable");
+        HCAdminKitLine(reply, "campvisit", "Camps", "missing-hook-HCRequestVisitorParty", "none; runtime=PENDING");
+        HCAdminKitLine(reply, "campraid", "Camps", "missing-hook-HCRequestRaidParty", "none; runtime=PENDING");
         HCAdminKitLine(reply, "holdout", "Holdouts", "", "none; holdout within 100 m");
         HCAdminKitLine(reply, "day", "Escalation", "", "value 0 to 3650");
         HCAdminKitLine(reply, "radio", "Radio", "", "none; needs a tuned powered radio");

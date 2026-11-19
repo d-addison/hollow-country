@@ -16,7 +16,7 @@ import tempfile
 
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from tools.package import economy, inventory_sizes, loot_boost, travel
+from tools.package import economy, loot_boost, travel
 
 OVERLAYS = ('loot', 'inventory', 'vehicles')
 INVENTORY_GAP = ('inventory receipt rollback unavailable: inventory_sizes.py generates '
@@ -43,9 +43,7 @@ def remove(mission, overlays=OVERLAYS, *, stopped=False, dry_run=False):
     if not dry_run and not stopped:
         raise ValueError('live removal requires --server-stopped; stop the server first')
     if 'inventory' in selected:
-        # This existing generator is the authoritative source of block syntax;
-        # an empty block is still a source build, never a mission receipt undo.
-        inventory_sizes.render_block([])
+        # Inventory is a source-build change, never a mission receipt undo.
         raise ValueError(INVENTORY_GAP)
     target = economy._target(mission)
     # Validate before copytree: no symlinks, hard links, special files or escaped
