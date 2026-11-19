@@ -1,0 +1,39 @@
+{
+  "Version": 1,
+  "Enabled": true,
+  "CarcassesEnabled": true,
+  "TargetPairsEnabled": true,
+  "TickMs": 5000,
+  "WorkUnits": 16,
+  "MaxCarcasses": 2,
+  "MaxPairs": 8,
+  "PairLifetimeMs": 10000,
+  "PairCooldownMs": 30000,
+  "MaxPlayerChecks": 16,
+  "MinPlayerDistanceM": 200.0,
+  "CarcassClass": "Animal_CervusElaphus",
+  "Sites": [
+    {
+      "Id": "native-red-deer-graze-1",
+      "Position": [
+        1034.5,
+        0,
+        11280
+      ]
+    },
+    {
+      "Id": "native-red-deer-graze-2",
+      "Position": [
+        900.501,
+        0,
+        10756
+      ]
+    }
+  ],
+  "Source": "Installed chernarusplus/env/red_deer_territories.xml:4-5 Graze zone centers; height sampled from native terrain. Source-derived, geometry/runtime acceptance PENDING.",
+  "Economy": "HCEventRewardLedger allowance plus permanent HCEncounterStore spent-site barrier. Two lifetime site grants; no restart refill, replay, extra inventory or loot. Back up hc149-wildlife-allocations.json with Hive.",
+  "RangeBasis": "200 m minimum exclusion reuses native herd safe radius. Every cached player must additionally pass existing multi-height PointHidden ray checks. 16-player bound fails closed on overflow.",
+  "RuntimeAcceptance": "PENDING",
+  "MaxPairChecksPerTick": 32,
+  "WorldName": "chernarusplus"
+}

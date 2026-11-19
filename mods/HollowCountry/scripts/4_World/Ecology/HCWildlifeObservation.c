@@ -132,16 +132,19 @@ class HCWildlifeObservation
             string error;
             if (text != "" && !JsonFileLoader<HCWildlifeConfig>.LoadData(text, config, error)) { config = null; }
         }
-        owner.HCBegin(ecologyEnabled, config);
+        bool started = owner.HCBegin(ecologyEnabled, config);
+        HCWildlifeProviders.HCStart(started);
     }
 
     static void HCTick(int nowMs)
     {
+        HCWildlifeProviders.HCTick(nowMs);
         if (s_Instance) { s_Instance.HCSample(nowMs); }
     }
 
     static void HCStop()
     {
+        HCWildlifeProviders.HCStop();
         if (s_Instance) { s_Instance.HCEnd(); }
     }
 
@@ -373,7 +376,8 @@ class HCWildlifeObservation
         array<ref HCWildlifeFact> facts = HCFacts(GetGame().GetTime());
         foreach (HCWildlifeFact fact : facts)
         {
-            string detail = "native behaviour sample; targets unknown; runtime=PENDING";
+            string activity = HCWildlifeProviders.HCActivity(fact.BehaviourSlot);
+            string detail = "native activity=" + activity + "; resource identity and targets unknown; runtime=PENDING";
             if (fact.Carcass) { detail = "native dead/skinnable sample; inventory unclaimed; runtime=PENDING"; }
             snapshot.AddPoint("wildlife", fact.Id, fact.Position, fact.Species, detail);
         }

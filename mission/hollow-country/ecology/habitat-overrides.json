@@ -20,7 +20,9 @@
     "Mode": "install_time_content_delta_only",
     "RuntimeLoader": false,
     "OperatorChoices": "Explicit disable wins. Generate from operator-owned installed sources, validate hashes/schema and preserve unrelated native and dependency entries. Refuse changed inputs rather than silently replacing operator choices.",
-    "Rollback": "Restore backed-up environment and event references together; never delete native CE population/history to apply or undo this overlay."
+    "Rollback": "Restore backed-up environment and event references together; never delete native CE population/history to apply or undo this overlay.",
+    "Installer": "tools.package.HCWildlife_habitats.build",
+    "Integration": "Shared installer hook required; builder returns replacements for existing db/events.xml and cfgenvironment.xml. No duplicate CE registration. Source candidate checked against installed native XML; runtime acceptance PENDING."
   },
   "Sources": [
     {
@@ -60,7 +62,7 @@
   "Overlay": {
     "Path": "hollow-country/ecology/events.append.xml",
     "Type": "events",
-    "Mode": "replace_existing_event_by_name_after_native_qualification",
+    "Mode": "replace_existing_event_by_name_admitted_unverified",
     "RequiredCfgPatches": [
       "DZ_Animals_ovis_gmelini"
     ],
@@ -72,8 +74,9 @@
     "Admitted": false,
     "Event": "AnimalSheep",
     "SelectedVariant": "Animal_OvisGmelini",
-    "Reason": "Installed public scope=2 class and model entry inspected in animals_nasdara.pbo. Presence on disk does not prove it is loaded on Chernarus. Keep this XML unreferenced unless the addon is loaded and native qualification passes.",
-    "PopulationAccounting": "Retain nominal=5/min=4/max=5 and the global CE animal cap. Replace one optional ram slot with an optional mouflon slot; keep stock ewe minimum and do not create another event or loot supply."
+    "Reason": "Installed public class/model inspected in animals_nasdara.pbo. The builder checks the supplied installed class inventory, pinned source hashes and unchanged quotas. Loaded Chernarus class/mixed-herd behavior remain PENDING; missing native verdict does not block a candidate.",
+    "PopulationAccounting": "Retain nominal=5/min=4/max=5 and the global CE animal cap. Replace one optional ram slot with an optional mouflon slot; keep stock ewe minimum and do not create another event or loot supply.",
+    "NativeVerdictRequiredForInstall": false
   },
   "Species": [
     {
@@ -673,10 +676,6 @@
     {
       "Capability": "animal_target_pairs",
       "Reason": "no_inspected_animal_target_accessor"
-    },
-    {
-      "Capability": "provider_target_pairs",
-      "Reason": "provider_source_unavailable_at_supplied_path"
     }
   ],
   "Counts": {

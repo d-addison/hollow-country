@@ -14,8 +14,8 @@
 // 3_Game/Entities/DayZAnimalInputController.c:55 GetBehaviourAction.
 // Neither these nor 4_World/Entities/DayZAnimalImplement.c:1-8 exposes an
 // animal destination or target accessor. N17 is a human lifecycle, not an AI
-// SDK. The supplied optional provider source path was unavailable at authoring;
-// no faction/target hook is admitted from that absence or a dependency name.
+// SDK. HCWildlifeProviders now supplies bounded native target eligibility
+// after vanilla/Expansion super checks; it does not select or expose a target.
 class HCEcologyNative
 {
 	static bool Authority()
@@ -233,7 +233,8 @@ class HCEcologyNative
 		string refusals = "refusals=animal_destination:no_inspected_animal_destination_api";
 		refusals = refusals + ",animal_migration:native_brains_retained_no_destination_provider";
 		refusals = refusals + ",animal_target_pairs:no_inspected_animal_target_accessor";
-		refusals = refusals + ",provider_target_pairs:provider_source_unavailable_at_supplied_path";
+		// Native target eligibility is implemented by HCWildlifeProviders; target
+		// observation and animal resource-goal APIs above remain unavailable.
 		// #194: manifest size against its cap, and the named reason when the manifest is refused.
 		string manifest = "manifest_bytes=unread";
 		if (s_HabitatBytes > 0) { manifest = "manifest_bytes=" + s_HabitatBytes.ToString(); }

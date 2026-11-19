@@ -9,7 +9,8 @@
 // 64-80 spends the body, creates native-config organs and schedules deletion.
 // 1_Core/proto/EnScript.c:470 RemoveOrdered retains receipt order on eviction.
 // No general CE corpse admission/paired Hive-restore receipt was established.
-// Refuse authored materialization; no dummy, kill/spawn, loot, lifetime write,
+// Observed receipts remain separate from HCWildlifeProviders finite authored
+// economy allowance. This owner performs no kill/spawn, loot, lifetime write,
 // population count, predator command or inferred feeding. CE retains ownership.
 // HCLeadStore.HCReserveTrace requires a delayed WORLD fact, not an HC-15 fact;
 // do not fabricate that causal link. Here HCEncounterStore supplies the shared
@@ -133,7 +134,7 @@ class HCWildlifeScenes
         if (config.SamplesPerTick < 1 || config.SamplesPerTick > 16) { return false; }
         if (config.WorkUnits < 1 || config.WorkUnits > 64 || config.TickMs < 1 || config.TickMs > 60000) { return false; }
         if (config.Origin != "observed" || config.SupplyOwner != "native_skinning") { return false; }
-        return config.AuthoredDisposition == "AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN";
+        return config.AuthoredDisposition == "finite_economy_provider" || config.AuthoredDisposition == "AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN";
     }
 
     static bool HCValid(HCWildlifeSceneState state)
@@ -272,7 +273,7 @@ class HCWildlifeScenes
         m_Debug.Owner = this;
         HCDebugSnapshot.HCRegister(m_Debug);
         HCReport();
-        Print("[HC Plan] HC-49 carcass=none origin=authored supply=pending state=refused refusal=AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN count=0 runtime=PENDING");
+        Print("[HC Plan] HC-49 authored_provider=HCWildlifeProviders allocation=separate_finite_economy legacy_refusal=AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN runtime=PENDING");
         int spentCap = HCWildlifeScenes.MAX_SPENT_CORPSES;
         Print("[HC Plan] HC-49 limit=CARCASS_SPENT_EVICTION_UNPROVEN spent_cap=" + spentCap.ToString() + " runtime=PENDING");
         return true;
