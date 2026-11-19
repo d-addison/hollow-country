@@ -62,10 +62,8 @@ class HCInfoPin
     bool Joined = false;
 }
 
-// Site positions come only from the briefing text the event menu already shows
-// for the same public row ("Site <id> at <x, y, z>" on the first line, from
-// HCEventBriefing.Describe). Unparseable text yields no pin; nothing is guessed
-// and delivery destinations on later lines are never promoted to pins.
+// Legacy parser retained for source compatibility. HC-38 Collect never
+// promotes even a parseable stale quest briefing into a task marker.
 class HCInfoEventSites
 {
     static bool NumberText(string text)
@@ -167,45 +165,14 @@ class HCInfoEventSites
         return true;
     }
 
-    // At most 32 pins, one per active public row that is known to this player.
+    // HC-38: even an old/stale public view cannot create task markers.
     static void Collect(HCEventPublicView view, float worldSize, array<ref HCInfoPin> pins)
     {
-        if (!view || !view.Enabled)
-        {
-            return;
-        }
-        foreach (HCEventPublicRow row : view.Rows)
-        {
-            if (pins.Count() >= 32)
-            {
-                break;
-            }
-            if (row.RemainingSeconds <= 0 || row.Status < HCEventStatus.ANNOUNCED || row.Status > HCEventStatus.ACTIVE)
-            {
-                continue;
-            }
-            if (row.Title.Length() > 64)
-            {
-                continue;
-            }
-            HCInfoPin pin = new HCInfoPin;
-            if (!ParseSite(row.Briefing, worldSize, pin))
-            {
-                continue;
-            }
-            pin.Joined = row.Joined;
-            pin.Label = "[Known] " + row.Title;
-            if (row.Joined)
-            {
-                pin.Label = "[Joined] " + row.Title;
-            }
-            pins.Insert(pin);
-        }
+        if (pins) { pins.Clear(); }
     }
 }
 
-// Refreshes from the event client at most once per second so the 0.25 s map
-// redraw never re-clones the public view. Stale or absent data shows nothing.
+// HC-38: always empty; map redraws perform no event/network/clock query.
 class HCInfoEventCache
 {
     protected ref array<ref HCInfoPin> mHCPins = new array<ref HCInfoPin>();
@@ -219,19 +186,7 @@ class HCInfoEventCache
 
     array<ref HCInfoPin> Pins(float now, float worldSize)
     {
-        HCEventClient events = HCEventClient.Get();
-        if (!events || !events.Fresh())
-        {
-            Clear();
-            return mHCPins;
-        }
-        if (now >= mHCStamp && now - mHCStamp < 1.0)
-        {
-            return mHCPins;
-        }
-        mHCStamp = now;
-        mHCPins.Clear();
-        HCInfoEventSites.Collect(events.GetView(), worldSize, mHCPins);
+        Clear();
         return mHCPins;
     }
 }
@@ -241,7 +196,7 @@ class HCInfoEventCache
 class HCInfoLayerFlags
 {
     protected static ref HCInfoLayerFlags s_Instance;
-    bool ShowEvents = true;
+    bool ShowEvents = false;
     bool ShowVisited = true;
     bool ShowTeam = true;
     bool ShowMarkers = true;
@@ -269,7 +224,7 @@ class HCInfoLayerFlags
     {
         if (action == "HCInfoToggleEvents")
         {
-            ShowEvents = !ShowEvents;
+            ShowEvents = false;
             return true;
         }
         if (action == "HCInfoToggleVisited")
@@ -299,7 +254,7 @@ class HCInfoLayerFlags
     {
         if (action == "HCInfoToggleEvents")
         {
-            return StateText("Events", ShowEvents);
+            return "";
         }
         if (action == "HCInfoToggleVisited")
         {
@@ -364,6 +319,8 @@ class HCInfoLayerControls
         ButtonWidget button = ButtonWidget.Cast(mHCPanel.FindAnyWidget(action));
         if (button)
         {
+            // Native EnWidgets.c:125 Show. No quest toggle in the map strip.
+            if (action == "HCInfoToggleEvents") { button.Show(false); return; }
             button.SetText(HCInfoLayerFlags.Get().Label(action));
         }
     }
