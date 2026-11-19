@@ -990,7 +990,7 @@
       "MapGroupPosSha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
       "MapGroupProtoSha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6",
       "Audit": "AIEV 2026-11-18 Appendix B/C/E; small64 clusters, 37 named proxies",
-      "Queue": "ai/localities.json (HC-18); position y=0 is a map label, not ground/geometry evidence"
+      "LocalityQueue": "ai/localities.json (HC-18); position y=0 is a map label, not ground/geometry evidence"
     },
     "Roles": [
       {

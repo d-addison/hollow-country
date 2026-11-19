@@ -112,7 +112,7 @@ class HC43ContentSources
     string MapGroupPosSha256;
     string MapGroupProtoSha256;
     string Audit;
-    string Queue;
+    string LocalityQueue;
 }
 
 class HC43RoleContent
