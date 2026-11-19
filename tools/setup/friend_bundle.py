@@ -78,6 +78,13 @@ PROFILE_INCLUDE = (
     'HollowCountry/camp-theft-config.json',
     'HollowCountry/base-raid-config.json',
     'HollowCountry/convoys.json',
+    'HollowCountry/forage-config.json',
+    'HollowCountry/vehicle-flip.json',
+    'HollowCountry/wreck-salvage-config.json',
+    'HollowCountry/fuel-siphon.json',
+    'HollowCountry/signals.json',
+    'HollowCountry/progression-config.json',
+    'HollowCountry/radio.json',
     'ExpansionMod/Settings/AISettings.json',
     'ExpansionMod/Loadouts/HollowCountry_*.json',
 )

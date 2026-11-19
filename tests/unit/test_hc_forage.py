@@ -31,6 +31,8 @@ SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/Forage/HCForage.c'
 
 
 def bind(path, cls, obj, env, names, source=None):
+    from tests.unit.test_c3_survivalcfg import config_ports
+    env.update(config_ports())  # Explicit synthetic default profile.
     if source is None:
         source = path.read_text()
     match = re.search(r'(?:modded )?class ' + cls + r'\b[^\{]*\{', source)
@@ -79,6 +81,8 @@ class ForageTravel(unittest.TestCase):
                    HCWorldLimits=N(Position=lambda pos: True),
                    HCForageSpot=lambda: N(CellX=0, CellZ=0, NodeSlot=0, ReadyUtc=0),
                    HCForageNode=lambda: N(Spot=None, Item=None, WasLive=False))
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())
         for name in ('CanRefill', 'DecayedFamiliarity', 'ForageDelay'):
             setattr(policy, name, translate((ROOT / 'mods/HollowCountry/scripts/4_World/Survival/HCSurvivalPolicy.c').read_text(), name, env, 'HCSurvivalPolicy'))
         module = N(m_Nodes=nodes, m_State=N(Version=1, WorldName='chernarusplus', Spots=spots), m_Healthy=True,

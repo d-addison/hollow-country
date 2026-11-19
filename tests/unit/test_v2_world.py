@@ -76,8 +76,9 @@ class WorldSmoke(unittest.TestCase):
         with self.subTest(part='seasonal herb yield'):
             forage = ROOT / 'mods/HollowCountry/scripts/4_World/Forage/HCForage.c'
             roll = [0]
+            from tests.unit.test_c3_survivalcfg import config_ports
             seasonal = translate(forage.read_text(), 'HCSeasonalType',
-                                 dict(Math=N(RandomInt=lambda low, high: roll[0])), member=True)
+                                 dict(config_ports(), Math=N(RandomInt=lambda low, high: roll[0])), member=True)
             for month in range(1, 13):
                 yields = []
                 for slot in range(3):

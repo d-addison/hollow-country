@@ -14,6 +14,8 @@ class SurvivalIdeasSmoke(unittest.TestCase):
         text = SOURCE.read_text()
         policy = N()
         env = dict(HCSurvivalPolicy=policy, FoodStageType=N(BAKED=2, BOILED=3, DRIED=4))
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())
         for name in ('MealExpiry', 'MealHeat', 'CanRefill', 'DecayedFamiliarity', 'ForageDelay'):
             setattr(policy, name, translate(text, name, env, 'HCSurvivalPolicy'))
         # Explicit synthetic stages/temperatures/quantities, in simulation seconds.

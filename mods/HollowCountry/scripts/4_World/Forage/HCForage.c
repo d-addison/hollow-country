@@ -1,3 +1,122 @@
+// Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/Global/Game.c:539 ConfigGetInt, :612 ConfigIsExisting;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
+// HCGroupIO.Read owns bounded native file IO; HCJsonFields owns key presence.
+class HCForageConfig
+{
+    // Persisted deadline/schema ceiling survives later operator tuning reductions.
+    static const int MAX_DELAY_SECONDS = 86400;
+    int CellCap = 3;
+    int TotalCap = 40;
+    int RecordCap = 40;
+    int LiveCap = 40;
+    int DelaySeconds = 1800;
+    int FamiliarityReductionSeconds = 180;
+    float SpotOffsetX = 45;
+    float SpotOffsetZ = 155;
+    float SpotSpacing = 55;
+    int FloraStartMonth = 6;
+    int FloraEndMonth = 11;
+    int BerryStartMonth = 6;
+    int BerryEndMonth = 8;
+    int MushroomStartMonth = 9;
+    int MushroomEndMonth = 11;
+    int FloraRollSides = 10;
+    ref array<string> FloraClasses = {"Cannabis", "AmanitaMushroom", "AuriculariaMushroom", "CraterellusMushroom", "PsilocybeMushroom"};
+    ref array<string> BerryClasses = {"SambucusBerry", "CaninaBerry"};
+    ref array<string> MushroomClasses = {"BoletusMushroom", "MacrolepiotaMushroom", "CaninaBerry"};
+    protected static ref HCForageConfig s_Config;
+
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "CellCap")) { this.CellCap = 3; }
+        if (!(this.CellCap >= 1 && this.CellCap <= 3)) { this.CellCap = 3; invalid = true; }
+        if (!HCJsonFields.Has(text, "TotalCap")) { this.TotalCap = 40; }
+        if (!(this.TotalCap >= 1 && this.TotalCap <= 40)) { this.TotalCap = 40; invalid = true; }
+        if (!HCJsonFields.Has(text, "RecordCap")) { this.RecordCap = 40; }
+        if (!(this.RecordCap >= 1 && this.RecordCap <= 40)) { this.RecordCap = 40; invalid = true; }
+        if (!HCJsonFields.Has(text, "LiveCap")) { this.LiveCap = 40; }
+        if (!(this.LiveCap >= 1 && this.LiveCap <= 40)) { this.LiveCap = 40; invalid = true; }
+        if (!HCJsonFields.Has(text, "DelaySeconds")) { this.DelaySeconds = 1800; }
+        if (!(this.DelaySeconds >= 1800 && this.DelaySeconds <= 86400)) { this.DelaySeconds = 1800; invalid = true; }
+        if (!HCJsonFields.Has(text, "FamiliarityReductionSeconds")) { this.FamiliarityReductionSeconds = 180; }
+        if (!(this.FamiliarityReductionSeconds >= 0 && this.FamiliarityReductionSeconds <= 1800)) { this.FamiliarityReductionSeconds = 180; invalid = true; }
+        if (!HCJsonFields.Has(text, "SpotOffsetX")) { this.SpotOffsetX = 45; }
+        if (!(this.SpotOffsetX >= 1 && this.SpotOffsetX <= 199)) { this.SpotOffsetX = 45; invalid = true; }
+        if (!HCJsonFields.Has(text, "SpotOffsetZ")) { this.SpotOffsetZ = 155; }
+        if (!(this.SpotOffsetZ >= 1 && this.SpotOffsetZ <= 199)) { this.SpotOffsetZ = 155; invalid = true; }
+        if (!HCJsonFields.Has(text, "SpotSpacing")) { this.SpotSpacing = 55; }
+        if (!(this.SpotSpacing >= 1 && this.SpotSpacing <= 99)) { this.SpotSpacing = 55; invalid = true; }
+        if (!HCJsonFields.Has(text, "FloraStartMonth")) { this.FloraStartMonth = 6; }
+        if (!(this.FloraStartMonth >= 1 && this.FloraStartMonth <= 12)) { this.FloraStartMonth = 6; invalid = true; }
+        if (!HCJsonFields.Has(text, "FloraEndMonth")) { this.FloraEndMonth = 11; }
+        if (!(this.FloraEndMonth >= 1 && this.FloraEndMonth <= 12)) { this.FloraEndMonth = 11; invalid = true; }
+        if (!HCJsonFields.Has(text, "BerryStartMonth")) { this.BerryStartMonth = 6; }
+        if (!(this.BerryStartMonth >= 1 && this.BerryStartMonth <= 12)) { this.BerryStartMonth = 6; invalid = true; }
+        if (!HCJsonFields.Has(text, "BerryEndMonth")) { this.BerryEndMonth = 8; }
+        if (!(this.BerryEndMonth >= 1 && this.BerryEndMonth <= 12)) { this.BerryEndMonth = 8; invalid = true; }
+        if (!HCJsonFields.Has(text, "MushroomStartMonth")) { this.MushroomStartMonth = 9; }
+        if (!(this.MushroomStartMonth >= 1 && this.MushroomStartMonth <= 12)) { this.MushroomStartMonth = 9; invalid = true; }
+        if (!HCJsonFields.Has(text, "MushroomEndMonth")) { this.MushroomEndMonth = 11; }
+        if (!(this.MushroomEndMonth >= 1 && this.MushroomEndMonth <= 12)) { this.MushroomEndMonth = 11; invalid = true; }
+        if (!HCJsonFields.Has(text, "FloraRollSides")) { this.FloraRollSides = 10; }
+        if (!(this.FloraRollSides >= 5 && this.FloraRollSides <= 100)) { this.FloraRollSides = 10; invalid = true; }
+        return invalid;
+    }
+    bool HCNormalizeFlora(string text)
+    {
+        bool invalid = false;
+        HCForageConfig defaults = new HCForageConfig;
+        if (!HCJsonFields.Has(text, "FloraClasses")) { this.FloraClasses = defaults.FloraClasses; }
+        if (!this.FloraClasses || this.FloraClasses.Count() != 5) { this.FloraClasses = defaults.FloraClasses; invalid = true; }
+        array<string> hcFloraClasses = this.FloraClasses;
+        foreach (string hcFloraClassesEntry : hcFloraClasses)
+        {
+            if (hcFloraClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcFloraClassesEntry) || GetGame().ConfigGetInt("CfgVehicles " + hcFloraClassesEntry + " scope") != 2)
+            { this.FloraClasses = defaults.FloraClasses; invalid = true; break; }
+        }
+        if (!HCJsonFields.Has(text, "BerryClasses")) { this.BerryClasses = defaults.BerryClasses; }
+        if (!this.BerryClasses || this.BerryClasses.Count() != 2) { this.BerryClasses = defaults.BerryClasses; invalid = true; }
+        array<string> hcBerryClasses = this.BerryClasses;
+        foreach (string hcBerryClassesEntry : hcBerryClasses)
+        {
+            if (hcBerryClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcBerryClassesEntry) || GetGame().ConfigGetInt("CfgVehicles " + hcBerryClassesEntry + " scope") != 2)
+            { this.BerryClasses = defaults.BerryClasses; invalid = true; break; }
+        }
+        if (!HCJsonFields.Has(text, "MushroomClasses")) { this.MushroomClasses = defaults.MushroomClasses; }
+        if (!this.MushroomClasses || this.MushroomClasses.Count() != 3) { this.MushroomClasses = defaults.MushroomClasses; invalid = true; }
+        array<string> hcMushroomClasses = this.MushroomClasses;
+        foreach (string hcMushroomClassesEntry : hcMushroomClasses)
+        {
+            if (hcMushroomClassesEntry == "" || !GetGame().ConfigIsExisting("CfgVehicles " + hcMushroomClassesEntry) || GetGame().ConfigGetInt("CfgVehicles " + hcMushroomClassesEntry + " scope") != 2)
+            { this.MushroomClasses = defaults.MushroomClasses; invalid = true; break; }
+        }
+        return invalid;
+    }
+    static HCForageConfig Get()
+    {
+        if (s_Config) { return s_Config; }
+        s_Config = new HCForageConfig;
+        string path = "$profile:HollowCountry/forage-config.json";
+        if (!FileExist(path)) { return s_Config; }
+        string text;
+        string error;
+        HCForageConfig loaded;
+        if (!HCGroupIO.Read(path, 16384, text) || !JsonFileLoader<HCForageConfig>.LoadData(text, loaded, error) || !loaded)
+        {
+            Print("[HC Config] HCForageConfig invalid_json defaults_restored runtime=PENDING");
+            return s_Config;
+        }
+        bool invalid = loaded.HCNormalize(text);
+        if (loaded.HCNormalizeFlora(text)) { invalid = true; }
+        s_Config = loaded;
+        if (invalid) { Print("[HC Config] HCForageConfig invalid_range defaults_restored runtime=PENDING"); }
+        return s_Config;
+    }
+}
+
 // HC-12 / #150: finite reclaimable records, native supply retained.
 // Shared sight native evidence: Ecology/HCEcologyMigrationNative.c:1-14
 // (Object.c:238; human.c:1417; Global/DayZPhysics.c:199).
@@ -182,7 +301,7 @@ class HCForageModule : HCModule
             if (spot.CellX < 0 || spot.CellX > 76) { return false; }
             if (spot.CellZ < 0 || spot.CellZ > 76) { return false; }
             if (spot.NodeSlot < 0 || spot.NodeSlot > 2) { return false; }
-            if (spot.ReadyUtc < 0 || spot.ReadyUtc > now + 1800) { return false; }
+            if (spot.ReadyUtc < 0 || spot.ReadyUtc > now + HCForageConfig.MAX_DELAY_SECONDS) { return false; }
             for (int earlierIndex = 0; earlierIndex < spotIndex; earlierIndex++)
             {
                 HCForageSpot earlier = m_State.Spots[earlierIndex];
@@ -326,7 +445,7 @@ class HCForageModule : HCModule
         int familiarity = HCProgressionModule.HCRecordForage(player);
         node.Spot.ReadyUtc = now + HCSurvivalPolicy.ForageDelay(familiarity);
         HCChanged();
-        // The pre-spawn 1800s reservation is already durable. Batch the
+        // The configured pre-spawn reservation is already durable. Batch the
         // pickup-relative cooldown update; crash can retain that older timer.
         // No item is reconstructed from a record, so this cannot clone a pickup.
         Print("[HC Forage] node released; refill delay=" + HCSurvivalPolicy.ForageDelay(familiarity).ToString());
@@ -334,8 +453,8 @@ class HCForageModule : HCModule
 
     protected vector HCPosition(int cellX, int cellZ, int slot)
     {
-        float offsetX = 45 + slot * 55;
-        float offsetZ = 155 - slot * 55;
+        float offsetX = HCForageConfig.Get().SpotOffsetX + slot * HCForageConfig.Get().SpotSpacing;
+        float offsetZ = HCForageConfig.Get().SpotOffsetZ - slot * HCForageConfig.Get().SpotSpacing;
         vector position = Vector(cellX * 200 + offsetX, 0, cellZ * 200 + offsetZ);
         position[1] = GetGame().SurfaceY(position[0], position[2]);
         return position;
@@ -343,30 +462,30 @@ class HCForageModule : HCModule
 
     protected string HCSeasonalType(int month, int slot)
     {
-        if (month >= 6 && month <= 11)
+        if (month >= HCForageConfig.Get().FloraStartMonth && month <= HCForageConfig.Get().FloraEndMonth)
         {
             if (slot == 2)
             {
-                int floraRoll = Math.RandomInt(0, 10);
-                if (floraRoll == 0) { return "Cannabis"; }
+                int floraRoll = Math.RandomInt(0, HCForageConfig.Get().FloraRollSides);
+                if (floraRoll == 0) { return HCForageConfig.Get().FloraClasses[0]; }
                 // Four vanilla classes absent from active Chernarus generators.
                 // Same finite slot, cap, reservation and exact-handle custody.
-                if (floraRoll == 1) { return "AmanitaMushroom"; }
-                if (floraRoll == 2) { return "AuriculariaMushroom"; }
-                if (floraRoll == 3) { return "CraterellusMushroom"; }
-                if (floraRoll == 4) { return "PsilocybeMushroom"; }
+                if (floraRoll == 1) { return HCForageConfig.Get().FloraClasses[1]; }
+                if (floraRoll == 2) { return HCForageConfig.Get().FloraClasses[2]; }
+                if (floraRoll == 3) { return HCForageConfig.Get().FloraClasses[3]; }
+                if (floraRoll == 4) { return HCForageConfig.Get().FloraClasses[4]; }
             }
         }
-        if (month >= 6 && month <= 8)
+        if (month >= HCForageConfig.Get().BerryStartMonth && month <= HCForageConfig.Get().BerryEndMonth)
         {
-            if (slot == 1) { return "CaninaBerry"; }
-            return "SambucusBerry";
+            if (slot == 1) { return HCForageConfig.Get().BerryClasses[1]; }
+            return HCForageConfig.Get().BerryClasses[0];
         }
-        if (month >= 9 && month <= 11)
+        if (month >= HCForageConfig.Get().MushroomStartMonth && month <= HCForageConfig.Get().MushroomEndMonth)
         {
-            if (slot == 0) { return "BoletusMushroom"; }
-            if (slot == 1) { return "MacrolepiotaMushroom"; }
-            return "CaninaBerry";
+            if (slot == 0) { return HCForageConfig.Get().MushroomClasses[0]; }
+            if (slot == 1) { return HCForageConfig.Get().MushroomClasses[1]; }
+            return HCForageConfig.Get().MushroomClasses[2];
         }
         return "";
     }
@@ -438,8 +557,8 @@ class HCForageModule : HCModule
         // A just-deleted handle awaits its maintenance cursor; do not mistake
         // it for a never-spawned node and bypass the post-despawn timer.
         if (found && found.WasLive) { return null; }
-        if (totalLive >= LIVE_CAP) { return null; }
-        if (!found && m_Nodes.Count() >= RECORD_CAP && reclaim < 0)
+        if (totalLive >= HCForageConfig.Get().LiveCap) { return null; }
+        if (!found && m_Nodes.Count() >= HCForageConfig.Get().RecordCap && reclaim < 0)
         {
             if (m_Deferred < RECORD_CAP) { m_Deferred = m_Deferred + 1; }
             return null;
@@ -448,7 +567,7 @@ class HCForageModule : HCModule
         if (!HCClearCandidate(position)) { return null; }
         if (!found)
         {
-            if (m_Nodes.Count() >= RECORD_CAP)
+            if (m_Nodes.Count() >= HCForageConfig.Get().RecordCap)
             {
                 // Same ordered index in both bounded arrays. No live handle,
                 // pending disappearance or unexpired spent evidence is evicted.
@@ -469,7 +588,7 @@ class HCForageModule : HCModule
         // Persist cooldown BEFORE allocating an item, including failed spawns.
         // Dynamic unpicked entities vanish on restart; picked items become
         // ordinary native inventory. Neither case is cloned/reconstructed.
-        found.Spot.ReadyUtc = now + 1800;
+        found.Spot.ReadyUtc = now + HCForageConfig.Get().DelaySeconds;
         HCChanged();
         return found;
     }

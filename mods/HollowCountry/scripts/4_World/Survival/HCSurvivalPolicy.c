@@ -24,8 +24,8 @@ class HCSurvivalPolicy
     {
         if (itemPresent || now < ready) { return false; }
         if (now < 1 || ready < 0) { return false; }
-        if (cellLive < 0 || cellLive >= 3) { return false; }
-        if (totalLive < 0 || totalLive >= 40) { return false; }
+        if (cellLive < 0 || cellLive >= HCForageConfig.Get().CellCap) { return false; }
+        if (totalLive < 0 || totalLive >= HCForageConfig.Get().TotalCap) { return false; }
         return true;
     }
 
@@ -41,7 +41,7 @@ class HCSurvivalPolicy
     static int ForageDelay(int familiarity)
     {
         int score = DecayedFamiliarity(familiarity, 0);
-        return 1800 - (180 * score) / 100;
+        return HCForageConfig.Get().DelaySeconds - (HCForageConfig.Get().FamiliarityReductionSeconds * score) / 100;
     }
 }
 

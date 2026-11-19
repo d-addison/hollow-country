@@ -82,6 +82,8 @@ class WreckSupply(unittest.TestCase):
                 return None
             outputs.append(kind)
             return N(SetQuantity=lambda quantity: None)
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())  # Explicit synthetic default profile.
         env['GameInventory'] = N(LocationCreateEntity=create)
         for code in MethodsTranslator(source, 'HCWreckSalvage',
                                       ('Reviewed', 'PositionValid', 'Key', 'Roll', 'Budget', 'Part',

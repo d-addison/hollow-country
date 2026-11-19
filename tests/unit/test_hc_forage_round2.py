@@ -103,9 +103,11 @@ class SyntheticRuntime:
                                        HCFlush=self.flush)
         policy = N()
         self.env['HCSurvivalPolicy'] = policy
+        from tests.unit.test_c3_survivalcfg import config_ports
+        self.env.update(config_ports())
         for name in ('CanRefill','DecayedFamiliarity','ForageDelay'):
-            source = POLICY.read_text().replace('return 1800 - (180 * score) / 100;',
-                'return 1800 - native_int((180 * score) / 100);')
+            source = POLICY.read_text().replace('(HCForageConfig.Get().FamiliarityReductionSeconds * score) / 100',
+                'native_int((HCForageConfig.Get().FamiliarityReductionSeconds * score) / 100)')
             setattr(policy,name,translate(source,name,self.env,'HCSurvivalPolicy'))
         self.progression = self.module(PROGRESSION, 'HCProgressionModule')
         self.env['HCProgressionModule'] = N(HCRecordForage=self.progression.HCAwardForage)

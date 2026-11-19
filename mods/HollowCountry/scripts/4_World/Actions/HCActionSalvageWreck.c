@@ -23,7 +23,7 @@ class HCActionSalvageWreckCB : ActionContinuousBaseCB
 {
     override void CreateActionComponent()
     {
-        m_ActionData.m_ActionComponent = new CAContinuousTime(8.0);
+        m_ActionData.m_ActionComponent = new CAContinuousTime(HCWreckSalvageConfig.Get().ActionSeconds);
     }
 }
 
@@ -43,7 +43,7 @@ class HCActionSalvageWreck : ActionContinuousBase
     override void CreateConditionComponents()
     {
         m_ConditionItem = new CCINonRuined;
-        m_ConditionTarget = new CCTCursor(2.0);
+        m_ConditionTarget = new CCTCursor(HCWreckSalvageConfig.Get().ReachMeters);
     }
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
@@ -94,7 +94,7 @@ class HCActionSalvageWreck : ActionContinuousBase
         HCWreckSalvageActionData data = HCWreckSalvageActionData.Cast(action_data);
         if (data && !data.Completed)
         {
-            if (!module || !module.Continuing(data) || GetGame().GetTime() - data.StartedMs < 7500)
+            if (!module || !module.Continuing(data) || GetGame().GetTime() - data.StartedMs < HCWreckSalvageConfig.Get().ActionSeconds * 1000 - HCWreckSalvageConfig.Get().CompletionGraceMs)
             {
                 HCCraftRefusal.WreckAction(action_data, HCRefusal.SALVAGE);
                 return;

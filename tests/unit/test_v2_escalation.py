@@ -15,7 +15,9 @@ class V2EscalationSmoke(unittest.TestCase):
         scope = {"Math": NS(Clamp=lambda v, lo, hi: max(lo, min(hi, v)))}
         curve = compile_method("../World/HCEscalationClock.c", "static float Curve(",
                                "day, week, fortnight, cap", scope)
-        scope["HCEscalationClock"] = NS(Curve=lambda *a: curve(None, *a))
+        from tests.unit.test_c3_survivalcfg import config_ports
+        scope["HCEscalationClock"] = NS(Curve=lambda *a: curve(None, *a),
+            HCParameters=config_ports()["HCEscalationState"].Get)
         pressure = compile_method("../World/HCEscalationClock.c", "static float PressureAtDay(",
                                   "axis, day", scope)
         for axis in ("infected", "raiders", "scarcity"):

@@ -25,14 +25,6 @@
 // 3_Game/Entities/Object.c:192,287,517,981 component names/position/alive/destroyed.
 // 4_World/Entities/DayZPlayerImplement.c:468,494 vehicle/delta time.
 
-// Provisional geometry defaults, awaiting the shared vanilla-distance audit.
-// Native fuel reach is still the tighter bound; these never extend it.
-class HCSiphonGeometryDefaults
-{
-    static const float MaxReachMeters = 2.0;
-    static const float ContactToleranceMeters = 0.5;
-}
-
 class HCSiphonDiagnosticData : ActionData
 {
     CarScript Donor;
@@ -58,15 +50,15 @@ class HCSiphonDiagnosticData : ActionData
 
 class HCSiphonDiagnosticLocks
 {
+    // Hard offline fixture ceiling; live admission uses the validated profile cap.
     static const int MAX_SESSIONS = 96;
-    static const int MAX_LEASE_MS = 10000;
     protected ref array<ref HCSiphonDiagnosticData> m_Sessions = new array<ref HCSiphonDiagnosticData>;
 
     static bool LeaseLive(int startedMs, int nowMs)
     {
         if (startedMs < 0 || nowMs < startedMs)
             return false;
-        return nowMs - startedMs <= MAX_LEASE_MS;
+        return nowMs - startedMs <= HCFuelSiphonConfig.Get().LeaseMs;
     }
 
     void Purge(int nowMs)
@@ -88,7 +80,7 @@ class HCSiphonDiagnosticLocks
         Purge(nowMs);
         if (!data || !data.m_Player || !data.Donor || !data.Vessel || !LeaseLive(nowMs, nowMs))
             return false;
-        if (m_Sessions.Count() >= MAX_SESSIONS)
+        if (m_Sessions.Count() >= HCFuelSiphonConfig.Get().MaxSessions)
             return false;
         for (int index = m_Sessions.Count() - 1; index >= 0; index--)
         {
@@ -140,7 +132,7 @@ class HCActionSiphonFuelCB : ActionContinuousBaseCB
 {
     override void CreateActionComponent()
     {
-        m_ActionData.m_ActionComponent = new CAContinuousTime(1.0);
+        m_ActionData.m_ActionComponent = new CAContinuousTime(HCFuelSiphonConfig.Get().DiagnosticStepSeconds);
     }
 }
 
@@ -263,7 +255,7 @@ class HCActionSiphonFuel : ActionContinuousBase
         vector endpoint = donor.GetRefillPointPosWS();
         vector origin = MiscGameplayFunctions.GetPlayerHeadPosition(player);
         float reach = donor.GetActionDistanceFuel();
-        float maxReach = HCSiphonGeometryDefaults.MaxReachMeters;
+        float maxReach = HCFuelSiphonConfig.Get().ReachMeters;
         if (!FiniteVector(endpoint) || !FiniteVector(origin) || !HCFuelTransferPolicy.FiniteNonNegative(reach) || reach <= 0 || !HCFuelTransferPolicy.FiniteNonNegative(maxReach) || maxReach <= 0)
             return refusal.Refuse(HCRefusal.SIPHON_RANGE);
         if (reach > maxReach)
@@ -339,7 +331,7 @@ class HCActionSiphonFuel : ActionContinuousBase
             return true;
         if (hits.Count() != 1 || hits[0] != donor || !FiniteVector(contact))
             return false;
-        float tolerance = HCSiphonGeometryDefaults.ContactToleranceMeters;
+        float tolerance = HCFuelSiphonConfig.Get().ContactToleranceMeters;
         if (!HCFuelTransferPolicy.FiniteNonNegative(tolerance))
             return false;
         return vector.DistanceSq(contact, endpoint) <= tolerance * tolerance;
@@ -352,7 +344,7 @@ class HCActionSiphonFuel : ActionContinuousBase
         float reach = donor.GetActionDistanceFuel();
         if (!FiniteVector(endpoint) || !FiniteVector(origin) || !HCFuelTransferPolicy.FiniteNonNegative(reach) || reach <= 0)
             return false;
-        float maxReach = HCSiphonGeometryDefaults.MaxReachMeters;
+        float maxReach = HCFuelSiphonConfig.Get().ReachMeters;
         if (!HCFuelTransferPolicy.FiniteNonNegative(maxReach) || maxReach <= 0)
             return false;
         if (reach > maxReach)

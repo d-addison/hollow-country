@@ -1,3 +1,72 @@
+// Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
+// HCGroupIO.Read owns bounded native file IO; HCJsonFields owns key presence.
+class HCRadioDefaults
+{
+    float ReportRangeMetres = 1000.0;
+    int MaxListeners = 32;
+    float LocalsMHz = 87.8;
+    float VolunteersMHz = 89.5;
+    float ScavengersMHz = 91.3;
+    float RaidersMHz = 94.6;
+    float TravellersMHz = 96.6;
+    int BroadcastGapSeconds = 600;
+    protected static ref HCRadioDefaults s_Config;
+
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "ReportRangeMetres")) { this.ReportRangeMetres = 1000.0; }
+        if (!(this.ReportRangeMetres >= 1 && this.ReportRangeMetres <= 1000)) { this.ReportRangeMetres = 1000.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "MaxListeners")) { this.MaxListeners = 32; }
+        if (!(this.MaxListeners >= 1 && this.MaxListeners <= 32)) { this.MaxListeners = 32; invalid = true; }
+        if (!HCJsonFields.Has(text, "LocalsMHz")) { this.LocalsMHz = 87.8; }
+        if (!(this.LocalsMHz >= 87.8 && this.LocalsMHz <= 102.5)) { this.LocalsMHz = 87.8; invalid = true; }
+        if (!HCJsonFields.Has(text, "VolunteersMHz")) { this.VolunteersMHz = 89.5; }
+        if (!(this.VolunteersMHz >= 87.8 && this.VolunteersMHz <= 102.5)) { this.VolunteersMHz = 89.5; invalid = true; }
+        if (!HCJsonFields.Has(text, "ScavengersMHz")) { this.ScavengersMHz = 91.3; }
+        if (!(this.ScavengersMHz >= 87.8 && this.ScavengersMHz <= 102.5)) { this.ScavengersMHz = 91.3; invalid = true; }
+        if (!HCJsonFields.Has(text, "RaidersMHz")) { this.RaidersMHz = 94.6; }
+        if (!(this.RaidersMHz >= 87.8 && this.RaidersMHz <= 102.5)) { this.RaidersMHz = 94.6; invalid = true; }
+        if (!HCJsonFields.Has(text, "TravellersMHz")) { this.TravellersMHz = 96.6; }
+        if (!(this.TravellersMHz >= 87.8 && this.TravellersMHz <= 102.5)) { this.TravellersMHz = 96.6; invalid = true; }
+        if (!HCJsonFields.Has(text, "BroadcastGapSeconds")) { this.BroadcastGapSeconds = 600; }
+        if (!(this.BroadcastGapSeconds >= 60 && this.BroadcastGapSeconds <= 86400)) { this.BroadcastGapSeconds = 600; invalid = true; }
+        return invalid;
+    }
+    // Translate persisted channel identity to operator-selected receive frequency.
+    static float Tuned(float canonical)
+    {
+        if (canonical == 87.8) { return HCRadioDefaults.Get().LocalsMHz; }
+        if (canonical == 89.5) { return HCRadioDefaults.Get().VolunteersMHz; }
+        if (canonical == 91.3) { return HCRadioDefaults.Get().ScavengersMHz; }
+        if (canonical == 94.6) { return HCRadioDefaults.Get().RaidersMHz; }
+        if (canonical == 96.6) { return HCRadioDefaults.Get().TravellersMHz; }
+        return 0;
+    }
+
+    static HCRadioDefaults Get()
+    {
+        if (s_Config) { return s_Config; }
+        s_Config = new HCRadioDefaults;
+        string path = "$profile:HollowCountry/radio.json";
+        if (!FileExist(path)) { return s_Config; }
+        string text;
+        string error;
+        HCRadioDefaults loaded;
+        if (!HCGroupIO.Read(path, 16384, text) || !JsonFileLoader<HCRadioDefaults>.LoadData(text, loaded, error) || !loaded)
+        {
+            Print("[HC Config] HCRadioDefaults invalid_json defaults_restored runtime=PENDING");
+            return s_Config;
+        }
+        bool invalid = loaded.HCNormalize(text);
+        s_Config = loaded;
+        if (invalid) { Print("[HC Config] HCRadioDefaults invalid_range defaults_restored runtime=PENDING"); }
+        return s_Config;
+    }
+}
+
 // HC-20 / #148: radio text is a retained environmental clue. Morse is folded
 // into the same delayed shared fact path, never a live event/player lookup.
 // Native evidence, scripts-1.30.164289:
@@ -16,13 +85,7 @@
 // 1_Core/proto/EnString.c:199,223 Length/Hash; EnScript.c:94 Cast,
 // :380,385,407,470 Count/Clear/Insert/RemoveOrdered; EnDebug.c:96 Print.
 // HCPerfPlayers and HCWorkBudget own inspected native roster/time operations.
-class HCRadioDefaults
-{
-    // Provisional, anchored to the vanilla network bubble (~1000 m) and rifle
-    // hearing (~1 km). This is a fact-place eligibility bound, not RF simulation.
-    float ReportRangeMetres = 1000;
-    int MaxListeners = 32;
-}
+
 
 class HCRadioChatter : HCModule
 {
@@ -52,6 +115,7 @@ class HCRadioChatter : HCModule
 
     static HCRadioChatter Get() { return s_Instance; }
 
+    // Persisted channel identity: HCLeadStore validates these schema values.
     static float Frequency(string faction)
     {
         if (faction == "locals") { return 87.8; }
@@ -91,6 +155,7 @@ class HCRadioChatter : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!settings || !settings.EnableLeads || s_Instance || !GetGame().IsServer()) { return; }
+        m_Defaults = HCRadioDefaults.Get();
         m_Status.HCPublish("refused", "lead_store_unavailable");
         if (!m_AdmissionPrinted)
         {
@@ -178,7 +243,7 @@ class HCRadioChatter : HCModule
         foreach (Man candidateListener : m_Listeners)
         {
             PlayerBase player = PlayerBase.Cast(candidateListener);
-            if (Receiving(player, m_Channel.Frequency) && InReportRange(player, report)) { return true; }
+            if (Receiving(player, HCRadioDefaults.Tuned(m_Channel.Frequency)) && InReportRange(player, report)) { return true; }
         }
         return false;
     }
@@ -215,7 +280,7 @@ class HCRadioChatter : HCModule
         m_Channel = m_Store.Data.Channels[m_ChannelCursor];
         m_ChannelCursor = (m_ChannelCursor + 1) % 5;
         int now = HCWorldClock.UTC();
-        if (now < 1 || m_Channel.LastSent > now || now - m_Channel.LastSent < 600 || m_Channel.Sequence >= 2147483647)
+        if (now < 1 || m_Channel.LastSent > now || now - m_Channel.LastSent < HCRadioDefaults.Get().BroadcastGapSeconds || m_Channel.Sequence >= 2147483647)
         {
             m_Status.HCPublish("ready", "channel_cooldown_or_clock");
             m_Channel = null;
@@ -321,7 +386,7 @@ class HCRadioChatter : HCModule
         // Retained finite roster: late join never joins an in-flight report.
         PlayerBase listener = PlayerBase.Cast(m_Listeners[m_ListenerCursor]);
         m_ListenerCursor = m_ListenerCursor + 1;
-        if (!Receiving(listener, m_Channel.Frequency) || !InReportRange(listener, m_Report)) { return; }
+        if (!Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report)) { return; }
         int now = HCWorldClock.UTC();
         if (now < 1 || m_Report.Expires <= now) { return; }
         PlayerIdentity identity = listener.GetIdentity();
@@ -349,8 +414,9 @@ class HCRadioChatter : HCModule
         }
         // Revalidate after both synchronous barriers. Never pass a null identity
         // to native notification: null there means ALL players, not a refusal.
-        if (listener.GetIdentity() != identity || !Receiving(listener, m_Channel.Frequency) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { return; }
-        NotificationSystem.SendNotificationToPlayerIdentityExtended(identity, 12, "Radio " + m_Channel.Frequency.ToString() + " MHz", m_Text);
+        if (listener.GetIdentity() != identity || !Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { return; }
+        float receiveFrequency = HCRadioDefaults.Tuned(m_Channel.Frequency);
+        NotificationSystem.SendNotificationToPlayerIdentityExtended(identity, 12, "Radio " + receiveFrequency.ToString() + " MHz", m_Text);
         m_Recipients = m_Recipients + 1;
         Print("[HC Plan] HC-20 radio=environmental morse=folded reports=" + m_Reports.ToString() + " state=ready recipients=" + m_Recipients.ToString() + " runtime=PENDING");
     }

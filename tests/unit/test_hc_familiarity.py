@@ -50,6 +50,8 @@ class FamiliarityLife(unittest.TestCase):
                    PATH='synthetic/progression', LEGACY_PATH='synthetic/progression.v1.json',
                    FileExist=lambda path:False, HCPerfPlayers=N(HCGet=lambda:EArray()),
                    s_HCInstance=None)
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())
         for name in ('DecayedFamiliarity', 'ForageDelay'):
             setattr(policy, name, translate(POLICY.read_text(), name, env, 'HCSurvivalPolicy'))
         # Explicit trusted native ports: server/account/character identity, not client fields.

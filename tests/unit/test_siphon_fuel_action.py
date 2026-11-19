@@ -68,6 +68,8 @@ class DiagnosticArray(NativeArray):
 
 
 def authored(name, parameters, context, binary32=False):
+    from tests.unit.test_c3_survivalcfg import config_ports
+    context.update(config_ports())  # Explicit synthetic default profile.
     text = re.sub(r"//[^\n]*", "", body(str(SOURCE), name))
     def expr(value):
         value = re.sub(r"\b(?:int|float|bool|PlayerBase|CarScript|HCSiphonDiagnosticData|array<string>) (\w+) =", r"\1 =", value)
@@ -279,7 +281,7 @@ class SiphonFuelActionTests(unittest.TestCase):
         self.assertIn("ReceiptConserves", body(str(SOURCE), "VerifyDiagnosticReceipt"))
         self.assertEqual(code.count(".Leak("), 1)
         self.assertEqual(code.count("Liquid.FillContainer("), 1)
-        self.assertIn("new CAContinuousTime(1.0)", body(str(SOURCE), "CreateActionComponent"))
+        self.assertIn("new CAContinuousTime(HCFuelSiphonConfig.Get().DiagnosticStepSeconds)", body(str(SOURCE), "CreateActionComponent"))
         self.assertIn("HCFuelTransferPolicy.PlanQuantum", body(str(SOURCE), "OnFinishProgressServer"))
         finish = body(str(SOURCE), "OnFinishProgressServer")
         self.assertLess(finish.index("ValidateLive"), finish.index("PlanQuantum"))

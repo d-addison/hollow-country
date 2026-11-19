@@ -277,6 +277,8 @@ class Signals(unittest.TestCase):
             Emote=lambda a,g:self.events.append(g) or self.emote_ok)
         owner = N(m_Provider=provider, m_Store=N(Healthy=lambda:self.store_healthy), m_Running=True,
                   m_ControlRefused=False, m_StoreRefused=False, m_EventMinute=-1)
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())  # Explicit synthetic default profile.
         env["Print"] = lambda line:self.events.append(line)
         env["HCXEmoteObservation"] = owner
         self.observer_defence = env["HCXDefence"]
