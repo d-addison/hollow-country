@@ -928,9 +928,12 @@ def rollback(target, *, _templates=False):
     return ROLLED_BACK
 
 
-# ---- class template packs (contract v2; offline admission only) -------------------------------
+# ---- class template packs (v2 reader DTOs; v3 paged index; offline admission only) ------------
 
 TEMPLATE_MANAGED = 'templates/' + MANAGED
+# HC-24: storage bounds only. All schema-2 gameplay/list/placement caps stay fixed.
+TEMPLATE_INDEX_PAGES = 16
+TEMPLATE_PACK_FILES = 610 + TEMPLATE_INDEX_PAGES
 TEMPLATE_LISTS = {'ClassFiles': ('classes', 3, 16, 'Rows', 160),
                   'TemplateFiles': ('t', 4, 512, None, None),
                   'FurnishFiles': ('furnish', 3, 16, 'Rows', 128),
@@ -953,6 +956,9 @@ def _source_pin(sources):
 # budgets and native token limits. Keep these independent of the builder's schema choices.
 _TEMPLATE_KEYS = {
     'index': 'SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional Sources ClassFiles TemplateFiles FurnishFiles GroupFiles',
+    'pack-index': 'SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional IndexFiles',
+    'pack-page': 'SchemaVersion Chunk SourcePins ClassFiles TemplateFiles FurnishFiles GroupFiles',
+    'pack-source': 'Name Sha256',
     'file': 'File Sha256', 'template-file': 'File BuildingClass Sha256',
     'classes': 'SchemaVersion Chunk Rows', 'class-row': 'BuildingClass Rooms Furniture Search',
     'furnish': 'SchemaVersion Chunk Rows', 'furnish-row': 'Slot BuildingClass Position Yaw Props History',
@@ -963,7 +969,7 @@ _TEMPLATE_KEYS = {
     'prop': 'Id Room Type Position Orientation Bounds History',
     'site': 'Id Room Center Radius Source Points Groups',
 }
-_TEMPLATE_ARRAY_CAPS = {'template-file': 512, 'file': 64, 'class-row': 160, 'furnish-row': 128,
+_TEMPLATE_ARRAY_CAPS = {'template-file': 512, 'file': 64, 'pack-source': 520, 'class-row': 160, 'furnish-row': 128,
                         'room': 16, 'keepout': 32, 'prop': 20, 'site': 24, 'number': 3,
                         'evidence': 512, 'group': 512}
 
@@ -975,7 +981,8 @@ def _template_child(schema, key):
         return 'integer'
     if key == 'Provisional':
         return 'boolean'
-    children = {'Sources': 'sources', 'ClassFiles': '@file', 'FurnishFiles': '@file', 'GroupFiles': '@file',
+    children = {'Sources': 'sources', 'IndexFiles': '@file', 'SourcePins': '@pack-source',
+                'ClassFiles': '@file', 'FurnishFiles': '@file', 'GroupFiles': '@file',
                 'TemplateFiles': '@template-file', 'Box': 'box', 'Bounds': 'box', 'Evidence': '@evidence',
                 'KeepOuts': '@keepout', 'PropSlots': '@prop', 'SearchSites': '@site'}
     if key in children:
@@ -1011,7 +1018,10 @@ def _template_json(raw, name):
             require(len(word) <= 32, f'{name}: number token exceeds 32 characters')
     document = parse(raw, name, MEASURED_TEXT_LIMIT)
     schema = ('index' if name == 'index.json' else 'template' if name.startswith('t-') else
-              'classes' if name.startswith('classes-') else 'furnish' if name.startswith('furnish-') else 'groups')
+              'pack-page' if name.startswith('index-') else 'classes' if name.startswith('classes-') else
+              'furnish' if name.startswith('furnish-') else 'groups')
+    if schema == 'index' and isinstance(document, dict) and document.get('SchemaVersion') == 3:
+        schema = 'pack-index'
     nodes = 0
     def check(value, kind, depth=0):
         nonlocal nodes
@@ -1157,7 +1167,7 @@ def _validate_template_geometry(template, class_row, sources, groups):
 
 
 def _template_name(name):
-    return isinstance(name, str) and (name == 'index.json' or any(
+    return isinstance(name, str) and (name == 'index.json' or re.fullmatch(r'index-[0-9]{3}\.json', name) is not None or any(
         re.fullmatch(prefix + r'-[0-9]{' + str(width) + r'}\.json', name)
         for prefix, width, *_rest in TEMPLATE_LISTS.values()))
 
@@ -1169,19 +1179,90 @@ def _template_tree(pack):
     require(directory.is_dir(), 'missing templates directory')
     files = {}
     for path in directory.iterdir():
+        require(len(files) < TEMPLATE_PACK_FILES, 'template pack exceeds file cap')
         require(_template_name(path.name), f'unexpected templates member: {path.name}')
         plain_file(pack, path)
         require(path.stat().st_size <= MEASURED_TEXT_LIMIT, f'{path.name}: size outside limits')
         files[path.name] = path.read_bytes()
+        require(sum(map(len, files.values())) <= 20 * 1024 * 1024, 'template pack exceeds total cap')
     return files
+
+
+def _bounded_template_index(index, force=False):
+    """Page metadata without dropping a class or rewriting any gameplay chunk.
+
+    Small schema-2 packs retain their exact interface. Schema 3 changes only storage;
+    consumers receive the same finite schema-2 DTO after all pinned pages validate.
+    """
+    if not force and len(_compact(index)) <= MEASURED_TEXT_LIMIT:
+        return {'index.json': _compact(index)}
+    root = {k: v for k, v in index.items() if k not in ('Sources', *TEMPLATE_LISTS)}
+    root['SchemaVersion'] = 3
+    root['IndexFiles'] = []
+    pages = {}
+
+    def empty(number):
+        return dict(SchemaVersion=3, Chunk=number, SourcePins=[], **{k: [] for k in TEMPLATE_LISTS})
+
+    def flush(document):
+        require(len(pages) < TEMPLATE_INDEX_PAGES, 'index_page_cap')
+        name = f'index-{len(pages):03d}.json'
+        raw = _compact(document)
+        require(len(raw) <= MEASURED_TEXT_LIMIT, 'index_entry_size')
+        pages[name] = raw
+        root['IndexFiles'].append(dict(File=name, Sha256=sha(raw)))
+
+    sections = {'SourcePins': [dict(Name=k, Sha256=v) for k, v in sorted(index['Sources'].items())],
+                **{k: index[k] for k in TEMPLATE_LISTS}}
+    page = empty(0)
+    for field, entries in sections.items():
+        for entry in entries:
+            page[field].append(entry)
+            if len(_compact(page)) > MEASURED_TEXT_LIMIT:
+                page[field].pop()
+                flush(page)
+                page = empty(len(pages))
+                page[field].append(entry)
+    flush(page)
+    pages['index.json'] = _compact(root)
+    require(len(pages['index.json']) <= MEASURED_TEXT_LIMIT, 'index_root_size')
+    return pages
+
+
+def _expand_template_index(docs, files):
+    index, listed = docs.get('index.json'), {'index.json'}
+    require(isinstance(index, dict), 'index_missing')
+    if index.get('SchemaVersion') != 3:
+        return index, listed
+    entries = index['IndexFiles']
+    require(1 <= len(entries) <= TEMPLATE_INDEX_PAGES, 'index_page_cap')
+    result = {k: v for k, v in index.items() if k != 'IndexFiles'}
+    result.update(SchemaVersion=2, Sources={}, **{k: [] for k in TEMPLATE_LISTS})
+    for number, entry in enumerate(entries):
+        name = f'index-{number:03d}.json'
+        require(entry['File'] == name and name in docs, 'index_page_missing_or_order')
+        require(hash_ok(entry['Sha256']) and sha(files[name]) == entry['Sha256'], f'{name}: Sha256 mismatch')
+        listed.add(name)
+        page = docs[name]
+        require(page['SchemaVersion'] == 3 and page['Chunk'] == number, 'index_page_version_or_order')
+        require(any(page[k] for k in ('SourcePins', *TEMPLATE_LISTS)), 'index_page_empty')
+        for source in page['SourcePins']:
+            key = source['Name']
+            require(key not in result['Sources'], 'index_source_duplicate')
+            result['Sources'][key] = source['Sha256']
+        require(len(result['Sources']) <= 520, 'index_source_cap')
+        for field, spec in TEMPLATE_LISTS.items():
+            result[field].extend(page[field])
+            require(len(result[field]) <= spec[2], f'{field}: chunk cap exceeded')
+    return result, listed
 
 
 def _validate_templates(files):
     from tools.package.search_context import CONTAINERS
 
-    require(len(files) <= 610 and sum(map(len, files.values())) <= 20 * 1024 * 1024, 'template pack exceeds total cap')
+    require(len(files) <= TEMPLATE_PACK_FILES and sum(map(len, files.values())) <= 20 * 1024 * 1024, 'template pack exceeds total cap')
     docs = {name: _template_json(raw, name) for name, raw in files.items()}
-    index = docs.get('index.json')
+    index, listed = _expand_template_index(docs, files)
     exact_keys(index, 'SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional Sources ClassFiles TemplateFiles FurnishFiles GroupFiles'.split(), 'index')
     require(type(index['SchemaVersion']) is int and index['SchemaVersion'] == 2
             and index['Kind'] == 'hc-interior-templates' and index['WorldName'] == WORLD
@@ -1195,7 +1276,7 @@ def _validate_templates(files):
                     or re.fullmatch('census-[0-9a-f]{32}', k)) and hash_ok(v) for k, v in sources.items()),
             'missing or invalid source pins')
     require(hash_ok(index['SourcePin']) and index['SourcePin'] == _source_pin(sources), 'SourcePin mismatch')
-    listed, classes, templates, furnishing, groups = {'index.json'}, {}, {}, [], {}
+    classes, templates, furnishing, groups = {}, {}, [], {}
     for field, (prefix, width, cap, row_key, row_cap) in TEMPLATE_LISTS.items():
         entries = index[field]
         require(isinstance(entries, list) and len(entries) <= cap, f'{field}: chunk cap exceeded')
@@ -1327,11 +1408,12 @@ def templates_assemble(build, out, search_groups=None, stock=None):
     def ingest(rows, directory, group=False):
         require(isinstance(rows, list), 'chunk list must be a list')
         for entry in rows:
+            require(len(files) < 609, 'template payload file cap')
             name = entry['File']
             require(_template_name(name) and name != 'index.json' and name not in files, 'invalid or duplicate build chunk name')
             field = next((key for key, spec in TEMPLATE_LISTS.items() if re.fullmatch(
                 spec[0] + r'-[0-9]{' + str(spec[1]) + r'}\.json', name)), None)
-            require((field == 'GroupFiles') == group, 'unexpected chunk kind in build/report')
+            require(field is not None and (field == 'GroupFiles') == group, 'unexpected chunk kind in build/report')
             data = _read_template_input(directory, name, MEASURED_TEXT_LIMIT)
             require(sha(data) == entry['Sha256'] and len(data) == entry['Bytes'], f'{name}: build/report pin mismatch')
             row = {'File': name, 'Sha256': sha(data)}
@@ -1339,6 +1421,7 @@ def templates_assemble(build, out, search_groups=None, stock=None):
                 row['BuildingClass'] = _template_json(data, name)['BuildingClass']
             entries[field].append(row)
             files[name] = data
+            require(sum(map(len, files.values())) <= 20 * 1024 * 1024, 'template pack exceeds total cap')
     ingest(manifest['Files'], build)
     expected = set(files) | {'build-manifest.json'}
     require({p.name for p in Path(build).iterdir()} == expected, 'unexpected T2 build files')
@@ -1370,8 +1453,13 @@ def templates_assemble(build, out, search_groups=None, stock=None):
     # Groups and additional stock pins change pack identity, preserving epoch stability across restarts.
     index['PackId'] = sha(_compact({'BuildPackId': manifest['PackId'], 'Sources': dict(sorted(sources.items())),
                                   'Files': {n: sha(raw) for n, raw in sorted(files.items())}}))[:32]
-    files['index.json'] = _compact(index)
+    files.update(_bounded_template_index(index))
     report = _validate_templates(files)
+    _write_template_pack(out, files)
+    return report
+
+
+def _write_template_pack(out, files):
     out = Path(out).absolute()
     child(out.parent, out.name)
     require(out != ROOT and ROOT not in out.parents, 'real output must be outside the checkout')
@@ -1380,6 +1468,20 @@ def templates_assemble(build, out, search_groups=None, stock=None):
     (out / 'templates').mkdir()
     for name, data in files.items():
         fresh_write(out, 'templates/' + name, data)
+
+
+def templates_migrate(pack, out):
+    """Explicit stopped-server candidate migration; preserve PackId and all leaf bytes.
+
+    Never upgrades a live profile or reconstructs classes discarded by an older builder.
+    Review/install uses the existing receipt/backup/readback and rollback protocol.
+    """
+    files = _template_tree(pack)
+    report = _validate_templates(files)
+    require(json.loads(files['index.json'])['SchemaVersion'] == 2, 'migration_requires_schema_2')
+    files.update(_bounded_template_index(report['index'], force=True))
+    report = _validate_templates(files)
+    _write_template_pack(out, files)
     return report
 
 
@@ -1447,6 +1549,9 @@ def main(argv=None):
     entry.add_argument('--out', type=Path, required=True)
     entry = commands.add_parser('validate')
     entry.add_argument('directory', type=Path)
+    entry = commands.add_parser('migrate', help='write a schema-3 candidate from a validated schema-2 pack')
+    entry.add_argument('--pack', type=Path, required=True)
+    entry.add_argument('--out', type=Path, required=True)
     entry = commands.add_parser('install')
     entry.add_argument('--pack', type=Path, required=True)
     entry.add_argument('--target', type=Path, required=True)
@@ -1472,6 +1577,9 @@ def main(argv=None):
                 print(json.dumps(report['summary'], sort_keys=True))
             elif args.templates_command == 'validate':
                 report = templates_validate(args.directory)
+                print(json.dumps(report['summary'], sort_keys=True))
+            elif args.templates_command == 'migrate':
+                report = templates_migrate(args.pack, args.out)
                 print(json.dumps(report['summary'], sort_keys=True))
             elif args.templates_command == 'install':
                 receipt = templates_install(args.pack, args.target, args.replace, args.server_stopped)
