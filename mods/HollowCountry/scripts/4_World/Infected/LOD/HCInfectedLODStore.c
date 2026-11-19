@@ -118,6 +118,13 @@ class HCInfectedLODConfig
         return true;
     }
 
+    // Native LoadData zero-fills a missing HerdWorld to "", which would silently
+    // disable every herd seed: an existing lod.json must name its seed world.
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Has(text, "HerdWorld");
+    }
+
     // Bounded read (64 KiB) then parse; a missing file gets the template.
     static HCInfectedLODConfig Load(out string reason)
     {
@@ -133,6 +140,11 @@ class HCInfectedLODConfig
             if (!HCInfectedStore.ReadBounded(path, content) || !JsonFileLoader<HCInfectedLODConfig>.LoadData(content, config, error))
             {
                 reason = "unreadable lod.json; preserving file";
+                return null;
+            }
+            if (!HCFieldsPresent(content))
+            {
+                reason = "lod.json missing HerdWorld; preserving file";
                 return null;
             }
         }

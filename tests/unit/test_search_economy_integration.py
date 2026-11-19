@@ -64,6 +64,8 @@ def invoke(name, env, instance, *args, path=None):
     text = text.replace('HCInteriorJson<HCInteriorManifest>.Load(', 'load_manifest(')
     text = text.replace('HCInteriorJson<HCInteriorConfig>.Load("$profile:HollowCountry/interiors.json", m_Config)',
                         'load_config()')
+    # The raw-text presence guard (HCFieldsPresent) is exercised by test_hc_s005_wave11.
+    text = text.replace('!HCFieldsPresent(HCReadPilotText("$profile:HollowCountry/interiors.json"))', 'False')
     text = text.replace('load_manifest(root + "/manifest.json", previous)',
                         '((previous := load_manifest(root + "/manifest.json")) != null)')
     text = re.sub(r'\b(?:HCSettings|HCInterior\w+|HCSearch\w+|PlayerBase|ActionData|InventoryLocation|EntityAI|ItemBase) (?=\w+\s*=)', '', text)

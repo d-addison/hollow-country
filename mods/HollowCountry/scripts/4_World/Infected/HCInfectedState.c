@@ -581,7 +581,7 @@ class HCInfectedStore
     // the document; zero Living remains legitimate when explicitly stored.
     static bool HCFieldsPresent(string text)
     {
-        if (!HCJsonFields.Has(text, "Reserved")) { return false; }
+        if (!HCJsonFields.Has(text, "SchemaVersion") || !HCJsonFields.Has(text, "Reserved")) { return false; }
         return HCJsonFields.Every(text, "Living", 3) && HCJsonFields.Every(text, "Reserved", 3) && HCJsonFields.Every(text, "AdoptionStage", 3);
     }
 

@@ -54,7 +54,9 @@ class HCEcologyMigrationSchedule
 	string Id;
 	int PopulationKind;
 	int IntervalSeconds;
-	int NextDueUtc = -1;
+	// No -1 sentinel: native LoadData zero-fills a missing key and
+	// HCEcologyMigrationRules.UtcValid refuses 0 (below 1767225600) as invalid.
+	int NextDueUtc;
 	int Sequence = -1;
 	// Conservative route reservations, never a live population census.
 	// Retained on rejected retarget/restart because an old route may still run.

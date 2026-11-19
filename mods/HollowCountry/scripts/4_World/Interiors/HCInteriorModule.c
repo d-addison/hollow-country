@@ -59,6 +59,25 @@ class HCInteriorsModule : HCModule
         return settings && settings.EnableInteriors;
     }
 
+    // Native LoadData zero-fills a missing SlotId to 0, which would alias slot 0.
+    // The raw text is re-read with the same bounds as HCInteriorJson.Load.
+    static bool HCFieldsPresent(string text)
+    {
+        if (text.Length() < 2) return false;
+        return HCJsonFields.Every(text, "SlotId", 3);
+    }
+
+    static string HCReadPilotText(string path)
+    {
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) return "";
+        string text;
+        int count = ReadFile(handle, text, 32769);
+        CloseFile(handle);
+        if (count <= 0 || count >= 32768 || text.Length() >= 32768) return "";
+        return text;
+    }
+
     bool Reject(string reason)
     {
         Print("[HC Interiors] disabled: " + reason);
@@ -245,7 +264,7 @@ class HCInteriorsModule : HCModule
         #endif
         // Optional legacy pilot. The template override reports its own admission.
         if (!FileExist("$profile:HollowCountry/interiors.json")) return;
-        if (!HCInteriorJson<HCInteriorConfig>.Load("$profile:HollowCountry/interiors.json", m_Config) || !ValidateConfig(settings))
+        if (!HCInteriorJson<HCInteriorConfig>.Load("$profile:HollowCountry/interiors.json", m_Config) || !HCFieldsPresent(HCReadPilotText("$profile:HollowCountry/interiors.json")) || !ValidateConfig(settings))
         {
             Print("[HC Interiors] invalid legacy pilot configuration; pilot disabled");
             return;

@@ -150,6 +150,8 @@ class HCCellarSampler : HCModule
         m_WorldSize = GetGame().GetWorld().GetWorldSize();
         if (m_WorldSize < 128 || m_WorldSize > 32768) { return false; }
         m_Data.Complete = false;
+        m_Data.HCRestoreDeclaredMethod();
+        for (int restoreIndex = 0; restoreIndex < m_Data.Classes.Count(); restoreIndex++) { m_Data.Classes[restoreIndex].HCRestoreDeclaredDefaults(); }
         if (!HCV2ThreatStore<HCCellarSamplerData>.Save(OUTPUT, m_Data, 4194304)) { return false; }
         m_Objects = new array<Object>;
         m_Cargos = new array<CargoBase>;
