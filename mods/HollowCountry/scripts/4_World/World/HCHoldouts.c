@@ -147,6 +147,7 @@ class HCHoldoutRow
 {
     ref HCWorldHoldout Ledger = new HCWorldHoldout;
     ref HCEncounterCache Cache = new HCEncounterCache;
+    ref HCAICampLife Camp = new HCAICampLife;
     int StockAttempts;
     int StockDay;
     bool Published;
@@ -155,7 +156,9 @@ class HCHoldoutRow
 
 class HCHoldoutState
 {
-    int Version = 1;
+    int Version = 2;
+    ref HCAICampPolicy CampPolicy = new HCAICampPolicy;
+    ref HCAICampResources Resources = new HCAICampResources;
     string TemplatePin;
     ref array<ref HCHoldoutRow> Rows = new array<ref HCHoldoutRow>;
 }
@@ -173,6 +176,10 @@ class HCHoldouts : HCModule
     protected ref HCHoldoutState m_State;
     protected ref array<ref HCEncounterCacheIO> m_Caches = new array<ref HCEncounterCacheIO>;
     protected ref array<ref HCHoldoutBody> m_Bodies = new array<ref HCHoldoutBody>;
+    protected ref HCAICampDebug m_CampDebug;
+    protected ref HCUnitBudget m_CampUnits = new HCUnitBudget;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+    protected ref map<string, string> m_CampRefusals = new map<string, string>;
     protected int m_Next;
     protected float m_Elapsed;
     protected bool m_Ready;
@@ -196,7 +203,7 @@ class HCHoldouts : HCModule
             HCHoldoutRow row = module.m_State.Rows[cacheIndex];
             if (module.m_Caches[cacheIndex].Handle == container && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT"))
             {
-                module.Raid(cacheIndex);
+                module.HCRaidCamp(cacheIndex);
                 return;
             }
         }
@@ -206,30 +213,67 @@ class HCHoldouts : HCModule
     {
         HCHoldouts module = HCHoldouts.Get();
         if (!module || !GetGame().IsServer()) return;
-        foreach (HCHoldoutBody binding : module.m_Bodies)
+        for (int killedIndex = module.m_Bodies.Count() - 1; killedIndex >= 0; killedIndex--)
         {
+            HCHoldoutBody binding = module.m_Bodies[killedIndex];
             if (binding.Body != body) continue;
+            module.m_Bodies.Remove(killedIndex);
             for (int holdoutIndex = 0; holdoutIndex < module.Count(); holdoutIndex++)
             {
                 if (module.m_State.Rows[holdoutIndex].Ledger.Id == binding.HoldoutId)
                 {
-                    module.Raid(holdoutIndex);
+                    HCAICampLifecycle.HCDeath(module.m_State.Rows[holdoutIndex].Camp);
+                    module.m_Dirty = true;
+                    module.HCRaidCamp(holdoutIndex);
+                    module.SaveChanged();
                     return;
                 }
             }
         }
     }
     override string GetName() { return "Holdouts"; }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Operational; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool enabled = settings && settings.EnableEncounters;
+        if (!enabled) { m_Operational.HCPublish("off", "encounters_disabled"); }
+        return enabled;
+    }
     int Count() { if (!m_State) { return 0; } return m_State.Rows.Count(); }
 
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("Holdouts", true, "EXP-L4", HCV2Gates.Qualified("EXP-L4")));
         m_Store = new HCEncounterStore<HCHoldoutState>("holdouts");
+        // Schema 1 had free occupants. Never infer seed reserves or import them
+        // repeatedly; preserve the old image for an explicit operator migration.
+        string priorPath = "$profile:HollowCountry/holdouts.json";
+        bool hasPrior = FileExist(priorPath);
+        string priorImage;
+        if (hasPrior) { priorImage = HCWorldStore.Read(priorPath); }
+        if (hasPrior && priorImage.IndexOf("\"CampPolicy\"") < 0)
+        {
+            m_Operational.HCPublish("refused", "HC16_LEGACY_UNFUNDED_STATE");
+            Print("[HC Plan] HC-16 camp=none level=-1 supply=0 roles=0 state=refused refusal=HC16_LEGACY_UNFUNDED_STATE runtime=PENDING");
+            return;
+        }
         m_State = m_Store.Load(new HCHoldoutState, "Rows");
-        if (!m_State || m_State.Version != 1 || !m_State.Rows || m_State.Rows.Count() > HCAILimits.Get().MaxHoldouts) { HCRefuseState(); return; }
+        if (!m_State || m_State.Version != 2 || !m_State.Rows || m_State.Rows.Count() > HCAILimits.Get().MaxHoldouts) { HCRefuseState(); return; }
+        // Schema 2 is an HC-written journal image. Missing/defaulted fields,
+        // unknown fields or a truncated but parseable image must not seed a new
+        // reserve. Preserve noncanonical edits for explicit recovery.
+        string canonical;
+        string encodeError;
+        if (hasPrior)
+        {
+            if (!JsonFileLoader<HCHoldoutState>.MakeData(m_State, canonical, encodeError) || canonical != priorImage) { HCRefuseState(); return; }
+        }
+        if (!m_State.CampPolicy || !m_State.CampPolicy.HCValid() || !m_State.Resources) { HCRefuseState(); return; }
+        if (m_State.Resources.Stock < 0 || m_State.Resources.Stock > m_State.CampPolicy.FoundingStock) { HCRefuseState(); return; }
+        if (m_State.Resources.Population < 0 || m_State.Resources.Population > m_State.CampPolicy.FoundingPopulation) { HCRefuseState(); return; }
         map<string, bool> ids = new map<string, bool>;
+        int allocatedStock = m_State.Resources.Stock;
+        int allocatedPopulation = m_State.Resources.Population;
         int occupied = 0;
         foreach (HCHoldoutRow row : m_State.Rows)
         {
@@ -237,6 +281,15 @@ class HCHoldouts : HCModule
             if (row.Ledger.State != "DORMANT" && row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT" && row.Ledger.State != "RAIDED" && row.Ledger.State != "ABANDONED") { HCRefuseState(); return; }
             if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > HCAILimits.SIZE_CEILING || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) { HCRefuseState(); return; }
             if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 604800) { HCRefuseState(); return; }
+            if (!HCAICampLifecycle.HCValidLife(row.Camp, m_State.CampPolicy) || row.Camp.Home != row.Ledger.Id) { HCRefuseState(); return; }
+            if (row.Camp.Allocated)
+            {
+                if (row.Camp.Party != "holdout:" + row.Ledger.Id) { HCRefuseState(); return; }
+                allocatedStock += m_State.CampPolicy.CampAllocation;
+                allocatedPopulation += row.Camp.Population;
+            }
+            if (row.Ledger.Occupants > 0 && (row.Camp.Level < 0 || row.Ledger.Occupants != row.Camp.Population)) { HCRefuseState(); return; }
+            if (row.Ledger.State == "RAIDED" && row.Camp.ReoccupyAfter != row.Ledger.ReoccupyAfter) { HCRefuseState(); return; }
             ids.Set(row.Ledger.Id, true);
             if (row.Ledger.Occupants > 0)
             {
@@ -246,25 +299,36 @@ class HCHoldouts : HCModule
             row.Published = false;
             m_Caches.Insert(new HCEncounterCacheIO);
         }
+        if (allocatedStock != m_State.CampPolicy.FoundingStock || allocatedPopulation > m_State.CampPolicy.FoundingPopulation) { HCRefuseState(); return; }
         if (occupied > HCAILimits.Get().MaxOccupiedPlaces) { HCRefuseState(); return; }
         s_Instance = this;
         m_SaveJob = new HCHoldoutSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
         m_Ready = true;
+        if (settings && settings.EnableDebugSnapshot)
+        {
+            m_CampDebug = new HCAICampDebug;
+            m_CampDebug.Owner = this;
+            HCDebugSnapshot.HCRegister(m_CampDebug);
+        }
+        m_Operational.HCPublish("ready", "HC16_funded_store_ready_runtime_pending");
+        Print("[HC Plan] HC-16 camp=none level=-1 supply=" + m_State.Resources.Stock.ToString() + " roles=0 state=ready refusal=EAT_FIRE_REPAIR_UNPROVEN runtime=PENDING");
         Print("[HollowCountry] V2 holdouts ready catalog/occupied caps from AILimits raid_lockout=604800s; bodies require materializer");
         HCSyncLights();
     }
 
     protected void HCRefuseState()
     {
+        m_Operational.HCPublish("refused", "HC16_invalid_or_unfunded_state");
+        Print("[HC Plan] HC-16 camp=none level=-1 supply=0 roles=0 state=refused refusal=STATE_INVALID runtime=PENDING");
         Print("[HollowCountry] V2 holdouts refused: invalid holdouts.json state or lowered AILimits; preserve file, .tmp and .bak");
     }
 
     bool SaveChanged()
     {
         if (!m_Dirty) { return true; }
-        if (!m_Store.Save(m_State)) { m_Ready = false; HCSyncLights(); return false; }
+        if (!m_Store.Save(m_State)) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_store_uncertain"); HCSyncLights(); return false; }
         m_Dirty = false;
         m_CatalogDirty = false;
         if (m_SaveJob)
@@ -322,32 +386,168 @@ class HCHoldouts : HCModule
         }
     }
 
+    array<ref HCAICampLife> HCCampHomes()
+    {
+        array<ref HCAICampLife> homes = new array<ref HCAICampLife>();
+        foreach (HCHoldoutRow homeRow : m_State.Rows) { homes.Insert(homeRow.Camp); }
+        return homes;
+    }
+
+    void HCDescribeCamp(HCDebugSnapshot snapshot, int index)
+    {
+        if (!m_Ready || index < 0 || index >= Count()) { return; }
+        HCHoldoutRow row = m_State.Rows[index];
+        string detail = "logical level=" + row.Camp.Level.ToString() + " supply=" + row.Camp.Supply.ToString();
+        detail += " population=" + row.Camp.Population.ToString() + " runtime=PENDING";
+        snapshot.AddPoint("ai-camps", row.Ledger.Id, row.Ledger.HousePos, row.Ledger.State, detail);
+    }
+
+    void HCLogCamp(HCHoldoutRow row, string state, string refusal)
+    {
+        string line = "[HC Plan] HC-16 camp=" + row.Ledger.Id + " level=" + row.Camp.Level.ToString();
+        line += " supply=" + row.Camp.Supply.ToString() + " roles=0 state=" + state;
+        Print(line + " refusal=" + refusal + " runtime=PENDING");
+    }
+
+    bool HCStepCamp(int index, int now)
+    {
+        if (!m_Ready || !m_State || index < 0 || index >= Count() || now < 1) { return false; }
+        HCHoldoutRow row = m_State.Rows[index];
+        if (now < row.Ledger.Since) { return false; }
+        HCAICampPolicy policy = m_State.CampPolicy;
+        if (row.Ledger.State == "ABANDONED" || !SiteAvailable(row) || !Cache(index)) { return false; }
+        if (row.Ledger.State == "RAIDED" && now < row.Ledger.ReoccupyAfter) { return false; }
+        string priorState = row.Ledger.State;
+        bool clearAlert = priorState == "ALERT" && now - row.Ledger.Since >= 3600;
+        bool changed = clearAlert;
+        if (!row.Camp.Allocated)
+        {
+            if (Occupied() >= HCAILimits.Get().MaxOccupiedPlaces) { return false; }
+            int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, row.Ledger.Id, "holdout");
+            if (!HCAICampLifecycle.HCFound(row.Camp, m_State.Resources, HCCampHomes(), "holdout:" + row.Ledger.Id, population, now, policy))
+            {
+                if (m_CampRefusals.Get(row.Ledger.Id) != "FOUNDING_RESERVE_EXHAUSTED")
+                {
+                    m_CampRefusals.Set(row.Ledger.Id, "FOUNDING_RESERVE_EXHAUSTED");
+                    HCLogCamp(row, "refused", "FOUNDING_RESERVE_EXHAUSTED");
+                }
+                return false;
+            }
+            changed = true;
+        }
+        if (row.Ledger.Occupants == 0 && Occupied() >= HCAILimits.Get().MaxOccupiedPlaces) { return false; }
+        bool upkeep = HCAICampLifecycle.HCUpkeep(row.Camp, now, policy);
+        if (upkeep) { changed = true; }
+        else if (HCAICampLifecycle.HCGrow(row.Camp, now, policy)) { changed = true; }
+        if (!changed) { return false; }
+        if (row.Camp.Level < 0)
+        {
+            row.Ledger.State = "ABANDONED";
+            row.Ledger.Occupants = 0;
+            row.Ledger.Routine = "SUPPLY_EXHAUSTED";
+        }
+        else
+        {
+            if (priorState != "ALERT" || clearAlert) { row.Ledger.State = "OCCUPIED"; }
+            row.Ledger.Occupants = row.Camp.Population;
+            row.Ledger.Routine = "FUNDED_CAMP";
+        }
+        if (row.Ledger.State != priorState) { row.Ledger.Since = now; }
+        row.Published = false;
+        m_Dirty = true;
+        // One verified image owns the reserve debit, stage and population. No
+        // refund/replay after uncertain IO; materializer never receives it.
+        if (!SaveChanged()) { m_Ready = false; return false; }
+        HCLogCamp(row, "ready", "EAT_FIRE_REPAIR_UNPROVEN");
+        return true;
+    }
+
+    void HCRaidCamp(int index)
+    {
+        Raid(index);
+        // A later real death during lockout still commits its population debit.
+        SaveChanged();
+    }
+
+    // Called only by the optional provider's real EEKilled bridge. Remove a
+    // pre-bound handle first so the PlayerBase super callback cannot debit it
+    // twice. Even an actor killed before its first routine step is accounted.
+    void HCPartyKilled(HCAIPartyIdentity identity, EntityAI body)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!m_Ready || !world || !body || !GetGame().IsServer() || !HCAIPartyIdentity.HCValid(identity)) { return; }
+        if (identity.HCGeneration() != world.Epoch()) { return; }
+        for (int killedHome = 0; killedHome < Count(); killedHome++)
+        {
+            HCHoldoutRow row = m_State.Rows[killedHome];
+            if (identity.HCPartyId() != row.Camp.Party || identity.HCCampId() != "camp:" + row.Ledger.Id) { continue; }
+            if (identity.HCHomeId() != row.Ledger.PlaceId || identity.HCRouteId() != "stationary:" + row.Ledger.Id || identity.HCCargoId() != "cargo:" + row.Ledger.Id) { return; }
+            ReleaseOccupant(body);
+            if (!HCAICampLifecycle.HCDeath(row.Camp)) { return; }
+            m_Dirty = true;
+            HCRaidCamp(killedHome);
+            return;
+        }
+    }
+
+    bool HCOwnsOccupant(string id, EntityAI body)
+    {
+        foreach (HCHoldoutBody binding : m_Bodies)
+        {
+            if (binding.HoldoutId == id && binding.Body == body) { return true; }
+        }
+        return false;
+    }
+
+    HCAICampPolicy HCRoutinePolicy() { return m_State.CampPolicy; }
+
+    // Lead integration: gate HCWorldModule.MaterializerRow with this after its
+    // existing holdout validation. A stale world copy/legacy profile is never
+    // proof of a funded camp; this getter performs no save, load or allocation.
+    static bool HCAllowsMaterializer(HCWorldHoldout proposal)
+    {
+        HCHoldouts owner = HCHoldouts.Get();
+        if (!owner || !proposal) { return false; }
+        for (int admissionIndex = 0; admissionIndex < owner.Count(); admissionIndex++)
+        {
+            HCHoldoutRow row = owner.m_State.Rows[admissionIndex];
+            if (row.Ledger.Id != proposal.Id) { continue; }
+            if (!row.Published || !row.Camp.Allocated || row.Camp.Level < 0 || row.Camp.Population < 1) { return false; }
+            if (row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT") { return false; }
+            if (proposal.Occupants != row.Camp.Population || proposal.HousePos != row.Ledger.HousePos || proposal.CacheRef != row.Cache.EntityRef) { return false; }
+            return owner.Cache(admissionIndex) != null;
+        }
+        return false;
+    }
+
+    // Detached view bound to HC-10's current immutable materializer identity.
+    // Does not allocate a second party, move a house or create a provider lease.
+    HCAICampRoutineView HCRoutineView(HCAIPartyIdentity identity)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!m_Ready || !world || !HCAIPartyIdentity.HCValid(identity) || identity.HCGeneration() != world.Epoch()) { return null; }
+        for (int viewIndex = 0; viewIndex < Count(); viewIndex++)
+        {
+            HCHoldoutRow row = m_State.Rows[viewIndex];
+            if (!row.Camp.Allocated || row.Camp.Level < 0 || row.Camp.Population < 1) { continue; }
+            if (row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT") { continue; }
+            if (identity.HCPartyId() != row.Camp.Party || identity.HCCampId() != "camp:" + row.Ledger.Id) { continue; }
+            if (identity.HCHomeId() != row.Ledger.PlaceId || identity.HCRouteId() != "stationary:" + row.Ledger.Id || identity.HCCargoId() != "cargo:" + row.Ledger.Id) { return null; }
+            HCAICampRoutineView view = new HCAICampRoutineView;
+            view.Home = Snapshot(viewIndex);
+            if (!view.Home) { return null; }
+            view.Level = row.Camp.Level;
+            view.Supply = row.Camp.Supply;
+            view.Population = row.Camp.Population;
+            return view;
+        }
+        return null;
+    }
+
+    // Existing admin and tick entry points share the same funding barrier.
     bool HCAdvanceOccupancy(int index, int now)
     {
-        HCHoldoutRow row = m_State.Rows[index];
-        string before = row.Ledger.State;
-        if (row.Ledger.State == "RAIDED" && now >= row.Ledger.ReoccupyAfter)
-        {
-            row.Ledger.State = "DORMANT";
-            row.Ledger.Since = now;
-            row.Ledger.Routine = "AWAITING_OCCUPANTS";
-        }
-        bool dormant = row.Ledger.State == "DORMANT";
-        bool capacity = Occupied() < HCAILimits.Get().MaxOccupiedPlaces;
-        bool available = SiteAvailable(row) && Cache(index);
-        if (dormant && capacity && available)
-        {
-            row.Ledger.State = "OCCUPIED";
-            row.Ledger.Occupants = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, row.Ledger.Id, "holdout");
-            row.Ledger.Since = now;
-            row.Ledger.Routine = "SHELTER";
-        }
-        if (row.Ledger.State == "ALERT" && now - row.Ledger.Since >= 3600)
-        {
-            row.Ledger.State = "OCCUPIED";
-            row.Ledger.Since = now;
-        }
-        return row.Ledger.State != before;
+        return HCStepCamp(index, now);
     }
 
     void HCSyncLights()
@@ -399,6 +599,7 @@ class HCHoldouts : HCModule
             row.Ledger.PlaceId.ToLower();
             row.Ledger.FactionId = "locals";
             row.Ledger.Since = HCWorldClock.UTC();
+            row.Camp.Home = id;
             row.StockDay = HCEscalationClock.Day();
             row.Cache.Position = position;
             row.Cache.Orientation = Vector(site.Yaw, 0, 0);
@@ -590,7 +791,8 @@ class HCHoldouts : HCModule
         row.Ledger.State = "RAIDED";
         row.Ledger.Occupants = 0;
         row.Ledger.Since = HCWorldClock.UTC();
-        row.Ledger.ReoccupyAfter = row.Ledger.Since + 604800;
+        HCAICampLifecycle.HCRaid(row.Camp, row.Ledger.Since, m_State.CampPolicy);
+        row.Ledger.ReoccupyAfter = row.Camp.ReoccupyAfter;
         row.Ledger.Routine = "LOCKOUT";
         row.Contents.Clear();
         m_Dirty = true;
@@ -612,16 +814,19 @@ class HCHoldouts : HCModule
             m_WaitReported = true;
             return;
         }
-        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
+        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_template_changed"); HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
         FillCatalog();
         if (m_CatalogDirty) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         if (!m_Ready || Count() == 0) { return; }
         if (m_Next >= Count()) m_Next = 0;
+        m_CampUnits.HCReset(1);
+        m_WorkBudget.HCReset(1);
+        if (!m_CampUnits.HCTake(1) || !m_WorkBudget.HCContinue()) { return; }
         int index = m_Next;
         m_Next++;
         HCHoldoutRow row = m_State.Rows[index];
         int now = HCWorldClock.UTC();
-        if (now < row.Ledger.Since || now < 1) { m_Ready = false; HCSyncLights(); return; }
+        if (now < row.Ledger.Since || now < 1) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_clock_rollback"); HCSyncLights(); return; }
         // Repair a cross-store interrupted publish even when a house/cache
         // cannot currently resolve. Local durable state is authoritative.
         if (!row.Published)
@@ -643,11 +848,12 @@ class HCHoldouts : HCModule
         string cacheRef = row.Cache.EntityRef;
         if (row.Cache.Phase != 0) m_Caches[index].LinkCache(row.Cache);
         if (cachePhase != row.Cache.Phase || cacheRef != row.Cache.EntityRef) m_Dirty = true;
-        if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) Raid(index);
-        if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) Raid(index);
+        if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) HCRaidCamp(index);
+        if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) HCRaidCamp(index);
         if (!m_Ready) return;
         string previousState = row.Ledger.State;
-        HCAdvanceOccupancy(index, now);
+        HCStepCamp(index, now);
+        if (!m_Ready) { return; }
         for (int bodyIndex = m_Bodies.Count() - 1; bodyIndex >= 0; bodyIndex--)
         {
             HCHoldoutBody binding = m_Bodies[bodyIndex];
@@ -655,15 +861,12 @@ class HCHoldouts : HCModule
             if (!binding.Body) { m_Bodies.Remove(bodyIndex); continue; }
             if (binding.Body.IsAlive()) continue;
             m_Bodies.Remove(bodyIndex);
-            Raid(index);
+            HCAICampLifecycle.HCDeath(row.Camp);
+            m_Dirty = true;
+            HCRaidCamp(index);
+            SaveChanged();
             if (!m_Ready) return;
             previousState = row.Ledger.State;
-        }
-        if (row.Ledger.State == "OCCUPIED" && HCEscalationClock.Day() >= 14 && HCEscalationClock.Pressure("raiders") >= 0.9)
-        {
-            row.Ledger.State = "ABANDONED";
-            row.Ledger.Occupants = 0;
-            row.Ledger.Since = now;
         }
         if (!m_Ready) return;
         if (row.Ledger.State != previousState)
@@ -713,9 +916,14 @@ class HCHoldouts : HCModule
         // Flush changes marked by native callbacks since the last tick; a faulted store stays unwritten.
         if (m_Ready && m_State) { SaveChanged(); }
         HCSaveScheduler.HCUnregister(m_SaveJob);
+        HCDebugSnapshot.HCUnregister(m_CampDebug);
+        m_CampDebug = null;
         m_Ready = false;
+        m_Operational.HCPublish("off", "stopped");
+        Print("[HC Plan] HC-16 camp=none level=-1 supply=0 roles=0 state=off runtime=PENDING");
         HCSyncLights();
         m_Bodies.Clear();
+        m_CampRefusals.Clear();
         if (s_Instance == this) s_Instance = null;
     }
 }

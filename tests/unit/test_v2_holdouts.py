@@ -162,6 +162,11 @@ class HoldoutsSmoke(unittest.TestCase):
                    HCWorldClock=N(UTC=lambda: clock[0]), Print=lambda text: None)
         from tests.unit.ai_limits_fixture import install
         install(env, MaxOccupiedPlaces=6, MaxHoldouts=24)
+        from tests.unit.test_hc_ai_camps import authored_camp_api
+        camp_policy, camp_api = authored_camp_api()
+        row.Camp = N(Home=row.Ledger.Id, Party='', Allocated=False, Population=0,
+                     Supply=0, Level=-1, LastStage=0, LastUpkeep=0, ReoccupyAfter=0)
+        env['HCAICampLifecycle'] = camp_api
         transition_env = dict(env)
         translate(holdouts_source, 'HCHoldouts', transition_env, only=('HCAdvanceOccupancy',))
         self.assertIn('HCAdvanceOccupancy', transition_env, 'missing day-0 holdout transition')
@@ -169,13 +174,21 @@ class HoldoutsSmoke(unittest.TestCase):
         translate(world_source, 'HCWorldModule', upsert_env, only=('UpsertHoldout',))
         world.UpsertHoldout = lambda value: upsert_env['UpsertHoldout'](world, value)
         translate(holdouts_source, 'HCHoldouts', env, only=('PublishState',))
-        module = N(m_State=N(Rows=Rows([row])), m_Dirty=False,
+        module = N(m_State=N(Rows=Rows([row]), CampPolicy=camp_policy,
+                             Resources=N(Stock=camp_policy.FoundingStock,
+                                         Population=camp_policy.FoundingPopulation)),
+                   m_Ready=True, m_Dirty=False,
                    m_PublishRefusals=N(Set=lambda *a: None),
                    Occupied=lambda: row.Ledger.Occupants > 0,
                    SiteAvailable=lambda value: True, Cache=lambda index: object(),
+                   Count=lambda: 1, HCCampHomes=lambda: EArray([row.Camp]),
+                   HCLogCamp=lambda *a: None,
                    HCSyncLights=lambda: None, SaveChanged=lambda: True)
         env['m_PublishRefusals'] = module.m_PublishRefusals
         module.PublishState = lambda value: env['PublishState'](module, value)
+        funded_env = dict(env)
+        translate(holdouts_source, 'HCHoldouts', funded_env, only=('HCStepCamp',))
+        module.HCStepCamp = lambda index, now: funded_env['HCStepCamp'](module, index, now)
         self.assertEqual(0, env['HCEscalationClock'].Day())
         self.assertTrue(transition_env['HCAdvanceOccupancy'](module, 0, clock[0]))
         module.PublishState(row)

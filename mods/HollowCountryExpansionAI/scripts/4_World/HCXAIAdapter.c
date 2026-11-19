@@ -62,6 +62,7 @@ class HCXAIAdapter extends HCModule
     protected ref HCXAISiteDirector m_Sites;
     // AI_ENCOUNTER on the director's own qualified patrols (HCXAIEncounters.c).
     protected ref HCXAIEncounters m_Encounters;
+    protected ref HCXAICampRoutine m_CampRoutine;
 
     override string GetName() { return "optional-expansion-human-ai"; }
     // Invoke startup to create/read the user's preference even without admission.
@@ -81,6 +82,8 @@ class HCXAIAdapter extends HCModule
         // receipt verifiers) is retired: it is no longer installed or loaded.
         m_Encounters = new HCXAIEncounters();
         m_Encounters.Open();
+        m_CampRoutine = new HCXAICampRoutine();
+        m_CampRoutine.Open(settings);
         if (!HCXAIService.Bind(this))
         {
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
@@ -547,6 +550,7 @@ class HCXAIAdapter extends HCModule
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (m_Sites) { m_Sites.Step(); }
+        if (m_CampRoutine) { m_CampRoutine.Step(); }
         if (m_Encounters)
         {
             m_Encounters.Step();
@@ -574,6 +578,7 @@ class HCXAIAdapter extends HCModule
     }
     override void OnStop()
     {
+        if (m_CampRoutine) { m_CampRoutine.Close(); }
         if (m_Encounters) { m_Encounters.Close(); }
         if (m_Sites) { m_Sites.Stop(); }
         m_Accepting = false;

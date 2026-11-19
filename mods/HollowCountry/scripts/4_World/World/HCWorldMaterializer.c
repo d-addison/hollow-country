@@ -54,6 +54,7 @@ modded class HCWorldModule
             if (rowIndex >= m_Data.Holdouts.Count()) { return null; }
             HCWorldHoldout holdout = m_Data.Holdouts[rowIndex];
             if (!holdout || (holdout.State != "OCCUPIED" && holdout.State != "ALERT") || holdout.Occupants < 1) { return null; }
+            if (!HCHoldouts.HCAllowsMaterializer(holdout)) { return null; }
             row.Id = "holdout:" + holdout.Id;
             row.FactionId = holdout.FactionId;
             row.PlaceId = holdout.PlaceId;

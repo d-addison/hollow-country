@@ -221,11 +221,15 @@ class ExpansionAdapterTests(unittest.TestCase):
                                                 Step=lambda:self.calls.append(("sites","step")),
                                                 Stop=lambda:self.calls.append(("sites","stop")),
                                                 HCLocalitySummary=lambda: "[HC Plan] HC-18 synthetic runtime=PENDING")
+        self.env["HCXAICampRoutine"] = lambda: N(
+            Open=lambda settings: self.calls.append(("camp", "open")),
+            Step=lambda: self.calls.append(("camp", "step")),
+            Close=lambda: self.calls.append(("camp", "close")))
         self.engine=Authored(self.runtime_source,self.env)
         self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
-                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None,m_Encounters=None)
+                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None,m_Encounters=None,m_CampRoutine=None)
         for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
             setattr(self.mod,name,lambda *a,n=name:self.engine.call(n,self.mod,*a))
 
