@@ -283,11 +283,22 @@ class HCSearchSupplyRegistry
         return allowed && m_Opened;
     }
 
+    string HCSearchActorId(PlayerBase actor)
+    {
+        if (!actor || !actor.GetIdentity() || actor.GetIdentity().GetPlayer() != actor) return "";
+        return actor.GetIdentity().GetId();
+    }
+
+    bool HCSearchActorAuthorized(PlayerBase actor, string actorId)
+    {
+        return actorId != "" && HCSearchActorId(actor) == actorId;
+    }
+
     protected bool Preflight(HCSearchEntry entry, PlayerBase actor)
     {
         if (!m_Opened || !entry || !actor) return false;
         if (!GetGame().IsServer() || !GetCEApi() || !actor.IsAlive() || actor.IsUnconscious()) return false;
-        if (!actor.GetIdentity() || actor.GetIdentity().GetPlayer() != actor) return false;
+        if (HCSearchActorId(actor) == "") return false;
         HCSearchOwnedSupply supply = Find(entry.SupplyId);
         if (!supply || supply.Attempted || supply.ItemClass != entry.ItemClass || !Unchanged(supply)) return false;
         if (!supply.ItemHandle.IsTakeable()) return false;
@@ -314,7 +325,7 @@ class HCSearchSupplyRegistry
     protected int Move(HCSearchEntry entry, PlayerBase actor)
     {
         if (!Preflight(entry, actor)) return 4;
-        string actorId = actor.GetIdentity().GetId();
+        string actorId = HCSearchActorId(actor);
         HCSearchOwnedSupply supply = Find(entry.SupplyId);
         InventoryLocation sourceLocation = new InventoryLocation;
         InventoryLocation destination = new InventoryLocation;
@@ -327,8 +338,7 @@ class HCSearchSupplyRegistry
         // actor, the source AND this registry's ownership after those callbacks,
         // immediately before the single native move.
         if (!m_Opened || m_RetirePending || Find(entry.SupplyId) != supply || s_Registered.Find(supply.ItemHandle) < 0) return 4;
-        if (!actor.IsAlive() || actor.IsUnconscious() || !actor.GetIdentity()) return 4;
-        if (actor.GetIdentity().GetId() != actorId || actor.GetIdentity().GetPlayer() != actor) return 4;
+        if (!actor.IsAlive() || actor.IsUnconscious() || !HCSearchActorAuthorized(actor, actorId)) return 4;
         if (!Unchanged(supply)) return 4;
         supply.Attempted = true;
         // Installed Inventory.c TakeToDst(SERVER) synchronously moves then sends

@@ -33,7 +33,7 @@ class SearchNativeTests(unittest.TestCase):
             setattr(self.port,name,lambda *a,n=name:self.call(n,*a))
         # invoke() rewrites only its fixed method list to self.X; the authored split of
         # Transfer/CanTransfer into guarded wrappers + Preflight/Move is bound as globals.
-        for name in ('Move','Preflight','Retire','Owning'):
+        for name in ('Move','Preflight','Retire','Owning','HCSearchActorId','HCSearchActorAuthorized'):
             self.env[name]=lambda *a,n=name:self.call(n,*a)
         self.item=self.item_fixture((1,2,3,4))
         self.assertTrue(self.call('RegisterOwned',self.item,'record_a'))
