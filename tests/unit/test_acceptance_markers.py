@@ -374,7 +374,7 @@ class ChecklistTraceabilityTests(unittest.TestCase):
         cls.result = markers.scan_tree(ROOT)
         cls.text = CHECKLIST.read_text(encoding="utf-8") if CHECKLIST.is_file() else ""
 
-    OPT_OUTS = ("atmosphere", "ecology_migration", "events", "events_sites", "fuel_siphon", "infected_ce_adoption",
+    OPT_OUTS = ("ai_trade_emote_ack", "atmosphere", "ecology_migration", "events", "events_sites", "fuel_siphon", "infected_ce_adoption",
                 "infected_contact_guard", "infected_deaths", "infected_horde_routes", "infected_investigation",
                 "infected_member_recovery", "infected_pack_routes", "infected_supplementary_chains",
                 "infected_vision", "interior_placement", "interior_search", "pve_patrols", "taped_helmet", "taped_light")

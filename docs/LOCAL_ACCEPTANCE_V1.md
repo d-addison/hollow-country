@@ -214,6 +214,7 @@ The opt-out markers on this checkout (create the `.disable` file to turn the fea
 | `$profile:HollowCountry/acceptance/taped_helmet.disable` | `HCTapedHelmetMounts.OnStart` | `mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c` |
 | `$profile:HollowCountry/acceptance/taped_light.disable` | `HCTapedLightAdmission.LocalAcceptanceOptIn` | `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c` |
 | `$profile:HollowCountry/acceptance/pve_patrols.disable` | `HCXAIQualification.LocalAcceptanceOptIn` (optional `HollowCountryExpansionAI` addon) | `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIQualification.c` |
+| `$profile:HollowCountry/acceptance/ai_trade_emote_ack.disable` | `HCAITrade.OnStart` | `mods/HollowCountry/scripts/4_World/World/HCAITrade.c` |
 
 Source gates (the `Qualified`/`Accepted` method itself returns false in source and no profile file flips
 it). Each is listed again in the row that depends on it. Every gate below except
