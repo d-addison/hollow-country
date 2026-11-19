@@ -8,8 +8,14 @@ Follow-up RED, same command:
 Follow-up RED, same command:
   AssertionError: 19 != 0 : retirement must retain the next maintenance row
 GREEN: same command, Ran 1 test, OK. Native acceptance remains PENDING.
+
+HC-33 actual RED (2026-11-18), same focused command:
+  AssertionError: Lists differ: ['SambucusBerry'] != []
+  + [] : HC-33 all-season supply must ignore visual/calendar month
+HC-33 GREEN: same command, Ran 1 test, OK. Native acceptance remains PENDING.
 """
 import functools
+import json
 import math
 from pathlib import Path
 import re
@@ -142,10 +148,59 @@ class ForageTravel(unittest.TestCase):
         self.assertEqual(40, len(nodes))
         self.assertIn(protected[0], nodes)
         self.assertIn(protected[2], nodes)
-        # Accepted seasonal table; placement is exercised through native ports in round 2.
+        # Legacy table remains callable; HC-33 runtime supply ignores calendar dates.
         bind(SOURCE, 'HCForageModule', module, env, ('HCSeasonalType',))
         self.assertEqual('', module.HCSeasonalType(1, 0))
         self.assertEqual('SambucusBerry', module.HCSeasonalType(6, 0))
+
+        # HC-33: same authored tick, synthetic native/store/budget ports. Each
+        # fixture starts empty, so cooldown/record exhaustion cannot mask supply.
+        from tests.unit.test_hc_forage_round2 import SyntheticRuntime
+        for month in range(1, 13):
+            runtime = SyntheticRuntime()
+            runtime.month = month
+            runtime.players.Insert(runtime.player())
+            runtime.start()
+            runtime.forage.OnTick(10)
+            self.assertEqual(['SambucusBerry'], [item.kind for item in runtime.created],
+                             'HC-33 all-season supply must ignore visual/calendar month')
+            self.assertTrue(any('[HC Plan] HC-33 native_routes=' in line and
+                                'runtime=PENDING' in line for line in runtime.logs))
+        runtime = SyntheticRuntime()
+        runtime.settings.EnableForage = False
+        runtime.forage.OnStart(runtime.settings)
+        runtime.forage.OnTick(10)
+        self.assertIsNone(runtime.forage.m_Nodes)
+        self.assertFalse(runtime.writes or runtime.created)
+        self.assertTrue(any('[HC Plan] HC-33' in line and 'state=off' in line for line in runtime.logs))
+        # Every slot/roll keeps orchard fruit and native mushrooms native-only.
+        for slot in range(3):
+            for roll in range(10):
+                runtime = SyntheticRuntime()
+                runtime.month, runtime.roll = 10, roll
+                runtime.players.Insert(runtime.player())
+                runtime.start()
+                runtime.forage.m_SlotCursor = slot
+                runtime.forage.OnTick(10)
+                self.assertEqual(1, len(runtime.created))
+                self.assertIn(runtime.created[0].kind, ('CaninaBerry', 'SambucusBerry', 'Cannabis'))
+
+        # Dispositions feed the existing small route report. These are authored
+        # routes, never additional CE usages or an observed acquisition receipt.
+        from tools.audit.loot_routes import native_route_rows
+        habitats = ROOT / 'mission/hollow-country/forage/habitats.json'
+        policy = ROOT / 'tools/package/essential_routes.json'
+        flora = json.loads(habitats.read_text())['flora']
+        self.assertEqual(15, len({entry['class'] for entry in flora}))
+        mushrooms = [entry for entry in flora if entry['class'].endswith('Mushroom')]
+        self.assertEqual(9, len(mushrooms))
+        self.assertTrue(all(entry['safety'] == 'unknown-config-and-food-stage-dependent' for entry in mushrooms))
+        rows = native_route_rows(habitats, policy)
+        self.assertEqual(20, len(rows))  # 15 flora + five native essential-use families.
+        self.assertTrue(all(row[1] == 0 and row[4] == 'authored_only_runtime_pending' for row in rows))
+        self.assertEqual(13, sum(row[3] == 'native_route_runtime_pending' for row in rows))
+        self.assertEqual(3, sum(row[3] == 'hc_bounded_supplement_runtime_pending' for row in rows))
+        self.assertEqual(4, sum(row[3] == 'refused_no_acquisition_evidence' for row in rows))
 
 
 if __name__ == '__main__':

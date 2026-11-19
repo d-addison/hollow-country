@@ -290,7 +290,7 @@ class ForageRound2(unittest.TestCase):
                     r.forage.OnStop()
                     r.progression.OnStop()
                 else:
-                    r.month = 12  # No new seasonal candidate/reservation in this interval fixture.
+                    r.players = EArray()  # HC-33 supply is all-season; no player means no new candidate in this interval.
                     r.now += 59
                     r.forage.OnTick(10)
                     r.progression.OnTick(1)

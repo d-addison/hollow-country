@@ -50,6 +50,8 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
                  # HC-14 infected variety policy read by tools/package/infected_variety.py install/rollback.
                  'infected/variants.json',
+                 # HC-33 authored forage route dispositions (native generator stays in charge).
+                 'forage/habitats.json',
                  # HC-45 posture site research record (not read at runtime yet).
                  'infected/variety-sites.json'}
 

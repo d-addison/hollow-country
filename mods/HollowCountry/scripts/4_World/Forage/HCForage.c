@@ -36,7 +36,15 @@
 // bounded persistence (native evidence in Progression/HCProgression.c).
 // Static 200m cell/slot anchors are candidate design inputs, not surveyed sites.
 // Chernarus only; all placement/replication/CE persistence requires native tests.
-// Herb chance: one of ten rolls on slot 2 in June-November.
+// HC-33: runtime uses the existing June berry/herb table in every season.
+// Calendar/HCVisualSeasons never gates supply; native generators retain ALL
+// orchard fruit and mushrooms (including unknown poison/food-stage semantics).
+// The legacy seasonal selector remains available, but no runtime date is read.
+// No ActionPickBerry hook: installed Actions/Interact/ActionPickBerry.c:9,39-53
+// is deprecated and its server completion is commented out.
+// CE/CentralEconomy.c:239-746 exposes no generator lifecycle/harvest ownership
+// query; see forage/habitats.json for named refusals and native experiments.
+// Herb chance: one of ten rolls on slot 2, all year.
 // Reuses all node/cell/cooldown caps;
 // <=1 extra random draw per candidate; no extra query, spawn, store or tick.
 class HCForageSpot
@@ -129,6 +137,16 @@ class HCForageModule : HCModule
         }
         string line = "[HC Plan] HC-12 forage live=" + live.ToString() + " records=" + records.ToString() + " deferred=" + m_Deferred.ToString();
         Print(line + " state=" + state + " reason=" + reason + " runtime=PENDING");
+        // Authored route dispositions, NOT admitted/observed native generators.
+        // 8 stock flora + 5 essential-use families; 3 HC supplements; 4 missing
+        // acquisition routes + 1 unsupported generator-control request.
+        string routeState = state;
+        if (state == "pending") { routeState = "on"; }
+        Print("[HC Plan] HC-33 native_routes=13 hc_routes=3 unresolved=5 counts=authored admitted=0 observed=0 state=" + routeState + " reason=" + reason + " runtime=PENDING");
+        if (state == "pending")
+        {
+            Print("[HC Refusal] HC-33 native_generator_lifecycle_unexposed; no generator control or orchard grant; runtime=PENDING");
+        }
     }
 
     override string GetName() { return "Forage"; }
@@ -469,13 +487,10 @@ class HCForageModule : HCModule
         string type;
         if (m_Players.Count() > 0 && m_Players.Count() <= 16)
         {
-            int year;
-            int month;
-            int day;
-            int hour;
-            int minute;
-            GetGame().GetWorld().GetDate(year, month, day, hour, minute);
-            type = HCSeasonalType(month, m_SlotCursor);
+            // Fixed berry/herb content table, independent of calendar and visual
+            // seasons. Never select the legacy autumn mushroom supplement:
+            // those classes already belong to native trajectory generators.
+            type = HCSeasonalType(6, m_SlotCursor);
             if (m_PlayerCursor >= m_Players.Count()) { m_PlayerCursor = 0; }
             PlayerBase player = PlayerBase.Cast(m_Players[m_PlayerCursor]);
             m_PlayerCursor = m_PlayerCursor + 1;
@@ -520,6 +535,7 @@ class HCForageModule : HCModule
             m_SaveJob = null;
         }
         m_Status.HCPublish("off", "stopped");
+        HCReceipt("off", "stopped");
         m_Healthy = false;
         if (s_HCInstance == this) { s_HCInstance = null; }
         if (!m_Nodes) { return; }
