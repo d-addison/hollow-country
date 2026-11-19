@@ -148,12 +148,14 @@ class Translator:
                                    "default": default}
             return
         self.take("(")
-        params = []
+        params, defaults = [], set()
         while self.peek()[1] != ")":
             ptype = self.ident()
             pname = self.ident()
             if self.peek()[1] == "=":
-                raise Unsupported("unsupported default parameter: " + name)
+                self.take("=")
+                self.take("null")  # Only the authored optional result-object default.
+                defaults.add(pname)
             params.append((ptype, pname))
             if self.peek()[1] == ",":
                 self.take()
@@ -162,7 +164,7 @@ class Translator:
         self.skip_block()
         ctor = name == cls["name"]
         cls["methods"][name] = {"type": rtype, "params": params, "static": "static" in mods,
-                                "span": (start, self.pos), "ctor": ctor}
+                                "span": (start, self.pos), "ctor": ctor, "defaults": defaults}
         cls["order"].append(name)
 
     # python emission
@@ -205,7 +207,7 @@ class Translator:
 
     def emit_method(self, cls, name):
         method = cls["methods"][name]
-        params = [p for _, p in method["params"]]
+        params = [p + ("=None" if p in method["defaults"] else "") for _, p in method["params"]]
         locals_ = {p: t for t, p in method["params"]}
         header = "__init__" if method["ctor"] else name
         out = []
@@ -637,7 +639,10 @@ class ActionConstructor:
 
 class ActionTarget:
     def __init__(self, obj, index=0):
-        self.obj, self.index = obj, index
+        self.obj, self.index, self.parent = obj, index, None
+
+    def GetParent(self):
+        return self.parent
 
     def GetObject(self):
         return self.obj
@@ -777,10 +782,11 @@ from tests.unit.test_siphon_fuel_action import DiagnosticArray, SOURCE
 
 
 def authored(name, args, context):
-    # Extend the existing restricted port only for local vector declarations.
+    # Mechanical syntax support for vectors and the optional authored result DTO.
     original = diagnostic.body
     def vector_locals(path, method):
-        return re.sub(r"\bvector (\w+) =", r"\1 =", original(path, method))
+        text = re.sub(r"\b(?:vector|HCRefusalResult) (\w+) =", r"\1 =", original(path, method))
+        return text.replace("new HCRefusalResult", "HCRefusalResult()")
     with patch.object(diagnostic, "body", vector_locals):
         return diagnostic.authored(name, args, context)
 class LeaseData(ActionData):
@@ -788,7 +794,7 @@ class LeaseData(ActionData):
     def __init__(self, player=None, target=None, item=None):
         super().__init__(player, target, item)
         self.Donor = self.Vessel = self.LeasePlayer = None
-        self.ProductionStarted = self.ProductionClosed = self.LockHeld = False
+        self.ProductionStarted = self.ProductionClosed = self.ProductionFinished = self.LockHeld = False
         self.StartedMs = 0
 
     @staticmethod
@@ -849,9 +855,9 @@ class World(NativeWorld):
             context["ClearRay"] = clear_ray
             service = NS()
             methods = (("FiniteVector", "point"), ("ReachAndVisible", "player,donor,target"),
-                       ("ProductionRecipientReady", "player,target,vessel"),
+                       ("ProductionRecipientReady", "player,target,vessel,refusal=None"),
                        ("ProductionBegin", "action_data"), ("ProductionOwns", "action_data"),
-                       ("ProductionEnd", "action_data"), ("ProductionStop", ""))
+                       ("ProductionEnd", "action_data"), ("ProductionComplete", "action_data"), ("ProductionStop", ""))
             for name, args in methods:
                 fn = authored(name, args, context)
                 wrapped = lambda *a, fn=fn: fn(None, *a)
@@ -869,7 +875,6 @@ class World(NativeWorld):
         self.car.GetSpeedometerAbsolute = lambda: 0.0
         native_vessel(self.vessel)
         native_actor(self.player)
-        self.target.GetParent = lambda: None
         self.data = self.action().CreateActionData()
         self.data.m_Player, self.data.m_Target, self.data.m_MainItem = self.player, self.target, self.vessel
 

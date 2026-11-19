@@ -37,6 +37,7 @@ class HCCraftingModule extends HCModule
             return;
         HCCraftingGate.m_Validated = HCCraftingNativeChecks.Run();
         HCCraftingGate.m_Started = HCCraftingGate.m_Validated;
+        HCActionSiphonFuel.ProductionStart(IsEnabled(settings) && HCCraftingGate.m_Validated);
         if (!HCCraftingGate.m_Validated)
             Print("[HollowCountry] Crafting native definition/config checks FAILED; salvage disabled");
         else
@@ -46,6 +47,7 @@ class HCCraftingModule extends HCModule
     // Action-driven only: no world/inventory scans, timers, RPC or custom persistence.
     override void OnStop()
     {
+        HCActionSiphonFuel.ProductionStop();
         HCCraftingGate.m_Started = false;
         HCCraftingGate.m_Validated = false;
         Print("[HollowCountry] Crafting stopped; completed recipes=" + HCCraftingGate.m_Crafted.ToString());

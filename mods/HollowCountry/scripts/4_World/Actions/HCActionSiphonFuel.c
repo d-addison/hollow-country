@@ -45,6 +45,7 @@ class HCSiphonDiagnosticData : ActionData
     PlayerBase LeasePlayer;
     bool ProductionStarted;
     bool ProductionClosed;
+    bool ProductionFinished;
     float ObservedDonorLiters;
     float ObservedVesselMl;
     float PlannedMl;
@@ -152,7 +153,7 @@ class HCActionSiphonFuel : ActionContinuousBase
     protected static float s_CapMl;
     protected static ref HCSiphonDiagnosticLocks s_Locks = new HCSiphonDiagnosticLocks;
 
-    // Lead calls once after crafting validation, and ProductionStop on stop.
+    // Crafting lifecycle calls after validation and clears leases again on stop.
     // supported=0 means no native-qualified family/vessel pair yet, not a census.
     static void ProductionStart(bool preference)
     {
@@ -166,6 +167,7 @@ class HCActionSiphonFuel : ActionContinuousBase
 
     static void ProductionStop()
     {
+        // Shared production/diagnostic leases cannot survive module shutdown.
         s_Locks.Clear();
     }
 
@@ -206,29 +208,66 @@ class HCActionSiphonFuel : ActionContinuousBase
         s_Locks.Release(data);
     }
 
-    // Also used AFTER debit: an emptied donor may still credit its observed loss.
-    // No trusted-actor bypass on the production path.
-    static bool ProductionRecipientReady(PlayerBase player, ActionTarget target, ItemBase vessel)
+    static void ProductionComplete(ActionData action_data)
     {
-        if (!player || !player.IsAlive() || player.IsUnconscious() || player.IsRestrained() || player.IsInVehicle() || !player.GetIdentity())
+        HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
+        if (!data || data.ProductionFinished)
+            return;
+        data.ProductionFinished = true;
+        ProductionEnd(action_data);
+        Print("[HollowCountry] Fuel siphon completed; runtime=PENDING");
+    }
+
+    // Also used AFTER debit: an emptied donor may still credit its observed loss.
+    // No trusted-actor bypass on the production path. Raycasts are last.
+    static bool ProductionRecipientReady(PlayerBase player, ActionTarget target, ItemBase vessel, HCRefusalResult refusal = null)
+    {
+        if (!refusal)
+            refusal = new HCRefusalResult;
+        refusal.Refuse(HCRefusal.SIPHON);
+        if (GetGame().IsServer() && !HCFuelSiphon.ServerEnabled())
+            return refusal.Refuse(HCRefusal.SIPHON_OFF);
+        if (!player || !player.IsAlive() || player.IsUnconscious() || player.IsInVehicle() || !player.GetIdentity())
             return false;
+        if (player.IsRestrained())
+            return refusal.Refuse(HCRefusal.SIPHON_RESTRAINED);
         if (!target || target.GetParent() || target.GetComponentIndex() < 0 || !vessel || player.GetItemInHands() != vessel)
             return false;
         CarScript donor = CarScript.Cast(target.GetObject());
-        if (!donor || donor.IsDamageDestroyed() || donor.EngineIsOn() || donor.IsMoving())
+        if (!donor || donor.IsDamageDestroyed())
             return false;
+        if (donor.EngineIsOn() || donor.IsMoving())
+            return refusal.Refuse(HCRefusal.SIPHON_MOVING);
         float speed = donor.GetSpeedometerAbsolute();
         if (!HCFuelTransferPolicy.FiniteNonNegative(speed) || speed != 0)
+            return refusal.Refuse(HCRefusal.SIPHON_MOVING);
+        if (vessel.IsDamageDestroyed() || !vessel.HasQuantity() || !vessel.IsLiquidContainer())
             return false;
-        if (vessel.IsDamageDestroyed() || !vessel.IsOpen() || !vessel.HasQuantity() || !vessel.IsLiquidContainer())
-            return false;
+        if (!vessel.IsOpen())
+            return refusal.Refuse(HCRefusal.SIPHON_CLOSED);
         float quantity = vessel.GetQuantity();
         float maximum = vessel.GetQuantityMax();
+        if (quantity >= maximum)
+            return refusal.Refuse(HCRefusal.SIPHON_FULL);
         if (!HCFuelTransferPolicy.SiphonVesselValid(quantity, maximum))
             return false;
         if ((quantity > 0 && vessel.GetLiquidType() != LIQUID_GASOLINE) || !Liquid.CanFillContainer(vessel, LIQUID_GASOLINE))
-            return false;
-        return ReachAndVisible(player, donor, target);
+            return refusal.Refuse(HCRefusal.SIPHON_LIQUID);
+        // Match the shared geometry bounds before attributing failure to LOS.
+        vector endpoint = donor.GetRefillPointPosWS();
+        vector origin = MiscGameplayFunctions.GetPlayerHeadPosition(player);
+        float reach = donor.GetActionDistanceFuel();
+        float maxReach = HCSiphonGeometryDefaults.MaxReachMeters;
+        if (!FiniteVector(endpoint) || !FiniteVector(origin) || !HCFuelTransferPolicy.FiniteNonNegative(reach) || reach <= 0 || !HCFuelTransferPolicy.FiniteNonNegative(maxReach) || maxReach <= 0)
+            return refusal.Refuse(HCRefusal.SIPHON_RANGE);
+        if (reach > maxReach)
+            reach = maxReach;
+        if (!(vector.DistanceSq(player.GetPosition(), endpoint) < reach * reach && vector.DistanceSq(origin, endpoint) <= maxReach * maxReach))
+            return refusal.Refuse(HCRefusal.SIPHON_RANGE);
+        if (!ReachAndVisible(player, donor, target))
+            return refusal.Refuse(HCRefusal.SIPHON_LOS);
+        refusal.Reason = "";
+        return true;
     }
 
     void HCActionSiphonFuel()
