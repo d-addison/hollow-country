@@ -225,13 +225,21 @@ class ExpansionAdapterTests(unittest.TestCase):
             Open=lambda settings: self.calls.append(("camp", "open")),
             Step=lambda: self.calls.append(("camp", "step")),
             Close=lambda: self.calls.append(("camp", "close")))
+        # Synthetic HC-36 caravan collaborators; the caravan itself is covered by test_hc_ai_trade.
+        self.env["HCXAICaravanAdapter"] = lambda: N()
+        self.env["HCAICaravan"] = lambda: N(
+            Open=lambda settings, port: self.calls.append(("caravan", "open")),
+            Step=lambda: None,
+            HCClose=lambda: self.calls.append(("caravan", "close")))
         self.engine=Authored(self.runtime_source,self.env)
-        self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
+        self.mod=N(m_Caravan=None,m_CaravanRequested=False,m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
                    m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None,m_Encounters=None,m_CampRoutine=None)
         for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
             setattr(self.mod,name,lambda *a,n=name:self.engine.call(n,self.mod,*a))
+        # The base declaration is an empty hook; the operational link's publisher is tested elsewhere.
+        self.mod.HCPublishCaravanStatus=lambda boot: self.calls.append(("caravan-status", boot))
 
     def group(self):
         members=A(); waypoints=A()

@@ -19,15 +19,26 @@ Turnaround/flee extension RED: 'fleeing_return_pending' != 'fleeing_returning'.
 HC-10 route provenance extension RED: HCBegin('lease') -> False (route:party).
 GREEN: same focused command, Ran 1 test, OK; synthetic ports only, never DayZ.
 
+Wave 6 wiring/review regression, actual RED 2026-11-18 (same focused command):
+Ran 1 test; FAILED (failures=5): addon lifecycle and cached status missing;
+HCQuarantine and failed HCCheckpoint both yielded 'lost' != 'unknown';
+False is not true : terminal + cooldown must admit remaining stock.
+Stock-ceiling extension RED: 1 != 2 : observed depletion must lower the durable stock ceiling.
+Loss/quantity uncertainty extension RED: ('quarantined', 'lost') != ('quarantined', 'unknown').
+GREEN: same command, Ran 1 test, OK. Extends this one behavioral test with
+synthetic lifecycle/status/store/native-handle ports, never DayZ evidence.
+
 """
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace as N
 import json
+import re
 import unittest
 
 from tests.unit.test_hc_scavenge import bind
 from tests.unit.test_map_layers import EStr
+from tests.unit.test_group_server import EArray, body
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCAITrade.c'
@@ -353,6 +364,72 @@ class TradeBehavior(unittest.TestCase):
         self.assertTrue(caravan_path.exists(),
                         'HC-36 has no durable outbound/return corridor or loss barrier')
         caravan_source = caravan_path.read_text()
+        # Wave 6 source contracts: the optional addon owns this adjunct even
+        # when its retired lease profile is absent. No native runtime claim.
+        owner_source = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c').read_text()
+        def lifecycle(name):
+            match = re.search(r'override void ' + name + r'\([^)]*\)\s*\{', owner_source)
+            return body(owner_source, match.end())
+        startup, tick, stop = map(lifecycle, ('OnStart', 'OnTick', 'OnStop'))
+        with self.subTest(wave6='addon_lifecycle'):
+            self.assertIn('protected ref HCAICaravan m_Caravan;', owner_source)
+            self.assertIn('HCXAICaravanAdapter caravanPort = new HCXAICaravanAdapter();', startup)
+            self.assertLess(startup.index('HCXAIService.Bind'), startup.index('m_Caravan.Open(settings, caravanPort)'))
+            self.assertLess(startup.index('m_Caravan.Open(settings, caravanPort)'), startup.index('startup rejected'))
+            self.assertLess(tick.index('m_Caravan.Step()'), tick.index('if (!m_Profile)'))
+            self.assertIn('m_Caravan.HCClose()', stop)
+            self.assertLess(stop.index('m_Caravan.HCClose()'), stop.index('m_Caravan = null'))
+        with self.subTest(wave6='cached_status'):
+            operational = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXOperationalAdapters.c').read_text()
+            self.assertIn('m_Caravan.HCGetOperationalStatus()', operational)
+            self.assertIn('HCObserve(', operational)
+            self.assertEqual(1, operational.count('[HC Plan] HC-36'))
+        # Execute the addon lifecycle with synthetic sibling owners. This uses
+        # the existing syntax adapter, independently of the older addon fixture.
+        for service_bound in (True, False):
+            calls, logs, captured = [], [], []
+            cached = N(HCState=lambda: 'refused', HCReason=lambda: 'CARAVAN_CORRIDOR_UNSURVEYED')
+            caravan_port = N()
+            adjunct = N(Open=lambda settings, port: calls.append(('open', port)),
+                        Step=lambda: calls.append(('step',)),
+                        HCClose=lambda: calls.append(('close',)),
+                        HCGetOperationalStatus=lambda: cached, m_Ready=False,
+                        m_ProviderRefusal='CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED',
+                        HCActive=lambda: self.fail('refused status should not inspect active state'))
+            owner = N(m_Profile=None, m_Leases=EArray(), m_Caravan=None,
+                      m_CaravanOperationalOwner=None, m_ReadinessLogged=True,
+                      LogAddonChecks=lambda: None, LogReadiness=lambda trigger: None,
+                      HasReservations=lambda: False)
+            scope = dict(Print=logs.append, GetGame=lambda: N(IsServer=lambda: True, GetTickTime=lambda: 100),
+                         HCXAIQualification=N(SetEncountersEnabled=lambda enabled: None),
+                         HCXAIService=N(Bind=lambda module: service_bound),
+                         HCXAISiteDirector=lambda: N(Start=lambda: None, Step=lambda: None, Stop=lambda: None),
+                         HCXAIEncounters=lambda: N(Open=lambda: None, Step=lambda: None, Close=lambda: None),
+                         HCXAICampRoutine=lambda: N(Open=lambda settings: None, Step=lambda: None, Close=lambda: None),
+                         HCXAICaravanAdapter=lambda: caravan_port, HCAICaravan=lambda: adjunct,
+                         HCOperationalContributors=N(HCRegisterOwner=lambda name: N(
+                             HCObserve=lambda requested, status, now: captured.append((requested, status)))))
+            lifecycle_source = owner_source.replace('this', 'self').replace('array<ref HCXAILease>', 'EArray')
+            bind(lifecycle_source, 'HCXAIAdapter', owner,
+                 ('OnStart', 'OnTick', 'OnStop'), scope)
+            # Syntax-only field inheritance expansion for the modded link.
+            status_source = operational.replace('    protected ref HCOperationalOwner',
+                '    ref HCAICaravan m_Caravan;\n    bool m_CaravanRequested;\n    protected ref HCOperationalOwner', 1)
+            bind(status_source, 'HCXAIAdapter', owner, ('HCPublishCaravanStatus',), scope)
+            owner.OnStart(N(EnableEncounters=True))
+            self.assertEqual([('open', caravan_port)], calls)
+            self.assertIs(cached, captured[-1][1], 'publish exactly the cached caravan status')
+            owner.OnTick(1)
+            self.assertEqual(('step',), calls[-1], 'retired profile cannot skip caravan Step')
+            owner.OnStop()
+            self.assertEqual(('close',), calls[-1])
+            self.assertIsNone(owner.m_Caravan)
+            self.assertFalse(captured[-1][0], 'stopped contributor must retain an inactive receipt')
+            plan_lines = [line for line in logs if '[HC Plan] HC-36' in line]
+            self.assertEqual(1, len(plan_lines))
+            self.assertIn('state=refused reason=CARAVAN_CORRIDOR_UNSURVEYED', plan_lines[0])
+            self.assertIn('count=0 count_cap=1 runtime=PENDING', plan_lines[0])
+            self.assertIn('provider_refused=CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED', plan_lines[0])
         corridor = N(**json.loads((ROOT / 'mission/hollow-country/ai/caravans.json').read_text(),
                                  object_hook=lambda fields: {k: EStr(v) if isinstance(v, str) else v
                                                             for k, v in fields.items()}))
@@ -366,14 +443,23 @@ class TradeBehavior(unittest.TestCase):
         corridor.Version, corridor.ArrivalRangeMeters = 1, 1000
         self.assertFalse(corridor.HCValid(), 'network bubble is not camp arrival')
 
-        caravan_names = ('HCValidState', 'HCActive', 'HCCheckpoint', 'HCQuarantine',
+        caravan_names = ('HCTerminal', 'HCValidTripId', 'HCValidHistory', 'Step', 'HCValidState', 'HCActive', 'HCCheckpoint', 'HCQuarantine',
                          'HCBegin', 'HCRequestWalk', 'HCStep', 'HCRestore',
                          'HCConfirmedReturn', 'HCClose', 'HCLog')
-        def caravan_fixture(fail_write=0, ready=True, interrupt=False):
-            row = N(Version=1, Id='', Leg='idle', CargoReceipt='none', Refusal=EStr(''),
+        class CaravanFixture(N):
+            @property
+            def row(self): return self.trip.m_State
+
+        def caravan_row():
+            return N(Version=1, Id='', Leg='idle', CargoReceipt='none', Refusal=EStr(''),
                     LeaseId='', PartyId='', CargoId='', RouteId='', Generation=0,
-                    ActorId='', ItemId='', ItemClass='', Quantity=0)
+                    ActorId='', ItemId='', ItemClass='', Quantity=0,
+                    TripSequence=0, History=EArray())
+
+        def caravan_fixture(fail_write=0, ready=True, interrupt=False):
+            row = caravan_row()
             place, cargo, alive, current, fleeing = ['home'], ['retained'], [True], [True], [False]
+            clock, stock = [100], [2]
             walks, saved, logs, writes = [], [], [], [0]
             def save_caravan(image):
                 writes[0] += 1
@@ -387,27 +473,38 @@ class TradeBehavior(unittest.TestCase):
                 return True
             def bind_caravan(image):
                 image.ActorId, image.ItemId = 'carrier', 'finite-item'
-                image.ItemClass, image.Quantity = 'BandageDressing', 2
+                image.ItemClass, image.Quantity = 'BandageDressing', stock[0]
                 return True
             port = N(HCReady=lambda: ready, HCRefusal=lambda: 'SYNTHETIC_ROUTE_REFUSED',
                      HCBindCaravan=bind_caravan, HCCurrentCaravan=lambda image: current[0],
-                     HCCargoReceipt=lambda image: cargo[0], HCLive=lambda: alive[0],
+                     HCCargoReceipt=lambda image: cargo[0], HCRemainingQuantity=lambda image: stock[0],
+                     HCLive=lambda: alive[0],
                      HCAtCamp=lambda image, returning: place[0] == ('home' if returning else 'away'),
                      HCFleeObserved=lambda image: fleeing[0], HCWalkCaravan=walk_caravan,
                      HCClear=lambda: None)
             identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo',
                          HCGeneration=lambda: 1, HCRouteId=lambda: 'route:party')
+            status, budget_calls, clears = ['refused', 'synthetic_pending'], [], []
+            port.HCClear = lambda: clears.append('clear')
             trip = N(m_State=row, m_IO=port, m_Store=N(Save=save_caravan),
-                     m_Enabled=True, m_Ready=True, m_Busy=False, m_Reports=0,
-                     m_Corridor=N(CorridorId='hc36-first-corridor', HCAdmissionRefusal=lambda: ''),
-                     m_Status=N(HCPublish=lambda *args: None))
+                     m_Units=N(HCReset=lambda cap: budget_calls.append(cap), HCTake=lambda count: True),
+                     m_Work=N(HCReset=lambda cap: budget_calls.append(cap), HCContinue=lambda: True),
+                     m_ProviderRefusal='SYNTHETIC_PROVIDER_REFUSED',
+                     m_TerminalAt=-1, m_Enabled=True, m_Ready=True, m_Busy=False, m_Reports=0,
+                     m_Corridor=N(CorridorId=EStr('hc36-first-corridor'), HCAdmissionRefusal=lambda: '',
+                                  CooldownSeconds=900, MaxTripHistory=16),
+                     m_Status=N(HCPublish=lambda state, reason: status.__setitem__(slice(None), [state, reason]),
+                                HCState=lambda: status[0], HCReason=lambda: status[1]))
             bind(caravan_source, 'HCAICaravan', trip, caravan_names,
                  dict(Print=logs.append, str=str, float=N(MAX=3.402823466e38),
+                      GetGame=lambda: N(GetTickTime=lambda: clock[0]),
+                      HCCaravanState=caravan_row, HCCaravanReceipt=N,
                       HCWorldLimits=N(Token=lambda value: bool(value) and len(value) <= 96),
                       HCAIPartyIdentity=N(HCValid=lambda value: value is identity),
                       HCWorldMaterializer=N(HCIdentity=lambda lease: identity if lease == 'lease' else None)))
-            return N(trip=trip, row=row, place=place, cargo=cargo, alive=alive,
-                     current=current, fleeing=fleeing, walks=walks, saved=saved, logs=logs)
+            return CaravanFixture(trip=trip, place=place, cargo=cargo, alive=alive,
+                     current=current, fleeing=fleeing, walks=walks, saved=saved, logs=logs,
+                     clock=clock, stock=stock, budget_calls=budget_calls, clears=clears)
 
         c = caravan_fixture()
         self.assertTrue(c.trip.HCBegin('lease'))
@@ -467,6 +564,148 @@ class TradeBehavior(unittest.TestCase):
         self.assertEqual(('retained', 2, 'finite-item'),
                          (happy.row.CargoReceipt, happy.row.Quantity, happy.row.ItemId))
         self.assertTrue(happy.trip.HCValidState(happy.row))
+        with self.subTest(wave6='observed_stock_floor'):
+            drained = caravan_fixture()
+            self.assertTrue(drained.trip.HCBegin('lease'))
+            drained.cargo[0], drained.stock[0] = 'lost', 1
+            drained.trip.HCStep()
+            self.assertEqual(1, drained.row.Quantity, 'observed depletion must lower the durable stock ceiling')
+            self.assertEqual(1, drained.saved[-1].Quantity)
+            drained.stock[0] = 0.5
+            drained.trip.HCStep()
+            self.assertEqual(0.5, drained.saved[-1].Quantity, 'subsequent depletion must also checkpoint')
+            drained.cargo[0], drained.place[0] = 'retained', 'away'
+            drained.trip.HCStep()
+            drained.trip.HCStep()
+            drained.place[0] = 'home'
+            drained.trip.HCStep()
+            drained.clock[0] += 900
+            drained.stock[0] = 2
+            self.assertFalse(drained.trip.HCBegin('lease'), 'same item cannot regain observed spent stock')
+            drained.stock[0] = 0.5
+            self.assertTrue(drained.trip.HCBegin('lease'))
+            self.assertEqual(('lost', 0.5), (drained.row.History[0].CargoReceipt, drained.row.Quantity))
+        with self.subTest(wave6='lost_then_quantity_uncertain'):
+            uncertain = caravan_fixture()
+            self.assertTrue(uncertain.trip.HCBegin('lease'))
+            uncertain.cargo[0], uncertain.stock[0] = 'lost', -1
+            uncertain.trip.HCStep()
+            self.assertEqual(('quarantined', 'lost'), (uncertain.row.Leg, uncertain.row.CargoReceipt))
+        with self.subTest(wave6='lost_quarantine'):
+            lost = caravan_fixture()
+            self.assertTrue(lost.trip.HCBegin('lease'))
+            lost.row.CargoReceipt = 'lost'
+            lost.trip.HCQuarantine(EStr('SYNTHETIC_UNCERTAINTY'))
+            self.assertEqual('lost', lost.row.CargoReceipt)
+            self.assertTrue(lost.trip.HCValidState(lost.row))
+        with self.subTest(wave6='lost_failed_checkpoint'):
+            lost = caravan_fixture(fail_write=2)
+            self.assertTrue(lost.trip.HCBegin('lease'))
+            lost.row.CargoReceipt = 'lost'
+            self.assertFalse(lost.trip.HCCheckpoint())
+            self.assertEqual('lost', lost.row.CargoReceipt)
+            self.assertTrue(lost.trip.HCValidState(lost.row))
+        with self.subTest(wave6='second_trip'):
+            repeat = caravan_fixture()
+            self.assertTrue(repeat.trip.HCBegin('lease'))
+            first_id = repeat.row.Id
+            repeat.clock[0] += 1000
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'cooldown alone cannot end an active trip')
+            repeat.place[0] = 'away'
+            repeat.trip.HCStep()
+            repeat.trip.HCStep()
+            repeat.place[0] = 'home'
+            repeat.trip.HCStep()
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'terminal state alone cannot skip cooldown')
+            repeat.clock[0] += 899
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'cooldown boundary is inclusive only at expiry')
+            repeat.clock[0] += 1
+            repeat.stock[0] = 1
+            self.assertTrue(repeat.trip.HCBegin('lease'), 'terminal + cooldown must admit remaining stock')
+            self.assertNotEqual(first_id, repeat.trip.m_State.Id)
+            self.assertEqual(('finite-item', 1), (repeat.trip.m_State.ItemId, repeat.trip.m_State.Quantity))
+            self.assertEqual([first_id], [receipt.Id for receipt in repeat.row.History])
+            self.assertEqual(1, repeat.saved[-1].Quantity)
+            # Repeated new trips retain one finite item. No second cargo source.
+            repeat.trip.m_Corridor.MaxTripHistory = 2
+            def finish_repeat():
+                repeat.place[0] = 'away'
+                repeat.trip.HCStep()
+                repeat.trip.HCStep()
+                repeat.place[0] = 'home'
+                repeat.trip.HCStep()
+                repeat.clock[0] += 900
+            finish_repeat()
+            second_id = repeat.row.Id
+            before = deepcopy(repeat.row)
+            repeat.stock[0] = 2
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'same item may never refill remaining stock')
+            self.assertEqual(before, repeat.row, 'refused admission cannot erase the terminal receipt')
+            repeat.stock[0] = 1
+            original_bind = repeat.trip.m_IO.HCBindCaravan
+            def replacement(image):
+                original_bind(image)
+                image.ItemId = 'replacement-item'
+                return True
+            repeat.trip.m_IO.HCBindCaravan = replacement
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'replacement stock is not remaining stock')
+            repeat.trip.m_IO.HCBindCaravan = original_bind
+            self.assertTrue(repeat.trip.HCBegin('lease'))
+            self.assertEqual(3, repeat.row.TripSequence)
+            self.assertEqual([second_id], [receipt.Id for receipt in repeat.row.History],
+                             'only the oldest terminal receipt is evicted')
+            self.assertEqual((3, [second_id]), (repeat.saved[-1].TripSequence,
+                             [receipt.Id for receipt in repeat.saved[-1].History]))
+            invalid_history = deepcopy(repeat.row)
+            invalid_history.History[0].Leg = 'outbound'
+            self.assertFalse(repeat.trip.HCValidState(invalid_history))
+            live_id, stored = repeat.row.Id, len(repeat.saved)
+            repeat.clock[0] += 9000
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'active rows are never evictable')
+            self.assertEqual((live_id, stored), (repeat.row.Id, len(repeat.saved)))
+            finish_repeat()
+            repeat.trip.HCRestore()
+            self.assertFalse(repeat.trip.HCBegin('lease'), 'restart waits a fresh conservative cooldown')
+            repeat.clock[0] += 900
+            self.assertTrue(repeat.trip.HCBegin('lease'))
+            self.assertEqual(4, repeat.row.TripSequence, 'eviction/restart never reuses an identity')
+        legacy = caravan_fixture()
+        self.assertTrue(legacy.trip.HCBegin('lease'))
+        legacy.row.Id, legacy.row.TripSequence, legacy.row.History = 'hc36-first-corridor', 0, None
+        legacy.row.Leg = 'returned'
+        legacy.trip.HCRestore()
+        self.assertTrue(legacy.trip.HCValidState(legacy.row), 'legacy missing sequence/history remain valid')
+        legacy.clock[0] += 900
+        self.assertTrue(legacy.trip.HCBegin('lease'))
+        self.assertEqual('hc36-first-corridor:trip:1', legacy.row.Id)
+        self.assertEqual(['hc36-first-corridor'], [receipt.Id for receipt in legacy.row.History])
+        legacy.trip.HCQuarantine(EStr('SYNTHETIC_LOSS_UNCERTAINTY'))
+        legacy.clock[0] += 9000
+        self.assertFalse(legacy.trip.HCBegin('lease'), 'uncertainty cannot become reusable terminal stock')
+        # Known loss stays in history even when remaining stock is observed.
+        c.clock[0] += 900
+        c.stock[0] = 1
+        self.assertTrue(c.trip.HCBegin('lease'))
+        self.assertEqual('lost', c.row.History[0].CargoReceipt)
+        # Missing v1 JSON fields are native zero, not declared initializers.
+        corridor.Version, corridor.ArrivalRangeMeters = 1, 2.5
+        corridor.CooldownSeconds, corridor.MaxTripHistory = 0, 0
+        self.assertTrue(corridor.HCValid())
+        self.assertEqual((900, 16), (corridor.CooldownSeconds, corridor.MaxTripHistory))
+        for field, bad in (('CooldownSeconds', -1), ('CooldownSeconds', 604801),
+                           ('MaxTripHistory', -1), ('MaxTripHistory', 65)):
+            old = getattr(corridor, field)
+            setattr(corridor, field, bad)
+            self.assertFalse(corridor.HCValid())
+            setattr(corridor, field, old)
+        for inactive in ('off', 'refused'):
+            f = caravan_fixture(ready=False)
+            f.trip.m_Enabled = inactive != 'off'
+            f.trip.Step()
+            self.assertEqual(([], []), (f.budget_calls, f.saved), 'no hidden off/refused work')
+            f.trip.HCClose()
+            self.assertEqual(['clear'], f.clears)
+            self.assertIsNone(f.trip.m_IO)
         for field, bad in (('Version', 0), ('Leg', 'forged'), ('CargoReceipt', 'minted'),
                            ('ItemId', ''), ('RouteId', ''), ('Generation', 0), ('Quantity', float('nan'))):
             invalid = deepcopy(happy.row)
@@ -520,16 +759,19 @@ class TradeBehavior(unittest.TestCase):
         inherited_source = inherited_source.replace('HCActorId(true)', 'self.HCActorId(true)')
         inherited_source = inherited_source.replace('HCItemId(true)', 'self.HCItemId(true)')
         bind(inherited_source, 'HCCaravanInventory', native_caravan,
-             ('HCLive', 'HCCurrentCaravan', 'HCCargoReceipt', 'HCInventoryBoundCaravan'), native_caravan_env)
+             ('HCLive', 'HCCurrentCaravan', 'HCCargoReceipt', 'HCRemainingQuantity', 'HCInventoryBoundCaravan'), native_caravan_env)
         self.assertTrue(native_caravan.HCInventoryBoundCaravan(native_row))
         self.assertTrue(native_caravan.HCCurrentCaravan(native_row))
         self.assertEqual('retained', native_caravan.HCCargoReceipt(native_row))
         stock_owner[0] = 'player'
         self.assertEqual('lost', native_caravan.HCCargoReceipt(native_row))
+        self.assertEqual(0, native_caravan.HCRemainingQuantity(native_row))
         stock_owner[0], stock_quantity[0] = 'carrier', 1
         self.assertEqual('lost', native_caravan.HCCargoReceipt(native_row))
+        self.assertEqual(1, native_caravan.HCRemainingQuantity(native_row))
         stock_quantity[0] = 3
         self.assertEqual('unknown', native_caravan.HCCargoReceipt(native_row))
+        self.assertEqual(-1, native_caravan.HCRemainingQuantity(native_row))
         stock_quantity[0], stock_id[0] = 2, 'replacement-item'
         self.assertEqual('unknown', native_caravan.HCCargoReceipt(native_row))
         native_row.Generation = 2
