@@ -100,7 +100,47 @@ def sha256(data):
 
 def authored_inputs():
     """Reviewed source intentions, not a runtime mission/profile loader."""
-    return {name: _read(AUTHORED_PATH / name, interior_catalog.AUTHORED_LIMIT) for name in AUTHORED_FILES}
+    return {path.name: _read(path, interior_catalog.AUTHORED_LIMIT)
+            for path in sorted(AUTHORED_PATH.glob("*.json"))}
+
+
+def authored_layouts(inputs):
+    """Reuse the strict pilot validator in bounded batches, retaining global uniqueness."""
+    layouts, identities = {}, set()
+    for name, raw in sorted(inputs.items()):
+        interior_catalog.byte_input(raw, interior_catalog.AUTHORED_LIMIT)
+        document = interior_catalog.load_record(raw)
+        interior_catalog.fields(document, "SchemaVersion RuntimeAcceptance Pending Layouts")
+        rows = interior_catalog.bounded_list(document["Layouts"], 1, MAX_CLASSES)
+        for start in range(0, len(rows), interior_catalog.AUTHORED_LAYOUT_CAP):
+            batch = dict(document, Layouts=rows[start:start + interior_catalog.AUTHORED_LAYOUT_CAP])
+            checked = interior_catalog.authored_layouts({"home-layouts.json": _dump(batch)})
+            for building, entry in checked.items():
+                if building in layouts or entry["Id"] in identities:
+                    raise TemplateError("duplicate authored building or layout identity")
+                layouts[building] = entry
+                identities.add(entry["Id"])
+                if len(layouts) > MAX_CLASSES:
+                    raise TemplateError("authored layout cap")
+    return layouts
+
+
+def reconcile_positions(proto, rows):
+    """Join unique case aliases as metadata only; preserve prototype spelling for runtime."""
+    folded = {}
+    for name in proto:
+        folded.setdefault(name.casefold(), []).append(name)
+    aliases, normalized = {}, []
+    for name, position, yaw in rows:
+        candidates = folded.get(name.casefold(), [])
+        canonical = name
+        if name not in proto and len(candidates) == 1:
+            canonical = candidates[0]
+            aliases[name] = canonical
+        elif name not in proto and len(candidates) > 1:
+            raise TemplateError("ambiguous case-folded prototype: " + name)
+        normalized.append((canonical, position, yaw))
+    return normalized, dict(sorted(aliases.items()))
 
 
 def generator_sha256(boxes_bytes=None, authored_bytes=None):
@@ -668,13 +708,15 @@ def _slots(rooms, lattice, step, keepouts, name="", specs=None):
 
 
 def _authored_slots(theme, rooms, lattice, step, keepouts, specs):
-    """All-or-nothing fit through the existing origin-aware HC-24 placement check."""
+    """Sparse measured props through the existing origin-aware HC-24 placement check."""
     if theme is None:
         return [], "authored_queue"
-    if any(specs[kind]["BoxSource"] != "measured" for kind in theme["PropClasses"]):
-        return [], "missing_prop_measurements"
     taken = {"slots": [], "cells": {}}
+    missing = False
     for index, kind in enumerate(theme["PropClasses"]):
+        if specs[kind]["BoxSource"] != "measured":
+            missing = True
+            continue
         slot = None
         for offset in range(len(rooms)):
             room = rooms[(index + offset) % len(rooms)]
@@ -682,10 +724,12 @@ def _authored_slots(theme, rooms, lattice, step, keepouts, specs):
             if slot is not None:
                 break
         if slot is None:
-            return [], "clearance_failed"
+            continue
         slot["History"] = [theme["History"]]
         taken["slots"].append({"Id": len(taken["slots"]) + 1, **slot})
-    return taken["slots"], ""
+    if taken["slots"]:
+        return taken["slots"], ""
+    return [], "missing_prop_measurements" if missing else "clearance_failed"
 
 
 # ----------------------------------------------------------------------------------------------
@@ -822,6 +866,12 @@ def _model_box(docs, name):
         if usable and (best is None or len(usable) > len(best[1])):
             best = (item, usable)
     if best is None:
+        # Failed room/path sampling can still carry native House clipping bounds.
+        # These admit CE-point search only; they never invent floor cells or slots.
+        for item in docs:
+            for house in item["houses"]:
+                if house["class"] == name:
+                    return item, _box(house["box_min"], house["box_max"])
         return None, None
     item, rows = best
     return item, {"Min": [math.ceil(max(r["box_min"][i] for r in rows) * 1000) / 1000 for i in range(3)],
@@ -939,7 +989,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     if boxes_bytes is None:
         boxes_bytes = _read(BOXES_PATH, FILE_CAP)
     specs = prop_specs(boxes_bytes)
-    authored = None if authored_bytes is None else interior_catalog.authored_layouts(authored_bytes)
+    authored = None if authored_bytes is None else authored_layouts(authored_bytes)
     if reach_source not in pts.REACH_SOURCES:
         raise TemplateError("reach_source must be one of " + ", ".join(pts.REACH_SOURCES))
     if (not isinstance(min_agreement, (int, float)) or isinstance(min_agreement, bool)
@@ -956,6 +1006,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     if len(names) > MAX_CLASSES:
         raise TemplateError("%d House classes exceed the limit of %d" % (len(names), MAX_CLASSES))
     proto, rows = parse_proto(proto_bytes), parse_pos(pos_bytes)
+    rows, case_aliases = reconcile_positions(proto, rows)
     ids = group_ids(proto_bytes, types_bytes)
     merged = {"placements": [row for d in docs for row in d["doc"]["placements"]]}
     frame_evidence = pts.frame_verdict(merged)
@@ -989,7 +1040,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
             reason, built = _template(name, measurement, group, ids, frame, specs, authored)
             if reason is None:
                 templates[name] = built
-        if reason in SEARCH_ONLY_REASONS and points:
+        if reason is not None and points:
             built = _search_template(name, docs, group, ids, frame)
             if built is not None:
                 templates[name] = built
@@ -1060,6 +1111,10 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     excluded = [{"BuildingClass": n, "Reason": "not_observed_as_house"} for n in sorted(set(proto) - set(names))]
     used_types = sorted({s["Type"] for t in templates.values() for s in t["document"]["PropSlots"]})
     summary = {"prop_boxes": {n: specs[n]["BoxSource"] for n in used_types},
+               "case_aliases": case_aliases,
+               "native_clearance_queue": [{"BuildingClass": n, "Reason": r,
+                                            "SearchDefault": n in templates}
+                                           for n, r in sorted(reasons.items()) if r != "over_budget"],
                "histories": _count(r["History"] for r in furnish),
                "excluded_proto_classes": excluded,
                "keepouts_dropped_outside_model": sum(t["keepouts_dropped_outside_model"] for t in templates.values()),
@@ -1198,7 +1253,9 @@ def main(argv=None):
     build_parser.add_argument("--min-agreement", type=float, default=DEFAULT_MIN_AGREEMENT)
     build_parser.add_argument("--max-furnished", type=int, default=MAX_FURNISHED)
     build_parser.add_argument("--authored-themes", action="store_true",
-                              help="HC-56: furnish only reviewed home/service themes with measured prop boxes; other families queue")
+                              default=True, help="use authored themes with measured prop boxes (default)")
+    build_parser.add_argument("--no-authored-themes", dest="authored_themes", action="store_false",
+                              help="operator diagnostic opt-out: legacy catalog selection; bounds may be unmeasured")
     ingest_parser = commands.add_parser("ingest-boxes", help="merge native box logs into the reviewed box database; review diff before building")
     ingest_parser.add_argument("--log", required=True, help="script log containing native prop box diagnostics")
     ingest_parser.add_argument("--out", type=Path, default=BOXES_PATH, help="reviewed box database (default: tools/package/interior_prop_boxes.json)")

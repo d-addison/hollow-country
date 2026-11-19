@@ -8,6 +8,7 @@
 // OpenFile/:425 ReadFile on a PBO path, as 3_Game/tools/JsonFileLoader.c:9-18
 // reads "scripts/data/notifications.json" (Client/Notifications/NotificationSystem.c:74,285).
 // GetGame().IsServer: 3_Game/Global/Game.c:1120; TickCount: EnSystem.c:106.
+// Native 1_Core/proto/EnDebug.c:96 Print.
 class HCInteriorTemplates
 {
     static const string ROOT_PATH = "$profile:HollowCountry/templates/";
@@ -30,6 +31,9 @@ class HCInteriorTemplates
     protected static ref map<int, bool> s_FurnishSlots = new map<int, bool>;
     protected static ref map<string, bool> s_FurnishInstances = new map<string, bool>;
     protected static int s_FurnishProps;
+    protected static int s_PendingRooms;
+    protected static int s_PendingFurniture;
+    protected static int s_PendingSearch;
     protected static int s_LoadCheck;
     static const int DEFAULT_PACK_LOAD_STEPS = 8; // provisional, target-load measurement owed
     // Coverage/furnish rows validated per load step; bounded, provisional.
@@ -43,6 +47,17 @@ class HCInteriorTemplates
 
     {
         return s_Loaded;
+    }
+
+    static string HCLoadReason() { return s_Reason; }
+
+    static string HCAdmissionReason()
+    {
+        if (s_PendingRooms > 0 || s_PendingFurniture > 0 || s_PendingSearch > 0)
+        {
+            return "template_pack_admitted_unverified_coverage_pending";
+        }
+        return "template_pack_admitted_runtime_pending";
     }
 
     static HCInteriorTemplateClassRow ClassRow(string cls)
@@ -150,6 +165,9 @@ class HCInteriorTemplates
         s_FurnishSlots.Clear();
         s_FurnishInstances.Clear();
         s_FurnishProps = 0;
+        s_PendingRooms = 0;
+        s_PendingFurniture = 0;
+        s_PendingSearch = 0;
         s_LoadCheck = 0;
         s_Reason = reason;
         Print("[HC Interiors] templates refused: " + reason);
@@ -188,6 +206,9 @@ class HCInteriorTemplates
         s_FurnishSlots.Clear();
         s_FurnishInstances.Clear();
         s_FurnishProps = 0;
+        s_PendingRooms = 0;
+        s_PendingFurniture = 0;
+        s_PendingSearch = 0;
         s_LoadCheck = 0;
         s_Root = "";
         s_Source = "";
@@ -196,7 +217,7 @@ class HCInteriorTemplates
         s_LoadChunk = 0;
     }
 
-    // "profile", "pbo" or "missing" once EnsureLoaded has run.
+    // "profile", "mission", "pbo" or "missing" once EnsureLoaded has run.
     static string PackSource()
 
     {
@@ -207,6 +228,15 @@ class HCInteriorTemplates
 
     {
         string index = HCProfileDefaults.Resolve("templates/index.json", HCProfileDefaults.PBO_ROOT);
+        // Native EnSystem.c:397 FileExist; 3_Game/CfgGameplayHandler.c:3 $mission:.
+        // Operator profile remains authoritative. Generated mission data takes
+        // precedence over an older shipped default, with one root per load.
+        string missionIndex = "$mission:hollow-country/interiors/templates/index.json";
+        if (index != HCInteriorTemplates.ROOT_PATH + "index.json" && FileExist(missionIndex))
+        {
+            s_Source = "mission";
+            return "$mission:hollow-country/interiors/templates/";
+        }
         if (index == "")
 
         {
@@ -344,6 +374,7 @@ class HCInteriorTemplates
     static bool EngineHouse(string cls)
 
     {
+        // Native 1.30.164289 3_Game/Global/Game.c:612 ConfigIsExisting, :1437 IsKindOf.
         return GetGame().ConfigIsExisting("CfgVehicles " + cls) && GetGame().IsKindOf(cls, "House");
     }
 
@@ -720,10 +751,11 @@ class HCInteriorTemplates
         if (maxProps < 1 || maxProps > 20) { Refuse("prop_setting"); return; }
         s_MaxProps = maxProps;
         s_Root = SelectRoot();
+        Print(HCV2Admission.Line("InteriorTemplates", true, "interior_placement", false) + " runtime=PENDING");
         Print("[HC Interiors] templates source=" + s_Source + " root=" + s_Root + "; operator profile pack wins, shipped pack is read in place and never copied");
         if (s_Root == "")
         {
-            Print(HCV1Admission.Refused("InteriorPlacement", "interior_placement", "template pack missing from $profile:HollowCountry/templates and HollowCountry/data/defaults/templates"));
+            Print("[HC Interiors] template pack missing: profile, mission and PBO defaults absent runtime=PENDING");
         }
         bool started = HCInteriorPackIndex.HCStart(s_Job, s_Root);
         if (s_Job.Reason != "") { Refuse(s_Job.Reason); return; }
@@ -760,7 +792,7 @@ class HCInteriorTemplates
         // Missing legacy int fields are zero-filled by JsonFileLoader.
         if (!config || config.TemplateLoadStepsPerTick < 1 || config.TemplateLoadStepsPerTick > 64)
         {
-            return DEFAULT_PACK_LOAD_STEPS;
+            return HCInteriorTemplates.DEFAULT_PACK_LOAD_STEPS;
         }
         return config.TemplateLoadStepsPerTick;
     }
@@ -844,6 +876,9 @@ class HCInteriorTemplates
                     return 2;
                 }
                 if (!EngineHouse(classRow.BuildingClass)) { Refuse("house_denominator"); return 2; }
+                if (classRow.Rooms != "covered") { s_PendingRooms = s_PendingRooms + 1; }
+                if (classRow.Furniture != "covered") { s_PendingFurniture = s_PendingFurniture + 1; }
+                if (classRow.Search != "covered") { s_PendingSearch = s_PendingSearch + 1; }
                 s_Classes.Insert(classRow);
                 s_ClassIndex.Set(classRow.BuildingClass, classRow);
                 s_Job.ValidateNext = s_Job.ValidateNext + 1;
@@ -960,7 +995,7 @@ class HCInteriorTemplates
             {
                 int coverageBatch = 0;
                 HCInteriorTemplateClassRow checkRow;
-                while (s_LoadCheck < s_Classes.Count() && coverageBatch < TEMPLATE_CHECKS_PER_STEP)
+                while (s_LoadCheck < s_Classes.Count() && coverageBatch < HCInteriorTemplates.TEMPLATE_CHECKS_PER_STEP)
                 {
                     if (coverageBatch > 0 && !budget.HCContinue()) { return 1; }
                     checkRow = s_Classes.Get(s_LoadCheck);
@@ -983,7 +1018,7 @@ class HCInteriorTemplates
             if (s_LoadCheck < s_Furnish.Count())
             {
                 int furnishBatch = 0;
-                while (s_LoadCheck < s_Furnish.Count() && furnishBatch < TEMPLATE_CHECKS_PER_STEP)
+                while (s_LoadCheck < s_Furnish.Count() && furnishBatch < HCInteriorTemplates.TEMPLATE_CHECKS_PER_STEP)
                 {
                     if (furnishBatch > 0 && !budget.HCContinue()) { return 1; }
                     if (!HCFurnishRowValid(s_Furnish.Get(s_LoadCheck))) { Refuse("furnish_binding_or_budget"); return 2; }
@@ -995,6 +1030,10 @@ class HCInteriorTemplates
             s_Loaded = true;
             HCInteriorPackIndex.HCReceipt(s_Job, s_Classes.Count(), true);
             Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Job.Files.ToString());
+            string coverageReceipt = "[HC Interiors] coverage admitted unverified classes=" + s_Classes.Count().ToString() + " templates=" + s_Templates.Count().ToString();
+            coverageReceipt = coverageReceipt + " furnishing_rows=" + s_Furnish.Count().ToString() + " props=" + s_FurnishProps.ToString() + " runtime=PENDING";
+            Print("" + coverageReceipt);
+            Print("[HC Interiors] coverage native_queue rooms=" + s_PendingRooms.ToString() + " furniture=" + s_PendingFurniture.ToString() + " search=" + s_PendingSearch.ToString() + " runtime=PENDING");
             return 0;
         }
         s_LoadChunk = s_LoadChunk + 1;
@@ -1026,14 +1065,14 @@ modded class HCInteriorsModule
         if (HCInteriorTemplates.HCLoadFinished())
         {
             state = "refused";
-            reason = "template_pack_refused";
+            reason = "template_pack_" + HCInteriorTemplates.HCLoadReason();
             if (HCInteriorTemplates.Loaded())
             {
                 state = "ready";
-                reason = "template_pack_admitted_runtime_pending";
+                reason = HCInteriorTemplates.HCAdmissionReason();
             }
         }
-        if (m_Ready && s_Instance == this && !HCInteriorTemplates.Loaded())
+        if (m_Ready && s_Instance == this && !HCInteriorTemplates.HCLoadFinished() && !m_PackLoading)
         {
             state = "ready";
             reason = "legacy_pilot_admitted_runtime_pending";

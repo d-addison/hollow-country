@@ -3,8 +3,8 @@
     python3 tools/package/interiors_profile.py coverage --proto mapgroupproto.xml --pos mapgrouppos.xml \
         [--census census.json ...] [--json]
 
-Unmeasured buildings keep their vanilla interiors, because a class template exists only for a stock House
-class that a qualifying native census measured. This report states, from the stock XML and the census files
+Unmeasured rooms retain a native clearance queue; the builder can admit search-only defaults at vanilla
+CE points using native House bounds. This report states, from the stock XML and the census files
 passed in, exactly how much of the stock denominator is measured, why each census file was rejected, and how
 many native sampler runs (at most 64 targets each, the existing tools/setup/interior_sampler.py plan) are
 still needed. It reuses the builder's own census admission (interior_templates.load_census), so it cannot
@@ -76,7 +76,12 @@ def _stock_positions(pos_bytes):
 def coverage(proto_bytes, pos_bytes, censuses, per_class=1, run_size=sampler.MAX_TARGETS):
     """Coverage of the stock denominator by the qualifying censuses; ``censuses`` is [(label, bytes)]."""
     stock = sorted(tpl.parse_proto(proto_bytes))
-    placed = _stock_positions(pos_bytes)
+    original_rows = tpl.parse_pos(pos_bytes)
+    joined_rows, aliases = tpl.reconcile_positions(tpl.parse_proto(proto_bytes), original_rows)
+    placed = {}
+    for name, position, _yaw in joined_rows:
+        placed.setdefault(name, []).append(position)
+    exact_placed = set(stock) & {name for name, _p, _y in original_rows}
     queue = [name for name in stock if placed.get(name)]
     unplaced = [name for name in stock if not placed.get(name)]
     accepted, rejected, runs, measured = [], [], set(), set()
@@ -101,6 +106,8 @@ def coverage(proto_bytes, pos_bytes, censuses, per_class=1, run_size=sampler.MAX
     if queue and not todo:
         state = STATE_MEASURED
     return {"stock_classes": len(stock), "placed_classes": len(queue), "unplaced": unplaced,
+            "denominator_kind": "CE prototype/placement metadata; physical enterability unverified",
+            "exact_placed_classes": len(exact_placed), "case_aliases": aliases,
             "census_accepted": len(accepted), "census_rejected": len(rejected),
             "accepted": [{"label": v["label"], "run": v["run"], "measured": len(v["measured"])} for v in accepted],
             "rejected": [{"label": v["label"], "reason": v["reason"]} for v in rejected],
@@ -122,6 +129,8 @@ def lines(report):
         out.append("accepted %s: run=%s measured=%d" % (row["label"], row["run"], row["measured"]))
     if report["unplaced"]:
         out.append("unplaced stock classes (not queued, no mapgrouppos row): %d" % len(report["unplaced"]))
-    out.append("Unmeasured classes keep their vanilla interior; the survey queue is sized with "
+    out.append("Stock metadata exact placed classes=%d case-folded=%d aliases=%d; physical enterability remains pending."
+               % (report["exact_placed_classes"], report["placed_classes"], len(report["case_aliases"])))
+    out.append("Unmeasured rooms retain clearance follow-up; CE-point search defaults are provisional. Queue sized with "
                "interior_sampler plan (runs of at most %d targets)." % report["run_size"])
     return out

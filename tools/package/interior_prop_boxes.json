@@ -1,5 +1,86 @@
 {
-  "SchemaVersion": 1,
   "Build": "1.30.164289",
-  "Props": {}
+  "Props": {
+    "StaticObj_Furniture_PaperBox_01_small_closed": {
+      "Depth": 0.450932,
+      "Height": 0.41394499999999995,
+      "Max": [
+        0.341838,
+        0.412081,
+        0.225466
+      ],
+      "Min": [
+        -0.341838,
+        -0.001864,
+        -0.225466
+      ],
+      "SourceLogSha256": "5c8b6df000fd8d4a3ffe3beacab447b1002b1bae7091feb0eb5129fcfe2b828c",
+      "Width": 0.683676
+    },
+    "StaticObj_Furniture_PaperBox_01_small_ransacked": {
+      "Depth": 0.830918,
+      "Height": 0.428158,
+      "Max": [
+        0.541726,
+        0.427529,
+        0.415459
+      ],
+      "Min": [
+        -0.541726,
+        -0.000629,
+        -0.415459
+      ],
+      "SourceLogSha256": "5c8b6df000fd8d4a3ffe3beacab447b1002b1bae7091feb0eb5129fcfe2b828c",
+      "Width": 1.083452
+    },
+    "StaticObj_Furniture_case_a": {
+      "Depth": 0.708727,
+      "Height": 1.90769,
+      "Max": [
+        0.510993,
+        1.90769,
+        0.334705
+      ],
+      "Min": [
+        -0.508603,
+        0.0,
+        -0.374022
+      ],
+      "SourceLogSha256": "5c8b6df000fd8d4a3ffe3beacab447b1002b1bae7091feb0eb5129fcfe2b828c",
+      "Width": 1.019596
+    },
+    "StaticObj_Furniture_case_a_open": {
+      "Depth": 1.154311,
+      "Height": 1.9,
+      "Max": [
+        0.542129,
+        1.9,
+        0.325
+      ],
+      "Min": [
+        -0.55849,
+        -0.0,
+        -0.829311
+      ],
+      "SourceLogSha256": "5c8b6df000fd8d4a3ffe3beacab447b1002b1bae7091feb0eb5129fcfe2b828c",
+      "Width": 1.100619
+    },
+    "StaticObj_Furniture_case_bedroom_b": {
+      "Depth": 0.609621,
+      "Height": 1.157972,
+      "Max": [
+        0.107065,
+        1.159517,
+        0.300488
+      ],
+      "Min": [
+        -0.485123,
+        0.001545,
+        -0.309133
+      ],
+      "SourceLogSha256": "5c8b6df000fd8d4a3ffe3beacab447b1002b1bae7091feb0eb5129fcfe2b828c",
+      "Width": 0.592188
+    }
+  },
+  "SchemaVersion": 1
 }
