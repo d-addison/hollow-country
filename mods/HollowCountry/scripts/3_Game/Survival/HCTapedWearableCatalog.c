@@ -6,6 +6,7 @@
 // array Count/Get (indexing)/Insert. HC-7 owns the shared row type/Add helper.
 class HCTapedWearableCatalog
 {
+    protected static ref array<ref HCTapedLightHostRow> s_Rows;
     static const string MANIFEST = "24abaeed06c1b28ee12a64be5816f0cf5ffd8f2c9716ac66dc035380c5a13038";
 
     static bool Supported(HCTapedLightHostRow row)
@@ -29,9 +30,11 @@ class HCTapedWearableCatalog
 
     static array<ref HCTapedLightHostRow> Rows()
     {
+        if (s_Rows) { return s_Rows; }
         array<ref HCTapedLightHostRow> rows = new array<ref HCTapedLightHostRow>;
         HCTapedLightCatalog.Add(rows, "Mich2001Helmet", "UniversalLight", "helmetFlashlight", "", "");
-        return rows;
+        s_Rows = rows;
+        return s_Rows;
     }
 
     static TStringArray CompatibilityQueue()

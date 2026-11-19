@@ -66,3 +66,12 @@ class HCTapedHelmetQualification : HCTapedLightQualification
         return null;
     }
 }
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCTapedHelmetMounts());
+    }
+}

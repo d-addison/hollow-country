@@ -22,6 +22,8 @@ MAX_ENTRIES = 8192
 RESERVED = {'CON', 'PRN', 'AUX', 'NUL'} | {f'{p}{i}' for p in ('COM', 'LPT') for i in range(1, 10)}
 MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json', 'ce/types.xml', 'cfgeconomycore.append.xml',
                  'ce/events.xml', 'ce/travel-spawnabletypes.xml',
+                 # HC-23 helmet light review manifest (fail-closed; qualification stays false).
+                 'lights/helmet-mounts.json',
                  # V2 optional-pack overlay policy (the packs themselves are never shipped or copied).
                  'optional/overlay-policy.json',
                  # W6 #60 authored survey inputs only; generated trigger instances never ship.
