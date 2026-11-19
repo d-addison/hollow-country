@@ -268,7 +268,8 @@ class EcologyStoreBehaviorTests(unittest.TestCase):
 
 class EcologyStoreRestartBehaviorTests(unittest.TestCase):
     def setUp(self):
-        self.e=environment();self.files={};self.saved=[];self.trace=[]
+        self.e=environment();self.files={};self.saved=[];self.trace=[];self.logs=[]
+        self.io_failure="";self.now=1800000000
         self.store=SimpleNamespace(m_Root="owned",m_World="",m_Session="",m_Revision=0,m_Fault=False,m_SavePhase=0)
         def decode(text):
             try:
@@ -281,9 +282,25 @@ class EcologyStoreRestartBehaviorTests(unittest.TestCase):
         def read(path,limit):
             self.trace.append(("read",path))
             text=self.files.get(path,"")
+            if self.io_failure=="archive-readback" and ".quarantined-" in path:return "corrupt"
             return text if len(text)<=limit else ""
+        def copy(source,target):
+            self.trace.append(("copy",source,target))
+            if self.io_failure=="copy":return False
+            self.files[target]=self.files[source];return True
+        def delete(path):
+            self.trace.append(("delete",path))
+            if self.io_failure=="remove":return False
+            del self.files[path];return True
+        self.e.update(Print=self.logs.append,CopyFile=copy,DeleteFile=delete,
+                      HCGroupClock=SimpleNamespace(Utc=lambda:self.now),
+                      raw_read=lambda p,n:read(p,n) or None)
         self.e["FileExist"]=lambda p:p in self.files or p in ("owned","$profile:HollowCountry")
         self.e["MakeDirectory"]=lambda p:True
+        # Execute HC-28's authored archive helper with explicit synthetic byte IO.
+        from tests.unit.test_hc_recovery import authored, RECOVERY
+        recovery=SimpleNamespace();self.e["HCPersistenceDisposition"]=recovery
+        authored(RECOVERY,"HCPersistenceDisposition",recovery,self.e,only=("HCArchive",))
         self.e["HCEcologyRuntimeIO"]=SimpleNamespace(Decode=decode,Read=read)
         self.store.Save=lambda s:self.saved.append(s) or True
         source=(ROOT/"4_World/Ecology/HCEcologyRuntimeStore.c").read_text()
@@ -297,8 +314,8 @@ class EcologyStoreRestartBehaviorTests(unittest.TestCase):
         self.assertEqual("session-b",self.store.m_Session)
         self.assertEqual([state],self.saved)
         self.assertEqual(set(self.prior),set(vars(state)))
-    def test_pending_corrupt_oversized_wrong_world_and_replayed_session_are_preserved(self):
-        for mode in ("pending","corrupt","oversized","world","session","missing-counts","missing-version"):
+    def test_corrupt_oversized_wrong_world_and_replayed_session_are_preserved(self):
+        for mode in ("corrupt","oversized","world","session","missing-counts","missing-version"):
             with self.subTest(mode=mode):
                 self.setUp()
                 data=dict(self.prior)
@@ -311,11 +328,65 @@ class EcologyStoreRestartBehaviorTests(unittest.TestCase):
                 if mode=="corrupt":text="torn"
                 if mode=="oversized":text=" "*2049
                 self.files["owned/state-synthetic-world.json"]=text
-                if mode=="pending":self.files["owned/pending-synthetic-world.json"]="interrupted"
                 before=dict(self.files)
                 self.assertIsNone(self.open(self.store,"synthetic-world",session))
                 self.assertEqual(before,self.files)
                 self.assertEqual([],self.saved)
+    def test_leftover_pending_loads_primary_and_reports_one_named_quarantine(self):
+        self.files["owned/state-synthetic-world.json"]=json.dumps(self.prior)
+        self.files["owned/pending-synthetic-world.json"]="interrupted-unpromoted-bytes"
+        state=self.open(self.store,"synthetic-world","session-b")
+        self.assertIsNotNone(state,"leftover pending must not refuse a valid primary")
+        self.assertEqual((8,12,5),(state.Revision,state.Samples,state.PathQueries))
+        self.assertEqual([state],self.saved)
+        self.assertEqual(json.dumps(self.prior),self.files["owned/state-synthetic-world.json"])
+        self.assertNotIn("owned/pending-synthetic-world.json",self.files)
+        self.assertEqual("interrupted-unpromoted-bytes",self.files[
+            "owned/pending-synthetic-world.json.quarantined-1800000000"])
+        self.assertEqual(["[HC Ecology] recovery=quarantined reason=leftover_pending path="
+                          "pending-synthetic-world.json.quarantined-1800000000 runtime=PENDING"],self.logs)
+        self.assertEqual(["read","copy","read","delete","read"],[row[0] for row in self.trace])
+    def test_leftover_pending_without_primary_takes_fresh_path_after_quarantine(self):
+        self.files["owned/pending-synthetic-world.json"]="interrupted"
+        state=self.open(self.store,"synthetic-world","session-b")
+        self.assertIsNotNone(state,"pending without primary must take the fresh path after quarantine")
+        self.assertEqual((1,0,0),(state.Revision,state.Samples,state.PathQueries))
+        self.assertEqual([state],self.saved)
+        self.assertEqual({"owned/pending-synthetic-world.json.quarantined-1800000000":"interrupted"},self.files)
+        self.assertEqual(1,len(self.logs))
+        self.assertIn("[HC Ecology] recovery=quarantined reason=leftover_pending",self.logs[0])
+    def test_pending_quarantine_failures_refuse_preserving_source_without_loading_primary(self):
+        for failure in ("copy","archive-readback","remove","collision","clock"):
+            with self.subTest(failure=failure):
+                self.setUp();self.io_failure=failure
+                primary=json.dumps(self.prior)
+                self.files["owned/state-synthetic-world.json"]=primary
+                self.files["owned/pending-synthetic-world.json"]="interrupted"
+                archive="owned/pending-synthetic-world.json.quarantined-1800000000"
+                if failure=="collision":self.files[archive]="earlier-evidence"
+                if failure=="clock":self.now=-1
+                self.assertIsNone(self.open(self.store,"synthetic-world","session-b"))
+                self.assertTrue(self.store.m_Fault)
+                self.assertEqual([],self.saved)
+                self.assertEqual("interrupted",self.files["owned/pending-synthetic-world.json"])
+                self.assertEqual(primary,self.files["owned/state-synthetic-world.json"])
+                self.assertNotIn(("read","owned/state-synthetic-world.json"),self.trace)
+                self.assertEqual(["[HC Ecology] state=refused reason=pending_quarantine_failed runtime=PENDING"],self.logs)
+                if failure=="collision":self.assertEqual("earlier-evidence",self.files[archive])
+                if failure in ("archive-readback","remove"):
+                    self.assertEqual("interrupted",self.files[archive])
+                before=dict(self.files);trace=list(self.trace)
+                self.assertIsNone(self.open(self.store,"synthetic-world","session-b"))
+                self.assertEqual(before,self.files);self.assertEqual(trace,self.trace)
+    def test_pending_quarantine_does_not_admit_corrupt_primary(self):
+        self.files["owned/state-synthetic-world.json"]="torn-primary"
+        self.files["owned/pending-synthetic-world.json"]="interrupted"
+        self.assertIsNone(self.open(self.store,"synthetic-world","session-b"))
+        self.assertEqual([],self.saved)
+        self.assertTrue(self.store.m_Fault)
+        self.assertEqual("torn-primary",self.files["owned/state-synthetic-world.json"])
+        self.assertEqual("interrupted",self.files[
+            "owned/pending-synthetic-world.json.quarantined-1800000000"])
     def test_checkpoint_of_another_world_neither_blocks_nor_is_touched(self):
         other=dict(self.prior,WorldName="enoch")
         self.files["owned/state-enoch.json"]=json.dumps(other)
