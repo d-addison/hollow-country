@@ -49,6 +49,8 @@ class HCUnitBudget
     // Leased AI situations and physical event spoils (#147).
     static const int HC_WORK_SITUATIONS = 11;
     static const int HC_WORK_BASE_RAID = 12;
+    static const int HC_WORK_INCIDENTS = 17;
+    static const int HC_WORK_INCIDENT_RESPONSE = 18;
     static const int HC_WORK_CONSUMERS = 13;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
