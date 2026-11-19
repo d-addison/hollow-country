@@ -284,4 +284,4 @@ only the schema and refusal behaviour.
 5. `HCPerfSampler` at startup and during play with 1,500 props.
 
 Pending until observed: rendered clearance, replication, the baked-target action, CE value-tier
-fit, 1,500-prop startup cost, and two-client behaviour (a user test).
+fit, 1,500-prop startup cost, and single-client behaviour (a user test).

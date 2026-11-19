@@ -1,6 +1,6 @@
 # Infected animation pipeline (posed infected)
 
-Status: source authored; native playback, skinning and two-client acceptance **PENDING**.
+Status: source authored; native playback, skinning and single-client acceptance **PENDING**.
 The owner requests source/package implementation before connecting a client. Missing native
 verdicts are admitted unverified, never evidence of observed DayZ behaviour. The shared admission
 edit below is required before poses 2–4 are selected; this worker does not own that file.
@@ -80,7 +80,7 @@ Idle/GetUp -> Vanilla  death, hit light/heavy, crawl, attack or vault; blend 0.1
 `HCPoseCommand.HCSend` binds/sets `HCPoseFrom` before issuing the synchronized command.
 It records the leaving pose from the last positive command. Each state has its own get-up, so
 one wake cannot select another pose's get-up. The graph-variable replication/order is unproven;
-especially check waking on a remote client and a client joining during the rise. The command
+check waking on the connected client and reconnect during the rise. The command
 resends held poses every 2 s for streaming clients. It never re-enters a pose during the rise.
 
 Native API evidence (installed scripts-1.30.164289, paths relative to snapshot):
@@ -92,7 +92,7 @@ The adapter header retains the remaining native citations. No Expansion API was 
 
 The PBO contains config, script, our AGF, generated AGR/ASI and ten generated `.anm` clips.
 Stage/sign it beside HollowCountry.pbo inside `@HollowCountry/addons` with the same development key.
-The server and both clients must load identical files. No new mission data or module slot is needed.
+The server and the connected client must load identical files. No new mission data or module slot is needed.
 
 ## Runtime integration and exact lead edit (#225)
 
@@ -109,50 +109,26 @@ wreck=3, roadside=2, gas_station=4, church/building=1 after admission. It uses n
 materialization, shared per-tick work and every-player visibility/clearance vetoes. No new spawn,
 teleport, alert, inventory, provider or gameplay controller is introduced.
 
-**Required integration outside this worker's file scope:** in
-`mods/HollowCountry/scripts/4_World/Infected/Variety/HCPostureAdmission.c`, replace the final
-sit-only return of `HCCanEnter` with:
-
-```c
-        return mode == "sit_wall" || mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel";
-```
-
-In `HCPostureRefusal`, replace the sit-only return and the following ASSET_NOT_AUTHORED branch with:
-
-```c
-        if (mode == "sit_wall" || mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel") { return "none_graph_admitted_unverified"; }
-```
-
-In `HCLine`, change the sit-only `if` to:
-
-```c
-        if (mode == "sit_wall" || mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel")
-```
-
-Keep existing rise durations (2.6, 2.8, 2.0 for poses 2–4). Update comments describing these modes
-as unshipped. The four-row support queue is unchanged; feeding is already included in the tier-C
-startup line. Keep status derived through `HCGetOperationalStatus` / `HCOperationalStatus.HCPublish`;
-no hard-coded ready override. No HCModule/config.cpp/MISSION_FILES/settings registry edit is needed.
-Until this edit lands the existing sitter fallback remains active; source authoring alone does not
-change admission. The additional `[HC Variety] anim_poses=source_authored` line reports each mode's
-actual `HCTierCState`, so it cannot falsely claim the integration landed. While enabled poses lack shared admission,
-`HCFault()` exposes `anim_poses_shared_admission_pending` through the existing operational-status
-hook and logs it once through `HCRefuse`. The fault disappears after the lead edit and restart;
-no missing native verdict is treated as a fault.
+Shared posture admission was integrated in `06c22697`:
+`HCPostureAdmission.HCCanEnter`, `HCPostureRefusal` and `HCLine` admit
+`sit_wall`, `prone_sleep`, `riser` and `feed_kneel` unverified. Existing rise
+durations for poses 2–4 remain 2.6, 2.8 and 2.0 seconds. Readiness still derives
+through `HCGetOperationalStatus` / `HCOperationalStatus.HCPublish`; admission
+supplies no native playback verdict. No additional shared edit is required.
 
 ## Lead native acceptance
 
-Build externally, inspect previews/contact, then DayZDiag and a normal signed PBO/server with two
-clients. Spawn the class, request each pose 1–4 server-side before its command starts (or let the
+Build externally, inspect previews/contact, then DayZDiag and a normal signed PBO/server with at most one
+client. Spawn the class, request each pose 1–4 server-side before its command starts (or let the
 fresh Variety contexts select it). Test alert/proximity/noise/damage wake, one complete rise,
 death/hit/attack interruption, late join during idle and rise, deletion and cap release. Test
 MaxPosed=0, cadence=0 and the disable marker. Re-enable and ensure capped fresh materialization
-remains hidden from both viewpoints. Never use a teleport to fix a visible pose or blocked door.
+remains hidden from the connected client. Never use a teleport to fix a visible pose or blocked door.
 
 Grep boot RPT:
 
 - `[HC Variety] max_posed=12 bounds=0..64 opt_out=MaxPosed=0 runtime=PENDING`
-- `[HC Variety] anim_poses=source_authored prone_sleep=admitted_unverified riser=admitted_unverified feed_kneel=admitted_unverified acceptance=native_two_client_pending runtime=PENDING` (after lead integration)
+- `[HC Variety] anim_poses=source_authored prone_sleep=admitted_unverified riser=admitted_unverified feed_kneel=admitted_unverified`; inspect the accompanying `runtime=PENDING` diagnostic
 - `[HC Variety] tier_c=custom_graph`
 - `[HC Variety] posed_fresh_every=`
 

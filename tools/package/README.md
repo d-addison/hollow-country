@@ -129,7 +129,7 @@ This does not
 make the unsigned development ZIP signed or prove client signature enforcement.
 Private keys are never read/copied into a package. Install the .bikey in server
 keys and .bisign beside its PBO. The output remains signed-development and gated
-for normal server/client, two-client, performance and destination acceptance.
+for normal server/client, single-client, performance and destination acceptance.
 
 For an official **build comparison**, use a fresh external source staging folder
 with only config.cpp and scripts copied from the validated addon (omit mod.cpp),

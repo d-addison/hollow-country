@@ -11,7 +11,7 @@ unused-item rows and their new-type permissions. Existing stock remains intact.
 | Requirement / dependency | Implemented slice | Acceptance / follow-up |
 | --- | --- | --- |
 | HC-22 useful clothing/storage | 55 authored and admitted candidate rows; zero floor refusals | Every newly admitted family needs native equip/store/repair/restart |
-| HC-4/9 native supply, ordinary loot about 2x | 21 additional usage-only contextual entries; existing HC-9 multiplier unchanged | Measure acquisition and world counts at 3–6 players |
+| HC-4/9 native supply, ordinary loot about 2x | 21 additional usage-only contextual entries; existing HC-9 multiplier unchanged | Observe acquisition and world counts with one client; capacity remains provisional |
 | HC-21 firearm scarcity/support | Existing roster, family accounting and firearm new-type permissions unchanged | Reuse its qualification gates |
 | HC-28 recovery | Reuse existing economy staged delta, receipt, backup, collision checks and rollback | Stop/restart and exact package rollback pending |
 | Native water/meds/sharpening | Native vessels, purification, IV ingredients, emergency meds, Whetstone and repair-kit routes | Contents, potability, consumption, quantities and persistence pending |
@@ -42,7 +42,7 @@ unsent empty entry so an unseen cabinet can request; in-flight requests and
 positive sites remain resident. Existing EnableInteriors/EnableSearch settings
 and interior_search.disable
 remain the operator opt-outs. No setting, distance, work limit or module slot is
-added. Two-client replication and native action acceptance remain pending.
+added. Single-client replication and native action acceptance remain pending.
 
 The furnishing follow-up logs each admitted pack's named class refusal through
 HCServer.HCTickWork/HCTakeFor using the existing search-maintenance consumer.
@@ -89,9 +89,9 @@ exact flag changes, finite budgets, opt-out, installation and byte-exact rollbac
 It no longer rewrites an obsolete copy of generator source. These tests establish
 package behavior only; ordinary CE acquisition remains runtime=PENDING.
 
-Native follow-up: compile with DayZDiag, boot the normal PBO/server, then use two
-clients at a configured original and refresh-pilot cabinet. Confirm that only
-bound cabinets offer Search storage, both clients respect custody/locks, a
+Native follow-up: compile with DayZDiag, boot the normal PBO/server, then use one
+client at a configured original and refresh-pilot cabinet. Confirm that only
+bound cabinets offer Search storage, the connected client respects custody/locks, a
 restart preserves depletion, disabled search removes grants, and an unavailable
 provider produces no prompt. Check furnishing refusal classes individually;
 open doors and use stairs at every subsequently qualified placement. The 17
@@ -329,7 +329,7 @@ stop/restart persistence and no duplicated item identity or cargo. Include
 bandana models/slots, coats, pilot/Gorka/ski/hunting clothes, bags, CrabCan,
 FilteringBottle and Iceaxe. Check civilian, occupational, medical and military
 outfits in their listed contexts; no armour or temperature changes are expected.
-Use two clients for inventory presentation and simultaneous custody checks.
+Use one client for inventory presentation, interrupted custody and restart checks.
 
 Actually fill/purify/drink each vessel, observe the liquid/agents/quantity and
 native effects; repeat after restart. Find medical ingredients and Whetstone
@@ -553,7 +553,7 @@ common-route accounting for conflicting definitions.
 `enforce_lint: pass findings=1 new=0 stale=0 native=no`.
 The full focused/affected commands and their results are recorded in the writer
 commit message. No shared registry, mission-file list or settings edit is needed.
-DayZDiag, normal PBO/server, two-client checks and target-load measurements
+DayZDiag, normal PBO/server, single-client checks and target-load measurements
 remain pending. Nothing observed in DayZ yet.
 
 Broad focused/package/friend run: 841 reported checks, including one loader error

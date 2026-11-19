@@ -170,7 +170,7 @@ appearance. Existing receipts restore authored configuration; uncertain world
 state is quarantined for review, never automatically replayed/refunded. No new
 atomic rename/fsync guarantee is claimed for the engine store.
 
-For a future qualifying dependency, restart the stopped server and both clients
+For a future qualifying dependency, restart the stopped server and the connected client
 with the matched winter set. On exit/rollback, stop and restore the recorded
 baseline set on all participants, then restart. Do not hot-swap materials or
 alter the game date. A restart-required dependency cannot automatically follow
@@ -216,13 +216,13 @@ Those checks qualify only the refusal path while no dependency is selected.
 
 Future candidate acceptance remains pending: inspect white ground and satellite
 transitions, close and distant LOD/materials, roads, foliage, buildings, coastline,
-islands and the full settlement spread using two simultaneous clients, including
-join/reconnect and differing viewpoints. Record any uncovered area; no
+islands and the full settlement spread using at most one client, including
+join/reconnect and successive viewpoints. Record any uncovered area; no
 quiet-by-design or uninspected-region exemption. Verify surface footsteps/audio,
 occlusion/visibility, infected/AI navigation, doors, vehicle traction, CE and
 persistent story/stock/custody parity against the exact current Expansion and
 optional dependency stack. Refuse unexpected seasonal cold/clothing changes.
 Exercise restart **to and from** winter and rollback without data reset, log
-source/PBO/mission/config/dependency hashes, then measure 3–6-player cost. Existing
+source/PBO/mission/config/dependency hashes, then measure server and single-client cost; target-load budgets remain provisional. Existing
 LOD and budgets remain owned by their original modules; benchmarks are provisional.
 White terrain stays open until those observations exist.

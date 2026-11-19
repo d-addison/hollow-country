@@ -335,7 +335,7 @@ These are offline tests, not DayZ observations.
 Lead native acceptance: exact-source DayZDiag compile/boot, then normal signed PBO/server; no script or CE
 errors; source/PBO/mission/config/dependency hashes; receipt/off-path/stop/restart checks. For every retained
 family, spawn/load/fire/unload/repair, acquire/restock/hoard, consume finite AI ammo and verify persistence.
-Use two clients for inventory/attachment presentation. SV98 requires its own functional evidence before
+Use one client for inventory/attachment presentation. SV98 requires its own functional evidence before
 acceptance. No production enablement, server deployment or publication is authorized by this document.
 
 The remaining optional-pack evidence below is historical research and pending qualification. It is retained
@@ -370,7 +370,7 @@ SV98 CE budget with an explicit review disposition; functional evidence is still
 Datamined classes enabled at rare counts, pending local acceptance: `LeeEnfield`, `MP18`, `Luger`, `SKS_Black`,
 `SKS_Desert`, `SKS_Green`, `SKS_Winter`, `Mosin9130_Black`, `Mosin9130_Winter` and `SVD_Wooden` (see the generated family policy).
 The nine parent-derived variants and the PB magazine are now authored as pending-local candidates under
-family budgets; they are no longer deferred. Case aliases reuse existing CE rows. Every datamined candidate needs native spawn, firing and ammo trials; inventory/attachment presentation requires two clients.
+family budgets; they are no longer deferred. Case aliases reuse existing CE rows. Every datamined candidate needs native spawn, firing and ammo trials; inventory/attachment presentation requires one client.
 
 ## 3. Optional SNAFU Weapons subset
 
@@ -696,7 +696,7 @@ vanilla keybind overlap.
 - The SNAFU class list rests on one version (1.28.1); the verifier must be re-run on the real server copy.
 - Signed packaging of the roster/SNAFU deltas and signature handling for a signed server are pending.
 - The census can see no event-only classes from files; event/carrier activity at runtime is unobserved.
-- Offline checks never establish DayZ behaviour; no two-client behaviour was exercised.
+- Offline checks never establish DayZ behaviour; no single-client behaviour was exercised.
 - Tactical Flava: rights review pending (no licence file); the script-risk census and collision check are static
   and the local-session checks above are unrun; the authored M14 adapter pre-attach needs native acceptance; all numbers are
   proposals and no runtime acceptance exists.

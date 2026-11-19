@@ -28,8 +28,8 @@ multiplayer, persistence or production capacity.
 
 Living Country supplies persistent world history, finite supplies, camps, situations,
 AI activity and client presentation in the test build. Features default on with
-operator opt-outs. *In-game test pending*; sound, visibility and replication
-*Needs a two-player test*. No gameplay verdict is recorded for the current build.
+operator opt-outs. *In-game test pending*. Acceptance uses DayZDiag and a normal
+PBO/server with at most one client. No gameplay verdict is recorded for the current build.
 Compilation, startup and offline checks do not establish one.
 
 The server reads these booleans from `$profile:HollowCountry/settings.json`.
@@ -111,7 +111,9 @@ Dabs Framework, Expansion-Core, Expansion-Licensed, Expansion-Vehicles,
 Expansion-AI, Expansion-Navigation, the weapons packs, RaG_Core, RaG Immersive
 Vehicles, Ambient Animals Pack, Survivor Animations, DayZ-Bicycle,
 `@HollowCountry`, then `@HollowCountryExpansionAI`. Licensed and Vehicles are
-active dependencies, not pending options.
+active dependencies. The 23 added Expansion vehicle types and finite repair parts
+are event-owned; four rare aircraft share the air budget. The landing incident
+hook lives in the Expansion AI addon after the vehicle scripts.
 
 Expansion-Animations is intentionally not loaded. Its reported conflict with
 Survivor Animations remains unverified locally. DayZ-Bicycle requires Survivor
@@ -121,11 +123,23 @@ Bicycle and Ambient Animals overlays apply by default during friend-bundle insta
 The original Workshop items remain separate subscriptions; no third-party file is
 repacked or distributed. Install-time CE changes do not establish gameplay acceptance.
 
+## Coverage in this build
+
+Source data resolves 88 localities, 528 finite AI sites and 523 story sites, plus
+connected road candidates and habitat membership. The package contains 294 paged
+interior templates. Another 69 shelter scene candidates require shared catalog
+registration; road paging/site binding and indexed story consumption remain
+integration gaps. None of these counts is native acceptance or a raised live cap.
+The broad item pass was reverted in `0321022f` and is being redone as curated
+vanilla-only acquisition coverage; see [Outstanding work](OUTSTANDING.md).
+
 ## Current operator controls
 
 The [settings tables](../README.md#server-settings-reference) include the landed
 convoy, perception-ring, helicopter, hearth, AI timer, leaf, performance and
-module tuning fields. Separate profiles use unprefixed fields; shared
+module tuning fields, plus camp/group limits, world save/retention scheduling,
+search retries/journals, local policy, body stories and actor reach/defence. Separate profiles
+use unprefixed fields; shared
 `PerceptionRing` is a nested object in `settings.json`. Existing operator-edited
 AI defaults are retained; unchanged mod-written profiles can migrate with backups.
 
@@ -138,11 +152,12 @@ AI defaults are retained; unchanged mod-written profiles can migrate with backup
   finite player/AI reservations. Full crates retain goods on carriers; death and
   restart never replay transfers. Keep the custody journal with world/Hive backups.
 - Variety mission `MaxPosed=12` caps server-wide poses; 0 stops new posed holds.
-  `PosedFreshEvery=3` selects the authored sitter when its addon exists. Unauthored
-  sleeper, lying-riser and kneeling-feed assets remain refused.
+  `PosedFreshEvery=3` selects the authored sitter when its addon exists. Sleep,
+  lying-rise and kneeling-feed sources/graph states are authored and
+  admitted unverified; native build, skinning and playback remain pending.
 - Taped helmet/pack receipt `Disabled=true` applies to the actual mounted pair.
   `taped_light.disable` also disables their shared adapter; missing native slots
-  refuse only the affected pair. Beam geometry and replication need two players.
+  refuse only the affected pair. Beam geometry and replication need one client.
 - Client `auditleaves_settings.json` enables bounded autumn canopy leaves by
   default; `Enabled=false`, `season_leaves.disable` or native profile key
   `HollowCountrySeasonLeaves=0` opts out. A zero grade also stops the effect.

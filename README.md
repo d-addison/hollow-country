@@ -14,7 +14,13 @@ Every feature is on by default. Each one can be switched off with the settings a
 
 Set an `Enable…` or `Enabled` preference to `false` to disable its feature; `Disabled` opt-outs instead use `true`. Switches shared by several features disable that whole area. Setting names below refer to the tables in [Server settings](#server-settings-reference). A server opt-out such as `fuel_siphon.disable` means an empty file under `HollowCountry/acceptance/` in the server profile, absent by default. Remove it and restart to restore the preference. Missing routes or actors are described beside the affected feature.
 
-Each feature has one small test mark: *Tested locally* requires a recorded gameplay observation; *In-game test pending* means gameplay is unverified; *Needs a two-player test* means sound, visibility, privacy or replication needs two clients. No feature below has a DayZ gameplay verdict. Offline checks and server compilation do not establish one.
+Each feature has one compact test mark: *Tested locally* requires a recorded gameplay observation; *In-game test pending* means gameplay is unverified. Acceptance uses DayZDiag and a normal signed PBO/server, with at most one client. No feature below has a DayZ gameplay verdict. Offline checks and server compilation do not establish one.
+
+The authored Chernarus coverage resolves 88 localities, 528 finite AI sites and
+523 story sites, with connected road candidates and habitat membership tied to
+stock data. Catalog size does not increase active population caps. Road catalogs
+still need runtime paging/site binding and native route surveys; indexed story
+consumption and the 69 extra shelter scene registrations remain integration gaps.
 
 ### Searching and loot
 
@@ -22,10 +28,10 @@ Each feature has one small test mark: *Tested locally* requires a recorded gamep
 | :--- | :--- | :--- | :--- |
 | **Finite searching** | Searching takes time and draws from finite supplies; searched places retain depletion history. | `EnableSearch=true`; `MaxBoundSearchSites=256`; `interior_search.disable`. | *In-game test pending* |
 | **House and cabinet search** | House search names unavailable supply. Bound cabinets offer a six-second search after a server-confirmed site check, including refresh sites; decorative cabinets do not offer it. | `EnableSearch=true`; `interior_search.disable`. | *In-game test pending* |
-| **Furnished interiors** | Compatible houses receive contextual furniture and clutter with bounded props. Gap: wider measured geometry and placement coverage remains; unqualified interiors stay vanilla. [#199](https://github.com/d-addison/hollow-country/issues/199) | `EnableInteriors=true`; `MaxActiveInteriors=12`, `MaxPropsPerInterior=5`, `MaxFurnishedProps=1500`; `interior_placement.disable`. | *Needs a two-player test* |
-| **Floor spots and scarcity** | The installed economy adds contextual floor spots across 149 building types and scales ordinary loot by 2 while keeping weapons and ammunition separately budgeted. The floor policy retains the extra points for clothing and listed clutter, moves compatible displaced demand to shelves and reports unplaced capacity. | Loot-point `Multiplier=2.0`; `SearchDensityScale=0` keeps density scale 1; installed overlays require rollback. | *In-game test pending* |
+| **Furnished interiors** | Compatible houses receive contextual furniture and clutter through 294 paged interior templates, within the existing prop caps. Native fit, doors, stairs and wider measurements remain unverified; unsuitable rooms retain vanilla interiors. [#199](https://github.com/d-addison/hollow-country/issues/199) | `EnableInteriors=true`; `MaxActiveInteriors=12`, `MaxPropsPerInterior=5`, `MaxFurnishedProps=1500`; `interior_placement.disable`. | *In-game test pending* |
+| **Floor spots and scarcity** | The installed economy adds contextual floor spots across 149 building types and scales ordinary loot by 2 while keeping weapons and ammunition separately budgeted. The floor policy retains the extra points for clothing and exact garbage (Paper only), moves compatible displaced demand to shelves and reports unplaced capacity. | Loot-point `Multiplier=2.0`; `SearchDensityScale=0` keeps density scale 1; installed overlays require rollback. | *In-game test pending* |
 | **Firearms and ammunition** | Native weapons, SNAFU Weapons and Tactical Flava use selected classes and family budgets, so recolours share scarcity. The authored native roster has 78 weapon classes in 53 families, 50 magazine classes and 47 ammunition sources; see the [firearms reference](docs/FIREARMS.md). | Package selections and family budgets are install-time controls; `--no-datamined` omits the datamined additions. | *In-game test pending* |
-| **Useful equipment and storage** | Clothing, packs, tools, food and medical ingredients use contextual finite supply routes, including all 17 equipment floor-supply additions. Backpack rows scale by 1.5; eligible small items occupy less space. Native water contamination and medicine rules remain intact; see [equipment coverage](docs/EQUIPMENT_COVERAGE.md). | `inventory-sizes.json` controls package-time size rules; `--no-datamined` omits additional supply entries. | *In-game test pending* |
+| **Useful equipment and storage** | Clothing, packs, tools, food and medical ingredients use contextual finite supply routes, while missing acquisition routes remain tracked. The broad item-coverage pass was reverted in `0321022f` and is being redone as a curated vanilla-only pass; it is not completed coverage. Backpack rows scale by 1.5; eligible small items occupy less space. Native water contamination and medicine rules remain intact; see [equipment coverage](docs/EQUIPMENT_COVERAGE.md). | `inventory-sizes.json` controls package-time size rules; `--no-datamined` omits additional supply entries. | *In-game test pending* |
 | **Revisit supplies** | World history schedules later searches against finite stock rather than refilling every restart. | `EnableWorld=true`, `EnableSearch=true`; `SearchDensityScale=0`. | *In-game test pending* |
 
 ### Crafting, recovery and lights
@@ -34,34 +40,34 @@ Each feature has one small test mark: *Tested locally* requires a recorded gamep
 | :--- | :--- | :--- | :--- |
 | **Salvage and recovery** | Recover netting from camo nets, wire from reels or barbed bats, leather panels, and wood or nails from suitable bats and ruined crates. Fabric and teddy recovery use guarded recipes, tools and finite ingredients. Tailor all four colours of leather pants or storage vests from three or four panels respectively, consuming ten sewing-kit quantity units. | `EnableCrafting=true`. | *In-game test pending* |
 | **Fuel siphoning** | Siphon real fuel from a stationary car with its engine off into a compatible bottle or jerry can. Transfers debit the tank and respect container capacity. | `fuel_siphon.disable` turns it off. | *In-game test pending* |
-| **Taped weapon lights** | Tape a weapon light to a compatible native gun slot; removal returns the same light and battery without refunding tape. Cross-slot pairs cover TLRLight on 22 rail rifles and UniversalLight on seven pistols. | `taped_light.disable`; set `Disabled=true` on an individual pair receipt to opt out. | *Needs a two-player test* |
-| **Taped pack lights** | Pack mount catalogues and per-pair preferences control a light carried on a backpack. Pack and helmet mounts and all 29 cross-slot weapon pairs are admitted without two-player confirmation. Exact helmet and pack slots support held mount/remove and held/worn toggles; per-pair opt-outs apply to the mounted slot. Gap: unsupported native slot pairs remain refused. [#58](https://github.com/d-addison/hollow-country/issues/58) | `EnableTapedPackMounts=true` (also when absent); pair receipt `Disabled=true` opts out; `taped_light.disable`. | *Needs a two-player test* |
-| **Taped helmet lights** | Helmet mount pairs use native attachment and beam ownership, respect their own receipt opt-outs and report shared taped-light availability. | `taped_helmet.disable` opts out of helmet mounts; `taped_light.disable` disables taped lights. | *Needs a two-player test* |
+| **Taped weapon lights** | Tape a weapon light to a compatible native gun slot; removal returns the same light and battery without refunding tape. Cross-slot pairs cover TLRLight on 22 rail rifles and UniversalLight on seven pistols. | `taped_light.disable`; set `Disabled=true` on an individual pair receipt to opt out. | *In-game test pending* |
+| **Taped pack lights** | Pack mount catalogues and per-pair preferences control a light carried on a backpack. Pack and helmet mounts and all 29 cross-slot weapon pairs are admitted unverified. Exact helmet and pack slots support held mount/remove and held/worn toggles; per-pair opt-outs apply to the mounted slot. Gap: unsupported native slot pairs remain refused. [#58](https://github.com/d-addison/hollow-country/issues/58) | `EnableTapedPackMounts=true` (also when absent); pair receipt `Disabled=true` opts out; `taped_light.disable`. | *In-game test pending* |
+| **Taped helmet lights** | Helmet mount pairs use native attachment and beam ownership, respect their own receipt opt-outs and report shared taped-light availability. | `taped_helmet.disable` opts out of helmet mounts; `taped_light.disable` disables taped lights. | *In-game test pending* |
 
 ### Infected
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Packs and perception** | Nearby infected adopt bounded pack routes and respond to perceived contact rather than a hidden live player position. | `EnableInfected=true`; `InfectedBindRadius=30`, `MaxBindQueriesPerTick=2`; `infected_pack_routes.disable`, `infected_ce_adoption.disable`, `infected_vision.disable`, `infected_contact_guard.disable`. | *Needs a two-player test* |
-| **Local alerts** | Nearby infected relay an encounter through bounded local alert chains. | `EnableAlertChains=true`; `infected_supplementary_chains.disable`. | *Needs a two-player test* |
+| **Packs and perception** | Nearby infected adopt bounded pack routes and respond to perceived contact rather than a hidden live player position. | `EnableInfected=true`; `InfectedBindRadius=30`, `MaxBindQueriesPerTick=2`; `infected_pack_routes.disable`, `infected_ce_adoption.disable`, `infected_vision.disable`, `infected_contact_guard.disable`. | *In-game test pending* |
+| **Local alerts** | Nearby infected relay an encounter through bounded local alert chains. | `EnableAlertChains=true`; `infected_supplementary_chains.disable`. | *In-game test pending* |
 | **Investigation and memory** | Infected investigate observed clues and retain bounded encounter memory instead of tracking a player everywhere. | `EnableInfected=true`, `EnableWorld=true`; `infected_investigation.disable`. | *In-game test pending* |
 | **Persistent hordes** | Horde membership and recovery account for living members across world state changes. | `EnableHordes=true`; `MaxActiveHordes=2`, `MaxActiveHordeMembers=24`; `infected_horde_routes.disable`, `infected_member_recovery.disable`. | *In-game test pending* |
 | **Horde migration** | World history assigns movement along authored patrol waypoints. | `EnableWorld=true`; `EnableHordes=true`. | *In-game test pending* |
-| **Doors and door pressure** | Door policies let eligible infected open or pressure doors without blocking player routes. | `EnableInfected=true`. | *Needs a two-player test* |
+| **Doors and door pressure** | Door policies let eligible infected open or pressure doors without blocking player routes. | `EnableInfected=true`. | *In-game test pending* |
 | **Reach and vulnerable positions** | Reach policies use attacks and steering against accessible low roofs, ladders and vehicles. There is no teleport correction. | `EnableInfected=true`. | *In-game test pending* |
-| **Postures and visual variety** | Appearance substitutions and role policies use native stance, idle and crawler wake modes. Calm crawlers can rest in catalogued rooms or near tracked corpses; gunfire and native wake logic interrupt rest. Bounded crawler groups idle at authored wrecks, roadsides, churches, gas stations and buildings; fresh bodies appear out of sight under a cap that counts corpses. Standing idle bodies and bounded corridor movement for waking groups are included; routes release on visibility, combat, expiry or ownership loss. Gap: flat sleepers, lying risers and kneeling-feed clips/graph states are unauthored. [#121](https://github.com/d-addison/hollow-country/issues/121) | `EnableInfectedVariety=true`; `infected_variety.disable`; `EnableGroupScaling=true` controls group-size scaling; LOD `VarietyNonCalmHoldSeconds=600`; variety `StandingRiserEvery=2`, `EnableMigration=true`, `PosedFreshEvery=3`, `MaxPosed=12` (0 off). | *Needs a two-player test* |
-| **Sitters** | An original sitting-infected animation supplies the sitter pose and rise transition. Every third fresh-body selection uses the posed addon when installed, within the server-wide cap. | `EnableInfectedVariety=true`; admin `sitter` uses normal admission. | *Needs a two-player test* |
-| **Death reactions** | Death selection changes the native default to an impulse reaction while preserving corpse access. The engine exposes no infected ragdoll API. | `infected_deaths.disable` turns it off. | *Needs a two-player test* |
-| **Distance-based infected work** | Infected LOD reduces distant work. Eight inland ChernarusPlus seeds support virtual herds that materialise near players under observer checks. Older settings migrate to schema 3 and add seeds to empty lists; non-empty custom lists and schema-2 opt-outs are preserved. | `EnableInfected=true`; profile `HollowCountry/Infected/lod.json`: `EnableLOD=true`, `EnableVirtualHerds=true`; distance and population defaults are listed below. | *Needs a two-player test* |
+| **Postures and visual variety** | Appearance substitutions and role policies use native stance, idle and crawler wake modes. Calm crawlers can rest in catalogued rooms or near tracked corpses; gunfire and native wake logic interrupt rest. Bounded crawler groups idle at authored wrecks, roadsides, churches, gas stations and buildings; fresh bodies appear out of sight under a cap that counts corpses. Standing idle bodies and bounded corridor movement for waking groups are included; routes release on visibility, combat, expiry or ownership loss. Sleep, lying-rise and kneeling-feed pose sources and graph states are authored and admitted unverified; native build, skinning and playback remain pending. [#121](https://github.com/d-addison/hollow-country/issues/121) | `EnableInfectedVariety=true`; `infected_variety.disable`; `EnableGroupScaling=true` controls group-size scaling; LOD `VarietyNonCalmHoldSeconds=600`; variety `StandingRiserEvery=2`, `EnableMigration=true`, `PosedFreshEvery=3`, `MaxPosed=12` (0 off). | *In-game test pending* |
+| **Sitters** | An original sitting-infected animation supplies the sitter pose and rise transition. Every third fresh-body selection uses the posed addon when installed, within the server-wide cap. | `EnableInfectedVariety=true`; admin `sitter` uses normal admission. | *In-game test pending* |
+| **Death reactions** | Death selection changes the native default to an impulse reaction while preserving corpse access. The engine exposes no infected ragdoll API. | `infected_deaths.disable` turns it off. | *In-game test pending* |
+| **Distance-based infected work** | Infected LOD reduces distant work. Eight inland ChernarusPlus seeds support virtual herds that materialise near players under observer checks. Older settings migrate to schema 3 and add seeds to empty lists; non-empty custom lists and schema-2 opt-outs are preserved. | `EnableInfected=true`; profile `HollowCountry/Infected/lod.json`: `EnableLOD=true`, `EnableVirtualHerds=true`; distance and population defaults are listed below. | *In-game test pending* |
 
 ### Stamina, groups and navigation
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
 | **Stamina and weight** | Continuous movement uses one quarter of normal drain, recovery is 2.5 times normal and the weight penalty is halved. Separate stamina and weight bars show effort and burden; jumping and melee retain native costs. | Stamina `Settings.Enabled=true`, `ContinuousExertionScale=0.25`, `RecoveryScale=2.5`, `WeightPenaltyScale=0.5`. | *In-game test pending* |
-| **Groups and shared map** | Invite teammates, manage membership and use world/map teammate icons. Press M, the rebindable DayZ map key, to pan, zoom and share editable markers and notes. | `EnableGroups=true`. | *Needs a two-player test* |
-| **Team pings and death pins** | Group pings and death-pin permissions restrict information to eligible teammates. | `EnableTeamPing=true`; `EnableGroups=true`. | *Needs a two-player test* |
-| **Discovery and received leads** | Shelter discoveries and received leads add appropriate group pins without exposing unreceived information. | `EnableTravel=true`, `EnableLeads=true`; `EnableGroups=true` for shared pins; group members share visited places when `ShareDiscovery=true` in `$profile:HollowCountry/Groups/settings.json` (default). | *Needs a two-player test* |
+| **Groups and shared map** | Invite teammates, manage membership and use world/map teammate icons. Press M, the rebindable DayZ map key, to pan, zoom and share editable markers and notes. | `EnableGroups=true`. | *In-game test pending* |
+| **Team pings and death pins** | Group pings and death-pin permissions restrict information to eligible teammates. | `EnableTeamPing=true`; `EnableGroups=true`. | *In-game test pending* |
+| **Discovery and received leads** | Shelter discoveries and received leads add appropriate group pins without exposing unreceived information. | `EnableTravel=true`, `EnableLeads=true`; `EnableGroups=true` for shared pins; group members share visited places when `ShareDiscovery=true` in `$profile:HollowCountry/Groups/settings.json` (default). | *In-game test pending* |
 | **Familiarity** | Foraging familiarity improves with use, decays and resets on character death. Records are capped. | `EnableProgression=true`; `MaxFamiliarityRows=0` selects the built-in cap of 128. | *In-game test pending* |
 | **Survival alignment** | Visual seasons leave native warmth and clothing rules intact; there is no added meal-heat bonus. Stamina remains owned by the stamina profile. | Legacy `EnableMealBuffs=true` is retained for compatibility and has no thermal effect. | *In-game test pending* |
 
@@ -69,40 +75,40 @@ Each feature has one small test mark: *Tested locally* requires a recorded gamep
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Trail shelters** | Shared shelters offer places to stop and record discoveries. Five regional exterior scenes use stock roofs with access keepouts, budgeted placement and discovery only after completion. | `EnableTravel=true`; regional `Enabled=true`; regional `Enabled=false` opts out. | *Needs a two-player test* |
+| **Trail shelters** | Shared shelters offer places to stop and record discoveries. Five regional exterior scenes use stock roofs with access keepouts, budgeted placement and discovery only after completion. Another 69 shelter scenes are authored candidates awaiting shared catalog integration and native access/rain checks. | `EnableTravel=true`; regional `Enabled=true`; regional `Enabled=false` opts out. | *In-game test pending* |
 | **Wreck salvage** | Eligible wrecks hold finite parts rather than an unlimited salvage source. The server records claims and refuses unsupported wrecks. | `EnableTravel=true`. | *In-game test pending* |
-| **Repairable transport** | The installed travel content includes common cars needing real parts, a few boats and many bicycles. RaG vehicle repairs and bicycle animations come from the published dependencies. | `EnableTravel=true` controls travel services; installed vehicle/bicycle overlays need rollback to remove. | *Needs a two-player test* |
+| **Repairable transport** | The installed travel roster adds 23 Expansion vehicles and finite repair parts: repairable common cars, many bikes and a few boats. Event budgets cover 39 cars, seven trucks, 28 motorbikes, six boats and four rare aircraft; bicycles use their separate overlay. These are configured populations, not observed counts. RaG vehicle repairs and bicycle animations come from the published dependencies. | `EnableTravel=true` controls travel services; installed vehicle/bicycle overlays need rollback to remove. | *In-game test pending* |
 | **Vehicle recovery** | The vehicle-flip action checks nearby helpers or a crowbar, then applies at most three bounded torque/lift impulses with safety checks and a cooldown. | `EnableVehicleFlip=true`. | *In-game test pending* |
-| **Helicopters** | Expansion helicopter support tracks world aircraft and caps CE spawn fuel without creating vehicles. Gap: ambient AI overflight has no flight port. [#147](https://github.com/d-addison/hollow-country/issues/147) | `helicopters.disable`; `Helicopters.WorldCap=4`, `Helicopters.SpawnFuelMaxFraction=0.1`. | *Needs a two-player test* |
+| **Helicopters** | Expansion helicopter support tracks world aircraft and caps CE spawn fuel without creating vehicles. A four-aircraft CE budget keeps helicopters rare. The crash/landing incident bridge lives in the Expansion AI addon after its vehicle dependency. Gap: ambient AI overflight has no flight port. [#147](https://github.com/d-addison/hollow-country/issues/147) | `helicopters.disable`; `Helicopters.WorldCap=4`, `Helicopters.SpawnFuelMaxFraction=0.1`. | *In-game test pending* |
 
 ### AI world
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
 | **AI sites and patrols** | The Expansion AI addon supplies armed patrols and checkpoints at configured sites. Each of five roles has five coherent kit archetypes, varied wear and scarce personal supplies; firearm odds remain unchanged. Fresh group replacement preserves physical bodies and finite inventories. Actor counts share the server AI limits; the provider has ordinary damage and finite ammunition. | Addon provider `Enabled=true`; `pve_patrols.disable`; `AILimits.MaxActiveSites=15`, `AILimits.MaxActiveAI=72`. | *In-game test pending* |
-| **AI routines and movement** | Bounded role schedules choose funded activities from perceived danger and local time. Formations and movement styles follow context; smoke cover and infected lures spend real carried items. Mechanics walk to cars and repair with real parts and tools. Gap: role-specific raid dispatch lacks a public group-offer port. [#146](https://github.com/d-addison/hollow-country/issues/146) | Role `Enabled=true`; `role_activities.disable`, `ai_tactics.disable`; formation `Disabled=false`, tactics `Disabled=false`; `ai/car-repair.json` `Enabled=true`. | *Needs a two-player test* |
-| **Perceived world incidents** | Native gas zones, crashes, actual gunfire, smoke and source-owned scene/raid/horde receipts prompt bounded avoid, investigate, react or flee leases. A member must perceive the incident; sight uses a raycast and AI receive no hidden player coordinates. | `world_incidents.disable`, `incident_response.disable`; `incidents.json`, `ai-incident-response.json`. | *Needs a two-player test* |
-| **AI self-defence and gestures** | Survivors react to raised weapons, surrender and perceived greetings. A greeting needs fresh mutual sight and a greeting-specific acknowledgement. Neutral hits and kills feed bounded faction betrayal memory. Attack, rescue-shot, near-miss and grudge-expiry responses await [play checks](https://github.com/d-addison/hollow-country/issues/139). | `EnableEncounters=true`; `ai/sites.json`: `MaxSignalWorkPerSecond=8`, `MaxBetrayalRows=128`, `BetrayalRetentionSeconds=172800`; `ai_trade_emote_ack.disable` opts out of trade acknowledgement. | *Needs a two-player test* |
+| **AI routines and movement** | Bounded role schedules choose funded activities from perceived danger and local time. Formations and movement styles follow context; smoke cover and infected lures spend real carried items. Mechanics walk to cars and repair with real parts and tools. Gap: role-specific raid dispatch lacks a public group-offer port. [#146](https://github.com/d-addison/hollow-country/issues/146) | Role `Enabled=true`; `role_activities.disable`, `ai_tactics.disable`; formation `Disabled=false`, tactics `Disabled=false`; `ai/car-repair.json` `Enabled=true`. | *In-game test pending* |
+| **Perceived world incidents** | Native gas zones, crashes, actual gunfire, smoke and source-owned scene/raid/horde receipts prompt bounded avoid, investigate, react or flee leases. A member must perceive the incident; sight uses a raycast and AI receive no hidden player coordinates. | `world_incidents.disable`, `incident_response.disable`; `incidents.json`, `ai-incident-response.json`. | *In-game test pending* |
+| **AI self-defence and gestures** | Survivors react to raised weapons, surrender and perceived greetings. A greeting needs fresh mutual sight and a greeting-specific acknowledgement. Neutral hits and kills feed bounded faction betrayal memory. Attack, rescue-shot, near-miss and grudge-expiry responses await [play checks](https://github.com/d-addison/hollow-country/issues/139). | `EnableEncounters=true`; `ai/sites.json`: `MaxSignalWorkPerSecond=8`, `MaxBetrayalRows=128`, `BetrayalRetentionSeconds=172800`; `ai_trade_emote_ack.disable` opts out of trade acknowledgement. | *In-game test pending* |
 | **Scavengers and pickers** | One ledger party seeds per surveyed scavenger site. Groups of 2–6 walk need-driven runs, search up to three houses through the same finite reservations as players and carry up to three real house items home to their camp crate. The owning picker can prepare a due house refresh. Combat and remembered danger can abort a run; full crates leave goods on the carrier, lootable from its body. Journaled custody prevents replay after restart. Surveyed endpoint crates retain finite stock and player-clear refill checks. An invalid cache section is refused by name (`[HC Pickers] caches refused reason=...`) and the module reports degraded. | `EnableEncounters=true`; `pve_patrols.disable`, `scavenge_runs.disable`; `RunMaxMembers=6`, `RunMaxCarriedHouseGoods=3`; source defaults `MaxConcurrentTrips=1`, `PartyCooldownSeconds=900`; `ai/picker-routes.json` controls routes, stock and cache limits below. | *In-game test pending* |
 | **AI trade and caravans** | Friendly funded camps barter real carried surplus. Existing groups walk bounded installed-road routes, greet in mutual sight, exchange items and return. Confirmed cargo loss debits both camp allocations once; uncertain restart receipts are quarantined. | `EnableEncounters=true`; `ai_caravans.disable`, `ai_trade_emote_ack.disable`; `ai/trade-recipes.json` and `ai/caravans.json` tune pairing, stock and journeys below. | *In-game test pending* |
 | **Faction conflict** | Opposed live parties fight under native combat observation. Distant conflicts update territory within a durable daily quota without inventing actor deaths or loot. Territory outcomes persist; existing infected can pressure camps. | `EnableEncounters=true`, `EnableWorld=true`; profile `faction-conflict.json`: `Enabled=true`, `FarMeters=1500`, `CooldownSeconds=604800`, `MaxDailyOutcomes=2`; further limits below. | *In-game test pending* |
 | **Holdouts** | Killable, lootable survivor groups occupy places with real caches. Configurable site respawn defaults to 900 seconds, depleted-group replacement to 600 seconds and camp raid lockout to 1800 seconds; corpses and caches are not refilled. | `EnableEncounters=true`; `AILimits.HoldoutMin=3`, `AILimits.HoldoutMax=6`, `AILimits.MaxHoldouts=48`. | *In-game test pending* |
-| **Camps and neighbours** | Fire, shelter and storage support recognition, three tiers, visitor eligibility and mailboxes. Warned probes can pressure mature camps from day 14. Visitor parties walk in through native doors to look over a mature camp (tier 3, day 14 or later, at most every three real days) and leave without taking anything. Claim-only bases with physical stored cargo become encounter targets after 14 held days, with independent durable cooldowns and attendance checks. | `EnableCamps=true`; `camp_probes.disable`; `camp_visitors.disable`; `AILimits.CampMin=2`, `AILimits.CampMax=6`, `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *Needs a two-player test* |
-| **Camp respawn and claims** | Eligible groups use camp respawn. One building claim per group restricts construction and setting native door locks to group members; native unlocking, lockpick wear and raids retain their rules. Member visits renew the claim. | `EnableCampRespawn=true`, `EnableCamps=true`, `EnableGroups=true`; `building_claims.disable`; `building-claims-config.json`: `ExpiryDays=30`, `VisitRadiusMeters=25`, `ActionReachMeters=2`. | *Needs a two-player test* |
+| **Camps and neighbours** | Fire, shelter and storage support recognition, three tiers, visitor eligibility and mailboxes. Warned probes can pressure mature camps from day 14. Visitor parties walk in through native doors to look over a mature camp (tier 3, day 14 or later, at most every three real days) and leave without taking anything. Claim-only bases with physical stored cargo become encounter targets after 14 held days, with independent durable cooldowns and attendance checks. | `EnableCamps=true`; `camp_probes.disable`; `camp_visitors.disable`; `AILimits.CampMin=2`, `AILimits.CampMax=6`, `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *In-game test pending* |
+| **Camp respawn and claims** | Eligible groups use camp respawn. One building claim per group restricts construction and setting native door locks to group members; native unlocking, lockpick wear and raids retain their rules. Member visits renew the claim. | `EnableCampRespawn=true`, `EnableCamps=true`, `EnableGroups=true`; `building_claims.disable`; `building-claims-config.json`: `ExpiryDays=30`, `VisitRadiusMeters=25`, `ActionReachMeters=2`. | *In-game test pending* |
 | **Settlements and world materialisation** | Persistent settlement records select occasional occupation, parties or traces. Materialisation and its addon bridge bind world proposals to actors; settlement decay records changes over time. | `EnableWorld=true`, `EnableEncounters=true`; `AILimits.MaxOccupiedPlaces=15`, `AILimits.MaxMaterialized=15`, `AILimits.OccupationMin=3`, `AILimits.OccupationMax=8`. | *In-game test pending* |
 | **Base containers** | Native tents, barrels, chests and crates count as storage wherever they are placed. Storage-only camps start at tier one and gain hearth recognition when a real burning fire arrives. Native inventory owns every item. | `EnableCamps=true`, `EnableGroups=true`; `base_containers.disable`; `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *In-game test pending* |
-| **Unattended camp theft** | An outbound picker already in pickup range can carry one eligible real item from an unattended camp crate through its existing custody chain. Attendance and observer checks guard pickup and deposit; carrier loss retains physical cargo. A crate refused for this crate alone (attended, observed, home, empty) is skipped and the scan continues. An observed home defers the deposit for up to `PartyCooldownSeconds` (900 s), then the normal durable refusal leaves the item on its carrier. | `EnableCamps=true`, `EnableEncounters=true`; `camp_theft.disable`; `camp-theft-config.json` has `MaxAttemptsPerDay=1`, `MaxAttendancePlayers=32`, `AttendanceRangeMeters=500`, `ObserverRangeMeters=500`. | *Needs a two-player test* |
-| **Base raids** | A raider party can hit an unattended claimed base after a warning, with its group online elsewhere. Raiders walk native routes, keep native door rules and carry one real item out through a journaled custody move; probe cooldowns and live attendance checks still apply. | `EnableCamps=true`, `EnableEncounters=true`; `base_raid.disable` (`camp_probes.disable` also turns it off); `base-raid-config.json` has `WarningSeconds=300`, `RaidSeconds=600`, `NoticeRangeMeters=40`, `AttendanceRangeMeters=500`. | *Needs a two-player test* |
+| **Unattended camp theft** | An outbound picker already in pickup range can carry one eligible real item from an unattended camp crate through its existing custody chain. Attendance and observer checks guard pickup and deposit; carrier loss retains physical cargo. A crate refused for this crate alone (attended, observed, home, empty) is skipped and the scan continues. An observed home defers the deposit for up to `PartyCooldownSeconds` (900 s), then the normal durable refusal leaves the item on its carrier. | `EnableCamps=true`, `EnableEncounters=true`; `camp_theft.disable`; `camp-theft-config.json` has `MaxAttemptsPerDay=1`, `MaxAttendancePlayers=32`, `AttendanceRangeMeters=500`, `ObserverRangeMeters=500`. | *In-game test pending* |
+| **Base raids** | A raider party can hit an unattended claimed base after a warning, with its group online elsewhere. Raiders walk native routes, keep native door rules and carry one real item out through a journaled custody move; probe cooldowns and live attendance checks still apply. | `EnableCamps=true`, `EnableEncounters=true`; `base_raid.disable` (`camp_probes.disable` also turns it off); `base-raid-config.json` has `WarningSeconds=300`, `RaidSeconds=600`, `NoticeRangeMeters=40`, `AttendanceRangeMeters=500`. | *In-game test pending* |
 
 ### Events and situations
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
 | **Situation director** | Durable incidents let players observe, exploit or ignore nearby trouble. Leased parties walk to hostile funded camps; capped infected use eligible hidden points. Original routes and actual actor outcomes are retained. Pinned survivors hold at their shelter while threats are live; road caravan attacks use nearby road threat points. Wreck-pinned survivors and leased-party smoke retries are included. Raid and column parties can borrow a qualified existing car, drive a bounded road route, dismount and continue on foot; player drivers take priority. | `EnableEncounters=true`; `events.disable`, `events_sites.disable`, `w38_situations.disable`, `w38_raids.disable`, `w38_transit.disable`, `convoys.disable`; `W38Situations.*` controls below. | *In-game test pending* |
-| **Scenes and police incidents** | Last stands, quarantine, evacuation and police scenes leave contextual props and clues. Stages expire without requiring a quest. | `EnableEncounters=true`; `events_sites.disable`. | *Needs a two-player test* |
-| **Radio reports and Morse** | A powered PersonalRadio receives faction reports and Morse clues on the correct channel; received leads can be shared with the group. | `EnableLeads=true`. | *Needs a two-player test* |
-| **Dead drops** | A finite dead-drop cache gives a place to investigate; another survivor may already have taken its contents. | `EnableEncounters=true`. | *Needs a two-player test* |
-| **Body stories and notes** | Bodies and rare paper notes carry contextual leads. Notes are capped at one per scene and ten across the world. | `EnableLeads=true`. | *Needs a two-player test* |
+| **Scenes and police incidents** | Last stands, quarantine, evacuation and police scenes leave contextual props and clues. Stages expire without requiring a quest. | `EnableEncounters=true`; `events_sites.disable`. | *In-game test pending* |
+| **Radio reports and Morse** | A powered PersonalRadio receives faction reports and Morse clues on the correct channel; received leads can be shared with the group. | `EnableLeads=true`. | *In-game test pending* |
+| **Dead drops** | A finite dead-drop cache gives a place to investigate; another survivor may already have taken its contents. | `EnableEncounters=true`. | *In-game test pending* |
+| **Body stories and notes** | Owned situation deaths retain the original corpse and bind delayed story receipts without recreating inventory. Rare paper notes carry contextual leads, capped at one per scene and ten across the world. | `EnableLeads=true`. | *In-game test pending* |
 | **Burn events and story chains** | Story kits and burn incidents lease existing physical stock. The event owner opens, ticks and closes the HC-41 native incident lease; live registered crashes and direct cargo ancestry bind eligible spoils without creating, cloning or refilling them. Gap: loose crash loot has no exposed engine incident-membership API. [#147](https://github.com/d-addison/hollow-country/issues/147) | `EnableEncounters=true`; `w38_incidents.disable`, `w38_rewards.disable`; `EnableStories=true`, `ArrivalSeconds=21600`, `Window=4`. | *In-game test pending* |
 | **Persistent stories and escalation** | New stories arrive on a persistent six-hour schedule; completed stories do not replay. Capped escalation changes world pressure over time. | `EnableWorld=true`; `EnableStories=true`, `ArrivalSeconds=21600`, `Window=4`. | *In-game test pending* |
 | **Event spoils** | Physical reward caches expose existing incident items. Empty receipts do not consume stock history; claimed supplies remain finite. | `EnableEncounters=true`; `w38_rewards.disable`, `w38_incidents.disable`; `W38Situations.MaxIncidents=64`, `W38Situations.MaxIncidentItems=16`. | *In-game test pending* |
@@ -121,11 +127,11 @@ Each feature has one small test mark: *Tested locally* requires a recorded gamep
 | :--- | :--- | :--- | :--- |
 | **Lighting and weather** | Lighting and weather-day profiles alter dusk, overcast and storms while keeping nights readable. The installer automatically generates delegated weather from pinned stock XML and retains backups. Staging on another drive moves next to the mission file; a residual cross-device move is refused with the target unchanged. | `EnableAtmosphere=true`, `EnableGrade=true`; `atmosphere.disable`; installer `--no-weather` omits weather delegation. | *In-game test pending* |
 | **Colour grade** | A rebindable grade control cycles personal colour-grade intensity from 0 to 100% in 10% steps; zero restores the vanilla presentation. | `EnableGrade=true`; `ClientPresentationMask=15`, grade bit 2. | *In-game test pending* |
-| **Visual seasons** | A running-server clock changes visual seasons, presentation and forecasts without new cold penalties. Native snowfall remains available. Gap: white winter ground has no supported live terrain/surface provider. [#150](https://github.com/d-addison/hollow-country/issues/150) | `EnableVisualSeasons=true`; `PhaseSeconds=604800`, `CheckpointSeconds=60`. | *Needs a two-player test* |
-| **Autumn falling leaves** | Client-local leaf emitters sample nearby birch/beech canopies during autumn and clean up indoors, underground, when the snapshot expires or when presentation stops. | `SeasonLeaves.Enabled=true`; `season_leaves.disable`; client `HollowCountrySeasonLeaves` preference; grade 0 also stops leaves. | *Needs a two-player test* |
-| **Cellars and darkness** | Cellar survey and presentation code identify interiors needing darker presentation; the operator-only sampler records geometry when the server profile contains `HollowCountry/measure-cellars`. Darker cellars are admitted without a measured room qualification yet. | `EnableAmbientLife=true`; `ClientPresentationMask=15` governs the available client layers; players can turn darker cellars off with the `HollowCountryDarkCellars` client preference; remove `HollowCountry/measure-cellars` to stop the sampler. | *Needs a two-player test* |
-| **Signs of life** | Real burning fireplaces supply chimney smoke and firelight. Hidden funded holdout ignition transfers real kindling and wood and consumes a match; carcass flies provide separate clues. | `EnableSignsOfLife=true`; `ClientPresentationMask=15`, signs bit 4. | *Needs a two-player test* |
-| **Environmental hints and sound** | Local hints and environmental sound add presentation around world activity. | `EnableAmbientLife=true` controls server admission; `ClientPresentationMask=15`, hints bit 1 and ambient bit 8 control clients. | *Needs a two-player test* |
+| **Visual seasons** | A running-server clock changes visual seasons, presentation and forecasts without new cold penalties. Native snowfall remains available. Gap: white winter ground has no supported live terrain/surface provider. [#150](https://github.com/d-addison/hollow-country/issues/150) | `EnableVisualSeasons=true`; `PhaseSeconds=604800`, `CheckpointSeconds=60`. | *In-game test pending* |
+| **Autumn falling leaves** | Client-local leaf emitters sample nearby birch/beech canopies during autumn and clean up indoors, underground, when the snapshot expires or when presentation stops. | `SeasonLeaves.Enabled=true`; `season_leaves.disable`; client `HollowCountrySeasonLeaves` preference; grade 0 also stops leaves. | *In-game test pending* |
+| **Cellars and darkness** | Cellar survey and presentation code identify interiors needing darker presentation; the operator-only sampler records geometry when the server profile contains `HollowCountry/measure-cellars`. Darker cellars are admitted without a measured room qualification yet. | `EnableAmbientLife=true`; `ClientPresentationMask=15` governs the available client layers; players can turn darker cellars off with the `HollowCountryDarkCellars` client preference; remove `HollowCountry/measure-cellars` to stop the sampler. | *In-game test pending* |
+| **Signs of life** | Real burning fireplaces supply chimney smoke and firelight. Hidden funded holdout ignition transfers real kindling and wood and consumes a match; carcass flies provide separate clues. | `EnableSignsOfLife=true`; `ClientPresentationMask=15`, signs bit 4. | *In-game test pending* |
+| **Environmental hints and sound** | Local hints and environmental sound add presentation around world activity. | `EnableAmbientLife=true` controls server admission; `ClientPresentationMask=15`, hints bit 1 and ambient bit 8 control clients. | *In-game test pending* |
 
 ### Persistence, administration and performance
 
@@ -133,7 +139,7 @@ Each feature has one small test mark: *Tested locally* requires a recorded gamep
 | :--- | :--- | :--- | :--- |
 | **World persistence** | World, settlement, camp, lead and item-transfer journals retain history. Shared saves stage work; debug snapshots encode individual rows and resume verified file promotion across bounded slices, with a configurable 300-second capture interval. Turning shared saves off refuses dependent owners at startup, including camps/claims and weather/seasons; owner barrier and shutdown saves remain. | `EnableWorld=true`; profile `performance.json`: `EnableSharedSaves=true` (registry `Performance.EnableSharedSaves`); set `false` and restart to disable shared saves. | *In-game test pending* |
 | **Admin test kit** | Authorised operators use Pause for status, the map and normal world commands. COT permission `HollowCountry.Admin` or the private HC allowlist grants access, with live revocation checks. `campvisit` and `campraid` include eligible claim-only bases; `camptier` remains hearth-only. `dormant` requests the normal fresh-body queue. | `EnableAdminMap=true`; `AdminControls.disable` opts out of world controls; `COTAuthorization.disable` opts out of COT grants. | *In-game test pending* |
-| **Debug snapshot and map** | Read-only snapshots feed a browser map and the admin Map tab with counts and world/AI layers. Group pins use a rolling anonymous sweep, rather than a simultaneous world sample. Notices retain identifiable layer names with exact omission counts. Verified staged replacement cannot provide native atomic rename. | `EnableDebugSnapshot=true`, `EnableAdminMap=true`. | *Needs a two-player test* |
+| **Debug snapshot and map** | Read-only snapshots feed a browser map and the admin Map tab with counts and world/AI layers. Group pins use a rolling anonymous sweep, rather than a simultaneous world sample. Notices retain identifiable layer names with exact omission counts. Verified staged replacement cannot provide native atomic rename. | `EnableDebugSnapshot=true`, `EnableAdminMap=true`. | *In-game test pending* |
 | **Loot map** | The admin Map tab runs a bounded loot query, acknowledges it and retains the latest successful marks. | `EnableAdminMap=true`; see [debug map controls](docs/DEBUG_MAP.md). | *In-game test pending* |
 | **Shared tick budget** | Twenty-two consumer IDs share one work allowance, including infected LOD, bases, conflict, trade and situations. Each consumer retains a first-work starvation allowance; retained cursors resume later. | `TickIntervalMs=1000`, `MaxTickWorkItems=32`; `Performance.SliceMs=4`, `Performance.EcologyRowsPerTick=4`, `Performance.InteriorStepsPerTick=1`, `Performance.HoldoutRowsPerTick=1`; area switches disable consumers. | *In-game test pending* |
 
@@ -159,7 +165,7 @@ Server and clients load these published Workshop items in the order declared by 
 | 14 | [Survivor Animations](https://steamcommunity.com/sharedfiles/filedetails/?id=2918418331) | `@SurvivorAnimations` | Animation dependency for bicycles. |
 | 15 | [DayZ-Bicycle](https://steamcommunity.com/sharedfiles/filedetails/?id=2971190303) | `@DayZ-Bicycle` | Rideable bicycles. |
 | 16 | [Hollow Country](https://steamcommunity.com/sharedfiles/filedetails/?id=3841628320) | `@HollowCountry` | Core overhaul and client presentation. |
-| 17 | [Hollow Country Expansion AI](https://steamcommunity.com/sharedfiles/filedetails/?id=3841637854) | `@HollowCountryExpansionAI` | Connects the world systems to Expansion AI. |
+| 17 | [Hollow Country Expansion AI](https://steamcommunity.com/sharedfiles/filedetails/?id=3841637854) | `@HollowCountryExpansionAI` | Connects the world systems to Expansion AI and owns the vehicle landing incident hook. |
 
 Expansion-Animations is deliberately not loaded. A reported conflict with Survivor Animations, which DayZ-Bicycle requires, has not been reproduced locally; Expansion AI supplies its own AI animations.
 
@@ -176,7 +182,7 @@ Server owners:
 1. Download the **latest test build friend server bundle** from [GitHub Releases](https://github.com/d-addison/hollow-country/releases). Install third-party Workshop items separately.
 2. Stop the server and back up the mission, profile, persistent storage and existing addon/settings files. Use the bundle installer and its pinned package/dependency checks; retain the install receipt for rollback.
 3. Install the mission/economy overlays, both Hollow Country addons and their public signing keys. Use the load order above on the server and clients; configure signature checking and review the settings below.
-4. Start the server, inspect admission/refusal logs and join with a matching client. Keep runtime acceptance pending until the relevant feature is played; use two clients for the marked features.
+4. Start the server, inspect admission/refusal logs and join with a matching client. Keep runtime acceptance pending until the relevant feature is played, with at most one client.
 
 Follow the [friend-server AI runbook](docs/FRIEND_SERVER_AI_RUNBOOK.md), [installation and rollback guide](docs/INSTALL_ROLLBACK.md) and [friend-server configuration](docs/FRIEND_SERVER.md) for exact commands, backups and recovery. Runtime flags do not remove installed mission content. The bundled `tools/package/overlay_remove.py --mission <mission> --overlays loot vehicles --server-stopped` rehearses receipt rollback before applying it; stop the server and retain recovery data. For inventory rollback, supply `--addon-source <source>` or `--addon-pbo <pbo>` with `--pbo-out <output>`: the helper writes an unsigned replacement, receipt and config diff. Review, sign and install that replacement separately; retain the original addon for recovery.
 
@@ -424,7 +430,7 @@ Mission `ecology/HCWildlife-providers.json` contains the unprefixed fields below
 
 ### Light mount preferences
 
-The [light-mount config](config/hollow-country-light-mounts.json) is a legacy offline mirror. Its cross-slot fields and the [backpack manifest](mission/hollow-country/lights/backpack-mounts.json) catalogue defaults do not turn off the admitted pairs. Runtime `EnableTapedPackMounts` defaults to `true`, including when the key is absent. Pack, helmet and the 29 cross-slot weapon pairs carry *Needs a two-player test*.
+The [light-mount config](config/hollow-country-light-mounts.json) is a legacy offline mirror. Its cross-slot fields and the [backpack manifest](mission/hollow-country/lights/backpack-mounts.json) catalogue defaults do not turn off the admitted pairs. Runtime `EnableTapedPackMounts` defaults to `true`, including when the key is absent. Pack, helmet and the 29 cross-slot weapon pairs carry *In-game test pending*.
 
 Set `"Disabled": true` on a pair in [pair receipts](mission/hollow-country/lights/pair-receipts.json) to opt out of that pair. An omitted `Disabled` means enabled. Create `$profile:HollowCountry/acceptance/taped_helmet.disable` to opt out of helmet mounts, or `taped_light.disable` under the same acceptance directory to disable taped lights. A missing native attachment slot refuses only the named pair; see [#58](https://github.com/d-addison/hollow-country/issues/58).
 
@@ -730,7 +736,7 @@ Real parts and compatible tools only; `Enabled=false` opts out. Walking, custody
 
 #### [auditshelter_scenes.json](mission/hollow-country/travel/auditshelter_scenes.json)
 
-Five regional exterior scenes; `Enabled=false` opts out. Runtime visibility, access and rain cover remain pending.
+Five loaded regional exterior scenes plus 69 extra authored scene candidates; the extras need shared catalog registration before placement. `Enabled=false` opts out. Runtime visibility, access and rain cover remain pending.
 
 | Key | Default |
 | :--- | :--- |
@@ -748,8 +754,8 @@ Install-time floor/shelf classification. `enabled=false` omits this policy on ge
 | :--- | :--- |
 | `enabled` | `true` |
 | `floor_categories` | `["clothes"]` |
-| `floor_classes` | `["Broom", "BurlapSack", "Pipe", "PileOfWoodenPlanks", "MetalPlate", "Netting", "BarbedWire", "FryingPan", "FarmingHoe", "Pitchfork", "Sickle", "MeatTenderizer", "CarRadiator", "WineBottle"]` |
-| `floor_class_patterns` | `["^Barrel_", "^Flag_", "Bag(_\|$)", "^HipPack", "Pouch", "Sack$"]` |
+| `floor_classes` | `["Paper"]` |
+| `floor_class_patterns` | `[]` |
 | `shelf_categories` | `["tools", "containers", "food", "books"]` |
 | `floor_tag` | `"floor"` |
 | `shelf_tag` | `"shelves"` |
@@ -758,6 +764,186 @@ Install-time floor/shelf classification. `enabled=false` omits this policy on ge
 | `extra_floor_container_names` | `["lootHCFloor"]` |
 | `floor_band_m` | `0.75` |
 | `capacity` | `{"enabled": true, "max_container_lootmax": 12, "preserve_tolerance": 0.1}` |
+
+### Camp, world, search and actor limits
+
+These optional profiles live under `$profile:HollowCountry/`. Keys below are
+unprefixed inside each profile; the registry uses the section prefix. Restart to
+reload. Missing fields keep declared defaults and invalid values report refusal
+or restore defaults through the owning loader. Limits do not grant readiness:
+`HCGetOperationalStatus` / `HCOperationalStatus.HCPublish` report actual provider
+and store state. Features remain on by default with the opt-outs listed here.
+
+#### CampGroup: `camp-group-config.json`
+
+Camp scans/saves, map pins, trails, team-ping history and debug slices; feature opt-outs remain EnableCamps, EnableGroups and EnableTeamPing.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `CampFireCandidates` | `128` | 1–128 |
+| `CampPlayers` | `32` | 1–32 |
+| `CampTickSeconds` | `5` | 1–60 |
+| `CampScanSeconds` | `600` | 30–3600 |
+| `CampProbeScanSeconds` | `30` | 5–600 |
+| `CampSaveSeconds` | `600` | 60–3600 |
+| `CampBindDistanceSq` | `145` | 1–145 |
+| `PinLimit` | `64` | 1–64 |
+| `LeadPins` | `5` | 1–5 |
+| `TrailPins` | `48` | 1–48 |
+| `ShelterQueries` | `20` | 1–20 |
+| `TrailRadiusMeters` | `40` | 1–40 |
+| `PinRefreshSeconds` | `60` | 5–600 |
+| `PinLogSeconds` | `600` | 60–3600 |
+| `PinLogGroups` | `1` | 1–4 |
+| `TeamPingRows` | `90` | 1–90 |
+| `TeamPingSeconds` | `60` | 10–60 |
+| `TeamPingCooldownSeconds` | `10` | 1–60 |
+| `TeamPingPruneRows` | `32` | 1–32 |
+| `TeamPingLogSeconds` | `60` | 10–600 |
+| `TeamPingRadiusMeters` | `5` | 1–5 |
+| `DebugGroups` | `1` | 1–4 |
+| `DebugPins` | `32` | 1–32 |
+
+#### WorldRuntime: `world-runtime.json`
+
+Shared save scheduling and retained world facts/leads/scenes; EnableSharedSaves=false opts out of shared saves. Lower retention limits preserve loaded custody and fixed schema ceilings.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `SaveJobLimit` | `32` | 1–32 |
+| `SaveScanLimit` | `32` | 1–32 |
+| `SaveFirstDelaySeconds` | `30` | 0–3600 |
+| `SaveStaggerSeconds` | `1` | 0–60 |
+| `SaveCoalesceSeconds` | `60` | 1–3600 |
+| `SaveFlushStageLimit` | `16` | 1–16 |
+| `SaveScanSliceMs` | `4` | 1–4 |
+| `BudgetDeferredLogSeconds` | `600` | 1–3600 |
+| `MaxFacts` | `256` | 1–256 |
+| `MaxSiteMemories` | `256` | 1–256 |
+| `MaxLeads` | `64` | 1–64 |
+| `MaxGroupLeads` | `5` | 1–5 |
+| `MaxScenes` | `8` | 1–8 |
+| `MaxNotes` | `10` | 1–10 |
+| `MaxTheftRows` | `1024` | 1–1024 |
+| `MaxTheftPerCamp` | `32` | 1–32 |
+| `MaxSalvage` | `64` | 1–64 |
+| `FactLifetimeSeconds` | `604800` | 1–604800 |
+
+#### SearchLimits: `search-limits.json`
+
+Search retries, refresh records and journal maintenance; EnableSearch=false opts out. Work alternates within the shared tick budget.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `RetryDelayMs` | `10000` | 1000–60000 |
+| `RetryAttempts` | `3` | 1–12 |
+| `RefreshRecordsPerMinute` | `32` | 1–32 |
+| `RefreshMaxRecords` | `4096` | 1–4096 |
+| `RefreshMinSeconds` | `172800` | 60–2592000 |
+| `RefreshJitterSeconds` | `172800` | 0–2592000 |
+| `JournalMaxEntries` | `4096` | 1–4096 |
+| `RetirementRecentEntries` | `2048` | 1–2048 |
+| `CompactRowsPerMinute` | `32` | 1–32 |
+| `LegacyFilesPerMinute` | `32` | 1–32 |
+
+#### SignsOfLife: `signs-of-life.json`
+
+Firelight, chimney and fly scan limits; EnableSignsOfLife=false opts out.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `MaxFlies` | `6` | 0–6 |
+| `MaxObjects` | `512` | 1–512 |
+| `MaxForceLit` | `24` | 0–24 |
+| `HouseRadius` | `125` | 1–125 |
+| `FlyRadius` | `25` | 1–25 |
+| `ScanSeconds` | `10` | 10–3600 |
+| `ColdC` | `10` | -40–40 |
+| `SummarySeconds` | `60` | 60–3600 |
+| `SummaryAreas` | `6` | 1–6 |
+| `SnapshotPlayers` | `90` | 1–90 |
+
+#### LeatherTailoring: `leather-tailoring.json`
+
+Recipe ingredients and duration; Enabled=false opts out. Deploy matching profiles to clients before recipe registration.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `Enabled` | `true` | boolean |
+| `PantsPanels` | `3` | 2–8 |
+| `VestPanels` | `4` | 3–8 |
+| `KitUnits` | `10` | 1–100 |
+| `AnimationUnits` | `2` | 1–10 |
+
+#### Signals: `signals.json`
+
+Physical gesture cooldown and bounded notices; Enabled=false opts out. No dialogue, trading or quest flow.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `Enabled` | `true` | boolean |
+| `CooldownMs` | `30000` | 1000–3600000 |
+| `MaxNotices` | `128` | 1–128 |
+
+#### BodyStories: `body-stories.json`
+
+Original owned corpse receipts and bounded maintenance; EnableLeads=false opts out.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `MaxBodies` | `3` | 1–3 |
+| `MaxActiveTraces` | `10` | 1–10 |
+| `MaxSceneTraces` | `3` | 1–3 |
+| `MaintenanceSeconds` | `20` | 1–300 |
+
+#### ActorReach: `gc-actors-reach.json`
+
+Bounded infected reach evaluation; Enabled=false opts out. Native capability policies still govern individual actions.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `Enabled` | `true` | boolean |
+| `Slots` | `16` | 1–16 |
+| `EvaluationsPerTick` | `6` | 1–6 |
+| `Vehicles` | `8` | 1–8 |
+| `ContextSeconds` | `10` | 1–180 |
+| `MaxLifetimeSeconds` | `180` | 1–180 |
+| `InitialVaultDelaySeconds` | `2` | 0.1–15 |
+| `VehicleContactMetres` | `1.9` | 0.1–1.9 |
+| `VaultContactMetres` | `1.2` | 0.1–1.2 |
+| `NavmeshSampleMetres` | `0.5` | 0.05–0.5 |
+| `NavmeshHeightToleranceMetres` | `0.7` | 0.05–0.7 |
+| `VaultOutcomeSeconds` | `3` | 1–10 |
+| `VehicleHitSeconds` | `2` | 2–60 |
+| `VehicleMemorySeconds` | `60` | 2–60 |
+| `SummarySeconds` | `60` | 1–600 |
+| `WorkSliceMilliseconds` | `4` | 0.1–4 |
+| `DoorNavmeshCost` | `1000` | 1–1000 |
+
+#### ActorDefence: `gc-actors-defence.json`
+
+Bounded AI self-defence, perception memory and grudge duration; Enabled=false opts out.
+
+| Key | Default | Allowed range |
+| :--- | :--- | :--- |
+| `Enabled` | `true` | boolean |
+| `GRUDGE_CAP` | `64` | 1–64 |
+| `SHOT_WINDOW_CAP` | `6` | 1–6 |
+| `SHOT_SPACING_MS` | `750` | 750–60000 |
+| `LOS_MEMORY_MS` | `15000` | 1–15000 |
+| `SEED_WINDOW_MS` | `20000` | 1–20000 |
+| `RESCUE_WINDOW_MS` | `30000` | 1–30000 |
+| `RAYCASTS_PER_SHOT` | `4` | 1–4 |
+| `INFECTED_RADIUS` | `25.0` | 1–25 |
+| `PASS_RADIUS` | `4.0` | 0.1–4 |
+| `PASS_REACH` | `200.0` | 1–200 |
+| `PASS_MARGIN` | `2.0` | 0.1–2 |
+| `CLOSE_RADIUS` | `12.0` | 0.1–12 |
+| `FIGHT_THREAT` | `0.6` | 0.1–0.6 |
+| `ORIGIN_REACH` | `150.0` | 1–150 |
+| `HitHoldMs` | `240000` | 1–240000 |
+| `KillHoldMs` | `300000` | 1–300000 |
+| `MissHoldMs` | `90000` | 1–90000 |
 
 ### Optional gameplay and presentation tuning
 
@@ -1406,7 +1592,7 @@ The Map tab displays snapshot layers, routes and per-layer counts. The loot map 
 
 The intended test load is **3–6 players**. Recorded boots do not establish a tested player capacity. Performance budgets remain provisional until measurements with that load; larger-server capacity is unproven.
 
-`TickIntervalMs=1000` sets the core cadence. `MaxTickWorkItems=32` is shared across twenty-two consumers. For cost-one requests, starvation prevention permits up to 53 items in a tick; heavier requests and measured charges can exceed that unit total. This is a work allowance, not a millisecond frame-time guarantee. `[HC TickWork]` reports shared usage and starvation; `[HC CostTotal]` and `[HC Cost]` report aggregate and module costs. Building-class first resolves, event preflight, ecology and world saves still need target-load measurement in [#138](https://github.com/d-addison/hollow-country/issues/138).
+`TickIntervalMs=1000` sets the core cadence. `MaxTickWorkItems=32` is shared across twenty-three consumers. For cost-one requests, starvation prevention permits up to 54 items in a tick; heavier requests and measured charges can exceed that unit total. This is a work allowance, not a millisecond frame-time guarantee. `[HC TickWork]` reports shared usage and starvation; `[HC CostTotal]` and `[HC Cost]` report aggregate and module costs. Building-class first resolves, event preflight, ecology and world saves still need native cost observations; target-load capacity remains provisional in [#138](https://github.com/d-addison/hollow-country/issues/138).
 
 | Consumer ID | Constant | Work |
 | :--- | :--- | :--- |
@@ -1432,6 +1618,7 @@ The intended test load is **3–6 players**. Recorded boots do not establish a t
 | 19 | `HC_WORK_AI_RESPAWN` | Fresh AI group replacement. |
 | 20 | `HC_WORK_SEARCH_COMPACT` | Search-session compaction. |
 | 21 | `HC_WORK_SHELTER` | Regional shelter placement. |
+| 22 | `HC_WORK_AI_SITES` | AI locality candidate paging and site maintenance. |
 
 Package hash caching serializes read/merge/replace with persistent OS-held locks; process exit releases ownership. Stop older lock-file builds before switching protocols. Windows contention remains unverified.
 
@@ -1439,8 +1626,9 @@ Package hash caching serializes read/merge/replace with persistent OS-held locks
 
 ## Milestones
 
-- **Current:** finite survival, persistent AI activity, situations, seasons and administration are implemented in the test build; in-game acceptance remains pending.
-- **Server acceptance:** DayZDiag and signed PBO/server checks, then two-player visibility, sound, inventory and privacy checks; measure budgets with 3–6 players.
+- **Current test build:** finite survival, AI activity, 23 added Expansion vehicles, map-wide authored sites, paged interiors and configurable owner limits are in source/packages; integration gaps are named above and in-game acceptance remains pending.
+- **Server acceptance:** DayZDiag and normal signed PBO/server boots, then at most one client for visibility, sound, inventory, persistence and privacy checks. Capacity budgets remain provisional; no additional people are required for acceptance.
+- **Coverage correction:** the reverted item pass (`0321022f`) is being replaced with curated vanilla-only acquisition routes.
 - **Later:** item, food and clothing variety mods are [on hold (#232)](https://github.com/d-addison/hollow-country/issues/232).
 
 ## Documentation and contributing
@@ -1451,7 +1639,7 @@ Package hash caching serializes read/merge/replace with persistent OS-held locks
 - [Tests](tests/README.md): offline checks and the limits of their evidence.
 - [Contributing](CONTRIBUTING.md): contribution requirements.
 
-Report bugs through [GitHub issues](https://github.com/d-addison/hollow-country/issues), with the build, feature, expected/actual result and sanitised refusal/log lines. Do not attach credentials, identifiers, private profiles or third-party assets. Missing runtime behaviour remains open until tested on DayZDiag and a normal signed PBO/server; sound, visibility and replication need two clients.
+Report bugs through [GitHub issues](https://github.com/d-addison/hollow-country/issues), with the build, feature, expected/actual result and sanitised refusal/log lines. Do not attach credentials, identifiers, private profiles or third-party assets. Missing runtime behaviour remains open until tested on DayZDiag and a normal signed PBO/server; sound, visibility and replication need one client.
 
 ## License and assets
 

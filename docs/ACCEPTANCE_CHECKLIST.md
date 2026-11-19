@@ -6,7 +6,7 @@ server with one real client, followed by a restart. The owner previously joined
 the local server once without script errors; this W6 admin build has no native
 compile or acceptance evidence yet. Synthetic tests, old startup notes and admission messages establish
 neither gameplay acceptance nor production qualification. Target load is **3–6
-players**; the README's larger capacity ambition has no measured budget here.
+players**; these capacity budgets are provisional and do not add people to acceptance.
 
 Use the existing [setup, backups and rollback](LOCAL_ACCEPTANCE_V1.md#setup).
 Keep build, settings, dependency versions and session start/end times with private
@@ -17,12 +17,12 @@ enabled V2 module expect exactly one startup line with literal prefix
 gate, qualified and result. Count within one server start and one input log: the
 RPT may repeat script-log messages. `admitted unverified` is never a feature pass.
 
-For each row record PENDING, PASS (solo observation only), FAIL, BLOCKED with the
-actual refusal, or DEFERRED; include time, visible result and log excerpt. **2C**
-marks portions needing a second real client. Leave those portions deferred;
-report failures encountered in play as user bugs. Solo evidence cannot close
-network, audio or visibility qualification. Never bypass engine gates, teleport,
-add replacement loot, block doors or erase journals to manufacture a pass.
+For each row record PENDING, PASS, FAIL, BLOCKED with the actual refusal, or
+DEFERRED for a missing dependency; include time, visible result and log excerpt.
+Owner decision (2026-11-19 evening): DayZDiag and normal PBO/server checks plus
+at most one real client are the full acceptance bar. Record only what that
+session demonstrates. Never bypass engine gates, teleport, add replacement loot,
+block doors or erase journals to manufacture a pass.
 
 ## W6 admin test kit #133 and in-game map #123 — source implementation
 
@@ -59,7 +59,7 @@ Existing HC inputs are retained. RPC ids **4853911** (request) and **4853912**
 RPC id **4853913** is reserved for HC-51's server-to-client season snapshot:
 three integers (version, revision, phase), targeted on join/ready/reconnect and
 broadcast on phase changes and a 30-second heartbeat after first publication.
-It accepts no client requests. Native transport and two-client acceptance remain
+It accepts no client requests. Native transport and single-client acceptance remain
 PENDING.
 
 Buttons send `sitter`, `dormant`, `horde`, `scene`, `event`, `camp`, `holdout`,
@@ -111,7 +111,7 @@ Suggested 30–45 minute rehearsal: 0–5 min join, authenticate, status/snapsho
 25–35 min inspect a real camp/holdout and day-cap status; 35–45 min record finite
 balances, restore the original escalation day, restart and compare. Use the row
 column below to select nearby work. Refused/unreachable/long-duration rows remain
-BLOCKED or DEFERRED. End overlap normally. Solo cannot close any 2C row.
+BLOCKED or DEFERRED. End overlap normally. The connected client can complete the applicable in-game rows.
 
 Spec/plan/tasks trace (Banso worker scope): requested specification files are
 absent in this checkout; the supplied W6 task and runtime contract define the
@@ -126,70 +126,70 @@ translator changes were added; the single smoke extends test_map_layers.py.
 
 ## 1. Join, record a baseline and check controls
 
-| Row | README feature | One-client action and exact confirmation | Second client / remaining scope | Admin driver (Pause menu) |
+| Row | README feature | One-client action and exact confirmation | Remaining native scope | Admin driver (Pause menu) |
 | --- | --- | --- | --- | --- |
 | A01 | Signed package, join, persistence | Join the signed server without a signature kick. Record `[HollowCountry] Server initialized` and `[HollowCountry][SelfTest] Core settings PASS`. Stop on `Core native self-test FAILED; no modules started`. | Native Windows compile, signed load and join pending. | `status`; record startup/admission separately |
-| A02 | Extended stamina | With identical load/route, time sprint depletion and recovery versus a vanilla profile: intended drain 25%, recovery 250%; jumps/melee retain normal costs. First creation logs `Created enabled stamina profile: 25% continuous drain, 250% recovery`; `Stamina blocked` is a refusal. | 2C: synchronization, prediction and reconnect. | `status`; manual timed route |
-| A03 | Stamina and weight bars | Add/remove heavy items; wet/dry equipment. See separate responsive bars and reduced endurance with load. Inventory remains server authoritative. | 2C: remote state and prediction. | `status`; manual load/wetness change |
-| A04 | Groups | M → create, rename, leave, create again. Confirm returned changes; `[HC Groups]` messages containing `service inactive` / `start refused` mean blocked. Absence of errors alone is no pass. | 2C: invite/accept/decline/kick/lead transfer, privacy on leaving/death/reconnect, stale reports. | `status`; M group workflow |
-| A05 | Interactive map, shared markers/notes and icons | M → pan/zoom, create/edit/save a marker with a note, close/reopen, delete. Confirm coordinates/text and deletion. | 2C: shared markers/notes and teammate world/map icons. Own icons do not prove teammate rendering. | `snapshot` for admin layers; M for survivor markers |
-| A06 | Useful information layers | Toggle Events, Visited, Team, Markers, Grid. Visit a named place; compare known O-menu events to pins. Carry then remove powered GPS; coordinates follow GPS access. No unknown player/event information. | 2C: team visibility/privacy. Future unselected information layers remain deferred. | `snapshot` + select layer / Toggle; M remains discovery-limited |
-| A07 | Optional events | O → Refresh, Join, Leave, Close at a reviewed reachable site; confirm mission/objective and finite reward in the world. `[HC Events] enabled preference, no active missions` is empty state; `[HC Events] bind failed;` is not acceptance. Passing by remains allowed. | 2C: participation and reward races. Unreviewed/unreachable sites blocked. | `event`, then O Refresh/Join/Leave |
+| A02 | Extended stamina | With identical load/route, time sprint depletion and recovery versus a vanilla profile: intended drain 25%, recovery 250%; jumps/melee retain normal costs. First creation logs `Created enabled stamina profile: 25% continuous drain, 250% recovery`; `Stamina blocked` is a refusal. | Check prediction, delivery and reconnect on the connected client. | `status`; manual timed route |
+| A03 | Stamina and weight bars | Add/remove heavy items; wet/dry equipment. See separate responsive bars and reduced endurance with load. Inventory remains server authoritative. | Check received state and prediction while changing load. | `status`; manual load/wetness change |
+| A04 | Groups | M → create, rename, leave, create again. Confirm returned changes; `[HC Groups]` messages containing `service inactive` / `start refused` mean blocked. Absence of errors alone is no pass. | Check solo membership persistence and privacy after leaving/reconnecting. | `status`; M group workflow |
+| A05 | Interactive map, shared markers/notes and icons | M → pan/zoom, create/edit/save a marker with a note, close/reopen, delete. Confirm coordinates/text and deletion. | Check own icons, saved marker/note edits and deletion after reconnect. | `snapshot` for admin layers; M for survivor markers |
+| A06 | Useful information layers | Toggle Events, Visited, Team, Markers, Grid. Visit a named place; compare known O-menu events to pins. Carry then remove powered GPS; coordinates follow GPS access. No unknown player/event information. | Check only entitled information is displayed; unselected layers remain deferred. | `snapshot` + select layer / Toggle; M remains discovery-limited |
+| A07 | Optional events | O → Refresh, Join, Leave, Close at a reviewed reachable site; confirm mission/objective and finite reward in the world. `[HC Events] enabled preference, no active missions` is empty state; `[HC Events] bind failed;` is not acceptance. Passing by remains allowed. | Check reachable sites and finite physical stock; no extra rewards or quest prompts. | `event`, then O Refresh/Join/Leave |
 
 ## 2. Search town, repair and salvage, then leave a noisy encounter
 
-| Row | README feature | One-client action and exact confirmation | Second client / remaining scope | Admin driver (Pause menu) |
+| Row | README feature | One-client action and exact confirmation | Remaining native scope | Admin driver (Pause menu) |
 | --- | --- | --- | --- | --- |
 | B01 | More places worth checking | Visit accessible houses, apartments and military accommodation; inspect floor/storage opportunities over repeated visits. Record coverage gaps. A single empty building does not prove broken loot. Compare the #12 CSV below. | Native CE eligibility, accessibility and geometry require observation. | `snapshot` for navigation; manual house search |
 | B02 | Coherent loot, variety and soft progression | Compare civilian/industrial/medical/military finds for plausible supplies and risk progression while essentials retain multiple routes. Compare configured warnings with actual finds; never raise loot for a pass. | Spawn tags do not prove availability or balance. | `status`; manual loot comparison |
-| B03 | Varied familiar houses | Compare layouts/histories in supported houses; walk stairs, every door and escape route. Context: `[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending;`. A queued placement does not prove fit. | 2C: furniture replication/occlusion. Remaining measured layouts pending. | `snapshot` for navigation; manual fit/door survey |
-| B04 | Visible and searchable finds | Search supported cupboards/wardrobes/storage; time, interrupt, retry and inspect inventory/world items. Every obtained item debits the shared finite supply. | 2C: simultaneous searches, locking and inventory races. | `status`; manual finite search |
-| B05 | A place remembers | Record depleted stock, layout and visible identities; revisit after travel and section 5 restart. No free refill/reroll or duplicated visible/search loot. | 2C: concurrent withdrawal/reconnect/crash conservation. | `status` before/after revisit and restart |
-| B06 | Repair, reuse, disassembly, salvage | Exercise registered netting, cable/barbed-bat wire, leather, bat/stick, nailed-bat/ruined-crate wood/nail recoveries and cloth/rope/camouflage/repair/storage families where registered. Check tools, time, wear, input loss and finite output; unregistered candidates stay deferred. | 2C: completion/transfer races. Full item/recipe audit and broader justified coverage remain open. | `status`; manually obtain inputs and craft |
-| B07 | Fuel siphoning | With supported car, equipment/container, transfer finite fuel; interrupt, test nearly-full container and empty tank. Measure equal source loss/destination gain within precision; wrecks are not infinite petrol. | 2C: simultaneous users, replication and restart interruption. Unsupported hosts blocked. | `status`; manual supported fuel transfer |
-| B08 | Improvised light mounts | `Tape light to weapon` on a native weapon-light slot; fit railed handguard if required. Confirm consumed tape, preserved light/battery and correct beam. Remove by hand, remount with new tape. | 2C: attachment/light/audio replication. Other guns, helmets and backpacks deferred. | `status`; manual taped-light action |
-| B09 | Infected roles and trade-offs | Compare admitted appearances, sensible locations and broadly native health/damage. Context: `[HC Infected] capability admission`. Config entries alone do not prove visible variants. | 2C: perception and remote appearance; unsupported role/stance maps stay native. | `sitter` at open flat ground; `dormant` explicitly refused (fresh-spawn policy absent) |
-| B10 | Sight, sound, clues, investigation, local alerts | Break sight, make a real sound, move away. Observe clue investigation, bounded relays and escape without hidden live-position pursuit. Record admission reasons and `[HC Infected] native release status:` if emitted. | 2C: two-target perception, occlusion, gunshot/relay audibility. No omniscient pursuit or unlimited alerts. | `horde`, then genuine sound/sight and escape; no synthetic alert |
-| B11 | Coherent groups, persistent hordes | Observe natural movement/contact loss; record `[HollowCountry] infected horde budget used=` and quarantine/refusal. Repeat after restart with recorded membership where identity is available. | 2C: observer retirement, hidden activation, corpses/roster consistency. Unproven CE identity/abstraction blocked. | `horde` + `status` + `snapshot`; native adoption gates apply |
-| B12 | Rooms, doors, injuries, crawling | Observe native traversal and door interactions; inflict leg injury and record supported crawl/limp. Doors/stairs stay usable, no repositioning or silent movement correction. | 2C: door/crawl synchronization, contact fairness and room visibility. Unsupported behavior deferred. | `sitter`; manual traversal/injury; no forced crawl |
-| B13 | Footsteps, shuffle, contact, warnings | Listen across surfaces, distance and cover, including stealthier variants. Record missing/unfair warnings with time/position. | **2C required** for audio/occlusion acceptance. Solo listening is preliminary. | `sitter` / `horde`; manual sound, 2C deferred |
-| B14 | Death reactions | Kill infected; inspect native reaction and corpse access/loot. `Infected deaths not admitted; runtime acceptance PENDING` means blocked. | **2C required** for corpse/animation consistency; full ragdoll remains feasibility work. | `sitter`; manual kill/corpse inspection |
+| B03 | Varied familiar houses | Compare layouts/histories in supported houses; walk stairs, every door and escape route. Context: `[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending;`. A queued placement does not prove fit. | Inspect furniture visibility, clearance and occlusion; unmeasured layouts remain open. | `snapshot` for navigation; manual fit/door survey |
+| B04 | Visible and searchable finds | Search supported cupboards/wardrobes/storage; time, interrupt, retry and inspect inventory/world items. Every obtained item debits the shared finite supply. | Interrupt, retry and reconnect; verify finite inventory custody. | `status`; manual finite search |
+| B05 | A place remembers | Record depleted stock, layout and visible identities; revisit after travel and section 5 restart. No free refill/reroll or duplicated visible/search loot. | Check withdrawal/reconnect/restart conservation. | `status` before/after revisit and restart |
+| B06 | Repair, reuse, disassembly, salvage | Exercise registered netting, cable/barbed-bat wire, leather, bat/stick, nailed-bat/ruined-crate wood/nail recoveries and cloth/rope/camouflage/repair/storage families where registered. Check tools, time, wear, input loss and finite output; unregistered candidates stay deferred. | Check inputs, outputs and interrupted completion; broader justified coverage remains open. | `status`; manually obtain inputs and craft |
+| B07 | Fuel siphoning | With supported car, equipment/container, transfer finite fuel; interrupt, test nearly-full container and empty tank. Measure equal source loss/destination gain within precision; wrecks are not infinite petrol. | Check finite transfer, received state and restart interruption; unsupported hosts stay blocked. | `status`; manual supported fuel transfer |
+| B08 | Improvised light mounts | `Tape light to weapon` on a native weapon-light slot; fit railed handguard if required. Confirm consumed tape, preserved light/battery and correct beam. Remove by hand, remount with new tape. | Inspect attachment, beam and sound; unsupported pairs remain refused. | `status`; manual taped-light action |
+| B09 | Infected roles and trade-offs | Compare admitted appearances, sensible locations and broadly native health/damage. Context: `[HC Infected] capability admission`. Config entries alone do not prove visible variants. | Observe perception and appearance; unsupported role/stance maps stay native. | `sitter` at open flat ground; `dormant` explicitly refused (fresh-spawn policy absent) |
+| B10 | Sight, sound, clues, investigation, local alerts | Break sight, make a real sound, move away. Observe clue investigation, bounded relays and escape without hidden live-position pursuit. Record admission reasons and `[HC Infected] native release status:` if emitted. | Observe cover, gunshot and relay audibility from successive positions; no hidden pursuit or unlimited alerts. | `horde`, then genuine sound/sight and escape; no synthetic alert |
+| B11 | Coherent groups, persistent hordes | Observe natural movement/contact loss; record `[HollowCountry] infected horde budget used=` and quarantine/refusal. Repeat after restart with recorded membership where identity is available. | Check sight vetoes, hidden activation and corpse/roster consistency. | `horde` + `status` + `snapshot`; native adoption gates apply |
+| B12 | Rooms, doors, injuries, crawling | Observe native traversal and door interactions; inflict leg injury and record supported crawl/limp. Doors/stairs stay usable, no repositioning or silent movement correction. | Check doors, crawl state and room visibility; unsupported behavior remains a gap. | `sitter`; manual traversal/injury; no forced crawl |
+| B13 | Footsteps, shuffle, contact, warnings | Listen across surfaces, distance and cover, including stealthier variants. Record missing/unfair warnings with time/position. | Listen from successive positions across surfaces and cover. | `sitter` / `horde`; manual sound |
+| B14 | Death reactions | Kill infected; inspect native reaction and corpse access/loot. `Infected deaths not admitted; runtime acceptance PENDING` means blocked. | Inspect corpse/animation consistency; full ragdoll remains an engine limitation. | `sitter`; manual kill/corpse inspection |
 
 ## 3. Travel through the Living Country
 
-| Row | README feature | One-client action and exact confirmation | Second client / remaining scope | Admin driver (Pause menu) |
+| Row | README feature | One-client action and exact confirmation | Remaining native scope | Admin driver (Pause menu) |
 | --- | --- | --- | --- | --- |
 | C01 | Hollow grade | Cycle bound control through 0–100% in 10% steps; 0 restores vanilla. Inspect persistence/stacking with native effects. Startup: `V2 admission feature=Grade`. | Rendered result and frame cost need observation. | `status`; normal grade control |
-| C02 | Weather, lighting, changing days | Observe dusk/overcast/storm and readable bright night. Record `[HollowCountry] V2 weather day=` profile and atmosphere ownership/refusal. | **2C required** for visibility. Multiple real days/seasonal variation need follow-up. | `day 0/7/14/30` changes escalation only; observe weather naturally |
-| C03 | Ambient life | Visit water/farms; observe loaded small animals without duplicates. `[HollowCountry] V2 optional pack AmbientAnimals loaded=` confirms dependency presence only. | 2C: animal visibility/audio. Native population/resource behavior pending. | `snapshot` for navigation; manual animal observation |
-| C04 | Signs of life | Observe lit windows, chimney smoke and carcass flies where supported. Compare `[HollowCountry] V2 signs of life day=` counts with actual effects. | **2C required** for effects/audio and cost. | `holdout` + `snapshot`; manual effect observation |
-| C05 | Trail shelters and group pins | Visit shelter; inspect passable props/entrances and map pin/lead slot. Record `[HollowCountry] V2 shelter placed name=` or `V2 shelter refused name=` and reason. | 2C: shared shelter/pin/lead visibility. Refused sites blocked. | `snapshot` shelters layer; walk to site |
-| C06 | Bikes, boats, common repairable cars | Find overlay vehicles; inspect missing parts, repair and ride/drive supported examples. Check oil/brake-fluid/parts against installed CE. `V2 optional pack Bicycles loaded=` is load only. | 2C: physics/seats/repairs/ownership. Loot rows imply no scripted oil/brake consequences. | `snapshot` for navigation; manual repair/drive |
-| C07 | Finite wreck salvage | Salvage supported wreck to exhaustion and retry. Compare `V2 wreck salvaged class=` and `V2 wreck salvage wrecks=` balances after restart. | 2C: races/conservation. Unsupported wrecks yield no invented fuel/parts. | `status`; manual finite wreck salvage |
-| C08 | Factions and hold-outs | Inspect supported houses/faction traces; kill/loot a materialized survivor and real cache. Record `V2 holdouts ready` then `V2 holdout raided id=`. Abstract/empty state is not a body. | 2C: body/cache/loot. Seven real days including downtime need later revisit; no reputation/trade/recruiting. | `holdout` + `snapshot` holdouts layer; normal cache/body gates |
-| C09 | Pickers | Compare finite stock before/after a legitimate visit; record `V2 picker visit phase=` and daily usage. `abstract=1` does not prove visible scavengers. | 2C: transfer contention; visible actors blocked unless materialized. | `status`; manual legitimate stock comparison |
-| C10 | Dead drops | Follow a known lead; inspect finite contents, empty and revisit. Compare `V2 dead drop deposit id=` / `used=`; no free repeat/restart supply. | 2C: another survivor taking the same drop. | `snapshot` dead_drops layer; manual finite withdrawal |
-| C11 | Powered radio and faction chatter | Tune powered PersonalRadio to `V2 radio ready frequencies=` channel; confirm chatter, remove power/change channel. Match `V2 radio line freq=`. | **2C required** for receiver privacy, audio and independent delivery. | `status`; manual powered radio/channel test |
-| C12 | Morse clues | Tune travellers channel; compare received clue to redacted `V2 morse clue player=` grid/target. Test power/channel/rate limits. | **2C required** for receiver privacy and delivery/rates. | `status`; manual travellers-channel test |
-| C13 | Rumours, notes, body stories, shared leads | Follow received lead, inspect body story/rare note; record `V2 lead received source=`, `V2 body stories placed=`, `V2 notes world=`. At most one note/scene, ten worldwide. | 2C: group sharing and note/loot races. Missing random content is not an automatic selection failure. | `scene` + `snapshot` leads/events; follow legitimately delivered leads |
-| C14 | Scenes and chains | Reach advertised last-stand/quarantine/evacuation site; inspect stage and follow clue or allow expiry. Match `V2 scene placed id=`, `V2 scene stage complete id=`, `V2 scenes active=`. | 2C: shared objectives/rewards/props/cleanup. Missing reviewed sites or cleanup pending means blocked. | `scene` + `snapshot` events; reviewed due site and observer gates |
+| C02 | Weather, lighting, changing days | Observe dusk/overcast/storm and readable bright night. Record `[HollowCountry] V2 weather day=` profile and atmosphere ownership/refusal. | Inspect visibility over real days and seasonal variation. | `day 0/7/14/30` changes escalation only; observe weather naturally |
+| C03 | Ambient life | Visit water/farms; observe loaded small animals without duplicates. `[HollowCountry] V2 optional pack AmbientAnimals loaded=` confirms dependency presence only. | Observe animal visibility/audio and native population/resource behavior. | `snapshot` for navigation; manual animal observation |
+| C04 | Signs of life | Observe lit windows, chimney smoke and carcass flies where supported. Compare `[HollowCountry] V2 signs of life day=` counts with actual effects. | Observe effects/audio and record client cost. | `holdout` + `snapshot`; manual effect observation |
+| C05 | Trail shelters and group pins | Visit shelter; inspect passable props/entrances and map pin/lead slot. Record `[HollowCountry] V2 shelter placed name=` or `V2 shelter refused name=` and reason. | Inspect shelter and received pins/leads; refused sites remain gaps. | `snapshot` shelters layer; walk to site |
+| C06 | Bikes, boats, common repairable cars | Find overlay vehicles; inspect missing parts, repair and ride/drive supported examples. Check oil/brake-fluid/parts against installed CE. `V2 optional pack Bicycles loaded=` is load only. | Check physics, seats, repairs and retained ownership; no scripted oil/brake effects are implied. | `snapshot` for navigation; manual repair/drive |
+| C07 | Finite wreck salvage | Salvage supported wreck to exhaustion and retry. Compare `V2 wreck salvaged class=` and `V2 wreck salvage wrecks=` balances after restart. | Check conservation over repeat use and restart; unsupported wrecks grant nothing. | `status`; manual finite wreck salvage |
+| C08 | Factions and hold-outs | Inspect supported houses/faction traces; kill/loot a materialized survivor and real cache. Record `V2 holdouts ready` then `V2 holdout raided id=`. Abstract/empty state is not a body. | Inspect body/cache stock and revisit after seven real days, including downtime. | `holdout` + `snapshot` holdouts layer; normal cache/body gates |
+| C09 | Pickers | Compare finite stock before/after a legitimate visit; record `V2 picker visit phase=` and daily usage. `abstract=1` does not prove visible scavengers. | Check finite transfers; abstract state does not prove visible actors. | `status`; manual legitimate stock comparison |
+| C10 | Dead drops | Follow a known lead; inspect finite contents, empty and revisit. Compare `V2 dead drop deposit id=` / `used=`; no free repeat/restart supply. | Empty and revisit the same finite drop. | `snapshot` dead_drops layer; manual finite withdrawal |
+| C11 | Powered radio and faction chatter | Tune powered PersonalRadio to `V2 radio ready frequencies=` channel; confirm chatter, remove power/change channel. Match `V2 radio line freq=`. | Check channel/power exclusions, received audio and reconnect. | `status`; manual powered radio/channel test |
+| C12 | Morse clues | Tune travellers channel; compare received clue to redacted `V2 morse clue player=` grid/target. Test power/channel/rate limits. | Check channel/power exclusions, delivery and rate limits. | `status`; manual travellers-channel test |
+| C13 | Rumours, notes, body stories, shared leads | Follow received lead, inspect body story/rare note; record `V2 lead received source=`, `V2 body stories placed=`, `V2 notes world=`. At most one note/scene, ten worldwide. | Check received leads and finite notes/body stock; missing random selection alone is not failure. | `scene` + `snapshot` leads/events; follow legitimately delivered leads |
+| C14 | Scenes and chains | Reach advertised last-stand/quarantine/evacuation site; inspect stage and follow clue or allow expiry. Match `V2 scene placed id=`, `V2 scene stage complete id=`, `V2 scenes active=`. | Inspect physical props, clues, expiry and cleanup at reviewed sites. | `scene` + `snapshot` events; reviewed due site and observer gates |
 
 ## 4. Make camp, revisit the world and inspect optional AI
 
-| Row | README feature | One-client action and exact confirmation | Second client / remaining scope | Admin driver (Pause menu) |
+| Row | README feature | One-client action and exact confirmation | Remaining native scope | Admin driver (Pause menu) |
 | --- | --- | --- | --- | --- |
-| D01 | Camp recognition, three tiers | Build around legitimate fire/shelter/storage; record `V2 camps recognised camp=` then `V2 camps tier camp=` when actual criteria are met. | 2C: ownership/shared changes. Higher tiers need later play if criteria unmet. | `camp`; reevaluates real criteria, preserves age/cooldown |
-| D02 | Visitors, neighbours; mailbox retired | Inspect supported visitors; compare `V2 camps visitor camp=`, `V2 camps neighbours-lost camp=` and startup `mailbox=off`. Written notes in native storage receive no mailbox answer or conversation (HC-17 / #151). `abstract=1` is partial visitor state. | 2C: visitor visibility and group privacy. Long-term neighbour loss pending; mailbox retirement still needs a native check. | `camp`; normal visitor eligibility only |
-| D03 | Theft, safe locked storage | Compare unlocked/locked storage. `V2 camps theft camp=` requires a real finite transfer at an unattended camp; attended/locked storage stays protected. | **2C required** for attendance/ownership/contention. Solo eligibility/refusal only. | `camp`; attended/locked protection retained; 2C deferred |
-| D04 | Warned day-14 tier-3 probes | At legitimate age/tier, record `V2 camps probe-warning camp=` before supported raid, then signs/retreat. `abstract=1` is not an armed raid. | Long-duration follow-up and **2C** warning/raid visibility; no altered-clock proof. | `day 14` + `camp`; escalation changes, real camp age/warnings remain mandatory |
+| D01 | Camp recognition, three tiers | Build around legitimate fire/shelter/storage; record `V2 camps recognised camp=` then `V2 camps tier camp=` when actual criteria are met. | Check ownership persistence; higher tiers need later play if criteria are unmet. | `camp`; reevaluates real criteria, preserves age/cooldown |
+| D02 | Visitors, neighbours; mailbox retired | Inspect supported visitors; compare `V2 camps visitor camp=`, `V2 camps neighbours-lost camp=` and startup `mailbox=off`. Written notes in native storage receive no mailbox answer or conversation (HC-17 / #151). `abstract=1` is partial visitor state. | Observe visitors and long-term neighbour loss; check retired mailbox stays inactive. | `camp`; normal visitor eligibility only |
+| D03 | Theft, safe locked storage | Compare unlocked/locked storage. `V2 camps theft camp=` requires a real finite transfer at an unattended camp; attended/locked storage stays protected. | Check attended refusal, then leave and return to inspect finite stock and custody logs. | `camp`; attended/locked protection retained |
+| D04 | Warned day-14 tier-3 probes | At legitimate age/tier, record `V2 camps probe-warning camp=` before supported raid, then signs/retreat. `abstract=1` is not an armed raid. | Observe warning/raid results over real camp age; no altered-clock proof. | `day 14` + `camp`; escalation changes, real camp age/warnings remain mandatory |
 | D05 | Capped escalation | Record `V2 escalation day=` multipliers through legitimate progression; confirm caps rather than unlimited growth. | Real-day balance and target-load scaling pending. | `day 0/7/14/30/3650` + `status`; admin exercise only, not real-day balance proof |
-| D06 | Settlement decay | Revisit settlement; compare supported appearance/state to `V2 settlement decay towns=` / `V2 settlement visual refused town=`. | **2C required** for visuals; refused materialization is not visible decay. | `day 14/30` + `status`; normal settlement gates |
-| D07 | Infected memory, horde migration | Revisit active route; compare `V2 infected memory cells=`, `V2 herd drift id=`, `V2 herd drift members=` with finite native movement. | **2C required** for perception/hidden transitions; long-term memory needs follow-up. | `horde` + `snapshot` infected layer; genuine cues only |
-| D08 | Finite loot refresh | After configured cooldown revisit depleted house; refresh follows finite source/ledger, including restart, without duplicate visible/search supplies. | 2C: refresh/withdrawal/restart races. | `status`; manual cooldown/restart revisit |
+| D06 | Settlement decay | Revisit settlement; compare supported appearance/state to `V2 settlement decay towns=` / `V2 settlement visual refused town=`. | Inspect visible decay; refused materialization is not a visible result. | `day 14/30` + `status`; normal settlement gates |
+| D07 | Infected memory, horde migration | Revisit active route; compare `V2 infected memory cells=`, `V2 herd drift id=`, `V2 herd drift members=` with finite native movement. | Check perception and hidden transitions, then revisit for long-term memory. | `horde` + `snapshot` infected layer; genuine cues only |
+| D08 | Finite loot refresh | After configured cooldown revisit depleted house; refresh follows finite source/ledger, including restart, without duplicate visible/search supplies. | Check finite refresh, withdrawal and restart conservation. | `status`; manual cooldown/restart revisit |
 | D09 | Ecology, resources, migration | Observe bounded cohort around resources. Record `[HC Ecology] observation_path=available`, `coverage=partial`; `feeding=unsupported`, `drinking=unsupported`, `migration=unsupported` are gaps. | No inspected feeding/wildlife-destination transaction means unsupported, not working ecology. | `snapshot` for navigation; unsupported ecology paths remain blocked |
-| D10 | More firearms | Find/load/fire representative curated wood-stock, conventional modern and finished vanilla additions with proper ammo/magazines; inspect installed CE scarcity. Loaded subscriptions do not prove weapon function. | 2C: weapons/attachments/audio. Unsupported variants deferred; never repack weapon packs. | `status`; manually find/fire weapons; no inventory injection |
-| D11 | Optional Expansion patrols/checkpoints/faction stance | With optional dependencies, visit admitted reviewed site, read stance, `Ask for news`. Confirm finite ammo/normal damage/fair movement. Match `[HC Expansion AI] sites admitted:`, `site ... spawn refused:` or `[HollowCountry] Checkpoints refused:`. | **2C required** for combat/permissions/replication/cleanup. No teleports authorized this round, including forced stuck recovery. | `snapshot` materializer_candidates/holdouts; candidate is not a live AI body |
-| D12 | AI encounters from remembered events | Follow known event; compare `[HC Expansion AI] encounter bound:` to legitimate site patrol/result. No hidden live-position knowledge. | 2C: observers/participants. Unsupported rescue/escort/convoy possibilities remain planned. | `event` + O; normal optional AI provider/budget gates |
+| D10 | More firearms | Find/load/fire representative curated wood-stock, conventional modern and finished vanilla additions with proper ammo/magazines; inspect installed CE scarcity. Loaded subscriptions do not prove weapon function. | Inspect native weapons, attachments and audio; unsupported variants remain excluded. | `status`; manually find/fire weapons; no inventory injection |
+| D11 | Optional Expansion patrols/checkpoints/faction stance | With optional dependencies, visit admitted reviewed site, observe stance and physical gestures. Confirm finite ammo/normal damage/fair movement. Match `[HC Expansion AI] sites admitted:`, `site ... spawn refused:` or `[HollowCountry] Checkpoints refused:`. | Observe combat, permissions and cleanup; no forced recovery teleport. | `snapshot` materializer_candidates/holdouts; candidate is not a live AI body |
+| D12 | AI encounters from remembered events | Follow known event; compare `[HC Expansion AI] encounter bound:` to legitimate site patrol/result. No hidden live-position knowledge. | Observe encounters driven by known events; missing provider paths stay explicit. | `event` + O; normal optional AI provider/budget gates |
 | D13 | Existing DayZ mechanics | Check supported cold/wet-weight, weapon obstruction and directional-hit settings while surviving; record concrete symptoms. This README direction is a native-system audit. | No promise of base-building expansion, futuristic gear, new renderer or unrestricted wildlife simulation. | `status`; manual native-system audit |
 
 HC-17 / #151 round-3 source review: building claims count persisted online
@@ -202,7 +202,7 @@ count, and accumulated online absence expires metadata across regular restarts.
 Keep native container/item identities through expiry. Legacy rows without the
 new field must load as 0; negative/over-policy counters must refuse. Observe
 camp-level refusal after a camp fault and a successful Fail -> OnStart without
-OnStop. With two clients check distinct server-sent contention, changed-group,
+OnStop. With one client check distinct server-sent contention, changed-group,
 persistence-fault and service-unavailable messages. Native lockpick/door restart
 and heavy-infected vulnerability remain pending; no offline result accepts them.
 See LOCAL_ACCEPTANCE_V1.md, HC-17 round 3, for spec/plan/task trace and actual
@@ -249,8 +249,8 @@ time. `entity_samples.scope=feature` may describe local counts/budgets rather th
 a world census; sizing uses only `scope=monitor` RPT counts. `AI:` alone never
 means eight human bodies. Missing telemetry stays missing, never synthesized.
 
-`right_size` requires ten FPS samples, each carrying 3–6 players, and calibrated
-HC windows whose complete player range is 3–6. Malformed/truncated evidence holds
+`right_size` is a separate capacity-research tool requiring ten FPS samples, each carrying 3–6 players, and calibrated
+HC windows whose complete player range is 3–6. This tool is outside acceptance; do not assemble extra clients to complete this checklist. Malformed/truncated evidence holds
 caps. If adequate, FPS p10 below 20 or HC work p95 above 5 ms suggests a **trial
 reduction of at most 10%** (integer floor) for a supplied cap whose nonzero
 population was actually reported. Missing population/cap means zero delta.
@@ -274,8 +274,8 @@ dispatch/point eligibility, geometry/accessibility and non-CE acquisition
 
 ## 6. Combined-load scenario — #78 / EXP-P2
 
-This procedure is **unexecuted**. Solo is rehearsal; repeat on target host at 3–6
-real players, including four where available. Keep build, mission, weather,
+This procedure is **unexecuted**. Use one server and at most one client. Record
+the actual load; 3–6-player capacity remains unmeasured and is not an acceptance requirement. Keep build, mission, weather,
 location, settings and duration comparable between baseline and loaded runs.
 
 1. Record ten minutes of baseline ordinary play with existing HC sampler enabled.
@@ -311,8 +311,8 @@ location, settings and duration comparable between baseline and loaded runs.
    and overlap notes to #78 / EXP-P2. Proposals are printed only; no acceptance is
    recorded here.
 6. End encounter normally, leave/rejoin, restart and inspect cleanup/finite stores.
-   **2C deferred/user bugs:** observer cleanup, ownership, AI/horde visibility,
-   combat audio and replication. Load measurements cannot waive them. Missing live
+   Check observer cleanup, ownership, AI/horde visibility and combat audio from
+   the connected client; record only observed outcomes. Missing live
    body/site totals or FPS/population logging needs owning-worker telemetry;
    these offline tools add no runtime hook.
 
@@ -321,7 +321,7 @@ location, settings and duration comparable between baseline and loaded runs.
 | Finding | Deliverable | Outcome |
 | --- | --- | --- |
 | #12 | `tools/audit/loot_routes.py`: staged mission/overlay CSV | Fixed offline reporting; runtime acquisition pending. |
-| #50 | `tools/testing/log_metrics.py` and this README itinerary | Fixed tooling/docs; all runtime rows pending, 2C portions deferred/user bugs. |
+| #50 | `tools/testing/log_metrics.py` and this README itinerary | Fixed tooling/docs; runtime rows pending native server and single-client observations. |
 | #70 | `tools/testing/right_size.py`: printed conservative delta | Fixed proposal tooling; budgets provisional until measured at target load. |
 | #78 | Section 6: eight human AI bodies plus two hordes, capture commands | Fixed procedure; execution/EXP-P2 acceptance pending. |
 

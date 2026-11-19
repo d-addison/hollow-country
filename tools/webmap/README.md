@@ -134,8 +134,8 @@ retained cursors. The start line names `query_cost=unmeasured`.
 
 Native `GetObjectsAtPosition` has no cursor, output-size bound or cancellation.
 The post-query cap bounds retained/processed work, **not its native peak time
-or allocation**. Measuring this call on the target 3–6-player load is mandatory
-before production enablement; the caps are provisional. Missing CE/world
+or allocation**. Measure this call on the native server with at most one client before
+acceptance; the caps and target-load capacity remain provisional. Missing CE/world
 availability refuses `ce_world_enumeration_unavailable`. Interrupted stores use
 the existing verified intent/backup/copy/readback protocol; preserve `.tmp` and
 `.bak` for recovery. The viewer refuses pending intents, malformed/zero-version
@@ -149,7 +149,7 @@ ports. Initial RED (before implementation):
 Focused GREEN command:
 `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_admin_lootmap -v`
 (`Ran 1 test; OK`). These are offline source checks only. Exact-source DayZDiag,
-normal signed PBO/server, two-client privacy/replication and cost observations
+normal signed PBO/server, single-client privacy/replication and cost observations
 remain pending; no engine experiment is accepted by this receipt.
 
 Layer legend (w27): the page lists each layer's meaning and, for bounded layers

@@ -234,7 +234,7 @@ the deployment history before establishing a fresh owned destination.
 
 Development target: DayZ Standalone 1.30, ChernarusPlus, 3–6 players. Features
 are being built and V2 preferences default on. Native compilation, normal signed
-PBO/server tests, client joins, persistence and two-client checks remain pending.
+PBO/server tests, client joins, persistence and single-client checks remain pending.
 Nothing in a bundle build establishes DayZ behavior or production acceptance.
 
 The server and every client use this ordered list. Subscribe to the original

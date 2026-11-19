@@ -3,7 +3,7 @@
 Status: design plus a first implemented slice (2026-11-18). Each check here runs
 offline, is deterministic and needs only the standard library. A green offline
 check is not DayZ evidence. Runtime acceptance still needs DayZDiag, a normal
-PBO/server boot and, where AGENTS.md requires it, two clients.
+PBO/server boot and at most one client (owner, 2026-11-19 evening).
 
 ## 1. Why we need this
 
@@ -33,7 +33,7 @@ The compile/boot traps under D:
 |---|---|---|
 | Compile traps (D) | **`tools/validate/enforce_lint.py` rules HC-E001..E007 and HC-L001 (implemented)**, plus the existing `test_script_syntax`, `test_enforce_locals` and `test_script_identifiers` | DayZDiag compile: `0 SCRIPT (E)` in the boot log (already captured by native boot runs) |
 | Silent server refusal (A, B) | **HC-S001 / HC-S002 (implemented, baselined)** | Each refusal emits `[HC <Module>] refuse reason=<code> actor=<id>`, rate-limited. The admin debug snapshot counts refusals per reason. |
-| Predicted action with no player feedback (A) | **HC-S003 (implemented, baselined)** | Server `MessageStatus` on the refusal path. Two-client check for the networked ones. |
+| Predicted action with no player feedback (A) | **HC-S003 (implemented, baselined)** | Server `MessageStatus` on the refusal path. Single-client check for the networked ones. |
 | Feature silently off (E) | WP-5: a readiness-line registry test. Every `HCModule` subclass has one `[HC <Name>] ready` / `[HC <Name>] off reason=` print, and `HCServer` logs the modules it skips. | Boot log grep: one line per registered module, no gaps. |
 | Identity gate (B) | WP-4: lint rule HC-S004 flags string equality against a literal build/world id in a gate. The convention is tolerant matching, or log the mismatch once. | `[HC Identity] build=<x> world=<y> accepted=<bool> reason=` |
 | Packaging (C) | WP-1: `tools/validate/package_manifest.py` (section 5) | Launcher/Workshop observation stays manual. |
@@ -280,7 +280,7 @@ python3 -B -m tools.validate.hygiene
 ```
 
 These are offline packaging results. DayZDiag, normal PBO/server testing,
-two-client behavior and 3–6-player budget measurements remain pending. No
+single-client behavior remains pending; larger-load budgets stay provisional. No
 network, Windows or DayZ commands, commits, staging or pushes were performed.
 
 Full discovery GREEN:
