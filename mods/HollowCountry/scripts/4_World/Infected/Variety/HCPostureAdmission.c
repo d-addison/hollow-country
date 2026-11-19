@@ -20,16 +20,23 @@ class HCPostureAdmission
     protected bool m_Running;
     protected int m_Cursor;
 
+    // Native DayZInfected.c:39-40 stance/idle; ZombieBase.c:96-99 stance
+    // [0,4), :450-477 mind-driven idle/wake, :1089-1092 persistent crawl.
+    // Native idle/wake is admitted unverified, under EnableInfectedVariety.
+    // Tier C aliases below require assets/graph, not merely a client verdict.
     // This supports holding an ALREADY crawling living actor in native idle,
     // then releasing our idle latch. It never stands it up or resurrects it.
     static bool HCCanEnter(string mode)
     {
-        return mode == "native_crawler_idle";
+        if (mode == "native_stance_idle" || mode == "native_mind_idle") { return true; }
+        return mode == "native_crawler_idle" || mode == "native_crawler_wake";
     }
 
     static string HCPostureRefusal(string mode)
     {
         if (mode == "native_crawler_idle") { return "none_native_idle_only"; }
+        if (mode == "native_crawler_wake") { return "none_native_resume_crawl_unverified"; }
+        if (mode == "native_stance_idle" || mode == "native_mind_idle") { return "none_native_move_api_unverified"; }
         if (mode == "sit_wall") { return "SIT_WAKE_NATIVE_PROOF_PENDING"; }
         if (mode == "prone_sleep") { return "PRONE_WAKE_GRAPH_UNVERIFIED"; }
         if (mode == "riser") { return "REVERSIBLE_RISE_UNEXPOSED"; }
@@ -54,6 +61,11 @@ class HCPostureAdmission
             support = "native_idle_api_only";
             wake = "resume_crawl_unverified";
             state = "on";
+        }
+        if (mode == "native_stance_idle" || mode == "native_mind_idle")
+        {
+            support = "native_move_api_only";
+            wake = "native_mind_state_unverified";
         }
         string line = "[HC Plan] HC-45 posture=" + mode + " support=" + support + " wake=" + wake;
         line = line + " state=" + state + " reason=" + HCPostureRefusal(mode);
@@ -80,7 +92,11 @@ class HCPostureAdmission
         // Wave 16 owner decision: the missing native rest-wake verdict is an admitted-unverified
         // verdict (logged once by the HCV2Admission line above; HC-45 per-mode lines name each
         // refused mode), not a degraded module. Opt-out stays EnableInfectedVariety.
-        m_Status.HCPublish("ready", "native_crawler_idle_admitted_rest_wake_unverified_runtime_pending");
+        string state = "refused";
+        if (HCPostureAdmission.HCCanEnter("native_crawler_idle") && HCPostureAdmission.HCCanEnter("native_stance_idle") && HCPostureAdmission.HCCanEnter("native_mind_idle") && HCPostureAdmission.HCCanEnter("native_crawler_wake")) { state = "ready"; }
+        m_Status.HCPublish(state, "native_crawler_idle_admitted_rest_wake_unverified_runtime_pending");
+        Print("[HC Variety] native_postures=admitted_unverified stance=0..3 idle=native_mind_state wake=resume_crawl opt_out=EnableInfectedVariety runtime=PENDING");
+        Print("[HC Variety] tier_c=custom_graph_required sit_wall=experimental_addon_unverified prone_flat=assets_missing standing_riser=assets_missing native_crawl_reverse=unexposed runtime=PENDING");
         HCSlice();
     }
 

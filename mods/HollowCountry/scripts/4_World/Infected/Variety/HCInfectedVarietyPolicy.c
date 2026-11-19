@@ -70,6 +70,16 @@ class HCInfectedVarietyPolicy
         return Math.Clamp(0.8 + 0.2 * nightness - 0.3 * rain, 0.4, 1);
     }
 
+    // Native ZombieBase.c:96-99 samples [0,4); no custom graph/idle values.
+    // Walker/shambler/runner use 0/1/3, the existing military policy retains 2.
+    static int HCStanceForRole(int role, bool military)
+    {
+        if (military) { return 2; }
+        if (role == 2) { return 3; }
+        if (role == 1) { return 1; }
+        return 0;
+    }
+
     static float MovementLimit(int role, float nativeSpeed)
     {
         if (nativeSpeed <= 0) { return nativeSpeed; }

@@ -9,8 +9,8 @@
 // :113 IsZombieMilitary, :198-277 command order,
 // :349 HandleDeath, :981 EEHitBy, :1090 IsCrawling, :1060 IsBeingBackstabbed.
 // Per command: O(1), no allocation. Posture is applied ONCE in MOVE/calm;
-// without the requested research report no per-frame posture reassertion is used.
-// Dormancy borrows ONLY native crawlers already near a tracked real corpse.
+// role changes invalidate that one-shot write; no per-frame reassertion is used.
+// Dormancy borrows native crawlers at tracked corpses or catalog rooms.
 // Never forces StartCommand_Crawl: :811-826 is an injury transition, not a
 // reversible lying/standing animation. Fresh-body spawning needs a shared lease.
 modded class ZombieBase
@@ -43,6 +43,7 @@ modded class ZombieBase
 
     void HCVarietyAssign(int role, string place)
     {
+        if (m_HCVarietyRole != role) { m_HCVarietyPosture = false; }
         m_HCVarietyRole = role;
         m_HCVarietyPlace = place;
     }
@@ -120,6 +121,7 @@ modded class ZombieBase
             if (controller) { controller.OverrideMovementSpeed(false, 0); }
         }
         m_HCVarietySpeed = false;
+        m_HCVarietyPosture = false;
         m_HCVarietyRole = -1;
         m_HCVarietyPlace = "";
     }
@@ -146,16 +148,15 @@ modded class ZombieBase
         if (consumed || pCurrentCommandFinished || pCurrentCommandID != DayZInfectedConstants.COMMANDID_MOVE) { return consumed; }
         if (!controller || m_HCVarietyDormant || IsCrawling()) { return consumed; }
         int mind = controller.GetMindState();
-        if (!m_HCVarietyPosture && mind == DayZInfectedConstants.MINDSTATE_CALM)
+        if (!m_HCVarietyPosture && mind == DayZInfectedConstants.MINDSTATE_CALM && HCPostureAdmission.HCCanEnter("native_stance_idle"))
         {
             DayZInfectedCommandMove move = GetCommand_Move();
             if (move)
             {
-                // Native stance values 0..3, idle 0 is the native calm idle.
-                m_StanceVariation = m_HCVarietyRole;
-                if (IsZombieMilitary()) { m_StanceVariation = 2; }
+                // ZombieBase.c:96-99 admits 0..3. Its HandleMindStateChange
+                // :450-477 owns idle 0/1/2 and wake transitions. Leave it intact.
+                m_StanceVariation = HCInfectedVarietyPolicy.HCStanceForRole(m_HCVarietyRole, IsZombieMilitary());
                 move.SetStanceVariation(m_StanceVariation);
-                move.SetIdleState(0);
                 m_HCVarietyPosture = true;
             }
         }
