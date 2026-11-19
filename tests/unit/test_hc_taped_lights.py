@@ -63,6 +63,7 @@ def helmet_member(path, cls, method, state, env, *args):
     source = re.sub(r'\b(?:HCTapedLightHostRow|TStringArray)\s+(?=\w+\s*[=;])',
                     'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
+    source = re.sub(r'\bTStringArray (?=PairIds\()', 'int ', source)
     source = re.sub(r'\b(?:HCTapedLightBinding|HCOperationalStatus) '
                     r'(?=(?:Resolve|HCGetOperationalStatus)\()', 'int ', source)
     source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
@@ -87,10 +88,11 @@ class TapedLightConservationTests(unittest.TestCase):
         self.assertEqual(vars(original), vars(self.port.sample))
 
         catalog = NS()
-        for method in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal"):
+        for method in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal", "PairIds"):
             setattr(catalog, method, lambda *args, method=method: helmet_member(
-                WEARABLE, "HCTapedPackCatalog", method, catalog, {}, *args))
-        gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False)
+                WEARABLE, "HCTapedPackCatalog", method, catalog, {"NewSlots": EArray}, *args))
+        gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False,
+                  mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0)
         server = True
         slots = {"CfgVehicles TortillaBag attachments": EArray([
                     "Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag"]),
@@ -106,7 +108,8 @@ class TapedLightConservationTests(unittest.TestCase):
                    HCV2Admission=NS(OnOff=lambda value: "on" if value else "off",
                                      Line=lambda *args: "synthetic admission"))
         for method in ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable",
-                       "PairRefusal", "BindingAllowed"):
+                       "PairRefusal", "BindingAllowed", "PairQualified", "PairAdmission",
+                       "ReceiptChecked"):
             setattr(gate, method, lambda *args, method=method: helmet_member(
                 PACKS, "HCTapedPackMounts", method, gate, env, *args))
         self.e["HCTapedPackMounts"] = gate
@@ -173,6 +176,12 @@ class TapedLightConservationTests(unittest.TestCase):
         permitted = EArray(["tortilla_universal_cross"])
         self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=permitted)))
         permitted.clear()
+        # Wave 13: the operator setting and a checked per-pair receipt are also
+        # required (explicit SYNTHETIC state; the loader tests cover the file).
+        self.assertFalse(gate.BindingAllowed(self.port.binding), "admitted without setting and receipt")
+        gate.mHCSettingOn = True
+        self.assertFalse(gate.BindingAllowed(self.port.binding), "admitted without a receipt")
+        gate.mHCChecked.append("tortilla_universal_cross")
         self.assertTrue(gate.BindingAllowed(self.port.binding), "settings ID list was not copied")
         before = copy.deepcopy(self.port.sample)
         self.assertEqual(self.code.OK, self.run_op())
@@ -207,13 +216,19 @@ class TapedLightConservationTests(unittest.TestCase):
         # stop closes preferences without an inventory, scheduler or light port.
         logs = []
         status = NS(HCPublish=lambda *args: logs.append(args), HCStop=lambda: logs.append("stop"))
+        # Stubbed receipt/admission members: loader behaviour is pinned by
+        # test_hc_taped_pack_loader and test_hc_taped_pack_receipts.
         module = NS(mHCStarted=False, mHCStatus=status, PairRefusal=gate.PairRefusal,
                     CrossSlotEnabled=gate.CrossSlotEnabled, Reset=gate.Reset,
-                    LoadSettings=lambda: "", mHCPermitted=gate.mHCPermitted)
+                    LoadSettings=lambda: "", mHCPermitted=gate.mHCPermitted,
+                    mHCChecked=gate.mHCChecked, mHCSettingOn=False,
+                    LoadReceipts=lambda: "", AdmittedCount=lambda: 0,
+                    FirstAdmissionReason=lambda: "setting_off")
         env["Print"] = logs.append
         self.assertIs(status, helmet_member(PACKS, "HCTapedPackMounts", "HCGetOperationalStatus", module, env))
         for _ in range(2):
-            helmet_member(PACKS, "HCTapedPackMounts", "OnStart", module, env, NS())
+            helmet_member(PACKS, "HCTapedPackMounts", "OnStart", module, env,
+                          NS(EnableTapedPackMounts=False))
         plan = [line for line in logs if isinstance(line, str) and "HC-52 pack_pairs=" in line]
         self.assertEqual(1, len(plan))
         for field in ("pack_pairs=1", "cross_slot=off", "qualified=0", "state=off",
@@ -221,7 +236,7 @@ class TapedLightConservationTests(unittest.TestCase):
             self.assertIn(field, plan[0])
         pair_lines = [line for line in logs if isinstance(line, str) and "HC-52 pair=" in line]
         self.assertEqual(2, len(pair_lines))
-        self.assertIn(("off", "cross_slot_disabled"), logs)  # loader: test_hc_taped_pack_loader
+        self.assertIn(("off", "setting_off"), logs)  # loader: test_hc_taped_pack_loader
         self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=EArray([
             "tortilla_universal_cross"]))))
         helmet_member(PACKS, "HCTapedPackMounts", "OnStop", module, env)

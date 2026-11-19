@@ -47,10 +47,13 @@ class RuntimeSettingsTests(unittest.TestCase):
     def test_shipped_settings_are_valid_and_all_feature_preferences_default_on(self):
         self.assertEqual([], validate_settings(self.value))
         flags = {k: v for k, v in self.value.items() if k.startswith('Enable')}
-        self.assertEqual(26, len(flags))
+        self.assertEqual(27, len(flags))
+        # EnableTapedPackMounts (#58) is a default-off gate switch; every other preference is on.
+        self.assertIs(False, flags.pop('EnableTapedPackMounts'))
         self.assertTrue(all(v is True for v in flags.values()), flags)
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))
+        self.assertEqual('false', native.pop('EnableTapedPackMounts'))
         self.assertEqual(set(flags), set(native))
         self.assertEqual({'true'}, set(native.values()))
 
@@ -70,7 +73,7 @@ class RuntimeSettingsTests(unittest.TestCase):
             changed = dict(self.value, **{name: value})
             self.assertTrue(validate_settings(changed))
         for key in self.value:
-            if key in V2_FLAGS or key in ('AILimits', 'ClientPresentationMask', 'MaxFamiliarityRows', 'SearchDensityScale'):
+            if key in V2_FLAGS or key == 'EnableTapedPackMounts' or key in ('AILimits', 'ClientPresentationMask', 'MaxFamiliarityRows', 'SearchDensityScale'):
                 continue
             changed = dict(self.value)
             del changed[key]

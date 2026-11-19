@@ -224,6 +224,14 @@
     "owner": "HCSettings"
   },
   {
+    "key": "EnableTapedPackMounts",
+    "type": "bool",
+    "default": false,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
     "key": "TickIntervalMs",
     "type": "int",
     "default": 1000,

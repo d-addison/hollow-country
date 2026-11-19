@@ -59,6 +59,8 @@ class HCTapedPackSettingsContract
     bool DefaultCrossSlotLights = false;
     ref TStringArray DefaultPermittedPairIds = new TStringArray;
     int MaxPermittedPairIds;
+    // Read cap for lights/pair-receipts.json; 0 (missing) is refused.
+    int MaxReceiptBytes;
 }
 
 class HCTapedPackManifest
@@ -66,6 +68,24 @@ class HCTapedPackManifest
     int SchemaVersion;
     bool Qualified = false;
     ref HCTapedPackSettingsContract SettingsContract = new HCTapedPackSettingsContract;
+}
+
+// Per-pair client-check receipt (lights/pair-receipts.json, mission-authored,
+// operator reviewed). A receipt is necessary, never sufficient: the operator
+// setting and the HCTapedPackCatalog gate must also admit the pair. Fields keep
+// zero initializers; the loader requires HCJsonFields presence for each first.
+class HCTapedPairReceipt
+{
+    string PairId;
+    bool Checked = false;
+    string CheckDate;
+    string Note;
+}
+
+class HCTapedPairReceipts
+{
+    int SchemaVersion;
+    ref array<ref HCTapedPairReceipt> Receipts = new array<ref HCTapedPairReceipt>();
 }
 
 class HCTapedLightSnapshot

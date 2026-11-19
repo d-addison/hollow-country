@@ -1,0 +1,21 @@
+{
+  "SchemaVersion": 1,
+  "WorkPackage": "HC-52",
+  "Issue": "#58 part 2",
+  "Authority": "Operator-reviewed per-pair client-check receipts. A pair can only qualify when the EnableTapedPackMounts setting is on, this file lists it with Checked=true, a CheckDate and a Note, and HCTapedPackCatalog admits it. Every pair ships unchecked; nothing here is DayZ evidence (runtime=PENDING). Edit a row to Checked=true only after that pair passed its own two-client check.",
+  "RuntimeAcceptance": "PENDING",
+  "Receipts": [
+    {
+      "PairId": "tortilla_universal_mount",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "tortilla_universal_cross",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    }
+  ]
+}
