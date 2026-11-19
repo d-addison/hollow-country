@@ -1,0 +1,409 @@
+{
+  "SchemaVersion": 1,
+  "Enabled": true,
+  "ObserverDistance": 1100,
+  "WorkUnits": 24,
+  "BoundsToleranceSquared": 0.04,
+  "Scenes": [
+    {
+      "Id": "nw-feed-roof",
+      "Name": "Northwest woodland roof",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        1987.282837,
+        289.981445,
+        12965.870117
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "pending",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "1987.282837 289.981445 12965.870117",
+          "rpy": "-0.000000 0.000000 -26.417740",
+          "a": "116.417747"
+        },
+        "stock_row_index": 1007,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
+      }
+    },
+    {
+      "Id": "nc-feed-roof",
+      "Name": "Northern woodland roof",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        7428.081543,
+        131.084442,
+        12732.728516
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "pending",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "7428.081543 131.084442 12732.728516",
+          "rpy": "-0.000000 0.000000 -170.587646",
+          "a": "-99.412331"
+        },
+        "stock_row_index": 5742,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
+      }
+    },
+    {
+      "Id": "ne-feed-roof",
+      "Name": "Northeast woodland roof",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        12818.673828,
+        126.932716,
+        13117.182617
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "pending",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "12818.673828 126.932716 13117.182617",
+          "rpy": "-0.000000 0.000000 134.179001",
+          "a": "-44.178997"
+        },
+        "stock_row_index": 10525,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
+      }
+    },
+    {
+      "Id": "sc-bus-roof",
+      "Name": "Central coast road roof",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        6826.631836,
+        50.728073,
+        3549.387207
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "pending",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "6826.631836 50.728073 3549.387207",
+          "rpy": "-0.000000 0.000000 -61.823994",
+          "a": "151.823990"
+        },
+        "stock_row_index": 5398,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
+      }
+    },
+    {
+      "Id": "se-bus-roof",
+      "Name": "Southeast coast road roof",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        10897.795898,
+        7.027513,
+        2815.425293
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "pending",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "10897.795898 7.027513 2815.425293",
+          "rpy": "-0.000000 0.000000 -70.262314",
+          "a": "160.262314"
+        },
+        "stock_row_index": 8456,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
+      }
+    }
+  ]
+}

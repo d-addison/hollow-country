@@ -1,4 +1,6 @@
-// LC-T206, EXP-T5 / EXP-S3. Startup-only, server-owned static yard scenes.
+// LC-T206, EXP-T5 / EXP-S3. Server-owned static exterior scenes.
+// Regional scenes: one three-prop transaction per shared-budget tick; no retry
+// after a real placement refusal. Native API citations below also cover this path.
 // Verified installed native-scripts/scripts-1.30.164289 interfaces:
 // 3_Game/Global/Game.c:612 ConfigIsExisting, :703 CreateObjectEx, :705 ObjectDelete,
 // :930 GetObjectsAtPosition3D, :934 GetWorldName(), :1120 IsServer, :1176 SurfaceY,
@@ -30,6 +32,10 @@ class HCShelterModule : HCModule
 {
     protected bool m_Started;
     protected bool m_CandidateSurveyReported;
+    protected int m_RegionalCursor;
+    protected int m_RegionalFailed;
+    protected string m_RegionalReason;
+    protected ref HCShelterRegionalScene m_RegionalScene;
     protected int m_Placed;
     protected int m_Refused;
     protected string m_RefusalReason;
@@ -57,14 +63,16 @@ class HCShelterModule : HCModule
 
     override string GetName() { return "Shelters"; }
 
-    // Wave 16: placement is startup-only. Ready = started and at least one shelter placed; a started module that
-    // placed none (every layout refused, or not the reviewed world) is degraded, never ready. The per-site
-    // refusal counts are in the existing "V2 shelters placed=... refused=..." line.
+    // Ready follows a running placement service and at least one placed shelter.
+    // Missing regional data or actual regional placement failure is degraded;
+    // pending native acceptance alone never blocks the admitted scene queue.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         string fault = "";
         if (m_Started && m_Placed < 1) { fault = "no_shelter_placed"; }
-        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", fault, "shelters_placed");
+        if (m_Started && m_RegionalFailed > 0) { fault = "regional_scene_placement_failed"; }
+        if (m_Started && HCShelterCatalog.HCRegionalFault() != "") { fault = HCShelterCatalog.HCRegionalFault(); }
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", fault, "shelters_placed_regional_queue_admitted");
         return m_Operational;
     }
 
@@ -97,7 +105,16 @@ class HCShelterModule : HCModule
         Print("[HollowCountry] V2 shelters placed=" + m_Placed.ToString() + " props=" + propCount.ToString() + " refused=" + m_Refused.ToString());
     }
 
-    // No tick work or recurring retries; startup tries at most eight layouts,
+    override void OnTick(float deltaTime)
+    {
+        if (!m_Started || !GetGame() || !GetGame().IsServer()) { return; }
+        string regionalWorld = GetGame().GetWorldName();
+        regionalWorld.ToLower();
+        if (regionalWorld != "chernarusplus") { return; }
+        HCRegionalTick();
+    }
+
+    // No recurring retries for failed scenes; startup tries at most eight layouts,
     // one 16-candidate terrain screen and HC_RING_ATTEMPTS ring placements.
     override void OnStop()
     {
@@ -111,6 +128,9 @@ class HCShelterModule : HCModule
         m_Placed = 0;
         m_Refused = 0;
         m_Started = false;
+        m_RegionalFailed = 0;
+        m_RegionalCursor = 0;
+        m_RegionalScene = null;
     }
 
     protected array<float> Coordinates(vector point)
@@ -362,11 +382,19 @@ class HCShelterModule : HCModule
         m_RefusalReason = "";
         vector offset = HCYardOffset(localZ, m_LayoutVariant);
         if (m_RingCandidate >= 0) { offset = HCRingOffset(localZ, m_RingCandidate); }
+        if (m_RegionalScene)
+        {
+            int regionalSlot = 0;
+            if (localZ < 0) { regionalSlot = 1; }
+            if (localZ > 0) { regionalSlot = 2; }
+            offset = HCInteriorTemplates.AsVector(m_RegionalScene.Slots[regionalSlot]);
+        }
         vector point = house.ModelToWorld(offset);
         point[1] = GetGame().SurfaceY(point[0], point[2]);
         m_RefusalPoint = point;
+        if (m_RegionalScene && !HCObserverTransitionGate.CanTransition(point, HCShelterCatalog.HCRegionalConfig().ObserverDistance)) { return RefuseProp("observed_regional_prop"); }
         if (!GetGame().ConfigIsExisting("CfgVehicles " + propType) || !GetGame().IsKindOf(propType, "HouseNoDestruct")) { return RefuseProp("static_class_missing"); }
-        if (HCInBarnAccessStrip(offset)) { return RefuseProp("access_strip"); }
+        if (!m_RegionalScene && HCInBarnAccessStrip(offset)) { return RefuseProp("access_strip"); }
         if (!GroundFlat(point)) { return RefuseProp("terrain"); }
         if (!Available(point)) { return null; }
         Object prop = HCInteriorTemplatePlacement.Spawn(propType, point, house.GetOrientation());
@@ -460,20 +488,31 @@ class HCShelterModule : HCModule
         return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
-    // Once per owner lifetime, bounded by the five authored survey rows. Missing
-    // site measurements never become a gate-verdict refusal for working barns.
+    // Once per owner lifetime, bounded by the five authored survey rows.
+    // A missing package is a real fault; native verdicts are admission-only.
     // Print: installed 1_Core/proto/EnDebug.c:96; array access is catalog-only.
     protected void HCReportCandidateSurveys()
     {
         if (m_CandidateSurveyReported) { return; }
         m_CandidateSurveyReported = true;
+        HCShelterRegionalConfig candidateConfig = HCShelterCatalog.HCRegionalConfig();
+        if (!candidateConfig)
+        {
+            Print("[HC Shelters] regional_scene_data_missing_or_invalid source=travel/auditshelter_scenes.json runtime=PENDING");
+            return;
+        }
+        if (!candidateConfig.Enabled)
+        {
+            Print("[HC Shelters] regional_scenes=off operator=Enabled runtime=PENDING");
+            return;
+        }
         int candidateIndex = 0;
         while (candidateIndex < HCShelterCatalog.CandidateCount())
         {
             HCShelterSurvey candidate = HCShelterCatalog.GetCandidate(candidateIndex);
-            if (candidate)
+            if (candidate && candidateConfig.Scenes[candidateIndex].Enabled)
             {
-                Print("[HC Shelters] candidate=" + candidate.Id + " excluded=" + candidate.Refusal + " source=travel/route-surveys.json runtime=PENDING");
+                Print("[HC Shelters] candidate=" + candidate.Id + " admission=authored_exterior_scene access=" + candidate.Refusal + " source=travel/auditshelter_scenes.json runtime=PENDING");
             }
             candidateIndex = candidateIndex + 1;
         }
@@ -484,6 +523,7 @@ class HCShelterModule : HCModule
         if (index == 0) { HCReportCandidateSurveys(); }
         HCShelterEntry entry = HCShelterCatalog.Get(index);
         if (!entry) { return; }
+        if (entry.Scene) { entry.Attempted = false; return; }
         entry.Placed = false;
         entry.PlacementAnchor = null;
         m_RefusalReason = "";
@@ -568,6 +608,86 @@ class HCShelterModule : HCModule
             return;
         }
         Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
+    }
+
+    // Reuse the Interiors consumer: this is finite static furnishing, not an
+    // independent simulation. One complete 3-prop attempt costs configured units.
+    // Observer veto leaves the row pending; all other failures are tried once.
+    protected void HCRegionalTick()
+    {
+        HCShelterRegionalConfig config = HCShelterCatalog.HCRegionalConfig();
+        if (!config || !config.Enabled) { return; }
+        if (m_RegionalCursor >= HCShelterCatalog.Count()) { m_RegionalCursor = 0; }
+        HCShelterEntry entry = HCShelterCatalog.Get(m_RegionalCursor);
+        m_RegionalCursor = m_RegionalCursor + 1;
+        if (!entry || !entry.Scene || !entry.Scene.Enabled || entry.Attempted) { return; }
+        HCUnitBudget shared = HCServer.HCTickWork();
+        if (!shared.HCTakeFor(HCUnitBudget.HC_WORK_INTERIORS, config.WorkUnits)) { return; }
+        if (!HCObserverTransitionGate.CanTransition(entry.Position, config.ObserverDistance)) { return; }
+        entry.Attempted = true;
+        HCPlaceRegional(entry);
+    }
+
+    protected bool HCRegionalRefuse(string reason)
+    {
+        m_RegionalFailed = m_RegionalFailed + 1;
+        if (reason != m_RegionalReason)
+        {
+            m_RegionalReason = reason;
+            Print("[HC Shelters] regional_refused=" + reason + " runtime=PENDING");
+        }
+        return false;
+    }
+
+    protected void HCPlaceRegional(HCShelterEntry entry)
+    {
+        m_RegionalScene = null;
+        HCShelterRegionalScene scene = entry.Scene;
+        HCInteriorFurnishRow binding = new HCInteriorFurnishRow;
+        binding.BuildingClass = scene.BuildingClass;
+        binding.Position = scene.Position;
+        Object house = HCInteriorTemplatePlacement.Resolve(binding);
+        if (!house) { HCRegionalRefuse("building_unresolved_or_tilted:" + scene.Id); return; }
+        vector regionalClip[2];
+        house.ClippingInfo(regionalClip);
+        float tolerance = HCShelterCatalog.HCRegionalConfig().BoundsToleranceSquared;
+        if (vector.DistanceSq(regionalClip[0], HCInteriorTemplates.AsVector(scene.ClipMin)) > tolerance || vector.DistanceSq(regionalClip[1], HCInteriorTemplates.AsVector(scene.ClipMax)) > tolerance)
+        {
+            HCRegionalRefuse("building_bounds:" + scene.Id);
+            return;
+        }
+        HCInteriorTemplate layout = new HCInteriorTemplate;
+        HCInteriorTemplateRoom yard = new HCInteriorTemplateRoom;
+        yard.Id = 1;
+        yard.Min = scene.YardMin;
+        yard.Max = scene.YardMax;
+        layout.Rooms.Insert(yard);
+        vector accessMinimum = HCInteriorTemplates.AsVector(scene.AccessMin);
+        vector accessMaximum = HCInteriorTemplates.AsVector(scene.AccessMax);
+        Keepout(layout, "walkway", 0, accessMinimum, accessMaximum);
+        array<Object> batch = new array<Object>;
+        m_RingCandidate = -1;
+        m_LayoutVariant = 0;
+        m_RegionalScene = scene;
+        if (!HCPlaceBatch(house, layout, batch))
+        {
+            m_RegionalScene = null;
+            HCRegionalRefuse(m_RefusalReason + ":" + scene.Id);
+            return;
+        }
+        m_RegionalScene = null;
+        // The synchronous transaction cannot interleave a core tick. All three
+        // props passed terrain, exact bounds, keepout and native collision checks.
+        // No inventory, roof copy, durable loot or parallel world ledger is made.
+        foreach (Object regionalProp : batch)
+        {
+            m_Objects.Insert(regionalProp);
+            GetGame().UpdatePathgraphRegionByObject(regionalProp);
+        }
+        entry.PlacementAnchor = batch.Get(0);
+        entry.Placed = true;
+        m_Placed = m_Placed + 1;
+        Print("[HC Shelters] regional_placed=" + scene.Id + " props=3 runtime=PENDING");
     }
 
     // Places the three yard props of the current variant or ring candidate,

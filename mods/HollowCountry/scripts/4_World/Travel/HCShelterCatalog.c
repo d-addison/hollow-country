@@ -1,9 +1,7 @@
-// HC-59: active legacy barns plus a separate bounded regional survey queue.
-// Issue 200: stock identity checked; both installed class samples have zero
-// paths and search-only templates (no rooms, keepouts or prop slots). Missing
-// site access/clearance is a data gap, not an unverified acceptance gate.
-// CandidateCount/GetCandidate are lead integration inputs, never placed scenes.
-// Native stock roofs need no new stock, lights, inventory, props or tick loop.
+// HC-59 / issue 200: legacy barns plus authored regional exterior scenes.
+// Class bounds and stock identity are source inputs; native access is PENDING.
+// Full roof + walk-around envelopes stay clear; no interior path is invented.
+// Native 3_Game/tools/JsonFileLoader.c:69 LoadData; HCWorldStore.Read/HCJsonFields reused.
 // LC-T206 / LC-TRV-06. Six shared, unowned rural barns; no loot or lead grants.
 // Positions verified against stock ChernarusPlus mapgrouppos.xml, read-only:
 // /mnt/d/HollowCountryLocal/interior-sampler-120/mpmissions/dayzOffline.chernarusplus/mapgrouppos.xml
@@ -17,6 +15,8 @@
 // 1_Core/proto/EnScript.c:380/407 Count/Insert; no world mutation in this catalog.
 class HCShelterEntry
 {
+    ref HCShelterRegionalScene Scene;
+    bool Attempted;
     string Name;
     vector Position;
     string History;
@@ -26,9 +26,9 @@ class HCShelterEntry
     string LeadSlot = "";
 }
 
-// HC-59 source-only survey record. A candidate cannot enter Count()/Get(),
-// which the existing barn-specific materializer consumes. Native access, rain
-// cover, geometry, doors and two-client presentation remain unobserved.
+// HC-59 provenance record. Regional Count/Get entries are loaded separately
+// from their exterior scene data; they never use the barn-specific yard.
+// Native access, rain cover and two-client presentation remain unobserved.
 class HCShelterSurvey
 {
     string Id;
@@ -44,6 +44,9 @@ class HCShelterSurvey
 class HCShelterCatalog
 {
     static const string BUILDING_CLASS = "Land_Barn_Wood2";
+    protected static bool s_RegionalLoaded;
+    protected static string s_RegionalFault;
+    protected static ref HCShelterRegionalConfig s_Regional;
     protected static ref array<ref HCShelterEntry> s_Entries = new array<ref HCShelterEntry>;
     protected static ref array<ref HCShelterSurvey> s_Candidates = new array<ref HCShelterSurvey>;
 
@@ -64,16 +67,13 @@ class HCShelterCatalog
     protected static void HCEnsureCandidates()
     {
         if (s_Candidates.Count() != 0) return;
-        // Exact stock-map anchors, not measured access or interior locations.
-        // Native sampler 110 (BusStop) / 112 (FeedShack) measured other sites:
-        // no-door, zero strict/player paths, entered=untested. _measure returns
-        // path_pending. Installed t-0011/t-0078 have no scene slots. Per-site
-        // stock row, source hashes and remaining survey work: route-surveys.json.
-        HCCandidate("nw-feed-roof", "Northwest woodland roof", "Land_Misc_FeedShack", "1987.282837 289.981445 12965.870117", "sinystok", "NW", "forest-trail", "hc200_feed_roof_site_path_clearance_missing");
-        HCCandidate("nc-feed-roof", "Northern woodland roof", "Land_Misc_FeedShack", "7428.081543 131.084442 12732.728516", "kamensk", "NC", "forest-trail", "hc200_feed_roof_site_path_clearance_missing");
-        HCCandidate("ne-feed-roof", "Northeast woodland roof", "Land_Misc_FeedShack", "12818.673828 126.932716 13117.182617", "novodmitrovsk", "NE", "remote-road", "hc200_feed_roof_site_path_clearance_missing");
-        HCCandidate("sc-bus-roof", "Central coast road roof", "Land_BusStop_City", "6826.631836 50.728073 3549.387207", "prigorodki", "SC", "coastal-road", "hc200_bus_roof_site_path_clearance_missing");
-        HCCandidate("se-bus-roof", "Southeast coast road roof", "Land_BusStop_City", "10897.795898 7.027513 2815.425293", "elektrozavodsk", "SE", "coastal-road", "hc200_bus_roof_site_path_clearance_missing");
+        // Exact stock-map anchors. Exterior slots now live in the regional
+        // scene file; generic interior path measurements remain untested.
+        HCCandidate("nw-feed-roof", "Northwest woodland roof", "Land_Misc_FeedShack", "1987.282837 289.981445 12965.870117", "sinystok", "NW", "forest-trail", "runtime_access_clearance_pending");
+        HCCandidate("nc-feed-roof", "Northern woodland roof", "Land_Misc_FeedShack", "7428.081543 131.084442 12732.728516", "kamensk", "NC", "forest-trail", "runtime_access_clearance_pending");
+        HCCandidate("ne-feed-roof", "Northeast woodland roof", "Land_Misc_FeedShack", "12818.673828 126.932716 13117.182617", "novodmitrovsk", "NE", "remote-road", "runtime_access_clearance_pending");
+        HCCandidate("sc-bus-roof", "Central coast road roof", "Land_BusStop_City", "6826.631836 50.728073 3549.387207", "prigorodki", "SC", "coastal-road", "runtime_access_clearance_pending");
+        HCCandidate("se-bus-roof", "Southeast coast road roof", "Land_BusStop_City", "10897.795898 7.027513 2815.425293", "elektrozavodsk", "SE", "coastal-road", "runtime_access_clearance_pending");
     }
 
     static int CandidateCount()
@@ -118,14 +118,91 @@ class HCShelterCatalog
     static int Count()
     {
         Ensure();
+        HCLoadRegional();
         return s_Entries.Count();
     }
 
     static HCShelterEntry Get(int index)
     {
         Ensure();
+        HCLoadRegional();
         if (index < 0 || index >= s_Entries.Count()) return null;
         return s_Entries[index];
+    }
+
+    static HCShelterRegionalConfig HCRegionalConfig()
+    {
+        Ensure();
+        HCLoadRegional();
+        return s_Regional;
+    }
+
+    static string HCRegionalFault() { return s_RegionalFault; }
+
+    // Once per process; bounded five-row source file, never persistent scene state.
+    protected static void HCLoadRegional()
+    {
+        if (s_RegionalLoaded) { return; }
+        s_RegionalLoaded = true;
+        string content = HCWorldStore.Read("$mission:hollow-country/travel/auditshelter_scenes.json");
+        string error;
+        HCShelterRegionalConfig loaded;
+        s_RegionalFault = "regional_scene_data_missing_or_invalid";
+        if (!HCJsonFields.Has(content, "Enabled") || !HCJsonFields.Has(content, "Scenes")) { return; }
+        if (!HCJsonFields.Every(content, "Enabled", 3)) { return; }
+        if (!JsonFileLoader<HCShelterRegionalConfig>.LoadData(content, loaded, error) || !HCRegionalValid(loaded)) { return; }
+        s_Regional = loaded;
+        s_RegionalFault = "";
+        if (!loaded.Enabled) { return; }
+        array<ref HCShelterRegionalScene> scenes = loaded.Scenes;
+        foreach (HCShelterRegionalScene scene : scenes)
+        {
+            if (!scene.Enabled) { continue; }
+            HCShelterEntry regional = new HCShelterEntry;
+            regional.Name = scene.Name;
+            regional.Position = HCInteriorTemplates.AsVector(scene.Position);
+            regional.History = scene.History;
+            regional.Scene = scene;
+            s_Entries.Insert(regional);
+        }
+    }
+
+    static bool HCRegionalBox(array<float> minimum, array<float> maximum)
+    {
+        return HCInteriorTemplates.BoxValid(minimum, maximum);
+    }
+
+    static bool HCRegionalValid(HCShelterRegionalConfig config)
+    {
+        if (!config || config.SchemaVersion != 1 || !config.Scenes || config.Scenes.Count() != CandidateCount()) { return false; }
+        if (!HCObserverTransitionGate.Finite(config.ObserverDistance) || config.ObserverDistance < 500 || config.ObserverDistance > 10000) { return false; }
+        if (config.WorkUnits < 24 || config.WorkUnits > 256) { return false; }
+        if (!HCObserverTransitionGate.Finite(config.BoundsToleranceSquared) || config.BoundsToleranceSquared <= 0 || config.BoundsToleranceSquared > 0.04) { return false; }
+        array<ref HCShelterRegionalScene> scenes = config.Scenes;
+        int sceneIndex = 0;
+        foreach (HCShelterRegionalScene scene : scenes)
+        {
+            HCShelterSurvey candidate = GetCandidate(sceneIndex);
+            sceneIndex = sceneIndex + 1;
+            if (!scene || scene.Id != candidate.Id || scene.BuildingClass != candidate.BuildingClass || scene.Name != candidate.Name) { return false; }
+            if (!scene.Position || scene.Position.Count() != 3 || HCInteriorTemplates.AsVector(scene.Position) != candidate.Position) { return false; }
+            if (!HCRegionalBox(scene.ClipMin, scene.ClipMax) || !HCRegionalBox(scene.AccessMin, scene.AccessMax) || !HCRegionalBox(scene.YardMin, scene.YardMax)) { return false; }
+            if (scene.AccessMin[0] > scene.ClipMin[0] - 2 || scene.AccessMax[0] < scene.ClipMax[0] + 2) { return false; }
+            if (scene.AccessMin[2] > scene.ClipMin[2] - 2 || scene.AccessMax[2] < scene.ClipMax[2] + 2) { return false; }
+            if (scene.AccessMin[1] > -20 || scene.AccessMax[1] < 20) { return false; }
+            if (!scene.Slots || scene.Slots.Count() != 3 || scene.History.Length() == 0) { return false; }
+            array<ref array<float>> slots = scene.Slots;
+            foreach (array<float> slot : slots)
+            {
+                if (!slot || slot.Count() != 3) { return false; }
+                vector point = HCInteriorTemplates.AsVector(slot);
+                if (!HCInteriorRules.SaneVector(point, 30)) { return false; }
+                if (point[0] + 1.5 >= scene.AccessMin[0]) { return false; }
+                if (point[0] - 1.5 <= scene.YardMin[0] || point[0] + 1.5 >= scene.YardMax[0]) { return false; }
+                if (point[2] - 1.5 <= scene.YardMin[2] || point[2] + 1.5 >= scene.YardMax[2]) { return false; }
+            }
+        }
+        return true;
     }
 
     // Runtime-only slot for LC-T306. Leads owns its own durable ledger; this
@@ -137,4 +214,32 @@ class HCShelterCatalog
         entry.LeadSlot = text;
         return true;
     }
+}
+
+// Mission-owned policy fields are explicit: missing numeric/array values fail
+// validation rather than inheriting defaults after JsonFileLoader zero-fill.
+class HCShelterRegionalScene
+{
+    string Id;
+    string Name;
+    string BuildingClass;
+    string History;
+    bool Enabled;
+    ref array<float> Position;
+    ref array<float> ClipMin;
+    ref array<float> ClipMax;
+    ref array<float> AccessMin;
+    ref array<float> AccessMax;
+    ref array<float> YardMin;
+    ref array<float> YardMax;
+    ref array<ref array<float>> Slots;
+}
+class HCShelterRegionalConfig
+{
+    int SchemaVersion;
+    bool Enabled;
+    float ObserverDistance;
+    int WorkUnits;
+    float BoundsToleranceSquared;
+    ref array<ref HCShelterRegionalScene> Scenes;
 }
