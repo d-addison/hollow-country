@@ -916,5 +916,18 @@ class TradeBehavior(unittest.TestCase):
         self.assertEqual('CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED', shipped.HCRefusal())
 
 
+class TradeRegistration(unittest.TestCase):
+    """#145 lead wiring: the refusal-only module registers through the core registry.
+
+    2026-11-19 actual RED: AssertionError: unexpectedly None (no registry block).
+    """
+
+    def test_trade_module_registers_after_core_modules(self):
+        registry = re.search(r"modded class HCModuleRegistry\s*\{([\s\S]*?)\n\}", SOURCE.read_text())
+        self.assertIsNotNone(registry)
+        block = registry[1]
+        self.assertLess(block.index("super.RegisterModules();"), block.index("Register(new HCAITrade);"))
+
+
 if __name__ == '__main__':
     unittest.main()

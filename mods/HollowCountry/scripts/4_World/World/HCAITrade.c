@@ -586,3 +586,12 @@ class HCAITrade : HCModule
         m_Status.HCPublish("off", "stopped");
     }
 }
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCAITrade);
+    }
+}
