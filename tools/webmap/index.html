@@ -57,6 +57,9 @@ const legendText = {
   camps: 'camp sites: ledger state only, overlays holdouts and ai-camps; bounded layer',
   'lead-ledger': 'unexpired lead ledger at place level: kind and expiry only, no group ids; bounded layer',
   scenes: 'scene lease anchors: lease/ledger state, not an entity-presence claim; bounded layer',
+  pickers: 'AI picker trips: phase and last known position, no ids; trip state, not a live-body claim; bounded layer',
+  'group-pins': 'shared group pins: kind, position and expiry only, no player ids or names; bounded layer',
+  'materializer-proposals': 'active materializer proposal leases (queued/claimed/materialized): lease state, not a live-body claim; bounded layer',
   holdouts: 'holdout houses: ledger state, not a body-presence claim',
   'ai-camps': 'logical camp level/supply/population; runtime pending'
 };
@@ -88,7 +91,8 @@ function describeLegend() {
     const row = stats.get(name), text = legendText[name];
     if (!row && !text) continue;
     const item = document.createElement('li');
-    const bound = row ? ` · ${row.shown} of ${row.total} shown${row.truncated ? ' (truncated: omitted rows exist)' : ''}` : '';
+    const unplaced = row && row.unplaced ? ` · ${row.unplaced} unplaced (no known position, not in total)` : '';
+    const bound = row ? ` · ${row.shown} of ${row.total} shown${row.truncated ? ' (truncated: omitted rows exist)' : ''}${unplaced}` : '';
     item.textContent = `${name}: ${text || 'bounded layer'}${bound}`;
     item.style.color = colors.get(name) || '';
     legendBox.append(item);

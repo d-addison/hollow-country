@@ -55,6 +55,10 @@ def _validate(data):
             raise ValueError("invalid layer stat counts")
         if not 0 <= shown <= total <= 1000000 or truncated != int(shown < total):
             raise ValueError("inconsistent layer stat")
+        # w29 #194: optional count of rows with no drawable position (not in total).
+        unplaced = row.get("unplaced", 0)
+        if type(unplaced) is not int or not 0 <= unplaced <= 1000000:
+            raise ValueError("invalid layer stat unplaced count")
     for route in routes:
         if not isinstance(route, dict):
             raise ValueError("invalid route")

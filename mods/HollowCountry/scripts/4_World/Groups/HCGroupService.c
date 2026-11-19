@@ -133,6 +133,17 @@ class HCGroupPeer
 
 // All authenticated identity comes from the engine sender. Client fields select
 // targets only; neither group identity, ownership nor position comes from them.
+// w29-debugmap #194: detached read-only row for the `group-pins` debug layer. Kind,
+// position and expiry only: the pin id (which can embed a group id or a session
+// token), the pin name (which can be a player-chosen or place text), the owning
+// group and any player identity are withheld by the owner.
+class HCDebugGroupPinRow
+{
+    string Kind = "pin";
+    vector Position;
+    int ExpiresUtc;
+}
+
 class HCGroupService
 {
     protected static ref HCGroupService s_Instance;
@@ -162,6 +173,47 @@ class HCGroupService
     protected string m_Refusal;
 
     static HCGroupService Get() { return s_Instance; }
+
+    // w29-debugmap #194: coarse pin kind from the id prefix; the id itself is
+    // never exported. Unknown prefixes read as a plain `pin`.
+    string HCDebugPinKind(string pinId)
+    {
+        if (pinId.IndexOf("hc-ping:") == 0) { return "ping"; }
+        if (pinId.IndexOf("hc-death:") == 0) { return "death"; }
+        if (pinId.IndexOf("hc-lead:") == 0) { return "lead"; }
+        if (pinId.IndexOf("hc-found:") == 0) { return "trail"; }
+        return "pin";
+    }
+
+    // Read-only pin view for the debug layer: asks the existing HCGroupPins.Collect
+    // for each stored group (at most the configured MaxGroups, capped per group by
+    // `cap`), appends at most `cap` detached rows and returns the true total pin
+    // count. No broadcast, no state write, no player identity. Empty when the
+    // service is unhealthy or the pins module is off. Runtime acceptance pending.
+    int HCDebugPins(int cap, array<ref HCDebugGroupPinRow> output)
+    {
+        HCGroupPins pins = HCGroupPins.Get();
+        if (cap < 1 || !output || !m_Healthy || !pins || !m_State || !m_Config) { return 0; }
+        int scan = m_State.Groups.Count();
+        if (scan > m_Config.MaxGroups) { scan = m_Config.MaxGroups; }
+        int total = 0;
+        for (int groupIndex = 0; groupIndex < scan; groupIndex++)
+        {
+            array<ref HCGroupPlace> collected = new array<ref HCGroupPlace>;
+            pins.Collect(m_State.Groups[groupIndex], cap, collected);
+            for (int pinIndex = 0; pinIndex < collected.Count(); pinIndex++)
+            {
+                total++;
+                if (output.Count() >= cap) { continue; }
+                HCDebugGroupPinRow row = new HCDebugGroupPinRow;
+                row.Kind = HCDebugPinKind(collected[pinIndex].Id);
+                row.Position = collected[pinIndex].Position;
+                row.ExpiresUtc = collected[pinIndex].HCPinExpiresUtc;
+                output.Insert(row);
+            }
+        }
+        return total;
+    }
 
     // Last Start/Admit refusal reason; the log line prints once per reason change,
     // so a request flood or a retry cannot grow the log. No player identity.

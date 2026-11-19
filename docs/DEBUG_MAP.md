@@ -14,7 +14,7 @@ existing runtime implementation contract and active owner instructions apply.
 | #122 snapshot module and shared contributor API | Implemented in `4_World/Debug/`; registry extension self-registers the module | Lead must add default-true `HCSettings.EnableDebugSnapshot`; native compile pending |
 | #122 disabled cost and bounded work | Disabled module has no allocated buffers, contributor registration, capture or file I/O; one Describe per core tick using a cursor | Native timer cost and target 3–6-player load remain unmeasured |
 | #122 JSON and persistence | Exact version-1 envelope; native JSON encoding of all dynamic point/route values; `.tmp`, backup, copy and readback using existing HCGroupIO | True atomic replacement skipped: installed engine has no rename primitive; see recovery |
-| #122 read-only contributors | Players, holdouts, camps (w27), lead ledger and scenes (w28; register in the module), live dead-drop caches, shelter catalog/placed state, events, received leads, eligible materializer ledger candidates | Missing layers listed below; no private state, entity search or provider claims |
+| #122 read-only contributors | Players, holdouts, camps (w27), lead ledger and scenes (w28), pickers, group pins and materializer proposals (w29 #194; all register in the module), live dead-drop caches, shelter catalog/placed state, events, received leads, eligible materializer ledger candidates | Missing layers listed below; no private state, entity search or provider claims |
 | #122 local web map | Stdlib server bound to 127.0.0.1; bounded re-read, toggles, hover, route lines, 15 s polling, grid/towns and optional operator image | Interactive browser inspection and native JSON interoperability pending |
 | #122 diagnostics | One HCV2Admission call per module lifecycle instance; success summary at most once per 600 real seconds | RPT lines must be observed by lead; none asserted here |
 | #123 in-game admin map | Implemented separately: `4_World/Admin/HCAdminModule.c`, `HCAdminStatus.c`, `5_Mission/Admin/HCAdminClient.c`, `HCAdminMenu.c`, gated by `EnableAdminMap` and `profiles/HollowCountry/admins.json`; see `docs/ADMIN_TEST_KIT.md` | Two-client replication and visibility checks pending |
@@ -30,7 +30,7 @@ change is needed: `modded class HCModuleRegistry` registers
 On a server running ChernarusPlus, start a capture every 20 seconds. Capture is
 staggered, one contributor per existing approximately one-second core tick;
 the completed file appears after the last contributor (first export around
-26 seconds with the seven built-ins, up to 35 seconds with all 16 slots).
+26 seconds with the seven built-ins, up to 35 seconds with 16 slots; the cap is now 24).
 Subsequent cycle starts remain 20 seconds apart at normal core cadence. Stalls
 do not trigger catch-up writes; a cycle finishes before another can begin.
 This is a view gathered over several ticks, not a transactionally simultaneous
@@ -74,7 +74,7 @@ check its filesystem modification time if the exporter has stopped.
 
 `HCDebugContributor.HCDescribe(HCDebugSnapshot snapshot)` is called only by an
 enabled capture. `HCRegister` retains a ref, is idempotent by object identity,
-and caps the registry at 20 contributors (`HC_REGISTRY_CAP`: 9 built-ins, 6 module singletons, 3 Expansion AI pages). `HCUnregister` releases membership;
+and caps the registry at 24 contributors (`HC_REGISTRY_CAP`, raised from 20 in w29 #194: 12 built-ins, 6 module singletons, 3 Expansion AI pages = 21 used). `HCUnregister` releases membership;
 an in-progress capture skips contributors unregistered before their turn.
 Built-ins register on start and unregister on stop; external Infected/AI owners
 must use the same lifecycle. No dependency on the optional AI addon is introduced.
@@ -90,26 +90,40 @@ The exporter never modifies player, inventory, provider or gameplay state.
 
 Wire-cap split (w27, w28): the 1024-point cap is `MAX_POINTS`. Shared `AddPoint`
 callers (ai-units, players, holdouts, events, ...) fill at most
-`MAX_POINTS - DEBUG_LAYER_POINTS` = 936; hardened layers call
-`HCAddLayerPoint` against their own `DEBUG_LAYER_POINTS` = 88 share, split by named
-caps: `camps` `CAMP_LAYER_CAP` 24 + `lead-ledger` `LEAD_LAYER_CAP` 56 +
-`scenes` `SCENE_LAYER_CAP` 8 = 88. Neither side can squeeze the other and the total
-never exceeds 1024 on the wire.
+`MAX_POINTS - DEBUG_LAYER_POINTS` = 876; hardened layers call
+`HCAddLayerPoint` against their own `DEBUG_LAYER_POINTS` = 148 share (raised from 88 in
+w29 #194; `MAX_POINTS` stays 1024), split by named caps: `camps` `CAMP_LAYER_CAP` 24 +
+`lead-ledger` `LEAD_LAYER_CAP` 56 + `scenes` `SCENE_LAYER_CAP` 8 + `pickers`
+`PICKER_LAYER_CAP` 4 + `group-pins` `GROUP_PIN_LAYER_CAP` 32 + `materializer-proposals`
+`PROPOSAL_LAYER_CAP` 24 = 148. Neither side can squeeze the other and the total
+never exceeds 1024 on the wire. The new caps are named constants, not tuned
+numbers: the picker owner holds one trip, the group-pin cap (32) matches the
+group-service `MaxGroups` default and the layer reports the true total beyond it,
+and the proposal cap (24) is the upper clamp of `HCAILimits.MaxMaterialized`
+(default 15), the bound on active leases.
 Each hardened layer reports `HCNoteLayer(layer, total, shown)`; the document
-carries up to 16 `layerStats` rows `{layer,total,shown,truncated}` where
-`truncated` is 1 when `shown < total`. The viewer validates the rows when present
+carries up to 16 `layerStats` rows `{layer,total,shown,truncated,unplaced}` where
+`truncated` is 1 when `shown < total`. `unplaced` (w29 #194) counts rows that exist
+but have no drawable position (a lead whose target place is unknown, a picker trip
+with no known position); they are **not** part of `total`, so `total` is the number
+of drawable rows and `shown <= total`. The field is 0 for layers that never produce
+such rows and is optional in the viewer. The viewer validates the rows when present
 (old snapshots without them stay valid) and prints them in its legend.
 
-Admin wire (w28 #193, `HCAdminSnapshotWire`): caps are unchanged (16 layers, 512
-marks, routes kept whole). The 512 marks are no longer filled in insertion order.
+Admin wire (w28 #193, `HCAdminSnapshotWire`): caps are 512 marks, routes kept whole,
+and w29 #194 raises the named layer cap `MAX_WIRE_LAYERS` from 16 to 24 so the three
+new layers fit beside the existing 16. The 512 marks are no longer filled in insertion order.
 A water-fill allocator gives every sent layer `512 / layers` first and shares what
 small layers leave unused among layers that still have rows, so a late layer
 (`camps`, `lead-ledger`, `scenes`) is no longer dropped first and `ai-units` is
 bounded rather than starved. A layer's allowance covers its points first, then
-whole routes that fit; unused route allowance is not redistributed. The reply
+whole routes that fit. w29 #194: allowance a layer cannot use (a route that does not
+fit whole inside its share) is redistributed by a second water-fill to layers that
+still have unsent points, never beyond a layer's own rows or the 512-mark cap. The reply
 `Notice` (<=1024 bytes; the client replaces a snapshot reply's `Lines`, so Notice is
 the carried channel) lists `layers=name:sent/total,...` with names clipped to 24
-bytes, plus `layers_unsent=N` for layers beyond the 16-layer cap. `total` is the
+bytes, plus `layers_unsent=N` for layers beyond the 24-layer cap, and `unplaced=name:n,...`
+only for layers with a nonzero unplaced count. `total` is the
 wire demand (points + route vertices) plus any contributor-side loss from the
 document's `layerStats` (`total - shown`), so a truncated `camps` reads
 `camps:24/30`. `dropped=` stays the wire-only loss. Runtime pending.
@@ -121,9 +135,12 @@ bounded final serialize/write; there is no full-map spatial scan:
 | --- | --- |
 | Players | One GetPlayers roster fetch, <=64 inspected slots with a cursor; cache reused by leads; roster IDs are transient |
 | Holdouts | <=24 existing public Snapshot clones; house position and ledger state, not a body-presence claim |
-| Camps (`camps`, w27/w28) | `HCDebugCampSitesContributor` takes the holdouts contributor's registry slot (cap `HC_REGISTRY_CAP` = 20). w28: it reads **one** `HCHoldouts.Snapshot` per row per capture (<=24 JSON round trips, was 48) and feeds both layers from that row: the existing `holdouts` layer (routine/occupants detail) and one `camps` row per site (id, house position, ledger state only). The overlap is kept on purpose rather than deduped: `camps` is the privacy-reduced operator view with its own point share and `layerStats`, `holdouts` the full-detail shared-pool view, and `ai-camps` (owner-registered, logical level/supply/population) stays a separate layer at the same positions; dropping either would lose a view for no saving once the snapshot is read once. No player ids or names; runtime pending |
-| Lead ledger (`lead-ledger`, w28) | `HCDebugLeadLedgerContributor` reads `HCLeadModule.HCDebugLeadCount/HCDebugLead` (unexpired rows only, scan <= `HC_DEBUG_LEAD_SCAN` 64, copy with group id withheld; never `Select`/`Latest`). <=`LEAD_LAYER_CAP` (56) rows at the authored named place: kind and expiry only. Separate from the older `leads` layer (what online recipients received); registered as a module built-in; runtime pending |
+| Camps (`camps`, w27/w28) | `HCDebugCampSitesContributor` takes the holdouts contributor's registry slot (cap `HC_REGISTRY_CAP`). w28: it reads **one** `HCHoldouts.Snapshot` per row per capture (<=24 JSON round trips, was 48) and feeds both layers from that row: the existing `holdouts` layer (routine/occupants detail) and one `camps` row per site (id, house position, ledger state only). The overlap is kept on purpose rather than deduped: `camps` is the privacy-reduced operator view with its own point share and `layerStats`, `holdouts` the full-detail shared-pool view, and `ai-camps` (owner-registered, logical level/supply/population) stays a separate layer at the same positions; dropping either would lose a view for no saving once the snapshot is read once. No player ids or names; runtime pending. Boot 069 showed `camps total=48 shown=24`: **not a double count**. `total` is `HCHoldouts.Count()`, the real size of the holdout catalog (the `MaxHoldouts` default is 48); only the first `CAMP_LAYER_CAP` (24) rows are read and drawn, so `shown=24` with `truncated=1` is the honest report that 24 catalog rows are omitted. Each row is counted once (the `holdouts` and `camps` layers are separate layers fed from the same row, not summed into one total). Pinned by `CampsLayer` tests |
+| Lead ledger (`lead-ledger`, w28) | `HCDebugLeadLedgerContributor` reads `HCWorldClock.UTC()` **once per Describe** (w29 #194; it used to be once per getter call) and passes it to the one-pass batch getter `HCLeadModule.HCDebugLeadRows(now, output)` (new file `Debug/HCDebugLeadRows.c`: unexpired rows only, scan <= `HC_DEBUG_LEAD_SCAN` 64, copies with group id withheld; never `Select`/`Latest`). Leads at an unknown place are counted in `unplaced`, not in `total`. <=`LEAD_LAYER_CAP` (56) rows at the authored named place: kind and expiry only. Separate from the older `leads` layer (what online recipients received); registered as a module built-in; runtime pending |
 | Scenes (`scenes`, w28) | `HCDebugScenesContributor` reads `HCScenesModule.HCDebugGet/HCDebugLeaseCount/HCDebugLease` (detached `HCDebugSceneLeaseRow`: chain id, stage, anchor, placing/placed/closing, due/expiry). <=`SCENE_LAYER_CAP` (8) rows; lease anchors, not an entity-presence claim; runtime pending |
+| Pickers (`pickers`, w29 #194) | `HCDebugPickersContributor` reads `HCPickers.Get().HCDebugPickerCount/HCDebugPicker` (detached `HCDebugPickerRow`: phase, locator `actor`/`source`/`home`/`none`, position, generation; no party, cargo, actor or home ids). <=`PICKER_LAYER_CAP` (4) rows; a trip with no known position is `unplaced`. The provider route is refused/unsurveyed, so the layer is expected to be empty until a trip runs; trip state is not a body-presence claim; runtime pending |
+| Group pins (`group-pins`, w29 #194) | `HCDebugGroupPinsContributor` reads `HCGroupService.HCDebugPins(cap, output)`: for each stored group (<= `MaxGroups`) it asks the existing `HCGroupPins.Collect` (which already runs on every Broadcast; the death-pin collector prunes expired rows as it always does) and returns detached `HCDebugGroupPinRow` rows with kind (`ping`/`death`/`lead`/`trail`/`pin`, from the id prefix), position and expiry only. Pin id, name, group and player id are withheld; point ids are anonymous capture indices. Pins are server-side, so the layer is possible. <=`GROUP_PIN_LAYER_CAP` (32) rows, true total in the stat row; empty when the group service is unhealthy or the pins module is off; per-recipient presentation filters are not applied (this is the server view, not what a client sees); runtime pending |
+| Materializer proposals (`materializer-proposals`, w29 #194) | `HCDebugProposalsContributor` reads `HCWorldMaterializer.HCDebugGet/HCDebugProposalCount/HCDebugProposal`: the **active leases** (queued/claimed/finished/materialized, age in seconds, actor cap, kind, place), detached `HCDebugProposalRow`. This differs from `materializer_candidates` (eligible ledger rows, no lease). The getters never call `Next`, expiry, claim or resolve. <=`PROPOSAL_LAYER_CAP` (24); lease state, not a live-body claim; runtime pending |
 | Dead drops | <=8 public Cache handles; unbound/dormant caches omitted; no inventory enumeration |
 | Shelters | Current catalog <=6 rows (hard loop cap 64); explicit catalog/not-placed or catalog-reports-placed detail |
 | Events | One existing runtime clone (store ceiling 4 MiB, default 1 MiB), <=32 run rows and <=64 points; closed runs omitted; <=8 delivery objective lines |
@@ -144,11 +161,11 @@ surveyed geometry or additional runtime entities.
 
 | Area | Why a truthful complete layer cannot currently be authored here |
 | --- | --- |
-| Pickers | No public instance accessor or read-only row enumeration |
+| Pickers (resolved w29 #194) | `HCDebugPickerCount/HCDebugPicker` added to `HCPickers`; see the `pickers` row above. The provider route is still refused, so no live trip has been observed |
 | Scenes (resolved w28) | Owner getters added (`HCDebugGet`, `HCDebugLeaseCount`, `HCDebugLease`); see the `scenes` row above. Chain-level state beyond lease rows (completed chains, story schedule) is still not exported |
-| Group pins | Collect requires a group record; service has no cheap public read-only group enumeration; cloning the entire ACL/store to discover pins is not appropriate for this viewer |
+| Group pins (resolved w29 #194) | `HCGroupService.HCDebugPins` added; it reads the owner's own group records (no ACL/store clone) and exports kind/position/expiry only; see the `group-pins` row above |
 | All leads / offline recipients (resolved w28) | `lead-ledger` layer reads the new owner getters (group ids withheld). The `leads` layer still shows online recipients only |
-| Active materializer proposals | Next **claims** a reservation and runs expiry; never call it from debug. MaterializerRow provides eligible ledger candidates only, a separately labelled layer |
+| Active materializer proposals (resolved w29 #194) | `Next` still **claims** a reservation and runs expiry and is never called from debug; the new read-only lease getters expose the active lease list instead (`materializer-proposals`) |
 | Infected / optional AI addon | Owned and registered by their workers using the shared API; no duplicate contributor or dependency here |
 
 To finish these gaps, their owners can register bounded HCDebugContributor

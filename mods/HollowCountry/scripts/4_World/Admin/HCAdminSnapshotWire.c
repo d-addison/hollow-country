@@ -2,20 +2,28 @@
 // Count/Insert, :887,897 map GetElement/GetKey; EnMath3D.c:18 Vector;
 // EnConvert.c:30 int.ToString; EnDebug.c:96 Print. HCDebugSnapshot owns capture.
 // One completed request: <=1024 points +128 routes*64 vertices examined;
-// <=512 total vertices/16 layers exported, text already bounded by shared API.
+// <=512 total vertices/MAX_WIRE_LAYERS (24) layers exported, text already bounded by shared API.
 // w28-debugmap #193: the 512-mark budget is shared fairly (water-fill: every sent
 // layer gets budget/layers first, leftovers go to layers that still have rows),
 // so a late layer (camps, scenes, lead-ledger) is not starved by ai-units. Per-layer
 // sent/total ride in the bounded Notice as `layers=name:sent/total,...` (the client
 // replaces a snapshot reply's Lines, so Notice is the carried channel). Caps unchanged.
+// w29-debugmap #194: allowance a layer cannot use (a route that does not fit whole
+// inside its share) is redistributed by a second water-fill to layers that still
+// have unsent points; the 512 mark cap and every layer's own row count still bound
+// the result. The named layer cap grows 16 -> 24 for the w29 layers. A layer's
+// `unplaced` count (rows with no drawable position, kept out of total) rides in
+// the Notice as `unplaced=layer:n,...` only when nonzero.
 class HCAdminSnapshotWire
 {
+    static const int MAX_WIRE_LAYERS = 24;
+
     protected static void HCMark(HCAdminReply reply, array<string> layers, string layer, vector pos, string label, string detail, int route)
     {
         if (reply.Marks.Count() >= 512) { return; }
         if (layers.Find(layer) < 0)
         {
-            if (layers.Count() >= 16) { return; }
+            if (layers.Count() >= HCAdminSnapshotWire.MAX_WIRE_LAYERS) { return; }
             layers.Insert(layer);
         }
         HCAdminMark mark = new HCAdminMark;
@@ -27,19 +35,19 @@ class HCAdminSnapshotWire
         reply.Marks.Insert(mark);
     }
 
-    // Index of the layer in the sent list; registers it (<=16) when new, -1 when full.
+    // Index of the layer in the sent list; registers it (<=MAX_WIRE_LAYERS) when new, -1 when full.
     protected static int HCSlot(array<string> layers, array<int> demand, string layer)
     {
         int found = layers.Find(layer);
         if (found >= 0) { return found; }
-        if (layers.Count() >= 16) { return -1; }
+        if (layers.Count() >= HCAdminSnapshotWire.MAX_WIRE_LAYERS) { return -1; }
         layers.Insert(layer);
         demand.Insert(0);
         return layers.Count() - 1;
     }
 
     // Water-fill the budget across layers: each unmet layer takes an equal share per
-    // round, capped by its own demand; <=16 layers so the rounds terminate early.
+    // round, capped by its own demand; <=MAX_WIRE_LAYERS layers so the rounds terminate early.
     static void HCAllocate(array<int> demand, int budget, array<int> allowance)
     {
         int count = demand.Count();
@@ -70,6 +78,21 @@ class HCAdminSnapshotWire
         }
     }
 
+    // Marks a layer would send inside `room`: points first, then whole routes only.
+    protected static int HCFitted(HCDebugDocument document, string layer, int pointCount, int room)
+    {
+        int fitted = pointCount;
+        if (fitted > room) { fitted = room; }
+        for (int fitRoute = 0; fitRoute < document.routes.Count(); fitRoute++)
+        {
+            HCDebugRoute candidate = document.routes[fitRoute];
+            if (candidate.layer != layer) { continue; }
+            if (fitted + candidate.points.Count() > room) { continue; }
+            fitted += candidate.points.Count();
+        }
+        return fitted;
+    }
+
     static HCAdminReply HCBuild(HCDebugSnapshot capture, int ticket)
     {
         HCAdminReply reply = new HCAdminReply;
@@ -78,22 +101,25 @@ class HCAdminSnapshotWire
         array<string> layers = new array<string>;
         array<string> unsent = new array<string>;
         array<int> demand = new array<int>;
+        array<int> pointDemand = new array<int>;
         array<int> allowance = new array<int>;
         HCDebugDocument document = capture.HCDocument();
         int total = 0;
-        // Pass 1: register <=16 layers in document order and count each one's demand.
+        // Pass 1: register <=MAX_WIRE_LAYERS layers in document order and count each one's demand.
         for (int layerIndex = 0; layerIndex < document.layers.Count(); layerIndex++)
         {
             string layer = document.layers.GetKey(layerIndex);
             int pointCount = document.layers.GetElement(layerIndex).Count();
             total += pointCount;
             int layerSlot = HCSlot(layers, demand, layer);
+            while (pointDemand.Count() < demand.Count()) { pointDemand.Insert(0); }
             if (layerSlot < 0)
             {
                 if (unsent.Find(layer) < 0) { unsent.Insert(layer); }
                 continue;
             }
             demand[layerSlot] = demand[layerSlot] + pointCount;
+            pointDemand[layerSlot] = pointDemand[layerSlot] + pointCount;
         }
         for (int demandRoute = 0; demandRoute < document.routes.Count(); demandRoute++)
         {
@@ -101,6 +127,7 @@ class HCAdminSnapshotWire
             int vertexCount = counted.points.Count();
             total += vertexCount;
             int routeSlot = HCSlot(layers, demand, counted.layer);
+            while (pointDemand.Count() < demand.Count()) { pointDemand.Insert(0); }
             if (routeSlot < 0)
             {
                 if (unsent.Find(counted.layer) < 0) { unsent.Insert(counted.layer); }
@@ -109,6 +136,21 @@ class HCAdminSnapshotWire
             demand[routeSlot] = demand[routeSlot] + vertexCount;
         }
         HCAllocate(demand, 512, allowance);
+        // Redistribute what a layer cannot use (an unfittable route) to layers whose
+        // points were still unsent; they never receive more than their own rows.
+        int leftover = 512;
+        array<int> wanted = new array<int>;
+        for (int planSlot = 0; planSlot < layers.Count(); planSlot++)
+        {
+            leftover = leftover - HCFitted(document, layers[planSlot], pointDemand[planSlot], allowance[planSlot]);
+            wanted.Insert(Math.Max(0, pointDemand[planSlot] - allowance[planSlot]));
+        }
+        if (leftover > 0)
+        {
+            array<int> extra = new array<int>;
+            HCAllocate(wanted, leftover, extra);
+            for (int extraSlot = 0; extraSlot < layers.Count(); extraSlot++) { allowance[extraSlot] = allowance[extraSlot] + extra[extraSlot]; }
+        }
         // Pass 2: fill each layer inside its allowance (points first, then whole routes).
         array<int> sentCount = new array<int>;
         for (int emitSlot = 0; emitSlot < layers.Count(); emitSlot++)
@@ -160,8 +202,17 @@ class HCAdminSnapshotWire
             if (statSlot > 0) { statText += ","; }
             statText += HCDebugSnapshot.HCText(layers[statSlot], 24) + ":" + sentCount[statSlot].ToString() + "/" + layerTotal.ToString();
         }
+        string unplacedText = "";
+        for (int unplacedIndex = 0; unplacedIndex < document.layerStats.Count(); unplacedIndex++)
+        {
+            HCDebugLayerStat unplacedStat = document.layerStats[unplacedIndex];
+            if (unplacedStat.unplaced < 1) { continue; }
+            if (unplacedText != "") { unplacedText += ","; }
+            unplacedText += HCDebugSnapshot.HCText(unplacedStat.layer, 24) + ":" + unplacedStat.unplaced.ToString();
+        }
         string notice = "Snapshot row/contributor losses=" + refused.ToString() + "; runtime=PENDING; vertices=" + reply.Marks.Count().ToString() + " dropped=" + dropped.ToString();
         notice += "; layers=" + statText + "; layers_unsent=" + unsent.Count().ToString();
+        if (unplacedText != "") { notice += "; unplaced=" + unplacedText; }
         notice += "; captured over several ticks; expires in 60s";
         reply.Notice = HCDebugSnapshot.HCText(notice, 1024);
         Print("[HC Admin] cmd=snapshot result=ok reason=delivered vertices=" + reply.Marks.Count().ToString() + " truncated=" + dropped.ToString());

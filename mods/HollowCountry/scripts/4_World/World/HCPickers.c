@@ -424,6 +424,18 @@ class HCScavengeTrip
     }
 }
 
+// w29-debugmap #194: detached read-only row for the `pickers` debug layer. Phase,
+// the locator that produced the position, and the position only: no party, cargo,
+// actor, source or home ids and no entity handles leave the owner.
+class HCDebugPickerRow
+{
+    string Phase;
+    string Locator = "none";
+    bool HasPosition;
+    vector Position;
+    int Generation;
+}
+
 class HCPickers : HCModule
 {
     protected static HCPickers s_Instance;
@@ -454,6 +466,47 @@ class HCPickers : HCModule
         m_Status.HCPublish("refused", "HC34_PROVIDER_SOURCE_MISSING_ROUTE_UNSURVEYED");
         if (!m_Trip.m_Ready) { m_Status.HCPublish("refused", "HC34_JOURNAL_UNAVAILABLE"); }
         Print("[HC Plan] HC-34 party=none phase=idle cargo_owner=none state=refused count=0 refusal=PROVIDER_SOURCE_MISSING_ROUTE_UNSURVEYED runtime=PENDING");
+    }
+
+    // w29-debugmap #194: read-only debug seam. One picker trip at most; a trip in
+    // any phase but idle is listed (quarantined/lost ones have no position and the
+    // layer counts them `unplaced`). Never steps, saves, scans houses or players.
+    // Runtime acceptance pending (the provider route is refused/unsurveyed).
+    int HCDebugPickerCount()
+    {
+        if (!m_Trip || !m_Trip.m_State) { return 0; }
+        if (m_Trip.m_State.Phase == "idle") { return 0; }
+        return 1;
+    }
+
+    // Detached copy: position from the live carrier, else the source, else home.
+    HCDebugPickerRow HCDebugPicker(int wanted)
+    {
+        if (wanted != 0 || !m_Trip || !m_Trip.m_State || !m_Trip.m_IO) { return null; }
+        if (m_Trip.m_State.Phase == "idle") { return null; }
+        HCDebugPickerRow row = new HCDebugPickerRow;
+        row.Phase = m_Trip.m_State.Phase;
+        row.Generation = m_Trip.m_State.Generation;
+        HCScavengeInventory inventory = m_Trip.m_IO;
+        if (inventory.HCLive())
+        {
+            row.Locator = "actor";
+            row.HasPosition = true;
+            row.Position = inventory.Actor.GetPosition();
+        }
+        else if (inventory.Source)
+        {
+            row.Locator = "source";
+            row.HasPosition = true;
+            row.Position = inventory.Source.GetPosition();
+        }
+        else if (inventory.Home)
+        {
+            row.Locator = "home";
+            row.HasPosition = true;
+            row.Position = inventory.Home.GetPosition();
+        }
+        return row;
     }
 
     override void OnTick(float deltaTime)
