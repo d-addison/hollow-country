@@ -1,0 +1,882 @@
+{
+  "schema": 1,
+  "kind": "hc53-priority-building-input",
+  "work_package": "HC-53",
+  "runtime_acceptance": "pending",
+  "policy": "Input decisions for the existing sampler/template builder/HC-24 assembler. Not runtime DTOs or engine qualifications.",
+  "families": [
+    "residential",
+    "industrial",
+    "military",
+    "medical",
+    "police",
+    "church",
+    "farm",
+    "shop",
+    "office",
+    "airfield",
+    "rail",
+    "ruins",
+    "civic",
+    "outdoor_transport",
+    "outdoor_other"
+  ],
+  "selected": [
+    {
+      "building_class": "Land_House_2B01",
+      "role": "home",
+      "family": "residential",
+      "reason": "Common residential house; preserve native exits and existing contents.",
+      "template_source": {
+        "file": "t-0086.json",
+        "sha256": "19d59dd4bb8331d70ef5d0a057f18e9f39a024e556335c5066325171062b0292"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 1,
+          "source": "current-source-build-furnish",
+          "position": [
+            12332.004883,
+            108.994804,
+            10917.905273
+          ],
+          "yaw": -0.039693,
+          "props": [
+            1,
+            2
+          ],
+          "history": "family",
+          "region": "east-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 735,
+          "source": "current-source-build-furnish",
+          "position": [
+            2768.26416,
+            212.99855,
+            5445.253906
+          ],
+          "yaw": 64.295776,
+          "props": [
+            1,
+            2
+          ],
+          "history": "family",
+          "region": "west-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_House_2W04",
+      "role": "home",
+      "family": "residential",
+      "reason": "Second home model and floor/door control; persistent family/ransacked histories.",
+      "template_source": {
+        "file": "t-0092.json",
+        "sha256": "0b65d2ef3a70373fcccc64f094d6adb2699f6a100eab54125fb58f64a9d2f629"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 36,
+          "source": "current-source-build-furnish",
+          "position": [
+            7545.419434,
+            126.919411,
+            12648.124023
+          ],
+          "yaw": 89.796326,
+          "props": [
+            1
+          ],
+          "history": "abandoned",
+          "region": "central-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 729,
+          "source": "current-source-build-furnish",
+          "position": [
+            10643.02832,
+            64.947472,
+            14394.780273
+          ],
+          "yaw": -159.716583,
+          "props": [
+            1
+          ],
+          "history": "family",
+          "region": "east-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_Shed_Closed2",
+      "role": "shed",
+      "family": "industrial",
+      "reason": "Supported shed candidate; opening/locking and exterior approach control.",
+      "template_source": {
+        "file": "t-0157.json",
+        "sha256": "fe6483c4dbc995be7ed2de554ba3aecb5ca718f62d404a0ab1872f7075c37342"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "over_budget",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 819,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            4786.567871,
+            340.86557,
+            10606.516602
+          ],
+          "yaw": -134.391006,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "west-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 905,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            4789.231445,
+            340.725159,
+            10558.160156
+          ],
+          "yaw": 45.608994,
+          "props": [
+            1,
+            2
+          ],
+          "history": "family",
+          "region": "west-middle",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_Rail_Station_Big",
+      "role": "rail",
+      "family": "rail",
+      "reason": "Large station routes and floor transitions; avoid railway passage obstructions.",
+      "template_source": {
+        "file": "t-0150.json",
+        "sha256": "d35c208580650f0256c17026727e9ca5b40dc81830c842b4bb1bb627c6b6ce8e"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 14,
+          "source": "current-source-build-furnish",
+          "position": [
+            3549.836182,
+            225.237686,
+            12562.125977
+          ],
+          "yaw": 102.421722,
+          "props": [
+            1,
+            2
+          ],
+          "history": "family",
+          "region": "west-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 699,
+          "source": "current-source-build-furnish",
+          "position": [
+            10340.8125,
+            11.140327,
+            2121.516357
+          ],
+          "yaw": 104.999985,
+          "props": [
+            3,
+            4
+          ],
+          "history": "abandoned",
+          "region": "east-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_Rail_Station_Small",
+      "role": "rail",
+      "family": "rail",
+      "reason": "Small station comparison across distinct native rotations.",
+      "template_source": {
+        "file": "t-0151.json",
+        "sha256": "e83ffde65c46c93d6973303fc0b42c4357b2dbe2bcff4f84d6acd34b5aa4377f"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 118,
+          "source": "current-source-build-furnish",
+          "position": [
+            13944.96582,
+            4.912646,
+            13537.339844
+          ],
+          "yaw": -147.46167,
+          "props": [
+            1,
+            2
+          ],
+          "history": "family",
+          "region": "east-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 658,
+          "source": "current-source-build-furnish",
+          "position": [
+            11966.012695,
+            7.621711,
+            3555.536133
+          ],
+          "yaw": -76.48262,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "east-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_City_PoliceStation",
+      "role": "police",
+      "family": "police",
+      "reason": "Civic multi-floor/door control; finite search context without extra firearms.",
+      "template_source": {
+        "file": "t-0037.json",
+        "sha256": "0f17e1d4160f6ef5854e87e2491de0cd31a516cb8a077cdaa7884c09bc848f48"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "over_budget",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 796,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            13846.746094,
+            27.27446,
+            13218.041016
+          ],
+          "yaw": -117.151802,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "east-north",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 967,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            6633.093262,
+            13.969686,
+            2586.64624
+          ],
+          "yaw": 47.690048,
+          "props": [
+            1,
+            2
+          ],
+          "history": "family",
+          "region": "central-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_Village_HealthCare",
+      "role": "medical",
+      "family": "medical",
+      "reason": "Rural medical rooms and route clearance control.",
+      "template_source": {
+        "file": "t-0189.json",
+        "sha256": "404aa04e6ff33f56803466b80d6fc45b241613219f30b10c4ec613ba180300dc"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "over_budget",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 770,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            2739.14209,
+            203.839172,
+            5181.487793
+          ],
+          "yaw": -116.656929,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "west-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 957,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            10116.269531,
+            248.990021,
+            5511.441895
+          ],
+          "yaw": -96.205803,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "central-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    },
+    {
+      "building_class": "Land_City_Hospital",
+      "role": "medical",
+      "family": "medical",
+      "reason": "Larger medical multi-floor control; native stairs and occupied-house safety.",
+      "template_source": {
+        "file": "t-0036.json",
+        "sha256": "c73c221d9841abe7cd6504641cb3f36d7b1126e8a1d8e9c00509b12645fd8fe3"
+      },
+      "full_build_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "over_budget",
+        "Search": "covered"
+      },
+      "priority_dispositions": {
+        "Rooms": "covered",
+        "Furniture": "covered",
+        "Search": "covered"
+      },
+      "instances": [
+        {
+          "source_slot": 810,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            2164.347168,
+            98.966118,
+            3358.386475
+          ],
+          "yaw": -95.461861,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "west-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        },
+        {
+          "source_slot": 953,
+          "source": "legacy-pack-027-furnish",
+          "position": [
+            6474.291016,
+            17.094246,
+            2718.590576
+          ],
+          "yaw": 50.194237,
+          "props": [
+            1,
+            2
+          ],
+          "history": "ransacked",
+          "region": "central-south",
+          "reason": "Retain prior explicit pose/history; choose at most two compatible current template slots. Small cohort resolves global capacity refusal without raising runtime caps; native fit remains pending.",
+          "native_acceptance": "pending"
+        }
+      ]
+    }
+  ],
+  "resurvey": [
+    {
+      "building_class": "Land_House_1W01",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Shed_W5",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Guardhouse",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_HouseBlock_2F4",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_HouseBlock_2F8",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_HouseBlock_3F_Corner2",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_CementWorks_MillB",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Shed_M3",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Village_PoliceStation",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Train_Wagon_Box",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Tenement_Small",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Tenement_Big",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    },
+    {
+      "building_class": "Land_Prison_Main",
+      "reason": "Failed sampler or incomplete access/capacity evidence; never reviewed non-enterable.",
+      "qualification": "pending"
+    }
+  ],
+  "qualification_tasks": [
+    "Exact-source DayZDiag compile and bounded HC-24 index admission.",
+    "Normal signed PBO/server with exact mission/config/dependency hashes.",
+    "Visit selected native poses; confirm rotations, slopes, each floor, door swings, stairs, player and AI routes before/after props.",
+    "Two clients observe furnishing/search, occupied-house behavior, stop/restart and no duplicate loot or journal reset.",
+    "Feature off: cheap no-op, stop cleanup; sample failed/missing classes using existing sampler.",
+    "Review every stock-coordinate stratum and identify eligible settlements/islands from separate native evidence; no quiet-by-design exclusions."
+  ],
+  "sampler_queue": {
+    "api": "tools.setup.interior_sampler.plan_batches",
+    "classes": "coverage.json:placed[*].building_class",
+    "per_class": 1,
+    "run_size": 64,
+    "resume_measured": [],
+    "reason": "Prior one-pose samples remain unqualified; do not skip failed or provisional classes.",
+    "runs": [
+      {
+        "index": 0,
+        "native_run_id": "e379bbcb8d9807f4db8e5506906b9ed6",
+        "classes": [
+          "Land_Airfield_Radar_Tall",
+          "Land_Airfield_ServiceHangar_L",
+          "Land_Airfield_ServiceHangar_R",
+          "Land_Airfield_Small_Control",
+          "Land_Airfield_Small_Hangar",
+          "Land_Barn_Brick1",
+          "Land_Barn_Brick2",
+          "Land_Barn_Metal_Big",
+          "Land_Barn_Wood1",
+          "Land_Barn_Wood2",
+          "Land_Boat_Small1",
+          "Land_Boat_Small2",
+          "Land_Boat_Small3",
+          "Land_Boathouse",
+          "Land_BusStation_building",
+          "Land_BusStation_wall_bench",
+          "Land_BusStop_City",
+          "Land_BusStop_Village2",
+          "Land_Camp_House_brown",
+          "Land_Camp_House_red",
+          "Land_Camp_House_white",
+          "Land_Castle_Bergfrit2",
+          "Land_Castle_Gate",
+          "Land_Castle_Stairs_nolc",
+          "Land_CementWorks_ExpeditionA",
+          "Land_CementWorks_ExpeditionB",
+          "Land_CementWorks_ExpeditionC",
+          "Land_CementWorks_Hall1",
+          "Land_CementWorks_Hall2_Brick",
+          "Land_CementWorks_Hall2_Grey",
+          "Land_CementWorks_MillB",
+          "Land_CementWorks_MillC",
+          "Land_CementWorks_RotFurnace",
+          "Land_CementWorks_SiloBig1A",
+          "Land_Chapel",
+          "Land_Church1_Yellow",
+          "Land_Church2_2",
+          "Land_Church3",
+          "Land_City_FireStation",
+          "Land_City_Hospital",
+          "Land_City_PoliceStation",
+          "Land_City_School",
+          "Land_City_Stand_FastFood",
+          "Land_City_Stand_Grocery",
+          "Land_City_Stand_News1",
+          "Land_City_Stand_News2",
+          "Land_City_Store",
+          "Land_City_Store_WithStairs",
+          "Land_CoalPlant_Main",
+          "Land_Construction_Building",
+          "Land_Construction_Crane",
+          "Land_Construction_House2",
+          "Land_Container_1Aoh",
+          "Land_Container_1Bo",
+          "Land_Container_1Mo",
+          "Land_Container_1Moh",
+          "Land_Factory_Lathes",
+          "Land_Factory_Small",
+          "Land_Farm_CowshedA",
+          "Land_Farm_CowshedB",
+          "Land_Farm_CowshedC",
+          "Land_FuelStation_Build",
+          "Land_Garage_Big",
+          "Land_Garage_Office"
+        ],
+        "targets": 64,
+        "state": "pending"
+      },
+      {
+        "index": 1,
+        "native_run_id": "36ff0b0ccba51ba39459476f47e76b58",
+        "classes": [
+          "Land_Garage_Row_Big",
+          "Land_Garage_Row_Small",
+          "Land_Garage_Small",
+          "Land_Guardhouse",
+          "Land_Hotel",
+          "Land_Hotel_Damaged",
+          "Land_HouseBlock_1F1",
+          "Land_HouseBlock_1F2",
+          "Land_HouseBlock_1F3",
+          "Land_HouseBlock_1F4",
+          "Land_HouseBlock_1F_Corner",
+          "Land_HouseBlock_2F1",
+          "Land_HouseBlock_2F2",
+          "Land_HouseBlock_2F3",
+          "Land_HouseBlock_2F4",
+          "Land_HouseBlock_2F5",
+          "Land_HouseBlock_2F6",
+          "Land_HouseBlock_2F7",
+          "Land_HouseBlock_2F8",
+          "Land_HouseBlock_2F9",
+          "Land_HouseBlock_2F_Corner",
+          "Land_HouseBlock_3F1",
+          "Land_HouseBlock_3F2",
+          "Land_HouseBlock_3F_Corner1",
+          "Land_HouseBlock_3F_Corner2",
+          "Land_HouseBlock_5F",
+          "Land_House_1B01_Pub",
+          "Land_House_1W01",
+          "Land_House_1W02",
+          "Land_House_1W03",
+          "Land_House_1W04",
+          "Land_House_1W05",
+          "Land_House_1W05_Yellow",
+          "Land_House_1W06",
+          "Land_House_1W07",
+          "Land_House_1W08",
+          "Land_House_1W08_Brown",
+          "Land_House_1W09",
+          "Land_House_1W09_Yellow",
+          "Land_House_1W10",
+          "Land_House_1W10_Brown",
+          "Land_House_1W11",
+          "Land_House_1W12",
+          "Land_House_1W12_Brown",
+          "Land_House_2B01",
+          "Land_House_2B02",
+          "Land_House_2B03",
+          "Land_House_2B04",
+          "Land_House_2W01",
+          "Land_House_2W02",
+          "Land_House_2W03",
+          "Land_House_2W03_Brown",
+          "Land_House_2W04",
+          "Land_House_2W04_Yellow",
+          "Land_Lighthouse",
+          "Land_Lunapark_Autodrome",
+          "Land_Lunapark_Carousel_Swan",
+          "Land_Lunapark_Ferris_wheel",
+          "Land_Lunapark_Shooting_Gallery",
+          "Land_Medical_Tent_Big",
+          "Land_Medical_Tent_Shower",
+          "Land_Mil_ATC_Big",
+          "Land_Mil_AircraftShelter",
+          "Land_Mil_Airfield_HQ"
+        ],
+        "targets": 64,
+        "state": "pending"
+      },
+      {
+        "index": 2,
+        "native_run_id": "24e0a12d1f0bd7b529c776c37a88369b",
+        "classes": [
+          "Land_Mil_Barracks1",
+          "Land_Mil_Barracks2",
+          "Land_Mil_Barracks3",
+          "Land_Mil_Barracks4",
+          "Land_Mil_Barracks5",
+          "Land_Mil_Barracks5_Basement",
+          "Land_Mil_Barracks6",
+          "Land_Mil_Barracks6_Old",
+          "Land_Mil_Barracks_Round",
+          "Land_Mil_FireStation",
+          "Land_Mil_Fortified_Nest_Small",
+          "Land_Mil_Fortified_Nest_Watchtower",
+          "Land_Mil_GuardShed",
+          "Land_Mil_GuardTower",
+          "Land_Mil_Guardhouse1",
+          "Land_Mil_Guardhouse2",
+          "Land_Mil_Tent_Big1_1",
+          "Land_Mil_Tent_Big1_2",
+          "Land_Mil_Tent_Big1_3",
+          "Land_Mil_Tent_Big1_4",
+          "Land_Mil_Tent_Big1_5",
+          "Land_Mil_Tent_Big2_1",
+          "Land_Mil_Tent_Big2_2",
+          "Land_Mil_Tent_Big2_3",
+          "Land_Mil_Tent_Big2_4",
+          "Land_Mil_Tent_Big2_5",
+          "Land_Mil_Tent_Big3",
+          "Land_Mil_Tent_Big4",
+          "Land_Mine_Building",
+          "Land_Misc_DeerStand1",
+          "Land_Misc_DeerStand2",
+          "Land_Misc_FeedShack",
+          "Land_Misc_Greenhouse",
+          "Land_Misc_Polytunnel",
+          "Land_Misc_Scaffolding",
+          "Land_Misc_Toilet_Dry",
+          "Land_Misc_TrailRoof_Big",
+          "Land_Misc_TrailRoof_Small",
+          "Land_Misc_Well_Pump_Blue",
+          "Land_Misc_Well_Pump_Yellow",
+          "Land_Office1",
+          "Land_Office2",
+          "Land_Office_Municipal2",
+          "Land_Pier_Crane_A",
+          "Land_Pier_Crane_B",
+          "Land_Power_Station",
+          "Land_Power_Transformer_Build",
+          "Land_Prison_Main",
+          "Land_Prison_Side",
+          "Land_Quarry_Main",
+          "Land_Radio_building",
+          "Land_Rail_Station_Big",
+          "Land_Rail_Station_Small",
+          "Land_Rail_Warehouse_Small",
+          "Land_Repair_Center",
+          "Land_Sawmill_Building",
+          "Land_Sawmill_Illuminanttower",
+          "Land_Shed_Closed",
+          "Land_Shed_Closed2",
+          "Land_Shed_M1",
+          "Land_Shed_M3",
+          "Land_Shed_M4",
+          "Land_Shed_W1",
+          "Land_Shed_W2"
+        ],
+        "targets": 64,
+        "state": "pending"
+      },
+      {
+        "index": 3,
+        "native_run_id": "3d14714910a8102223a8b5df75466e2c",
+        "classes": [
+          "Land_Shed_W3",
+          "Land_Shed_W4",
+          "Land_Shed_W5",
+          "Land_Shed_W6",
+          "Land_Ship_Big_BackA",
+          "Land_Ship_Big_BackB",
+          "Land_Ship_Big_Castle",
+          "Land_Ship_Big_FrontA",
+          "Land_Ship_Big_FrontB",
+          "Land_Smokestack_Big",
+          "Land_Smokestack_Brick",
+          "Land_Smokestack_Medium",
+          "Land_Tenement_Big",
+          "Land_Tenement_Small",
+          "Land_Tisy_Barracks",
+          "Land_Tisy_Base_cooler",
+          "Land_Tisy_Garages",
+          "Land_Tisy_Garages2",
+          "Land_Tisy_HQ",
+          "Land_Tisy_KitchenRoom",
+          "Land_Tisy_RadarB_Base",
+          "Land_Tisy_RadarPlatform_Top",
+          "Land_Tower_TC1",
+          "Land_Tower_TC2_Base",
+          "Land_Train_742_Blue",
+          "Land_Train_742_Red",
+          "Land_Train_Wagon_Box",
+          "Land_Village_HealthCare",
+          "Land_Village_PoliceStation",
+          "Land_Village_Pub",
+          "Land_Village_store",
+          "Land_Water_Station",
+          "Land_Workshop1",
+          "Land_Workshop2",
+          "Land_Workshop3",
+          "Land_Workshop4",
+          "Land_Workshop5",
+          "Land_Wreck_C130J_Cargo",
+          "Land_Wreck_Caravan_MGreen",
+          "Land_Wreck_Caravan_MRust",
+          "Land_Wreck_Caravan_WBrown",
+          "Land_Wreck_Caravan_WGreen",
+          "Land_Wreck_Ikarus",
+          "Land_Wreck_hb01_aban1_blue",
+          "Land_Wreck_hb01_aban1_green",
+          "Land_Wreck_hb01_aban1_white",
+          "Land_Wreck_hb01_aban2_blue",
+          "Land_Wreck_hb01_aban2_green",
+          "Land_Wreck_hb01_aban2_white",
+          "Land_Wreck_hb02_aban1_black",
+          "Land_Wreck_hb02_aban1_blue",
+          "Land_Wreck_hb02_aban1_red",
+          "Land_Wreck_hb02_aban2_black",
+          "Land_Wreck_hb02_aban2_blue",
+          "Land_Wreck_hb02_aban2_red",
+          "Land_Wreck_offroad02_aban1",
+          "Land_Wreck_offroad02_aban2",
+          "Land_Wreck_sed01_aban1_black",
+          "Land_Wreck_sed01_aban1_white",
+          "Land_Wreck_sed01_aban1_wine",
+          "Land_Wreck_sed01_aban2_black",
+          "Land_Wreck_sed01_aban2_white",
+          "Land_Wreck_sed01_aban2_wine",
+          "Land_Wreck_sed02_aban1_grey"
+        ],
+        "targets": 64,
+        "state": "pending"
+      },
+      {
+        "index": 4,
+        "native_run_id": "c14b1a37183a7e178398542393b41428",
+        "classes": [
+          "Land_Wreck_sed02_aban1_red",
+          "Land_Wreck_sed02_aban1_yellow",
+          "Land_Wreck_sed02_aban2_grey",
+          "Land_Wreck_sed02_aban2_red",
+          "Land_Wreck_sed02_aban2_yellow",
+          "Land_Wreck_truck01_aban1_blue",
+          "Land_Wreck_truck01_aban1_green",
+          "Land_Wreck_truck01_aban1_orange",
+          "Land_Wreck_truck01_aban2_blue",
+          "Land_Wreck_truck01_aban2_green",
+          "Land_Wreck_truck01_aban2_orange",
+          "Land_wreck_truck01_aban1_firetruck",
+          "Land_wreck_truck01_aban2_firetruck"
+        ],
+        "targets": 13,
+        "state": "pending"
+      }
+    ]
+  }
+}
