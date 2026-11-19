@@ -129,7 +129,7 @@ class AdmissionTests(unittest.TestCase):
             synthetic_catalogue_admits(gate, (MOUNT, CROSS))
             _, published = start(gate, setting=True)
             line = boot_line(gate)
-            for field in ("receipts_checked=0", "pack_admitted=1", "setting=on",
+            for field in ("receipts_checked=0", "pack_admitted=2", "setting=on",
                           "reason=admitted_unverified", "runtime=PENDING"):
                 self.assertIn(field, line)
             self.assertIn(("ready", "admitted_unverified"), published)
@@ -176,7 +176,7 @@ class AdmissionTests(unittest.TestCase):
         synthetic_catalogue_admits(gate, (MOUNT,))
         start(gate, setting=True)
         line = boot_line(gate)
-        for field in ("receipts_checked=1", "pack_admitted=1", "setting=on",
+        for field in ("receipts_checked=1", "pack_admitted=2", "setting=on",
                       "reason=admitted_unverified"):
             self.assertIn(field, line)
         self.assertEqual(0, gate.VerifiedCount())

@@ -43,20 +43,21 @@ class HCTapedLightBinding
 }
 
 // Server settings owner supplies this section; JSON is preference, not evidence.
-// Missing fields preserve the closed default. No client/RPC setter exists.
+// Cross-slot preference defaults on; admission and inventory stay server-owned.
+// No client/RPC setter exists.
 class HCTapedLightMountSettings
 {
-    bool crossSlotLights = false;
+    bool crossSlotLights = true;
     ref TStringArray permittedPairIds = new TStringArray;
 }
 
-// HC-52 loader DTOs for lights/backpack-mounts.json (#58). Only the closed
+// HC-52 loader DTOs for lights/backpack-mounts.json (#58). Only the authored
 // preference defaults are read; every other manifest key is review data. Ints
 // keep a zero initializer, so a missing field loads as 0 and is refused; the
 // loader also requires HCJsonFields presence first. The file never qualifies.
 class HCTapedPackSettingsContract
 {
-    bool DefaultCrossSlotLights = false;
+    bool DefaultCrossSlotLights = true;
     ref TStringArray DefaultPermittedPairIds = new TStringArray;
     int MaxPermittedPairIds;
     // Read cap for lights/pair-receipts.json; 0 (missing) is refused.

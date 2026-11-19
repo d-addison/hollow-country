@@ -68,12 +68,12 @@
     "Conclusion": "No safe flashlight backpack pair is established. The ordinary candidate lacks a backpack flashlight slot; the cross-slot candidate lacks a matching UniversalLight inventorySlot. Neither a config-only slot addition nor a client light offset establishes mounted geometry."
   },
   "SettingsContract": {
-    "RuntimeInput": "This mission manifest is the runtime input: HCTapedPackMounts.ReadManifest/ApplyManifest read it at module start and call Configure() with the Default/Max fields below. The operator setting EnableTapedPackMounts (default true since wave 16) admits the pairs unverified, and a row with Disabled=true in lights/pair-receipts.json opts one pair out; a Checked receipt is only the operator's record. The HCTapedPackCatalog verdict gate still records no native or two-client check (Qualified() stays false), so the boot line says admitted unverified; a pair also needs its native slot arrays, otherwise it is refused with a named reason. Runtime acceptance pending.",
+    "RuntimeInput": "This mission manifest is the runtime input: HCTapedPackMounts.ReadManifest/ApplyManifest read it at module start and call Configure() with the Default/Max fields below. Cross-slot lights and the exact tortilla_universal_cross permission default on. The operator setting EnableTapedPackMounts (default true since wave 16) admits the pairs unverified, and a row with Disabled=true in lights/pair-receipts.json opts one pair out; a Checked receipt is only the operator's record. The HCTapedPackCatalog verdict gate still records no native or two-client check (Qualified() stays false), so the boot line says admitted unverified; a pair also needs its native slot arrays, otherwise it is refused with a named reason. Runtime acceptance pending.",
     "OfflineMirror": "config/hollow-country-light-mounts.json is an offline mirror of the closed defaults. No runtime code reads it; only a unit test pins that it matches these defaults.",
     "DTO": "HCTapedLightMountSettings",
     "ConfigureOwner": "HCTapedPackMounts.ApplyManifest(text) calls Configure(preferences) from the module start; there is no HCSettings.LightMounts field and no HCServer call to Configure.",
-    "DefaultCrossSlotLights": false,
-    "DefaultPermittedPairIds": [],
+    "DefaultCrossSlotLights": true,
+    "DefaultPermittedPairIds": ["tortilla_universal_cross"],
     "MaxPermittedPairIds": 2,
     "MaxReceiptBytes": 32768,
     "MaxReceiptBytesCeiling": 65536,

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 from tools.package import inventory_sizes as inv, pbo
-from test_pbo_config import klass, rap, pbo as synthetic_pbo
+from tests.unit.test_pbo_config import klass, rap, pbo as synthetic_pbo
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -161,6 +161,19 @@ class InventorySizes(unittest.TestCase):
         bad[0]['vanilla'] = [3, 3]
         with self.assertRaisesRegex(ValueError, 'review'):
             inv.verify_review(changes, bad)
+
+    def test_regeneration_preserves_authored_taped_pack_slots(self):
+        # Synthetic regeneration over reviewed source data; no DayZ claim.
+        from tools.audit.pbo_config import parse_text_config
+        config = (ROOT / 'mods/HollowCountry/config.cpp').read_text()
+        regenerated = inv.update_config(config, self.rules['reviewed_overrides'])
+        classes = parse_text_config(regenerated, ('CfgVehicles',))['CfgVehicles']
+        self.assertEqual(['Chemlight', 'WalkieTalkie', 'Backpack_1', 'NBCBag', 'helmetFlashlight'],
+                         classes['TortillaBag'].get('attachments'))
+        self.assertEqual(['weaponFlashlight', 'helmetFlashlight', 'pistolFlashlight', 'Chemlight'],
+                         classes['UniversalLight']['inventorySlot'])
+        self.assertEqual(['pistolFlashlight', 'weaponFlashlight'], classes['TLRLight']['inventorySlot'])
+        self.assertEqual(config, regenerated)
 
     def test_committed_overrides_have_parents_addons_and_package_keeps_text(self):
         changes = self.rules['reviewed_overrides']

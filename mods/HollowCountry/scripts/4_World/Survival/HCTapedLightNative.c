@@ -103,15 +103,19 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         return CrossRow(hostType, lightType);
     }
 
-    // Wave 16: a weapon cross-slot pair (cross_<Host>_<Light>) resolves only for
-    // the exact catalogue host with its cross light AND only after startup
-    // admission (HCTapedPackMounts, cached lookup, no config scan here). It never
-    // enlarges the native cohort above; Resolve below still checks the live config.
+    // Clients display exact catalogue candidates, excluding any known opt-out.
+    // Admission is server-owned and is never inferred from this display hint.
+    // Resolve still requires server readiness and validates the live slot arrays.
     static HCTapedLightHostRow CrossRow(string hostType, string lightType)
     {
         HCTapedLightHostRow row = HCTapedLightCatalog.CrossRowMatch(hostType, lightType);
         if (!row) { return null; }
-        if (!HCTapedPackMounts.WeaponPairAdmitted(row.PairId)) { return null; }
+        if (!GetGame()) { return null; }
+        if (GetGame().IsServer())
+        {
+            if (!HCTapedPackMounts.WeaponPairAdmitted(row.PairId)) { return null; }
+        }
+        if (!GetGame().IsServer() && HCTapedPackMounts.ReceiptDisabled(row.PairId)) { return null; }
         return row;
     }
 
