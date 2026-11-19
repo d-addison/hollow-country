@@ -32,6 +32,8 @@ class HCAdminClient
     protected float m_NextSend;
     protected float m_LastReply;
     protected float m_SnapshotUntil;
+    protected float m_LootUntil;
+    protected float m_LootViewUntil;
     protected float m_OpenUntil;
     protected float m_WaitNoticeAt;
     protected bool m_WaitNoticeShown;
@@ -100,6 +102,7 @@ class HCAdminClient
         if (m_Pending) { return "admin | waiting for server: " + m_Command; }
         if (!HCValid()) { return "refused / not an admin: session unavailable"; }
         if (HCBusy()) { return "admin | busy: waiting for throttle"; }
+        if (m_LootTicket != 0) { return "admin | ready | lootmap job running on the server"; }
         return "admin | ready";
     }
 
@@ -159,23 +162,18 @@ class HCAdminClient
         if (m_Player != GetGame().GetPlayer() || !m_Player.IsAlive() || m_Player.IsUnconscious()) { return false; }
         float now = GetGame().GetTickTime();
         if (now < m_LastReply) { return false; }
-        // The multi-tick lootmap job answers once, at the end. The session stays
-        // valid for the derived request wait; HCSend required a fresh session.
-        if (m_Pending && m_LootTicket == m_Ticket) { return now <= m_RequestUntil; }
+        // An acknowledged lootmap job answers once more, much later, by ticket. The
+        // session (UI gating only; the server re-checks the admin allowlist) stays
+        // valid until the derived job window (HCExpireLoot) ends.
+        if (m_LootTicket != 0 && now <= m_LootUntil) { return true; }
         return now - m_LastReply <= 60;
-    }
-
-    // Request wait in seconds: the ordinary 10 s, except the lootmap job whose
-    // single final reply is derived from the server job arithmetic (HCAdminLootMap).
-    protected float HCWaitSeconds(string command)
-    {
-        if (HCAdminWire.HCIsLootMap(command)) { return HCAdminLootMap.HCClientWaitSeconds(); }
-        return 10;
     }
 
     // Read-only text command `lootmap <class-or-prefix>`. The server remains the
     // only authority: admin allowlist, EnableDebugSnapshot, cooldown, one job.
     // The client only pre-checks the same bounded filter the server enforces.
+    // Like `snapshot`, the server acks at once (started, ticket, estimated ticks)
+    // so the client is free; the marks arrive later and are matched by ticket.
     bool HCLootMap(string filter)
     {
         string name = filter;
@@ -201,21 +199,20 @@ class HCAdminClient
             View = null;
             m_SnapshotTicket = 0;
             m_LootTicket = 0;
+            m_LootUntil = 0;
             Hidden.Clear();
         }
         m_NextSend = now + 1.1;
         m_Ticket++;
         m_Expected = m_Ticket;
         m_Pending = true;
-        m_RequestUntil = now + HCWaitSeconds(command);
+        m_RequestUntil = now + 10;
         m_Command = command;
         HCAdminRequest request = new HCAdminRequest;
         request.Ticket = m_Ticket;
         request.Command = command;
         request.Value = value;
         if (command == "snapshot") { m_SnapshotTicket = request.Ticket; }
-        // A late final lootmap reply (after a client timeout) is still accepted by ticket.
-        if (HCAdminWire.HCIsLootMap(command)) { m_LootTicket = request.Ticket; }
         ScriptRPC rpc = new ScriptRPC;
         rpc.Write(request);
         rpc.Send(null, HCAdminWire.REQUEST, true);
@@ -253,7 +250,12 @@ class HCAdminClient
         bool current = reply.Ticket == m_Expected;
         bool capture = reply.Snapshot && reply.Ticket == m_SnapshotTicket;
         bool loot = reply.Snapshot && m_LootTicket != 0 && reply.Ticket == m_LootTicket;
-        if (!current && !capture && !loot) { return; }
+        if (!current && !capture && !loot)
+        {
+            // Session ended or client timed out first: the server may still finish.
+            if (reply.Snapshot) { Print("" + "[HC Admin] client dropped late reply ticket=" + reply.Ticket.ToString() + " reason=no_matching_request; server outcome unknown"); }
+            return;
+        }
         if (!reply.Marks || !reply.Lines) { return; }
         if (reply.Marks.Count() > 512 || reply.Lines.Count() > 64 || reply.Notice.Length() > 1024) { return; }
         for (int markIndex = 0; markIndex < reply.Marks.Count(); markIndex++)
@@ -270,8 +272,13 @@ class HCAdminClient
             command = m_Command;
             m_Pending = false;
             m_Expected = 0;
-            // A non-snapshot answer to the lootmap request (a refusal) ends it.
-            if (!reply.Snapshot && reply.Ticket == m_LootTicket) { m_LootTicket = 0; }
+            // The ack of an accepted lootmap request starts tracking its final reply.
+            // A refusal (including `lootmap_job_running`) leaves any running job tracked.
+            if (!reply.Snapshot && HCAdminWire.HCIsLootMap(command) && reply.Notice.IndexOf("result=refused") < 0)
+            {
+                m_LootTicket = reply.Ticket;
+                m_LootUntil = GetGame().GetTickTime() + HCAdminLootMap.HCClientWaitSeconds();
+            }
         }
         // Log the received body before the snapshot reuses the previous status.
         HCLogReply(reply, command);
@@ -286,6 +293,7 @@ class HCAdminClient
         else if (reply.Snapshot)
         {
             if (View) { reply.Lines = View.Lines; }
+            HCCarryLootMarks(reply);
             View = reply;
             m_SnapshotUntil = m_LastReply + 60;
             m_SnapshotTicket = 0;
@@ -302,23 +310,70 @@ class HCAdminClient
     // Final lootmap reply: its marks replace only the `lootmap` layer, so a captured
     // debug snapshot keeps its layers. Reads the reply marks (already validated:
     // <=512, bounded labels, valid positions); the server stays the only authority.
+    // At most MaxPositionsPerReply lootmap marks are kept, 512 snapshot marks + those.
     protected void HCMergeLootMap(HCAdminReply reply)
     {
         if (!View) { View = new HCAdminReply; }
+        HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
         int oldIndex = View.Marks.Count() - 1;
         while (oldIndex >= 0)
         {
             if (View.Marks[oldIndex].Layer == "lootmap") { View.Marks.RemoveOrdered(oldIndex); }
             oldIndex--;
         }
+        int kept = 0;
         for (int markIndex = 0; markIndex < reply.Marks.Count(); markIndex++)
         {
-            if (View.Marks.Count() >= 512) { break; }
-            if (reply.Marks[markIndex].Layer == "lootmap") { View.Marks.Insert(reply.Marks[markIndex]); }
+            if (kept >= limits.MaxPositionsPerReply) { break; }
+            if (reply.Marks[markIndex].Layer == "lootmap") { View.Marks.Insert(reply.Marks[markIndex]); kept++; }
         }
+        m_LootViewUntil = m_LastReply + limits.ViewSeconds;
+    }
+
+    // A later snapshot replaces the view; its marks are merged with, not over, the
+    // lootmap layer (which keeps its own, longer ViewSeconds timer).
+    protected void HCCarryLootMarks(HCAdminReply fresh)
+    {
+        if (!View) { return; }
         HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
-        float keepUntil = m_LastReply + limits.ViewSeconds;
-        if (keepUntil > m_SnapshotUntil) { m_SnapshotUntil = keepUntil; }
+        int cap = 512 + limits.MaxPositionsPerReply;
+        for (int markIndex = 0; markIndex < View.Marks.Count(); markIndex++)
+        {
+            if (fresh.Marks.Count() >= cap) { break; }
+            if (View.Marks[markIndex].Layer == "lootmap") { fresh.Marks.Insert(View.Marks[markIndex]); }
+        }
+    }
+
+    // Per-layer expiry: snapshot layers after their 60 s, the lootmap layer after
+    // ViewSeconds. O(1) per frame until a timer is due.
+    protected void HCExpireMarks(float now)
+    {
+        if (!View) { return; }
+        bool snapshotDue = m_SnapshotUntil > 0 && now >= m_SnapshotUntil;
+        bool lootDue = m_LootViewUntil > 0 && now >= m_LootViewUntil;
+        if (!snapshotDue && !lootDue) { return; }
+        int index = View.Marks.Count() - 1;
+        while (index >= 0)
+        {
+            bool isLoot = View.Marks[index].Layer == "lootmap";
+            if (isLoot && lootDue) { View.Marks.RemoveOrdered(index); }
+            else if (!isLoot && snapshotDue) { View.Marks.RemoveOrdered(index); }
+            index--;
+        }
+        if (snapshotDue) { m_SnapshotUntil = 0; }
+        if (lootDue) { m_LootViewUntil = 0; }
+        Revision++;
+        Changed.Invoke();
+    }
+
+    // The derived job window passed without the final reply: stop tracking it.
+    protected void HCExpireLoot(float now)
+    {
+        if (m_LootTicket == 0 || now <= m_LootUntil) { return; }
+        m_LootTicket = 0;
+        HCLog("lootmap", false, "client-timeout: no final reply within the derived job window; server outcome unknown");
+        Revision++;
+        Changed.Invoke();
     }
 
     void HCTick()
@@ -345,12 +400,8 @@ class HCAdminClient
                 return;
             }
         }
-        if (View && View.Marks.Count() > 0 && now >= m_SnapshotUntil)
-        {
-            View.Marks.Clear();
-            Revision++;
-            Changed.Invoke();
-        }
+        HCExpireMarks(now);
+        HCExpireLoot(now);
         if (m_Authorized && !HCValid()) { HCStop(); }
     }
 
@@ -365,6 +416,7 @@ class HCAdminClient
         m_Checks.Clear();
         m_Player = null;
         m_SnapshotTicket = 0;
+        if (m_LootTicket != 0) { Print("" + "[HC Admin] client lootmap ticket=" + m_LootTicket.ToString() + " dropped: session ended; server may still finish; final reply ignored"); }
         m_LootTicket = 0;
         View = null;
         Hidden = null;

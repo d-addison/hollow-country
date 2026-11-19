@@ -110,40 +110,52 @@ class ClientWiring(unittest.TestCase):
         self.now = 100.0
         sent = self.sent = []
         self.feedback = []
-        wait = [None]
-        game = N(GetTickTime=lambda: self.now, GetPlayer=lambda: self.player)
+        self.printed = []
+        self.logged = []
+        game = N(GetTickTime=lambda: self.now, GetPlayer=lambda: self.player, IsServer=lambda: False)
         self.player = N(IsAlive=lambda: True, IsUnconscious=lambda: False)
-        wire = N(REQUEST=1)
+        wire = N(REQUEST=1, REPLY=2)
         wire.HCIsLootMap = compile_authored(WIRE, 'HCAdminWire', 'HCIsLootMap',
                                             base_scope(), modded=False, native_strings=EStr)
-        wire_static = N(REQUEST=1, HCIsLootMap=lambda command: wire.HCIsLootMap(wire, command))
+        wire_static = N(REQUEST=1, REPLY=2, HCIsLootMap=lambda command: wire.HCIsLootMap(wire, command))
         loot = N(HCClientWaitSeconds=lambda: 1344,
                  HCValidFilter=lambda name: bool(re.fullmatch(r'[A-Za-z0-9_]{1,96}', name)))
-        env = base_scope(GetGame=lambda: game, HCAdminWire=wire_static, HCAdminLootMap=loot,
+        self.env = base_scope(GetGame=lambda: game, HCAdminWire=wire_static, HCAdminLootMap=loot,
                          HCAdminLootMapLimits=lambda: limits,
                          HCAdminRequest=lambda: N(Ticket=0, Command='', Value=0),
                          ScriptRPC=lambda: N(Write=lambda request: sent.append(request),
                                              Send=lambda *args: None),
-                         PlayerBase=N(Cast=lambda player: player))
+                         PlayerBase=N(Cast=lambda player: player),
+                         DayZGame=N(Event_OnRPC=N(Remove=lambda fn: None)), HCReceive=lambda *args: None,
+                         HCAdminReply=lambda: N(Marks=Arr(), Lines=Arr(), Authorized=False),
+                         Print=lambda line: self.printed.append(line),
+                         HCDebugSnapshot=N(HCPositionValid=lambda pos: True))
         c = self.client = N(m_Listening=True, m_Authorized=True, m_Player=self.player, m_Pending=False,
                             m_Ticket=0, m_Expected=0, m_SnapshotTicket=0, m_LootTicket=0, m_NextSend=0.0,
                             m_LastReply=100.0, m_RequestUntil=0.0, m_Command='', m_SnapshotUntil=0.0,
-                            Revision=0, Notice='', View=None, Hidden=Arr(),
+                            m_LootUntil=0.0, m_LootViewUntil=0.0, m_OpenRequested=False,
+                            m_Checks=Arr(), Revision=0, Notice='', View=None, Hidden=Arr(),
                             Changed=N(Invoke=lambda: None))
-        members = ('HCValid', 'HCSend', 'HCWaitSeconds', 'HCFeedback', 'HCMergeLootMap')
-        fields = ('m_Ticket', 'm_Expected', 'm_Pending', 'm_RequestUntil', 'm_Command', 'm_NextSend',
-                  'm_LootTicket', 'm_SnapshotTicket', 'm_Player', 'm_Authorized', 'm_SnapshotUntil',
-                  'Revision', 'Notice', 'View', 'Changed')
-        for name in ('HCValid', 'HCWaitSeconds', 'HCSend', 'HCLootMap', 'HCMergeLootMap'):
-            fn = compile_authored(CLIENT, 'HCAdminClient', name, env, members, modded=False,
-                                  native_strings=EStr, fields=fields)
+        self.members = ('HCValid', 'HCSend', 'HCFeedback', 'HCMergeLootMap', 'HCCarryLootMarks',
+                        'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop')
+        self.fields = ('m_Ticket', 'm_Expected', 'm_Pending', 'm_RequestUntil', 'm_Command', 'm_NextSend',
+                       'm_LootTicket', 'm_LootUntil', 'm_LootViewUntil', 'm_SnapshotTicket', 'm_Player',
+                       'm_Authorized', 'm_SnapshotUntil', 'm_Listening', 'm_OpenRequested', 'm_LastReply',
+                       'Revision', 'Notice', 'View', 'Changed', 'Hidden')
+        for name in ('HCValid', 'HCSend', 'HCLootMap', 'HCMergeLootMap', 'HCCarryLootMarks',
+                     'HCExpireMarks', 'HCExpireLoot', 'HCStop'):
+            fn = compile_authored(CLIENT, 'HCAdminClient', name, self.env, self.members, modded=False,
+                                  native_strings=EStr, fields=self.fields)
             setattr(c, name, lambda *args, fn=fn: fn(c, *args))
         raw_send = c.HCSend  # the adapter has no default parameters: HCSend(command, value = 0)
         c.HCSend = lambda command, value=0: raw_send(command, value)
         c.HCFeedback = lambda text: self.feedback.append(text)
+        c.HCLog = lambda command, ok, text: self.logged.append((command, ok, text))
+        c.HCLogReply = lambda reply, command: None
         return c
 
-    def test_lootmap_command_validates_then_sends_with_derived_wait(self):
+    def test_wait_helper_is_gone_and_only_the_ack_has_the_short_timeout(self):
+        self.assertNotIn('HCWaitSeconds', CLIENT.read_text())
         c = self.build()
         for bad in ('', '*', '../x', 'a b', 'x' * 97):
             self.assertFalse(c.HCLootMap(EStr(bad)))
@@ -151,29 +163,88 @@ class ClientWiring(unittest.TestCase):
         self.assertEqual(5, len(self.feedback))
         self.assertTrue(c.HCLootMap(EStr('Bandage*')))
         self.assertEqual('lootmap Bandage*', self.sent[0].Command)
-        self.assertEqual(100.0 + 1344, c.m_RequestUntil)  # derived, not now + 10
-        self.assertEqual(self.sent[0].Ticket, c.m_LootTicket)
+        self.assertEqual(110.0, c.m_RequestUntil)  # the ordinary 10 s: ack only, not the job
+        self.assertEqual(0, c.m_LootTicket)  # tracked only once the server acknowledged
         # 96-char prefix + '*' would exceed the 104-character wire command.
         self.now = 200.0
         c.m_Pending = False
         c.m_NextSend = 0.0
         self.assertFalse(c.HCLootMap(EStr('x' * 96 + '*')))
 
-    def test_other_commands_keep_ten_seconds_and_session_survives_the_long_wait(self):
+    def receive(self, c, reply, extra=()):
+        source = CLIENT.read_text().replace('HCAdminReply reply;', 'HCAdminReply reply = ctx;').replace('ctx.Read(reply)', 'true')
+        with patch.object(Path, 'read_text', return_value=source):
+            fn = compile_authored(CLIENT, 'HCAdminClient', 'HCReceive', self.env, self.members, modded=False,
+                                  native_strings=EStr, fields=self.fields)
+        fn(c, None, None, 2, reply)
+
+    def reply(self, ticket, snapshot=False, notice='[HC Admin] cmd=lootmap result=ok reason=started', marks=1):
+        mark = lambda i: N(Layer=EStr('lootmap'), Position=(1, 0, 1), Label=EStr('a%d' % i), Detail=EStr('b'))
+        return N(Ticket=ticket, Authorized=True, Snapshot=snapshot, Notice=EStr(notice),
+                 Lines=Arr(), Marks=Arr([mark(i) for i in range(marks)]))
+
+    def test_ack_frees_the_client_and_the_final_marks_arrive_later_by_ticket(self):
         c = self.build()
+        self.assertTrue(c.HCLootMap(EStr('Bandage')))
+        ticket = self.sent[0].Ticket
+        self.assertTrue(c.m_Pending)
+        self.now = 101.0
+        self.receive(c, self.reply(ticket, marks=0))  # the immediate ack
+        self.assertFalse(c.m_Pending)  # menu and other commands work during the job
+        self.assertEqual(ticket, c.m_LootTicket)
+        self.assertEqual(101.0 + 1344, c.m_LootUntil)
+        self.assertEqual([], list(c.View.Marks) if c.View else [])  # no marks yet
+        # Another admin command can be sent while the job runs.
+        self.now = 110.0
         self.assertTrue(c.HCSend(EStr('status')))
-        self.assertEqual(110.0, c.m_RequestUntil)
-        c.m_Pending = False
-        self.now = 102.0
-        c.m_NextSend = 0.0
-        self.assertTrue(c.HCSend(EStr('lootmap Bandage')))
-        self.now = 100.0 + 600  # 10 minutes with no reply: >60 s since the last reply
+        self.receive(c, self.reply(c.m_Ticket, notice='Status: ok', marks=0))
+        self.assertEqual(ticket, c.m_LootTicket)  # still tracked
+        # Marks arrive long afterwards, matched by m_LootTicket only.
+        self.now = 900.0
+        self.receive(c, self.reply(ticket + 50, snapshot=True, marks=2))
+        self.assertEqual([], list(c.View.Marks) if c.View else [])
+        self.assertTrue(any('late reply ticket=%d' % (ticket + 50) in line for line in self.printed))
+        self.receive(c, self.reply(ticket, snapshot=True, marks=2,
+                                   notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual(['a0', 'a1'], [m.Label for m in c.View.Marks])
+        self.assertEqual(0, c.m_LootTicket)
+        self.assertEqual(900.0 + authored_limits().ViewSeconds, c.m_LootViewUntil)
+        self.receive(c, self.reply(ticket, snapshot=True, marks=3))  # one final reply per job
+        self.assertEqual(2, len(c.View.Marks))
+
+    def test_refused_lootmap_request_is_not_tracked(self):
+        c = self.build()
+        c.HCLootMap(EStr('Bandage'))
+        self.receive(c, self.reply(self.sent[0].Ticket, notice='[HC Admin] cmd=lootmap result=refused reason=lootmap_job_running', marks=0))
+        self.assertEqual(0, c.m_LootTicket)
+        self.assertFalse(c.m_Pending)
+
+    def test_session_stays_valid_through_the_derived_job_window_then_stops_cleanly(self):
+        c = self.build()
+        c.HCLootMap(EStr('Bandage'))
+        self.receive(c, self.reply(self.sent[0].Ticket, marks=0))
+        self.now = 100.0 + 600  # 10 min, no reply: the 60 s rule alone would have ended it
         self.assertTrue(c.HCValid())
-        self.now = 102.0 + 1344 + 1
-        self.assertFalse(c.HCValid())  # derived wait over: ordinary 60 s rule applies
-        c.m_Pending = False
-        self.now = 102.0 + 61
-        self.assertFalse(c.HCValid())
+        c.HCExpireLoot(self.now)
+        self.assertNotEqual(0, c.m_LootTicket)
+        self.now = 101.0 + 1344 + 1  # derived window over, no final reply
+        c.HCExpireLoot(self.now)
+        self.assertEqual(0, c.m_LootTicket)
+        self.assertTrue(any(row[0] == 'lootmap' and not row[1] and 'client-timeout' in row[2] for row in self.logged))
+        self.assertFalse(c.HCValid())  # ordinary 60 s rule applies again
+
+    def test_session_drop_logs_the_dropped_job_and_a_late_final_reply_is_ignored(self):
+        c = self.build()
+        c.HCLootMap(EStr('Bandage'))
+        ticket = self.sent[0].Ticket
+        self.receive(c, self.reply(ticket, marks=0))
+        c.HCStop()
+        self.assertEqual(0, c.m_LootTicket)
+        self.assertTrue(any('lootmap ticket=%d dropped' % ticket in line for line in self.printed))
+        c.m_Listening, c.m_Player = True, self.player  # the admin reopened the session
+        self.receive(c, self.reply(ticket, snapshot=True, marks=2))  # server finished anyway
+        self.assertIsNone(c.View)  # dropped: no crash, no state
+        self.assertTrue(any('late reply ticket=%d' % ticket in line for line in self.printed))
 
     def test_final_reply_replaces_only_the_lootmap_layer(self):
         c = self.build()
@@ -184,43 +255,28 @@ class ClientWiring(unittest.TestCase):
         c.HCMergeLootMap(reply)
         self.assertEqual([('hordes', 'h'), ('lootmap', 'new1'), ('lootmap', 'new2')],
                          [(m.Layer, m.Label) for m in c.View.Marks])
-        self.assertEqual(500.0 + authored_limits().ViewSeconds, c.m_SnapshotUntil)
+        self.assertEqual(500.0 + authored_limits().ViewSeconds, c.m_LootViewUntil)
+        self.assertEqual(0.0, c.m_SnapshotUntil)  # the snapshot view timer is untouched
 
-    def test_receive_accepts_late_final_lootmap_reply_by_ticket_only(self):
-        text = CLIENT.read_text()
-        source = text.replace('HCAdminReply reply;', 'HCAdminReply reply = ctx;').replace('ctx.Read(reply)', 'true')
+    def test_later_snapshot_reply_keeps_the_lootmap_layer_and_expiry_is_per_layer(self):
         c = self.build()
-        limits = authored_limits()
-        merged, logged = [], []
-        game = N(GetTickTime=lambda: self.now, GetPlayer=lambda: self.player, IsServer=lambda: False)
-        env = base_scope(GetGame=lambda: game, HCAdminWire=N(REPLY=2),
-                         HCDebugSnapshot=N(HCPositionValid=lambda pos: True))
-        with patch.object(Path, 'read_text', return_value=source):
-            receive = compile_authored(CLIENT, 'HCAdminClient', 'HCReceive', env,
-                                       ('HCStop', 'HCLogReply', 'HCMergeLootMap'), modded=False,
-                                       native_strings=EStr, fields=('m_Pending', 'm_Expected', 'm_Authorized',
-                                       'm_LastReply', 'm_LootTicket', 'm_SnapshotTicket', 'm_SnapshotUntil',
-                                       'Notice', 'View', 'Revision', 'Changed'))
-        c.HCStop = lambda: logged.append('stop')
-        c.HCLogReply = lambda reply, command: logged.append(command)
-        c.HCMergeLootMap = lambda reply: merged.append(reply.Ticket)
-        c.m_Listening = True
-        c.m_Pending = False  # the client already timed out the request
-        c.m_Expected = 0
-        c.m_LootTicket = 9
-
-        def reply(ticket, snapshot=True):
-            return N(Ticket=ticket, Authorized=True, Snapshot=snapshot, Notice=EStr('ok'),
-                     Lines=Arr(), Marks=Arr([N(Layer=EStr('lootmap'), Position=(1, 0, 1),
-                                               Label=EStr('a'), Detail=EStr('b'))]))
-        receive(c, None, None, 2, reply(8))  # wrong ticket: dropped
-        self.assertEqual([], merged)
-        receive(c, None, None, 2, reply(9))
-        self.assertEqual([9], merged)
-        self.assertIn('lootmap', logged)
-        self.assertEqual(0, c.m_LootTicket)
-        receive(c, None, None, 2, reply(9))  # one reply per request
-        self.assertEqual([9], merged)
+        mark = lambda layer, label: N(Layer=layer, Label=label)
+        c.View = N(Marks=Arr([mark('lootmap', 'loot1'), mark('hordes', 'old')]), Lines=Arr())
+        fresh = N(Marks=Arr([mark('hordes', 'h1'), mark('camps', 'c1')]))
+        c.HCCarryLootMarks(fresh)
+        self.assertEqual(['h1', 'c1', 'loot1'], [m.Label for m in fresh.Marks])
+        # Whole-view receive: the snapshot path calls the carry before replacing the view.
+        self.assertIn('HCCarryLootMarks(reply);', CLIENT.read_text().split('else if (reply.Snapshot)')[1].split('else if (reply.Lines')[0])
+        # Expiry: the 60 s snapshot timer drops only snapshot layers, the 300 s timer only loot.
+        c.View = N(Marks=Arr([mark('lootmap', 'loot1'), mark('hordes', 'h1')]))
+        c.m_SnapshotUntil, c.m_LootViewUntil = 160.0, 400.0
+        c.HCExpireMarks(200.0)
+        self.assertEqual(['loot1'], [m.Label for m in c.View.Marks])
+        self.assertEqual(0.0, c.m_SnapshotUntil)
+        c.HCExpireMarks(399.0)
+        self.assertEqual(['loot1'], [m.Label for m in c.View.Marks])
+        c.HCExpireMarks(400.0)
+        self.assertEqual([], list(c.View.Marks))
 
 
 if __name__ == '__main__':

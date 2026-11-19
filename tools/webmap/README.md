@@ -32,16 +32,23 @@ are allowed, with one optional trailing `*`; the input limit is 96 characters
 including `*`. The server rechecks sender authority before work and delivery.
 The server text registration is in `HCAdminModule`; the client sends it through
 `HCAdminClient.HCLootMap(filter)` (same bounded filter check, same 104-character
-wire limit) and waits `HCAdminLootMap.HCClientWaitSeconds()` for the single final
-reply instead of 10 s (derived from the job tick cap plus `ReplyGraceSeconds`;
-the admin session stays valid for that wait, and a late final reply is still
-accepted by its ticket). The reply marks replace only the `lootmap` layer of the
-client map view and stay for `ViewSeconds`; the existing Map tab shows them with
-its layer toggle. **A text-entry control in the admin menu that calls
-`HCLootMap` is still missing** (the card catalog is integer-only). No new RPC
-payload field or mission file is needed.
+wire limit). Like `snapshot`, the server answers at once with an ack (`started
+ticket=<n> est_ticks=<n> ... final_reply=by_ticket`) under the ordinary 10 s
+request timeout, so the admin client is free for the whole job: other commands
+and reopening the menu work. A second `lootmap` while one runs is refused with
+`lootmap_job_running`. The final marks reply arrives later and is matched by
+the acked ticket; the client keeps its session and ticket for the derived job
+window (`HCAdminLootMap.HCClientWaitSeconds()`, job tick cap plus
+`ReplyGraceSeconds`) and then logs a client-timeout. If the session ends first
+(`HCStop`), the client logs the dropped ticket and ignores the late final reply
+(the server may still finish and writes its export). The reply marks replace
+only the `lootmap` layer of the client map view and stay for `ViewSeconds`; a
+later snapshot reply keeps that layer and each layer expires on its own timer.
+In the admin menu's Map tab, type the class or prefix into the filter box and
+press Run lootmap (disabled while a request is in flight). No new RPC payload
+field or mission file is needed.
 
-Each request starts one job, with no automatic repeat and one final reply.
+Each request starts one job, with no automatic repeat, one ack and one final reply.
 An accepted request replaces the previous sibling
 `$profile:HollowCountry/debug/lootmap.json` with `pending`, then writes the same
 final observations used for the admin reply. The viewer reads this sibling

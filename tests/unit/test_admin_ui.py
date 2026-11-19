@@ -238,7 +238,7 @@ class CardBehavior(unittest.TestCase):
         owner = NS(m_Client=client,m_Tabs=EArray(),m_Cards=EArray([card]),m_Checks=SyntheticWidget('checks'),
                    HCApplyBusy=lambda:None)
         click = compile_authored(MENU,'HCAdminMenu','OnClick',base_scope(),
-                                 ('HCSelect','HCRenderMap','HCApplyBusy','Close'),modded=False)
+                                 ('HCSelect','HCRenderMap','HCApplyBusy','Close','HCRunLootMap'),modded=False)
         return owner,click
 
     def test_every_run_button_dispatches_its_catalog_id_and_value(self):
@@ -271,15 +271,48 @@ class CardBehavior(unittest.TestCase):
     def test_busy_disables_all_action_and_value_controls(self):
         card = self.make_card(entries()[0])
         owner = NS(m_Client=NS(HCBusy=lambda:True,HCState=lambda:'admin | waiting for server'),
-                   m_State=SyntheticWidget(),m_Checks=SyntheticWidget(),m_Cards=EArray([card]))
+                   m_State=SyntheticWidget(),m_Checks=SyntheticWidget(),m_Cards=EArray([card]),
+                   m_LootRun=SyntheticWidget(),m_LootFilter=SyntheticWidget())
         apply = compile_authored(MENU,'HCAdminMenu','HCApplyBusy',base_scope(),modded=False)
         apply(owner)
-        for widget in (card.Run,card.Minus,card.Plus,card.Edit,owner.m_Checks):
+        for widget in (card.Run,card.Minus,card.Plus,card.Edit,owner.m_Checks,owner.m_LootRun,owner.m_LootFilter):
             self.assertFalse(widget.enabled)
         owner.m_Client.HCBusy = lambda:False
         apply(owner)
-        for widget in (card.Run,card.Minus,card.Plus,card.Edit,owner.m_Checks):
+        for widget in (card.Run,card.Minus,card.Plus,card.Edit,owner.m_Checks,owner.m_LootRun,owner.m_LootFilter):
             self.assertTrue(widget.enabled)
+
+    def test_map_tab_lootmap_run_sends_the_typed_filter_and_is_gated_on_busy(self):
+        card = self.make_card(entries()[0])
+        owner,click = self.fixture(card)
+        asked = []
+        owner.m_Client.HCLootMap = lambda text: asked.append(str(text)) or True
+        owner.m_LootFilter = SyntheticWidget('HCAdminLootFilter', 'Bandage*')
+        owner.m_LootRun = SyntheticWidget('HCAdminLootRun')
+        run = compile_authored(MENU,'HCAdminMenu','HCRunLootMap',base_scope(),('HCApplyBusy',),modded=False)
+        owner.HCRunLootMap = lambda: run(owner)
+        self.assertTrue(click(owner,owner.m_LootRun,0,0,0))
+        self.assertEqual(['Bandage*'],asked)
+        self.assertEqual([],self.sent)  # not a catalog card: no integer command dispatched
+        owner.m_Client.HCBusy = lambda:True
+        self.assertTrue(click(owner,owner.m_LootRun,0,0,0))
+        self.assertEqual(['Bandage*'],asked)  # busy: nothing sent
+        owner.HCRunLootMap()
+        self.assertEqual(['Bandage*'],asked)  # the helper is gated as well
+
+    def test_map_panel_layout_holds_one_edit_box_and_a_run_button_with_vanilla_widget_types(self):
+        text = (LAYOUTS / 'hc_admin.layout').read_text()
+        panel = text.split('FrameWidgetClass HCAdminMapPanel')[1]
+        self.assertRegex(panel, r'EditBoxWidgetClass HCAdminLootFilter \{')
+        self.assertRegex(panel, r'ButtonWidgetClass HCAdminLootRun \{')
+        self.assertEqual(1, text.count('EditBoxWidgetClass'))
+        menu = MENU.read_text()
+        for name in ('HCAdminLootFilter', 'HCAdminLootRun'):
+            self.assertIn('FindAnyWidget("%s")' % name, menu)
+        # Vanilla natives (1_Core/proto/EnWidgets.c:347-350 EditBoxWidget.GetText/SetText,
+        # :126 Widget.Enable) are the only widget calls the lootmap controls use.
+        self.assertIn('m_LootFilter.GetText()', menu)
+        self.assertIn('m_LootFilter.Enable(!busy)', menu)
 
     def test_selecting_current_tab_does_not_rebuild_or_reset_values(self):
         select = compile_authored(MENU,'HCAdminMenu','HCSelect',base_scope(),
