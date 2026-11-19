@@ -312,30 +312,35 @@ class HCSceneChainStore
     protected string m_PendText;
     protected int m_PendRevision;
 
-    bool Fault()
+    bool Fault(string reason = "save")
     {
         m_Fault = true;
-        Print("[HollowCountry] V2 scenes persistence refused; preserve scene-chains.json/.tmp/.bak for recovery");
+        Print("[HollowCountry] V2 scenes persistence refused; preserve scene-chains.json/.tmp/.bak for recovery reason=" + reason);
         return false;
     }
 
     HCSceneChainState Open(int now)
     {
-        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { Fault(); return null; }
-        if (FileExist(m_Path + ".tmp")) { Fault(); return null; }
-        HCSceneChainState state;
+        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { Fault("directory"); return null; }
+        if (FileExist(m_Path + ".tmp")) { Fault("tmp"); return null; }
+        // Construct additive defaults explicitly before LoadData's out-parameter
+        // seam. Pre-HC-19 images have no Stories key; never infer legacy by
+        // accepting partially populated progress or resetting a loaded history.
+        HCSceneChainState state = new HCSceneChainState;
         if (FileExist(m_Path))
         {
             string error;
-            if (!HCGroupIO.Read(m_Path, 65536, m_Image) || !JsonFileLoader<HCSceneChainState>.LoadData(m_Image, state, error)) { Fault(); return null; }
-            if (!HCSceneChains.StateValid(state) || now < state.LastNow) { Fault(); return null; }
+            if (!HCGroupIO.Read(m_Path, 65536, m_Image) || !JsonFileLoader<HCSceneChainState>.LoadData(m_Image, state, error)) { Fault("read"); return null; }
+            if (!HCSceneChains.StateValid(state)) { Fault("state_invalid"); return null; }
+            if (now < state.LastNow) { Fault("clock"); return null; }
             m_Revision = state.Revision;
             return state;
         }
         // A missing current image with a surviving backup is not a new world.
-        if (FileExist(m_Path + ".bak")) { Fault(); return null; }
+        if (FileExist(m_Path + ".bak")) { Fault("backup_only"); return null; }
         state = HCSceneChains.Fresh(HCSceneChains.LoadCatalog(), now);
-        if (!state || !Save(state)) { return null; }
+        if (!state) { Fault("fresh"); return null; }
+        if (!Save(state)) { return null; }
         return state;
     }
 
