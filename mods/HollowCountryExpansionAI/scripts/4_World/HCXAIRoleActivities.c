@@ -281,7 +281,8 @@ class HCXAIRoleJson
 
 // Short process-local scheduling lease, never a party or cargo identity. Native
 // expiry releases only our HALT behaviour; it never writes positions or targets.
-// Expansion Classes/eAIGroup.c:251 SetWaypointBehaviour, :304 GetWaypointBehaviour;
+// Expansion Classes/eAIGroup.c:222 GetWaypoints, :251 SetWaypointBehaviour,
+// :304 GetWaypointBehaviour;
 // 3_Game/DayZExpansion_AI/Enums/AIenums.c:1-6 HALT/LOOP/ALTERNATE/ONCE.
 class HCXAIRoleLease
 {
@@ -445,6 +446,12 @@ class HCXAIRoleActivities : HCModule
             // Reuse the native waypoint controller and its combat response.
             // HALT is a temporary behavior lease; endpoints stay unchanged.
             if (state.PatrolPoints.Count() < 1) { return "PATROL_ROUTE_ABSENT"; }
+            if (activity == "patrol")
+            {
+                if (group.GetWaypointBehaviour() == eAIWaypointBehavior.HALT) { return "PATROL_HALTED"; }
+                array<vector> route = group.GetWaypoints();
+                if (!route || route.Count() < 1) { return "PATROL_ROUTE_ABSENT"; }
+            }
             if (activity == "hold") { group.SetWaypointBehaviour(eAIWaypointBehavior.HALT); }
             return "";
         }
