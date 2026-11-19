@@ -10,6 +10,10 @@
 class HCCampRecord : HCWorldCamp
 {
     vector Position;
+    // #212: empty is the legacy hearth provenance. Claim anchors live ONLY
+    // inside Claims[].Anchor, never Camps[]; no hearth/respawn is fabricated.
+    string AnchorKind;
+    string ClaimBuildingId;
     string FireClass;
     int LastScan;
     int LastMailbox;
@@ -34,12 +38,14 @@ class HCBuildingClaimRecord
     vector Position;
     int ClaimedUtc;
     int LastVisitUtc;
-    int AbsentSeconds; // Missing legacy JSON field is 0; schema remains 1.
+    int AbsentSeconds; // Missing legacy JSON field is 0.
+    int EncounterVersion; // 0 legacy/new claim, 2 durable encounter anchor.
+    ref HCCampRecord Anchor; // LastVisit/LastProbe independent of LastVisitUtc.
 }
 
 class HCCampData
 {
-    int Version = 1;
+    int Version = 2;
     int ClaimsVersion = 1; // old fire camps get EMPTY claims; never infer buildings
     ref array<ref HCBuildingClaimRecord> Claims = new array<ref HCBuildingClaimRecord>();
     string WorldName;
@@ -52,6 +58,48 @@ class HCCampStore
 {
     static const string PATH = "$profile:HollowCountry/camps.json";
     static const int BYTES = 1048576;
+
+    // #212 schema 1 -> 2: retain hearth rows and member presence verbatim.
+    // JsonFileLoader zero-fills the new version/ref; only a version-zero row
+    // with no anchor may initialise cooldowns. Unknown versions fail closed.
+    // Also initialises a freshly authored claim before its first barrier save.
+    static bool HCPrepareClaimTargets(HCCampData data)
+    {
+        if (!data || (data.Version != 1 && data.Version != 2) || !data.Claims || data.Claims.Count() > HCAILimits.Get().MaxCamps) { return false; }
+        array<ref HCBuildingClaimRecord> claims = data.Claims;
+        for (int claimIndex = 0; claimIndex < claims.Count(); claimIndex++)
+        {
+            HCBuildingClaimRecord row = claims[claimIndex];
+            if (!row) { return false; }
+            if (row.EncounterVersion == 0)
+            {
+                if (row.Anchor) { return false; }
+                row.Anchor = new HCCampRecord;
+                row.Anchor.Id = "claim-" + row.GroupId.ToString();
+                row.Anchor.GroupId = row.GroupId.ToString();
+                row.Anchor.Position = row.Position;
+                row.Anchor.AnchorKind = "claim";
+                row.Anchor.ClaimBuildingId = row.BuildingId;
+                // Scheduling capability only; never inserted in hearth Camps.
+                row.Anchor.Tier = 3;
+                row.EncounterVersion = 2;
+            }
+            if (row.EncounterVersion != 2 || !row.Anchor) { return false; }
+        }
+        data.Version = 2;
+        return true;
+    }
+
+    static bool HCClaimTargetValid(HCBuildingClaimRecord row, int now)
+    {
+        if (!row || row.EncounterVersion != 2 || !row.Anchor) { return false; }
+        HCCampRecord target = row.Anchor;
+        if (target.AnchorKind != "claim" || target.ClaimBuildingId != row.BuildingId || target.GroupId != row.GroupId.ToString() || target.Id != "claim-" + row.GroupId.ToString()) { return false; }
+        if (vector.DistanceSq(target.Position, row.Position) != 0 || target.Tier != 3) { return false; }
+        if (target.FireClass != "" || target.FireRef != "" || target.LastLit != 0) { return false; }
+        if (target.LastVisit < 0 || target.LastVisit > now || target.LastProbe < 0 || target.LastProbe > now) { return false; }
+        return true;
+    }
 
     // Duplicate group/building rows are contested migration, never first-wins.
     static bool HCClaimsValid(HCCampData data, int now, int expiryDays = 365)
@@ -76,14 +124,20 @@ class HCCampStore
 
     static bool Valid(HCCampData data, int now)
     {
-        if (!data || data.Version != 1 || data.WorldName != GetGame().GetWorldName() || data.SavedUtc < 1 || data.SavedUtc > now) { return false; }
+        if (!data || (data.Version != 1 && data.Version != 2) || data.WorldName != GetGame().GetWorldName() || data.SavedUtc < 1 || data.SavedUtc > now) { return false; }
+        if (!HCPrepareClaimTargets(data)) { Print("[HC Plan] claim_targets=refused reason=CLAIM_ANCHOR_SCHEMA runtime=PENDING"); return false; }
+        array<ref HCBuildingClaimRecord> claimTargets = data.Claims;
+        foreach (HCBuildingClaimRecord claimTarget : claimTargets)
+        {
+            if (!HCClaimTargetValid(claimTarget, now)) { Print("[HC Plan] claim_targets=refused reason=CLAIM_ANCHOR_INVALID runtime=PENDING"); return false; }
+        }
         if (!HCClaimsValid(data, now)) { Print("[HC Plan] HC-17 state=refused reason=claims_schema_or_contested_migration runtime=PENDING"); return false; }
         if (!data.Camps || data.Camps.Count() > HCAILimits.Get().MaxCamps || !data.TheftRows || data.TheftRows.Count() > 1024) { Print("[HC AI] camps state invalid or exceeds AILimits.MaxCamps; load refused"); return false; }
         array<string> groups = new array<string>();
         array<string> ids = new array<string>();
         foreach (HCCampRecord camp : data.Camps)
         {
-            if (!camp || !HCWorldLimits.Token(camp.Id) || !HCWorldLimits.Token(camp.GroupId) || !HCWorldLimits.Token(camp.FireRef) || !HCWorldLimits.Token(camp.FireClass) || camp.Tier < 0 || camp.Tier > 3) { return false; }
+            if (!camp || camp.AnchorKind != "" || camp.ClaimBuildingId != "" || !HCWorldLimits.Token(camp.Id) || !HCWorldLimits.Token(camp.GroupId) || !HCWorldLimits.Token(camp.FireRef) || !HCWorldLimits.Token(camp.FireClass) || camp.Tier < 0 || camp.Tier > 3) { return false; }
             if (!HCGroupRules.PositionValid(camp.Position) || groups.Find(camp.GroupId) >= 0 || ids.Find(camp.Id) >= 0) { return false; }
             if (!HCWorldLimits.Strings(camp.Members, HCAILimits.Get().MaxCampItems) || !HCWorldLimits.Strings(camp.Answered, 32) || camp.Flag.Length() > 96 || camp.Signal.Length() > 32) { return false; }
             if (camp.VisitorRefusal != "" && camp.VisitorRefusal != "VISITOR_BODY_NOT_OBSERVED") { return false; }

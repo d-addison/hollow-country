@@ -32,6 +32,9 @@ class HCCampModule : HCModule
     protected int m_CampCursor;
     protected int m_LastUtc;
     protected int m_LastSaved;
+    protected ref HCCampScan m_ClaimSelectionScan;
+    protected HCCampRecord m_ClaimSelectionTarget;
+    protected int m_ClaimSelectionUtc;
 
     override string GetName() { return "Camps"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableCamps; }
@@ -250,6 +253,120 @@ class HCCampModule : HCModule
         HCCampTheft.Step(this, camp, scan, now);
     }
 
+    // #212: one bounded index space for the normal cursor and admin selector.
+    // Claims keep their own DTO reference, so provider cooldown writes enter
+    // the SAME camp-store barrier. They never appear in hearth/respawn lists.
+    int HCEncounterCount()
+    {
+        if (!m_Data || !m_Data.Camps || !m_Data.Claims) { return 0; }
+        int cap = HCAILimits.Get().MaxCamps;
+        if (m_Data.Camps.Count() > cap || m_Data.Claims.Count() > cap) { return 0; }
+        if (!HCBuildingClaim.HCGet()) { return m_Data.Camps.Count(); }
+        return m_Data.Camps.Count() + m_Data.Claims.Count();
+    }
+
+    HCCampRecord HCEncounterTarget(int index, int now)
+    {
+        if (index < 0 || index >= HCEncounterCount()) { return null; }
+        if (index < m_Data.Camps.Count()) { return m_Data.Camps[index]; }
+        HCBuildingClaimRecord row = m_Data.Claims[index - m_Data.Camps.Count()];
+        if (!row || !HCCampStore.HCClaimTargetValid(row, now)) { return null; }
+        HCGroupService groups = HCGroupService.Get();
+        if (!groups || groups.HCClaimGroupState(row.GroupId) != 1) { return null; }
+        if (now < row.ClaimedUtc) { return null; }
+        int heldDays = (now - row.ClaimedUtc) / 86400;
+        if (!HCCampProbes.Eligible(3, heldDays, now, 0, false)) { return null; }
+        return row.Anchor;
+    }
+
+    protected HCBuildingClaimRecord HCClaimForTarget(HCCampRecord target)
+    {
+        if (!HCBuildingClaim.HCGet() || !m_Data || !m_Data.Claims) { return null; }
+        array<ref HCBuildingClaimRecord> claims = m_Data.Claims;
+        foreach (HCBuildingClaimRecord row : claims)
+        {
+            if (row.Anchor == target) { return row; }
+        }
+        return null;
+    }
+
+    // Native scripts-1.30.164289: Game.c:930 GetObjectsAtPosition3D;
+    // Object.c:215/1219 IsPendingDeletion/IsRuined; EntityAI.c:1884
+    // GetInventory; Systems/Inventory/Inventory.c:138 GetCargo;
+    // Systems/Inventory/Cargo.c:28 GetItemCount. StorageItem/Read retain their
+    // existing native evidence in HCCampScan.c. No inventory is moved or owned.
+    // The existing raid source range/object cap bound physical storage evidence.
+    // Admin selection is synchronous: reserve its bounded worst case once,
+    // rather than starving later/nearer candidates after the first scan. Normal
+    // ticks still inspect just one target. 128 is HCCampScan.Read's existing
+    // cap (also StepCamp/admin work); the second scan uses config.MaxObjects.
+    // Charging both prevents a lowered cargo cap undercounting the first scan.
+    protected bool HCReserveClaimSelection(int count, out string reason)
+    {
+        reason = "CLAIM_SCAN_CONFIG_UNAVAILABLE";
+        if (!HCBaseRaid.HCEnabled()) { return false; }
+        HCBaseRaidConfig config = HCBaseRaid.HCConfig();
+        if (!config) { return false; }
+        reason = "CLAIM_SELECTION_WORK_BUDGET";
+        int cost = count * (128 + config.MaxObjects + config.MaxPlayers);
+        return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, cost);
+    }
+
+    protected HCCampScan HCReadClaimScan(HCCampRecord target, out string reason, bool budgeted = false)
+    {
+        reason = "CLAIM_SCAN_CONFIG_UNAVAILABLE";
+        if (!HCBaseRaid.HCEnabled()) { return null; }
+        HCBaseRaidConfig config = HCBaseRaid.HCConfig();
+        if (!config) { return null; }
+        reason = "CLAIM_SCAN_WORK_BUDGET";
+        if (!budgeted && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + config.MaxObjects + config.MaxPlayers)) { return null; }
+        HCCampScan scan = HCCampScan.Read(target.Position, false);
+        reason = "CLAIM_SCAN_UNAVAILABLE";
+        if (!scan) { return null; }
+        array<Object> objects = new array<Object>;
+        array<CargoBase> cargos = new array<CargoBase>;
+        GetGame().GetObjectsAtPosition3D(target.Position, config.SourceRangeMeters, objects, cargos);
+        reason = "CLAIM_STORAGE_SCAN_CAP";
+        if (objects.Count() > config.MaxObjects || cargos.Count() > config.MaxObjects) { return null; }
+        // A container alone is insufficient: require real stored cargo. The
+        // radius is an anchor-local policy, not a claim of building containment.
+        scan.Storage = false;
+        for (int objectIndex = 0; objectIndex < objects.Count(); objectIndex++)
+        {
+            ItemBase storage = ItemBase.Cast(objects[objectIndex]);
+            if (!storage || storage.IsPendingDeletion() || storage.IsRuined() || !HCCampScan.StorageItem(storage)) { continue; }
+            CargoBase cargo = storage.GetInventory().GetCargo();
+            if (cargo && cargo.GetItemCount() > 0) { scan.Storage = true; break; }
+        }
+        reason = "";
+        return scan;
+    }
+
+    protected bool HCRequestClaimArrival(HCCampRecord target, HCCampScan scan, int now, bool raid, out string reason)
+    {
+        reason = "CLAIM_ANCHOR_UNAVAILABLE";
+        HCBuildingClaimRecord row = HCClaimForTarget(target);
+        if (!row || !HCCampStore.HCClaimTargetValid(row, now)) { return false; }
+        HCGroupService groups = HCGroupService.Get();
+        reason = "CLAIM_GROUP_UNAVAILABLE";
+        if (!groups || groups.HCClaimGroupState(row.GroupId) != 1) { return false; }
+        reason = HCCampProbes.HCClaimEligibility(row, now, scan.Storage, scan.Hidden(false), raid);
+        if (reason != "") { HCCampProbes.HCRefuse(reason); return false; }
+        if (raid) { return HCCampProbes.HCRequestRaidParty(this, target, scan, false, now, reason); }
+        return HCCampProbes.HCRequestVisitorParty(this, target, scan, false, now, reason);
+    }
+
+    protected void HCStepClaim(HCCampRecord target, int now)
+    {
+        if (!HCCampProbes.HCEnabled()) { return; }
+        string reason;
+        HCCampScan scan = HCReadClaimScan(target, reason, false);
+        if (!scan) { HCCampProbes.HCRefuse(reason); return; }
+        HCRequestClaimArrival(target, scan, now, false, reason);
+        if (!m_Running) { return; }
+        HCRequestClaimArrival(target, scan, now, true, reason);
+    }
+
     // #203: select is bounded by the admin owner; native scans and dispatch
     // consume the SAME shared budget as normal physical camp work.
     bool HCAdminRequestArrival(HCCampRecord camp, bool raid, out string reason)
@@ -260,11 +377,21 @@ class HCCampModule : HCModule
         reason = "camp-clock-unavailable";
         if (now < 1 || now < m_LastUtc) { return false; }
         reason = "camp-admin-shared-work-budget";
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + 32)) { return false; }
+        if (camp.AnchorKind != "claim" && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + 32)) { return false; }
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
         reason = "camp-player-cap-exceeded";
         if (m_Players.Count() > 32) { m_Players.Clear(); return false; }
+        if (camp.AnchorKind == "claim")
+        {
+            HCCampScan claimScan;
+            if (m_ClaimSelectionTarget == camp && m_ClaimSelectionUtc == now) { claimScan = m_ClaimSelectionScan; }
+            m_ClaimSelectionScan = null;
+            m_ClaimSelectionTarget = null;
+            if (!claimScan) { claimScan = HCReadClaimScan(camp, reason, false); }
+            if (!claimScan) { HCCampProbes.HCRefuse(reason); return false; }
+            return HCRequestClaimArrival(camp, claimScan, now, raid, reason);
+        }
         FireplaceBase fire = FireFor(camp);
         bool burning = fire && fire.IsBurning();
         HCCampScan scan = HCCampScan.Read(camp.Position, burning);
@@ -272,6 +399,22 @@ class HCCampModule : HCModule
         if (!scan) { return false; }
         if (raid) { return HCCampProbes.HCRequestRaidParty(this, camp, scan, burning, now, reason); }
         return HCCampProbes.HCRequestVisitorParty(this, camp, scan, burning, now, reason);
+    }
+
+    protected void HCStepEncounter(int now)
+    {
+        int targetCount = HCEncounterCount();
+        if (targetCount > 0)
+        {
+            if (m_CampCursor >= targetCount) { m_CampCursor = 0; }
+            HCCampRecord target = HCEncounterTarget(m_CampCursor, now);
+            if (target)
+            {
+                if (target.AnchorKind == "claim") { HCStepClaim(target, now); }
+                else { StepCamp(target, now); }
+            }
+            m_CampCursor++;
+        }
     }
 
     override void OnTick(float deltaTime)
@@ -296,12 +439,7 @@ class HCCampModule : HCModule
             m_FireCursor++;
         }
         if (!m_Running) { return; }
-        if (m_Data.Camps.Count() > 0)
-        {
-            if (m_CampCursor >= m_Data.Camps.Count()) { m_CampCursor = 0; }
-            StepCamp(m_Data.Camps[m_CampCursor], now);
-            m_CampCursor++;
-        }
+        HCStepEncounter(now);
         if (m_Running && now - m_LastSaved >= 600) { Commit(now); }
     }
 

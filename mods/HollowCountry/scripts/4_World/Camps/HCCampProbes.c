@@ -101,6 +101,27 @@ class HCCampProbes
         return true;
     }
 
+    // #212: a group must hold its claim for the tier-3 day threshold (14
+    // elapsed real days), AND the existing world day gate still applies in
+    // HCRequest*Party. Stored native cargo is required; no tier/hearth gain.
+    // Reuse Eligible so the threshold/cooldown policy has one authority.
+    static string HCClaimEligibility(HCBuildingClaimRecord row, int now, bool stored, bool hidden, bool raid)
+    {
+        if (!row || !row.Anchor || now < row.ClaimedUtc || now < 1) { return "CLAIM_CLOCK_OR_ANCHOR_INVALID"; }
+        int heldDays = (now - row.ClaimedUtc) / 86400;
+        if (!HCCampProbes.Eligible(3, heldDays, now, 0, false)) { return "CLAIM_HOLD_DAYS"; }
+        if (!stored) { return "CLAIM_NO_STORED_ITEMS"; }
+        if (hidden) { return "CLAIM_HIDDEN"; }
+        int last = row.Anchor.LastVisit;
+        if (raid) { last = row.Anchor.LastProbe; }
+        if (!HCCampProbes.Eligible(3, heldDays, now, last, false))
+        {
+            if (raid) { return "CLAIM_PROBE_COOLDOWN"; }
+            return "CLAIM_VISIT_COOLDOWN";
+        }
+        return "";
+    }
+
     static bool Eligible(int tier, int day, int now, int last, bool hidden)
     {
         if (tier != 3 || day < 14 || hidden || now < 1 || now < last) { return false; }

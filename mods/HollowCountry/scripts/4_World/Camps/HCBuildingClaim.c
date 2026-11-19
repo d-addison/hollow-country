@@ -126,6 +126,7 @@ class HCBuildingClaim
         service.m_Save = new HCBuildingClaimSave;
         service.m_Save.Owner = service;
         service.m_Healthy = true;
+        Print("[HC ClaimTargets] admitted schema=2 provenance=claim cooldowns=independent runtime=PENDING");
         HCSaveScheduler.HCRegister(service.m_Save);
         HCModuleReadiness.HCDerive(service.m_Status, service.m_Healthy, "", "", "claim_journal_loaded_native_acceptance_pending");
         Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false) + " runtime=PENDING");
