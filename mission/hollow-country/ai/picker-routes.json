@@ -9,6 +9,16 @@
   "MaxWaypoints": 8,
   "MaxScannedObjects": 128,
   "MaxCargoScan": 16,
+  "CacheClass": "WoodenCrate",
+  "CacheCooldownSeconds": 604800,
+  "CacheMaxItems": 16,
+  "CacheMaxLootRows": 8,
+  "CacheLoot": [
+    {"ClassName": "TunaCan", "Quantity": 2},
+    {"ClassName": "Rag", "Quantity": 2},
+    {"ClassName": "WaterBottle", "Quantity": 1},
+    {"ClassName": "Mag_IJ70_8Rnd", "Quantity": 1}
+  ],
   "Routes": [
     {
       "RouteId": "route:scav-chernogorsk", "SiteId": "scav-chernogorsk", "LocalityId": "chernogorsk",

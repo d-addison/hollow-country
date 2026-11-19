@@ -16,25 +16,43 @@ HOOK = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerLifecycl
 
 
 class PickerStarts(unittest.TestCase):
-    def fixture(self):
+    def fixture(self, inventory=None):
         effects = []
         seeded = seeded_fixture()
         proposal = proposal_fixture(seeded)
         identity = proposal.Identity
-        route = seeded.survey.HCFind(identity.HCRouteId())
-        actor = N(GetPosition=route.HCHomePoint)
+        route = inventory.route if inventory is not None else seeded.survey.HCFind(identity.HCRouteId())
+        actor = N(Name="actor:synthetic",GetPosition=route.HCHomePoint)
         defaults = N(MaxConcurrentTrips=1, PartyCooldownSeconds=900)
         state = N(Phase='idle', PartyId='', LeaseId='', RouteId='', NextTripAt=0, Refusal='')
-        port = N(Defaults=defaults, Actor=None, HCWalkRefusal=lambda: '', HCClear=lambda: effects.append('clear'))
+        from tests.unit.test_hc_picker_caches import inventory_fixture
+        inventory = inventory or inventory_fixture(route)
+        port = inventory.port
+        port.Defaults = defaults
+        # Explicit native inventory ports; production begin/bind bodies below.
+        # Lifecycle tests seed the world with the actual cache hook as well.
+        if len(inventory.world) == 0:
+            from tests.unit.test_hc_picker_caches import PickerCaches
+            seeded_cache = PickerCaches().fixture()
+            seeded_cache.step()
+            inventory.world.extend(seeded_cache.world)
+        clear = port.HCClear
+        port.HCClear = lambda: (clear(), effects.append('clear'))[-1]
         trip = N(m_State=state, m_IO=port, m_Ready=True, m_Busy=False,
                  HCCheckpoint=lambda: effects.append('checkpoint') is None)
         module = N(m_Trip=trip, m_Survey=N(HCFind=lambda key: route if key == route.RouteId else None,
-                                         ArrivalRangeMeters=2.5))
-        def begin(i, lease, body):
-            effects.append(('begin', i, lease, body))
+                                         ArrivalRangeMeters=2.5,MaxScannedObjects=128,MaxCargoScan=16),
+                   m_Units=N(HCReset=lambda cap:None,HCTake=lambda cost:True),
+                   HCPublishReadiness=lambda:None)
+        def leave(i, lease, source, body, home, item):
+            effects.append(('begin', i, lease, port.Actor))
             state.Phase, state.PartyId, state.LeaseId = 'leaving', i.HCPartyId(), lease
-            return ''
-        module.HCBeginSurveyed = begin
+            return True
+        trip.HCLeave = leave # journal collaborator; real begin AND inventory bind
+        run_begin = method('HCPickers','HCBeginSurveyed',members=('HCPublishReadiness',),
+            HCAIPartyIdentity=N(HCValid=lambda i:i is not None),
+            HCSearchSupplyRegistry=inventory.registry)
+        module.HCBeginSurveyed=lambda *a:run_begin(module,*a)
         budget = [True]
         scope = dict(GetGame=lambda: N(IsServer=lambda: True), HCAIPartyIdentity=N(HCValid=lambda i: i is not None),
                      HCServer=N(HCTickWork=lambda: N(HCTake=lambda cost: budget[0])),
@@ -48,7 +66,7 @@ class PickerStarts(unittest.TestCase):
         f = self.fixture()
         self.assertEqual('', f.module.HCTryParty(f.identity, 'lease:synthetic', f.actor, 1000, 0))
         self.assertEqual('PICKER_TRIP_ACTIVE', f.module.HCTryParty(f.identity, 'lease:synthetic', f.actor, 1001, 0))
-        self.assertEqual([('begin',f.identity,'lease:synthetic',f.actor)], f.effects)
+        self.assertEqual([('begin',f.identity,'lease:synthetic',f.actor)], [e for e in f.effects if isinstance(e,tuple)])
 
     def test_cooldown_cap_budget_and_real_home_position_precede_begin(self):
         for reason, mutate, now, eligible in (
@@ -116,7 +134,7 @@ class PickerLifecycle(unittest.TestCase):
         f=self.fixture()
         f.step=f.f.step
         f.step(); f.step()
-        self.assertEqual([('begin',f.f.identity,'lease:synthetic',f.f.actor)],f.f.effects)
+        self.assertEqual([('begin',f.f.identity,'lease:synthetic',f.f.actor)], [e for e in f.f.effects if isinstance(e,tuple)])
 
     def test_missing_group_or_unsurveyed_route_refuses_once_by_name(self):
         for reason in ('PICKER_ACTOR_GROUP_MISSING','PICKER_ROUTE_UNSURVEYED'):
@@ -202,7 +220,7 @@ class PickerLifecycle(unittest.TestCase):
         f.f.step(1801)
         self.assertEqual([],f.f.effects)
         f.f.step(1900)
-        self.assertEqual(1,len(f.f.effects))
+        self.assertEqual(1,len([e for e in f.f.effects if isinstance(e,tuple)]))
 
     def test_despawn_mid_trip_uses_loss_journal_without_item_copy_or_move(self):
         f=self.fixture()
