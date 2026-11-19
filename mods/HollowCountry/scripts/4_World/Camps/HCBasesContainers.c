@@ -3,7 +3,11 @@
 // Native evidence scripts-1.30.164289:
 // 3_Game/Entities/EntityAI.c:905/946 EEInit/EEDelete;
 // Entities/Object.c:215/287/467/511/1219 deletion/position/type/kind/ruin;
-// Global/Game.c:1120 IsServer; gameplay.c:636 GetGame;
+// Global/Game.c:1120 IsServer, :1437 IsKindOf (config inheritance);
+// gameplay.c:636 GetGame; hearth promotion uses the inspected HCCampModule APIs.
+// Hearth native evidence: 4_World/Entities/ItemBase/FireplaceBase.c:1639
+// IsBurning; 3_Game/Entities/EntityAI.c:885 GetHierarchyParent;
+// Entities/Object.c:517 IsAlive; Entities/Man.c:21 GetIdentity.
 // 1_Core/proto/EnScript.c:380/394/407/470 Count/Find/Insert/RemoveOrdered;
 // EnConvert.c:210 DistanceSq; EnSystem.c:397 FileExist; EnDebug.c:96 Print.
 // ActionConstants.c:111-114 UAMaxDistances.DEFAULT (under Actions/).
@@ -27,7 +31,9 @@ class HCBasesContainers
         // admission rechecks state, parent, ruin and native persistent identity.
         if (!item.IsKindOf("TentBase") && !item.IsKindOf("WoodenCrate") && !item.IsKindOf("SeaChest") && !item.IsKindOf("Barrel_ColorBase")) { return; }
         if (s_Items.Find(item) >= 0) { return; }
-        if (s_Items.Count() >= HCAILimits.Get().MaxCampItems) { HCRefuse("CONTAINER_CANDIDATE_CAP"); return; }
+        // This is a live native-item registry, not a per-camp member snapshot.
+        // MaxCampItems bounds the latter, not all storage in the world. Retain
+        // overflow for the budgeted one-item cursor; EEDelete releases entries.
         s_Items.Insert(item);
     }
 
@@ -50,6 +56,53 @@ modded class HCCampModule
     protected bool m_HCBasesEnabled;
     protected bool m_HCBasesAdmissionPrinted;
     protected int m_HCBasesCursor;
+
+    override protected void Candidate(FireplaceBase fire, int now)
+    {
+        if (!m_HCBasesEnabled) { super.Candidate(fire, now); return; }
+        if (!fire || fire.IsPendingDeletion() || fire.GetHierarchyParent() || !fire.IsBurning()) { return; }
+        // Match the hearth owner's live nearest-group selection. Only native
+        // storage rows may be promoted; an existing hearth keeps its binding.
+        vector hearthPosition = fire.GetPosition();
+        string hearthGroup;
+        float hearthBest = 145; // Existing Candidate selection threshold.
+        array<Man> hearthPlayers = m_Players;
+        foreach (Man hearthPerson : hearthPlayers)
+        {
+            PlayerBase hearthPlayer = PlayerBase.Cast(hearthPerson);
+            if (!hearthPlayer || !hearthPlayer.IsAlive() || !hearthPlayer.GetIdentity()) { continue; }
+            string hearthPeerGroup = GroupId(hearthPlayer);
+            float hearthDistance = vector.DistanceSq(hearthPlayer.GetPosition(), hearthPosition);
+            if (hearthPeerGroup != "" && hearthDistance < hearthBest) { hearthBest = hearthDistance; hearthGroup = hearthPeerGroup; }
+        }
+        array<ref HCCampRecord> hearthCamps = m_Data.Camps;
+        HCCampRecord hearthStorage;
+        foreach (HCCampRecord hearthCamp : hearthCamps)
+        {
+            // Preserve the base owner's existing-fire match before group admission.
+            if (hearthCamp.FireClass == fire.GetType() && vector.DistanceSq(hearthCamp.Position, hearthPosition) <= 1) { super.Candidate(fire, now); return; }
+            if (hearthGroup == "" || hearthCamp.GroupId != hearthGroup) { continue; }
+            string anchorClass = hearthCamp.FireClass;
+            if (!GetGame().IsKindOf(anchorClass, "TentBase") && !GetGame().IsKindOf(anchorClass, "WoodenCrate") && !GetGame().IsKindOf(anchorClass, "SeaChest") && !GetGame().IsKindOf(anchorClass, "Barrel_ColorBase")) { continue; }
+            hearthStorage = hearthCamp;
+        }
+        if (hearthStorage)
+        {
+            // Promote in place, including legacy persisted storage anchors.
+            // Native inventories and durable camp/probe metadata stay intact.
+            hearthStorage.Position = hearthPosition;
+            hearthStorage.FireClass = fire.GetType();
+            hearthStorage.FireRef = HCCampScan.RefOf(fire);
+            if (hearthStorage.FireRef == "") { hearthStorage.FireRef = hearthStorage.Id + "-hearth"; }
+            hearthStorage.LastLit = now;
+            hearthStorage.LastScan = 0;
+            if (!Commit(now)) { return; }
+            Tell(hearthStorage, "Your group's fire is recognised as a camp. Nearby native structures determine its tier.");
+            Print("[HC Plan] HC-17 containers=promoted_to_hearth camp=" + hearthStorage.Id + " runtime=PENDING");
+            return;
+        }
+        super.Candidate(fire, now);
+    }
 
     override void OnStart(HCSettings settings)
     {
