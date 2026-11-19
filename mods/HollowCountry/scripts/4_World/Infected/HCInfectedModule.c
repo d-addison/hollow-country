@@ -30,6 +30,7 @@ class HCInfectedModule : HCModule
 {
     static HCInfectedModule Instance;
     protected ref HCInfectedConfig m_Config;
+    protected ref HCOperationalStatus m_HCOwnerStatus = new HCOperationalStatus;
     protected ref HCNativeVariantAdmission m_NativeVariants;
     // Closed until OnStart derives requested-AND-qualified capabilities.
     protected ref HCInfectedAdmission m_Admission = new HCInfectedAdmission;
@@ -68,6 +69,19 @@ class HCInfectedModule : HCModule
     override string GetName()
     {
         return "Infected";
+    }
+
+    // Passive cached owner reports only. The variety getter performs no IO,
+    // capability experiment or activation; degraded admission remains visible
+    // to HC-1 while the primary owner is healthy.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        if (m_Healthy)
+        {
+            HCOperationalStatus variety = HCInfectedVarietyModule.HCObservedStatus();
+            if (variety && variety.HCState() == "degraded") { return variety; }
+        }
+        return m_HCOwnerStatus;
     }
 
     override bool IsEnabled(HCSettings settings)
@@ -201,6 +215,13 @@ class HCInfectedModule : HCModule
         m_NativeVariants = HCNativeVariantAdmission.Check(settings.EnableInfectedVariety);
         Print(m_NativeVariants.HCAdmissionLine());
         m_Healthy = true;
+        m_HCOwnerStatus.HCPublish("ready", "infected_owner_running_runtime_pending");
+        // HC-1 can capture this owner before Variety's OnStart. Requested
+        // postures cannot be reported ready while that owner's row is absent.
+        if (settings.EnableInfectedVariety)
+        {
+            m_HCOwnerStatus.HCPublish("degraded", "posture_owner_start_pending");
+        }
         Instance = this;
         // Periodic saves run half an interval after adoption so the two
         // persistence-heavy steps never share a server tick.
@@ -221,6 +242,7 @@ class HCInfectedModule : HCModule
     protected void Quarantine(string reason)
     {
         m_Healthy = false;
+        m_HCOwnerStatus.HCPublish("refused", reason);
         HCInfectedVisionQualification.HCThreatReset(false);
         if (Instance == this)
             Instance = null;
@@ -1077,6 +1099,7 @@ class HCInfectedModule : HCModule
         if (Instance == this)
             Instance = null;
         m_Healthy = false;
+        m_HCOwnerStatus.HCPublish("off", "infected_owner_stopped");
         m_NativeVariants = null;
         m_Voices.Clear();
         m_Actors.Clear();

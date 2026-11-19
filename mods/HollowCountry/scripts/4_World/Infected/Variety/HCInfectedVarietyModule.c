@@ -66,6 +66,14 @@ class HCInfectedVarietyModule : HCModule
         Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; CE crawlers only; fresh dormant spawn/road placement skipped: shared body lease unavailable; runtime acceptance pending");
     }
 
+    // Base-class seam: never call a method introduced only on a later modded
+    // link. HCModule already declares the operational-status virtual hook.
+    static HCOperationalStatus HCObservedStatus()
+    {
+        if (!s_Instance || !s_Instance.m_Running) { return null; }
+        return s_Instance.HCGetOperationalStatus();
+    }
+
     static bool VarietyActive()
     {
         if (!s_Instance || !s_Instance.m_Running || !s_Instance.m_Variety) { return false; }
@@ -248,7 +256,10 @@ modded class HCInfectedModule
             if (!boundedEntity.IsAlive()) { boundedEntity.HCVarietyRelease(); continue; }
             if (boundedEntity.HCVarietyRole() == 2)
             {
-                if (runners >= runnerCap) { boundedEntity.HCVarietyAssign(1, boundedEntity.HCVarietyPlace()); }
+                if (runners >= runnerCap)
+                {
+                    boundedEntity.HCVarietyAssign(1, boundedEntity.HCVarietyPlace());
+                }
                 else { runners++; }
             }
             if (boundedEntity.HCVarietyDormant())
@@ -296,7 +307,7 @@ modded class HCInfectedModule
                 }
                 continue;
             }
-            if (entity.HCVarietyTriedDormant() || !entity.IsCrawling()) { continue; }
+            if (!entity.HCVarietyCanTry(now) || !entity.IsCrawling()) { continue; }
             if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned) { continue; }
             if (entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { continue; }
             // A crawler may have moved since first registration; name the real

@@ -700,7 +700,7 @@ class StartedModule:
         is_valid = translate("HCInfectedState.c", "bool IsValid(", (), fields=tuple(vars(self.config)),
             HCInfectedProfiles=self.profiles)
         self.config.IsValid = lambda: is_valid(self.config)
-        self.ctx = NS(Instance=None, m_FailedCohorts=Array(), m_State=None, m_Healthy=False, m_Dirty=False, m_Admission=admission(),
+        self.ctx = NS(m_HCOwnerStatus=NS(HCPublish=lambda *args: None), Instance=None, m_FailedCohorts=Array(), m_State=None, m_Healthy=False, m_Dirty=False, m_Admission=admission(),
             m_Sweeps=Array(), m_Packs=Array(), m_Actors=Array(), m_Voices=Array(), m_Investigators=Array(),
             m_RegistrationRound=0, m_Cursor=0, m_RecoveryCursor=0, m_AdoptionCursor=0, m_RetargetCursor=0,
             m_Now=0, m_AlertChain=NS(ProcessPending=lambda *a: 0))
