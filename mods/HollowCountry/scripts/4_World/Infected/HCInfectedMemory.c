@@ -32,6 +32,13 @@ class HCInfectedMemoryState
 
 class HCInfectedMemory
 {
+    // Native JSON zero-fills absent coordinate sentinels. Require both keys;
+    // an explicitly stored origin remains valid. Read only at store open.
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Every(text, "X", 3) && HCJsonFields.Every(text, "Z", 3);
+    }
+
     protected static HCInfectedMemory s_Instance;
     protected ref HCInfectedMemoryState m_State;
     protected bool m_Healthy;
@@ -151,7 +158,10 @@ class HCInfectedMemory
         if (nowUtc < 1 || !HCV2ThreatStore<HCInfectedMemoryState>.CanOpen(PATH)) { Fail(); return false; }
         if (FileExist(PATH))
         {
-            if (!HCV2ThreatStore<HCInfectedMemoryState>.Load(PATH, 16384, m_State) || !Valid(nowUtc)) { Fail(); return false; }
+            string image;
+            string error;
+            if (!HCGroupIO.Read(PATH, 16384, image) || !JsonFileLoader<HCInfectedMemoryState>.LoadData(image, m_State, error)) { Fail("read/json"); return false; }
+            if (!HCFieldsPresent(image) || !Valid(nowUtc)) { Fail("missing X/Z or invalid state"); return false; }
         }
         else
         {

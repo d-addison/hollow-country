@@ -13,8 +13,7 @@ SETTINGS=ROOT/'3_Game/Survival/HCStaminaSettings.c'
 class ConfigurationTests(unittest.TestCase):
     def settings(self,**kw):
         x=N(SchemaVersion=1,Enabled=False,ContinuousExertionScale=1.,RecoveryScale=1.)
-        # Synthetic JSON adapter: initialize the DTO's authored float defaults
-        # before overlaying supplied keys. This does not execute DayZ JSON code.
+        # Authored constructor defaults; JSON boundaries below zero scalars.
         match=re.search(r'float WeightPenaltyScale = ([\d.]+);',SETTINGS.read_text())
         if match:x.WeightPenaltyScale=float(match[1])
         vars(x).update(kw)
@@ -70,13 +69,19 @@ class ConfigurationTests(unittest.TestCase):
         def decode(text,profile):
             try:
                 data=json.loads(text)
+                from tests.unit.json_loader_port import zero_scalars
+                vars(profile).update(vars(zero_scalars(profile)))
                 vars(profile).update(data)
-                profile.Settings=self.settings(**data.get('Settings',{}))
+                profile.Settings=zero_scalars(self.settings())
+                vars(profile.Settings).update(data.get('Settings',{}))
+                profile.Settings.Validate=lambda:execute_flat(str(SETTINGS),'Validate','',vars(profile.Settings))()
                 return True
             except (ValueError,TypeError):return False
         def mkdir(path):
             if directory_ok:self.dirs.add(path)
             return directory_ok
+        from tests.unit.json_loader_port import json_fields_port
+        self.e['HCJsonFields'] = json_fields_port()
         self.e.update(FileExist=lambda path:path in self.files or path in self.dirs,
             MakeDirectory=mkdir,SaveProfile=save,Decode=decode,FileMode=N(READ=0),
             OpenFile=lambda path,mode:path if path in self.files else None,
@@ -319,9 +324,15 @@ class ConfigurationTests(unittest.TestCase):
         def decode(text,p):
             try:d=json.loads(text)
             except ValueError:return False
+            from tests.unit.json_loader_port import zero_scalars
+            vars(p).update(vars(zero_scalars(p)))
             vars(p).update(d)
-            p.Settings=self.settings(**d.get('Settings',{}))
+            p.Settings=zero_scalars(self.settings())
+            vars(p.Settings).update(d.get('Settings',{}))
+            p.Settings.Validate=lambda:execute_flat(str(SETTINGS),'Validate','',vars(p.Settings))()
             return True
+        from tests.unit.json_loader_port import json_fields_port
+        self.e['HCJsonFields'] = json_fields_port()
         self.e.update(
             HCStaminaProfile=lambda:N(SchemaVersion=0,Profile='',Experimental=False,Settings=None),
             FileExist=lambda path:True,
@@ -329,7 +340,7 @@ class ConfigurationTests(unittest.TestCase):
             ReadChunk=lambda h,n:(min(len(self.payload),n),self.payload[:n]),
             CloseFile=lambda h:closed.append(h),Decode=decode)
         d=dict(SchemaVersion=1,Profile='custom',Experimental=True,
-               Settings=dict(Enabled=True,ContinuousExertionScale=2.,RecoveryScale=1.))
+               Settings=dict(SchemaVersion=1,Enabled=True,ContinuousExertionScale=2.,RecoveryScale=1.))
         self.payload=json.dumps(d)
         self.cfg.m_Data=self.wire()
         self.call('Reset',True,True)

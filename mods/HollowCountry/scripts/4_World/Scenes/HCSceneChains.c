@@ -63,6 +63,11 @@ class HCSceneChainState
 
 class HCSceneChains
 {
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Every(text, "DelaySeconds", 5);
+    }
+
     // Pause unfinished stages after a >5 minute scheduler/server gap. Keep the
     // active director deadline and BeganAt aligned with the shifted schedule.
     static int ResumeAfterGap(HCSceneChainState state, int now)
@@ -197,6 +202,7 @@ class HCSceneChains
         string error;
         HCSceneCatalog catalog;
         if (!HCGroupIO.Read(path, 32768, text) || !JsonFileLoader<HCSceneCatalog>.LoadData(text, catalog, error)) { return null; }
+        if (!HCFieldsPresent(text)) { Print("[HC Scenes] state=refused reason=missing_DelaySeconds runtime=PENDING"); return null; }
         if (!CatalogValid(catalog)) { return null; }
         return catalog;
     }
@@ -323,14 +329,15 @@ class HCSceneChainStore
     {
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { Fault("directory"); return null; }
         if (FileExist(m_Path + ".tmp")) { Fault("tmp"); return null; }
-        // Construct additive defaults explicitly before LoadData's out-parameter
-        // seam. Pre-HC-19 images have no Stories key; never infer legacy by
-        // accepting partially populated progress or resetting a loaded history.
+        // Pre-HC-19 has no Stories key. Restore ONLY that absent object after
+        // native scalar zero-fill, never a present partial/corrupt history.
         HCSceneChainState state = new HCSceneChainState;
         if (FileExist(m_Path))
         {
             string error;
             if (!HCGroupIO.Read(m_Path, 65536, m_Image) || !JsonFileLoader<HCSceneChainState>.LoadData(m_Image, state, error)) { Fault("read"); return null; }
+            if (!HCJsonFields.Every(m_Image, "DelaySeconds", 6, "Kit")) { Fault("missing_DelaySeconds"); return null; }
+            if (state && !HCJsonFields.Has(m_Image, "Stories")) { state.Stories = new HCStoryProgress; }
             if (!HCSceneChains.StateValid(state)) { Fault("state_invalid"); return null; }
             if (now < state.LastNow) { Fault("clock"); return null; }
             m_Revision = state.Revision;

@@ -1113,10 +1113,8 @@ class JournalStoreTests(unittest.TestCase):
         def encode(data):
             return json.dumps(vars(data), default=vars, sort_keys=True)
         def decode(data):
-            try:
-                return json.loads(data, object_hook=lambda fields:N(**fields))
-            except (ValueError, TypeError):
-                return None
+            from tests.unit.json_loader_port import decode_json
+            return decode_json(data, 'HCXAIJournalData', A)
         def save(path, data, error):
             self.operations.append(("save", path))
             self.files[path] = encode(data) if self.save_ok else "{"

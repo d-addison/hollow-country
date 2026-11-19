@@ -153,10 +153,8 @@ class Harness:
 
     def load(self, path, limit, kind):
         text = self.read(path, limit)
-        try:
-            return N(**json.loads(text)) if text else None
-        except (ValueError, TypeError):
-            return None
+        from tests.unit.json_loader_port import decode_json
+        return decode_json(text or '', kind)
 
     def write(self, path, text, limit):
         if path in self.files or not 0 < len(text) <= limit:

@@ -19,6 +19,11 @@ class HCVisualSeasonState
 
 class HCVisualSeasonIO
 {
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Has(text, "ElapsedSeconds") && HCJsonFields.Has(text, "RemainderSeconds");
+    }
+
     static const string CONFIG_PATH = "$profile:HollowCountry/seasons.json";
     static const string STATE_PATH = "$profile:HollowCountry/visual-seasons.json";
     static const int LIMIT = 2048;
@@ -53,7 +58,10 @@ class HCVisualSeasonIO
         HCVisualSeasonState state;
         if (FileExist(STATE_PATH))
         {
-            if (!HCV2ThreatStore<HCVisualSeasonState>.Load(STATE_PATH, LIMIT, state)) { return null; }
+            string image;
+            string error;
+            if (!HCGroupIO.Read(STATE_PATH, LIMIT, image) || !JsonFileLoader<HCVisualSeasonState>.LoadData(image, state, error)) { return null; }
+            if (!HCFieldsPresent(image)) { return null; }
         }
         else
         {

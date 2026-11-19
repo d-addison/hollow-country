@@ -292,6 +292,8 @@ def pack_reader(files, existing=None):
             if isinstance(value, list): return EArray(convert(v) for v in value)
             if isinstance(value, dict): return NS(**{k:convert(v) for k,v in value.items()})
             return value
+        from tests.unit.json_loader_port import zero_scalars
+        vars(target).update(vars(zero_scalars(target)))
         for key, value in doc.items():
             setattr(target, key, EMap(value) if key == 'Sources' else convert(value))
         return True

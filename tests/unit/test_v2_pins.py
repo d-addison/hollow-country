@@ -68,14 +68,8 @@ class DeathStoreFixture:
                                                   HCPinExpiresUtc=7300))]))
 
     def load(self, path):
-        try:
-            def dto(values):
-                return NS(**{key: EStr(val) if isinstance(val, str) else
-                             EArray(val) if isinstance(val, list) else val
-                             for key, val in values.items()})
-            return json.loads(self.files[path], object_hook=dto)
-        except (KeyError, ValueError):
-            return None
+        from tests.unit.json_loader_port import decode_json
+        return decode_json(self.files.get(path, ''), 'HCDeathPinState', EArray, EStr)
 
     def delete(self, path):
         return self.files.pop(path, None) is not None

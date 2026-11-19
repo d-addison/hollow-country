@@ -239,22 +239,9 @@ class MigrationStoreBehavior(unittest.TestCase):
         self.store = NS(m_Root='owned', m_World='synthetic-world', m_Revision=0, m_Fault=False)
         def encode(state):
             return json.dumps(vars(state), default=lambda obj: vars(obj), sort_keys=True)
-        def decode(text):
-            try:
-                values = json.loads(text)
-                result = self.e['HCEcologyMigrationJournal']()
-                for key, value in values.items():
-                    if key == 'Schedules':
-                        rows = EArray()
-                        for fields in value:
-                            slot = self.e['HCEcologyMigrationSchedule']()
-                            for field, datum in fields.items(): setattr(slot, field, datum)
-                            rows.Insert(slot)
-                        value = rows
-                    setattr(result, key, value)
-                return result
-            except (ValueError, TypeError, AttributeError):
-                return None
+        def native_decode(text):
+            from tests.unit.json_loader_port import decode_json
+            return decode_json(text, 'HCEcologyMigrationJournal', EArray)
         def write(path, text, limit):
             self.trace.append(('write', path))
             if self.failure_mode == 'image':
@@ -274,6 +261,12 @@ class MigrationStoreBehavior(unittest.TestCase):
             if self.failure_mode == 'clear': return False
             del self.files[path]; return True
         self.encode = encode
+        from tests.unit.json_loader_port import json_fields_port
+        self.e.update(HCJsonFields=json_fields_port(), native_decode=native_decode)
+        decode_source = STORE.read_text().replace(
+            'JsonFileLoader<HCEcologyMigrationJournal>.LoadData(text, state, error)',
+            '((state := native_decode(text)) != null)')
+        decode = translated(decode_source, 'Decode', self.e, 'HCEcologyMigrationIO')
         self.e['HCEcologyMigrationIO'] = NS(Encode=encode, Decode=decode)
         self.e['HCEcologyRuntimeIO'] = NS(Write=write, WriteNew=new, Read=read)
         self.e['FileExist'] = lambda p: p in self.files or p in ('owned', '$profile:HollowCountry')
@@ -458,7 +451,12 @@ class MigrationNativeBehavior(unittest.TestCase):
         decode = translated(source, 'Decode', env, 'HCEcologyMigrationIO')
         for text in ('', ' ' * 16385): self.assertIsNone(decode(text))
         self.assertEqual([], calls)
-        result = decode(' ' * 16384)
+        from tests.unit.json_loader_port import json_fields_port
+        # Explicit synthetic required fields; native parse call remains a stub.
+        env['HCJsonFields'] = json_fields_port()
+        decode = translated(source, 'Decode', env, 'HCEcologyMigrationIO')
+        payload = '{"LastUtc":1800000000,"Schedules":[]}'
+        result = decode(payload + ' ' * (16384 - len(payload)))
         self.assertEqual('synthetic-world', result.WorldName)
         self.assertEqual(env['HCBuildIdentity'].Canonical(), result.Build)
         self.assertEqual(1, len(calls))

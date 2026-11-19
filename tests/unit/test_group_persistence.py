@@ -10,6 +10,7 @@ import unittest
 from types import SimpleNamespace as N
 
 from tests.unit.test_group_server import ROOT, EArray, body, execute_member, translated_rules
+from tests.unit.json_loader_port import overlay
 
 
 class NativeText(str):
@@ -39,6 +40,10 @@ class StoreHarness:
                         read=self.read, load=self.load, encode=self.encode, decode=self.decode,
                         write=self.write, write_json=lambda p,v,n:self.write(p,self.encode(v),n),
                         str=str)
+        from tests.unit.json_loader_port import json_fields_port
+        from tests.unit.test_event_runtime import translate
+        self.env['HCJsonFields'] = json_fields_port()
+        self.env['HCFieldsPresent'] = translate(self.source, 'HCFieldsPresent', self.env, 'HCGroupStore')
 
     def mkdir(self, path):
         self.directories.add(path)
@@ -71,23 +76,13 @@ class StoreHarness:
         return NativeText(json.dumps(value, default=vars, sort_keys=True, separators=(',',':')))
 
     def decode(self, text, kind):
-        # Explicit synthetic JSON adapter: native class field initializers are
-        # represented at every DTO level, including additive legacy defaults.
+        # Explicit synthetic native scalar-zeroing JSON adapter at every DTO level.
         children = {'Groups':'HCGroupRecord', 'Markers':'HCGroupMarker',
                     'Explorers':'HCGroupExplorer', 'Visits':'HCGroupPlace',
                     'Invitations':'HCGroupInvitation'}
-        def dto(value, dto_kind=None):
-            if isinstance(value, list):
-                return EArray(dto(v, dto_kind) for v in value)
-            if isinstance(value, dict):
-                result = self.rules[dto_kind]() if dto_kind else N()
-                result.__dict__.update({k:dto(v,children.get(k)) for k,v in value.items()})
-                return result
-            return value
         try:
-            result = self.rules[kind]()
-            result.__dict__.update(vars(dto(json.loads(text))))
-            return result
+            return overlay(json.loads(text), self.rules[kind](), EArray,
+                           {key: self.rules[name] for key, name in children.items()})
         except (ValueError, TypeError):
             return None
 

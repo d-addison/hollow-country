@@ -2013,7 +2013,7 @@ class HCXAISiteDirector : Managed
         if (data == "") { return null; }
         string error;
         HCXAIRouteCache routes;
-        if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
+        if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes || routes.SchemaVersion != 1 || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
         return routes;
     }
     static HCXAICacheJournal LoadCaches()
@@ -2023,7 +2023,7 @@ class HCXAISiteDirector : Managed
         if (data == "") { return null; }
         string error;
         HCXAICacheJournal caches;
-        if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
+        if (!JsonFileLoader<HCXAICacheJournal>.LoadData(data, caches, error) || !caches || caches.SchemaVersion != 1 || !caches.Rows || caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
         return caches;
     }
     static HCXAIOwnership LoadOwned()
@@ -2033,7 +2033,7 @@ class HCXAISiteDirector : Managed
         if (data == "") { return null; }
         string error;
         HCXAIOwnership journal;
-        if (!JsonFileLoader<HCXAIOwnership>.LoadData(data, journal, error) || !journal.Rows || journal.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
+        if (!JsonFileLoader<HCXAIOwnership>.LoadData(data, journal, error) || !journal || journal.SchemaVersion != 1 || !journal.Rows || journal.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
         foreach (HCXAIOwnedRow checkedRow : journal.Rows)
         {
             if (!checkedRow || checkedRow.ClearedAt < 0 || checkedRow.Members < 0) { return null; }

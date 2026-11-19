@@ -92,8 +92,17 @@ class Profile:
     def decode(self, path):
         fields = json.loads(self.text)
         value = self.make()
+        from tests.unit.json_loader_port import zero_scalars, json_fields_port
+        # Mutate the existing DTO so its authored Validate closure follows the
+        # decoded fields rather than the constructor used to describe shape.
+        vars(value).update(vars(zero_scalars(value)))
         vars(value).update(fields)
-        self.ai(value, fields.get("AILimits", DEFAULTS["AILimits"]))
+        if "AILimits" in fields:
+            limits = {key: 0 for key in DEFAULTS["AILimits"]}
+            limits.update(fields["AILimits"])
+            self.ai(value, limits)
+        self.env['HCJsonFields'] = json_fields_port()
+        event.translate(self.source, 'HCApplyLegacy', self.env, 'HCEventSettings')(self.text, value)
         return value
 
 

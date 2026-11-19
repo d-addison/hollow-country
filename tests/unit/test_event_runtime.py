@@ -592,22 +592,11 @@ class EventJournalTests(unittest.TestCase):
                 return json.dumps(data, default=lambda obj: vars(obj), sort_keys=True, separators=(",", ":"))
             def EncodeReceipt(self, data): return self.Encode(data)
             def Decode(self, text):
-                try:
-                    def restore(value):
-                        if isinstance(value, list): return EArray(restore(v) for v in value)
-                        if isinstance(value, dict):
-                            # Native JsonFileLoader creates the DTO with field defaults,
-                            # then assigns fields present in the image (legacy seam).
-                            result = SimpleNamespace()
-                            if "NextId" in value: result = env["HCEventState"]()
-                            if "SiteId" in value and "Family" in value: result = env["HCEventMission"]()
-                            for k, v in value.items(): setattr(result, k, restore(v))
-                            return result
-                        return value
-                    parsed = json.loads(text)
-                    return restore(parsed) if isinstance(parsed, dict) else None
-                except (ValueError, TypeError): return None
-            def Receipt(self, text): return self.Decode(text)
+                from tests.unit.json_loader_port import decode_json
+                return decode_json(text, 'HCEventRuntimeState', EArray)
+            def Receipt(self, text):
+                from tests.unit.json_loader_port import decode_json
+                return decode_json(text, 'HCEventJournalReceipt', EArray)
             def Digest(self, text): return int(hashlib.sha256(text.encode()).hexdigest()[:7], 16)
         class IO:
             def __init__(self): self.files = {}; self.writes = 0; self.fail_at = 0; self.fail_remove = False
@@ -805,15 +794,8 @@ class EventConfigurationTests(unittest.TestCase):
         class Codec:
             def Encode(self, config): return json.dumps(vars(config), default=lambda value: vars(value))
             def Decode(self, text):
-                try:
-                    data = json.loads(text)
-                    if not isinstance(data, dict): return None
-                    result = env["HCEventSettings"]()
-                    for key, value in data.items():
-                        if key == "Sites": value = EArray(SimpleNamespace(**site) for site in value)
-                        setattr(result, key, value)
-                    return result
-                except ValueError: return None
+                from tests.unit.json_loader_port import decode_json
+                return decode_json(text, 'HCEventSettings', EArray)
         obj = cls(); obj.m_IO = IO(); obj.m_Codec = Codec()
         return obj, env
 
@@ -825,7 +807,10 @@ class EventConfigurationTests(unittest.TestCase):
 
     def test_explicit_disable_and_existing_invalid_config_never_overwritten(self):
         loader, env = self.loader(); loader.m_IO.exists = True
-        loader.m_IO.text = '{"Enabled":false}'
+        # Explicit complete synthetic config; missing scalar keys native-zero.
+        disabled = json.loads(loader.m_Codec.Encode(env['HCEventSettings']()))
+        disabled['Enabled'] = False
+        loader.m_IO.text = json.dumps(disabled)
         self.assertFalse(loader.Load().Enabled)
         for text in ("not-json", "[]", '{"WorkPerTick":0}', "x" * 16385):
             loader.m_IO.text = text; self.assertIsNone(loader.Load())

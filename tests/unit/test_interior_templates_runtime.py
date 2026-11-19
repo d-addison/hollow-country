@@ -173,6 +173,8 @@ def fixture(values=None, staged=False, connect_pack=True):
                     return NS(**{k:convert(v,k) for k,v in obj.items()})
                 if isinstance(obj,list): return EArray(convert(v) for v in obj)
                 return obj
+            from tests.unit.json_loader_port import zero_scalars
+            target.__dict__.update(vars(zero_scalars(target)))
             target.__dict__.update(vars(convert(value))); return True
         except ValueError: return False
     game=NS(GetWorldName=lambda:'chernarusplus',ConfigIsExisting=lambda path:True,
