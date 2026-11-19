@@ -31,12 +31,10 @@ try:
     from tools.audit import pbo_config
     from tools.package import economy, firearms
     from tools.package import xml_text
-    from tools.package import xml_text
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.audit import pbo_config
     from tools.package import economy, firearms
-    from tools.package import xml_text
     from tools.package import xml_text
 
 from tools.package import ce_extensions, snafu_optional

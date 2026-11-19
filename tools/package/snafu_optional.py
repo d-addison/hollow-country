@@ -405,6 +405,8 @@ def _scaled_entries(entries, nominal_scale=1.0, tier_scales=None):
                         rounding=ROUND_HALF_UP))
             if entry['set']['nominal']:
                 row['set']['nominal'] = max(1, row['set']['nominal'])
+            if entry['set']['min']:
+                row['set']['min'] = max(1, row['set']['min'])  # a positive CE restock floor never scales to 0
             row['set']['min'] = min(row['set']['min'], row['set']['nominal'])
             totals[entry['kind'] + '_nominal_before'] += entry['set']['nominal']
             totals[entry['kind'] + '_nominal_after'] += row['set']['nominal']
