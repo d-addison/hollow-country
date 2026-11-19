@@ -93,7 +93,7 @@ modded class eAIBase
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
         if (!GetGame() || !GetGame().IsServer() || !HCXStance.Owns(this)) { return; }
         PlayerBase attacker = HCXDefence.AttackerOf(source);
-        if (HCXDefence.HCHitRecorded(this, attacker) && HCXStance.Relation(this, attacker) >= 0) { HCXEmoteObservation.Remember(this, attacker); }
+        if (HCXDefence.HCHitRecorded(this, attacker) && HCXStance.Relation(this, attacker) >= 0) { HCXEmoteObservation.Remember(this, attacker, HCXFactions.Id(GetGroup().GetFaction())); }
     }
     override void EEKilled(Object killer)
     {
@@ -104,7 +104,7 @@ modded class eAIBase
             // Durable betrayal depends on faction relation, not the defence
             // record super.OnKill creates for the bounded survivor response.
             PlayerBase attacker = HCXDefence.AttackerOf(EntityAI.Cast(killer));
-            if (HCXStance.Owns(this) && HCXStance.HCRememberKill(this, attacker)) { HCXEmoteObservation.Remember(this, attacker); }
+            if (HCXStance.Owns(this) && HCXStance.HCRememberKill(this, attacker)) { HCXEmoteObservation.Remember(this, attacker, HCXFactions.Id(GetGroup().GetFaction())); }
         }
         super.EEKilled(killer);
     }
@@ -281,6 +281,14 @@ class HCXLivingModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (m_Checkpoints) { m_Checkpoints.Step(); }
+        // Report store/provider faults even when there are no retained actors.
+        // This is status only: a disk fault must never disable surrender control.
+        if (!HCXEmoteObservation.Ready() && m_Refusal == "")
+        {
+            m_Refusal = "emote_provider_or_betrayal_store_unavailable";
+            Print("[HollowCountry] Living AI admission refused: " + m_Refusal + "; runtime=PENDING");
+        }
+        else if (HCXEmoteObservation.Ready() && m_Refusal == "emote_provider_or_betrayal_store_unavailable") { m_Refusal = ""; }
         // One actor checked per tick. No world/player discovery scan.
         array<eAIBase> actors = eAIBase.eAI_GetAll();
         if (!actors || actors.Count() == 0) { return; }
@@ -291,12 +299,14 @@ class HCXLivingModule : HCModule
         HCXEmoteObservation.Tick(actor);
         string problem = HCXAIQualification.ProviderProblem();
         if (problem == "" && (!actor.HCXAI_Fair() || actor.m_eAI_LootingBehavior != 0)) { problem = "actor finite-ammo/fairness/looting NONE assertion"; }
+        bool controlFault = problem != "";
+        if (problem == "" && !HCXEmoteObservation.Ready()) { problem = "emote_provider_or_betrayal_store_unavailable"; }
         if (problem != m_Refusal)
         {
             m_Refusal = problem;
             if (problem != "") { Print("[HollowCountry] Living AI admission refused: " + problem); }
         }
-        if (problem != "")
+        if (controlFault)
         {
             actor.HCXLivingRefused = true;
             actor.RaiseWeapon(false);

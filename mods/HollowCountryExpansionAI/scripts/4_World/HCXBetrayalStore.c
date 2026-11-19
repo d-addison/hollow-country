@@ -215,6 +215,19 @@ class HCXBetrayalStore
         m_Data.Rows.Insert(receipt);
         return this.Persist(nowUtc);
     }
+    // Reserved scope prefix; HC site group names are authored, never player input.
+    // Reuse the same row cap, TTL and verified publication barrier. Group and
+    // faction receipts are individually durable; either write fault degrades HC-5.
+    bool RememberFaction(string faction, string uid, int nowUtc)
+    {
+        if (faction == "") { return false; }
+        return this.Remember("HC:faction:" + faction, uid, nowUtc);
+    }
+    bool HasFaction(string faction, string uid)
+    {
+        if (faction == "") { return false; }
+        return this.Has("HC:faction:" + faction, uid);
+    }
     void RefuseClock()
     {
         // One diagnostic per open, even if every subsequent callback sees -1.
