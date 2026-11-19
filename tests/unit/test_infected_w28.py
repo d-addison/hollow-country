@@ -11,6 +11,7 @@ AssertionError: 'pack_reason=not_started' not found in '... pack_reason=none ...
 AssertionError: Missing authored method HCRestoreMissingDefaults
 GREEN: same command after the edits, see the commit message.
 """
+import json
 import re
 import unittest
 from pathlib import Path
@@ -173,8 +174,23 @@ class MissingKeyDefaults(unittest.TestCase):
         restore(self.zero_filled(), '{"EnableVirtualHerds":true,"SchemaVersion":1,"HerdWorld":"x","VarietyNonCalmHoldSeconds":9}')
         self.assertEqual([], printed)
         load = STORE.read_text().split('static HCInfectedLODConfig Load(out string reason)', 1)[1].split('\n    }\n', 1)[0]
-        existing = load.split('if (FileExist(path))', 1)[1].split('else if', 1)[0]
-        self.assertNotIn('SaveFile', existing, 'an existing lod.json is never rewritten')
+        existing = load.split('if (FileExist(path))', 1)[1].split('\n        else\n', 1)[0]
+        self.assertNotIn('SaveFile', existing, 'existing profiles must not use the template writer')
+        # Existing legacy profiles may migrate only after validation, via the
+        # recovery-checked store; exercise that behaviour with synthetic IO.
+        from tests.unit.test_hc_defaults_round2 import LoaderFixture, SettingsMigration
+        image, _ = SettingsMigration().image('InfectedLOD', version=2)
+        values = json.loads(image)
+        del values['HerdWorld']
+        del values['VarietyNonCalmHoldSeconds']
+        profile = LoaderFixture('InfectedLOD', json.dumps(values))
+        cfg = profile.run()
+        self.assertIsNotNone(cfg)
+        self.assertEqual(('chernarusplus', 600, 3, 8),
+                         (cfg.HerdWorld, cfg.VarietyNonCalmHoldSeconds, cfg.SchemaVersion, len(cfg.Herds)))
+        self.assertEqual([profile.path], profile.saves)
+        profile.run()
+        self.assertEqual([profile.path], profile.saves)
 
     def test_present_keys_are_left_alone_including_an_explicit_empty_world(self):
         restore, printed = self.restore()
