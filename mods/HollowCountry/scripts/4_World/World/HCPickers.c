@@ -237,6 +237,27 @@ class HCPickerSurvey
     int MaxWaypoints;
     int MaxScannedObjects;
     int MaxCargoScan;
+    // #144 scavenging-run limits (HCPickPolicy). Every number is a named survey field.
+    int RunMinMembers;
+    int RunMaxMembers;
+    int RunMaxHousesPerRun;
+    int RunMaxHouseAttempts;
+    int RunMaxHouseCandidates;
+    float RunHouseSearchRadiusMeters;
+    float RunHouseSearchSeconds;
+    float RunHouseWalkSeconds;
+    int RunNeedStashItems;
+    int RunNeedPercentSpring;
+    int RunNeedPercentSummer;
+    int RunNeedPercentAutumn;
+    int RunNeedPercentWinter;
+    int RunNeedRecheckSeconds;
+    float RunDangerHeatAvoid;
+    int RunDangerClueSeconds;
+    int RunDangerMaxClues;
+    int RunCombatAbortSeconds;
+    int RunMaxPartiesPerCamp;
+    int RunMaxActiveRuns;
     ref array<ref HCPickerRoute> Routes = new array<ref HCPickerRoute>;
 
     // First defect by name, "" when the survey is usable.
@@ -290,10 +311,22 @@ class HCPickerSurvey
         if (!HCJsonFields.Has(text, "Version") || !HCJsonFields.Has(text, "WorldName") || !HCJsonFields.Has(text, "MaxLegMeters") || !HCJsonFields.Has(text, "ArrivalRangeMeters")) { return false; }
         if (!HCJsonFields.Has(text, "MapExtentMeters") || !HCJsonFields.Has(text, "MaxRoutes") || !HCJsonFields.Has(text, "MaxWaypoints")) { return false; }
         if (!HCJsonFields.Has(text, "MaxScannedObjects") || !HCJsonFields.Has(text, "MaxCargoScan")) { return false; }
+        if (!HCPickerSurvey.HCRunFieldsPresent(text)) { return false; }
         // Route objects are the depth-3 objects with Waypoints; CacheLoot rows share that depth.
         if (!HCJsonFields.Every(text, "RouteId", 3, "Waypoints") || !HCJsonFields.Every(text, "SiteId", 3, "Waypoints")) { return false; }
         if (!HCJsonFields.Every(text, "HomeIndex", 3, "Waypoints") || !HCJsonFields.Every(text, "SourceIndex", 3, "Waypoints")) { return false; }
         return HCJsonFields.Every(text, "X", 5) && HCJsonFields.Every(text, "Y", 5) && HCJsonFields.Every(text, "Z", 5);
+    }
+
+    // #144: the run limits are read by name too; a missing one would zero-fill silently.
+    static bool HCRunFieldsPresent(string text)
+    {
+        if (!HCJsonFields.Has(text, "RunMinMembers") || !HCJsonFields.Has(text, "RunMaxMembers") || !HCJsonFields.Has(text, "RunMaxHousesPerRun")) { return false; }
+        if (!HCJsonFields.Has(text, "RunMaxHouseAttempts") || !HCJsonFields.Has(text, "RunMaxHouseCandidates") || !HCJsonFields.Has(text, "RunHouseSearchRadiusMeters")) { return false; }
+        if (!HCJsonFields.Has(text, "RunHouseSearchSeconds") || !HCJsonFields.Has(text, "RunHouseWalkSeconds") || !HCJsonFields.Has(text, "RunNeedStashItems")) { return false; }
+        if (!HCJsonFields.Has(text, "RunNeedPercentSpring") || !HCJsonFields.Has(text, "RunNeedPercentSummer") || !HCJsonFields.Has(text, "RunNeedPercentAutumn")) { return false; }
+        if (!HCJsonFields.Has(text, "RunNeedPercentWinter") || !HCJsonFields.Has(text, "RunNeedRecheckSeconds") || !HCJsonFields.Has(text, "RunDangerHeatAvoid")) { return false; }
+        return HCJsonFields.Has(text, "RunDangerClueSeconds") && HCJsonFields.Has(text, "RunDangerMaxClues") && HCJsonFields.Has(text, "RunCombatAbortSeconds") && HCJsonFields.Has(text, "RunMaxPartiesPerCamp") && HCJsonFields.Has(text, "RunMaxActiveRuns");
     }
 
     // Null and a named refusal when the file is missing, malformed, foreign or invalid.
@@ -309,6 +342,9 @@ class HCPickerSurvey
         string error;
         if (!JsonFileLoader<HCPickerSurvey>.LoadData(text, survey, error)) { return null; }
         refusal = survey.HCRefusal();
+        if (refusal != "") { return null; }
+        // #144: run limits are checked after every route element is known to be present.
+        refusal = HCPickPolicy.RunRefusal(survey);
         if (refusal != "") { return null; }
         string world = GetGame().GetWorldName();
         world.ToLower();
@@ -354,6 +390,11 @@ class HCScavengeInventory
         return null;
     }
 
+    // #144 run seams. Danger and Houses are owned by HCPickers and shared at bind.
+    ref HCPickRunner Runner;
+    HCPickDanger Danger;
+    HCPickHousePort Houses;
+
     PlayerBase Actor;
     EntityAI Source;
     EntityAI Home;
@@ -374,6 +415,34 @@ class HCScavengeInventory
     // and returns true once the request is made. Arrival is observed by HCAtSource/HCAtHome only.
     bool HCWalk(bool returning) { return false; }
     string HCWalkRefusal() { return "PICKER_WALK_PORT_UNBOUND_EXPANSION_GROUP"; }
+
+    // #144 provider ports, refused by default: one detour waypoint on the claimed
+    // party, the live member count (-1 unknown) and the party's combat flag.
+    bool HCWalkTo(vector point) { return false; }
+    int HCPartyMembers() { return -1; }
+    bool HCPartyInCombat() { return false; }
+
+    // Same persistent id the HC-34 journal records for the carrier.
+    string HCActorKey() { return HCSearchSupplyRegistry.PersistentId(Actor); }
+
+    // Real cargo count of the home crate inside the surveyed scan bound; -1 unreadable.
+    int HCStashItems()
+    {
+        if (!Survey || !Home || !Home.GetInventory()) { return -1; }
+        CargoBase cargo = Home.GetInventory().GetCargo();
+        if (!cargo) { return -1; }
+        int count = cargo.GetItemCount();
+        if (count > Survey.MaxCargoScan) { count = Survey.MaxCargoScan; }
+        return count;
+    }
+
+    // "" = proceed, HCPickRunner.HOLD = wait this tick, else the abort reason that loses the trip.
+    string HCRunHold(bool returning, HCScavengeState row)
+    {
+        if (!Survey || !row || !Houses) { return ""; }
+        if (!Runner) { Runner = new HCPickRunner; }
+        return Runner.HCRun(this, returning, row);
+    }
 
     // Existing vanilla crate at a surveyed anchor, found with one bounded native scan.
     ItemBase HCFindCrate(vector anchor)
@@ -527,6 +596,7 @@ class HCScavengeInventory
         Home = null;
         Item = null;
         LeaseId = "";
+        if (Runner) { Runner.HCReset(this); }
     }
 }
 
@@ -657,6 +727,10 @@ class HCScavengeTrip
         string expected = m_State.SourceId;
         if (returning) { expected = m_State.ActorId; }
         if (m_IO.HCOwner() != expected) { HCLose("CARGO_LOST"); return; }
+        // #144: combat abort and the bounded house stage. HCLose keeps cargo where it is.
+        string hold = m_IO.HCRunHold(returning, m_State);
+        if (hold == HCPickRunner.HOLD) { return; }
+        if (hold != "") { HCLose(hold); return; }
         if (returning && !m_IO.HCAtHome()) { return; }
         if (!returning && !m_IO.HCAtSource()) { return; }
         m_Busy = true;
@@ -739,6 +813,10 @@ class HCPickers : HCModule
     protected ref HCPickerSurvey m_Survey;
     protected string m_SurveyRefusal;
     protected bool m_ProviderLogged;
+    // #144: the module owns remembered danger and the house port across port rebinds.
+    protected ref HCPickDanger m_Danger = new HCPickDanger;
+    protected ref HCPickHousePort m_Houses = new HCPickHousePort;
+    protected bool m_RunsOn;
 
     static HCPickers Get() { return s_Instance; }
     HCScavengeTrip HCTrip() { return m_Trip; }
@@ -760,7 +838,13 @@ class HCPickers : HCModule
         m_Trip.HCOpen();
         s_Instance = this;
         m_Survey = HCPickerSurvey.HCLoad(m_SurveyRefusal);
-        if (m_Trip.m_IO) { m_Trip.m_IO.Survey = m_Survey; }
+        if (m_Trip.m_IO)
+        {
+            m_Trip.m_IO.Survey = m_Survey;
+            m_Trip.m_IO.Danger = m_Danger;
+            m_Trip.m_IO.Houses = m_Houses;
+        }
+        m_RunsOn = HCPickPolicy.Enabled();
         HCPublishReadiness();
         string phase = "idle";
         if (m_Trip.m_State) { phase = m_Trip.m_State.Phase; }
@@ -768,6 +852,17 @@ class HCPickers : HCModule
         if (m_Survey) { survey = "routes=" + m_Survey.Routes.Count().ToString(); }
         Print("[HC Plan] HC-34 party=none phase=" + phase + " cargo_owner=none state=" + m_Status.HCState() + " count=0 " + survey + " reason=" + m_Status.HCReason() + " runtime=PENDING");
         HCLogProvider();
+        HCLogRuns();
+    }
+
+    // One start line per boot and one per house-port bind, derived from the live state.
+    void HCLogRuns()
+    {
+        string line = "[HC Pickers] runs enabled=" + m_RunsOn.ToString() + " opt_out=scavenge_runs.disable";
+        if (m_Survey) { line += " members=" + m_Survey.RunMinMembers.ToString() + "-" + m_Survey.RunMaxMembers.ToString() + " houses_per_run=" + m_Survey.RunMaxHousesPerRun.ToString(); }
+        string housePort = m_Houses.HCRefusal();
+        if (housePort == "") { housePort = "bound"; }
+        Print(line + " house_port=" + housePort + " runtime=PENDING");
     }
 
     // Derived from the real journal and survey state; never hard-coded.
@@ -807,10 +902,35 @@ class HCPickers : HCModule
     {
         if (!port || !m_Trip || !m_Trip.m_Ready || m_Trip.m_Busy || !m_Trip.m_State || m_Trip.m_State.Phase != "idle") { return false; }
         port.Survey = m_Survey;
+        port.Danger = m_Danger;
+        port.Houses = m_Houses;
         m_Trip.m_IO = port;
         m_ProviderLogged = false;
         HCLogProvider();
         return true;
+    }
+
+    // Addon/integration seam: the shared house reservation bridge. Only between trips.
+    bool HCBindHousePort(HCPickHousePort port)
+    {
+        if (!port || !m_Trip || !m_Trip.m_Ready || m_Trip.m_Busy || !m_Trip.m_State || m_Trip.m_State.Phase != "idle") { return false; }
+        m_Houses = port;
+        if (m_Trip.m_IO) { m_Trip.m_IO.Houses = port; }
+        HCLogRuns();
+        return true;
+    }
+
+    // #144 party-size bound (2..4 by survey); "" when runs are off or the size is in range.
+    string HCPartyRefusal(int members)
+    {
+        if (!m_RunsOn) { return ""; }
+        return HCPickPolicy.PartyRefusal(m_Survey, members);
+    }
+
+    int HCRecheckSeconds()
+    {
+        if (!m_Survey) { return 0; }
+        return m_Survey.RunNeedRecheckSeconds;
     }
 
     // HC-18 lifecycle entry, never a scheduler. The site keeps its per-party
@@ -824,13 +944,32 @@ class HCPickers : HCModule
         HCScavengeState row = m_Trip.m_State;
         string phase = row.Phase;
         if (phase == "quarantined") { return "PICKER_JOURNAL_QUARANTINED"; }
-        if (m_Trip.m_Busy || (phase != "idle" && phase != "returned" && phase != "lost")) { return "PICKER_TRIP_ACTIVE"; }
-        if (m_Trip.m_IO.Defaults.MaxConcurrentTrips < 1) { return "PICKER_GLOBAL_CAP"; }
         HCPickerRoute route = m_Survey.HCFind(identity.HCRouteId());
+        if (m_Trip.m_Busy || (phase != "idle" && phase != "returned" && phase != "lost"))
+        {
+            // #144: another party's live run is named by the cap that holds it. The single
+            // HC-34 journal admits one trip, so the world cap is the structural limit.
+            if (m_RunsOn && route && HCPickPolicy.ActiveTrip(phase) && row.PartyId != identity.HCPartyId())
+            {
+                int liveInCamp = 0;
+                HCPickerRoute liveRoute = m_Survey.HCFind(row.RouteId);
+                if (liveRoute && liveRoute.LocalityId == route.LocalityId) { liveInCamp = 1; }
+                string capped = HCPickPolicy.CapRefusal(m_Survey, route, 1, liveInCamp);
+                if (capped != "") { return capped; }
+            }
+            return "PICKER_TRIP_ACTIVE";
+        }
+        if (m_Trip.m_IO.Defaults.MaxConcurrentTrips < 1) { return "PICKER_GLOBAL_CAP"; }
         if (!route) { return "PICKER_ROUTE_UNSURVEYED"; }
         // Last terminal receipt may conservatively hold other parties too;
         // never discard it early just to admit another lease.
         if (now <= 0 || now < eligibleAt || now < row.NextTripAt) { return "PICKER_PARTY_COOLDOWN"; }
+        if (m_RunsOn)
+        {
+            // #144 danger from the party's own clues and remembered noise, never from players.
+            string refusal = HCPickPolicy.RouteDanger(m_Survey, m_Danger, route, now);
+            if (refusal != "") { return refusal; }
+        }
         float arrival = m_Survey.ArrivalRangeMeters;
         if (vector.DistanceSq(actor.GetPosition(), route.HCHomePoint()) > arrival * arrival) { return "PICKER_NOT_AT_HOME"; }
         if (!HCServer.HCTickWork().HCTake(1)) { return "PICKER_WORK_BUDGET"; }
@@ -859,6 +998,15 @@ class HCPickers : HCModule
         if (!route) { return "PICKER_ROUTE_UNSURVEYED"; }
         HCScavengeInventory port = m_Trip.m_IO;
         if (!port.HCBindSurveyed(actor, route, lease)) { port.HCClear(); return "PICKER_ANCHOR_STOCK_ABSENT"; }
+        // #144/#150: a run starts only for a camp need; the target scales with the season phase.
+        int seasonPhase = -1;
+        int stash = -1;
+        if (m_RunsOn)
+        {
+            seasonPhase = HCPickPolicy.SeasonPhase();
+            stash = port.HCStashItems();
+            if (!HCPickPolicy.NeedsSupplies(m_Survey, stash, seasonPhase)) { port.HCClear(); return HCPickPolicy.NEED_REFUSAL; }
+        }
         // Reject an unbound walk before journal departure; keep the named cause.
         string walkRefusal = port.HCWalkRefusal();
         if (walkRefusal != "") { port.HCClear(); return walkRefusal; }
@@ -869,6 +1017,12 @@ class HCPickers : HCModule
         bool left = m_Trip.HCLeave(identity, lease, sourceId, actorId, homeId, itemId);
         HCPublishReadiness();
         if (!left) { port.HCClear(); return "PICKER_LEAVE_REFUSED"; }
+        if (m_RunsOn)
+        {
+            string needLine = "[HC Pickers] run start party=" + identity.HCPartyId() + " route=" + identity.HCRouteId() + " stash=" + stash.ToString();
+            needLine += " target=" + HCPickPolicy.NeedTarget(m_Survey, seasonPhase).ToString() + " season=" + HCSeasonVisualPolicy.HCPhaseName(seasonPhase);
+            Print(needLine + " runtime=PENDING");
+        }
         return "";
     }
 

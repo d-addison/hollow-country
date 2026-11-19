@@ -65,11 +65,12 @@ class ScavengeBehavior(unittest.TestCase):
                    HCAtSource=lambda: locations[0] == 'source',
                    HCAtHome=lambda: locations[0] == 'home', HCMove=move,
                    HCWalk=lambda returning: walks.append(returning) is None,
-                   HCPartyCurrent=lambda row: True)
+                   HCPartyCurrent=lambda row: True, HCRunHold=lambda returning, row: '')
             trip = N(m_State=state, m_Store=N(Save=save), m_IO=io,
                      m_Ready=True, m_Busy=False, HCLog=lambda: None)
             bind(source, 'HCScavengeTrip', trip, names,
-                 dict(str=str, HCAIPartyIdentity=N(HCValid=lambda i: i is identity)))
+                 dict(str=str, HCAIPartyIdentity=N(HCValid=lambda i: i is identity),
+                      HCPickRunner=N(HOLD='HOLD')))
             return N(trip=trip, state=state, physical=physical, saved=saved,
                      moves=moves, walks=walks, locations=locations, alive=alive,
                      route=route, identity=identity)

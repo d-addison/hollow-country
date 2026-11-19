@@ -364,6 +364,7 @@ class PickerOperationRegressions(unittest.TestCase):
         budget = N(HCReset=lambda cap: effects.append("budget"), HCTake=lambda cost: True,
                    HCContinue=lambda: True)
         module = N(m_Trip=trip, m_Survey=N(HCFind=lambda route: object()), m_SurveyRefusal="",
+                   m_RunsOn=False, m_Danger=None, m_Houses=None,
                    m_Status=status, m_Units=budget, m_WorkBudget=budget)
         for name in ("HCPublishReadiness", "HCBeginSurveyed", "OnTick"):
             run = method("HCPickers", name, members=("HCPublishReadiness",),
@@ -433,7 +434,10 @@ class ShippedSurveyFieldPresence(unittest.TestCase):
         from tests.unit.json_loader_port import json_fields_port
         from tests.unit.test_event_runtime import translate
         source = (ROOT / "mods/HollowCountry/scripts/4_World/World/HCPickers.c").read_text()
-        return translate(source, "HCFieldsPresent", {"HCJsonFields": json_fields_port()})
+        env = {"HCJsonFields": json_fields_port()}
+        # #144: HCFieldsPresent delegates the run limits to HCRunFieldsPresent (same authored class).
+        env["HCPickerSurvey"] = N(HCRunFieldsPresent=translate(source, "HCRunFieldsPresent", dict(env)))
+        return translate(source, "HCFieldsPresent", env)
 
     def test_the_shipped_survey_with_cache_loot_rows_has_every_field(self):
         self.assertTrue(self.present()(SURVEY.read_text()))

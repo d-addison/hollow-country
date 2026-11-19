@@ -99,6 +99,37 @@ class HCXAIPickerWalk : HCScavengeInventory
         return true;
     }
 
+    // #144: one detour waypoint on the group HCWalk already claimed (its previous
+    // patrol is saved there and restored by HCFinishWalk). Never claims a new group,
+    // never moves a member directly. eAIGroup.c:213 AddWaypoint, :241 ClearWaypoints,
+    // :251 SetWaypointBehaviour (ONCE). Arrival is observed by position only.
+    override bool HCWalkTo(vector point)
+    {
+        if (!m_Group || !HCLive() || !Survey) { return false; }
+        if (Actor.GetGroup() != m_Group) { return false; }
+        if (!HCServer.HCTickWork().HCTake(1)) { return false; }
+        m_Group.ClearWaypoints();
+        m_Group.AddWaypoint(point);
+        m_Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        return true;
+    }
+
+    // eAIGroup.c:1185 Count, :1123 IsInCombat (read only).
+    override int HCPartyMembers()
+    {
+        if (!Actor) { return -1; }
+        eAIGroup group = Actor.GetGroup();
+        if (!group) { return -1; }
+        return group.Count();
+    }
+
+    override bool HCPartyInCombat()
+    {
+        if (!Actor) { return false; }
+        eAIGroup group = Actor.GetGroup();
+        return group && group.IsInCombat();
+    }
+
     // Terminal custody, uncertain checkpoint or stop: resume the same group's
     // prior patrol list and behavior. Reset cursor via ClearWaypoints, exactly
     // as a fresh patrol request; never move or respawn a member. Weak group
