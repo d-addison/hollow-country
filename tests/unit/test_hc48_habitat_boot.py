@@ -188,10 +188,10 @@ class HabitatReceiptLine(unittest.TestCase):
         self.assertGreaterEqual(limit, self.manifest["ManifestMaxBytes"])
         self.assertLessEqual(len(self.manifest_text.encode()), limit)
 
-    def test_ready_line_reports_manifest_bytes_and_cap_before_the_runtime_tail(self):
+    def test_ready_line_reports_manifest_chars_and_cap_before_the_runtime_tail(self):
         self.call("ready")
         line = self.logs[0]
-        self.assertIn(" manifest_bytes=%d manifest_cap=65536 runtime=PENDING" % len(self.manifest_text), line)
+        self.assertIn(" manifest_chars=%d manifest_cap=65536 runtime=PENDING" % len(self.manifest_text), line)
         self.assertNotIn("manifest_refusal", line)
 
     def test_manifest_between_the_old_and_new_cap_still_reads(self):
@@ -201,7 +201,7 @@ class HabitatReceiptLine(unittest.TestCase):
         self.fresh(big)
         self.call("ready")
         self.assertIn("state=ready", self.logs[0])
-        self.assertIn("manifest_bytes=%d manifest_cap=65536" % len(big), self.logs[0])
+        self.assertIn("manifest_chars=%d manifest_cap=65536" % len(big), self.logs[0])
 
     def test_manifest_over_the_cap_refuses_with_a_named_reason_and_its_size(self):
         huge = self.synthetic(species=(3000, 1, 1))
@@ -212,7 +212,7 @@ class HabitatReceiptLine(unittest.TestCase):
         line = self.logs[0]
         self.assertIn("state=refused", line)
         self.assertIn("manifest_refusal=manifest_over_cap", line)
-        self.assertIn("manifest_bytes=%d manifest_cap=65536" % len(huge), line)
+        self.assertIn("manifest_chars=%d manifest_cap=65536" % len(huge), line)
         self.assertIn("authored_species=unread authored_habitats=unread", line)
         self.assertEqual(2, len(self.reads), "one capped read plus one bounded probe, only on failure")
         self.assertLessEqual(self.reads[1][1], 1048576)

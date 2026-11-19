@@ -310,7 +310,8 @@ class EcologyStoreRestartBehaviorTests(unittest.TestCase):
             if self.io_failure == "source-open" and ".quarantined-" not in path: return None
             if self.io_failure == "archive-open" and ".quarantined-" in path: return None
             return native.open_file(path, mode)
-        self.e.update(archive_read=archive_read, read_file=read_file,
+        self.e.update(HCGroupIO=SimpleNamespace(HC_RAW_READ_CAP=native.io.HC_RAW_READ_CAP),
+                      archive_read=archive_read, read_file=read_file,
                       OpenFile=open_file, CloseFile=lambda handle: None,
                       FileMode=SimpleNamespace(READ=0), native_int=native.native_int,
                       find_first=native.find_first, find_next=native.find_next,

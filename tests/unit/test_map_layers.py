@@ -430,9 +430,9 @@ class AdminCommandSmoke(unittest.TestCase):
         from tests.unit.test_horde_stimulus import compile_method
         admin = NS(GetPlainId=lambda: 'synthetic-admin')
         guest = NS(GetPlainId=lambda: 'synthetic-guest')
-        service = NS(m_Running=True, m_Admins=NS(PlainIds=EArray(['synthetic-admin'])))
+        service = NS(m_Running=True, m_Permissions=None, m_Admins=NS(PlainIds=EArray(['synthetic-admin'])))
         calls = []
-        authorized = compile_method('../Admin/HCAdminModule.c', 'bool HCAuthorized(', 'sender', {})
+        authorized = compile_method('../Admin/HCAdminModule.c', 'bool HCAuthorized(', 'sender', {'GetGame': lambda: NS(IsServer=lambda: True)})
         service.HCAuthorized = lambda sender: authorized(service, sender)
         service.HCRefused = lambda sender: calls.append('refused')
         service.HCStatus = lambda sender, ticket: calls.append(('status', sender, ticket))

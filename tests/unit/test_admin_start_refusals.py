@@ -34,7 +34,7 @@ class OnStartRefusals(unittest.TestCase):
 
         store = N(CanOpen=lambda path: can_open, Load=load_into, Save=lambda path, data, limit: save)
         game = N(IsServer=lambda: True)
-        env = base_scope(GetGame=lambda: game, HCV2ThreatStore=store, FileExist=lambda path: exists,
+        env = base_scope(HCAdminPermissionAdapter=lambda: N(HCStart=lambda: None), GetGame=lambda: game, HCV2ThreatStore=store, FileExist=lambda path: exists,
                          HCAdminAllowlist=lambda: allowlist, HCV2Admission=N(Line=lambda *args: 'admission'),
                          Print=lambda line: self.printed.append(line),
                          DayZGame=N(Event_OnRPC=N(Insert=lambda fn: None)), HCReceive=lambda *args: None)

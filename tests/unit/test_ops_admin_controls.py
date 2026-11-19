@@ -142,12 +142,15 @@ class CatalogRPCIngress(unittest.TestCase):
         scope['HCAdminCatalog'] = NS(HCKnown=lambda command: catalog_known(
             NS(Commands=lambda: metadata), command))
         replies, denied, reads = [], [], []
-        owner = NS(m_Running=True, m_Admins=NS(PlainIds=EArray(['operator'])),
-                   m_CommandAt=[0.0], m_Identities=[None], m_Tickets=[0],
+        owner = NS(m_Running=True, m_Permissions=None, m_Admins=NS(PlainIds=EArray(['operator'])),
+                   m_CommandAt=[0.0], m_SnapshotAt=[0.0], m_Identities=EArray([None]), m_Tickets=[0],
                    m_Pending=None, m_PendingSender=None)
         authorized = compile_authored(module, 'HCAdminModule', 'HCAuthorized', scope, modded=False)
         known = compile_authored(module, 'HCAdminModule', 'HCKnown', scope, modded=False)
         owner.HCAuthorized = lambda sender: authorized(owner, sender)
+        auth_slot = compile_authored(module, 'HCAdminModule', 'HCAuthSlot', scope,
+                                     ('HCAuthorized',), modded=False)
+        owner.HCAuthSlot = lambda sender: auth_slot(owner, sender)
         owner.HCKnown = lambda command: known(owner, command)
         owner.HCRefused = lambda sender: denied.append(sender)
         owner.HCReply = lambda *args: replies.append(args)
@@ -158,7 +161,7 @@ class CatalogRPCIngress(unittest.TestCase):
             adapted = Path(temporary) / module.name
             adapted.write_text(source)
             receive = compile_authored(adapted, 'HCAdminModule', 'HCReceive', scope,
-                ('HCAuthorized', 'HCRefused', 'HCKnown', 'HCReply'), modded=False)
+                ('HCAuthorized', 'HCAuthSlot', 'HCRefused', 'HCKnown', 'HCReply'), modded=False)
         admin = NS(GetPlainId=lambda: 'operator')
         outsider = NS(GetPlainId=lambda: 'outsider')
         def send(command, ticket, sender=admin, advance=True):

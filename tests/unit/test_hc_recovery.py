@@ -126,7 +126,7 @@ class Harness:
                         HCEscalationSaveJob=lambda: N(HCDirty=False))
         authored(IO, 'HCRecoveryGate', self.gate, self.env)
         authored(IO, 'HCGroupIO', self.io, self.env)
-        self.env['HCGroupIO'] = N(WriteNew=self.write, HCReadRaw=self.read)
+        self.env['HCGroupIO'] = N(WriteNew=self.write, HCReadRaw=self.read, HC_RAW_READ_CAP=self.io.HC_RAW_READ_CAP)
         authored(RECOVERY, 'HCPersistenceDisposition', self.recovery, self.env)
         self.world = N(m_Path=self.world_path, m_Temp=self.world_path + '.tmp',
                        m_Backup=self.world_path + '.bak', m_Data=None, m_KeepBackup=False,

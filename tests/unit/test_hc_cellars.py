@@ -114,7 +114,8 @@ class MeasuredCellarSlice(unittest.TestCase):
         module.HCCountEvidence = lambda: counter(module)
         reader = translate(str(MODULE), 'protected bool HCReadCounts(', ('HCCountEvidence',),
                            FileExist=lambda path: path in files,
-                           HCGroupJson=N(Load=lambda path, limit, target: loaded.append((path, limit)) or True))
+                           HCGroupJson=N(Load=lambda path, limit, target: loaded.append((path, limit)) or True),
+                           HCGroupIO=N(HC_RAW_READ_CAP=1048576))
         self.assertTrue(reader(module))
         self.assertEqual(loaded, [('$mission:hollow-country/cellars/classes.json', 32768)])
         files.add('$profile:HollowCountry/cellars-measured.json.tmp')
