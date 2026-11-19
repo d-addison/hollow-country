@@ -1,0 +1,686 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-wreck-dispositions",
+  "wp": "HC-59",
+  "trace": {
+    "spec": "HC-59 supplied Wave 3 task: regional travel support and finite compatible wreck supply",
+    "plan": "Retain finite source journals; map four reviewed car families to native wheel slots; refuse unverified cohorts; queue regional stock roofs separately from admitted barns",
+    "task": "HC-59 assigned five files; exact lead integration remains external to worker scope",
+    "dependencies": [
+      "HC-4/32 integrity and repair policy",
+      "HC-18 mission/hollow-country/ai/localities.json"
+    ],
+    "missing_required_specs": [
+      "docs/SPECIFICATION.md",
+      "docs/specs/001-survival-overhaul/spec.md"
+    ]
+  },
+  "manifest_role": "Authored evidence and policy metadata; not a runtime loader or native success receipt",
+  "native_snapshot": "1.30.164289",
+  "stock_input": {
+    "name": "stock dayzOffline.chernarusplus/mapgrouppos.xml",
+    "sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+    "role": "Placement/class identity input only; no access, clearance, extraction or repair acceptance"
+  },
+  "runtime_acceptance": "pending",
+  "production_enablement": "pending-native-qualification",
+  "authored_counts": {
+    "wreck_classes": 40,
+    "finite_classes": 24,
+    "pending_refused_classes": 16,
+    "stock_wreck_placements": 1348,
+    "reviewed_class_placements": 931
+  },
+  "observed_extractions": 0,
+  "observed_repairs": 0,
+  "distances_added": [],
+  "native_evidence": [
+    "structures_wrecks.pbo/config.bin: exact 40 stock wreck classes; static models do not establish detachable inventory or extraction API",
+    "vehicles_wheeled.pbo/config.bin: four vehicle attachments arrays intersect corresponding public wheel inventorySlot arrays; all eight paired classes scope=2",
+    "vehicles_parts.pbo/config.bin: public SparkPlug, CarBattery, CarRadiator, HeadlightH7; native CarScript repairs/attachments retained",
+    "3_Game/Global/Game.c:539,558,612 ConfigGetInt/ConfigGetTextArray/ConfigIsExisting",
+    "3_Game/Systems/Inventory/InventoryLocation.c:115 SetGround; Inventory.c:333 LocationCreateEntity; no automatic inventory-fit promise",
+    "4_World/Plugins/PluginBase/PluginRepairing.c:3,92 Repair/CanRepair; no HC override or free-repair route",
+    "3_Game/Global/DayZPhysics.c:199 RaycastRV; existing server target checks retained; geometry/clearance still requires native observation"
+  ],
+  "integrity": {
+    "source_identity": "Existing exact class plus rounded world position key; shared by all actors, not player identity",
+    "journal": "Existing verified intent/backup/copy/readback receipt; unfinished write quarantines. No rename/fsync claim.",
+    "barrier": "Save enrollment/debit synchronously before native reward. No scheduled checkpoint may defer the barrier.",
+    "uncertainty": "Never replay or refund failed creations/debits. Preserve native inventory and HC journals together in backups.",
+    "full_inventory": "Existing server ground-location reward at actor feet; no cargo or hands insertion, no retry/fallback duplicate",
+    "repair": "Outputs use native item classes and existing native repair actions; statics are never made driveable or filled with fuel"
+  },
+  "native_checks": [
+    "DayZDiag exact-source compile/boot, then normal signed PBO/server with source/PBO/mission/config/dependency hashes",
+    "Two clients: same wreck race, action interruption, full inventory, incompatible wheel refusal, actual fitting and repair",
+    "Drain one source and restart with inventory+journal together; no refill; interrupt copy/create and confirm quarantine without replay",
+    "Feature off and stop/restart cleanup; no script/CE errors"
+  ],
+  "entries": [
+    {
+      "class": "Land_Wreck_C130J_Cargo",
+      "stock_placements": 1,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_aircraft_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_Caravan_MGreen",
+      "stock_placements": 29,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_caravan_material_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_Caravan_MRust",
+      "stock_placements": 33,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_caravan_material_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_Caravan_WBrown",
+      "stock_placements": 37,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_caravan_material_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_Caravan_WGreen",
+      "stock_placements": 31,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_caravan_material_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_Ikarus",
+      "stock_placements": 75,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_bus_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_hb01_aban1_blue",
+      "stock_placements": 21,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb01",
+      "compatible_vehicle": "OffroadHatchback",
+      "wheel": "HatchbackWheel",
+      "outputs": [
+        "HatchbackWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb01_aban1_green",
+      "stock_placements": 25,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb01",
+      "compatible_vehicle": "OffroadHatchback",
+      "wheel": "HatchbackWheel",
+      "outputs": [
+        "HatchbackWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb01_aban1_white",
+      "stock_placements": 37,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb01",
+      "compatible_vehicle": "OffroadHatchback",
+      "wheel": "HatchbackWheel",
+      "outputs": [
+        "HatchbackWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb01_aban2_blue",
+      "stock_placements": 26,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb01",
+      "compatible_vehicle": "OffroadHatchback",
+      "wheel": "HatchbackWheel",
+      "outputs": [
+        "HatchbackWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb01_aban2_green",
+      "stock_placements": 32,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb01",
+      "compatible_vehicle": "OffroadHatchback",
+      "wheel": "HatchbackWheel",
+      "outputs": [
+        "HatchbackWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb01_aban2_white",
+      "stock_placements": 30,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb01",
+      "compatible_vehicle": "OffroadHatchback",
+      "wheel": "HatchbackWheel",
+      "outputs": [
+        "HatchbackWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb02_aban1_black",
+      "stock_placements": 28,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb02",
+      "compatible_vehicle": "Hatchback_02",
+      "wheel": "Hatchback_02_Wheel",
+      "outputs": [
+        "Hatchback_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb02_aban1_blue",
+      "stock_placements": 33,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb02",
+      "compatible_vehicle": "Hatchback_02",
+      "wheel": "Hatchback_02_Wheel",
+      "outputs": [
+        "Hatchback_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb02_aban1_red",
+      "stock_placements": 37,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb02",
+      "compatible_vehicle": "Hatchback_02",
+      "wheel": "Hatchback_02_Wheel",
+      "outputs": [
+        "Hatchback_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb02_aban2_black",
+      "stock_placements": 29,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb02",
+      "compatible_vehicle": "Hatchback_02",
+      "wheel": "Hatchback_02_Wheel",
+      "outputs": [
+        "Hatchback_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb02_aban2_blue",
+      "stock_placements": 32,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb02",
+      "compatible_vehicle": "Hatchback_02",
+      "wheel": "Hatchback_02_Wheel",
+      "outputs": [
+        "Hatchback_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_hb02_aban2_red",
+      "stock_placements": 32,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "hb02",
+      "compatible_vehicle": "Hatchback_02",
+      "wheel": "Hatchback_02_Wheel",
+      "outputs": [
+        "Hatchback_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_offroad02_aban1",
+      "stock_placements": 25,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_offroad02_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_offroad02_aban2",
+      "stock_placements": 24,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_offroad02_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_Wreck_sed01_aban1_black",
+      "stock_placements": 59,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed01",
+      "compatible_vehicle": "CivilianSedan",
+      "wheel": "CivSedanWheel",
+      "outputs": [
+        "CivSedanWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed01_aban1_white",
+      "stock_placements": 68,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed01",
+      "compatible_vehicle": "CivilianSedan",
+      "wheel": "CivSedanWheel",
+      "outputs": [
+        "CivSedanWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed01_aban1_wine",
+      "stock_placements": 71,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed01",
+      "compatible_vehicle": "CivilianSedan",
+      "wheel": "CivSedanWheel",
+      "outputs": [
+        "CivSedanWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed01_aban2_black",
+      "stock_placements": 64,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed01",
+      "compatible_vehicle": "CivilianSedan",
+      "wheel": "CivSedanWheel",
+      "outputs": [
+        "CivSedanWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed01_aban2_white",
+      "stock_placements": 63,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed01",
+      "compatible_vehicle": "CivilianSedan",
+      "wheel": "CivSedanWheel",
+      "outputs": [
+        "CivSedanWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed01_aban2_wine",
+      "stock_placements": 62,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed01",
+      "compatible_vehicle": "CivilianSedan",
+      "wheel": "CivSedanWheel",
+      "outputs": [
+        "CivSedanWheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed02_aban1_grey",
+      "stock_placements": 30,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed02",
+      "compatible_vehicle": "Sedan_02",
+      "wheel": "Sedan_02_Wheel",
+      "outputs": [
+        "Sedan_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed02_aban1_red",
+      "stock_placements": 30,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed02",
+      "compatible_vehicle": "Sedan_02",
+      "wheel": "Sedan_02_Wheel",
+      "outputs": [
+        "Sedan_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed02_aban1_yellow",
+      "stock_placements": 31,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed02",
+      "compatible_vehicle": "Sedan_02",
+      "wheel": "Sedan_02_Wheel",
+      "outputs": [
+        "Sedan_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed02_aban2_grey",
+      "stock_placements": 26,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed02",
+      "compatible_vehicle": "Sedan_02",
+      "wheel": "Sedan_02_Wheel",
+      "outputs": [
+        "Sedan_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed02_aban2_red",
+      "stock_placements": 41,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed02",
+      "compatible_vehicle": "Sedan_02",
+      "wheel": "Sedan_02_Wheel",
+      "outputs": [
+        "Sedan_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_Wreck_sed02_aban2_yellow",
+      "stock_placements": 24,
+      "runtime_acceptance": "pending",
+      "disposition": "finite-car-parts",
+      "family": "sed02",
+      "compatible_vehicle": "Sedan_02",
+      "wheel": "Sedan_02_Wheel",
+      "outputs": [
+        "Sedan_02_Wheel",
+        "SparkPlug",
+        "CarBattery",
+        "CarRadiator",
+        "HeadlightH7",
+        "MetalPlate"
+      ],
+      "allocation": "Retain original 1..3 new-source allocation, legacy budgets including zero, and durable remaining ordinal; no migration refill",
+      "compatibility": "Authored wreck-family mapping; native output scope and wheel inventorySlot/vehicle attachments intersection checked at startup",
+      "extraction": "Existing finite HC ground reward; native wreck component extraction unexposed"
+    },
+    {
+      "class": "Land_wreck_truck01_aban1_blue",
+      "stock_placements": 19,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban1_firetruck",
+      "stock_placements": 7,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban1_green",
+      "stock_placements": 35,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban1_orange",
+      "stock_placements": 28,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban2_blue",
+      "stock_placements": 26,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban2_firetruck",
+      "stock_placements": 7,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban2_green",
+      "stock_placements": 17,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    },
+    {
+      "class": "Land_wreck_truck01_aban2_orange",
+      "stock_placements": 23,
+      "runtime_acceptance": "pending",
+      "disposition": "pending-refused",
+      "reason": "hc59_truck_geometry_and_part_contract_unverified",
+      "outputs": [],
+      "future_review": "Exact parts/slots, geometry, clearance, repair and finite source policy before admission; no permanent product exclusion"
+    }
+  ]
+}
