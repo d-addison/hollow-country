@@ -100,7 +100,7 @@ class HCCellarsModule : HCModule
         if (!FileExist(output)) { return !FileExist(output + ".bak"); }
         // HCGroupIO's shared read limit is 1 MiB. Oversize/invalid results refuse
         // counting rather than falling back to a guessed or stale measurement.
-        if (!HCGroupJson<HCCellarSamplerData>.Load(output, 1048576, m_Measurement)) { return false; }
+        if (!HCGroupJson<HCCellarSamplerData>.Load(output, HCGroupIO.HC_RAW_READ_CAP, m_Measurement)) { return false; }
         return HCCountEvidence();
     }
 

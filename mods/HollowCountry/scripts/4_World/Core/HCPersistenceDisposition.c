@@ -98,13 +98,13 @@ class HCPersistenceDisposition
             if (!hc.PairedRestore || !nativeReceipt.StoppedPairAttested || hc.NativeBackupId.Length() < 1 || hc.NativeBackupId.Length() > 128) { return HCRefuseRestore("paired_restore_required"); }
             if (enableWorld)
             {
-                if (!HCMatchImage("$profile:HollowCountry/world.json", 1048576, hc.WorldLength, hc.WorldHash)) { return HCRefuseRestore("world_pair_image_mismatch"); }
+                if (!HCMatchImage("$profile:HollowCountry/world.json", HCGroupIO.HC_RAW_READ_CAP, hc.WorldLength, hc.WorldHash)) { return HCRefuseRestore("world_pair_image_mismatch"); }
                 if (!HCMatchImage("$profile:HollowCountry/escalation.json", 2048, hc.EscalationLength, hc.EscalationHash)) { return HCRefuseRestore("escalation_pair_image_mismatch"); }
             }
             if (hc.GroupRevision > 0)
             {
                 string groupPath = "$profile:HollowCountry/Groups/state/state_" + hc.GroupRevision.ToString() + ".json";
-                if (!HCMatchImage(groupPath, 1048576, hc.GroupLength, hc.GroupHash)) { return HCRefuseRestore("group_pair_image_mismatch"); }
+                if (!HCMatchImage(groupPath, HCGroupIO.HC_RAW_READ_CAP, hc.GroupLength, hc.GroupHash)) { return HCRefuseRestore("group_pair_image_mismatch"); }
             }
             if (hc.GroupRevision == 0 && (hc.GroupLength != 0 || hc.GroupHash != 0)) { return HCRefuseRestore("empty_group_attestation_invalid"); }
             int now = HCGroupClock.Utc();
@@ -286,7 +286,7 @@ class HCPersistenceDisposition
     static bool HCReadArchive(string path, int limit, out string text, bool allowEmpty)
     {
         if (!allowEmpty) { return HCGroupIO.HCReadRaw(path, limit, text); }
-        if (limit < 1 || limit > 1048576) { return false; }
+        if (limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }
         FileHandle handle = OpenFile(path, FileMode.READ);
         if (!handle) { return false; }
         int count = ReadFile(handle, text, limit + 1);

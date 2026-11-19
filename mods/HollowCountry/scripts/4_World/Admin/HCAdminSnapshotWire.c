@@ -1,6 +1,6 @@
 // W6 #123. Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380,407
 // Count/Insert, :887,897 map GetElement/GetKey; EnMath3D.c:18 Vector;
-// EnConvert.c:30 int.ToString; EnDebug.c:96 Print. HCDebugSnapshot owns capture.
+// EnString.c:113,199 Substring/Length; EnConvert.c:30 int.ToString; EnDebug.c:96 Print. HCDebugSnapshot owns capture.
 // One completed request: <=1024 points +128 routes*64 vertices examined;
 // <=512 total vertices/MAX_WIRE_LAYERS (24) layers exported, text already bounded by shared API.
 // w28-debugmap #193: the 512-mark budget is shared fairly (water-fill: every sent
@@ -25,11 +25,12 @@ class HCAdminSnapshotWire
     static const int NOTICE_BYTES = 1024;
     static const int NOTICE_UNPLACED_SHARE = 4;
 
-    // Comma-joined entries that fit in `room` bytes. A cut list ends in `+N more`, and the
+    // Comma-joined entries that fit in `room` characters. A cut list ends in `+N more`, and the
     // room for that marker is reserved before an entry is added (digits of the total count
     // is an upper bound for N), so the result is <= room whenever the marker alone fits.
     protected static string HCFitEntries(array<string> entries, int room)
     {
+        if (room < 1 || !entries || entries.Count() < 1) { return ""; }
         string joined = "";
         int kept = 0;
         int markerBytes = 8 + entries.Count().ToString().Length();
@@ -43,6 +44,23 @@ class HCAdminSnapshotWire
             if (kept > 0) { joined += ","; }
             joined += entry;
             kept++;
+        }
+        // Tiny-room fallback: identify the first layer even when no whole entry
+        // fits. A tilde marks clipping; the suffix counts other omitted entries.
+        // If even that suffix would consume the preview, retain only the preview.
+        if (kept == 0)
+        {
+            string suffix = "";
+            if (entries.Count() > 1) { suffix = ",+" + (entries.Count() - 1).ToString() + " more"; }
+            int previewRoom = room - suffix.Length();
+            if (previewRoom < 2) { suffix = ""; previewRoom = room; }
+            string preview = entries[0];
+            if (preview.Length() > previewRoom)
+            {
+                if (previewRoom == 1) { preview = preview.Substring(0, 1); }
+                else { preview = preview.Substring(0, previewRoom - 1) + "~"; }
+            }
+            return preview + suffix;
         }
         if (kept < entries.Count())
         {

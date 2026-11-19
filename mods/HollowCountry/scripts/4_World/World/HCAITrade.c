@@ -376,6 +376,9 @@ class HCTradeTransaction
             HCLog();
             return false;
         }
+        // Only a durable healthy replacement ends the diagnostic refusal lifecycle.
+        // Failed saves and quarantine retain the old journal and the sticky reason.
+        m_LogRefusal = "";
         string prior = m_State.Phase;
         string priorRefusal = m_State.Refusal;
         m_State.Id = "";

@@ -43,3 +43,66 @@ this source change; native Windows compilation and joined-client checks are pend
 COT's map has no AI and its ESP "Player AI" view only covers a radius around the admin.
 Use the Hollow Country admin map (Pause key, layer `ai-units`); steps in
 [FRIEND_SERVER_AI_RUNBOOK.md](FRIEND_SERVER_AI_RUNBOOK.md#seeing-the-ai-admin-map-snapshot-file-log).
+
+## HC server authorization adapter (#203)
+
+HC admin ingress now accepts either the private `admins.json` allowlist or a
+live server permission provider granting the named permission
+`HollowCountry.Admin`. The adapter is requested by default; the operator can
+opt out by creating
+`$profile:HollowCountry/acceptance/COTAuthorization.disable` before startup.
+`EnableAdminMap` still controls the entire admin module. Neither opting out nor
+an unavailable provider grants access. The existing validated allowlist remains
+usable independently. A malformed or interrupted allowlist still refuses module
+startup; the permission adapter never bypasses store recovery.
+
+**The COT binding is missing, not verified or silently admitted.** Repository
+[acceptance documentation](ACCEPTANCE_CHECKLIST.md) records the public API names
+`GetPermissionsManager`, `GetPlayer`, and `HasRole`, but no receiver, parameter,
+return-type, build guard, registration API, or call-site line evidence. This
+worker was prohibited from inspecting COT source. Those names alone do not
+justify a callable binding or treating an `admin` role as an HC grant. HC does
+not read COT role/player files, invoke undocumented signatures, or infer permission
+from possession of the UI. No COT or Expansion call was added.
+
+The source-ready seam lives in `HCAdminModule.c`:
+
+- Obtain the running module's `HCPermissionAdapter()` using the existing module
+  registry, then bind a server-owned subclass of `HCAdminPermissionPort` through
+  `HCBind(port)`. Bind only after the real COT permission service is available.
+- `HCReady()` must reflect that service's current lifecycle.
+  `HCAllowed(PlayerIdentity sender, string permission)` must query the actual
+  authenticated server sender and the named permission on every call. It must
+  return false for unknown identities, unloaded roles and permission errors.
+  The base port refuses both methods. Only one live owner can bind; another
+  owner cannot replace or unbind it.
+- Unbind that exact port with `HCUnbind(port)` when its service stops. Admin
+  shutdown clears the reference; each new startup requires a fresh binding.
+  Revocation is rechecked at ingress, queued dispatch and delayed reply delivery.
+  Grants are never copied into `admins.json` or cached as authorization.
+
+The adapter uses `HCOperationalStatus.HCPublish` and print-on-change reasons.
+Core status polling refreshes its status. Missing binding logs
+`[HC Admin] COTAuthorization reason=cot_permission_binding_missing runtime=PENDING`
+once per reason change; a bound but unavailable provider reports
+`cot_permission_provider_unavailable`. `ready` is derived only from a running,
+requested adapter with a bound, available provider. The main module's existing
+ready receipt describes the loaded allowlist, not COT readiness. Server-only
+checks cite native `3_Game/Global/Game.c:1120` (`IsServer`),
+`3_Game/gameplay.c:636` (`GetGame`), `:370` (`GetPlainId`), and
+`1_Core/proto/EnSystem.c:397` (`FileExist`). No new settings registry row,
+module slot, mission file, distance or gameplay limit is introduced.
+
+Both authorization sources share the existing 32-session ingress arrays,
+per-peer cadence, replay tickets and one-command queue. COT-authenticated peers
+never index the allowlist with `-1`. Revoked sessions can yield their slots;
+capacity exhaustion refuses ingress. No additional tick scan or controller is
+introduced. The adapter performs constant work per permission check; session
+selection examines at most the existing 32 slots.
+
+Integration still requires separately authorized COT API inspection/documentation
+with exact file:line evidence and a binding against that build's real signatures.
+After integration, boot the normal server/PBO and DayZDiag, grant/revoke the named
+permission, stop/restart the provider, test the opt-out, and use two clients to
+verify that an unauthorized peer receives no live snapshot or admin data. The
+synthetic adapter tests do not establish these results.

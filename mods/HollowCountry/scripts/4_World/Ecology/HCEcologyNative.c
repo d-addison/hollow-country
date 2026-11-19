@@ -236,8 +236,8 @@ class HCEcologyNative
 		// Native target eligibility is implemented by HCWildlifeProviders; target
 		// observation and animal resource-goal APIs above remain unavailable.
 		// #194: manifest size against its cap, and the named reason when the manifest is refused.
-		string manifest = "manifest_bytes=unread";
-		if (s_HabitatBytes > 0) { manifest = "manifest_bytes=" + s_HabitatBytes.ToString(); }
+		string manifest = "manifest_chars=unread";
+		if (s_HabitatBytes > 0) { manifest = "manifest_chars=" + s_HabitatBytes.ToString(); }
 		int capBytes = HCEcologyNative.HC_HABITAT_MAX_BYTES;
 		manifest = manifest + " manifest_cap=" + capBytes.ToString();
 		if (!s_HabitatValid) { manifest = manifest + " manifest_refusal=" + s_HabitatReason; }

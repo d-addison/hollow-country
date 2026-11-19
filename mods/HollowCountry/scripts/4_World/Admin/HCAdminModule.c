@@ -12,6 +12,109 @@
 // vertices, <=16 layers. Request-only capture; one global pending capture.
 // Ingress: <=1 queued command per core tick; per-admin 1s commands/5s snapshot.
 // Off: no allocations, RPC subscription, profile reads or tick work.
+// #203 API-neutral server permission seam. No client UI/profile role data is trusted.
+// Native evidence: scripts-1.30.164289/3_Game/Global/Game.c:1120 IsServer;
+// 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnSystem.c:397 FileExist;
+// 1_Core/proto/EnDebug.c:96 Print. No COT/Expansion engine call is guessed here.
+// The installed public COT names lack documented signatures: binding is a named
+// missing part, never a successful COT check. See docs/COT_PERMISSIONS.md.
+class HCAdminPermissionPort
+{
+    bool HCReady() { return false; }
+    bool HCAllowed(PlayerIdentity sender, string permission) { return false; }
+}
+
+class HCAdminPermissionAdapter
+{
+    static const string PERMISSION = "HollowCountry.Admin";
+    protected bool m_Running;
+    protected bool m_Enabled;
+    protected ref HCAdminPermissionPort m_Port;
+    protected string m_Reason;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+
+    HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCRefresh();
+        return m_Status;
+    }
+
+    void HCStart()
+    {
+        if (m_Running) { return; }
+        m_Port = null;
+        m_Running = GetGame() && GetGame().IsServer();
+        m_Enabled = m_Running && !FileExist("$profile:HollowCountry/acceptance/COTAuthorization.disable");
+        if (m_Running) { Print(HCV2Admission.Line("COTAuthorization", m_Enabled, "203", false) + " runtime=PENDING"); }
+        HCRefresh();
+    }
+
+    void HCStop()
+    {
+        m_Running = false;
+        m_Enabled = false;
+        m_Port = null;
+        HCRefresh();
+    }
+
+    bool HCBind(HCAdminPermissionPort port)
+    {
+        if (!m_Running || !m_Enabled || !GetGame() || !GetGame().IsServer() || !port || !port.HCReady()) { return false; }
+        // Never replace another live owner. It must explicitly unbind first.
+        if (m_Port && m_Port != port) { return false; }
+        m_Port = port;
+        HCRefresh();
+        return true;
+    }
+
+    void HCUnbind(HCAdminPermissionPort port)
+    {
+        if (!port || m_Port != port) { return; }
+        m_Port = null;
+        HCRefresh();
+    }
+
+    bool HCAllowed(PlayerIdentity sender)
+    {
+        if (!m_Running || !m_Enabled || !GetGame() || !GetGame().IsServer() || !sender || !m_Port) { return false; }
+        if (!m_Port.HCReady()) { return false; }
+        return m_Port.HCAllowed(sender, HCAdminPermissionAdapter.PERMISSION);
+    }
+
+    protected void HCRefuse(string reason)
+    {
+        if (m_Reason == reason) { return; }
+        m_Reason = reason;
+        // No peer identity or role contents in diagnostics. Once per change.
+        if (GetGame() && GetGame().IsServer()) { Print("[HC Admin] COTAuthorization reason=" + reason + " runtime=PENDING"); }
+    }
+
+    void HCRefresh()
+    {
+        if (!GetGame() || !GetGame().IsServer())
+        {
+            m_Running = false;
+            m_Enabled = false;
+            m_Port = null;
+        }
+        string state = "off";
+        string reason = "server_stopped";
+        if (m_Running && !m_Enabled) { reason = "operator_opt_out"; }
+        if (m_Running && m_Enabled)
+        {
+            state = "degraded";
+            reason = "cot_permission_binding_missing";
+            if (m_Port)
+            {
+                reason = "cot_permission_provider_unavailable";
+                if (m_Port.HCReady()) { state = "ready"; reason = "server_permission_provider_bound_runtime_pending"; }
+            }
+        }
+        m_Status.HCPublish(state, reason);
+        HCRefuse(reason);
+    }
+}
+
 class HCAdminDeniedPeer
 {
     string PlainId;
@@ -24,6 +127,8 @@ class HCAdminModule : HCModule
     protected bool m_Running;
     protected bool m_Printed;
     protected ref HCAdminAllowlist m_Admins;
+    protected ref HCAdminPermissionAdapter m_Permissions;
+    HCAdminPermissionAdapter HCPermissionAdapter() { return m_Permissions; }
     protected ref array<ref HCAdminDeniedPeer> m_Denied;
     protected ref array<float> m_CommandAt;
     protected ref array<float> m_SnapshotAt;
@@ -50,7 +155,12 @@ class HCAdminModule : HCModule
 
     override string GetName() { return "AdminMap"; }
     bool HCOperatorControls() { return m_OperatorControls; }
-    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        // Core polling refreshes the adapter's derived lifecycle receipt too.
+        if (m_Permissions) { m_Permissions.HCGetOperationalStatus(); }
+        return m_Status;
+    }
     override bool IsEnabled(HCSettings settings)
     {
         bool enabled = settings && settings.EnableAdminMap;
@@ -98,13 +208,15 @@ class HCAdminModule : HCModule
             }
             seen.Insert(plainId);
         }
+        m_Permissions = new HCAdminPermissionAdapter;
+        m_Permissions.HCStart();
         m_Denied = new array<ref HCAdminDeniedPeer>;
         m_CommandAt = new array<float>;
         m_SnapshotAt = new array<float>;
         m_Tickets = new array<int>;
         m_Identities = new array<PlayerIdentity>;
         m_Players = new array<Man>;
-        for (int slot = 0; slot < m_Admins.PlainIds.Count(); slot++)
+        for (int slot = 0; slot < 32; slot++)
         {
             m_CommandAt.Insert(0);
             m_SnapshotAt.Insert(0);
@@ -122,8 +234,25 @@ class HCAdminModule : HCModule
 
     bool HCAuthorized(PlayerIdentity sender)
     {
-        if (!m_Running || !sender || !m_Admins) { return false; }
-        return m_Admins.PlainIds.Find(sender.GetPlainId()) >= 0;
+        if (!m_Running || !sender || !m_Admins || !GetGame() || !GetGame().IsServer()) { return false; }
+        if (m_Admins.PlainIds.Find(sender.GetPlainId()) >= 0) { return true; }
+        return m_Permissions && m_Permissions.HCAllowed(sender);
+    }
+
+    // Existing fixed ingress/session arrays serve both authorization sources.
+    // No COT id is appended to the durable allowlist. Revocation is checked on
+    // every request, queued dispatch and delayed send; reconnect resets tickets.
+    protected int HCAuthSlot(PlayerIdentity sender)
+    {
+        if (!HCAuthorized(sender)) { return -1; }
+        int reusable = -1;
+        for (int authIndex = 0; authIndex < m_Identities.Count(); authIndex++)
+        {
+            PlayerIdentity known = m_Identities[authIndex];
+            if (known && known.GetPlainId() == sender.GetPlainId()) { return authIndex; }
+            if (reusable < 0 && (!known || !HCAuthorized(known))) { reusable = authIndex; }
+        }
+        return reusable;
     }
 
     // A fixed 64-peer quarantine retains opaque IDs, never prints them.
@@ -270,7 +399,15 @@ class HCAdminModule : HCModule
         if (!m_Running || rpcType != HCAdminWire.REQUEST || !GetGame().IsServer()) { return; }
         if (!HCAuthorized(sender)) { HCRefused(sender); return; }
         if (target || !ctx) { return; }
-        int slot = m_Admins.PlainIds.Find(sender.GetPlainId());
+        int slot = HCAuthSlot(sender);
+        if (slot < 0) { HCRefused(sender); return; }
+        if (m_Identities[slot] != sender)
+        {
+            m_Identities[slot] = sender;
+            m_Tickets[slot] = 0;
+            m_CommandAt[slot] = 0;
+            m_SnapshotAt[slot] = 0;
+        }
         float now = GetGame().GetTickTime();
         if (now < m_CommandAt[slot]) { return; }
         m_CommandAt[slot] = now + 1;
@@ -281,7 +418,6 @@ class HCAdminModule : HCModule
             HCReply(sender, request.Ticket, "request", false, "unknown-command-or-ticket");
             return;
         }
-        if (m_Identities[slot] != sender) { m_Identities[slot] = sender; m_Tickets[slot] = 0; }
         if (request.Ticket <= m_Tickets[slot])
         {
             HCReply(sender, request.Ticket, request.Command, false, "replayed-ticket");
@@ -435,7 +571,8 @@ class HCAdminModule : HCModule
         if (command == "list") { HCList(sender, ticket, player.GetPosition()); return true; }
         if (command == "snapshot")
         {
-            int slot = m_Admins.PlainIds.Find(sender.GetPlainId());
+            int slot = HCAuthSlot(sender);
+            if (slot < 0) { HCRefused(sender); return false; }
             float now = GetGame().GetTickTime();
             if (!m_DebugEnabled) { HCReply(sender, ticket, command, false, "EnableDebugSnapshot-off; contributors-unavailable"); return false; }
             if (now < m_SnapshotAt[slot]) { HCReply(sender, ticket, command, false, "snapshot-cooldown=5s"); return false; }
@@ -516,6 +653,8 @@ class HCAdminModule : HCModule
     {
         if (m_Running) { DayZGame.Event_OnRPC.Remove(HCReceive); }
         m_Running = false;
+        if (m_Permissions) { m_Permissions.HCStop(); }
+        m_Permissions = null;
         m_OperatorControls = false;
         m_Status.HCPublish("off", "server_stopped");
         m_Pending = null;
