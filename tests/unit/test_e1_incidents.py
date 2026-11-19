@@ -88,7 +88,7 @@ def policy(**overrides):
     env = base_env()
     env.update(HCWorldIncidentKind=kind_row)
     obj = bind(text(CORE), 'HCWorldIncidentPolicy', env, only=POLICY_METHODS, Version=1, MaxIncidents=32,
-               SweepPerTick=4, MaxResponders=1, MergeMeters=5.0, Kinds=EArray())
+               SweepPerTick=4, MaxResponders=1, MergeMeters=5.0, SightHeightMeters=1.0, Kinds=EArray())
     obj.HCDefaults()
     for key, value in overrides.items():
         setattr(obj, key, value)
@@ -96,26 +96,50 @@ def policy(**overrides):
     return obj
 
 
-def registry(now=1000, maxima=32, sweep=4, responders=1, world=None, budget=True, **extra):
+def looker(position, head=True):
+    """Synthetic Human: GetPosition plus the head bone (human.c:1417, Object.c:238)."""
+    obj = N(position=list(position))
+    obj.GetPosition = lambda: obj.position
+    obj.GetBoneIndexByName = lambda name: 7 if head and name == 'Head' else -1
+    obj.GetBonePositionWS = lambda index: [obj.position[0], obj.position[1] + 1.7, obj.position[2]]
+    return obj
+
+
+class Rays:
+    """Synthetic DayZPhysics.RaycastRV (DayZPhysics.c:199): records calls, returns the scripted hit."""
+    def __init__(self, hit=False):
+        self.hit, self.calls = hit, []
+
+    def RaycastRV(self, begin, end, contact, normal, component, results, with_object, ignore, sorted_hits,
+                  ground_only, kind, radius):
+        self.calls.append(dict(begin=list(begin), end=list(end), with_object=with_object, ignore=ignore, kind=kind,
+                               ground_only=ground_only, radius=radius))
+        return self.hit
+
+
+def registry(now=1000, maxima=32, sweep=4, responders=1, world=None, budget=True, rays=None, **extra):
     logs = []
     env = base_env(logs)
     pol = policy(MaxIncidents=maxima, SweepPerTick=sweep, MaxResponders=responders)
     calls = []
+    takes = []
     world = world or N(NearestPlace=lambda position: EStr('place-a'),
                        AddFact=lambda kind, place, severity: calls.append((kind, place, severity)) or True)
     env.update(HCWorldIncident=incident_row, HCWorldModule=N(Get=lambda: world),
                HCWorldIncidentPolicy=N(HCGet=lambda: pol),
                HCWorkBudget=lambda: N(), GetGame=lambda: N(IsServer=lambda: True, GetTime=lambda: now * 1000),
-               HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: budget)),
+               HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: takes.append(consumer) or budget)),
                HCUnitBudget=N(HC_WORK_INCIDENTS=17, HC_WORK_INCIDENT_RESPONSE=18),
+               DayZPhysics=rays or Rays(), ObjIntersectView=1,
                HCWorldIncidents=N(HCNowSeconds=lambda: now), HCNowSeconds=lambda: now)
     env.update(extra)
     obj = bind(text(CORE), 'HCWorldIncidents', env,
                only=['HCAdd', 'HCFindSame', 'HCRetireAnchor', 'HCRetireId', 'HCCount', 'HCRowAt', 'HCById', 'HCPerceives',
-                     'HCClaim', 'HCRelease', 'HCSweep', 'HCEvict', 'HCRadio', 'HCNoteFact', 'HCRemoveAt', 'HCGone'],
+                     'HCClaim', 'HCRelease', 'HCSweep', 'HCEvict', 'HCRadio', 'HCTag', 'HCRemoveAt', 'HCGone', 'HCEye', 'HCClear'],
                m_Policy=pol, m_Rows=EArray(), m_NextId=1, m_Cursor=0, m_Running=True, m_Off=False, m_Refused=0,
                m_FullLogged=False)
-    obj.logs, obj.facts, obj.pol, obj.world = logs, calls, pol, world
+    obj.logs, obj.facts, obj.pol, obj.world, obj.takes = logs, calls, pol, world, takes
+    obj.rays = env['DayZPhysics']
     return obj
 
 
@@ -244,17 +268,73 @@ class RegistryBehavior(unittest.TestCase):
         reg = registry()
         gas = reg.HCById(reg.HCAdd('gas_static', [0, 0, 0], 120.0, 0, None, 1000))
         edge = 120.0 + gas.VisualRange
-        self.assertTrue(reg.HCPerceives(gas, [edge - 1, 0, 0], 1000))
-        self.assertFalse(reg.HCPerceives(gas, [edge + 1, 0, 0], 1000), 'silent gas is seen, never heard')
+        self.assertTrue(reg.HCPerceives(gas, looker([edge - 1, 0, 0]), 1000))
+        self.assertFalse(reg.HCPerceives(gas, looker([edge + 1, 0, 0]), 1000), 'silent gas is seen, never heard')
         crash = reg.HCById(reg.HCAdd('crash', [5000, 0, 5000], 0.0, 0, None, 1000))
-        near_sound = [5000 + crash.SoundRange - 1, 0, 5000]
+        near_sound = looker([5000 + crash.SoundRange - 1, 0, 5000])
         self.assertTrue(reg.HCPerceives(crash, near_sound, 1000 + crash.SoundSeconds))
         self.assertFalse(reg.HCPerceives(crash, near_sound, 1001 + crash.SoundSeconds), 'sound fades after its window')
-        self.assertTrue(reg.HCPerceives(crash, [5000 + crash.VisualRange - 1, 0, 5000], 5000),
+        self.assertTrue(reg.HCPerceives(crash, looker([5000 + crash.VisualRange - 1, 0, 5000]), 5000),
                         'smoke stays visible after the sound has faded')
-        self.assertFalse(reg.HCPerceives(crash, [5000 + crash.SoundRange + 1, 0, 5000], 1000))
+        self.assertFalse(reg.HCPerceives(crash, looker([5000 + crash.SoundRange + 1, 0, 5000]), 1000))
         cold = reg.HCById(reg.HCAdd('crash_cold', [9000, 0, 9000], 0.0, 0, None, 1000))
         self.assertLess(cold.VisualRange, crash.VisualRange, 'a wreck that is not smoking is seen from less far')
+
+    def test_sight_needs_a_clear_line_from_the_head_and_costs_one_raycast(self):
+        rays = Rays(hit=False)
+        reg = registry(rays=rays)
+        crash = reg.HCById(reg.HCAdd('crash', [1000, 0, 0], 0.0, 0, None, 1000))
+        eye = looker([1000 - crash.VisualRange + 50, 0, 0])
+        self.assertTrue(reg.HCPerceives(crash, eye, 5000), 'a clear line to the wreck is sight')
+        self.assertEqual(1, len(rays.calls), 'one raycast per member per check')
+        call = rays.calls[0]
+        self.assertEqual([eye.position[0], 1.7, 0], call['begin'], 'the ray starts at the head bone')
+        self.assertEqual([1000, 1.0, 0], call['end'], 'and ends at the incident, raised by the policy height')
+        self.assertIs(eye, call['ignore'], 'the looker never blocks itself')
+        self.assertEqual(1, call['kind'], 'ObjIntersectView (DayZPhysics.c:68)')
+        self.assertFalse(call['ground_only'], 'objects and terrain both count')
+        self.assertEqual(0.0, call['radius'], 'a thin ray, not a swept volume')
+        self.assertEqual([17], reg.takes, 'the raycast is paid from the shared incident budget id')
+        rays.hit = True
+        self.assertFalse(reg.HCPerceives(crash, eye, 5000), 'terrain or an object before the wreck blocks sight')
+        self.assertEqual(2, len(rays.calls))
+
+    def test_gas_ray_stops_at_the_zone_edge_and_ignores_the_anchor_wreck(self):
+        rays = Rays(hit=False)
+        reg = registry(rays=rays)
+        gas = reg.HCById(reg.HCAdd('gas_static', [0, 0, 0], 100.0, 0, None, 1000))
+        reg.HCPerceives(gas, looker([200, 0, 0]), 1000)
+        self.assertEqual([100.0, 1.0, 0.0], [round(v, 3) for v in rays.calls[0]['end']], 'sight is measured to the edge')
+        hull = anchor()
+        wreck = reg.HCById(reg.HCAdd('crash', [500, 0, 500], 0.0, 0, hull, 1000))
+        reg.HCPerceives(wreck, looker([500, 0, 800]), 5000)
+        self.assertIs(hull, rays.calls[1]['with_object'], 'the wreck hull does not hide its own smoke')
+
+    def test_sound_never_needs_a_ray_and_out_of_range_never_casts(self):
+        rays = Rays(hit=True)
+        reg = registry(rays=rays)
+        crash = reg.HCById(reg.HCAdd('crash', [5000, 0, 5000], 0.0, 0, None, 1000))
+        self.assertTrue(reg.HCPerceives(crash, looker([5000 + crash.SoundRange - 1, 0, 5000]), 1000), 'sound carries around corners')
+        self.assertFalse(reg.HCPerceives(crash, looker([5000 + crash.SoundRange + 1, 0, 5000]), 1000))
+        self.assertEqual([], rays.calls)
+
+    def test_no_raycast_budget_means_not_seen_and_no_head_falls_back_to_standing_height(self):
+        rays = Rays(hit=False)
+        starved = registry(rays=rays, budget=False)
+        crash = starved.HCById(starved.HCAdd('crash', [1000, 0, 0], 0.0, 0, None, 1000))
+        self.assertFalse(starved.HCPerceives(crash, looker([1000 - 100, 0, 0]), 5000), 'no budget, no omniscient default')
+        self.assertEqual([], rays.calls)
+        reg = registry(rays=rays)
+        row = reg.HCById(reg.HCAdd('crash', [1000, 0, 0], 0.0, 0, None, 1000))
+        self.assertTrue(reg.HCPerceives(row, looker([900, 0, 0], head=False), 5000))
+        self.assertEqual([900, 1.6, 0], rays.calls[0]['begin'])
+
+    def test_published_incidents_can_carry_the_source_faction(self):
+        reg = registry()
+        row = reg.HCById(reg.HCAdd('scene', [700, 0, 700], 0.0, 0, None, 1000))
+        reg.HCTag(row.Id, EStr('locals'))
+        self.assertEqual('locals', row.Faction)
+        reg.HCTag(999, EStr('nobody'))
 
     def test_responder_claims_are_bounded_per_incident(self):
         reg = registry(responders=1)
@@ -266,22 +346,6 @@ class RegistryBehavior(unittest.TestCase):
         reg.HCRelease(row.Id)
         reg.HCRelease(row.Id)
         self.assertEqual(0, row.Responders)
-
-    def test_ledger_facts_publish_only_subscribed_physical_kinds(self):
-        reg = registry()
-        self.assertEqual(0, reg.HCNoteFact('party_passed', [0, 0, 0], 0, EStr('')))
-        found = reg.HCNoteFact('scene_started', [700, 0, 700], 1, EStr('locals'))
-        self.assertGreater(found, 0)
-        self.assertEqual('scene', reg.HCById(found).Kind)
-        self.assertEqual(1, reg.HCById(found).Severity)
-        self.assertEqual('locals', reg.HCById(found).Faction, 'the holdout faction rides on the incident for reinforcement')
-        again = reg.HCNoteFact('scene_started', [700.5, 0, 700], 2, EStr(''))
-        self.assertEqual(found, again, 'the same scene is one incident')
-        self.assertEqual(2, reg.HCById(found).Severity, 'a worse report raises severity')
-        self.assertEqual('locals', reg.HCById(found).Faction)
-        off = registry()
-        off.m_Off = True
-        self.assertEqual(0, off.HCNoteFact('scene_started', [1, 0, 1], 1, EStr('')), 'operator opt-out publishes nothing')
 
     def test_radio_relay_is_once_per_incident_and_needs_a_known_place(self):
         reg = registry()
@@ -369,7 +433,8 @@ class TickBehavior(unittest.TestCase):
         match = re.search(r'override void OnTick\(float deltaTime\)\s*\{', source)
         self.assertIsNotNone(match, 'OnTick must exist')
         body = source[match.end():source.index('override void OnStop')]
-        self.assertIn('HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS', body, 'shared tick budget, qualified static const')
+        self.assertIn('HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)', body, 'shared tick budget id')
+        self.assertNotIn('WORK_ID', text(CORE), 'consumer ids live in HCUnitBudget')
         self.assertIn('HCSweep', body)
 
 
@@ -420,13 +485,21 @@ class SourceBehavior(unittest.TestCase):
         self.assertEqual('crash_cold', src.published[1][0])
         self.assertNotIn('SpawnDE', text(SOURCES), 'HC never creates a native crash (developer-only API)')
 
+    def test_ledger_town_anchors_are_never_published_as_incident_positions(self):
+        source = text(SOURCES)
+        code = re.sub(r'//[^\n]*', '', source)
+        self.assertNotIn('HCWorldModule', code, 'AddFact carries a place id, not source coordinates')
+        self.assertNotIn('AddFact', code)
+        self.assertNotIn('Holdouts', code)
+        self.assertNotIn('HCPublishFact', text(CORE))
+        self.assertNotIn('HCNoteFact', text(CORE))
+
     def test_hooks_call_super_first(self):
         source = text(SOURCES)
         for cls, method, after in (('ContaminatedArea_Base', 'InitZoneServer', 'HCIncidentSources.HCZone'),
                                    ('ContaminatedArea_Base', 'EEDelete', 'HCWorldIncidents.HCRetire'),
                                    ('CrashBase', 'EEOnCECreate', 'HCIncidentSources.HCCrash'),
-                                   ('CrashBase', 'EEDelete', 'HCWorldIncidents.HCRetire'),
-                                   ('HCWorldModule', 'AddFact', 'HCWorldIncidents.HCPublishFact')):
+                                   ('CrashBase', 'EEDelete', 'HCWorldIncidents.HCRetire')):
             declared = re.search(r'modded class ' + cls + r'\b.*?\n\{(.*?)\n\}', source, re.S)
             self.assertIsNotNone(declared, cls)
             hook = re.search(r'override \w+ ' + method + r'\([^)]*\)\s*\{(.*?)\n    \}', declared[1], re.S)
@@ -440,8 +513,8 @@ CONSTS = N(ONCE='ONCE', HALT='HALT', PATROL='PATROL')
 
 
 def member(position, masked=False, filtered=True, alive=True):
-    obj = N(position=list(position), alive=alive, masked=masked, filtered=filtered)
-    obj.GetPosition = lambda: obj.position
+    obj = looker(position)
+    obj.alive, obj.masked, obj.filtered = alive, masked, filtered
     obj.IsAlive = lambda: obj.alive
     return obj
 
@@ -469,7 +542,7 @@ def group(positions, route=(), masked=None, combat=False, faction='fa'):
 
 def lease_row():
     return N(Group=None, IncidentId=0, Response=EStr(''), Phase=EStr(''), Target=[0, 0, 0], Placed=0, Until=0,
-             Deadline=0, Saved=EArray(), Behavior='PATROL')
+             Deadline=0, Saved=EArray(), Behavior='PATROL', Route=EArray(), Installed='PATROL', HoldSince=0)
 
 
 def response_row():
@@ -495,7 +568,7 @@ def response_policy(**change):
     return obj
 
 
-RESPONDER_METHODS = ['HCAccept', 'HCLeaseFor', 'HCCooling', 'HCCool', 'HCBest', 'HCEligible', 'HCPerceived', 'HCAlive',
+RESPONDER_METHODS = ['HCHolding', 'HCAccept', 'HCLeaseFor', 'HCCooling', 'HCCool', 'HCBest', 'HCEligible', 'HCPerceived', 'HCAlive',
                      'HCProtected', 'HCAllProtected', 'HCMargin', 'HCAvoidMode', 'HCKeep', 'HCLegHits', 'HCStartLease',
                      'HCBorrow', 'HCWalk', 'HCVet', 'HCStandoff', 'HCRadial', 'HCInside', 'HCUsable', 'HCStep',
                      'HCAdvance', 'HCInspect', 'HCArrived', 'HCMine', 'HCFinish', 'HCRestore', 'HCLead', 'HCFlat']
@@ -515,7 +588,7 @@ def responder(now=1000, rows=(), max_leases=2, sea=False, world_registry=None, b
                HCXFactions=N(Id=lambda faction: faction, HCWorldId=lambda value: value),
                HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: budget)),
                HCUnitBudget=N(HC_WORK_INCIDENTS=17, HC_WORK_INCIDENT_RESPONSE=18),
-               HCXAIIncidentResponse=N(),
+               HCXAIIncidentResponse=N(HOLD_WINDOWS=int(re.search(r'HOLD_WINDOWS = (\d+);', text(RESPONSE)).group(1))),
                HCXAIIncidentLease=lease_row,
                HCXAIIncidentCooldown=lambda: N(Group=None, Until=0))
     env.update(extra)
@@ -656,6 +729,104 @@ class ResponseBehavior(unittest.TestCase):
         self.assertTrue(run.HCAccept(one, [1400, 0, 1000], 1000))
         self.assertFalse(run.HCAccept(two, [1400, 0, 1100], 1000), 'registry MaxResponders=1')
 
+    def vet_lease(self, route, behavior_after=None):
+        run = responder(rows=[('gas_static', [0, 0, 0], 100.0, 0)])
+        crew = group([[180, 0, 0]], route=route)
+        self.assertTrue(run.HCAccept(crew, [300, 0, 0], 1000))
+        return run, crew, run.m_Leases[0]
+
+    def test_gas_route_with_no_safe_waypoint_holds_until_the_zone_retires(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [-60, 0, 0]])
+        self.assertEqual('vet', lease.Phase)
+        self.assertEqual([], [list(p) for p in crew.route], 'nothing safe: the group holds, the route stays empty')
+        deadline = lease.Deadline
+        run.HCStep(deadline + 5)
+        self.assertEqual(1, len(run.m_Leases), 'a live zone keeps the lease past its vet window')
+        self.assertEqual([], [list(p) for p in crew.route], 'the original route is never put back into the gas')
+        self.assertGreater(lease.Deadline, deadline)
+        run.reg.HCRetireId(lease.IncidentId)
+        run.HCStep(deadline + 10)
+        self.assertEqual(0, len(run.m_Leases))
+        self.assertEqual([[40, 0, 0], [-60, 0, 0]], [list(p) for p in crew.route], 'restored after the zone has retired')
+        self.assertEqual('PATROL', crew.behaviour)
+
+    def test_a_permanent_gas_hold_frees_its_lease_slot_after_a_bounded_hold(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [-60, 0, 0]])
+        run.m_Policy.MaxLeases = 1
+        hold = run.pol.HCFindRow('avoid').HoldSeconds + 1
+        run.HCStep(lease.Deadline + 5)
+        self.assertEqual(1, len(run.m_Leases), 'a short hold still owns the group')
+        for tick in range(1, 40):
+            run.HCStep(1000 + tick * hold)
+        self.assertEqual(0, len(run.m_Leases), 'a zone that never retires cannot pin the lease slot forever')
+        self.assertEqual([], [list(p) for p in crew.route], 'releasing never puts the gas waypoints back')
+        self.assertEqual('HALT', crew.behaviour, 'the group stays halted once the lease lets go')
+        inside = group([[50, 0, 0]], route=[[60, 0, 0], [400, 0, 0]])
+        self.assertTrue(run.HCAccept(inside, [300, 0, 0], 1000 + 40 * hold), 'a group inside the gas gets the freed slot')
+
+    def test_route_ownership_compares_elevation_too(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [400, 0, 0], [500, 0, 100]])
+        crew.route[1] = [crew.route[1][0], 25.0, crew.route[1][2]]
+        self.assertFalse(run.HCMine(lease), 'another controller raised a waypoint: the route is no longer ours')
+
+    def test_abnormal_end_while_the_zone_is_live_never_restores_unsafe_waypoints(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [-60, 0, 0]])
+        run.HCFinish(lease, 1100)
+        self.assertEqual([], [list(p) for p in crew.route])
+        run2, crew2, lease2 = self.vet_lease([[40, 0, 0], [450, 0, 0]])
+        run2.HCFinish(lease2, 1100)
+        self.assertEqual([[450, 0, 0]], [list(p) for p in crew2.route], 'only the safe part comes back while the zone is live')
+
+    def test_an_exit_that_finds_no_safe_route_holds_instead_of_restoring(self):
+        run = responder(rows=[('gas_static', [0, 0, 0], 100.0, 0)])
+        crew = group([[50, 0, 0]], route=[[60, 0, 0], [-60, 0, 0]])
+        self.assertTrue(run.HCAccept(crew, [300, 0, 0], 1000))
+        lease = run.m_Leases[0]
+        crew.members[0].position = list(lease.Target)
+        run.HCStep(1010)
+        self.assertEqual(1, len(run.m_Leases), 'arrival with nowhere safe to go keeps holding')
+        self.assertEqual('vet', lease.Phase)
+        self.assertEqual([], [list(p) for p in crew.route])
+
+    def test_route_is_left_alone_when_any_installed_waypoint_changed(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [400, 0, 0], [500, 0, 100]])
+        self.assertEqual(2, len(crew.route))
+        crew.route[1] = [450, 0, 0]
+        run.HCFinish(lease, 1100)
+        self.assertEqual([[400, 0, 0], [450, 0, 0]], [list(p) for p in crew.route], 'another controller changed the 2nd point')
+
+    def test_route_is_left_alone_when_another_controller_changed_the_behaviour(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [400, 0, 0], [500, 0, 100]])
+        crew.behaviour = 'HALT'
+        run.HCFinish(lease, 1100)
+        self.assertEqual('HALT', crew.behaviour)
+        self.assertEqual([[400, 0, 0], [500, 0, 100]], [list(p) for p in crew.route], 'a HALT set elsewhere is never undone')
+        self.assertEqual(0, len(run.m_Leases))
+
+    def test_untouched_route_and_behaviour_are_still_restored(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [400, 0, 0], [500, 0, 100]])
+        run.reg.HCRetireId(lease.IncidentId)
+        run.HCFinish(lease, 1100)
+        self.assertEqual([[40, 0, 0], [400, 0, 0], [500, 0, 100]], [list(p) for p in crew.route])
+        self.assertEqual('PATROL', crew.behaviour)
+
+    def test_route_size_is_checked_before_the_vetting_scan(self):
+        run = responder(rows=[('gas_static', [0, 0, 0], 100.0, 0)])
+        scans = []
+        original = run.HCKeep
+        run.HCKeep = lambda *args: scans.append(1) or original(*args)
+        long_route = [[300 + i, 0, 0] for i in range(40)]
+        crew = group([[300, 0, 0]], route=long_route)
+        self.assertFalse(run.HCAccept(crew, [300, 0, 0], 1000), 'too long to keep, so never borrowed')
+        self.assertEqual([], scans, 'no per-waypoint scan of a route that cannot be leased')
+
+    def test_enforce_traps_in_the_new_sources(self):
+        for path in (CORE, SOURCES, RESPONSE):
+            code = re.sub(r'//[^\n]*', '', path.read_text())
+            for target in re.findall(r'foreach\s*\(\s*\w+\s+\w+\s*:\s*([\w.]+)\s*\)', code):
+                self.assertNotRegex(target, r'^(m_\w+|\w+\.\w+|[A-Z]\w*)$', path.name + ' foreach must iterate a local: ' + target)
+            self.assertNotRegex(code, r'[(,]\s*new\s+\w', path.name + ' passes a fresh object as an argument')
+
 
 class ResponsePolicyAndModule(unittest.TestCase):
     def test_policy_defaults_valid_and_bad_rows_refused(self):
@@ -693,14 +864,15 @@ class ResponsePolicyAndModule(unittest.TestCase):
 
     def test_module_uses_shared_framework_and_marker_opt_out(self):
         source = text(RESPONSE)
-        self.assertIn('HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE', source)
+        self.assertIn('HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE, 1)', source)
+        self.assertNotIn('WORK_ID', source)
         self.assertIn('acceptance/incident_response.disable', source)
         self.assertIn('HCV2Admission.Line(', source)
         self.assertIn('HCModuleReadiness.HCDerive(', source)
         self.assertIn('runtime=PENDING', source)
         self.assertIn('modded class HCModuleRegistry', source)
         owners = [m.start() for m in re.finditer(r'\.ClearWaypoints\(\)', source)]
-        self.assertEqual(3, len(owners), 'the live waypoint array is only cleared in the walk, vet and restore steps')
+        self.assertEqual(4, len(owners), 'the live waypoint array is only cleared in the walk, vet, hold and restore steps')
         for forbidden in ('CreateObject', 'SpawnEntity', 'SetPosition(', 'OverrideTargetPosition'):
             code = re.sub(r'//[^\n]*', '', source)
             self.assertNotIn(forbidden, code, 'no spawn, teleport or target override: ' + forbidden)
