@@ -1,7 +1,8 @@
 """Ship the authored V2 travel CE overlay into a stopped private mission copy.
 
 CE runs before HCSettings is loaded: EnableTravel is evaluated at install time.
-No script controller, runtime gate override, stock file edit, or save wipe.
+Air positions merge by event name with byte-preserving rollback.
+No script controller, runtime gate override, or save wipe.
 """
 import argparse
 from collections import Counter
@@ -11,13 +12,17 @@ from pathlib import Path
 import re
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.package import economy
 
 MANAGED = 'hollow-country-travel'
-INPUTS = ('cfgeconomycore.xml',)
+INPUTS = ('cfgeconomycore.xml', 'cfgeventspawns.xml')
+EXPANSION_ROSTER = 'vehicles/vehexp-roster.json'
+EXPANSION_POSITIONS = 'vehicles/vehexp-eventspawns.xml'
+AIR_EVENT = 'VehicleHCExpansionAir'
 CE_FILES = ('ce/types.xml', 'ce/events.xml', 'ce/travel-spawnabletypes.xml')
 REGISTRATION = 'cfgeconomycore.append.xml'
 SOURCE = Path(__file__).resolve().parents[2] / 'mission/hollow-country'
@@ -122,36 +127,115 @@ def roster(source=SOURCE):
     files = validate(source)
     events = economy.xml(files['ce/events.xml'], 'events')
     templates = economy.xml(files['ce/travel-spawnabletypes.xml'], 'spawnabletypes')
-    return _roster(events, templates)
+    return _roster(events, templates, source)
 
 
-def _roster(events, templates):
+def expansion_repairs(vehicle):
+    """Authored repair subset of installed Expansion CfgVehicles attachment slots.
+
+    config.bin has no source lines. Evidence: 2291785437 vehicles_ground_landrover,
+    vehicles_ground_uaz, vehicles_air_gyro, vehicles_air_hatchbird,
+    vehicles_water_zodiac; 2116157322 vehicles_ground_bus, vehicles_ground_tractor,
+    vehicles_air_mh6, vehicles_air_uh1h, vehicles_air_merlin, vehicles_water_utility.
+    Four road/rotor wheels are authored, without spare/dummy Niva wheel slots.
+    These are source policy multiplicities, never a claim about live attachments.
+    """
+    road = Counter({'CarBattery': 1, 'CarRadiator': 1, 'SparkPlug': 1})
+    air = Counter({'ExpansionHelicopterBattery': 1, 'ExpansionIgniterPlug': 1,
+                   'ExpansionHydraulicHoses': 1})
+    if vehicle.startswith('Expansion_Landrover'):
+        road.update({'Expansion_Landrover_Wheel': 4})
+        road.update({'Expansion_Landrover_' + panel: 1 for panel in
+                     ('Driverdoor', 'Codriverdoor', 'Left', 'Right', 'Trunk', 'Hood')})
+        return road
+    if vehicle.startswith('ExpansionUAZ'):
+        road.update({'ExpansionUAZWheel': 4})
+        panels = ['Driver', 'CoDriver', 'Hood']
+        if vehicle != 'ExpansionUAZCargo':
+            panels += ['Cargo1', 'Cargo2']
+        road.update({'ExpansionUAZDoor' + panel: 1 for panel in panels})
+        return road
+    if vehicle.startswith('ExpansionBus'):
+        return Counter({'ExpansionBusWheel': 2, 'ExpansionBusWheelDouble': 2,
+                        'TruckBattery': 1, 'CarRadiator': 1, 'GlowPlug': 1})
+    if vehicle.startswith('ExpansionTractor'):
+        return Counter({'ExpansionTractorFrontWheel': 2, 'ExpansionTractorBackWheel': 2,
+                        'CarBattery': 1, 'SparkPlug': 1, 'ExpansionTractorDoorsDriver': 1,
+                        'ExpansionTractorDoorsCodriver': 1})
+    if vehicle == 'ExpansionZodiacBoat' or vehicle.startswith('ExpansionUtilityBoat'):
+        return Counter({'TruckBattery': 1, 'GlowPlug': 1})
+    if vehicle in ('ExpansionGyrocopter', 'ExpansionBigGyrocopter'):
+        return Counter({'ExpansionHelicopterBattery': 1, 'SparkPlug': 1})
+    if vehicle == 'ExpansionHatchBird':
+        air.update({'HatchbackWheel': 4})
+        air.update({'ExpansionHatchBird' + panel: 1 for panel in
+                    ('Doors_Driver', 'Doors_CoDriver', 'Hood', 'Trunk')})
+        return air
+    if vehicle in ('ExpansionMh6', 'ExpansionUh1h'):
+        prefix = 'Expansion_Mh6_Door_' if vehicle == 'ExpansionMh6' else 'ExpansionUh1hDoor_'
+        air.update({prefix + panel: 1 for panel in ('1_1', '1_2', '2_1', '2_2')})
+        return air
+    if vehicle == 'ExpansionMerlin':
+        air.update({'ExpansionMerlinFrontWheel': 2, 'ExpansionMerlinBackWheel': 2})
+        return air
+    raise ValueError('HC-32 unreviewed Expansion repair template: ' + vehicle)
+
+
+def _families(source):
+    manifest = json.loads(economy.read_plain(source, EXPANSION_ROSTER))
+    if not isinstance(manifest, dict):
+        raise ValueError('HC-32 invalid Expansion manifest')
+    additions = manifest.get('families')
+    if not isinstance(additions, dict) or set(additions) != {
+            'VehicleOffroadHatchback', 'VehicleTruck01', 'VehicleBoat', AIR_EVENT}:
+        raise ValueError('HC-32 unreviewed Expansion families')
+    families = {key: set(names) for key, names in NATIVE_FAMILIES.items()}
+    for key, names in additions.items():
+        if (not isinstance(names, list) or not names
+                or any(not isinstance(name, str) or not name for name in names)
+                or len({name.casefold() for name in names}) != len(names)):
+            raise ValueError('HC-32 invalid Expansion family: ' + key)
+        families.setdefault(key, set()).update(names)
+    identities = [name.casefold() for names in families.values() for name in names]
+    if len(identities) != len(set(identities)):
+        raise ValueError('HC-32 vehicle has duplicate manifest owners')
+    return families
+
+
+def _roster(events, templates, source=SOURCE):
+    families = _families(source)
     owners = vehicle_owners(events)
-    expected = {n.casefold() for key, names in NATIVE_FAMILIES.items()
-                if key != 'VehicleTruck01' for n in names}
+    expected = {n.casefold() for names in families.values() for n in names}
     if set(owners) != expected:
-        raise ValueError('HC-32 incomplete native travel roster')
+        raise ValueError('HC-32 incomplete travel roster')
+    if {event.get('name') for event in events} != set(families):
+        raise ValueError('HC-32 travel roster has an unreviewed or missing event')
     for event in events:
-        family = NATIVE_FAMILIES.get(event.get('name'))
-        if family is None:
-            raise ValueError('HC-32 native travel roster has an unreviewed event: ' + str(event.get('name')))
-        if {n.get('type') for n in event.findall('children/child')} != set(family):
-            raise ValueError('HC-32 native vehicle family mismatch')
+        family = families[event.get('name')]
+        if {n.get('type') for n in event.findall('children/child')} != family:
+            raise ValueError('HC-32 vehicle family mismatch')
     rows = {n.get('name', '').casefold(): n for n in templates.findall('type')}
-    if set(rows) & {n.casefold() for n in NATIVE_FAMILIES['VehicleTruck01']}:
+    if len(rows) != len(templates):
+        raise ValueError('HC-32 duplicate repair template')
+    stock = {n.casefold() for n in NATIVE_FAMILIES['VehicleTruck01']}
+    if set(rows) & stock:
         raise ValueError('HC-32 truck repair must remain native-stock')
-    for name in expected:
+    for name in expected - stock:
         if name not in rows:
-            raise ValueError('HC-32 missing native repair template: ' + name)
-        wanted = repair_parts(rows[name].get('name'))
+            raise ValueError('HC-32 missing repair template: ' + name)
+        canonical = rows[name].get('name')
+        wanted = repair_parts(canonical)
+        if wanted is None:
+            wanted = expansion_repairs(canonical)
         actual = Counter(n.get('name', '').casefold() for n in rows[name].findall('attachments/item'))
         if actual != Counter({n.casefold(): count for n, count in wanted.items()}):
-            raise ValueError('HC-32 incomplete native repair parts: ' + name)
-    return {'vehicle_families': len(NATIVE_FAMILIES), 'authored_variants': len(expected),
+            raise ValueError('HC-32 incomplete repair parts: ' + name)
+    return {'vehicle_families': len(families), 'authored_variants': len(expected - stock),
             'runtime': 'PENDING', 'families': {key: {
-                'disposition': 'native-stock' if key == 'VehicleTruck01' else 'hc-override',
-                'variants': list(names), 'repair': 'native-stock' if key == 'VehicleTruck01' else 'native-attachments'
-            } for key, names in NATIVE_FAMILIES.items()}}
+                'disposition': 'hc-override', 'variants': sorted(names),
+                'repair': 'native-stock-trucks-and-authored-attachments' if key == 'VehicleTruck01'
+                          else 'authored-attachments'
+            } for key, names in families.items()}}
 
 
 def preference(profiles):
@@ -177,7 +261,8 @@ def validate(source=SOURCE):
             raise ValueError('HC-32 duplicate CE row (case alias)')
     events = roots[1]
     expected = {'VehicleCivilianSedan': 9, 'VehicleHatchback02': 9, 'VehicleOffroadHatchback': 9,
-                'VehicleSedan02': 9, 'VehicleOffroad02': 3, 'VehicleMotorbike': 28, 'VehicleBoat': 6}
+                'VehicleSedan02': 9, 'VehicleOffroad02': 3, 'VehicleMotorbike': 28, 'VehicleBoat': 6,
+                'VehicleTruck01': 7, AIR_EVENT: 4}
     if {e.get('name'): int(e.findtext('nominal')) for e in events} != expected:
         raise ValueError('travel event counts differ from reviewed SA-07 policy')
     for event in events:
@@ -192,7 +277,11 @@ def validate(source=SOURCE):
     # ports use these). Every populated vehicle overlay must be complete before
     # any installer writes it, not merely when the report command is requested.
     if events.findall('event/children/child'):
-        _roster(events, roots[2])
+        _roster(events, roots[2], source)
+    files[EXPANSION_POSITIONS] = economy.read_plain(source, EXPANSION_POSITIONS)
+    positions = economy.xml(files[EXPANSION_POSITIONS], 'eventposdef')
+    if len(positions) != 1 or positions[0].tag != 'event' or positions[0].get('name') != AIR_EVENT:
+        raise ValueError('HC-32 unsupported Expansion event positions')
     fragment = economy.xml(files[REGISTRATION], 'economycore')
     if (len(fragment) != 1 or fragment[0].tag != 'ce'
             or fragment[0].attrib != {'folder': MANAGED + '/ce'}
@@ -203,6 +292,63 @@ def validate(source=SOURCE):
     return files
 
 
+def _definition(node):
+    return (node.tag, sorted(node.attrib.items()), (node.text or '').strip(),
+            tuple(_definition(child) for child in node))
+
+
+def _merge_positions(original, authored):
+    root = economy.xml(original, 'eventposdef')
+    addition = economy.xml(authored, 'eventposdef')[0]
+    existing = [event for event in root if event.get('name', '').casefold() == AIR_EVENT.casefold()]
+    if existing:
+        if len(existing) != 1 or _definition(existing[0]) != _definition(addition):
+            raise ValueError('conflicting ' + AIR_EVENT + ' event positions')
+        return original
+    opened = re.sub(rb'<eventposdef\s*/>', b'<eventposdef></eventposdef>', original)
+    endings = list(re.finditer(rb'</eventposdef\s*>', opened))
+    if len(endings) != 1:
+        raise ValueError('ambiguous eventposdef closing tag')
+    offset = endings[0].start()
+    patched = opened[:offset] + b'\n' + ET.tostring(addition) + b'\n' + opened[offset:]
+    economy.xml(patched, 'eventposdef')
+    return patched
+
+
+def _receipt(managed):
+    receipt = json.loads(economy.read_plain(managed, 'receipt.json'))
+    keys = {'before', 'after', *CE_FILES}
+    if isinstance(receipt, dict) and receipt.get('schema') == 2:
+        keys.update(('positions_before', 'positions_after'))
+    if (not isinstance(receipt, dict) or type(receipt.get('schema')) is not int
+            or receipt['schema'] not in (1, 2) or set(receipt) != {'schema', *keys}
+            or any(not isinstance(receipt[k], str) or not economy.HEX64.fullmatch(receipt[k])
+                   for k in keys)):
+        raise ValueError('invalid travel receipt')
+    economy.preflight_managed(managed, {*CE_FILES, 'receipt.json', 'core.backup', 'core.next',
+                                        'positions.backup'})
+    return receipt
+
+
+def _already_installed(managed, target, files):
+    receipt = _receipt(managed)
+    if receipt['schema'] != 2:
+        raise ValueError('legacy travel install; rollback before installing expanded roster')
+    for name in CE_FILES:
+        if economy.sha(files[name]) != receipt[name] or economy.sha(economy.read_plain(managed, name)) != receipt[name]:
+            raise ValueError('travel source or installed CE drift: ' + name)
+    for name, key in (('cfgeconomycore.xml', 'after'), ('cfgeventspawns.xml', 'positions_after')):
+        if economy.sha(economy.read_plain(target, name)) != receipt[key]:
+            raise ValueError('travel already installed or interrupted; inspect/rollback first')
+    for name, key in (('core.backup', 'before'), ('positions.backup', 'positions_before')):
+        if economy.sha(economy.read_plain(managed, name)) != receipt[key]:
+            raise ValueError('travel backup drift: ' + name)
+    current = economy.read_plain(target, 'cfgeventspawns.xml')
+    if _merge_positions(current, files[EXPANSION_POSITIONS]) != current:
+        raise ValueError('travel source positions drift')
+    return True
+
+
 def install(source, target, enabled=True):
     if type(enabled) is not bool:
         raise ValueError('EnableTravel must be boolean')
@@ -210,9 +356,11 @@ def install(source, target, enabled=True):
         return False
     target = economy._target(target)
     managed = economy.child(target, MANAGED)
-    if os.path.lexists(managed):
-        raise ValueError('travel already installed or interrupted; inspect/rollback first')
     files = validate(source)
+    if os.path.lexists(managed):
+        return _already_installed(managed, target, files)
+    positions_before = economy.read_plain(target, 'cfgeventspawns.xml')
+    positions_after = _merge_positions(positions_before, files[EXPANSION_POSITIONS])
     original = economy.read_plain(target, 'cfgeconomycore.xml')
     core = economy.xml(original, 'economycore')
     if any(ce.get('folder', '').lower().rstrip('/') == MANAGED + '/ce' for ce in core.findall('ce')):
@@ -227,7 +375,6 @@ def install(source, target, enabled=True):
     endings = list(re.finditer(rb'</economycore\s*>', original_open))
     if len(endings) != 1:
         raise ValueError('ambiguous economycore closing tag')
-    import xml.etree.ElementTree as ET
     registration = economy.xml(files[REGISTRATION], 'economycore')[0]
     offset = endings[0].start()
     patched = original_open[:offset] + b'\n' + ET.tostring(registration) + b'\n' + original_open[offset:]
@@ -258,14 +405,18 @@ def install(source, target, enabled=True):
                     raise ValueError('HC-32 vehicle has another event owner')
                 if tag == 'types':
                     validate_vehicle_budgets(existing, new_vehicles)
-    receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
+    receipt = {'schema': 2, 'before': economy.sha(original), 'after': economy.sha(patched),
+               'positions_before': economy.sha(positions_before),
+               'positions_after': economy.sha(positions_after),
                **{name: economy.sha(files[name]) for name in CE_FILES}}
     managed.mkdir()
-    economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
     economy.fresh_write(managed, 'core.backup', original)
+    economy.fresh_write(managed, 'positions.backup', positions_before)
+    economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
     (managed / 'ce').mkdir()
     for name in CE_FILES:
         economy.fresh_write(managed, name, files[name])
+    economy.restore_core(managed, target / 'cfgeventspawns.xml', positions_after)
     economy.restore_core(managed, target / 'cfgeconomycore.xml', patched)
     return True
 
@@ -275,21 +426,28 @@ def rollback(target):
     managed = economy.child(target, MANAGED)
     if not managed.is_dir():
         raise ValueError('nothing to roll back')
-    economy.preflight_managed(managed, {*CE_FILES, 'receipt.json', 'core.backup', 'core.next'})
-    receipt = json.loads(economy.read_plain(managed, 'receipt.json'))
-    if (set(receipt) != {'schema', 'before', 'after', *CE_FILES} or receipt['schema'] != 1
-            or any(not isinstance(receipt[k], str) or not economy.HEX64.fullmatch(receipt[k])
-                   for k in ('before', 'after', *CE_FILES))):
-        raise ValueError('invalid travel receipt')
+    receipt = _receipt(managed)
     current = economy.read_plain(target, 'cfgeconomycore.xml')
     if economy.sha(current) not in (receipt['before'], receipt['after']):
         raise ValueError('core drift; roll back later CE installers first')
     restore = economy.needs_restore(managed, receipt, economy.sha(current),
                                     [(n, n, 'travel CE drift: ' + n) for n in CE_FILES])
+    backup = economy.read_plain(managed, 'core.backup')
+    if economy.sha(backup) != receipt['before']:
+        raise ValueError('travel backup drift')
+    positions_backup = None
+    if receipt['schema'] == 2:
+        positions_backup = economy.read_plain(managed, 'positions.backup')
+        if economy.sha(positions_backup) != receipt['positions_before']:
+            raise ValueError('travel positions backup drift')
+        positions_current = economy.read_plain(target, 'cfgeventspawns.xml')
+        if economy.sha(positions_current) not in (receipt['positions_before'], receipt['positions_after']):
+            raise ValueError('travel event positions drift; reconcile before rollback')
+    # Validate all evidence before either target file is restored. Positions may
+    # have switched even when interruption prevented the final core switch.
+    if positions_backup is not None:
+        economy.restore_core(managed, target / 'cfgeventspawns.xml', positions_backup)
     if restore:
-        backup = economy.read_plain(managed, 'core.backup')
-        if economy.sha(backup) != receipt['before']:
-            raise ValueError('travel backup drift')
         economy.restore_core(managed, target / 'cfgeconomycore.xml', backup)
     shutil.rmtree(managed)
 
@@ -306,7 +464,7 @@ def main(argv=None):
             report = roster(args.source)
             print('[HC Plan] HC-32 vehicle_families=%d optional=0 refused=runtime_pending state=authored runtime=PENDING'
                   % report['vehicle_families'])
-            print('Travel CE parses; cars=39 motorbikes=28 boats=6; EXP-T1/T2/T4 pending')
+            print('Travel CE parses; cars=39 trucks=7 motorbikes=28 boats=6 aircraft=4; EXP-T1/T2/T4 pending')
         elif args.target is None:
             parser.error('--target is required')
         elif args.command == 'rollback':
