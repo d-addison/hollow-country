@@ -1,7 +1,92 @@
+// Optional gc-actors-reach.json; absent fields retain these defaults, explicit false opts out.
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print;
+// 1_Core/proto/EnConvert.c:30,115 int/float ToString.
+// Bounded HCGroupIO + HCJsonFields; no engine/Expansion gameplay calls added.
+class GCActorsReachConfig
+{
+    bool Enabled = true;
+    int Slots = 16;
+    int EvaluationsPerTick = 6;
+    int Vehicles = 8;
+    float ContextSeconds = 10;
+    float MaxLifetimeSeconds = 180;
+    float InitialVaultDelaySeconds = 2;
+    float VehicleContactMetres = 1.9;
+    float VaultContactMetres = 1.2;
+    float NavmeshSampleMetres = 0.5;
+    float NavmeshHeightToleranceMetres = 0.7;
+    float VaultOutcomeSeconds = 3;
+    float VehicleHitSeconds = 2;
+    float VehicleMemorySeconds = 60;
+    float SummarySeconds = 60;
+    float WorkSliceMilliseconds = 4;
+    float DoorNavmeshCost = 1000;
+
+    protected string m_LastRefusal;
+    void HCRefuse(string reason)
+    {
+        if (m_LastRefusal == reason) { return; }
+        m_LastRefusal = reason;
+        Print("[HC Reach] config_refused=" + reason + " defaults_retained runtime=PENDING");
+    }
+
+    bool HCValid(string key, float value, float low, float high)
+    {
+        // Local ceilings remain effective until the lead merges the shared registry rows.
+        if (!(value >= low && value <= high)) { HCRefuse(key); return false; }
+        string fullKey = "ActorReach." + key;
+        if (HCOperatorSettingsRegistry.HCFind(fullKey) && !HCOperatorSettingsRegistry.HCValid(fullKey, value)) { HCRefuse(key); return false; }
+        return true;
+    }
+
+    void HCLoad()
+    {
+        string path = "$profile:HollowCountry/gc-actors-reach.json";
+        if (!FileExist(path)) { return; }
+        string text;
+        string error;
+        GCActorsReachConfig decoded;
+        if (!HCGroupIO.Read(path, 4096, text)) { HCRefuse("read"); return; }
+        if (!JsonFileLoader<GCActorsReachConfig>.LoadData(text, decoded, error) || !decoded) { HCRefuse("json"); return; }
+        if (HCJsonFields.Has(text, "Enabled")) { Enabled = decoded.Enabled; }
+        if (HCJsonFields.Has(text, "Slots") && HCValid("Slots", decoded.Slots, 1, 16)) { Slots = decoded.Slots; }
+        if (HCJsonFields.Has(text, "EvaluationsPerTick") && HCValid("EvaluationsPerTick", decoded.EvaluationsPerTick, 1, 6)) { EvaluationsPerTick = decoded.EvaluationsPerTick; }
+        if (HCJsonFields.Has(text, "Vehicles") && HCValid("Vehicles", decoded.Vehicles, 1, 8)) { Vehicles = decoded.Vehicles; }
+        if (HCJsonFields.Has(text, "ContextSeconds") && HCValid("ContextSeconds", decoded.ContextSeconds, 1, 180)) { ContextSeconds = decoded.ContextSeconds; }
+        if (HCJsonFields.Has(text, "MaxLifetimeSeconds") && HCValid("MaxLifetimeSeconds", decoded.MaxLifetimeSeconds, 1, 180)) { MaxLifetimeSeconds = decoded.MaxLifetimeSeconds; }
+        if (HCJsonFields.Has(text, "InitialVaultDelaySeconds") && HCValid("InitialVaultDelaySeconds", decoded.InitialVaultDelaySeconds, 0.1, 15)) { InitialVaultDelaySeconds = decoded.InitialVaultDelaySeconds; }
+        if (HCJsonFields.Has(text, "VehicleContactMetres") && HCValid("VehicleContactMetres", decoded.VehicleContactMetres, 0.1, 1.9)) { VehicleContactMetres = decoded.VehicleContactMetres; }
+        if (HCJsonFields.Has(text, "VaultContactMetres") && HCValid("VaultContactMetres", decoded.VaultContactMetres, 0.1, 1.2)) { VaultContactMetres = decoded.VaultContactMetres; }
+        if (HCJsonFields.Has(text, "NavmeshSampleMetres") && HCValid("NavmeshSampleMetres", decoded.NavmeshSampleMetres, 0.05, 0.5)) { NavmeshSampleMetres = decoded.NavmeshSampleMetres; }
+        if (HCJsonFields.Has(text, "NavmeshHeightToleranceMetres") && HCValid("NavmeshHeightToleranceMetres", decoded.NavmeshHeightToleranceMetres, 0.05, 0.7)) { NavmeshHeightToleranceMetres = decoded.NavmeshHeightToleranceMetres; }
+        if (HCJsonFields.Has(text, "VaultOutcomeSeconds") && HCValid("VaultOutcomeSeconds", decoded.VaultOutcomeSeconds, 1, 10)) { VaultOutcomeSeconds = decoded.VaultOutcomeSeconds; }
+        if (HCJsonFields.Has(text, "VehicleHitSeconds") && HCValid("VehicleHitSeconds", decoded.VehicleHitSeconds, 2, 60)) { VehicleHitSeconds = decoded.VehicleHitSeconds; }
+        if (HCJsonFields.Has(text, "VehicleMemorySeconds") && HCValid("VehicleMemorySeconds", decoded.VehicleMemorySeconds, 2, 60)) { VehicleMemorySeconds = decoded.VehicleMemorySeconds; }
+        if (HCJsonFields.Has(text, "SummarySeconds") && HCValid("SummarySeconds", decoded.SummarySeconds, 1, 600)) { SummarySeconds = decoded.SummarySeconds; }
+        if (HCJsonFields.Has(text, "WorkSliceMilliseconds") && HCValid("WorkSliceMilliseconds", decoded.WorkSliceMilliseconds, 0.1, 4)) { WorkSliceMilliseconds = decoded.WorkSliceMilliseconds; }
+        if (HCJsonFields.Has(text, "DoorNavmeshCost") && HCValid("DoorNavmeshCost", decoded.DoorNavmeshCost, 1, 1000)) { DoorNavmeshCost = decoded.DoorNavmeshCost; }
+        if (ContextSeconds > MaxLifetimeSeconds) { ContextSeconds = MaxLifetimeSeconds; }
+        if (EvaluationsPerTick > Slots) { EvaluationsPerTick = Slots; }
+        if (VehicleMemorySeconds < VehicleHitSeconds) { VehicleMemorySeconds = VehicleHitSeconds; }
+    }
+
+    void HCLog()
+    {
+        Print("[HC Reach] effective WorkSliceMilliseconds=" + WorkSliceMilliseconds.ToString() + " DoorNavmeshCost=" + DoorNavmeshCost.ToString() + " runtime=PENDING");
+        Print("[HC Reach] effective Enabled=" + HCV2Admission.OnOff(Enabled) + " runtime=PENDING");
+        Print("[HC Reach] effective" + " Slots=" + Slots.ToString() + " EvaluationsPerTick=" + EvaluationsPerTick.ToString() + " Vehicles=" + Vehicles.ToString() + " runtime=PENDING");
+        Print("[HC Reach] effective" + " ContextSeconds=" + ContextSeconds.ToString() + " MaxLifetimeSeconds=" + MaxLifetimeSeconds.ToString() + " InitialVaultDelaySeconds=" + InitialVaultDelaySeconds.ToString() + " runtime=PENDING");
+        Print("[HC Reach] effective" + " VehicleContactMetres=" + VehicleContactMetres.ToString() + " VaultContactMetres=" + VaultContactMetres.ToString() + " NavmeshSampleMetres=" + NavmeshSampleMetres.ToString() + " runtime=PENDING");
+        Print("[HC Reach] effective" + " NavmeshHeightToleranceMetres=" + NavmeshHeightToleranceMetres.ToString() + " VaultOutcomeSeconds=" + VaultOutcomeSeconds.ToString() + " VehicleHitSeconds=" + VehicleHitSeconds.ToString() + " runtime=PENDING");
+        Print("[HC Reach] effective" + " VehicleMemorySeconds=" + VehicleMemorySeconds.ToString() + " SummarySeconds=" + SummarySeconds.ToString() + " runtime=PENDING");
+    }
+}
+
 // #137 infected anti-cheese reach service (server only, on by default, gated on
 // the existing settings.EnableInfected). Admission is event-driven: a CHASE or
 // FIGHT infected whose own native target is an elevated or seated player asks
-// for one of 16 fixed slots; nothing scans the world or other players.
+// for one of at most 16 configured slots; nothing scans the world or other players.
 // Bound: OnTick (HCServer cadence, TickIntervalMs) evaluates at most 6 live
 // slots inside a cooperative 4 ms HCWorkBudget slice, cursor retained. Each
 // evaluation issues at most 4 native queries (1 line ray, 1 floor ray or vehicle
@@ -59,9 +144,7 @@ class HCInfectedReachVehicle
 
 class HCInfectedReachModule : HCModule
 {
-    static const int SLOTS = 16;
-    static const int EVALUATIONS = 6;
-    static const int VEHICLES = 8;
+    protected ref GCActorsReachConfig m_Limits;
     protected static HCInfectedReachModule s_Instance;
     protected bool m_Running;
     protected ref array<ref HCInfectedReachState> m_States = new array<ref HCInfectedReachState>;
@@ -93,7 +176,8 @@ class HCInfectedReachModule : HCModule
     // Wave 16: cached readiness from the live started flag (never hard-coded).
     override HCOperationalStatus HCGetOperationalStatus()
     {
-        HCModuleReadiness.HCDerive(m_Operational, m_Running, "", "", "reach_evaluator_started");
+        if (m_Limits && !m_Limits.Enabled) { m_Operational.HCPublish("off", "reach_operator_off"); }
+        else { HCModuleReadiness.HCDerive(m_Operational, m_Running, "", "", "reach_evaluator_started"); }
         return m_Operational;
     }
 
@@ -105,9 +189,14 @@ class HCInfectedReachModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
+        m_Limits = new GCActorsReachConfig;
+        m_Limits.HCLoad();
+        m_Limits.HCLog();
+        if (!m_Limits.Enabled) { m_Operational.HCPublish("off", "reach_operator_off"); return; }
         HCInfectedReachPolicy.HCThreatResetBudget();
         m_States.Clear();
-        for (int i = 0; i < SLOTS; i++)
+        m_Cursor = 0;
+        for (int i = 0; i < m_Limits.Slots; i++)
         {
             m_States.Insert(null);
         }
@@ -115,12 +204,15 @@ class HCInfectedReachModule : HCModule
         m_Filter = new PGFilter;
         // Same walkable filter as HCInfectedNavigation.c:110-111.
         m_Filter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
-        m_Filter.SetCost(PGAreaType.DOOR_CLOSED, 1000);
+        m_Filter.SetCost(PGAreaType.DOOR_CLOSED, m_Limits.DoorNavmeshCost);
         m_Running = true;
         s_Instance = this;
-        m_SummaryAfter = GetGame().GetTickTime() + 60;
+        m_SummaryAfter = GetGame().GetTickTime() + m_Limits.SummarySeconds;
         Print(HCV2Admission.Line("InfectedReach", true, "W5-137", false));
-        Print("[HC Reach] started slots=16 evaluations_per_tick=6 vehicles=8 vault=experiment runtime=PENDING");
+        string started = "[HC Reach] started slots=" + m_Limits.Slots.ToString() + " evaluations_per_tick=" + m_Limits.EvaluationsPerTick.ToString();
+        Print(started + " vehicles=" + m_Limits.Vehicles.ToString() + " runtime=PENDING");
+        string capabilities = "[HC Reach] capabilities extended_reach=" + HCV2Admission.OnOff(HCInfectedReachPolicy.HCExtendedReachSupported());
+        Print(capabilities + " forced_movement=" + HCV2Admission.OnOff(HCInfectedReachPolicy.HCForcedMovementSupported()) + " runtime=PENDING");
     }
 
     override void OnStop()
@@ -170,10 +262,10 @@ class HCInfectedReachModule : HCModule
         state.Infected = infected;
         state.Target = target;
         state.Admitted = now;
-        state.Expires = now + 10;
+        state.Expires = now + m_Limits.ContextSeconds;
         state.LastReachHit = now;
         state.BackoffAfter = now;
-        state.NextVault = now + 2;
+        state.NextVault = now + m_Limits.InitialVaultDelaySeconds;
         m_States.Set(vacant, state);
         m_Live++;
         m_Admitted++;
@@ -189,11 +281,11 @@ class HCInfectedReachModule : HCModule
 
     override void OnTick(float deltaTime)
     {
-        if (!m_Running || m_States.Count() != SLOTS) { return; }
+        if (!m_Running || m_States.Count() != m_Limits.Slots) { return; }
         float now = GetGame().GetTickTime();
-        m_Budget.HCReset(EVALUATIONS);
+        m_Budget.HCReset(m_Limits.EvaluationsPerTick, m_Limits.WorkSliceMilliseconds);
         int deferred = 0;
-        for (int scanned = 0; scanned < SLOTS; scanned++)
+        for (int scanned = 0; scanned < m_Limits.Slots; scanned++)
         {
             HCInfectedReachState state = m_States.Get(m_Cursor);
             if (state)
@@ -206,7 +298,7 @@ class HCInfectedReachModule : HCModule
                 }
                 Evaluate(m_Cursor, state, now);
             }
-            m_Cursor = (m_Cursor + 1) % SLOTS;
+            m_Cursor = (m_Cursor + 1) % m_Limits.Slots;
         }
         m_Budget.HCDeferred(GetName(), deferred);
         ExpireVehicles(now);
@@ -258,10 +350,10 @@ class HCInfectedReachModule : HCModule
             state.Vehicle = FloorVehicle(target);
             state.OnVehicle = state.Vehicle != null;
         }
-        // Bounded lifetime: context refreshes up to 180 s after admission.
+        // Bounded lifetime: context refresh never extends the configured admission deadline.
         if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin || state.InVehicle)
         {
-            state.Expires = Math.Min(now + 10, state.Admitted + 180);
+            state.Expires = Math.Min(now + m_Limits.ContextSeconds, state.Admitted + m_Limits.MaxLifetimeSeconds);
         }
 
         state.LineClear = LineCheck(infected, target);
@@ -269,7 +361,7 @@ class HCInfectedReachModule : HCModule
         state.VehicleContact = -1;
         if (state.Vehicle)
         {
-            state.VehicleContact = ContactDistance(infected, state.Vehicle, 1.9);
+            state.VehicleContact = ContactDistance(infected, state.Vehicle, m_Limits.VehicleContactMetres);
             state.VehicleAt = now;
         }
 
@@ -287,7 +379,7 @@ class HCInfectedReachModule : HCModule
             bool ahead = false;
             if (HCInfectedReachPolicy.VaultType(vertical) >= 0 && horizontal <= HCInfectedTuning.Get().Reach.VaultHorizontal)
             {
-                ahead = ContactDistance(infected, null, 1.2) >= 0;
+                ahead = ContactDistance(infected, null, m_Limits.VaultContactMetres) >= 0;
             }
             if (HCInfectedReachPolicy.MayVault(vertical, horizontal, facing, ahead, now, state.NextVault, m_VaultActive, m_VaultRetired))
             {
@@ -398,8 +490,8 @@ class HCInfectedReachModule : HCModule
     {
         if (!GetGame().GetWorld() || !GetGame().GetWorld().GetAIWorld()) { return true; }
         vector sampled;
-        if (!GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition(position, 0.5, m_Filter, sampled)) { return false; }
-        return Math.AbsFloat(sampled[1] - position[1]) <= 0.7;
+        if (!GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition(position, m_Limits.NavmeshSampleMetres, m_Filter, sampled)) { return false; }
+        return Math.AbsFloat(sampled[1] - position[1]) <= m_Limits.NavmeshHeightToleranceMetres;
     }
 
     static float FacingDegrees(ZombieBase infected, float dx, float dz, float horizontal)
@@ -425,7 +517,7 @@ class HCInfectedReachModule : HCModule
 
     protected void VaultOutcome(HCInfectedReachState state, ZombieBase infected, float now)
     {
-        if (state.VaultAt <= 0 || now - state.VaultAt < 3) { return; }
+        if (state.VaultAt <= 0 || now - state.VaultAt < m_Limits.VaultOutcomeSeconds) { return; }
         state.VaultAt = 0;
         if (m_VaultActive > 0) { m_VaultActive--; }
         int rise = Math.Round((infected.GetPosition()[1] - state.VaultStartY) * 100);
@@ -446,32 +538,34 @@ class HCInfectedReachModule : HCModule
     // Per-vehicle spacing shared by every infected: one hit per 2 s, <=8 vehicles.
     float VehicleNextHit(Transport vehicle)
     {
-        foreach (HCInfectedReachVehicle entry : m_Vehicles)
+        array<ref HCInfectedReachVehicle> vehicles = m_Vehicles;
+        foreach (HCInfectedReachVehicle entry : vehicles)
         {
             if (entry.Vehicle == vehicle) { return entry.NextHit; }
         }
-        if (m_Vehicles.Count() >= VEHICLES) { return 1000000000; }
+        if (m_Vehicles.Count() >= m_Limits.Vehicles) { return 1000000000; }
         return 0;
     }
 
     bool ReserveVehicleHit(Transport vehicle, float now)
     {
         if (!vehicle) { return false; }
-        foreach (HCInfectedReachVehicle entry : m_Vehicles)
+        array<ref HCInfectedReachVehicle> vehicles = m_Vehicles;
+        foreach (HCInfectedReachVehicle entry : vehicles)
         {
             if (entry.Vehicle == vehicle)
             {
                 if (now < entry.NextHit) { return false; }
-                entry.NextHit = now + 2;
-                entry.Expires = now + 60;
+                entry.NextHit = now + m_Limits.VehicleHitSeconds;
+                entry.Expires = now + m_Limits.VehicleMemorySeconds;
                 return true;
             }
         }
-        if (m_Vehicles.Count() >= VEHICLES) { return false; }
+        if (m_Vehicles.Count() >= m_Limits.Vehicles) { return false; }
         HCInfectedReachVehicle created = new HCInfectedReachVehicle;
         created.Vehicle = vehicle;
-        created.NextHit = now + 2;
-        created.Expires = now + 60;
+        created.NextHit = now + m_Limits.VehicleHitSeconds;
+        created.Expires = now + m_Limits.VehicleMemorySeconds;
         m_Vehicles.Insert(created);
         return true;
     }
@@ -512,9 +606,11 @@ class HCInfectedReachModule : HCModule
     protected void Summary(float now)
     {
         if (now < m_SummaryAfter) { return; }
-        m_SummaryAfter = now + 60;
+        m_SummaryAfter = now + m_Limits.SummarySeconds;
         if (m_Admitted == 0 && m_Refused == 0) { return; }
-        Print("[HC Reach] summary active=" + m_Live.ToString() + " admitted=" + m_Admitted.ToString() + " refused=" + m_Refused.ToString() + " strikes=" + m_Strikes.ToString() + " blocked=" + m_Blocked.ToString() + " batters=" + m_Batters.ToString() + " backoffs=" + m_Backoffs.ToString() + " vaults=" + m_VaultAttempts.ToString() + " landed=" + m_VaultLandings.ToString());
+        string summary = "[HC Reach] summary active=" + m_Live.ToString() + " admitted=" + m_Admitted.ToString() + " refused=" + m_Refused.ToString();
+        summary = summary + " strikes=" + m_Strikes.ToString() + " blocked=" + m_Blocked.ToString() + " batters=" + m_Batters.ToString();
+        Print(summary + " backoffs=" + m_Backoffs.ToString() + " vaults=" + m_VaultAttempts.ToString() + " landed=" + m_VaultLandings.ToString());
         m_Admitted = 0;
         m_Refused = 0;
         m_Strikes = 0;
@@ -534,6 +630,7 @@ modded class HCModuleRegistry
     override void RegisterModules()
     {
         super.RegisterModules();
-        Register(new HCInfectedReachModule);
+        HCInfectedReachModule reachModule = new HCInfectedReachModule;
+        Register(reachModule);
     }
 }
