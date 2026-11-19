@@ -108,7 +108,7 @@ class TapedLightPreviewCostTests(unittest.TestCase):
         source = source.replace('static HCTapedLightHostRow Row', 'static int Row')
         source = source.replace('static HCTapedLightHostRow CrossRow', 'static int CrossRow')
         source = source.replace('ref array<ref HCTapedLightHostRow> ', '')
-        source = re.sub(r'\bHCTapedLightHostRow\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
+        source = re.sub(r'\b(?:HCTapedLightHostRow|InventoryLocation)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
         self.assertIsNone(ui_member(source, 'Row', NS(CrossRow=lambda h, l: None), env, host, light))
         self.assertEqual({'host': 1, 'light': 1}, reads)
 
@@ -196,7 +196,7 @@ class TapedLightClientHintTests(unittest.TestCase):
             self.assertIn('if (!GetGame().IsServer()) { return HCTapedLightRuntime.PreviewHint(player, item, ' + mounting + '); }', actions)
             self.assertIn('if (HCTapedLightRuntime.CanExecute(player, item, ' + mounting + ')) return true;', actions)
         servers = list(re.finditer(r'override void OnExecuteServer\([^)]*\)\s*\{', actions))
-        self.assertEqual(2, len(servers))
+        self.assertEqual(3, len(servers))
         for match in servers:
             self.assertNotIn('PreviewHint', body(actions, match.end()))
 

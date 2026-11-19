@@ -61,7 +61,7 @@ def helmet_member(path, cls, method, state, env, *args):
     text = path.read_text()
     match = re.search(r'class ' + cls + r'\b[^\{]*\{', text)
     source = body(text, match.end())
-    source = re.sub(r'\b(?:HCTapedLightHostRow|TStringArray)\s+(?=\w+\s*[=;])',
+    source = re.sub(r'\b(?:HCTapedLightHostRow|HCTapedLightV1Qualification|TStringArray)\s+(?=\w+\s*[=;])',
                     'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
     source = re.sub(r'\bTStringArray (?=(?:PairIds|ReceiptPairIds)\()', 'int ', source)
@@ -111,6 +111,7 @@ class TapedLightConservationTests(unittest.TestCase):
         env = dict(GetGame=lambda: NS(IsServer=lambda: server, ConfigGetTextArray=config),
                    HCBuildIdentity=NS(Matches=lambda build: True, SeenBuild=lambda: "synthetic"),
                    HCTapedPackCatalog=catalog, HCTapedLightCatalog=lights, NewSlots=EArray,
+                   HCTapedLightAdmission=NS(Admitted=lambda: True),
                    HCV2Admission=NS(OnOff=lambda value: "on" if value else "off",
                                      Line=lambda *args: "synthetic admission"))
         for method in ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable",
@@ -403,7 +404,7 @@ class TapedLightNativeCustodyTests(unittest.TestCase):
                                      {"HCTapedWearableCatalog": NS(Admitted=lambda: True)}))
         for host in (None, NS(), unsupported):
             self.assertIsNone(helmet_member(HELMETS, "HCTapedHelmetQualification", "Resolve",
-                                           NS(), {}, host, NS()))
+                                           NS(Ready=lambda: False), {}, host, NS()))
         for host, expected in ((row.HostClass, "helmet_mount_two_client_pending"),
                                (unsupported.HostClass, "unsupported_helmet_pair")):
             self.assertEqual(expected, helmet_member(
@@ -439,6 +440,7 @@ class TapedLightNativeCustodyTests(unittest.TestCase):
         self.assertIs(status, helmet_member(HELMETS, "HCTapedHelmetMounts", "HCGetOperationalStatus", module, {}))
         admitted_log = []
         env = dict(Print=logs.append, HCV2Admission=NS(Line=lambda *args: "synthetic admission"),
+                   HCTapedLightAdmission=NS(Admitted=lambda: True),
                    FileExist=lambda path: False, GetGame=lambda: NS(IsServer=lambda: True),
                    HCTapedWearableCatalog=NS(Rows=lambda: rows, Qualified=lambda: False,
                                             HCSetAdmitted=admitted_log.append,
@@ -449,7 +451,7 @@ class TapedLightNativeCustodyTests(unittest.TestCase):
         plan = [line for line in logs if isinstance(line, str) and line.startswith("[HC Plan] HC-23 ")]
         self.assertEqual(1, len(plan))
         for field in ("helmet_mounts=1", "qualified=0", "unsupported=3", "state=ready",
-                      "reason=admitted_unverified", "helmet_action_pending", "runtime=PENDING"):
+                      "reason=admitted_unverified", "action=held_mount_remove_native_toggle", "runtime=PENDING"):
             self.assertIn(field, plan[0])
         self.assertIn(("ready", "admitted_unverified"), logs)
         helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStop", module, env)

@@ -185,12 +185,12 @@ class PackAdmissionTests(unittest.TestCase):
         self.assertEqual("receipt_disabled", gate.PairAdmission(MOUNT))
         self.assertFalse(gate.PairQualified(MOUNT))
 
-    def test_a_missing_pack_native_slot_is_one_named_refusal_not_a_degraded_module(self):
+    def test_no_admitted_pair_degrades_with_the_native_slot_reason(self):
         gate, published = booted(table=VANILLA)
         self.assertEqual("pack_native_slot_unavailable", gate.PairAdmission(MOUNT))
         self.assertEqual(1, len(lines(gate, "[HC TapedPackMounts] pack_pairs_refused")))
         self.assertIn("reason=pack_native_slot_unavailable", lines(gate, "[HC TapedPackMounts] pack_pairs_refused")[0])
-        self.assertTrue(any(state == "ready" for state, _ in published))
+        self.assertIn(("degraded", "pack_native_slot_unavailable"), published)
 
     def test_setting_off_is_the_named_operator_opt_out(self):
         gate, published = booted(setting=False)
@@ -236,9 +236,9 @@ class WeaponAdmissionTests(unittest.TestCase):
         rows = [with_row(MOUNT, Checked=True, CheckDate="2026-11-19", Note="synthetic"),
                 with_row(RIFLE_PAIR, Checked=True, CheckDate="2026-11-19", Note="synthetic")]
         gate, _ = booted(rows=rows, table=VANILLA)
-        summary = lines(gate, "[HC TapedPackMounts] admission result=")[0]
-        for field in ("pairs=0", "unchecked=0", "checked=0"):
-            self.assertIn(field, summary)
+        self.assertEqual([], lines(gate, "[HC TapedPackMounts] admission result="))
+        self.assertEqual(0, gate.AdmittedCount())
+        self.assertEqual(0, len(gate.mHCWeaponAdmitted))
         # Checked receipts remain reported independently of admission.
         self.assertIn("receipts_checked=2", boot_line(gate))
 
@@ -258,8 +258,8 @@ class WeaponAdmissionTests(unittest.TestCase):
         for field in ("count=29", "reason=weapon_light_slot_unavailable", "runtime=PENDING"):
             self.assertIn(field, refused[0])
         self.assertEqual("weapon_light_slot_unavailable", gate.PairAdmission(RIFLE_PAIR))
-        self.assertTrue(any(state == "ready" for state, _ in published))
-        self.assertFalse(any(state == "degraded" for state, _ in published))
+        self.assertFalse(any(state == "ready" for state, _ in published))
+        self.assertIn(("degraded", "pack_native_slot_unavailable"), published)
 
     def test_a_weapon_binding_is_allowed_only_for_an_admitted_exact_pair(self):
         gate, _ = booted(rows=[with_row(PISTOL_PAIR, Disabled=True)])
@@ -326,7 +326,7 @@ class NativeAttachSiteTests(unittest.TestCase):
         self.assertIn("static HCTapedLightHostRow CrossRow(", source[match.end():])
         from tests.unit.test_group_server import body
         text = re.sub(r"\bHCTapedLightHostRow (?=(?:Row|CrossRow)\()", "int ", body(source, match.end()))
-        text = re.sub(r"\b(?:HCTapedLightHostRow|ref array<ref HCTapedLightHostRow>) (?=\w+ = )", "HCGroupNative ", text)
+        text = re.sub(r"\b(?:HCTapedLightHostRow|InventoryLocation|ref array<ref HCTapedLightHostRow>) (?=\w+ = )", "HCGroupNative ", text)
         text = text.replace("ref array<ref HCTapedLightHostRow>", "HCGroupNative")
         from tests.unit.test_group_ui import ui_member
         state.CrossRow = lambda h, l: ui_member(text, "CrossRow", state, dict(env), h, l)
@@ -410,6 +410,7 @@ class HelmetAndTapedLightStatusTests(unittest.TestCase):
         module.NativeSlotAvailable = lambda: native
         admitted = []
         env = dict(GetGame=lambda: NS(IsServer=lambda: True),
+                   HCTapedLightAdmission=NS(Admitted=lambda: True),
                    FileExist=lambda path: probes.append(path) or disabled,
                    Print=logs.append,
                    HCTapedWearableCatalog=NS(Rows=lambda: EArray(["row"]),
@@ -426,7 +427,7 @@ class HelmetAndTapedLightStatusTests(unittest.TestCase):
         self.assertEqual([True], admitted)
         self.assertEqual(["$profile:HollowCountry/acceptance/taped_helmet.disable"], probes)
         self.assertFalse(any("helmet_mount_two_client_pending" in str(x) and "state=off" in str(x) for x in logs))
-        self.assertEqual(1, len([x for x in logs if "helmet_action_pending" in str(x)]))
+        self.assertEqual(1, len([x for x in logs if "action=held_mount_remove_native_toggle" in str(x)]))
 
     def test_helmet_opt_out_file_is_a_named_off_reason(self):
         published, logs, probes, admitted = self.run_helmet(disabled=True)

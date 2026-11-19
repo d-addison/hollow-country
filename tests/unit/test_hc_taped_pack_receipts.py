@@ -187,7 +187,7 @@ class AdmissionTests(unittest.TestCase):
         _, published = start(gate, setting=True)
         self.assertEqual("pack_native_slot_unavailable", gate.PairAdmission(MOUNT))
         self.assertEqual(0, gate.AdmittedCount())
-        self.assertFalse(any(state == "degraded" for state, _ in published))
+        self.assertIn(("degraded", "pack_native_slot_unavailable"), published)
 
     def test_binding_is_allowed_only_for_an_admitted_pair(self):
         from types import SimpleNamespace as NS

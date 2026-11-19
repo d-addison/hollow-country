@@ -105,6 +105,7 @@ def build(text, build_ok=True, files=None, receipts=""):
                         Every=scan_every,
                         Check=lambda t, k, d, every: scan(t, k, d)),
         HCGroupIO=NS(), Print=logs.append,
+        HCTapedLightAdmission=NS(Admitted=lambda: True),
         HCTapedLightMountSettings=lambda: NS(crossSlotLights=False, permittedPairIds=EArray()),
         HCV2Admission=NS(OnOff=lambda v: "on" if v else "off",
                          Line=lambda *a: "synthetic admission"))
@@ -230,14 +231,14 @@ class TapedPackLoaderTests(unittest.TestCase):
         module, published = start(gate, setting=True)
         self.assertTrue(gate.CrossSlotEnabled())
         # Wave 16: the synthetic config has no native slot arrays, so the pair is a
-        # named refusal and the module stays ready (loaded, nothing degraded).
-        self.assertIn(("ready", "pack_native_slot_unavailable"), published)
+        # zero admitted pairs must degrade with the native-slot refusal.
+        self.assertIn(("degraded", "pack_native_slot_unavailable"), published)
         binding = NS(HostConfigRoot="CfgVehicles", PairId="tortilla_universal_cross",
                      HostClass="TortillaBag", LightClass="UniversalLight",
                      SlotName="Chemlight", CrossSlot=True)
         self.assertFalse(gate.BindingAllowed(binding))
         plan = [x for x in gate.logs if isinstance(x, str) and "HC-52 pack_pairs=" in x][0]
-        self.assertIn("state=ready", plan)
+        self.assertIn("state=degraded", plan)
         self.assertIn("permitted=1", plan)
         # SYNTHETIC native slot arrays: now cross is admitted unverified, nothing more.
         slots = {"CfgVehicles TortillaBag attachments": ["Chemlight", "helmetFlashlight"],

@@ -166,8 +166,10 @@ class V1HookTests(unittest.TestCase):
         self.assertIn('GameInventory.ClearInventoryReservation(', native)
         self.assertNotIn('CreateObject', native + action)
         self.assertNotIn('SetPosition', native + action)
-        self.assertNotIn('SwitchOn(', native + action)
-        self.assertNotIn('SwitchOff(', native + action)
+        toggle = native[native.index('static bool HCToggle('):native.index('static bool Preview(')]
+        self.assertIn('GetGame().IsServer()', toggle)
+        self.assertIn('energy.SwitchOn()', toggle)
+        self.assertIn('energy.SwitchOff()', toggle)
 
 
 def native_member(cls, method, state, env, *args):
