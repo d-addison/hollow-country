@@ -8,7 +8,10 @@ RED (before implementation), command:
   PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_optional_subset_pins -v
 GREEN command and result are recorded in the commit message.
 """
+import contextlib
 import copy
+import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -139,6 +142,70 @@ class SubsetPins(unittest.TestCase):
         self.assertEqual(drift['status'], 'unverified')
         names = [p for p in drift['install']['problems'] if p.startswith('HC61_SUBSET_PIN_DRIFT')]
         self.assertIn('HC61_SUBSET_PIN_DRIFT:SynRifle', names)
+
+
+PIN_SCOPE_SENTENCE = ('Subset pins hash only the parsed fields (scope, model, ammo, count, magazines, '
+                      'chamberableFrom, handAnim, attachments, inventorySlot) plus the parent chain; '
+                      'an update that only changes damage/hit values passes.')
+
+
+class SubsetPinScopeStatement(unittest.TestCase):
+    """#191: the deliberate trade (fast subset pins that ignore damage/hit values) is stated, not implied."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+
+    def test_the_scope_sentence_is_in_the_docstring_the_hint_and_both_reports(self):
+        self.assertEqual(sf.SUBSET_PIN_SCOPE, PIN_SCOPE_SENTENCE)
+        self.assertIn(PIN_SCOPE_SENTENCE, ' '.join(sf.subset_pins.__doc__.split()))
+        install = self.root / 'sf'
+        sf_fixture.build_install(install)
+        self.assertEqual(sf.verify_install(install, sf_fixture.allowlist(*sf_fixture.GOOD))['subset_pins_scope'],
+                         PIN_SCOPE_SENTENCE)
+        tf_install = self.root / 'tf'
+        tf_fixture.build_install(tf_install)
+        tf_report = tf.verify_install(tf_install, tf_fixture.allowlist(*tf_fixture.good()),
+                                      vanilla=tf_fixture.VANILLA)
+        self.assertEqual(tf_report['subset_pins_scope'], PIN_SCOPE_SENTENCE)
+        out = self.root / 'report.json'
+        allow_path = self.root / 'allow.json'
+        allow_path.write_bytes(json.dumps(sf_fixture.allowlist(*sf_fixture.GOOD)).encode())
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            sf.main(['verify', '--install', str(install), '--allowlist', str(allow_path), '--out', str(out)])
+        self.assertIn(PIN_SCOPE_SENTENCE, printed.getvalue())
+
+    def test_verify_parses_the_allowlist_once(self):
+        install = self.root / 'sf'
+        sf_fixture.build_install(install)
+        allow_path = self.root / 'allow.json'
+        allow_path.write_bytes(json.dumps(sf_fixture.allowlist(*sf_fixture.GOOD)).encode())
+        reads = []
+        real = Path.read_bytes
+
+        def counting(path):
+            if path == allow_path:
+                reads.append(path)
+            return real(path)
+        with mock.patch.object(Path, 'read_bytes', counting), contextlib.redirect_stdout(io.StringIO()):
+            sf.main(['verify', '--install', str(install), '--allowlist', str(allow_path),
+                     '--out', str(self.root / 'report.json')])
+        self.assertEqual(len(reads), 1)
+
+    def test_a_parent_class_field_change_drifts_every_pinned_child(self):
+        install = self.root / 'sf'
+        sf_fixture.build_install(install)
+        allow = sf_fixture.allowlist(*sf_fixture.GOOD)
+        allow = pinned(allow, sf.verify_install(install, allow))
+        # Synthetic update: only the parent class Rifle_Base changes (a parsed field: handAnim).
+        tree = sf_configs()
+        tree['CfgWeapons']['Rifle_Base'] = klass('', scope=0, handAnim=['a', 'b'])
+        sf_rewrite(install, tree)
+        drift = sf.verify_install(install, allow)
+        self.assertEqual(drift['status'], 'unverified')
+        self.assertIn('HC61_SUBSET_PIN_DRIFT:SynWood', drift['install']['problems'])
 
 
 if __name__ == '__main__':
