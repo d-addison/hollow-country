@@ -197,7 +197,7 @@ class HCXAIAdapter extends HCModule
     {
         if (!GetGame() || !GetGame().IsServer() || !m_Profile || !m_Hooks) { return false; }
         int now = GetGame().GetTime();
-        if (now < 0 || now < m_LastNow || m_Profile.BuildVersion != m_Build) { return false; }
+        if (now < 0 || now < m_LastNow || !HCBuildIdentity.SameBuild(m_Profile.BuildVersion, m_Build, "xai_prerequisites")) { return false; }
         if (!HCXAIQualification.Admitted()) { return false; }
         if (!GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts") || !GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Animations")) { return false; }
         if (GetGame().GetWorldName() != m_Profile.WorldName || !this.NativeGlobalsFair()) { return false; }

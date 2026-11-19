@@ -747,6 +747,27 @@ class ExpansionAdapterTests(unittest.TestCase):
         source = source.replace("GetGame().GetVersion(version);", "version = GetGame().GetVersion();")
         return Authored(source, self.env).call("NativeBuild", None)
 
+    def test_wave8_aliases_match_at_prerequisites_receipt_and_site_gates(self):
+        for gate in ('prerequisites', 'receipt', 'site'):
+            with self.subTest(gate=gate):
+                self.profile.BuildVersion = '1.30.164289.70'
+                if gate == 'prerequisites':
+                    self.assertTrue(self.mod.Install(self.profile, self.hooks), 'aliased profile must match the observed build')
+                elif gate == 'receipt':
+                    self.assertTrue(self.rule_api.ReceiptValid(self.profile, self.receipt, self.now),
+                                    'aliased receipt must match the same build')
+                else:
+                    site_source = (SCRIPTS / '4_World/HCXAISiteRules.c').read_text()
+                    admission = N(BuildVersion='1.30.164289', WorldName='chernarusplus', MissingAddons='',
+                        SettingsLoaded=True, Globals='', UnfairFaction='', MissingLoadout='',
+                        ObserverPolicy='native-eai', Marker=True, OwnershipReconciled=True)
+                    policy = N(BuildVersion='1.30.164289.70', WorldName='chernarusplus', ObserverPolicy='native-eai')
+                    rules = Authored(site_source, self.env)
+                    self.assertEqual('', rules.call('AdmissionProblem', None, policy, admission),
+                                     'aliased site admission must match the same build')
+                    admission.BuildVersion = 'foreign'
+                    self.assertIn('engine build', rules.call('AdmissionProblem', None, policy, admission))
+
     def identity_lines(self):
         return [text for kind, text in self.calls if kind == "diagnostic" and text.startswith("[HC Identity]")]
 
@@ -758,7 +779,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         for build in ("foreign", "", "1.30.164289.71", " 1.30.164289"):
             self.profile.BuildVersion = build
             self.assertEqual("BuildVersion pin mismatch", self.rule_api.ProfileProblem(self.profile))
-        self.assertEqual(["[HC Identity] build=foreign world=chernarusplus accepted=0 reason=build_mismatch"],
+        self.assertEqual(["[HC Identity] build=foreign world=chernarusplus accepted=0 reason=build_mismatch gate=xai_profile"],
                          self.identity_lines())
 
     def test_native_build_normalizes_shared_aliases_and_preserves_logged_unknown(self):
@@ -772,13 +793,14 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertEqual(["[HC Identity] build=foreign world=chernarusplus accepted=0 reason=build_mismatch"],
                          self.identity_lines())
 
-    def test_addon_and_core_share_the_same_mismatch_latch(self):
+    def test_addon_profile_and_shared_core_have_separate_bounded_mismatch_slots(self):
         self.profile.BuildVersion = "foreign-profile"
         self.assertEqual("BuildVersion pin mismatch", self.rule_api.ProfileProblem(self.profile))
         self.game.GetVersion = lambda: "foreign-engine"
         self.assertEqual("foreign-engine", self.native_build())
         self.assertFalse(self.identity.SameWorld("chernarusplus", "Enoch"))
-        self.assertEqual(["[HC Identity] build=foreign-profile world=chernarusplus accepted=0 reason=build_mismatch"],
+        self.assertEqual(["[HC Identity] build=foreign-profile world=chernarusplus accepted=0 reason=build_mismatch gate=xai_profile",
+                          "[HC Identity] build=foreign-engine world=chernarusplus accepted=0 reason=build_mismatch"],
                          self.identity_lines())
 
     def encounters_stub(self):

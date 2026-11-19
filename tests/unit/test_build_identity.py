@@ -117,6 +117,19 @@ class IdentityLogTests(unittest.TestCase):
         self.game = NS(GetWorldName=lambda: "ChernarusPlus", GetVersion=lambda: NATIVE)
         self.identity.Matches.__globals__.update(Print=self.lines.append, GetGame=lambda: self.game)
 
+    def test_wave8_each_fixed_gate_logs_once_and_unknown_tags_share_one_bounded_slot(self):
+        for tag in ('xai_profile', 'xai_prerequisites', 'xai_receipt', 'xai_site'):
+            for _ in range(3):
+                self.assertFalse(self.identity.SameBuild(CANONICAL, 'foreign', tag))
+        self.assertEqual(4, len(self.lines), 'one gate refusal must not hide other callers')
+        self.assertEqual({'xai_profile', 'xai_prerequisites', 'xai_receipt', 'xai_site'},
+                         {line.split(' gate=')[1] for line in self.lines})
+        for index in range(100):
+            self.assertFalse(self.identity.Matches('foreign', 'synthetic-' + str(index)))
+        self.assertEqual(5, len(self.lines), 'unknown caller tags share a fixed fallback slot')
+        self.assertLessEqual(self.identity.s_MismatchLogged, 31)
+        self.assertTrue(self.identity.SameBuild(CANONICAL, NATIVE, 'xai_site'))
+
     def test_accepted_build_forms_and_world_case_do_not_consume_the_mismatch_log(self):
         self.assertTrue(self.identity.Matches(CANONICAL))
         self.assertTrue(self.identity.Matches(NATIVE))

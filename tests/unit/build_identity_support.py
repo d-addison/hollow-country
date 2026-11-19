@@ -1,7 +1,7 @@
 """Executes the authored HCBuildIdentity.c statics, never a Python re-implementation.
 
 The class is deliberately written in the tiny Enforce subset handled here:
-static const strings, static bool state, single-line `if (...) return ...;`,
+static const strings, scalar static state, single-line `if (...) return ...;`,
 string locals, `x.ToLower();`, Print and GetVersion(out string). Anything else fails loudly,
 so the matcher cannot drift into a shape this adapter silently mis-executes.
 This is a restricted offline translation; it is NOT DayZ engine evidence.
@@ -46,25 +46,28 @@ def translate(source=None):
     for match in re.finditer(r"static const string (\w+) = (\w+);", text):
         setattr(namespace, match[1], literals[match[2]])
         scope[match[1]] = literals[match[2]]
-    functions = list(re.finditer(r"static (bool|string) (\w+)\(([^)]*)\)\s*\{", text))
+    functions = list(re.finditer(r"static (bool|string|int) (\w+)\(([^)]*)\)\s*\{", text))
     assert functions, "HCBuildIdentity statics not found"
     state = set()
-    for match in re.finditer(r"static bool (\w+) = (true|false);", text):
-        state.add(match[1])
-        setattr(namespace, match[1], match[2] == "true")
+    for match in re.finditer(r"static (bool|int) (\w+) = (true|false|\d+);", text):
+        state.add(match[2])
+        value = match[3] == "true" if match[1] == "bool" else int(match[3])
+        setattr(namespace, match[2], value)
     names = state | {match[2] for match in functions}
     for match in functions:
         depth, end = 1, match.end()
         while depth:
             depth += (text[end] == "{") - (text[end] == "}")
             end += 1
-        parameters = [p.split()[-1] for p in match[3].split(",") if p.strip()]
-        lines = ["def %s(%s):" % (match[2], ", ".join(parameters))]
+        parameters = [p.strip().split("=", 1) for p in match[3].split(",") if p.strip()]
+        signature = [p[0].split()[-1] + ("=" + _expression(p[1], literals, names) if len(p) == 2 else "")
+                     for p in parameters]
+        lines = ["def %s(%s):" % (match[2], ", ".join(signature))]
         # Native string parameters are values; other harnesses may pass mutable
         # synthetic out-string boxes whose __str__ exposes that value.
         for parameter in match[3].split(","):
             if parameter.strip().startswith("string "):
-                name = parameter.split()[-1]
+                name = parameter.split("=", 1)[0].split()[-1]
                 lines.append("    %s = str(%s)" % (name, name))
         for statement in filter(None, (s.strip() for s in text[match.end():end - 1].split(";"))):
             if statement.startswith("if ("):
@@ -77,14 +80,14 @@ def translate(source=None):
                 lines.append("    if %s: %s" % (_expression(condition, literals, names), _expression(rest, literals, names)))
             elif statement.startswith("return "):
                 lines.append("    " + _expression(statement, literals, names))
-            elif re.fullmatch(r"string \w+ = [\w.]+", statement):
-                lines.append("    " + _expression(statement[len("string "):], literals, names))
+            elif re.fullmatch(r"(?:string|int) \w+ = .+", statement):
+                lines.append("    " + _expression(statement.split(" ", 1)[1], literals, names))
             elif re.fullmatch(r"string \w+", statement):
                 lines.append("    " + statement[len("string "):] + " = ''")
             elif re.fullmatch(r"\w+\.ToLower\(\)", statement):
                 variable = statement.split(".")[0]
                 lines.append("    %s = %s.lower()" % (variable, variable))
-            elif re.fullmatch(r"\w+ = (?:true|false)", statement) and statement.split()[0] in state:
+            elif re.fullmatch(r"\w+ = .+", statement) and statement.split()[0] in state:
                 lines.append("    " + _expression(statement, literals, names))
             elif re.fullmatch(r"Print\(.+\)", statement):
                 lines.append("    " + _expression(statement, literals, names))

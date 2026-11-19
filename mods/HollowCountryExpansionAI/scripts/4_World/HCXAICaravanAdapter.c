@@ -14,7 +14,7 @@ class HCXAICaravanAdapter : HCCaravanInventory
 {
     override bool HCReady() { return false; }
     override string HCRefusal() { return "CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED"; }
-    override bool HCBindCaravan(HCCaravanState row) { return false; }
+    override bool HCBindCaravan(HCCaravanState row) { HCClear(); return false; }
     override bool HCWalkCaravan(HCCaravanState row, bool returning) { return false; }
     override bool HCAtCamp(HCCaravanState row, bool returning) { return false; }
     override bool HCFleeObserved(HCCaravanState row) { return false; }

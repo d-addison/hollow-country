@@ -411,7 +411,7 @@ class HCXAISiteRules
     static string AdmissionProblem(HCXAISitePolicy p, HCXAISiteAdmission a)
     {
         if (!a) { return "no admission observation"; }
-        if (a.BuildVersion != p.BuildVersion) { return "engine build " + a.BuildVersion + " is not the qualified " + p.BuildVersion; }
+        if (!HCBuildIdentity.SameBuild(a.BuildVersion, p.BuildVersion, "xai_site")) { return "engine build " + a.BuildVersion + " is not the qualified " + p.BuildVersion; }
         if (a.WorldName != p.WorldName) { return "world " + a.WorldName + " is not " + p.WorldName; }
         if (a.MissingAddons != "") { return "missing CfgPatches " + a.MissingAddons; }
         if (!a.SettingsLoaded) { return "Expansion AI settings not loaded"; }

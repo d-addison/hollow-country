@@ -160,6 +160,22 @@ class LogLines(unittest.TestCase):
 class IdentityGates(unittest.TestCase):
     """Synthetic engine/build comparisons; no fixture is native runtime evidence."""
 
+    def test_wave8_raw_build_values_and_getter_forms_require_shared_identity(self):
+        text = '''class HCI {
+    bool Profile(HCProfile p) { return p.BuildVersion != m_Build; }
+    bool Receipt(HCProfile p, HCReceipt r) { return r.BuildVersion == p.BuildVersion; }
+    bool Getter() { return NativeBuild() == profile.BuildVersion; }
+    bool Reversed(HCProfile p) { return observed == p.BuildVersion; }
+    bool Wrapped(string build) { return (build) == ("1.30.164289"); }
+    bool Shared(HCProfile p) { return HCBuildIdentity.SameBuild(p.BuildVersion, m_Build); }
+    bool Dependency(HCProfile p) { return p.ProviderVersion == provider.Version; }
+    bool Empty(string build) { return build == ""; }
+    bool Normalized(HCProfile p) { return HCBuildIdentity.Normalize(p.GameBuild) == HCBuildIdentity.Normalize(m_Build); }
+}'''
+        self.assertEqual([('I.c', n, 'HCI.' + name) for n, name in
+                          ((2, 'Profile'), (3, 'Receipt'), (4, 'Getter'), (5, 'Reversed'), (6, 'Wrapped'))],
+                         where(run({W + 'I.c': text}, 'HC-S004')))
+
     def test_silent_literal_build_comparisons_are_flagged_in_both_directions(self):
         files = {W + 'Identity.c': '''class HCIdentity
 {
@@ -217,7 +233,7 @@ class IdentityGates(unittest.TestCase):
     def test_only_literal_engine_or_build_comparisons_are_identity_findings(self):
         text = '''class HCI {
     bool Shared(string build) { return HCBuildIdentity.Matches(build); }
-    bool Values(string build, string other) { return build == other; }
+    bool Values(string label, string other) { return label == other; }
     bool Label(string label) { return label == "release 1.30."; }
     bool Dependency(HCProfile p) { return p.ProviderVersion == "1.9.84"; }
     bool Empty(string build) { return build == ""; }
