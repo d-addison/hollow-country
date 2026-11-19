@@ -25,7 +25,7 @@ class auditleaves_Client
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
-    protected ref Particle m_Emitter;
+    protected Particle m_Emitter;
     protected bool m_Enabled;
     protected bool m_Draining;
     protected bool m_FirstStarted;
