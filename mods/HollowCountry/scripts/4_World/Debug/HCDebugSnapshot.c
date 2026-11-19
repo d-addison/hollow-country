@@ -66,6 +66,12 @@ class HCDebugSnapshot
         return true;
     }
 
+    // HCServer starts a new operational lifecycle before module registration.
+    static void HCResetRegistrationRefusals()
+    {
+        s_RegistrationRefusals = 0;
+    }
+
     static int HCContributorCount()
     {
         if (!s_Contributors) { return 0; }

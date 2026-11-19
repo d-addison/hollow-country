@@ -85,6 +85,7 @@ class OperationalLifecycleTests(unittest.TestCase):
         game = N(IsServer=lambda: True, GetTickTime=lambda: 12,
                  GetCallQueue=lambda category: N(Remove=lambda fn: None, CallLater=lambda *args: None))
         env = dict(GetGame=lambda: game, HCNativeSelfTests=N(Run=lambda: True),
+                   HCOperationalContributors=N(HCReset=lambda: None, HCRegisterOwner=lambda name: None, HCReport=lambda: None),
                    HCSettings=N(LoadFromProfile=lambda: N(TickIntervalMs=1000)),
                    HCModuleRegistry=lambda: N(RegisterModules=lambda: None, GetModules=lambda: modules),
                    Print=logs.append, CALL_CATEGORY_SYSTEM=0)

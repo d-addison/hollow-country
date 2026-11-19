@@ -167,6 +167,10 @@ class CoreFixture:
                                 Sample=lambda elapsed, ticks: None,
                                 RegisterModule=lambda name: None, SampleModule=lambda index,ticks: None))
         context = dict(GetGame=lambda: self.game, Print=self.profile.logs.append,
+                       # Explicit synthetic passive operational publisher; actual owner
+                       # lifecycle behavior is covered by test_hc_operational_snapshot.
+                       HCOperationalContributors=N(HCReset=lambda: None,
+                           HCRegisterOwner=lambda name: None, HCReport=lambda: None),
                        HCNativeSelfTests=N(Run=lambda: True),
                        HCSettings=N(LoadFromProfile=self.profile.load),
                        HCModuleRegistry=lambda: self.registry, CALL_CATEGORY_SYSTEM=0,
@@ -175,15 +179,7 @@ class CoreFixture:
                                        OperationalSummary=lambda status: '[HC Plan] HC-1 status',
                                        NonModuleSummary=lambda: '[HC Plan] HC-1 non_modules'))
         for name in ('Start', 'Tick', 'Stop'):
-            if name == 'Tick':
-                source = core.SOURCE.read_text().replace(
-                    'foreach (HCModule module : m_Active) module.OnTick(elapsed);',
-                    'foreach (HCModule module : m_Active) { module.OnTick(elapsed); }')
-                source = source.replace('HCModule', 'HCEventBase')
-                source = re.sub(r'(\b[\w.]+)\+\+;',r'\1 += 1;',source)
-                fn = event.translate(source, name, dict(context), 'HCServer', True)
-            else:
-                fn = core.actual_method(name, context)
+            fn = core.actual_method(name, context)
             setattr(self.state, name, lambda fn=fn: fn(self.state))
 
     def schedule(self, fn, *args): self.queued.append((fn, args))

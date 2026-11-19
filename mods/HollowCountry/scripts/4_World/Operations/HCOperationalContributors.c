@@ -1,4 +1,4 @@
-// HC-25. Source/cache policy only; lifecycle publisher integration is lead-owned.
+// HC-25. Source/cache policy; HCServer owns lifecycle publication.
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380,385,407 arrays, :866,926 map;
 // EnString.c:137,199,212 UTF8 text bounds via HCDebugSnapshot.HCText;
 // EnConvert.c:30 ToString; EnDebug.c:96 Print; 3_Game/Global/Game.c:914
@@ -91,6 +91,7 @@ class HCOperationalContributors
     protected static ref HCDebugOperationalContributor s_Aggregate;
     protected static int s_Refused;
     protected static bool s_Registered;
+    protected static bool s_RegistrationTried;
 
     static HCOperationalOwner HCRegisterOwner(string name)
     {
@@ -104,7 +105,11 @@ class HCOperationalContributors
         }
         if (!s_Aggregate) { s_Aggregate = new HCDebugOperationalContributor; }
         // One aggregate, not one of the 16 contributor slots per module.
-        if (!s_Registered) { s_Registered = HCDebugSnapshot.HCRegister(s_Aggregate); }
+        if (!s_RegistrationTried)
+        {
+            s_RegistrationTried = true;
+            s_Registered = HCDebugSnapshot.HCRegister(s_Aggregate);
+        }
         HCOperationalOwner owner = new HCOperationalOwner;
         owner.Name = name;
         s_Owners.Insert(owner);
@@ -117,6 +122,8 @@ class HCOperationalContributors
         if (s_Aggregate) { HCDebugSnapshot.HCUnregister(s_Aggregate); }
         s_Aggregate = null;
         s_Registered = false;
+        s_RegistrationTried = false;
+        HCDebugSnapshot.HCResetRegistrationRefusals();
         s_Owners.Clear();
         s_ByName.Clear();
         s_Refused = 0;
@@ -125,7 +132,7 @@ class HCOperationalContributors
     static int HCCount() { return s_Owners.Count(); }
     static int HCRefused() { return s_Refused; }
 
-    // Lead calls once after lifecycle admission, not from every owner constructor.
+    // HCServer calls once after module startup, not from every owner constructor.
     static void HCReport()
     {
         HCAdminReply receipt = new HCAdminReply;
@@ -140,6 +147,7 @@ class HCOperationalContributors
     static string HCStoreLine(string name)
     {
         string gate = "closed_or_quarantined";
+        if (HCRecoveryGate.HCReason() == "not_loaded") { gate = "pending_admission"; }
         if (HCRecoveryGate.HCReady(name)) { gate = "admitted"; }
         string paired = "unobserved";
         if (HCRecoveryGate.HCGeneration() > 0) { paired = "operator_attested"; }
