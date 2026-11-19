@@ -182,6 +182,15 @@ class HCLeadPolicy
     }
 }
 
+// Preserve idempotent success for existing note/news callers; radio only
+// displays a newly retained receipt. The existing 5/group, 64/store cap owns it.
+enum HCLeadReceiveResult
+{
+    REFUSED = 0,
+    HELD = 1,
+    RETAINED = 2
+}
+
 class HCLeadModule : HCModule
 {
     protected static HCLeadModule s_Instance;
@@ -330,7 +339,12 @@ class HCLeadModule : HCModule
 
     bool Receive(HCWorldLead offer, string groupId, string source)
     {
-        if (!Get() || !HCLeadPolicy.Valid(offer) || offer.Expires <= HCWorldClock.UTC() || !HCWorldLimits.Token(groupId) || !HCWorldLimits.Token(source)) { return false; }
+        return ReceiveResult(offer, groupId, source) != HCLeadReceiveResult.REFUSED;
+    }
+
+    int ReceiveResult(HCWorldLead offer, string groupId, string source)
+    {
+        if (!Get() || !HCLeadPolicy.Valid(offer) || offer.Expires <= HCWorldClock.UTC() || !HCWorldLimits.Token(groupId) || !HCWorldLimits.Token(source)) { return HCLeadReceiveResult.REFUSED; }
         int count;
         foreach (HCWorldLead prior : m_Store.Data.Leads)
         {
@@ -339,15 +353,16 @@ class HCLeadModule : HCModule
             // so the per-group cap counts them too or Save would fault the store.
             count++;
             if (prior.Expires <= HCWorldClock.UTC()) { continue; }
-            if (prior.TargetPlaceId == offer.TargetPlaceId && prior.TextId == offer.TextId) { return true; }
+            if (prior.TargetPlaceId == offer.TargetPlaceId && prior.TextId == offer.TextId) { return HCLeadReceiveResult.HELD; }
         }
-        if (count >= 5 || m_Store.Data.Leads.Count() >= 64) { return false; }
+        if (count >= 5 || m_Store.Data.Leads.Count() >= 64) { return HCLeadReceiveResult.REFUSED; }
         HCWorldLead received = HCLeadPolicy.Copy(offer);
         received.Id = m_Store.NextId("lead");
         received.GroupId = groupId;
         received.Source = source;
         m_Store.Data.Leads.Insert(received);
-        return m_Store.Save();
+        if (!m_Store.Save()) { return HCLeadReceiveResult.REFUSED; }
+        return HCLeadReceiveResult.RETAINED;
     }
 
     void ReceivePlayer(HCWorldLead offer, PlayerBase player, string source)
