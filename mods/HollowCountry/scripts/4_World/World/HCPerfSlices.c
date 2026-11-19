@@ -15,6 +15,31 @@ class HCPerfConfig
     int InteriorPackEmptyMs = 150;
     int InteriorPackUnitsPerTick = 4096;
     int DebugSnapshotIntervalSeconds = 300;
+    // Per-consumer multipliers of existing caller costs; 1 preserves provisional defaults.
+    // Read once at startup; invalid/missing entries retain 1 (registry range 1..64).
+    int TickWeight_INFECTED = 1;
+    int TickWeight_INTERIORS = 1;
+    int TickWeight_SEARCH_BIND = 1;
+    int TickWeight_SEARCH_MAINT = 1;
+    int TickWeight_SEARCH_REFRESH = 1;
+    int TickWeight_SEARCH_DETACHED = 1;
+    int TickWeight_LOD_CLASSIFY = 1;
+    int TickWeight_LOD_HERD = 1;
+    int TickWeight_BASES = 1;
+    int TickWeight_CONFLICT = 1;
+    int TickWeight_TRADE = 1;
+    int TickWeight_SITUATIONS = 1;
+    int TickWeight_BASE_RAID = 1;
+    int TickWeight_ROLES = 1;
+    int TickWeight_FORMATION = 1;
+    int TickWeight_CARFIX = 1;
+    int TickWeight_HEARTH = 1;
+    int TickWeight_INCIDENTS = 1;
+    int TickWeight_INCIDENT_RESPONSE = 1;
+    int TickWeight_AI_RESPAWN = 1;
+    int TickWeight_SEARCH_COMPACT = 1;
+    int TickWeight_SHELTER = 1;
+    int TickWeight_AI_SITES = 1;
     protected static ref HCPerfConfig s_Config;
 
     static HCPerfConfig HCGet()
@@ -42,6 +67,29 @@ class HCPerfConfig
 
     void HCApply(HCPerfConfig decoded, string text)
     {
+        if (HCJsonFields.Has(text, "TickWeight_INFECTED") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INFECTED", decoded.TickWeight_INFECTED)) { TickWeight_INFECTED = decoded.TickWeight_INFECTED; }
+        if (HCJsonFields.Has(text, "TickWeight_INTERIORS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INTERIORS", decoded.TickWeight_INTERIORS)) { TickWeight_INTERIORS = decoded.TickWeight_INTERIORS; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_BIND") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_BIND", decoded.TickWeight_SEARCH_BIND)) { TickWeight_SEARCH_BIND = decoded.TickWeight_SEARCH_BIND; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_MAINT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_MAINT", decoded.TickWeight_SEARCH_MAINT)) { TickWeight_SEARCH_MAINT = decoded.TickWeight_SEARCH_MAINT; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_REFRESH") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_REFRESH", decoded.TickWeight_SEARCH_REFRESH)) { TickWeight_SEARCH_REFRESH = decoded.TickWeight_SEARCH_REFRESH; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_DETACHED") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_DETACHED", decoded.TickWeight_SEARCH_DETACHED)) { TickWeight_SEARCH_DETACHED = decoded.TickWeight_SEARCH_DETACHED; }
+        if (HCJsonFields.Has(text, "TickWeight_LOD_CLASSIFY") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_LOD_CLASSIFY", decoded.TickWeight_LOD_CLASSIFY)) { TickWeight_LOD_CLASSIFY = decoded.TickWeight_LOD_CLASSIFY; }
+        if (HCJsonFields.Has(text, "TickWeight_LOD_HERD") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_LOD_HERD", decoded.TickWeight_LOD_HERD)) { TickWeight_LOD_HERD = decoded.TickWeight_LOD_HERD; }
+        if (HCJsonFields.Has(text, "TickWeight_BASES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_BASES", decoded.TickWeight_BASES)) { TickWeight_BASES = decoded.TickWeight_BASES; }
+        if (HCJsonFields.Has(text, "TickWeight_CONFLICT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CONFLICT", decoded.TickWeight_CONFLICT)) { TickWeight_CONFLICT = decoded.TickWeight_CONFLICT; }
+        if (HCJsonFields.Has(text, "TickWeight_TRADE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_TRADE", decoded.TickWeight_TRADE)) { TickWeight_TRADE = decoded.TickWeight_TRADE; }
+        if (HCJsonFields.Has(text, "TickWeight_SITUATIONS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SITUATIONS", decoded.TickWeight_SITUATIONS)) { TickWeight_SITUATIONS = decoded.TickWeight_SITUATIONS; }
+        if (HCJsonFields.Has(text, "TickWeight_BASE_RAID") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_BASE_RAID", decoded.TickWeight_BASE_RAID)) { TickWeight_BASE_RAID = decoded.TickWeight_BASE_RAID; }
+        if (HCJsonFields.Has(text, "TickWeight_ROLES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ROLES", decoded.TickWeight_ROLES)) { TickWeight_ROLES = decoded.TickWeight_ROLES; }
+        if (HCJsonFields.Has(text, "TickWeight_FORMATION") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_FORMATION", decoded.TickWeight_FORMATION)) { TickWeight_FORMATION = decoded.TickWeight_FORMATION; }
+        if (HCJsonFields.Has(text, "TickWeight_CARFIX") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CARFIX", decoded.TickWeight_CARFIX)) { TickWeight_CARFIX = decoded.TickWeight_CARFIX; }
+        if (HCJsonFields.Has(text, "TickWeight_HEARTH") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_HEARTH", decoded.TickWeight_HEARTH)) { TickWeight_HEARTH = decoded.TickWeight_HEARTH; }
+        if (HCJsonFields.Has(text, "TickWeight_INCIDENTS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INCIDENTS", decoded.TickWeight_INCIDENTS)) { TickWeight_INCIDENTS = decoded.TickWeight_INCIDENTS; }
+        if (HCJsonFields.Has(text, "TickWeight_INCIDENT_RESPONSE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INCIDENT_RESPONSE", decoded.TickWeight_INCIDENT_RESPONSE)) { TickWeight_INCIDENT_RESPONSE = decoded.TickWeight_INCIDENT_RESPONSE; }
+        if (HCJsonFields.Has(text, "TickWeight_AI_RESPAWN") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_RESPAWN", decoded.TickWeight_AI_RESPAWN)) { TickWeight_AI_RESPAWN = decoded.TickWeight_AI_RESPAWN; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_COMPACT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_COMPACT", decoded.TickWeight_SEARCH_COMPACT)) { TickWeight_SEARCH_COMPACT = decoded.TickWeight_SEARCH_COMPACT; }
+        if (HCJsonFields.Has(text, "TickWeight_SHELTER") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SHELTER", decoded.TickWeight_SHELTER)) { TickWeight_SHELTER = decoded.TickWeight_SHELTER; }
+        if (HCJsonFields.Has(text, "TickWeight_AI_SITES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_SITES", decoded.TickWeight_AI_SITES)) { TickWeight_AI_SITES = decoded.TickWeight_AI_SITES; }
         if (HCJsonFields.Has(text, "EnableSharedSaves")) { EnableSharedSaves = decoded.EnableSharedSaves; }
         if (HCJsonFields.Has(text, "SliceMs") && HCOperatorSettingsRegistry.HCValid("Performance.SliceMs", decoded.SliceMs)) { SliceMs = decoded.SliceMs; }
         if (HCJsonFields.Has(text, "SaveStageTargetMs") && HCOperatorSettingsRegistry.HCValid("Performance.SaveStageTargetMs", decoded.SaveStageTargetMs)) { SaveStageTargetMs = decoded.SaveStageTargetMs; }

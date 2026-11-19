@@ -23,6 +23,8 @@ class HCServer
     // and read by every module item loop through HCServer.HCTickWork(). Allocated once, no per-tick
     // allocation. m_TickActive is true only while Tick() is running the module callbacks.
     protected ref HCUnitBudget m_TickWork = new HCUnitBudget();
+    protected ref HCUnitProfile m_TickProfile;
+    protected int m_TickCostWindow;
     protected bool m_TickActive;
 
     static HCServer Get()
@@ -157,6 +159,9 @@ class HCServer
         m_Perf.Start(60);
         m_TickActive = false;
         m_TickWork.HCWindowReset();
+        if (!m_TickProfile) { m_TickProfile = new HCUnitProfile; }
+        m_TickProfile.HCReset();
+        m_TickWork.HCSetProfile(m_TickProfile);
         foreach (HCModule perfModule : m_Active)
         {
             m_Perf.RegisterModule(perfModule.GetName());
@@ -193,6 +198,7 @@ class HCServer
         {
             int moduleStart = TickCount(0);
             module.OnTick(elapsed);
+            m_TickWork.HCCloseSpan();
             // #196: a module may call Stop() from OnTick. Stop clears m_Active and retires the perf
             // sampler, so leave the loop at once: no later module ticks (they would draw the unbounded
             // idle budget), no further foreach step over the cleared array, no window roll.
@@ -203,7 +209,12 @@ class HCServer
         if (!m_Started) { return; }
         m_TickActive = false;
         // One line per perf window (same 60 s as m_Perf.Start): shared_used_max / shared_starved.
-        if (m_TickWork.HCEndTick(elapsed, 60)) { Print("" + m_TickWork.HCWindowReport()); }
+        if (m_TickWork.HCEndTick(elapsed, 60))
+        {
+            m_TickCostWindow++;
+            m_TickProfile.HCPrintWindow(m_TickCostWindow);
+            Print("" + m_TickWork.HCWindowReport());
+        }
         // Publish cached owner state on the lifecycle path, never on requests.
         // The registry caps 64; keep the refresh independently bounded as well.
         if (now >= m_OperationalRefreshAt)

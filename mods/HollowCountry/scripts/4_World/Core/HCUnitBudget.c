@@ -71,6 +71,10 @@ class HCUnitBudget
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
 
+    protected ref HCUnitProfile m_Profile;
+    void HCSetProfile(HCUnitProfile profile) { m_Profile = profile; }
+    void HCCloseSpan() { if (m_Profile) { m_Profile.HCCloseSpan(); } }
+
     protected int m_Limit;
     protected int m_Used;
     protected int m_Items;
@@ -86,6 +90,7 @@ class HCUnitBudget
 
     void HCReset(int limit)
     {
+        HCCloseSpan();
         m_Limit = limit;
         if (m_Limit < 1) { m_Limit = 1; }
         m_Used = 0;
@@ -95,6 +100,12 @@ class HCUnitBudget
     }
 
     bool HCTake(int cost)
+    {
+        HCCloseSpan();
+        return HCTryTake(cost);
+    }
+
+    protected bool HCTryTake(int cost)
     {
         int units = cost;
         if (units < 1) { units = 1; }
@@ -112,26 +123,38 @@ class HCUnitBudget
         int slot = consumer;
         if (slot < 0) { slot = 0; }
         if (slot > 30) { slot = 30; }
-        int bit = 1 << slot;
-        if (HCTake(cost))
-        {
-            m_Served = m_Served | bit;
-            return true;
-        }
-        if ((m_Served & bit) != 0) { return false; }
+        HCCloseSpan();
         int units = cost;
         if (units < 1) { units = 1; }
+        if (m_Profile) { units = m_Profile.HCWeightedUnits(slot, units); }
+        int bit = 1 << slot;
+        if (HCTryTake(units))
+        {
+            m_Served = m_Served | bit;
+            if (m_Profile) { m_Profile.HCItem(slot, units, false); }
+            return true;
+        }
+        if ((m_Served & bit) != 0)
+        {
+            if (m_Profile) { m_Profile.HCRefused(slot); }
+            return false;
+        }
         m_Served = m_Served | bit;
         m_Starved = m_Starved + 1;
         m_Used = m_Used + units;
         m_Items = m_Items + 1;
+        if (m_Profile) { m_Profile.HCItem(slot, units, true); }
         return true;
     }
 
     // Charge work that already happened (an item whose cost was only known afterwards).
     void HCCharge(int cost)
     {
-        if (cost > 0) { m_Used = m_Used + cost; }
+        if (cost > 0)
+        {
+            m_Used = m_Used + cost;
+            if (m_Profile) { m_Profile.HCCharge(cost); }
+        }
     }
 
     // Issue #138 round 2: charge an item by the larger of its declared units and its MEASURED cost.
