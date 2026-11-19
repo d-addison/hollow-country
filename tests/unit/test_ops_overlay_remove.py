@@ -1,4 +1,6 @@
 """Explicit synthetic receipts/files; no DayZ behavior is established."""
+import io
+import zipfile
 import importlib
 from pathlib import Path
 import subprocess
@@ -96,3 +98,18 @@ class Removal(unittest.TestCase):
                                  '--dry-run'], cwd=self.tmp.name, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('runtime=PENDING', result.stdout)
+
+
+class PortableHandoff(unittest.TestCase):
+    def test_removal_helper_is_packaged_and_passes_handoff_validation(self):
+        from tools.package import pbo
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            addon, mission = root / 'addon', root / 'mission'
+            addon.mkdir()
+            mission.mkdir()
+            (addon / 'config.cpp').write_text('class Synthetic {};')
+            blob = pbo.handoff(addon, mission)
+            with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+                self.assertIn('tools/package/overlay_remove.py', archive.namelist())
+            pbo.verify_handoff(blob)

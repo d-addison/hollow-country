@@ -33,7 +33,7 @@ class CatalogContracts(unittest.TestCase):
         ids = [e.id for e in entries()]
         dispatched = set()
         # HCExtra is the final HCCommand branch, so its handlers are included.
-        for name in ('HCDispatch', 'HCCommand', 'HCExtra'):
+        for name in ('HCDispatch', 'HCCommand', 'HCExtra', 'HCOperatorCommand'):
             _, body = authored_method(SERVER, 'HCAdminModule', name, modded=False)
             dispatched.update(re.findall(r'command == "(\w+)"', body))
         self.assertEqual(dispatched, set(ids))
@@ -61,7 +61,7 @@ class CatalogContracts(unittest.TestCase):
         memory = re.search(r'shots < (\d+) \|\| shots > (\d+)', directors)
         code = re.search(r'code < (\d+) \|\| code > (\d+)', weather)
         self.assertEqual({'day': tuple(map(int,day.groups())), 'memory': tuple(map(int,memory.groups())),
-                          'weather': tuple(map(int,code.groups()))}, values)
+                          'weather': tuple(map(int,code.groups())), 'camptier': (0, 3)}, values)
 
     def test_authored_clamp_handles_both_boundaries(self):
         fn = compile_authored(CATALOG, 'HCAdminCommand', 'HCClamp', base_scope(), modded=False)

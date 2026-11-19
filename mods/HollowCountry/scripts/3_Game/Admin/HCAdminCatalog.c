@@ -96,11 +96,14 @@ class HCAdminCatalog
         HCAdd("list", "overview", "State near me", "Inspect nearby infected, heat, drops, forage and decaying towns.", true, true, false, 0, 0, 0, "");
         HCAdd("snapshot", "overview", "Request snapshot", "Capture debug map layers over several ticks; five-second cooldown.", true, false, false, 0, 0, 0, "");
         HCAdd("sitter", "infected", "Place sitter", "Admit one sitter eight metres ahead; one body including its corpse.", false, true, false, 0, 0, 0, "");
-        HCAdd("dormant", "infected", "Dormant admission", "Refused by design: no shared body lease or dormant spawn policy.", false, true, false, 0, 0, 0, "");
+        HCAdd("dormant", "infected", "Dormant admission", "Reports missing fresh-body rest transition hook; no body is created.", false, true, false, 0, 0, 0, "");
         HCAdd("horde", "infected", "Adopt native horde", "Adopt an eligible native cohort within 100 m using normal budgets.", false, true, false, 0, 0, 0, "");
         HCAdd("clear", "infected", "Clear admin sitter", "Delete only the admin sitter; other infected remain untouched.", false, false, false, 0, 0, 0, "");
         HCAdd("memory", "infected", "Infected memory", "Record heat shots in your 500 m cell; zero clears this cell.", false, true, true, 0, 3, 1, "shots");
         HCAdd("camp", "ai", "Evaluate camp", "Evaluate the nearest recognised camp within 100 m; no forced age.", false, true, false, 0, 0, 0, "");
+        HCAdd("camptier", "ai", "Force camp tier", "Persist nearest camp tier; next normal scan reclassifies.", false, true, true, 0, 3, 1, "tier");
+        HCAdd("campvisit", "ai", "Request camp visit", "Reports missing physical visitor request hook.", false, true, false, 0, 0, 0, "");
+        HCAdd("campraid", "ai", "Request camp raid", "Reports missing physical raid request hook.", false, true, false, 0, 0, 0, "");
         HCAdd("holdout", "ai", "Evaluate hold-out", "Run normal occupancy on the nearest hold-out within 100 m.", false, true, false, 0, 0, 0, "");
         HCAdd("event", "world", "Start reviewed event", "Request the nearest reviewed site through normal event admission.", false, true, false, 0, 0, 0, "");
         HCAdd("scene", "world", "Place due scene", "Request the nearest due reviewed scene; maximum two scene leases.", false, true, false, 0, 0, 0, "");
