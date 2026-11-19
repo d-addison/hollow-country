@@ -279,5 +279,41 @@ class LightingClientRefusal(unittest.TestCase):
         self.assertTrue(any('world_lighting_unavailable' in line for line in printed), printed)
 
 
+class ModuleRouteRefusalLogs(unittest.TestCase):
+    """HCInfectedModule surfaces HCNativeInfectedPack.HCRefusalReason() in its own log lines."""
+    MODULE = SCRIPTS / '4_World/Infected/HCInfectedModule.c'
+
+    def module(self):
+        self.printed = []
+        module = N(m_LastRouteRefusal='')
+        env = dict(Print=lambda text: self.printed.append(str(text)))
+        authored('4_World/Infected/HCInfectedModule.c', 'HCInfectedModule', ('HCNoteRouteRefusal',), module, env)
+        return module
+
+    def test_investigate_refusal_reason_is_logged_once_per_change(self):
+        module = self.module()
+        module.HCNoteRouteRefusal('investigate', 'no_ai_world')
+        module.HCNoteRouteRefusal('investigate', 'no_ai_world')
+        self.assertEqual(1, len(self.printed), self.printed)
+        self.assertIn('reason=no_ai_world', self.printed[0])
+        self.assertIn('runtime=PENDING', self.printed[0])
+        module.HCNoteRouteRefusal('investigate', 'release_pending')
+        self.assertEqual(2, len(self.printed))
+
+    def test_success_or_empty_reason_resets_so_a_repeat_is_logged_again(self):
+        module = self.module()
+        module.HCNoteRouteRefusal('investigate', 'no_ai_world')
+        module.HCNoteRouteRefusal('investigate', '')
+        self.assertEqual(1, len(self.printed))
+        module.HCNoteRouteRefusal('investigate', 'no_ai_world')
+        self.assertEqual(2, len(self.printed))
+
+    def test_call_sites_read_the_pack_reason(self):
+        source = self.MODULE.read_text()
+        self.assertGreaterEqual(source.count('pack.HCRefusalReason()'), 2, 'investigate and cohort-quarantine lines')
+        self.assertIn('HCNoteRouteRefusal("investigate", ', source)
+        self.assertIn('reason=adoption_transfer_failed_or_ambiguous pack_reason="', source)
+
+
 if __name__ == '__main__':
     unittest.main()
