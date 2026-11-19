@@ -19,6 +19,8 @@ from types import SimpleNamespace
 from tests.unit.test_event_runtime import translate
 
 ROOT = Path(__file__).resolve().parents[2]
+MARKER = "$profile:HollowCountry/acceptance/ai_tactics.disable"
+LOADOUT_CHANCE = {"Raider": 0.25, "Patrol": 0.25, "Holdout": 0.15}
 ADDON = ROOT / "mods/HollowCountryExpansionAI"
 WORLD = ADDON / "scripts/4_World"
 TACTICS = WORLD / "HCXAITactics.c"
@@ -243,12 +245,13 @@ class Wiring(unittest.TestCase):
     def test_module_admission_readiness_and_optout(self):
         self.assertRegex(self.tactics, r"class HCXAITacticsModule : HCModule")
         self.assertRegex(self.tactics, r"modded class HCModuleRegistry")
-        self.assertRegex(self.tactics, r"Register\(new HCXAITacticsModule\(\)\)")
+        self.assertRegex(self.tactics, r"HCXAITacticsModule \w+ = new HCXAITacticsModule\(\);\s*Register\(\w+\);")
         self.assertIn("HCModuleReadiness.HCDerive", self.tactics)
         self.assertIn("HCV2Admission.Line(", self.tactics)
         self.assertIn("runtime=PENDING", self.tactics)
         self.assertIn("Disabled in expansion-ai-tactics.json", self.tactics)
-        self.assertNotIn("ai_tactics.disable", self.tactics, "no acceptance marker: those are listed in shared docs and tests")
+        self.assertIn(MARKER, self.tactics, "acceptance marker opt-out in addition to the JSON fields")
+        self.assertRegex(self.tactics, r'FileExist\("\$profile:HollowCountry/acceptance/ai_tactics\.disable"\)')
         self.assertIn("HCProfileDefaults.Ensure", self.tactics)
         self.assertIn("JsonFileLoader<HCXAITacticsConfig>.LoadData", self.tactics)
         self.assertRegex(self.tactics, r"ready.*|HCDerive")
@@ -277,6 +280,147 @@ class Wiring(unittest.TestCase):
             lowered = read(path).lower()
             for needle in FORBIDDEN:
                 self.assertNotIn(needle.lower(), lowered, path.name)
+
+
+class Lifecycle(unittest.TestCase):
+    """Synthetic item lifecycle driven through the authored decision rules."""
+
+    def test_failed_throw_drops_at_the_feet_and_fails_closed_without_the_drop(self):
+        p = policy()
+        # ThrowOutcome(refusal, dropped): the engine throw returns void, so only the preconditions refuse.
+        self.assertEqual("thrown", p.ThrowOutcome("", False))
+        self.assertEqual("dropped", p.ThrowOutcome("throw_refused", True), "named fallback: ServerDropEntity")
+        self.assertEqual("failed", p.ThrowOutcome("throw_refused", False), "nothing left the inventory: no pending, no use counted")
+
+    def test_inventory_transfer_activation_and_pending_removal(self):
+        p = policy()
+        item = {"held": True, "pinned": True, "tries": 0, "age": 0}
+        seen = []
+        for _ in range(12):
+            step = p.ActivateStep(item["held"], item["pinned"], item["tries"], 4, item["age"], 10000)
+            action = p.PendingAction(False, True, step, True)
+            seen.append(action)
+            if action == "activate_smoke":
+                item["tries"] += 1
+                item["pinned"] = False
+            if action.startswith("remove"):
+                break
+            if len(seen) == 2:
+                item["held"] = False  # the native throw moved it out of the thrower's inventory
+            item["age"] += 1000
+        self.assertEqual(["keep", "keep", "activate_smoke", "remove_activated"], seen)
+        self.assertEqual(1, item["tries"], "pin pulled once, never re-activated")
+
+    def test_item_that_never_leaves_the_inventory_is_lost_and_named_not_retried(self):
+        p = policy()
+        step = p.ActivateStep(True, True, 0, 4, 10001, 10000)
+        self.assertEqual("remove_lost", p.PendingAction(False, True, step, False))
+        self.assertEqual("remove_lost", p.PendingAction(False, False, step, False))
+
+    def test_activation_gives_up_after_bounded_tries(self):
+        p = policy()
+        step = p.ActivateStep(False, True, 4, 4, 900, 10000)
+        self.assertEqual("remove_lost", p.PendingAction(False, True, step, True))
+
+    def test_vanished_item_is_removed_and_only_a_smoke_counts_lost(self):
+        p = policy()
+        self.assertEqual("remove_lost", p.PendingAction(True, True, "wait", False))
+        self.assertEqual("remove", p.PendingAction(True, False, "wait", False))
+
+    def test_lure_makes_one_noise_only_after_the_landing_delay(self):
+        p = policy()
+        self.assertEqual("keep", p.PendingAction(False, False, "activate", False), "still in flight")
+        self.assertEqual("noise_remove", p.PendingAction(False, False, "activate", True))
+        self.assertEqual("remove", p.PendingAction(False, False, "done", True))
+
+    def test_smoke_already_active_is_removed_as_activated(self):
+        p = policy()
+        self.assertEqual("remove_activated", p.PendingAction(False, True, "done", True))
+        self.assertEqual("keep", p.PendingAction(False, True, "wait", False))
+
+
+class PerActorBackoff(unittest.TestCase):
+    def test_one_member_without_stock_does_not_block_a_mate_who_carries_smoke(self):
+        p = policy()
+        until = {}
+        # Member A scans empty at t=1000 and backs off for the cooldown; member B has no backoff.
+        until["A"] = p.BackoffUntil(1000, 90000)
+        self.assertEqual(91000, until["A"])
+        self.assertTrue(p.BackedOff(2000, until["A"]))
+        self.assertFalse(p.BackedOff(2000, until.get("B", 0)), "the mate is still evaluated")
+        self.assertFalse(p.BackedOff(91000, until["A"]), "backoff expires on its own")
+        self.assertFalse(p.BackedOff(2000, 0), "no entry means no backoff")
+
+    def test_ledger_is_keyed_by_actor_not_group(self):
+        text = read(TACTICS)
+        code = re.sub(r"//[^\n]*", "", text)
+        self.assertNotIn("StockUntil", code, "the per-group backoff is gone")
+        self.assertRegex(code, r"class HCXTacticsBackoff\s*\{[^}]*eAIBase Actor;[^}]*int SmokeUntil;[^}]*int LureUntil;")
+        self.assertRegex(code, r"static const int BACKOFF_MAX = \d+;")
+        self.assertRegex(code, r"HCXAITactics\.Backoff\(actor\)")
+        self.assertRegex(code, r"BackedOff\(nowMs, \w+\.SmokeUntil\)")
+        self.assertRegex(code, r"BackoffUntil\(nowMs, s_Config\.SmokeCooldownSec \* 1000\)")
+
+
+class Loadouts(unittest.TestCase):
+    PATHS = (ROOT / "mission/hollow-country/ai/loadouts", ADDON / "data/defaults/loadouts")
+
+    def smoke_entries(self, path):
+        data = json.loads(path.read_text())
+        return [row for row in data["InventoryCargo"] if row["ClassName"] == "M18SmokeGrenade_White"]
+
+    def test_raider_patrol_holdout_carry_a_real_smoke_at_a_low_chance(self):
+        for role, chance in LOADOUT_CHANCE.items():
+            for folder in self.PATHS:
+                path = folder / ("HollowCountry_" + role + ".json")
+                rows = self.smoke_entries(path)
+                self.assertEqual(1, len(rows), role + " in " + folder.parent.name)
+                self.assertAlmostEqual(chance, rows[0]["Chance"], msg=role)
+                self.assertEqual([], rows[0]["InventoryCargo"])
+
+    def test_shipped_and_mission_copies_stay_byte_identical(self):
+        for role in LOADOUT_CHANCE:
+            name = "HollowCountry_" + role + ".json"
+            self.assertEqual((self.PATHS[0] / name).read_bytes(), (self.PATHS[1] / name).read_bytes(), name)
+
+    def test_loadout_smoke_class_is_not_the_contaminated_variant(self):
+        self.assertNotIn("Contaminated", "M18SmokeGrenade_White")
+
+
+class OperatorSurfaces(unittest.TestCase):
+    def test_marker_is_listed_in_the_acceptance_docs_and_marker_test(self):
+        docs = (ROOT / "docs/LOCAL_ACCEPTANCE_V1.md").read_text()
+        self.assertIn(MARKER, docs)
+        self.assertIn('"ai_tactics"', (ROOT / "tests/unit/test_acceptance_markers.py").read_text())
+
+    def test_friend_bundle_ships_the_tactics_config_and_knows_its_source(self):
+        from tools.setup import friend_bundle as fb
+        self.assertTrue(fb._profile_allowed("HollowCountry/expansion-ai-tactics.json"))
+        self.assertIn("mods/HollowCountryExpansionAI/data/defaults/expansion-ai-tactics.json",
+                      fb.PROFILE_SOURCES["HollowCountry/expansion-ai-tactics.json"])
+        self.assertTrue((ROOT / fb.PROFILE_SOURCES["HollowCountry/expansion-ai-tactics.json"][0]).is_file())
+
+
+class CompileLimits(unittest.TestCase):
+    """Native Enforce limits: at most 9 '+' per statement, no inline allocation passed as an argument."""
+
+    def statements(self, path):
+        for number, line in enumerate(read(path).splitlines(), 1):
+            if line.strip().startswith("//"):
+                continue
+            bare = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line)
+            bare = re.sub(r"\+\+", "", bare)
+            yield number, bare.count("+")
+
+    def test_no_statement_exceeds_nine_plus_operators(self):
+        for path in (TACTICS, THROWABLES):
+            for number, count in self.statements(path):
+                self.assertLessEqual(count, 9, path.name + ":" + str(number) + " has " + str(count) + " '+'")
+
+    def test_no_inline_new_as_an_argument(self):
+        code = re.sub(r"//[^\n]*", "", read(TACTICS) + read(THROWABLES))
+        self.assertNotRegex(code, r"[(,]\s*new\s+\w+", "allocate a local first; native rejects it for non-out params")
+        self.assertNotRegex(code, r"Register\(new")
 
 
 if __name__ == "__main__":
