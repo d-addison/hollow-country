@@ -168,17 +168,54 @@ class PickerCaches(unittest.TestCase):
         f=self.fixture()
         holdout=next(s for s in json.loads(SITES.read_text())['Sites'] if s['Kind']=='holdout')
         self.assertEqual(holdout['CacheLoot'],json.loads(SURVEY.read_text())['CacheLoot'])
-        valid=compile_authored(CACHE,'HCPickerSurvey','HCPickerCacheValid',base_scope(),modded=True,
+        refusal=compile_authored(CACHE,'HCPickerSurvey','HCPickerCacheRefusal',base_scope(),modded=True,
             fields=('CacheClass','CacheCooldownSeconds','CacheMaxItems','MaxCargoScan','CacheMaxLootRows','CacheLoot'))
-        self.assertTrue(valid(f.survey))
+        self.assertEqual('',refusal(f.survey))
         f.survey.CacheMaxItems=1
-        self.assertFalse(valid(f.survey))
+        self.assertEqual('PICKER_CACHE_LIMITS_INVALID',refusal(f.survey))
+        f.survey.CacheMaxItems=json.loads(SURVEY.read_text())['CacheMaxItems']
         f.survey.CacheLoot=None
-        self.assertFalse(valid(f.survey))
+        self.assertEqual('PICKER_CACHE_LOOT_INVALID',refusal(f.survey))
+        f.survey.CacheClass=''
+        self.assertEqual('PICKER_CACHE_CLASS_INVALID',refusal(f.survey))
+
+    def test_invalid_cache_section_logs_one_named_refusal_and_does_no_endpoint_work(self):
+        # #205: a zero-filled cache section used to look exactly like "no work yet".
+        f=self.fixture();visits=[];lines=[];taken=[]
+        f.survey.HCPickerCacheRefusal=lambda:'PICKER_CACHE_LIMITS_INVALID'
+        f.director.m_HCPickerCacheCursor=0
+        f.director.m_HCPickerCacheRefusal=''
+        f.director.HCPickerCacheStep=lambda *a:visits.append(a)
+        trip=N(m_IO=f.port,m_Ready=True)
+        scope=dict(f.scope,this=f.director,HCPickers=N(Get=lambda:N(HCTrip=lambda:trip)),
+            HCServer=N(HCTickWork=lambda:N(HCTake=lambda cost:taken.append(cost) or True)),
+            ExpansionStatic=N(GetTimestamp=lambda utc:1000),Print=lines.append,
+            **{'super':N(StepCache=lambda:None)})
+        f.director.HCPickerCacheRefused=lambda reason:compile_authored(CACHE,'HCXAISiteDirector','HCPickerCacheRefused',scope,
+            modded=True,fields=('m_HCPickerCacheRefusal',))(f.director,reason)
+        run=compile_authored(CACHE,'HCXAISiteDirector','StepCache',scope,modded=True,fields=('m_HCPickerCacheCursor',))
+        for _ in range(3):run(f.director)
+        self.assertEqual(['[HC Pickers] caches refused reason=PICKER_CACHE_LIMITS_INVALID runtime=PENDING'],lines)
+        self.assertEqual([],visits)
+        self.assertEqual([],taken)
+
+    def test_picker_readiness_degrades_on_an_invalid_cache_section(self):
+        published=[];status=N(state='ready',reason='journal_and_survey_loaded')
+        status.HCState=lambda:status.state;status.HCReason=lambda:status.reason
+        status.HCPublish=lambda state,reason:published.append((state,reason))
+        owner=N(m_Status=status,m_Survey=N(HCPickerCacheRefusal=lambda:'PICKER_CACHE_LOOT_INVALID'))
+        run=compile_authored(CACHE,'HCPickers','HCPublishReadiness',
+            dict(base_scope(),**{'super':N(HCPublishReadiness=lambda:None)}),modded=True,fields=('m_Status','m_Survey'))
+        run(owner)
+        self.assertEqual([('degraded','PICKER_CACHE_LOOT_INVALID')],published)
+        owner.m_Survey=N(HCPickerCacheRefusal=lambda:'')
+        run(owner)
+        self.assertEqual(1,len(published))
 
     def test_existing_cache_step_visits_one_endpoint_with_shared_budget(self):
         f=self.fixture();visits=[];base=[];allowed=[False]
         f.survey.HCPickerCacheValid=lambda:True
+        f.survey.HCPickerCacheRefusal=lambda:''
         f.director.m_HCPickerCacheCursor=0
         f.director.HCPickerCacheStep=lambda survey,route,source,now:visits.append((route.RouteId,source))
         trip=N(m_IO=f.port,m_Ready=True)

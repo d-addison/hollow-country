@@ -20,20 +20,39 @@ modded class HCPickerSurvey
     int CacheMaxLootRows;
     ref array<ref HCXAISiteLoot> CacheLoot;
 
-    bool HCPickerCacheValid()
+    // #205: a zero-filled or malformed cache section names its refusal.
+    string HCPickerCacheRefusal()
     {
-        if (CacheClass != "WoodenCrate" || CacheCooldownSeconds <= 0) { return false; }
-        if (CacheMaxItems <= 0 || CacheMaxItems > MaxCargoScan || CacheMaxLootRows <= 0 || CacheMaxLootRows > CacheMaxItems) { return false; }
-        if (!CacheLoot || CacheLoot.Count() < 1 || CacheLoot.Count() > CacheMaxLootRows) { return false; }
+        if (CacheClass != "WoodenCrate") { return "PICKER_CACHE_CLASS_INVALID"; }
+        if (CacheCooldownSeconds <= 0 || CacheMaxItems <= 0 || CacheMaxItems > MaxCargoScan) { return "PICKER_CACHE_LIMITS_INVALID"; }
+        if (CacheMaxLootRows <= 0 || CacheMaxLootRows > CacheMaxItems) { return "PICKER_CACHE_LIMITS_INVALID"; }
+        if (!CacheLoot || CacheLoot.Count() < 1 || CacheLoot.Count() > CacheMaxLootRows) { return "PICKER_CACHE_LOOT_INVALID"; }
         int total = 0;
         for (int lootIndex = 0; lootIndex < CacheLoot.Count(); lootIndex++)
         {
             HCXAISiteLoot loot = CacheLoot[lootIndex];
-            if (!loot || loot.ClassName == "" || loot.Quantity < 1 || loot.Quantity > CacheMaxItems) { return false; }
+            if (!loot || loot.ClassName == "" || loot.Quantity < 1 || loot.Quantity > CacheMaxItems) { return "PICKER_CACHE_LOOT_INVALID"; }
             total = total + loot.Quantity;
-            if (total > CacheMaxItems) { return false; }
+            if (total > CacheMaxItems) { return "PICKER_CACHE_LOOT_INVALID"; }
         }
-        return true;
+        return "";
+    }
+
+    bool HCPickerCacheValid()
+    {
+        return HCPickerCacheRefusal() == "";
+    }
+}
+
+// #205: readiness names an invalid cache section instead of reporting ready.
+modded class HCPickers
+{
+    override void HCPublishReadiness()
+    {
+        super.HCPublishReadiness();
+        if (m_Status.HCState() != "ready" || !m_Survey) { return; }
+        string reason = m_Survey.HCPickerCacheRefusal();
+        if (reason != "") { m_Status.HCPublish("degraded", reason); }
     }
 }
 
@@ -48,6 +67,15 @@ modded class HCXAISiteDirector
 {
     protected int m_HCPickerCacheCursor;
     protected bool m_HCPickerCacheScanBlocked;
+    protected string m_HCPickerCacheRefusal;
+
+    // One log line per distinct refusal, never one per step.
+    void HCPickerCacheRefused(string reason)
+    {
+        if (m_HCPickerCacheRefusal == reason) { return; }
+        m_HCPickerCacheRefusal = reason;
+        Print("[HC Pickers] caches refused reason=" + reason + " runtime=PENDING");
+    }
 
     override void StepCache()
     {
@@ -56,7 +84,13 @@ modded class HCXAISiteDirector
         HCScavengeTrip trip = HCPickers.Get().HCTrip();
         if (!trip || !trip.m_IO || !trip.m_IO.Survey || !trip.m_Ready) { return; }
         HCPickerSurvey survey = trip.m_IO.Survey;
-        if (!survey.HCPickerCacheValid() || !survey.Routes || survey.Routes.Count() == 0) { return; }
+        string refusal = survey.HCPickerCacheRefusal();
+        if (refusal != "")
+        {
+            this.HCPickerCacheRefused(refusal);
+            return;
+        }
+        if (!survey.Routes || survey.Routes.Count() == 0) { return; }
         if (!HCServer.HCTickWork().HCTake(1)) { return; }
         int endpoints = survey.Routes.Count() * 2;
         if (m_HCPickerCacheCursor >= endpoints) { m_HCPickerCacheCursor = 0; }
