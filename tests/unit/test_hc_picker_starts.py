@@ -10,6 +10,7 @@ from tests.unit.test_admin_test_kit import base_scope
 from tests.unit.test_group_server import EArray
 from tests.unit.test_hc_scavenge import bind, PICKERS
 from tests.unit.test_hc_picker_walk import WALK
+from tests.unit.test_hc_picker_seed import seeded_fixture, proposal_fixture, admitted_fixture
 
 HOOK = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerLifecycle.c'
 
@@ -17,15 +18,17 @@ HOOK = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIPickerLifecycl
 class PickerStarts(unittest.TestCase):
     def fixture(self):
         effects = []
-        identity = N(HCPartyId=lambda: 'party:synthetic', HCRouteId=lambda: 'route:synthetic')
-        route = N(HCHomePoint=lambda: (0, 0, 0))
-        actor = N(GetPosition=lambda: (0, 0, 0))
+        seeded = seeded_fixture()
+        proposal = proposal_fixture(seeded)
+        identity = proposal.Identity
+        route = seeded.survey.HCFind(identity.HCRouteId())
+        actor = N(GetPosition=route.HCHomePoint)
         defaults = N(MaxConcurrentTrips=1, PartyCooldownSeconds=900)
         state = N(Phase='idle', PartyId='', LeaseId='', RouteId='', NextTripAt=0, Refusal='')
         port = N(Defaults=defaults, Actor=None, HCWalkRefusal=lambda: '', HCClear=lambda: effects.append('clear'))
         trip = N(m_State=state, m_IO=port, m_Ready=True, m_Busy=False,
                  HCCheckpoint=lambda: effects.append('checkpoint') is None)
-        module = N(m_Trip=trip, m_Survey=N(HCFind=lambda key: route if key == 'route:synthetic' else None,
+        module = N(m_Trip=trip, m_Survey=N(HCFind=lambda key: route if key == route.RouteId else None,
                                          ArrivalRangeMeters=2.5))
         def begin(i, lease, body):
             effects.append(('begin', i, lease, body))
@@ -39,7 +42,7 @@ class PickerStarts(unittest.TestCase):
         module.HCTryParty = lambda *a: method('HCPickers', 'HCTryParty',
             members=('HCBeginSurveyed',), **scope)(module, *a)
         return N(module=module, trip=trip, state=state, actor=actor, identity=identity,
-                 effects=effects, defaults=defaults, budget=budget)
+                 effects=effects, defaults=defaults, budget=budget, proposal=proposal)
 
     def test_idle_surveyed_party_starts_once_with_real_actor_and_lease(self):
         f = self.fixture()
@@ -86,14 +89,16 @@ class PickerLifecycle(unittest.TestCase):
         logs=[]
         group=N(Count=lambda:1, GetMember=lambda index:f.actor, IsInCombat=lambda:False)
         f.actor.GetGroup=lambda:group
-        home=N(Id='site:synthetic')
-        route=f.module.m_Survey.HCFind('route:synthetic')
+        route=f.module.m_Survey.HCFind(f.identity.HCRouteId())
+        home=N(Id=route.SiteId)
         route.SiteId=home.Id
         f.trip.m_IO.Survey=f.module.m_Survey
         f.module.HCTrip=lambda:f.trip
-        state=N(Transient=True,Materialized=True,Completed=False,ProposalId='lease:synthetic',
-                Patrol=N(m_Group=group, m_HCPendingMembers=0), HCPickerSiteCursor=0,HCPickerHomeSite=None,
-                HCPickerEligibleAt=0,HCPickerRefusal='')
+        patrol=N(m_Group=group,m_HCPendingMembers=0,m_Position=f.actor.GetPosition(),
+                 m_NumberOfAI=1,m_HCSiteId=home.Id)
+        state=admitted_fixture(f.proposal,patrol)
+        state.HCPickerSiteCursor=0;state.HCPickerHomeSite=None
+        state.HCPickerEligibleAt=0;state.HCPickerRefusal=''
         refuse=compile_authored(HOOK,'HCXAISiteState','HCRefusePicker',base_scope(Print=logs.append),modded=True, fields=('HCPickerRefusal',))
         state.HCRefusePicker=lambda *a:refuse(state,*a)
         enabled,server,locked=[True],[True],[False]

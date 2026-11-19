@@ -1,8 +1,15 @@
 // HC-34 / LC-T409: original walk port, no copied Expansion implementation.
-// Installed ai_scripts.pbo, inspected read-only (script paths relative to PBO):
-// 4_World/DayZExpansion_AI/Classes/eAIGroup.c:213 AddWaypoint,
-// :222 GetWaypoints (live array; snapshot it), :241 ClearWaypoints (resets cursor),
-// :251 SetWaypointBehaviour, :304 GetWaypointBehaviour;
+// Verified read-only against .banso-writer/xref/ai and xref/core (CC BY-NC-ND).
+// Installed ai_scripts.pbo (script paths relative to PBO):
+// 4_World/DayZExpansion_AI/Classes/eAIGroup.c:213 void AddWaypoint(vector pos),
+// :222 array<vector> GetWaypoints(), :241 void ClearWaypoints(),
+// :251 void SetWaypointBehaviour(eAIWaypointBehavior),
+// :304 eAIWaypointBehavior GetWaypointBehaviour;
+// :228 returns the GROUP-owned live waypoint array (never retain/clear it);
+// :247-248 ClearWaypoints clears that array and resets its cursor.
+// Classes/Patrols/eAIDynamicPatrol.c:649-655 installs group behavior/points;
+// :673-687 deferred members finish before restoring patrol behavior. HC waits
+// for m_HCPendingMembers == 0 before borrowing that same group.
 // 4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 GetGroup;
 // 3_Game/DayZExpansion_AI/Enums/AIenums.c:6 eAIWaypointBehavior.ONCE.
 // Expansion Core ExpansionStatic.c:1748 GetTimestamp (UTC seconds).
