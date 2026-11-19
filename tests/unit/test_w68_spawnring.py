@@ -1,7 +1,12 @@
 """W68 spec/plan/tasks: shared configured ring, site adapter, materializer floor.
+#221 spec: coastal searches stay in the configured band, avoid water and every
+observer, terminate within caller work allowance, and return a refusal on failure.
+Plan/tasks: execute the shared selector under synthetic water/observer ports;
+site-owner integration and two-client runtime acceptance remain pending.
 Synthetic execution of authored policy; no native perception/spawn evidence.
 """
 import json
+import math
 from pathlib import Path
 from types import SimpleNamespace as N
 import unittest
@@ -28,7 +33,87 @@ def ring_fixture(view=1000, hearing=1000, margin=100, band=400):
     return api, env
 
 
+def coastal_fixture(sea=lambda x, z: False, pond=lambda x, z: False):
+    """Synthetic flat terrain/observer ports; execute authored search, not DayZ."""
+    from tests.unit.test_expansion_ai_adapter import A
+    ring, env = ring_fixture()
+    probes = []
+    def is_sea(x, z):
+        probes.append((x, z))
+        return sea(x, z)
+    env.update(GetGame=lambda: N(IsServer=lambda: True, SurfaceIsSea=is_sea,
+                                SurfaceIsPond=pond, SurfaceY=lambda x, z: 25),
+               Math=N(Sin=math.sin, Cos=math.cos, DEG2RAD=math.pi / 180),
+               Vector=lambda x, y, z: [x, y, z],
+               vector=N(Zero=[0, 0, 0]),
+               HCXAITestRingPick=lambda: N(Position=[0, 0, 0], Attempts=0,
+                                          Reason='spawn_ring_no_safe_land'))
+    # Type spelling adaptation only, to use the existing Enforce body harness.
+    source = RING.read_text().replace('HCPerceptionRingPick', 'HCXAITestRingPick')
+    source = source.replace('array<vector> observerPositions', 'HCXAITestPositions observerPositions')
+    authored = Authored(source, env)
+    for name in ('HCFindLand', 'HCClearOfObservers'):
+        setattr(ring, name, lambda *args, name=name: authored.call(name, None, *args))
+    return ring, probes, A
+
+
 class SpawnRingTests(unittest.TestCase):
+    def test_coastal_search_reaches_land_deterministically_inside_band(self):
+        ring, probes, array = coastal_fixture(sea=lambda x, z: x > 5000)
+        observers = array([[5000, 0, 5000]])
+        first = ring.HCFindLand(observers[0], 90, observers, 8)
+        second = ring.HCFindLand(observers[0], 90, observers, 8)
+        self.assertEqual('', first.Reason)
+        self.assertEqual(first.Position, second.Position)
+        self.assertLessEqual(first.Position[0], 5000)
+        radius = math.hypot(first.Position[0] - 5000, first.Position[2] - 5000)
+        self.assertGreaterEqual(radius, ring.HCSpawnMin())
+        self.assertLessEqual(radius, ring.HCSpawnMax())
+        self.assertGreater(first.Attempts, 1)
+        self.assertLessEqual(first.Attempts, 8)
+        self.assertEqual(25, first.Position[1])
+
+    def test_water_and_observer_refusals_are_bounded(self):
+        for terrain in ('sea', 'pond'):
+            ring, probes, array = coastal_fixture(**{terrain: lambda x, z: True})
+            result = ring.HCFindLand([5000, 0, 5000], 0, array([[5000, 0, 5000]]), 8)
+            self.assertEqual('spawn_ring_no_safe_land', result.Reason)
+            self.assertEqual(8, result.Attempts)
+            self.assertEqual(8, len(probes))
+            self.assertEqual([0, 0, 0], result.Position)
+        ring, probes, array = coastal_fixture()
+        # One observer at each proposed bearing: none of these dry points is safe.
+        observers = array([[5000 + 1300 * math.sin(i * math.pi / 4), 10000,
+                            5000 + 1300 * math.cos(i * math.pi / 4)] for i in range(8)])
+        result = ring.HCFindLand([5000, 0, 5000], 0, observers, 8)
+        self.assertEqual('spawn_ring_no_safe_land', result.Reason)
+        self.assertEqual(8, result.Attempts)
+        self.assertEqual(8, len(probes))
+
+    def test_coastal_search_refuses_missing_observers_or_work_without_probing(self):
+        ring, probes, array = coastal_fixture()
+        for observers, budget in ((None, 8), (array(), 8), (array([[5000, 0, 5000]]), 0),
+                                  (array([[5000, 0, 5000]]), 10000)):
+            result = ring.HCFindLand([5000, 0, 5000], 0, observers, budget)
+            self.assertEqual('spawn_ring_search_unavailable', result.Reason)
+            self.assertEqual(0, result.Attempts)
+        self.assertEqual([], probes)
+
+    def test_coastal_search_skips_nearby_observer_and_uses_configured_hearing(self):
+        ring, probes, array = coastal_fixture()
+        ring.HCGet().HearingRangeMeters = 1800
+        # First bearing is on land but is watched by a second player.
+        observers = array([[5000, 0, 5000], [5000, 0, 7100]])
+        result = ring.HCFindLand(observers[0], 0, observers, 8)
+        self.assertEqual('', result.Reason)
+        self.assertGreater(result.Attempts, 1)
+        self.assertLessEqual(result.Attempts, 8)
+        radius = math.hypot(result.Position[0] - 5000, result.Position[2] - 5000)
+        self.assertAlmostEqual(2100, radius)
+        for observer in observers:
+            self.assertGreaterEqual(math.hypot(result.Position[0] - observer[0],
+                                               result.Position[2] - observer[2]), 1900)
+
     def test_readiness_refreshes_when_qualified_count_changes(self):
         source = (SITES.parent / 'HCXAIAdapter.c').read_text()
         count = [0]
