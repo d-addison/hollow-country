@@ -12,12 +12,23 @@ GREEN: same focused command, Ran 1 test, OK after native IsSkinned recheck.
 Required checks GREEN: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3
 -m unittest test_hc_wildlife test_script_syntax test_enforce_locals
 test_script_identifiers test_hygiene -v -> Ran 54 tests, OK.
+
+HC-49 / #149 extends this SAME feature check and manifest validation.
+Actual RED: AssertionError: HC-49 observed carcass receipt handler missing.
+Follow-up RED: AssertionError: False is not true (missing named persistent-ID
+refusal). Same focused command above GREEN: Ran 1 test ... OK.
+GREEN required checks: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3
+-m unittest test_hc_wildlife test_hc_wildlife_wiring test_v1_ecology_resources
+test_script_syntax test_enforce_locals test_script_identifiers test_hygiene
+test_enforce_formula_complexity -v -> Ran 66 tests, OK.
+Synthetic journal/body/story ports establish no DayZ or paired-Hive durability.
 """
 import functools
+import copy
 import json
 from pathlib import Path
 import re
-from types import SimpleNamespace as N
+from types import MethodType, SimpleNamespace as N
 import unittest
 
 from tests.unit.test_ecology_runtime import environment
@@ -28,6 +39,71 @@ from tests.unit.test_hc_unit_budget import unit_budget
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c'
 CONFIG = ROOT / 'mission/hollow-country/ecology/species.json'
+
+
+def carcass_fixture(image=None, enabled=True):
+    """HC-49 extension of HC-15; all disk, story and native ports SYNTHETIC."""
+    from tests.unit.test_map_layers import EStr, methods, translate as handlers
+    path = SOURCE.parent / 'HCWildlifeScenes.c'
+    if not path.is_file():
+        raise AssertionError('HC-49 observed carcass receipt handler missing')
+    text = path.read_text().replace('    protected ', '    ')
+    text = re.sub(r'\bthis\b', 'self', text)
+    text = text.replace('retained.ToString()', 'str(retained)')
+    text = re.sub(r'array<[^>]+>(?= \w+ =)', 'HCArray', text)
+    text = text.replace('new HCEncounterStore<HCWildlifeSceneState>("hc49-carcasses")',
+                        'new SyntheticStore()')
+    disk = N(image=copy.deepcopy(image), fail=False)
+    logs, calls, snapshots = [], [], EArray()
+    def save(state):
+        calls.append('save')
+        if disk.fail: return False
+        disk.image = copy.deepcopy(state)
+        return True
+    config = N(**json.loads((CONFIG.parent / 'carcass-sites.json').read_text()))
+    config.Sites = EArray(config.Sites)
+    env = dict(str=str, GetGame=lambda: N(IsServer=lambda: True), Print=logs.append,
+        HCEcologyNative=N(Authority=lambda: True),
+        HCV2Admission=N(Admitted=lambda preference: preference),
+        HCEventDirector=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap),
+        HCSearchSupplyRegistry=N(PersistentId=lambda handle: handle.pid),
+        HCWildlifeObservation=N(HCSnapshot=lambda now: snapshots),
+        HCStoryPolicy=N(HCValid=lambda state: True),
+        HCEcologyRuntimeIO=N(Read=lambda *args: ''),
+        HCWildlifeSceneState=lambda: N(Version=1, Rows=EArray()),
+        HCWildlifeSceneRow=lambda: N(Id=EStr(''), StorySequence=0, CorpseId=EStr(''),
+            Supply=EStr('pending'), Origin=EStr('observed'), DueAt=0, EndsAt=0),
+        SyntheticStore=lambda: N(Load=lambda fresh, collection: calls.append('load') or
+            copy.deepcopy(disk.image or fresh), Save=save),
+        HCOperationalStatus=lambda: N(HCPublish=lambda *args: None),
+        HCWildlifeSceneDebug=lambda: N(Owner=None),
+        HCDebugSnapshot=N(HCRegister=lambda value: calls.append('debug_add'),
+                          HCUnregister=lambda value: calls.append('debug_remove')))
+    # Execute the authored survey's native read policy; PID is a synthetic port.
+    survey_env = dict(env, AnimalBase=N(Cast=lambda value: value if isinstance(value, SyntheticAnimal) else None))
+    handlers((SOURCE.parent/'HCEcologyResourceSurvey.c').read_text().replace('\t', '    '),
+             'HCEcologyResourceSurvey', survey_env, only=('Carcass', 'CarcassSupply'))
+    env['HCEcologyResourceSurvey'] = N(Carcass=survey_env['Carcass'], CarcassSupply=survey_env['CarcassSupply'])
+    table, _ = methods(text, 'HCWildlifeScenes')
+    handlers(text, 'HCWildlifeScenes', env, only=tuple(name for name in table if name != 'HCLoadConfig'))
+    env['HCLoadConfig'] = lambda: config  # JSON decoding only, policies run below.
+    owner = N(m_State=None, m_Store=None, m_Config=None, m_Active=None, m_Body=None,
+        m_Enabled=False, m_Fault=False, m_Opened=False, m_Cursor=0, m_LastTick=-1,
+        m_LastNow=-1, m_Effective=EStr('off'), m_Reason=EStr('not_started'), m_Reports=0,
+        m_Debug=None, m_Units=unit_budget(),
+        m_Work=N(HCReset=lambda *args: None, HCContinue=lambda: True))
+    for name, (static, _, _) in table.items():
+        setattr(owner, name, env[name] if static else MethodType(env[name], owner))
+    owner.HCOpen(enabled)
+    animal = SyntheticAnimal(object())
+    animal.alive = False
+    animal.pid = EStr('synthetic-native-corpse-1')
+    snapshots.append(N(Subject=animal, Carcass=True))
+    chain = N(Id=EStr('synthetic-story-1'), StorySequence=1, DueAt=100, ExpiresAt=200,
+              Complete=False, Cancelled=False)
+    state = N(Chains=EArray([chain]), Stories=N(LegacyThrough=0, NextSequence=2))
+    return N(owner=owner, disk=disk, calls=calls, logs=logs, animal=animal,
+             snapshots=snapshots, chain=chain, state=state, config=config)
 
 
 def rename(text):
@@ -191,6 +267,107 @@ class WildlifeBehavior(unittest.TestCase):
             setattr(config, field, old)
         config.TargetPairs[0].Verdict = 'accepted_from_config'
         self.assertFalse(owner.HCBegin(True, config))
+
+        # HC-49 reuses this feature check: no second test/model/controller.
+        scene = carcass_fixture()
+        self.assertTrue(scene.owner.HCOffer(scene.chain, scene.state))
+        scene.owner.HCStep(100, 1000)
+        self.assertEqual('native_skinnable', scene.disk.image.Rows[0].Supply)
+        self.assertEqual(scene.animal.pid, scene.disk.image.Rows[0].CorpseId)
+        self.assertFalse(scene.owner.HCOffer(scene.chain, scene.state))
+        scene.animal.skinned = True
+        scene.animal.deleted = True  # skinning marks spent before native deletion
+        scene.owner.HCStep(101, 2000)
+        self.assertEqual('depleted', scene.disk.image.Rows[0].Supply)
+        scene.animal.skinned = scene.animal.deleted = False
+        self.assertFalse(scene.owner.HCOffer(scene.chain, scene.state))
+        restarted = carcass_fixture(scene.disk.image)
+        self.assertFalse(restarted.owner.HCOffer(restarted.chain, restarted.state))
+        # A different story cannot claim the same persisted native body either.
+        restarted.chain.Id = 'synthetic-story-2'
+        restarted.chain.StorySequence = 2
+        restarted.state.Stories.NextSequence = 3
+        self.assertTrue(restarted.owner.HCOffer(restarted.chain, restarted.state))
+        restarted.owner.HCStep(100, 1000)
+        self.assertEqual('pending', restarted.disk.image.Rows[-1].Supply)
+        self.assertIsNone(restarted.owner.m_Body)
+
+        active = carcass_fixture()
+        active.owner.HCOffer(active.chain, active.state)
+        active.owner.HCStep(100, 1000)
+        crashed = carcass_fixture(active.disk.image)
+        self.assertEqual('unknown', crashed.disk.image.Rows[0].Supply)
+        self.assertIsNone(crashed.owner.m_Body)
+        self.assertFalse(crashed.owner.HCOffer(crashed.chain, crashed.state))
+        active.animal.deleted = True
+        active.owner.HCStep(101, 2000)
+        self.assertEqual('unavailable', active.disk.image.Rows[0].Supply)
+
+        failed = carcass_fixture()
+        failed.owner.HCOffer(failed.chain, failed.state)
+        failed.disk.fail = True
+        failed.owner.HCStep(100, 1000)
+        self.assertTrue(failed.owner.m_Fault)
+        self.assertIsNone(failed.owner.m_Body, 'failed barrier cannot expose native body')
+        calls = len(failed.calls)
+        failed.owner.HCStep(101, 2000)
+        self.assertEqual(calls, len(failed.calls))
+        bad = carcass_fixture(N(Version=0, Rows=EArray()))
+        self.assertTrue(bad.owner.m_Fault, 'missing native JSON version must refuse')
+        self.assertNotIn('save', bad.calls)
+        off = carcass_fixture(enabled=False)
+        off.owner.HCStep(100, 1000)
+        self.assertEqual([], off.calls, 'off does no scan, save or debug registration')
+        stopped = carcass_fixture()
+        stopped.owner.HCOffer(stopped.chain, stopped.state)
+        stopped.owner.HCClose()
+        calls = len(stopped.calls)
+        stopped.owner.HCStep(100, 1000)
+        stopped.owner.HCClose()
+        self.assertEqual(calls, len(stopped.calls))
+        self.assertEqual('unknown', stopped.disk.image.Rows[0].Supply)
+
+        unknown = carcass_fixture()
+        unknown.animal.pid = ''
+        unknown.owner.HCOffer(unknown.chain, unknown.state)
+        unknown.owner.HCStep(100, 1000)
+        self.assertIsNone(unknown.owner.m_Body)
+        self.assertTrue(any('CARCASS_PERSISTENT_ID_UNAVAILABLE' in line for line in unknown.logs))
+        sliced = carcass_fixture()
+        sliced.config.SamplesPerTick = sliced.config.WorkUnits = 1
+        living = SyntheticAnimal(object())
+        sliced.snapshots.insert(0, N(Subject=living, Carcass=True))
+        sliced.owner.HCOffer(sliced.chain, sliced.state)
+        sliced.owner.HCStep(100, 1000)
+        self.assertEqual(1, sliced.owner.m_Cursor)
+        self.assertIsNone(sliced.owner.m_Body, 'alive animal is not a carcass')
+        sliced.owner.m_Work.HCContinue = lambda: False
+        sliced.owner.HCStep(101, 2000)
+        self.assertEqual(1, sliced.owner.m_Cursor, 'time yield retains next fact')
+        sliced.owner.m_Work.HCContinue = lambda: True
+        sliced.owner.HCStep(102, 3000)
+        self.assertEqual('native_skinnable', sliced.disk.image.Rows[0].Supply)
+        full_image = copy.deepcopy(scene.disk.image)
+        full_image.Rows = EArray(copy.deepcopy(full_image.Rows[0]) for _ in range(64))
+        for index, row in enumerate(full_image.Rows):
+            row.Id, row.StorySequence, row.CorpseId = 'old-' + str(index), index + 1, 'body-' + str(index)
+        full = carcass_fixture(full_image)
+        self.assertFalse(full.owner.HCOffer(full.chain, full.state))
+        self.assertEqual(64, len(full.owner.m_State.Rows), 'history never evicts depleted receipts')
+        self.assertNotIn('save', full.calls)
+        expired = carcass_fixture()
+        expired.owner.HCOffer(expired.chain, expired.state)
+        expired.owner.HCStep(200, 1000)
+        self.assertEqual('missed', expired.disk.image.Rows[0].Supply)
+
+        self.assertTrue(any('AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN' in line for line in scene.logs))
+        self.assertTrue(any('HC-49 carcass=synthetic-story-1-carcass origin=observed supply=native_skinnable'
+                            in line and 'runtime=PENDING' in line for line in scene.logs))
+        # Manifest validation runs authored policy; no new distances or authored loot.
+        self.assertEqual([], scene.config.Sites)
+        self.assertTrue(scene.owner.HCConfigValid(scene.config))
+        scene.config.Version = 0
+        self.assertFalse(scene.owner.HCConfigValid(scene.config))
         config.TargetPairs[0].Verdict = 'pending_native_pair_matrix'
         self.authority = False
         self.assertFalse(owner.HCAdd(other))

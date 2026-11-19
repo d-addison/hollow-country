@@ -1,0 +1,16 @@
+{
+  "Version": 1,
+  "Enabled": true,
+  "MaxReceipts": 64,
+  "SamplesPerTick": 4,
+  "WorkUnits": 4,
+  "TickMs": 1000,
+  "Sites": [],
+  "Origin": "observed",
+  "SupplyOwner": "native_skinning",
+  "ObservationSource": "HCWildlifeObservation.HCSnapshot",
+  "RangeBasis": "Inherit species.json PlayerObservationRadiusM: approximate vanilla 1000 m network bubble and 1 km rifle hearing; no new range or predator perception claim.",
+  "AuthoredDisposition": "AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN",
+  "RuntimeAcceptance": "PENDING",
+  "Trace": "HC-49 / #149; HC-15/48 native cohort; HC-19 issued story window. No authored sites admitted, arbitrary loot, replay or refill. Paired journal and native inventory backup required."
+}

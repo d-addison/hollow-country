@@ -3,6 +3,30 @@
 // :934-938 GetWorldName; HCBuildIdentity uses 1_Core/proto/EnString.c:171 ToLower.
 class HCEcologyResourceSurvey
 {
+	// HC-49: consume HC-15's server snapshot, never discover/spawn another cohort.
+	// Native scripts-1.30.164289: Object.c:215/517 pending deletion/alive;
+	// 3_Game/Entities/DayZAnimal.c:60 CanBeSkinned; EntityAI.c:483 IsSkinned.
+	// ActionSkinning.c:64-80 marks spent BEFORE native organ creation/deletion.
+	// Neither a skinnable body nor proximity proves predator feeding or CE ownership.
+	static AnimalBase Carcass(HCWildlifeFact fact)
+	{
+		if (!HCEcologyNative.Authority() || !fact || !fact.Carcass) { return null; }
+		AnimalBase animal = AnimalBase.Cast(fact.Subject);
+		if (CarcassSupply(animal) != "native_skinnable") { return null; }
+		return animal;
+	}
+
+	static string CarcassSupply(EntityAI resource)
+	{
+		if (!HCEcologyNative.Authority() || !resource) { return "unavailable"; }
+		// Skinning and scheduled deletion may be visible in the same tick.
+		if (resource.IsSkinned()) { return "depleted"; }
+		if (resource.IsPendingDeletion()) { return "unavailable"; }
+		if (resource.IsAlive()) { return "unknown"; }
+		if (!resource.CanBeSkinned()) { return "unavailable"; }
+		return "native_skinnable";
+	}
+
 	static HCEcologyResourceSample Pond(vector point, string id, int nowMs)
 	{
 		if (!HCEcologyNative.Authority() || !HCEcologyMigrationQualification.Admitted()) { return null; }
