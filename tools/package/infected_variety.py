@@ -171,7 +171,18 @@ def rollback(mission):
     economy.preflight_managed(managed, {'receipt.json', '.next'})
     receipt_path = managed / 'receipt.json'
     if not receipt_path.exists():
-        # No target is touched before the atomic receipt switch.
+        # No target is touched before the atomic receipt switch, so a
+        # receipt-less directory is only safe to clear while the target still
+        # carries none of the authored destinations (an operator may have
+        # deleted the receipt after the switch).
+        policy = json.loads(read(POLICY))
+        current = _events(read(mission / TARGET))
+        for row in policy['substitutions']:
+            event = current.get(row['event'])
+            if event is not None and any(c.get('type') == row['to']
+                                         for c in event.findall('./children/child')):
+                raise ValueError('infected variety receipt missing; target modified; reconcile '
+                                 + TARGET + ' against stock before rollback')
         shutil.rmtree(managed)
         return []
     with economy.refuse_missing(managed):
