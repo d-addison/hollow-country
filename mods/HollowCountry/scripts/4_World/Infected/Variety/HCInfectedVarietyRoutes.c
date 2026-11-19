@@ -148,12 +148,17 @@ class HCInfectedVarietyRoutes
         if (!s_Config || !s_Config.EnableMigration || !HCInfectedVarietyModule.VarietyActive()) { return; }
         if (s_Routes && !s_Routes.Enabled) { return; }
         if (!s_Pack && now < s_NextScan) { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { return; }
         if (s_Pack)
         {
-            if (!s_Pack.Tick(now)) { HCClearRoster(); s_Pack = null; }
+            // Safety release (expiry, wake, combat, ownership, sight) never waits
+            // for budget; only segment advancement and native upkeep are funded.
+            bool keep;
+            if (HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { keep = s_Pack.Tick(now); }
+            else { keep = s_Pack.HCMaintain(now); }
+            if (!keep) { HCClearRoster(); s_Pack = null; }
             return;
         }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { return; }
         s_NextScan = now + s_Config.MigrationScanSeconds;
         array<HCInfectedActor> roster = HCInfectedModule.Instance.HCVarietyRouteRoster();
         if (!roster || roster.Count() < 1) { return; }
@@ -213,6 +218,7 @@ class HCInfectedVarietyRoutePack : HCNativeInfectedPack
     protected ref HCHordeRouteSurvey m_VarietyRoute;
     protected int m_VarietyNode;
     protected ref HCHordeRouteDefaults m_VarietyDefaults;
+    protected bool m_VarietyArrived;
 
     bool HCBegin(array<HCInfectedActor> roster, HCHordeRouteSurvey route, HCHordeRouteDefaults nativeDefaults, float now, float lifetime)
     {
@@ -239,7 +245,8 @@ class HCInfectedVarietyRoutePack : HCNativeInfectedPack
         return true;
     }
 
-    override bool Tick(float now)
+    // Bounded by the pack roster; runs every step even when work budget is refused.
+    bool HCMaintain(float now)
     {
         if (m_Releasing) { return !Release(); }
         if (!HCInfectedVarietyModule.VarietyActive() || now >= m_Expires) { return !Release(); }
@@ -256,7 +263,15 @@ class HCInfectedVarietyRoutePack : HCNativeInfectedPack
             if (!HCInfectedVariety.HCHidden(member.GetPosition(), players)) { return !Release(); }
             if (vector.DistanceSq(member.GetPosition(), RouteEnd) > m_VarietyDefaults.ArrivalMetres * m_VarietyDefaults.ArrivalMetres) { arrived = false; }
         }
-        if (arrived && m_VarietyNode < m_VarietyRoute.Nodes.Count())
+        m_VarietyArrived = arrived;
+        return true;
+    }
+
+    override bool Tick(float now)
+    {
+        bool keep = HCMaintain(now);
+        if (!keep || m_Releasing) { return keep; }
+        if (m_VarietyArrived && m_VarietyNode < m_VarietyRoute.Nodes.Count())
         {
             if (!HCVarietyNextSegment(now)) { return !Release(); }
         }
