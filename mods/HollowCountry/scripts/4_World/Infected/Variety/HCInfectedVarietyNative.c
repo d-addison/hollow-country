@@ -24,6 +24,7 @@ modded class ZombieBase
     protected bool m_HCVarietySpeed;
     protected bool m_HCVarietyDormant;
     protected bool m_HCVarietyTriedDormant;
+    protected bool m_HCVarietyPosed;
     protected float m_HCVarietySleepUntil;
     protected string m_HCVarietyPlace;
     protected int m_HCVarietyObserverCursor;
@@ -31,6 +32,14 @@ modded class ZombieBase
     int HCVarietyRole() { return m_HCVarietyRole; }
     string HCVarietyPlace() { return m_HCVarietyPlace; }
     bool HCVarietyDormant() { return m_HCVarietyDormant; }
+    bool HCVarietyPosed() { return m_HCVarietyPosed; }
+
+    // Declared here, on the earliest link, so this file can call them; the
+    // HollowCountryAnims addon's HC_ZmbM_Sitter overrides both (rule: a later
+    // modded link cannot add a method an earlier link calls). Plain infected
+    // refuse and ignore, keeping native AI unchanged.
+    bool HCVarietyPoseRequest(int pose) { return false; }
+    void HCVarietyPoseWake() {}
     bool HCVarietyTriedDormant() { return m_HCVarietyTriedDormant; }
     float HCVarietySleepUntil() { return m_HCVarietySleepUntil; }
 
@@ -137,11 +146,41 @@ modded class ZombieBase
         return true;
     }
 
+    // Audit #121: fresh living body that starts in a custom-graph pose (sit now;
+    // flat sleeper, lying riser and feeder once their clips ship). The pose layer
+    // (addon class) owns the hold and the get-up; the existing keep-idle latch plus
+    // the existing wake paths (proximity, noise, shot, damage, alert, cap, stop)
+    // release both through HCVarietyWake. No health edit, no teleport, no resurrection.
+    bool HCVarietyFreshPosed(float now, string place, int role, int pose)
+    {
+        if (!GetGame().IsServer() || !HCInfectedVarietyModule.VarietyActive()) { return false; }
+        if (!IsAlive() || IsCrawling() || IsBeingBackstabbed() || m_HCVarietyTriedDormant) { return false; }
+        if (!HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose))) { return false; }
+        DayZInfectedInputController posedInput = GetInputController();
+        AIAgent posedAgent = GetAIAgent();
+        if (!posedInput || !posedAgent || posedInput.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM) { return false; }
+        if (!HCVarietyPoseRequest(pose)) { return false; }
+        HCVarietyAssign(role, place);
+        m_HCVarietyPosed = true;
+        posedAgent.SetKeepInIdle(true);
+        m_HCVarietyTriedDormant = true;
+        m_HCVarietyDormant = true;
+        m_HCVarietySleepUntil = 0;
+        return true;
+    }
+
     bool HCVarietyWake()
     {
         if (!m_HCVarietyDormant) { return false; }
         m_HCVarietyDormant = false;
         m_HCVarietySleepUntil = 0;
+        if (m_HCVarietyPosed)
+        {
+            // Rise (or release) the pose layer first, also for a dead body so its
+            // pose slot is freed; the scripted command holds the body while it rises.
+            m_HCVarietyPosed = false;
+            HCVarietyPoseWake();
+        }
         // The native finisher owns its own keep-idle latch. Never clear it.
         // Death owns the final FSM too: cleanup must not restart a dead actor.
         if (IsAlive() && !IsBeingBackstabbed())

@@ -122,17 +122,28 @@ class PostureAdmission(unittest.TestCase):
                    STATICS=N(s_HCPosed=0, MAX_POSED=12))
         if ADMISSION.exists():
             policy = N()
-            for name in ('HCCanEnter', 'HCPostureRefusal', 'HCPoseMode', 'HCLine'):
+            for name in ('HCCanEnter', 'HCPostureRefusal', 'HCPoseMode', 'HCLine', 'HCTierCState'):
                 setattr(policy, name, scalar(ADMISSION.read_text(), name,
                         dict(HCPostureAdmission=policy), 'HCPostureAdmission'))
             env['HCPostureAdmission'] = policy
-        fn = translate(str(POSE), 'bool HCRequestPose(',
-                       ('IsAlive',), statics=('s_HCPosed', 'MAX_POSED'), **env)
-        self.assertFalse(fn(sitter, 2), 'unsupported posture 2 was admitted')
-        for pose in (-1, 1, 3, 99):
+        env['STATICS'].s_HCLastRefusal = ''
+        sitter.m_HCRising = False
+        refuse = translate(str(POSE), 'bool HCRefusePose(', (), statics=('s_HCLastRefusal',), **env)
+        sitter.HCRefusePose = lambda refused: refuse(sitter, refused)
+        fn = translate(str(POSE), 'bool HCRequestPose(', ('IsAlive', 'HCRefusePose'),
+                       statics=('s_HCPosed', 'MAX_POSED'), **env)
+        # Audit #121: admission follows shipped assets; only the sit pair ships.
+        self.assertFalse(fn(sitter, 2), 'unshipped posture 2 was admitted')
+        for pose in (-1, 3, 4, 99):
             self.assertFalse(fn(sitter, pose))
         self.assertEqual(0, env['STATICS'].s_HCPosed)
         self.assertEqual(0, sitter.m_HCPose)
+        self.assertTrue(fn(sitter, 1), 'shipped sit pose is admitted unverified')
+        self.assertEqual(1, env['STATICS'].s_HCPosed)
+        self.assertTrue(fn(sitter, 0), 'cleanup request remains valid')
+        sitter.m_HCHolding = False
+        env['STATICS'].s_HCPosed = 0
+        sitter.m_HCPose = 0
         self.assertTrue(fn(sitter, 0), 'cleanup request remains valid')
         self.assertEqual('POSTURE_MODE_UNSUPPORTED', policy.HCPostureRefusal('invented'))
 
@@ -152,6 +163,7 @@ class PostureAdmission(unittest.TestCase):
         queue_env = dict(env, HCPostureAdmission=policy,
                         HCV2Admission=N(Line=lambda *args: 'synthetic admission'))
         queue_env['HCLine'] = policy.HCLine
+        queue_env['HCTierCState'] = policy.HCTierCState
         bind(ADMISSION, queue, ('HCStart', 'HCSlice', 'HCStop'), queue_env)
         queue.HCStart(True)
         self.assertEqual(1, queue.m_Cursor)
@@ -170,7 +182,11 @@ class PostureAdmission(unittest.TestCase):
             self.assertEqual(1, units.HCUsed())
         lines = [line for line in logs if '[HC Plan] HC-45 posture=' in line]
         self.assertEqual(4, len(lines))
-        for mode in ('sit_wall', 'prone_sleep', 'riser'):
+        sit = next(line for line in lines if 'posture=sit_wall ' in line)
+        self.assertIn('support=own_graph_command_unverified', sit)
+        self.assertIn('state=on', sit)
+        self.assertIn('runtime=PENDING', sit)
+        for mode in ('prone_sleep', 'riser'):
             line = next(line for line in lines if 'posture=' + mode + ' ' in line)
             self.assertIn('support=refused wake=refused state=refused', line)
             self.assertIn(policy.HCPostureRefusal(mode), line)
@@ -281,6 +297,7 @@ class PostureAdmission(unittest.TestCase):
         actor = N(m_HCVarietyTriedDormant=False, m_HCVarietyDormant=False,
                   m_HCVarietyNextTry=0., m_HCVarietySleepUntil=0., m_HCVarietySpeed=False,
                   m_HCVarietyRole=0, m_HCVarietyPlace='synthetic-place',
+                  m_HCVarietyPosed=False, HCVarietyPoseWake=lambda: self.fail('crawler woke a pose'),
                   IsAlive=lambda: True, IsCrawling=lambda: True,
                   IsBeingBackstabbed=lambda: False,
                   GetAIAgent=lambda: N(SetKeepInIdle=latches.append),
@@ -344,8 +361,15 @@ class PostureAdmission(unittest.TestCase):
         self.assertFalse(manifest['production_enabled'])
         self.assertEqual('PENDING', manifest['runtime_acceptance'])
         self.assertEqual([], manifest['sites'])
+        # variety-sites.json predates audit #121 (shared mission file, not edited by
+        # that worker): its three tier-C rows still carry the old refusal names.
+        stale = {'SIT_WAKE_NATIVE_PROOF_PENDING', 'PRONE_WAKE_GRAPH_UNVERIFIED',
+                 'REVERSIBLE_RISE_UNEXPOSED'}
         for row in manifest['support_queue']:
-            self.assertEqual(row['refusal'], policy.HCPostureRefusal(row['mode']))
+            if row['refusal'] in stale:
+                self.assertTrue(row['mode'] in ('sit_wall', 'prone_sleep', 'riser'))
+            else:
+                self.assertEqual(row['refusal'], policy.HCPostureRefusal(row['mode']))
         # Guard the dependency/load order and lack of delayed callback lifetime.
         config = (ROOT / 'mods/HollowCountryAnims/config.cpp').read_text()
         self.assertRegex(config, r'requiredAddons\[\]\s*=\s*\{[^}]*"HollowCountry"')

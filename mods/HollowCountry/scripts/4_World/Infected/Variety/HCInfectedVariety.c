@@ -26,6 +26,9 @@ class HCInfectedVarietyConfig
     int GroupMembers = 3;
     // Every second fresh body is standing; 0 opts out of this variant.
     int StandingRiserEvery = 2;
+    // Audit #121: every Nth fresh body is a custom-graph posed body (0 opts out).
+    // Optional in the JSON: HCApplyOptionalDefaults restores the ON default.
+    int PosedFreshEvery = 3;
     bool EnableMigration = true;
     float CorridorRangeMetres = 80;
     float MaxMigrationMetres = 480;
@@ -60,6 +63,20 @@ class HCInfectedVarietyConfig
         HCInfectedTuning.SetVariety(this);
     }
 
+    // The authored JSON predates PosedFreshEvery, and JsonFileLoader zero-fills a
+    // missing key to 0 (= off). A missing key keeps the owner-default ON cadence;
+    // the acceptance disable marker forces the named opt-out.
+    void HCApplyOptionalDefaults(string content, bool posesOptedOut)
+    {
+        if (!HCJsonFields.Has(content, "PosedFreshEvery")) { PosedFreshEvery = HCInfectedVarietyPolicy.DEFAULT_POSED_FRESH_EVERY; }
+        if (posesOptedOut) { PosedFreshEvery = 0; }
+    }
+
+    bool HCPosedCadenceValid()
+    {
+        return PosedFreshEvery >= 0 && PosedFreshEvery <= MaxFreshBodies;
+    }
+
     bool HCValid()
     {
         HCNormalizeTunables();
@@ -68,7 +85,7 @@ class HCInfectedVarietyConfig
         if (!(CorridorRangeMetres > 0 && CorridorRangeMetres <= 80 && MaxMigrationMetres >= CorridorRangeMetres && MaxMigrationMetres <= 480)) { return false; }
         if (!(MigrationScanSeconds >= 1 && MigrationScanSeconds <= 60)) { return false; }
         if (!(MigrationLifetimeSeconds > 0 && MigrationLifetimeSeconds <= 60)) { return false; }
-        if (StandingRiserEvery < 0 || StandingRiserEvery > MaxFreshBodies) { return false; }
+        if (StandingRiserEvery < 0 || StandingRiserEvery > MaxFreshBodies || !HCPosedCadenceValid()) { return false; }
         if (!(ContextRange >= 1 && ContextRange <= 100 && InterestRange >= 120 && InterestRange <= 1500)) { return false; }
         if (!(MinSpawnDistance >= 120 && VisibilityRange >= 1100 && VisibilityRange <= 1500)) { return false; }
         if (!(RequestRange >= InterestRange && RequestRange <= 3000 && MaxObservers >= 1 && MaxObservers <= 8)) { return false; }
@@ -118,6 +135,15 @@ class HCInfectedVariety
         if (!HCLoadConfig()) { return; }
         s_Running = true;
         Print("[HC Variety] fresh_crawlers=admitted_unverified standing_risers=native_standing_idle places=authored_CE opt_out=acceptance/infected_variety.disable runtime=PENDING");
+        int posedEvery;
+        if (s_Config) { posedEvery = s_Config.PosedFreshEvery; }
+        string posedLine = "[HC Variety] posed_fresh_every=" + posedEvery.ToString() + " class=" + HCInfectedVarietyPolicy.HCPoseClass();
+        Print(posedLine + " opt_out=PosedFreshEvery=0|acceptance/infected_poses.disable runtime=PENDING");
+    }
+
+    static bool HCPosesOptedOut()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_poses.disable");
     }
 
     static bool HCOperatorEnabled(bool preference)
@@ -137,7 +163,9 @@ class HCInfectedVariety
             if (!HCJsonFields.Has(content, key)) { s_Fault = "variety_data_missing_field:" + key; HCRefuse(s_Fault); return false; }
         }
         HCInfectedVarietyConfig config;
-        if (!JsonFileLoader<HCInfectedVarietyConfig>.LoadData(content, config, error) || !config || !config.HCValid())
+        bool loaded = JsonFileLoader<HCInfectedVarietyConfig>.LoadData(content, config, error);
+        if (loaded && config) { config.HCApplyOptionalDefaults(content, HCPosesOptedOut()); }
+        if (!loaded || !config || !config.HCValid())
         {
             s_Fault = "variety_data_invalid";
             HCRefuse(s_Fault);
@@ -300,7 +328,13 @@ class HCInfectedVariety
             return;
         }
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { return; }
-        ZombieBase body = infected.HCLODMaterialize("ZmbM_CitizenASkinny_Brown", pos);
+        // Audit #121: a posed body is the addon class; the pose layer is requested
+        // through the fresh entry below, never by editing a native infected.
+        bool poseClass = GetGame().ConfigIsExisting("CfgVehicles " + HCInfectedVarietyPolicy.HCPoseClass());
+        int pose = HCInfectedVarietyPolicy.HCPoseFresh(site.Context, s_Made, s_Config.PosedFreshEvery, poseClass);
+        string bodyClass = "ZmbM_CitizenASkinny_Brown";
+        if (pose > 0) { bodyClass = HCInfectedVarietyPolicy.HCPoseClass(); }
+        ZombieBase body = infected.HCLODMaterialize(bodyClass, pos);
         if (!body) { s_Pending = false; HCRefuse("normal_materialize_refused"); return; }
         s_Bodies.Insert(body);
         // Never retry a body or source site: failed native entry leaves a
@@ -309,7 +343,11 @@ class HCInfectedVariety
         s_Made++;
         bool entered;
         int role = HCInfectedVarietyPolicy.HCContextRole(site.Context, false);
-        if (HCInfectedVarietyPolicy.HCStandingFresh(s_Made - 1, s_Config.StandingRiserEvery))
+        if (pose > 0)
+        {
+            entered = body.HCVarietyFreshPosed(now, site.Id, role, pose);
+        }
+        else if (HCInfectedVarietyPolicy.HCStandingFresh(s_Made - 1, s_Config.StandingRiserEvery))
         {
             entered = body.HCVarietyFreshStanding(now, site.Id, role);
         }
@@ -321,7 +359,7 @@ class HCInfectedVariety
             return;
         }
         s_LastRefusal = "";
-        Print("[HC Variety] fresh_dormant=created site=" + site.Id + " runtime=PENDING");
+        Print("[HC Variety] fresh_dormant=created site=" + site.Id + " pose=" + pose.ToString() + " runtime=PENDING");
         if (s_Made >= s_Config.GroupMembers) { s_Pending = false; }
     }
 

@@ -5,7 +5,7 @@ Status: **experimental. Built offline only; not observed in DayZ.** No server or
 
 Goal: give infected new poses and a get-up from each ("bodies that rise"). **Sitter first:** only
 the sit-against-a-wall-or-tree loop and its get-up are built, until they work natively. Sleep and
-feed are deferred (see the end). Only the new class `HC_ZmbM_Sitter` uses the pose layer. Every
+feed are specified at the end (asset spec) and refuse by name until authored. Only the new class `HC_ZmbM_Sitter` uses the pose layer. Every
 vanilla infected keeps the vanilla graph.
 
 ## Route
@@ -216,7 +216,81 @@ with `WorkbenchApp.exe -wbmodule=ResourceManager -plugin=HC_TxaBuild -hcArgs=<fi
   and one resend every 2 s per posed infected. This budget is provisional until measured at 3 to 6
   players.
 
-## Deferred clips (after the sitter works natively)
+## Riser, flat sleeper and feeding: feasibility and exact asset spec (audit #121)
+
+Status: **server adapter, selection and admission are built; the three clip pairs are not
+authored, so the three modes refuse by name.** Nothing here was observed in DayZ.
+
+### Native feasibility (scripts-1.30.164289, read only)
+
+- **A reverse of the native crawl does not exist.** `ZombieBase.c:811-826` `HandleCrawlTransition`
+  only starts `StartCommand_Crawl` and sets `m_IsCrawling`; `:1089-1092` `IsCrawling` stays true and
+  the crawl command is only the transition. Nothing in the script API leaves the crawl state, so a
+  "crawler that stands up" cannot be built from native animation. A lying body that rises must be an
+  own graph state on our own class, not a crawler.
+- **The route is the proven sitter route.** The scripted command (`DayZInfected.c:67
+  DayZInfectedCommandScript`, `:123 StartCommand_ScriptInst`) holds the body and sends the
+  synchronized command `CMD_HC_POSE` with an int (`AnimCommand.c:27 PreAnim_CallCommand`, `:29
+  PreAnim_SetInt`). The same command and int already carry poses 1 to 4; only the graph states and
+  clips are missing. Vanilla death, hit, crawl, attack and vault commands still win in
+  `ZombieBase.c:203-231` and leave the pose through the 0.15 s blend.
+- **Collision capsule.** The capsule stays upright and in place, as for the sitter. A lying body is
+  therefore a standing-height collider. That is a known limit of this route (no root motion).
+- **Not provable offline:** that the engine loads the added states, plays the clips and replicates
+  the int to late joiners. Those stay runtime=PENDING.
+
+### What the server adapter already does (`HCPoseInfected.c`, `HCPostureAdmission.c`)
+
+| Concern | Behaviour |
+|---|---|
+| Admission | `HCCanEnter` admits a tier-C mode only when its assets ship; a test forces admission, `hc_poses.agf` entry transitions and `build_anims_addon.CLIPS` to change together. Unshipped modes log `pose refused ... reason=ASSET_NOT_AUTHORED_<mode> runtime=PENDING` once per change. |
+| Selection | `HCInfectedVarietyPolicy.HCPoseFresh`: every Nth fresh body (`PosedFreshEvery`, default 3, 0 or `acceptance/infected_poses.disable` opts out) is an `HC_ZmbM_Sitter`. Context picks the pose (wreck 3, roadside 2, gas station 4, church or building 1) and falls back to the shipped sit. |
+| Wake | `HCVarietyWake` (proximity, noise, shot, damage, alert, cap, stop) calls `HCVarietyPoseWake`, which requests pose 0. The body rises once, held still by the scripted command. |
+| Interruption | A hit, death, vault or attack replaces the script command; the slot is released and the graph leaves through the 0.15 s blend. No new pose is accepted while a rise plays. Deletion releases the slot. |
+| Rise length | `HCPostureAdmission.HCRiseSeconds(pose being left)`, so each clip bounds its own rise. |
+| Budget | 12 posed bodies server-wide (`MAX_POSED`) plus the Variety dormant and LOD posed budgets. |
+
+### Assets still to author (original, no vanilla or Expansion frames)
+
+Author each pair with the existing route: pose code in `tools/anim/build_infected_clips.py`, pick two
+more dead `Default.Normal.z_erc_*` slots (the build's `check_dead_slots` refuses a live slot), add
+both to `CLIPS`, add the states and transitions below to `hc_poses.agf`, then flip the mode in
+`HCPostureAdmission.HCCanEnter` and the matching row of `HCRiseSeconds` if the clip length differs.
+
+| Pose (`CMD_HC_POSE == N`) | Mode | Idle clip (loop, 30 fps) | Get-up clip (no loop) | Rise s |
+|---|---|---|---|---|
+| `CMD_HC_POSE == 2` | `prone_sleep` | `hc_prone_sleep_idle`: lies on one side, knees slightly bent, pelvis within 0.25 m of the ground, slow breathing, loop closes within 1 cm, root still | `hc_prone_sleep_getup`: roll to all fours, then crouch, then stand. Starts on the idle end frame, ends within 2 cm of the `stand_pose` frame | 2.6 |
+| `CMD_HC_POSE == 3` | `riser` | `hc_lie_rise_idle`: lies on the back or face down (one authored variant each), limbs loose, no breathing sway beyond 2 cm, loop closes | `hc_lie_rise_getup`: push up to sitting, then stand, a 2.8 s body that visibly struggles; same seam rule | 2.8 |
+| `CMD_HC_POSE == 4` | `feed_kneel` | `hc_feed_kneel_idle`: both knees down, torso dipping to the ground and back, hands working, 1.2 s cycle, loop closes | `hc_feed_kneel_getup`: kneel, crouch, stand | 2.0 |
+
+Every clip: SET6 `.anm` written by `tools/anim/anm.py`, the same bone list as the sit clips, no key
+within 2e-4 of any vanilla key (the existing shipped-clip test applies), pelvis and head limits
+asserted offline like the sit clip, and the last get-up frame within `SEAM_METRES` of the stand.
+
+Graph text to add per pose N with idle state `X` and get-up state `XGetUp` (same shape as `SitWall`):
+
+```
+Vanilla -> X       Duration 0.6   IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == N
+X -> Vanilla       Duration 0.15  IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)
+X -> XGetUp        Duration 0.2   IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0
+XGetUp -> Vanilla  Duration 0.15  (same interruption condition)
+XGetUp -> Vanilla  Duration 0.25  RemainingTimeLess(0.25), PostEval 1
+```
+
+The `X -> XGetUp` transition for several poses shares the condition `GetCommandI(CMD_HC_POSE) == 0`,
+so the engine cannot tell which idle state it is leaving. Give each idle state its own exit
+condition by also sending the leaving pose in a second int (`HCPoseFrom`, bound next to `HCPose`)
+before the command, and test `GetVariableInt(HCPoseFrom) == N` in the three exits. This is the one
+graph change that has no sitter precedent and needs the native check below.
+
+### Native check for the lead once a pair ships
+
+Spawn the class by name, confirm the idle pose, walk close and confirm one rise, shoot beside it and
+confirm one rise, kill it mid-rise and confirm a normal corpse. Grep the RPT for `pose request`,
+`pose command started`, `pose released`, `pose refused`, `SCRIPT (E)`, `Cannot load`. Two clients are
+needed for late-join and visibility.
+
+## Deferred clips estimates (after the sitter works natively)
 
 The owner deferred these until the sit pose and its get-up work natively. The same route applies
 to each:

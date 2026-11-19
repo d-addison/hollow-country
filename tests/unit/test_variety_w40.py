@@ -18,7 +18,9 @@ class VarietyW40(unittest.TestCase):
         for mode in ('native_stance_idle', 'native_mind_idle',
                      'native_crawler_idle', 'native_crawler_wake'):
             self.assertTrue(admit(mode), mode + ' must be admitted unverified')
-        for mode in ('sit_wall', 'prone_sleep', 'riser', 'invented'):
+        # Audit #121: tier C follows shipped assets; only the sit pair ships.
+        self.assertTrue(admit('sit_wall'))
+        for mode in ('prone_sleep', 'riser', 'feed_kneel', 'invented'):
             self.assertFalse(admit(mode))
 
     def test_native_admission_lines_do_not_report_unsupported_modes(self):

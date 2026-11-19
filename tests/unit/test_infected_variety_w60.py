@@ -20,7 +20,8 @@ class VarietyW60(unittest.TestCase):
                   IsBeingBackstabbed=lambda: False,
                   GetInputController=lambda: N(GetMindState=lambda: 0),
                   GetAIAgent=lambda: N(SetKeepInIdle=idle.append),
-                  HCVarietyAssign=lambda *args: None)
+                  HCVarietyAssign=lambda *args: None, m_HCVarietyPosed=False,
+                  HCVarietyPoseWake=lambda: self.fail('standing body woke a pose'))
         bind(AREA / 'HCInfectedVarietyNative.c', actor,
              ('HCVarietyFreshStanding', 'HCVarietyWake'),
              dict(GetGame=lambda: N(IsServer=lambda: True),
@@ -43,7 +44,8 @@ class VarietyW60(unittest.TestCase):
         start = translate(str(AREA / 'HCInfectedVariety.c'), 'static void HCStart(',
                           ('HCOperatorEnabled', 'HCLoadConfig'), statics=tuple(vars(state)),
                           STATICS=state, FileExist=lambda path: disabled[0], Print=logs.append,
-                          HCV2Admission=N(Line=lambda *a: 'synthetic-admission'))
+                          HCV2Admission=N(Line=lambda *a: 'synthetic-admission'),
+                          HCInfectedVarietyPolicy=N(HCPoseClass=lambda: 'HC_ZmbM_Sitter'))
         owner = N(HCOperatorEnabled=lambda p: enabled(None, p),
                   HCLoadConfig=lambda: loaded.append(True) or True)
         start(owner, True)
@@ -112,7 +114,8 @@ class VarietyW60(unittest.TestCase):
         start = translate(str(AREA / 'HCInfectedVariety.c'), 'static void HCStart(',
                           ('HCOperatorEnabled', 'HCLoadConfig'), statics=tuple(vars(state)),
                           STATICS=state, Print=logs.append,
-                          HCV2Admission=N(Line=lambda *a: 'synthetic runtime=PENDING'))
+                          HCV2Admission=N(Line=lambda *a: 'synthetic runtime=PENDING'),
+                          HCInfectedVarietyPolicy=N(HCPoseClass=lambda: 'HC_ZmbM_Sitter'))
         def load():
             if not valid[0]: state.s_Fault = 'variety_data_invalid'
             return valid[0]
@@ -178,7 +181,7 @@ class VarietyW60(unittest.TestCase):
         created, entries, refused = [], [], []
         site = N(Id='synthetic-place', Context='wreck', Position=[1000., 0., 1000.])
         state = N(s_Running=True, s_Pending=True, s_Admin=True, s_NextAutomatic=0.,
-                  s_Config=N(MaxFreshBodies=3, GroupMembers=3, StandingRiserEvery=2,
+                  s_Config=N(MaxFreshBodies=3, GroupMembers=3, StandingRiserEvery=2, PosedFreshEvery=0,
                     Sites=Array([site]), ContextRange=40., GroupSpacing=4., InterestRange=1000.),
                   s_Bodies=Array([N(IsAlive=lambda: False)]), s_Selected=0, s_Made=0,
                   s_Tried=Array(), s_Used=Array(), s_LastRefusal='')
@@ -194,10 +197,12 @@ class VarietyW60(unittest.TestCase):
             HCInfectedModule=N(Instance=N(HCVarietyFreshRoom=lambda s: True, HCLODMaterialize=spawn)),
             HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda *a: True)),
             HCUnitBudget=N(HC_WORK_INFECTED=0), HCPerfPlayers=N(HCGet=lambda: Array()),
-            GetGame=lambda: N(SurfaceY=lambda *a: 0.),
+            GetGame=lambda: N(SurfaceY=lambda *a: 0., ConfigIsExisting=lambda c: False),
             HCInfectedLOD=N(NearestDistance=lambda *a: 500.),
             HCAdminPlacement=N(HCClear=lambda p: True),
             HCInfectedVarietyPolicy=N(HCContextRole=lambda *a: 0,
+                                     HCPoseClass=lambda: 'HC_ZmbM_Sitter',
+                                     HCPoseFresh=lambda *a: 0,
                                      HCStandingFresh=lambda *a: cadence(None, *a)), Print=lambda *a: None)
         owner = N(HCNearestCandidate=lambda: 0, HCHidden=lambda *a: hidden[0], HCRefuse=refused.append)
         method(owner, 1., 1.)
@@ -222,8 +227,14 @@ class VarietyW60(unittest.TestCase):
         owner = N(**data)
         # This fixture tests the original site/cadence limits with default tuning.
         owner.HCNormalizeTunables = lambda: None
-        valid = translate(str(AREA / 'HCInfectedVariety.c'), 'bool HCValid(', ('HCNormalizeTunables',),
-                          fields=tuple(data), HCInfectedStore=N(ValidPosition=lambda p: True))
+        owner.PosedFreshEvery = 3
+        owner.HCPosedCadenceValid = lambda: translate(
+            str(AREA / 'HCInfectedVariety.c'), 'bool HCPosedCadenceValid(', (),
+            fields=('PosedFreshEvery', 'MaxFreshBodies'))(owner)
+        valid = translate(str(AREA / 'HCInfectedVariety.c'), 'bool HCValid(',
+                          ('HCNormalizeTunables', 'HCPosedCadenceValid'),
+                          fields=tuple(data) + ('PosedFreshEvery',),
+                          HCInfectedStore=N(ValidPosition=lambda p: True))
         for cadence, expected in ((2, True), (0, True), (-1, False), (4, False)):
             owner.StandingRiserEvery = cadence
             self.assertEqual(expected, valid(owner))
