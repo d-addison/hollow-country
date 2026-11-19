@@ -53,7 +53,8 @@ modded class HCXAIAdapter
         else if (phase == "run" && m_Encounters.Armed())
         {
             // Operational admission only. Native/perf qualification is pending.
-            status.HCPublish("ready", "cached_sites_run_encounters_armed");
+            HCOperationalStatus siteStatus = m_Sites.HCGetOperationalStatus();
+            status.HCPublish(siteStatus.HCState(), siteStatus.HCReason());
         }
         else if (m_Encounters.Settled())
         {

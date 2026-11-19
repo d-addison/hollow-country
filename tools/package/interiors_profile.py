@@ -634,6 +634,14 @@ def _members(pack, errors):
             if (base / name).is_symlink():
                 errors.append(f'symlinked directory in pack: {(base / name).relative_to(pack).as_posix()}')
                 dirs.remove(name)
+        # Schema-2 templates are independently pinned and strictly validated.
+        # Never flatten their files into the schema-1 legacy pack manifest.
+        if base == pack and 'templates' in dirs:
+            try:
+                templates_validate(pack)
+            except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
+                errors.append(scrub(exc))
+            dirs.remove('templates')
         for name in names:
             path = base / name
             rel = path.relative_to(pack).as_posix()

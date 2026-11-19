@@ -24,7 +24,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.'))]
 
 
 def check_performance(rows, source, registry):
@@ -126,6 +126,82 @@ def check_actor_settings(rows):
                 errors.append(prefix + ' apply/range binding differs for ' + key)
         if f'string fullKey = "{prefix}." + key;' not in source or 'HCOperatorSettingsRegistry.HCValid(fullKey, value)' not in source:
             errors.append(prefix + ' registry validation binding differs')
+    return errors
+
+
+def check_world_runtime(rows):
+    """Optional world-runtime.json; compiled scoped rows live beside the DTO."""
+    source = (ROOT / 'mods/HollowCountry/scripts/3_Game/World/HCWorldData.c').read_text()
+    dto = source.split('class HCWorldRuntimeConfig\n', 1)[1].split('modded class HCOperatorSettingsRegistry', 1)[0]
+    fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (int) (\w+) = ([\d.]+);', dto, re.M)}
+    rules = {r['key'].removeprefix('WorldRuntime.'): r for r in rows}
+    errors = []
+    if fields.keys() != rules.keys(): errors.append('WorldRuntime registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', source, re.M)
+    if compiled != render_native_registry(rows).splitlines():
+        errors.append('WorldRuntime compiled registry differs')
+    for key, row in rules.items():
+        if row['owner'] != 'HCWorldRuntimeConfig' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'WorldRuntime DTO default/type/owner differs for {key}')
+        guard = f'HCJsonFields.Has(image, "{key}") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.{key}", decoded.{key})'
+        if f'if ({guard}) {{ {key} = decoded.{key}; }}' not in dto:
+            errors.append(f'WorldRuntime validation binding differs for {key}')
+    return errors
+
+
+def check_search_limits(rows):
+    """Optional search-limits.json: registration/defaults and presence-guarded migration."""
+    source = (ROOT / 'mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c').read_text()
+    dto = source.split('class HCSearchLimits\n', 1)[1].split('// Owner revisit request', 1)[0]
+    fields = {key: (kind, int(value)) for kind, key, value in re.findall(
+        r'^    (int) (\w+) = (\d+);', dto, re.M)}
+    rules = {r['key'].removeprefix('SearchLimits.'): r for r in rows}
+    errors = []
+    if fields.keys() != rules.keys(): errors.append('SearchLimits registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', source.split('class HCSearchLimits\n', 1)[0], re.M)
+    if compiled != render_native_registry(rows).splitlines():
+        errors.append('SearchLimits compiled registry differs (key/type/default/range/owner)')
+    for key, row in rules.items():
+        if row['owner'] != 'HCSearchLimits' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'SearchLimits DTO default/type/owner differs for {key}')
+        if f'HCJsonFields.Has(text, "{key}")' not in dto:
+            errors.append(f'SearchLimits missing-field guard absent for {key}')
+        binding = f'HCOperatorSettingsRegistry.HCValid("SearchLimits.{key}", decoded.{key})'
+        if binding not in dto or f'{key} = decoded.{key};' not in dto:
+            errors.append(f'SearchLimits migration binding differs for {key}')
+    return errors
+
+
+def check_local_policy(rows):
+    """W7 optional profile files: defaults, bounds and compiled metadata."""
+    prefixes = ('SignsOfLife.', 'LeatherTailoring.', 'Signals.')
+    scoped = [r for r in rows if r['key'].startswith(prefixes)]
+    registry = (ROOT / 'mods/HollowCountry/scripts/3_Game/gapcode_localpolicy_SettingsRegistry.c').read_text()
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
+    errors = []
+    if compiled != render_native_registry(scoped).splitlines():
+        errors.append('Local policy compiled registry differs')
+    owners = {
+        'HCSignsConfig': ('Atmosphere/HCSignsOfLife.c', 'SignsOfLife.'),
+        'HCAuditLeatherConfig': ('Crafting/auditleather_recipes.c', 'LeatherTailoring.'),
+        'HCSignalConfig': ('Actions/HCActionAskForNews.c', 'Signals.'),
+    }
+    for owner, (relative, prefix) in owners.items():
+        source = (ROOT / 'mods/HollowCountry/scripts/4_World' / relative).read_text()
+        dto = source.split('class ' + owner + '\n', 1)[1].split('\nclass ', 1)[0]
+        fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+            r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+        rules = {r['key'].removeprefix(prefix): r for r in scoped if r['owner'] == owner}
+        if fields.keys() != rules.keys():
+            errors.append(f'{owner} registry/native key set differs')
+        for key, row in rules.items():
+            if fields.get(key) != (row['type'], row['default']):
+                errors.append(f'{owner} default/type differs for {key}')
+            if f'HCJsonFields.Has(text, "{key}")' not in dto:
+                errors.append(f'{owner} missing-field guard differs for {key}')
+            if row['type'] != 'bool' and f'HCOperatorSettingsRegistry.HCValid("{prefix}{key}",' not in dto:
+                errors.append(f'{owner} validation binding differs for {key}')
     return errors
 
 
@@ -233,7 +309,10 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
         PERF_NATIVE.read_text() if perf_native is None else perf_native,
         PERF_REGISTRY.read_text() if perf_registry is None else perf_registry))
     errors.extend(check_actor_settings(rows))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.'))]
+    errors.extend(check_world_runtime([r for r in rows if r['key'].startswith('WorldRuntime.')]))
+    errors.extend(check_search_limits([r for r in rows if r['key'].startswith('SearchLimits.')]))
+    errors.extend(check_local_policy(rows))
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]

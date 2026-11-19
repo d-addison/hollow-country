@@ -64,7 +64,9 @@ class HCUnitBudget
     static const int HC_WORK_AI_RESPAWN = 19;
     static const int HC_WORK_SEARCH_COMPACT = 20;
     static const int HC_WORK_SHELTER = 21;
-    static const int HC_WORK_CONSUMERS = 22;
+    // HC-18 AI site director locality paging.
+    static const int HC_WORK_AI_SITES = 22;
+    static const int HC_WORK_CONSUMERS = 23;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
