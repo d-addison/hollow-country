@@ -8,26 +8,39 @@
 // CEApi :227-736 exposes no iterable live CE census or profile lookup by class.
 // EconomyMap :527 is a DEVELOPER/DIAG ONLY TGA export, not a positions API.
 // 1_Core/proto/EnString.c:113,171,199,240,286,448 Substring/ToLower/Length/IndexOf/Contains/Get;
-// EnScript.c:94,380,385,394,407 Cast/Count/Clear/Find/Insert; EnMath.c:441,553 Ceil/Min;
-// gameplay.c:636 GetGame. Shared budgets/store own their native citations.
-// One native circle/tick; retained row cursor, hard job/cell/item/type/output
-// caps. Native query allocation/time CANNOT be preempted; oversize output
-// refuses without processing. Never scan inventories or imply a CE census.
+// EnScript.c:94,380,385,394,407 Cast/Count/Clear/Find/Insert; EnMath.c:305,441,553,566
+// Sqrt/Ceil/Min/Max; gameplay.c:636 GetGame. Shared budgets/store own their native citations.
+// One native circle/tick over one SubCellM square; retained row cursor, hard
+// tick/cell/item/type/output caps. Native query allocation/time CANNOT be
+// preempted; oversize output refuses without processing. The query COST IS
+// UNMEASURED (named in every start line). Never scan inventories or imply a CE census.
+// Job arithmetic (HCJobTickCap): every tick ends at a cell boundary or with the
+// row-unit budget spent, so ticks <= cells + ceil(worst-case row units / rows per
+// step) + 1. The cap is derived from that, not a wall-clock guess.
 class HCAdminLootMapLimits
 {
-    // One network-bubble / rifle-hearing scale (~1 km), not a new gameplay range.
-    float QueryRadiusM = 1000;
+    // Square sub-cell edge for one query. The query circle is its half diagonal,
+    // so each tick's native circle (354 m radius) is about an eighth of the former 1000 m one.
+    // Named config, not a gameplay range. 15360 m / 500 = 31 -> 961 cells <= MaxCells.
+    int SubCellM = 500;
     int MaxPositionsPerReply = 128;
-    int MaxItemsPerStep = 32;
+    // Row-unit budget per tick. A rejected class costs 1 unit (type string compare
+    // only); a matched class costs MatchRowUnits (cast, profile, type row, point).
+    int MaxRowsPerStep = 256;
+    int MatchRowUnits = 4;
     int MaxObjectsPerCell = 4096;
     int MaxItemsScanned = 65536;
     int MaxMatches = 8192;
     int MaxTypes = 32;
     int MaxCells = 1024;
-    int MaxJobSeconds = 300;
-    // Client lead wiring: ingress + final server tick at the allowed 10 s core
-    // interval, plus delivery slack. This is not an RPC retry interval.
+    // The tick cap is converted to seconds at this core tick interval. A slower
+    // HCSettings.TickIntervalMs refuses the job instead of silently missing it.
+    int MaxTickIntervalMs = 1000;
+    // Client wait = job tick cap in seconds plus this slack for ingress, the
+    // final write and delivery. Not an RPC retry interval.
     int ReplyGraceSeconds = 30;
+    // How long the client keeps lootmap marks on its map after the reply.
+    int ViewSeconds = 300;
     int CooldownSeconds = 30;
 }
 
@@ -74,7 +87,6 @@ class HCAdminLootMap
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref array<Object> m_Candidates = new array<Object>;
     protected ref array<CargoBase> m_Cargos = new array<CargoBase>;
-    protected ref array<Object> m_Seen = new array<Object>;
     protected int m_Cursor;
     protected int m_Cell;
     protected int m_Across;
@@ -83,7 +95,8 @@ class HCAdminLootMap
     protected float m_MinZ;
     protected float m_MaxX;
     protected float m_MaxZ;
-    protected float m_Started;
+    protected int m_Ticks;
+    protected int m_MaxTicks;
     protected bool m_Loaded;
 
     static bool HCValidFilter(string value)
@@ -97,10 +110,39 @@ class HCAdminLootMap
         return true;
     }
 
-    bool HCStart(string filter)
+    static int HCCellsAcross(float worldSize, int subCellM)
+    {
+        if (!(worldSize > 0) || subCellM < 1) { return 0; }
+        int across = Math.Ceil(worldSize / subCellM);
+        return across;
+    }
+
+    // Worst case row units: every scanned row costs 1, each match costs MatchRowUnits.
+    static int HCJobTickCap(HCAdminLootMapLimits limits, int cells)
+    {
+        int stepUnits = Math.Max(limits.MaxRowsPerStep, 1);
+        int units = limits.MaxItemsScanned + (limits.MatchRowUnits - 1) * limits.MaxMatches;
+        int rowTicks = (units + stepUnits - 1) / stepUnits;
+        return cells + rowTicks + 1;
+    }
+
+    // Client wait for the single final reply: the largest possible job (MaxCells)
+    // at the budgeted core tick, plus ReplyGraceSeconds.
+    static int HCClientWaitSeconds()
+    {
+        HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
+        int ticks = HCAdminLootMap.HCJobTickCap(limits, limits.MaxCells);
+        return (ticks * limits.MaxTickIntervalMs + 999) / 1000 + limits.ReplyGraceSeconds;
+    }
+
+    int HCTotalCells() { return m_Across * m_Across; }
+    int HCMaxTicks() { return m_MaxTicks; }
+
+    bool HCStart(string filter, int tickMs)
     {
         m_Document = new HCAdminLootDocument;
         if (!GetGame() || !GetGame().IsServer()) { HCFinish("server_only"); return false; }
+        if (tickMs < 1 || tickMs > m_Limits.MaxTickIntervalMs) { HCFinish("tick_interval_exceeds_job_budget"); return false; }
         m_Document.time = HCGroupClock.Utc();
         if (m_Document.time < 0) { HCFinish("clock_unavailable"); return false; }
         m_Document.world = GetGame().GetWorldName();
@@ -122,10 +164,10 @@ class HCAdminLootMap
         if (m_Document.world != "chernarusplus") { HCFinish("unsupported_map"); return false; }
         m_Size = GetGame().GetWorld().GetWorldSize();
         if (!(m_Size > 0)) { HCFinish("world_bounds_unavailable"); return false; }
-        m_Across = Math.Ceil(m_Size / m_Limits.QueryRadiusM);
+        m_Across = HCAdminLootMap.HCCellsAcross(m_Size, m_Limits.SubCellM);
         if (m_Across < 1 || m_Across > m_Limits.MaxCells) { HCFinish("world_cell_cap"); return false; }
         if (m_Across * m_Across > m_Limits.MaxCells) { HCFinish("world_cell_cap"); return false; }
-        m_Started = GetGame().GetTickTime();
+        m_MaxTicks = HCAdminLootMap.HCJobTickCap(m_Limits, m_Across * m_Across);
         return true;
     }
 
@@ -146,21 +188,25 @@ class HCAdminLootMap
         }
         m_Candidates.Clear();
         m_Cargos.Clear();
-        m_Seen.Clear();
     }
 
     protected bool HCQueryCell()
     {
         int column = m_Cell % m_Across;
         int row = m_Cell / m_Across;
-        m_MinX = column * m_Limits.QueryRadiusM;
-        m_MinZ = row * m_Limits.QueryRadiusM;
-        m_MaxX = Math.Min(m_Size, m_MinX + m_Limits.QueryRadiusM);
-        m_MaxZ = Math.Min(m_Size, m_MinZ + m_Limits.QueryRadiusM);
+        m_MinX = column * m_Limits.SubCellM;
+        m_MinZ = row * m_Limits.SubCellM;
+        m_MaxX = Math.Min(m_Size, m_MinX + m_Limits.SubCellM);
+        m_MaxZ = Math.Min(m_Size, m_MinZ + m_Limits.SubCellM);
         vector center = Vector((m_MinX + m_MaxX) / 2, 0, (m_MinZ + m_MaxZ) / 2);
+        // Circle through the cell corners (half diagonal), rounded up, so the
+        // circle covers the whole square; edge cells are clipped by the world.
+        float halfX = (m_MaxX - m_MinX) / 2;
+        float halfZ = (m_MaxZ - m_MinZ) / 2;
+        float radius = Math.Ceil(Math.Sqrt(halfX * halfX + halfZ * halfZ));
         m_Candidates.Clear();
         m_Cargos.Clear();
-        GetGame().GetObjectsAtPosition(center, m_Limits.QueryRadiusM, m_Candidates, m_Cargos);
+        GetGame().GetObjectsAtPosition(center, radius, m_Candidates, m_Cargos);
         m_Document.cells++;
         if (m_Candidates.Count() > m_Limits.MaxObjectsPerCell || m_Cargos.Count() > m_Limits.MaxObjectsPerCell)
         {
@@ -172,24 +218,28 @@ class HCAdminLootMap
         return true;
     }
 
-    protected void HCObserve(Object candidate)
+    // Class prefilter first: one Object.GetType string compare (Object.c:467), no cast,
+    // profile or position work for a rejected row. True only for a matched class, so
+    // the caller can charge MatchRowUnits for the extra work done.
+    protected bool HCObserve(Object candidate)
     {
+        string className = candidate.GetType();
+        if (!HCMatches(className)) { return false; }
         EntityAI entity = EntityAI.Cast(candidate);
-        if (!entity || entity.GetHierarchyParent()) { return; }
-        string className = entity.GetType();
-        if (!HCMatches(className)) { return; }
-        if (className.Length() > 96) { HCFinish("class_name_cap"); return; }
+        if (!entity || entity.GetHierarchyParent()) { return true; }
+        if (className.Length() > 96) { HCFinish("class_name_cap"); return true; }
         CEItemProfile profile = entity.GetEconomyProfile();
-        if (!profile) { return; }
+        if (!profile) { return true; }
         vector pos = entity.GetPosition();
-        if (!HCDebugSnapshot.HCPositionValid(pos)) { return; }
-        // Half-open cells own their observations, so overlapping circles do not
-        // count the same stationary entity twice. World-edge coordinates included.
-        if (pos[0] < m_MinX || pos[2] < m_MinZ) { return; }
-        if (pos[0] >= m_MaxX && m_MaxX < m_Size) { return; }
-        if (pos[2] >= m_MaxZ && m_MaxZ < m_Size) { return; }
-        if (m_Seen.Find(entity) >= 0) { return; }
-        if (m_Seen.Count() >= m_Limits.MaxMatches) { HCFinish("matches_cap"); return; }
+        if (!HCDebugSnapshot.HCPositionValid(pos)) { return true; }
+        // Half-open sub-cells own their observations, so overlapping circles do not
+        // count the same stationary entity twice (cell ownership is the dedupe; no
+        // seen list). An entity that moves into a cell not yet visited after it was
+        // counted can be counted again: the job is not an atomic world snapshot.
+        if (pos[0] < m_MinX || pos[2] < m_MinZ) { return true; }
+        if (pos[0] >= m_MaxX && m_MaxX < m_Size) { return true; }
+        if (pos[2] >= m_MaxZ && m_MaxZ < m_Size) { return true; }
+        if (m_Document.matched >= m_Limits.MaxMatches) { HCFinish("matches_cap"); return true; }
         HCAdminLootType typeRow;
         for (int typeIndex = 0; typeIndex < m_Document.types.Count(); typeIndex++)
         {
@@ -197,47 +247,45 @@ class HCAdminLootMap
         }
         if (!typeRow)
         {
-            if (m_Document.types.Count() >= m_Limits.MaxTypes) { HCFinish("types_cap"); return; }
+            if (m_Document.types.Count() >= m_Limits.MaxTypes) { HCFinish("types_cap"); return true; }
             typeRow = new HCAdminLootType;
             typeRow.className = className;
             typeRow.nominal = profile.GetNominal();
             if (typeRow.nominal < 0) { typeRow.nominal = -1; }
             m_Document.types.Insert(typeRow);
         }
-        m_Seen.Insert(entity);
         typeRow.count++;
         m_Document.matched++;
-        if (m_Document.points.Count() >= m_Limits.MaxPositionsPerReply) { m_Document.truncated++; return; }
+        if (m_Document.points.Count() >= m_Limits.MaxPositionsPerReply) { m_Document.truncated++; return true; }
         HCAdminLootPoint point = new HCAdminLootPoint;
         point.className = className;
         point.x = pos[0];
         point.z = pos[2];
         m_Document.points.Insert(point);
+        return true;
     }
 
     // No idle tick, periodic refresh, loot mutation, inventory traversal or CE
-    // debug export. One query at most, then <=MaxItemsPerStep candidate rows.
+    // debug export. One query at most, then rows until MaxRowsPerStep units are spent.
     bool HCStep()
     {
         if (!m_Document || m_Document.state != "pending") { return true; }
         if (!GetGame().IsServer() || !GetCEApi()) { HCFinish("ce_world_enumeration_unavailable"); return true; }
-        if (GetGame().GetTickTime() - m_Started >= m_Limits.MaxJobSeconds) { HCFinish("job_time_cap"); return true; }
-        m_Budget.HCReset(m_Limits.MaxItemsPerStep);
-        m_Units.HCReset(m_Limits.MaxItemsPerStep);
+        m_Ticks++;
+        if (m_Ticks > m_MaxTicks) { HCFinish("job_tick_cap"); return true; }
+        m_Budget.HCReset(m_Limits.MaxRowsPerStep);
+        m_Units.HCReset(m_Limits.MaxRowsPerStep);
         if (!m_Loaded && !HCQueryCell()) { return true; }
-        int stepItems = 0;
-        while (m_Cursor < m_Candidates.Count() && stepItems < m_Limits.MaxItemsPerStep)
+        while (m_Cursor < m_Candidates.Count())
         {
             if (!m_Units.HCTake(1) || !m_Budget.HCContinue()) { return false; }
             if (m_Document.scanned >= m_Limits.MaxItemsScanned) { HCFinish("items_scanned_cap"); return true; }
             Object candidate = m_Candidates[m_Cursor];
             m_Cursor++;
-            stepItems++;
             m_Document.scanned++;
-            HCObserve(candidate);
+            if (HCObserve(candidate)) { m_Units.HCCharge(m_Limits.MatchRowUnits - 1); }
             if (m_Document.state != "pending") { return true; }
         }
-        if (m_Cursor < m_Candidates.Count()) { return false; }
         m_Loaded = false;
         m_Cell++;
         m_Candidates.Clear();
@@ -257,7 +305,7 @@ class HCAdminLootMap
         string result = "refused";
         if (m_Document.state == "observed") { result = "ok"; }
         reply.Notice = "[HC Admin] cmd=lootmap result=" + result + " reason=" + m_Document.reason;
-        reply.Notice += "; ground observations across ticks; CE census unavailable; runtime=PENDING";
+        reply.Notice += "; ground observations across ticks; CE census unavailable; query_cost=unmeasured; runtime=PENDING";
         reply.Notice += "; scanned=" + m_Document.scanned.ToString() + " matched=" + m_Document.matched.ToString() + " truncated=" + m_Document.truncated.ToString();
         for (int typeIndex = 0; typeIndex < m_Document.types.Count(); typeIndex++)
         {

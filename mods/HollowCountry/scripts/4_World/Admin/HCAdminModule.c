@@ -161,7 +161,8 @@ class HCAdminModule : HCModule
         m_LootMapAfter = now + limits.CooldownSeconds;
         HCAdminLootMap job = new HCAdminLootMap;
         string filter = command.Substring(8, command.Length() - 8);
-        bool started = job.HCStart(filter);
+        int tickMs = HCServer.Get().GetSettings().TickIntervalMs;
+        bool started = job.HCStart(filter, tickMs);
         string root = "$profile:HollowCountry/debug";
         if (!HCV2ThreatStore<HCAdminLootDocument>.CanOpen(HCAdminLootMap.PATH))
         {
@@ -177,9 +178,12 @@ class HCAdminModule : HCModule
         m_LootMap = job;
         m_LootMapSender = sender;
         m_LootMapTicket = ticket;
-        Print("[HC Plan] wp=168-5 state=started cells=0 positions=0 runtime=PENDING");
-        // Exactly one final RPC. Lead client wiring extends the ordinary 10s
-        // request timeout for this capped multi-tick job; no automatic retries.
+        string startLine = "[HC Plan] wp=168-5 state=started cells=" + job.HCTotalCells().ToString() + " sub_cell_m=" + limits.SubCellM.ToString();
+        startLine += " max_ticks=" + job.HCMaxTicks().ToString() + " rows_per_tick=" + limits.MaxRowsPerStep.ToString();
+        startLine += " positions=0 query_cost=unmeasured runtime=PENDING";
+        Print("" + startLine);
+        // Exactly one final RPC. The client waits HCAdminLootMap.HCClientWaitSeconds
+        // (the same tick arithmetic) for it; no automatic retries.
         return true;
     }
 
