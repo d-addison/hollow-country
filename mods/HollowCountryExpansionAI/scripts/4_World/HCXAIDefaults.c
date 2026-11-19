@@ -29,6 +29,11 @@ class HCXAIDefaults
         return HCProfileDefaults.Ensure(HCXAIDefaults.SitesFile(), HCXAIDefaults.Shipped());
     }
 
+    static bool ProvisionLocalities()
+    {
+        return HCProfileDefaults.Ensure("expansion-ai-localities.json", HCXAIDefaults.Shipped());
+    }
+
     // Our own reviewed loadout names only: HollowCountry_<token>, no path parts.
     static bool LoadoutNameSafe(string name)
     {
@@ -71,7 +76,7 @@ class HCXAIDefaults
         return true;
     }
 
-    // One pass over the accepted policy (at most 64 sites, each name once).
+    // One pass over the accepted policy (bounded catalog, each name once).
     static int ProvisionLoadouts(HCXAISitePolicy policy)
     {
         if (!policy || !policy.Sites) { return 0; }
@@ -86,7 +91,7 @@ class HCXAIDefaults
         foreach (HCXAISite site : policy.Sites)
         {
             visited++;
-            if (visited > 64) { break; }
+            if (visited > HCXAISiteRules.HCMaxCatalogRows()) { break; }
             if (!site) { continue; }
             if (seen.Contains("|" + site.Loadout + "|")) { continue; }
             seen = seen + site.Loadout + "|";
@@ -97,14 +102,14 @@ class HCXAIDefaults
 
     static bool MatchesShipped()
     {
-        string shipped = HCXAISiteDirector.ReadBounded(HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile());
+        string shipped = HCWorldStore.Read(HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile());
         if (shipped == "") { return false; }
-        return HCXAISiteDirector.ReadBounded(HCXAISiteDirector.POLICY) == shipped;
+        return HCWorldStore.Read(HCXAISiteDirector.POLICY) == shipped;
     }
 
     static int ShippedSiteCount()
     {
-        string data = HCXAISiteDirector.ReadBounded(HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile());
+        string data = HCWorldStore.Read(HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile());
         if (data == "") { return 0; }
         string error;
         HCXAISitePolicy policy;

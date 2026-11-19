@@ -41,7 +41,7 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  # Optional Expansion AI patrol contract and examples; inert without the addon and its marker.
                  'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json',
                  'ai/AIPatrolSettings.override.json',
-                 'ai/sites.json', 'ai/loadouts/HollowCountry_Patrol.json', 'ai/loadouts/HollowCountry_Scavenger.json',
+                 'ai/localities.json', 'ai/sites.json', 'ai/loadouts/HollowCountry_Patrol.json', 'ai/loadouts/HollowCountry_Scavenger.json',
                  'ai/loadouts/HollowCountry_Holdout.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).

@@ -66,6 +66,7 @@ PROFILE_INCLUDE = (
     'HollowCountry/templates/**',
     'HollowCountry/expansion-ai.json',
     'HollowCountry/expansion-ai-sites.json',
+    'HollowCountry/expansion-ai-localities.json',
     'HollowCountry/Ecology/settings.json',
     'HollowCountry/Events/settings.json',
     'HollowCountry/Groups/settings.json',
