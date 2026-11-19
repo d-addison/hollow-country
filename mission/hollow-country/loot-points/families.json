@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "kind": "hollow-country-loot-families",
-  "note": "First matching family wins. Categories must exist in the target cfglimitsdefinition.xml. Group usage (Medic, Police, Military, ...) still selects which items of a category spawn; added spots never carry firearm or explosive categories, and every stock container that lists them keeps its lootmax, so firearms keep their scarcity.",
+  "note": "First matching family wins; names are context hints, not access/room/CE evidence. These category/tag rules describe proposals only. Only additions.json groups are executable; unqualified candidates live in dispositions.json and must not be regenerated into the applied overlay. Preserve native group usages/tiers and all stock points. Categories/tags must exist in the effective cfglimitsdefinition.xml; added spots never carry weapons/explosives. HC-9 retains weapon/explosive container lootmax and independent 2x non-firearm settings. Native fit, restock and scarcity remain pending.",
   "families": [
     {"family": "kitchen", "match": ["Kitchen", "_Pub$", "Village_Pub", "Store", "Grocery", "FastFood", "Hotel"],
      "floor": {"categories": ["food", "containers", "tools"], "tags": ["floor"]},
