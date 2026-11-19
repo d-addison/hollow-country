@@ -23,7 +23,10 @@ class HCInteriorPlacementCursor
     protected ref array<ref HCInteriorFurnishRow> m_Deferred = new array<ref HCInteriorFurnishRow>;
     protected HCInteriorFurnishRow m_Current;
     protected bool m_Complete;
-    protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+    protected ref HCWorkBudget m_Budget = new HCPerfSlices("Interiors");
+
+    // One deadline/count for the outer furnishing loop, never one per slot.
+    void HCBeginTick() { m_Budget.HCReset(HCPerfConfig.HCGet().InteriorStepsPerTick); }
 
     bool HCComplete() { return m_Complete; }
     int HCLastCost() { return m_LastCost; }
@@ -32,7 +35,6 @@ class HCInteriorPlacementCursor
     {
         m_LastCost = CHEAP_UNITS;
         if (m_Complete || !HCInteriorTemplates.Loaded()) { return; }
-        m_Budget.HCReset(1);
         if (!m_Budget.HCContinue()) { m_Budget.HCDeferred("Interiors", 1); return; }
         array<ref HCInteriorFurnishRow> rows = HCInteriorTemplates.FurnishRows();
         if (!m_Current)

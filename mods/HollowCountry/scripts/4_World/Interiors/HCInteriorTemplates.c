@@ -156,9 +156,15 @@ class HCInteriorTemplates
         return false;
     }
 
-    // HCReadChunk alone owns byte/file accounting and strict parsing.
+    // The staged adapter and HCReadChunk share the retained job accounting.
     static string ReadStrict(string fileName, string schema, string pin)
     {
+        // Production staged parser has already checked the same binding/schema.
+        if (s_Job.Pins.Get("__prepared_file") == fileName)
+        {
+            s_Job.Pins.Set("__prepared_file", "");
+            return s_Job.Pins.Get("__prepared_text");
+        }
         string content = HCInteriorPackIndex.HCReadChunk(s_Job, fileName, schema, pin);
         if (s_Job.Reason != "") { Refuse(s_Job.Reason); }
         return content;
@@ -759,6 +765,28 @@ class HCInteriorTemplates
         return config.TemplateLoadStepsPerTick;
     }
 
+    // Native EnScript.c:400 array.Get, :380 Count (installed 1.30.164289).
+    // Only the production slice adapter asks for the next leaf. Metadata and
+    // transitions retain the original reader's admission/ordering checks.
+    static string HCNextLeaf()
+    {
+        if (s_Loaded || s_Reason != "") { return ""; }
+        if (!s_Job.Ready)
+        {
+            if (s_Job.Started && s_Job.Header && s_Job.NextPage < s_Job.Header.IndexFiles.Count()) { return s_Job.Header.IndexFiles.Get(s_Job.NextPage).FileName; }
+            return "";
+        }
+        if (s_Job.PendingClasses || s_Job.PendingGroups || s_Job.PendingFurnish) { return ""; }
+        HCInteriorTemplateIndex nextIndex = s_Job.Index;
+        if (s_LoadPhase == 0 && s_LoadChunk < nextIndex.ClassFiles.Count()) { return nextIndex.ClassFiles.Get(s_LoadChunk).FileName; }
+        if (s_LoadPhase == 1 && s_LoadChunk < nextIndex.GroupFiles.Count()) { return nextIndex.GroupFiles.Get(s_LoadChunk).FileName; }
+        if (s_LoadPhase == 2 && s_LoadChunk < nextIndex.TemplateFiles.Count()) { return nextIndex.TemplateFiles.Get(s_LoadChunk).FileName; }
+        if (s_LoadPhase == 3 && s_LoadChunk < nextIndex.FurnishFiles.Count()) { return nextIndex.FurnishFiles.Get(s_LoadChunk).FileName; }
+        return "";
+    }
+
+    static HCInteriorPackJob HCPackJob() { return s_Job; }
+
     // 1 budget exhausted; 3 metadata page merged (caller may take another step).
     static int HCLoadStep(HCInteriorConfig legacy, HCWorkBudget budget)
     {
@@ -790,18 +818,25 @@ class HCInteriorTemplates
                 s_LoadChunk = 0;
                 return 0;
             }
-            HCInteriorTemplateFile classFile = index.ClassFiles.Get(s_LoadChunk);
-            content = ReadStrict(classFile.FileName, "classes", classFile.Sha256);
-            HCInteriorTemplateClasses classes = new HCInteriorTemplateClasses;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateClasses>.LoadData(content, classes, error) || classes.SchemaVersion != 2 || classes.Chunk != s_LoadChunk || !classes.Rows || classes.Rows.Count() < 1 || classes.Rows.Count() > 160)
-
+            if (!s_Job.PendingClasses)
             {
-                Refuse("classes_chunk");
-                return 2;
+                HCInteriorTemplateFile classFile = index.ClassFiles.Get(s_LoadChunk);
+                content = ReadStrict(classFile.FileName, "classes", classFile.Sha256);
+                HCInteriorTemplateClasses classes = new HCInteriorTemplateClasses;
+                if (content == "" || !JsonFileLoader<HCInteriorTemplateClasses>.LoadData(content, classes, error) || classes.SchemaVersion != 2 || classes.Chunk != s_LoadChunk || !classes.Rows || classes.Rows.Count() < 1 || classes.Rows.Count() > 160)
+
+                {
+                    Refuse("classes_chunk");
+                    return 2;
+                }
+                s_Job.PendingClasses = classes;
+                s_Job.ValidateNext = 0;
+                return 0;
             }
-            foreach (HCInteriorTemplateClassRow classRow : classes.Rows)
-
+            if (s_Job.ValidateNext < s_Job.PendingClasses.Rows.Count())
             {
+                HCInteriorTemplateClassRow classRow = s_Job.PendingClasses.Rows.Get(s_Job.ValidateNext);
+
                 if (!classRow || !HCSearchRules.TextValid(classRow.BuildingClass, 128) || !Disposition(classRow.Rooms) || !Disposition(classRow.Furniture) || !Disposition(classRow.Search) || FindClass(classRow.BuildingClass) || s_Classes.Count() >= 2048)
 
                 {
@@ -811,7 +846,11 @@ class HCInteriorTemplates
                 if (!EngineHouse(classRow.BuildingClass)) { Refuse("house_denominator"); return 2; }
                 s_Classes.Insert(classRow);
                 s_ClassIndex.Set(classRow.BuildingClass, classRow);
+                s_Job.ValidateNext = s_Job.ValidateNext + 1;
+                return 0;
             }
+            s_Job.PendingClasses = null;
+
         }
         if (s_LoadPhase == 1)
         {
@@ -821,18 +860,25 @@ class HCInteriorTemplates
                 s_LoadChunk = 0;
                 return 0;
             }
-            HCInteriorTemplateFile groupFile = index.GroupFiles.Get(s_LoadChunk);
-            content = ReadStrict(groupFile.FileName, "groups", groupFile.Sha256);
-            HCInteriorTemplateGroups groups = new HCInteriorTemplateGroups;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateGroups>.LoadData(content, groups, error) || groups.SchemaVersion != 2 || groups.Chunk != s_LoadChunk || !groups.Groups || groups.Groups.Count() < 1 || groups.Groups.Count() > 512)
-
+            if (!s_Job.PendingGroups)
             {
-                Refuse("groups_chunk");
-                return 2;
+                HCInteriorTemplateFile groupFile = index.GroupFiles.Get(s_LoadChunk);
+                content = ReadStrict(groupFile.FileName, "groups", groupFile.Sha256);
+                HCInteriorTemplateGroups groups = new HCInteriorTemplateGroups;
+                if (content == "" || !JsonFileLoader<HCInteriorTemplateGroups>.LoadData(content, groups, error) || groups.SchemaVersion != 2 || groups.Chunk != s_LoadChunk || !groups.Groups || groups.Groups.Count() < 1 || groups.Groups.Count() > 512)
+
+                {
+                    Refuse("groups_chunk");
+                    return 2;
+                }
+                s_Job.PendingGroups = groups;
+                s_Job.ValidateNext = 0;
+                return 0;
             }
-            foreach (HCInteriorSearchGroup groupRow : groups.Groups)
-
+            if (s_Job.ValidateNext < s_Job.PendingGroups.Groups.Count())
             {
+                HCInteriorSearchGroup groupRow = s_Job.PendingGroups.Groups.Get(s_Job.ValidateNext);
+
                 if (!groupRow || !HCSearchRules.TextValid(groupRow.Id, 128) || FindGroup(groupRow.Id) || !Container(groupRow.Container) || !Texts(groupRow.Usages, 0, 8192) || !Texts(groupRow.Categories, 1, 8192) || !Texts(groupRow.Tags, 0, 8192) || !Texts(groupRow.Items, 1, 1024) || s_Groups.Count() >= 32768)
 
                 {
@@ -841,7 +887,11 @@ class HCInteriorTemplates
                 }
                 s_Groups.Insert(groupRow);
                 s_GroupIndex.Set(groupRow.Id, groupRow);
+                s_Job.ValidateNext = s_Job.ValidateNext + 1;
+                return 0;
             }
+            s_Job.PendingGroups = null;
+
         }
         if (s_LoadPhase == 2)
         {
@@ -872,18 +922,25 @@ class HCInteriorTemplates
                 s_LoadCheck = 0;
                 return 0;
             }
-            HCInteriorTemplateFile furnishFile = index.FurnishFiles.Get(s_LoadChunk);
-            content = ReadStrict(furnishFile.FileName, "furnish", furnishFile.Sha256);
-            HCInteriorTemplateFurnish furnish = new HCInteriorTemplateFurnish;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateFurnish>.LoadData(content, furnish, error) || furnish.SchemaVersion != 2 || furnish.Chunk != s_LoadChunk || !furnish.Rows || furnish.Rows.Count() < 1 || furnish.Rows.Count() > 128)
-
+            if (!s_Job.PendingFurnish)
             {
-                Refuse("furnish_chunk");
-                return 2;
+                HCInteriorTemplateFile furnishFile = index.FurnishFiles.Get(s_LoadChunk);
+                content = ReadStrict(furnishFile.FileName, "furnish", furnishFile.Sha256);
+                HCInteriorTemplateFurnish furnish = new HCInteriorTemplateFurnish;
+                if (content == "" || !JsonFileLoader<HCInteriorTemplateFurnish>.LoadData(content, furnish, error) || furnish.SchemaVersion != 2 || furnish.Chunk != s_LoadChunk || !furnish.Rows || furnish.Rows.Count() < 1 || furnish.Rows.Count() > 128)
+
+                {
+                    Refuse("furnish_chunk");
+                    return 2;
+                }
+                s_Job.PendingFurnish = furnish;
+                s_Job.ValidateNext = 0;
+                return 0;
             }
-            foreach (HCInteriorFurnishRow furnishRow : furnish.Rows)
-
+            if (s_Job.ValidateNext < s_Job.PendingFurnish.Rows.Count())
             {
+                HCInteriorFurnishRow furnishRow = s_Job.PendingFurnish.Rows.Get(s_Job.ValidateNext);
+
                 if (!furnishRow || s_Furnish.Count() >= 1500)
 
                 {
@@ -891,7 +948,11 @@ class HCInteriorTemplates
                     return 2;
                 }
                 s_Furnish.Insert(furnishRow);
+                s_Job.ValidateNext = s_Job.ValidateNext + 1;
+                return 0;
             }
+            s_Job.PendingFurnish = null;
+
         }
         if (s_LoadPhase == 4)
         {
@@ -901,6 +962,7 @@ class HCInteriorTemplates
                 HCInteriorTemplateClassRow checkRow;
                 while (s_LoadCheck < s_Classes.Count() && coverageBatch < TEMPLATE_CHECKS_PER_STEP)
                 {
+                    if (coverageBatch > 0 && !budget.HCContinue()) { return 1; }
                     checkRow = s_Classes.Get(s_LoadCheck);
                     if (Covered(checkRow) != (FindTemplate(checkRow.BuildingClass) != null))
                     {
@@ -923,6 +985,7 @@ class HCInteriorTemplates
                 int furnishBatch = 0;
                 while (s_LoadCheck < s_Furnish.Count() && furnishBatch < TEMPLATE_CHECKS_PER_STEP)
                 {
+                    if (furnishBatch > 0 && !budget.HCContinue()) { return 1; }
                     if (!HCFurnishRowValid(s_Furnish.Get(s_LoadCheck))) { Refuse("furnish_binding_or_budget"); return 2; }
                     s_LoadCheck = s_LoadCheck + 1;
                     furnishBatch = furnishBatch + 1;

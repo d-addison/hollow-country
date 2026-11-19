@@ -1,5 +1,6 @@
 // W5-PERF-5: catalog <=4 authored rows/tick (4 ms cooperative guard);
-// <=one holdout/10s. Catalog checkpoints coalesce, creation/spend/raid
+// One row starts per >=10s; native stages/body probes resume on following ticks.
+// Catalog checkpoints coalesce, creation/spend/raid
 // barriers retain synchronous verified saves. Native scripts-1.30.164289:
 // 3_Game/Global/Game.c:914 GetTickTime; shared guard in HCWorkBudget.c.
 // LC-T408, #102. Native evidence: installed scripts-1.30.164289:
@@ -195,6 +196,11 @@ class HCHoldouts : HCModule
     protected ref array<ref HCWorldHoldout> m_ViewHomes = new array<ref HCWorldHoldout>;
     protected ref array<string> m_ViewKeys = new array<string>;
     protected int m_Next;
+    protected int m_TickPhase;
+    protected int m_TickIndex;
+    protected int m_BodyNext;
+    protected Object m_TickStructure;
+    protected bool m_CatalogWorked;
     protected float m_Elapsed;
     protected bool m_Ready;
     protected bool m_Dirty;
@@ -633,6 +639,7 @@ class HCHoldouts : HCModule
     protected int m_CatalogCursor;
     void FillCatalog()
     {
+        m_CatalogWorked = false;
         HCWorldModule world = HCWorldModule.Get();
         array<ref HCInteriorFurnishRow> authored = HCInteriorTemplates.FurnishRows();
         if (!world || !authored || m_State.Rows.Count() >= HCAILimits.Get().MaxHoldouts) return;
@@ -642,6 +649,7 @@ class HCHoldouts : HCModule
         while (work < 32 && m_CatalogCursor < authored.Count() && m_State.Rows.Count() < HCAILimits.Get().MaxHoldouts)
         {
             if (!m_WorkBudget.HCContinue()) { break; }
+            m_CatalogWorked = true;
             HCInteriorFurnishRow site = authored[m_CatalogCursor];
             m_CatalogCursor++;
             work++;
@@ -881,90 +889,145 @@ class HCHoldouts : HCModule
         if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_template_changed"); HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
         FillCatalog();
         if (m_CatalogDirty) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
-        // Catalog gets a small slice each module tick. Camp simulation retains
-        // its original cadence, so shrinking the slice does not delay discovery
-        // by another factor of ten.
-        if (!m_Ready || Count() == 0 || m_Elapsed < 10) { return; }
-        m_Elapsed = 0;
-        if (m_Next >= Count()) m_Next = 0;
+        // Discovery and simulation never receive independent slices in one tick.
+        if (m_CatalogWorked) { return; }
+        if (!m_Ready || Count() == 0) { return; }
+        if (m_TickPhase == 0)
+        {
+            if (m_Elapsed < 10) { return; }
+            m_Elapsed = 0;
+            if (m_Next >= Count()) m_Next = 0;
+            m_TickIndex = m_Next;
+            m_Next++;
+            m_TickPhase = 1;
+        }
         m_CampUnits.HCReset(1);
         m_WorkBudget.HCReset(1);
         if (!m_CampUnits.HCTake(1) || !m_WorkBudget.HCContinue()) { return; }
-        int index = m_Next;
-        m_Next++;
+        int index = m_TickIndex;
         HCHoldoutRow row = m_State.Rows[index];
         int now = HCWorldClock.UTC();
         if (now < row.Ledger.Since || now < 1) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_clock_rollback"); HCSyncLights(); return; }
         // Repair a cross-store interrupted publish even when a house/cache
         // cannot currently resolve. Local durable state is authoritative.
-        if (!row.Published)
+        if (m_TickPhase == 1)
         {
-            PublishState(row);
-            if (!SaveChanged()) { return; }
-        }
-        Object structure = Structure(index);
-        if (!structure) return;
-        if (row.Cache.Phase == 0 && HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500) && CacheSpot(structure, row) && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
-        {
-            row.Cache.Phase = 1;
-            m_Dirty = true;
-            if (!SaveChanged()) { return; }
-            m_Caches[index].Create(row.Cache);
-            m_Dirty = true;
-        }
-        int cachePhase = row.Cache.Phase;
-        string cacheRef = row.Cache.EntityRef;
-        if (row.Cache.Phase != 0) m_Caches[index].LinkCache(row.Cache);
-        if (cachePhase != row.Cache.Phase || cacheRef != row.Cache.EntityRef) m_Dirty = true;
-        if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) HCRaidCamp(index);
-        if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) HCRaidCamp(index);
-        if (!m_Ready) return;
-        string previousState = row.Ledger.State;
-        HCStepCamp(index, now);
-        if (!m_Ready) { return; }
-        for (int bodyIndex = m_Bodies.Count() - 1; bodyIndex >= 0; bodyIndex--)
-        {
-            HCHoldoutBody binding = m_Bodies[bodyIndex];
-            if (binding.HoldoutId != row.Ledger.Id) continue;
-            if (!binding.Body) { m_Bodies.Remove(bodyIndex); continue; }
-            if (binding.Body.IsAlive()) continue;
-            m_Bodies.Remove(bodyIndex);
-            HCAICampLifecycle.HCDeath(row.Camp);
-            m_Dirty = true;
-            HCRaidCamp(index);
-            SaveChanged();
-            if (!m_Ready) return;
-            previousState = row.Ledger.State;
-        }
-        if (!m_Ready) return;
-        if (row.Ledger.State != previousState)
-        {
-            m_Dirty = true;
-            if (!SaveChanged()) { return; }
-            PublishState(row);
-        }
-        if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")
-        {
-            HCSearchHouses houses = HCSearchBinding.Houses();
-            // Three lifetime attempts, one per real day. No replenishment on raid.
-            // HC-34: the remote house hop is refused; do not burn attempts or save for it.
-            if (houses && houses.V2VisitAvailable() && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() >= row.StockDay && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
+            if (!row.Published)
             {
-                int siteNumber = row.StockAttempts;
-                row.StockAttempts++;
-                row.StockDay = HCEscalationClock.Day() + 1;
+                PublishState(row);
+                if (!SaveChanged()) { return; }
+            }
+            m_TickPhase = 2;
+            return;
+        }
+        if (m_TickPhase == 2)
+        {
+            m_TickStructure = Structure(index);
+            if (!m_TickStructure) { m_TickPhase = 0; return; }
+            m_TickPhase = 3;
+            return;
+        }
+        Object structure = m_TickStructure;
+        if (!structure) { m_TickPhase = 0; return; }
+        if (m_TickPhase == 3)
+        {
+            if (row.Cache.Phase == 0 && HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500) && CacheSpot(structure, row) && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
+            {
+                row.Cache.Phase = 1;
                 m_Dirty = true;
                 if (!SaveChanged()) { return; }
-                int phase = houses.V2Visit(structure, Cache(index), row.Ledger.Id, siteNumber);
-                if (phase == 3) { row.StockAttempts = 3; m_Dirty = true; }
-                if (m_Reports < 12)
+                m_Caches[index].Create(row.Cache);
+                m_Dirty = true;
+            }
+            // Cache creation keeps its original intent/result save barriers.
+            if (!SaveChanged()) { return; }
+            m_TickPhase = 4;
+            return;
+        }
+        if (m_TickPhase == 4)
+        {
+            int cachePhase = row.Cache.Phase;
+            string cacheRef = row.Cache.EntityRef;
+            if (row.Cache.Phase != 0) m_Caches[index].LinkCache(row.Cache);
+            if (cachePhase != row.Cache.Phase || cacheRef != row.Cache.EntityRef) m_Dirty = true;
+            if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) HCRaidCamp(index);
+            if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) HCRaidCamp(index);
+            if (!m_Ready) return;
+            if (!SaveChanged()) { return; }
+            m_TickPhase = 5;
+            return;
+        }
+        if (m_TickPhase == 5)
+        {
+            string previousState = row.Ledger.State;
+            HCStepCamp(index, now);
+            if (!m_Ready) { return; }
+            if (row.Ledger.State != previousState)
+            {
+                m_Dirty = true;
+                if (!SaveChanged()) { return; }
+                PublishState(row);
+            }
+            m_BodyNext = m_Bodies.Count() - 1;
+            m_TickPhase = 6;
+            return;
+        }
+        if (m_TickPhase == 6)
+        {
+            // Native callbacks may shrink the binding list between continuations.
+            if (m_BodyNext >= m_Bodies.Count()) { m_BodyNext = m_Bodies.Count() - 1; }
+            if (m_BodyNext >= 0)
+            {
+                int bodyIndex = m_BodyNext;
+                m_BodyNext = m_BodyNext - 1;
+                HCHoldoutBody binding = m_Bodies[bodyIndex];
+                if (binding.HoldoutId != row.Ledger.Id) { return; }
+                if (!binding.Body) { m_Bodies.Remove(bodyIndex); return; }
+                if (binding.Body.IsAlive()) { return; }
+                m_Bodies.Remove(bodyIndex);
+                HCAICampLifecycle.HCDeath(row.Camp);
+                m_Dirty = true;
+                HCRaidCamp(index);
+                SaveChanged();
+                return;
+            }
+            m_TickPhase = 7;
+            return;
+        }
+        if (m_TickPhase == 7)
+        {
+            if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")
+            {
+                HCSearchHouses houses = HCSearchBinding.Houses();
+                // Three lifetime attempts, one per real day. No replenishment on raid.
+                // HC-34: the remote house hop is refused; do not burn attempts or save for it.
+                if (houses && houses.V2VisitAvailable() && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() >= row.StockDay && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
                 {
-                    m_Reports++;
-                    Print("[HollowCountry] V2 holdout stock id=" + row.Ledger.Id + " phase=" + phase.ToString());
+                    int siteNumber = row.StockAttempts;
+                    row.StockAttempts++;
+                    row.StockDay = HCEscalationClock.Day() + 1;
+                    m_Dirty = true;
+                    if (!SaveChanged()) { return; }
+                    int phase = houses.V2Visit(structure, Cache(index), row.Ledger.Id, siteNumber);
+                    if (phase == 3) { row.StockAttempts = 3; m_Dirty = true; }
+                    if (m_Reports < 12)
+                    {
+                        m_Reports++;
+                        Print("[HollowCountry] V2 holdout stock id=" + row.Ledger.Id + " phase=" + phase.ToString());
+                    }
                 }
             }
+            if (!SaveChanged()) { return; }
+            m_TickPhase = 8;
+            return;
         }
-        if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") SnapshotContents(index);
+        if (m_TickPhase == 8)
+        {
+            if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") SnapshotContents(index);
+            if (!SaveChanged()) { return; }
+            m_TickPhase = 9;
+            return;
+        }
         if (row.Ledger.CacheRef != row.Cache.EntityRef)
         {
             row.Ledger.CacheRef = row.Cache.EntityRef;
@@ -978,10 +1041,15 @@ class HCHoldouts : HCModule
             if (row.Published) m_Dirty = true;
         }
         SaveChanged();
+        m_TickPhase = 0;
+        m_TickStructure = null;
     }
+
 
     override void OnStop()
     {
+        m_TickPhase = 0;
+        m_TickStructure = null;
         // Flush changes marked by native callbacks since the last tick; a faulted store stays unwritten.
         if (m_Ready && m_State) { SaveChanged(); }
         HCSaveScheduler.HCUnregister(m_SaveJob);
@@ -996,6 +1064,41 @@ class HCHoldouts : HCModule
         m_ViewHomes.Clear();
         m_ViewKeys.Clear();
         if (s_Instance == this) s_Instance = null;
+    }
+}
+
+// Native EnSystem.c:106 TickCount; EnDebug.c:96 Print; EnMath.c:553 Min. Measure every
+// continuation, including catalog and no-op ticks, with the shared step timer.
+modded class HCHoldouts
+{
+    protected ref HCStepTimer m_TickSteps = new HCStepTimer("Holdouts");
+    override void OnStart(HCSettings settings)
+    {
+        super.OnStart(settings);
+        m_TickSteps = new HCStepTimer("Holdouts");
+        m_TickSteps.HCDefine("catalog");
+        m_TickSteps.HCDefine("publish");
+        m_TickSteps.HCDefine("resolve");
+        m_TickSteps.HCDefine("cache_create");
+        m_TickSteps.HCDefine("cache_link");
+        m_TickSteps.HCDefine("camp");
+        m_TickSteps.HCDefine("bodies");
+        m_TickSteps.HCDefine("stock_commit");
+        Print("[HC PerfControl] Holdouts resumable row stages admitted; runtime=PENDING");
+    }
+    override void OnTick(float deltaTime)
+    {
+        int tickStart = TickCount(0);
+        int continuation = Math.Min(m_TickPhase, HCStepTimer.MAX_STEPS - 1);
+        int catalogBefore = m_CatalogCursor;
+        super.OnTick(deltaTime);
+        int elapsedTicks = TickCount(tickStart);
+        m_TickSteps.HCAdd(continuation, elapsedTicks);
+        if (continuation > 0 || m_TickPhase > 0 || catalogBefore != m_CatalogCursor)
+        {
+            m_TickSteps.HCItem("holdout_stage", elapsedTicks);
+        }
+        m_TickSteps.HCEndTick(elapsedTicks);
     }
 }
 
