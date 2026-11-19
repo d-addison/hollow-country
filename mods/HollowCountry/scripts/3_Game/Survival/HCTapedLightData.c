@@ -50,6 +50,24 @@ class HCTapedLightMountSettings
     ref TStringArray permittedPairIds = new TStringArray;
 }
 
+// HC-52 loader DTOs for lights/backpack-mounts.json (#58). Only the closed
+// preference defaults are read; every other manifest key is review data. Ints
+// keep a zero initializer, so a missing field loads as 0 and is refused; the
+// loader also requires HCJsonFields presence first. The file never qualifies.
+class HCTapedPackSettingsContract
+{
+    bool DefaultCrossSlotLights = false;
+    ref TStringArray DefaultPermittedPairIds = new TStringArray;
+    int MaxPermittedPairIds;
+}
+
+class HCTapedPackManifest
+{
+    int SchemaVersion;
+    bool Qualified = false;
+    ref HCTapedPackSettingsContract SettingsContract = new HCTapedPackSettingsContract;
+}
+
 class HCTapedLightSnapshot
 {
     string ActorId;

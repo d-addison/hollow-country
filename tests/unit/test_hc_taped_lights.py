@@ -209,7 +209,7 @@ class TapedLightConservationTests(unittest.TestCase):
         status = NS(HCPublish=lambda *args: logs.append(args), HCStop=lambda: logs.append("stop"))
         module = NS(mHCStarted=False, mHCStatus=status, PairRefusal=gate.PairRefusal,
                     CrossSlotEnabled=gate.CrossSlotEnabled, Reset=gate.Reset,
-                    mHCPermitted=gate.mHCPermitted)
+                    LoadSettings=lambda: "", mHCPermitted=gate.mHCPermitted)
         env["Print"] = logs.append
         self.assertIs(status, helmet_member(PACKS, "HCTapedPackMounts", "HCGetOperationalStatus", module, env))
         for _ in range(2):
@@ -221,7 +221,7 @@ class TapedLightConservationTests(unittest.TestCase):
             self.assertIn(field, plan[0])
         pair_lines = [line for line in logs if isinstance(line, str) and "HC-52 pair=" in line]
         self.assertEqual(2, len(pair_lines))
-        self.assertIn(("off", "pack_mount_geometry_pending"), logs)
+        self.assertIn(("off", "cross_slot_disabled"), logs)  # loader: test_hc_taped_pack_loader
         self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=EArray([
             "tortilla_universal_cross"]))))
         helmet_member(PACKS, "HCTapedPackMounts", "OnStop", module, env)
