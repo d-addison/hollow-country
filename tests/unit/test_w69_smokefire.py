@@ -125,7 +125,7 @@ class FundedIgnitionTests(unittest.TestCase):
             GetOrientation = staticmethod(house.GetOrientation)
         house = House()
         actor = N(IsAlive=lambda: True, GetPosition=lambda: [1, 0, 1])
-        policy = N(s_Running=True, s_AttemptCursor=0, s_Attempts=NativeMap(), s_Lit=EArray(), s_Spending=None,
+        policy = N(s_Running=True, s_ReclaimFirst=False, s_AttemptCursor=0, s_Attempts=NativeMap(), s_Lit=EArray(), s_Spending=None,
                    s_Budget=N(HCReset=lambda n: None, HCContinue=lambda: True),
                    HCRefuse=lambda reason: refusals.append(reason) or False,
                    HCObserve=lambda fire, house: seen.append((fire, house)),
@@ -152,6 +152,31 @@ class FundedIgnitionTests(unittest.TestCase):
         return N(light=lambda target=house: light(target, actor, stash, 'holdout', 'synthetic-home'),
                  cargo=cargo, created=created, refusals=refusals, paper=paper, wood=wood,
                  matches=matches, policy=policy, now=now, hidden=hidden, stash=stash, cfg=cfg, env=env, house=house)
+
+    def test_reclamation_and_dispatch_progress_under_sustained_budget_exhaustion(self):
+        from tests.unit.tick_budget_fixture import new_budget, constants
+        f = self.fixture()
+        work = new_budget()
+        ids = constants()
+        f.env['HCUnitBudget'] = N(**ids)
+        f.env['HCServer'].HCTickWork = lambda: work
+        f.policy.s_HoldoutCursor = 0
+        dispatches = []
+        f.env['HCHoldouts'].Get = lambda: N(Count=lambda: 1, HCHearthLight=dispatches.append)
+        fresh = object()
+        expired = [object() for _ in range(4)]
+        f.cfg.MaxHearths = len(expired) + 1
+        f.policy.s_Attempts.Set(fresh, f.now[0] + 1000)
+        for house in expired:
+            f.policy.s_Attempts.Set(house, f.now[0])
+        for _ in range(120):
+            work.HCReset(1)
+            self.assertTrue(work.HCTakeFor(ids['HC_WORK_INFECTED'], 1))
+            f.policy.HCTick()
+            self.assertLessEqual(work.HCUsed(), 2, 'use only the existing forced hearth allowance')
+            f.now[0] += 1
+        self.assertEqual({fresh}, set(f.policy.s_Attempts), 'expired attempts must clear under sustained exhaustion')
+        self.assertGreaterEqual(len(dispatches), 60, 'holdout dispatch must retain regular progress')
 
     def test_reclamation_does_not_starve_funded_holdout_with_two_units_left(self):
         from tests.unit.tick_budget_fixture import new_budget, constants
