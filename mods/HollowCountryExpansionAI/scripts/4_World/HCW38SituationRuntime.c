@@ -13,6 +13,14 @@
 // 1_Core/proto/EnScript.c:380 Count, :385 Clear, :394 Find, :407 Insert;
 // 1_Core/proto/EnDebug.c:96 Print; EnSystem.c:397 FileExist; EnScript.c:463 Remove.
 // Native Game.c:930 GetObjectsAtPosition3D; EnConvert.c:210 DistanceSq.
+// #210 native additions: 3_Game/Entities/EntityAI.c:882
+// GetHierarchyRootPlayer, :885 GetHierarchyParent; Entities/Man.c:21
+// GetIdentity, :147 ServerDropEntity; Object.c:467 GetType.
+// Expansion xref/ai/4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234
+// GetGroup. No driving controller is exposed by the inspected vehicle FSM:
+// Classes/FSM/States/eAIState_Vehicles.c:35 rejects the formation leader;
+// :46-58 considers passenger seats only. Entities/AI/eAIBase.c:4404
+// Notify_Transport only queues entry (:7419-7425), not steering/throttle.
 // No actor teleport, new AI owner, target assignment, door change or loot mint.
 class HCW38SituationBinding
 {
@@ -21,6 +29,14 @@ class HCW38SituationBinding
     string Profile;
     eAIGroup Group;
     eAIWaypointBehavior Behaviour;
+    ItemBase SmokeStock;
+    eAIBase SmokeOwner;
+    ref HCW38SituationSmokeStock SmokeScan;
+    int SmokeMember;
+    int SmokeAttempts;
+    bool SmokeDropped;
+    bool SmokeDone;
+    bool FactPublished;
     ref array<vector> Original = new array<vector>;
     ref array<eAIBase> Members = new array<eAIBase>;
     ref array<ZombieBase> Threats = new array<ZombieBase>;
@@ -64,7 +80,7 @@ class HCW38SituationRuntime
         {
             s_Logged = true;
             Print(HCV2Admission.Line("Situations", true, "w38_situations", false) + " runtime=PENDING");
-            Print("[HC Situations] SITUATION_VEHICLE_DRIVING_PORT_MISSING road_branch=walking_caravan runtime=PENDING");
+            Print("[HC Situations] SITUATION_VEHICLE_DRIVING_PORT_MISSING provider=passenger_only road_branch=walking_caravan runtime=PENDING");
         }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!HCPolicy()) { return false; }
@@ -110,7 +126,7 @@ class HCW38SituationRuntime
         if (candidate.ProviderFaction == "HCRaiders") { return false; }
         eAIBase leader = eAIBase.Cast(group.GetMember(0));
         if (!leader || !leader.IsAlive()) { return false; }
-        if (profile == "survivor") { return MiscGameplayFunctions.IsUnderRoof(leader); }
+        if (profile == "survivor") { return MiscGameplayFunctions.IsUnderRoof(leader) || HCWreckNear(leader.GetPosition()); }
         string surface;
         vector at = leader.GetPosition();
         GetGame().SurfaceGetType(at[0], at[2], surface);
@@ -240,35 +256,119 @@ class HCW38SituationRuntime
         binding.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
     }
 
-    static void HCSignals(HCW38SituationBinding binding)
+    // Existing ShelterMeters is validated against the shared registry BEFORE
+    // native allocation. Game.c:930 exposes a radius, no result-count argument.
+    // PhysicalScanObjects/Cargo additionally cap post-query inspection; they
+    // cannot cap native density/allocation inside the bounded sphere.
+    static bool HCWreckNear(vector position)
     {
-        eAIBase witness = eAIBase.Cast(binding.Group.GetMember(0));
-        if (!witness) { return; }
-        if (!HCSituationSignals.HCPublish(witness.GetPosition()) && !s_FactPending)
-        {
-            s_FactPending = true;
-            Print("[HC Situations] SITUATION_FACT_PLACE_PENDING discovery=native_perception runtime=PENDING");
-        }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+        float radius = s_Policy.ShelterMeters;
+        if (radius != radius || !HCOperatorSettingsRegistry.HCValid("W38Situations.ShelterMeters", radius)) { return HCRefuse("SITUATION_SCAN_RADIUS_REFUSED"); }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return false; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(witness.GetPosition(), s_Policy.ShelterMeters, nearby, proxies);
-        // Native query allocates before this bound; target-load cost unmeasured.
-        if (nearby.Count() > s_Policy.PhysicalScanObjects) { return; }
+        GetGame().GetObjectsAtPosition3D(position, radius, nearby, proxies);
+        if (nearby.Count() > s_Policy.PhysicalScanObjects || proxies.Count() > s_Policy.PhysicalScanCargo) { return HCRefuse("SITUATION_WRECK_SCAN_CAP"); }
+        foreach (Object shelter : nearby)
+        {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return false; }
+            // Reuse the reviewed vanilla wreck catalog; no vehicle creation,
+            // salvage debit, extra supplies, movement or door changes.
+            if (shelter && HCWreckSalvage.Reviewed(shelter.GetType())) { return true; }
+        }
+        return false;
+    }
+
+    static ItemBase HCLeaseSmoke(HCW38SituationBinding binding)
+    {
+        if (binding.SmokeStock) { return binding.SmokeStock; }
+        // One retained member cursor per attempt. PhysicalScanObjects bounds
+        // the entire inventory traversal, and the shared budget bounds each tick.
+        if (binding.SmokeMember >= binding.Members.Count()) { return null; }
+        eAIBase holder = binding.Members[binding.SmokeMember];
+        if (!holder || !holder.IsAlive() || holder.GetIdentity() || holder.GetGroup() != binding.Group)
+        {
+            binding.SmokeMember++;
+            binding.SmokeScan = null;
+            return null;
+        }
+        if (!binding.SmokeScan)
+        {
+            binding.SmokeScan = new HCW38SituationSmokeStock;
+            binding.SmokeScan.HCStart(holder, "");
+        }
+        ItemBase stock = binding.SmokeScan.HCStep(s_Policy.PhysicalScanObjects);
+        if (stock)
+        {
+            binding.SmokeOwner = holder;
+            binding.SmokeStock = stock;
+            binding.SmokeScan = null;
+        }
+        else if (binding.SmokeScan.Complete)
+        {
+            binding.SmokeMember++;
+            binding.SmokeScan = null;
+        }
+        return stock;
+    }
+
+    static void HCSmokeFailed(HCW38SituationBinding binding, string reason)
+    {
+        // ScanRows also bounds retries after the initial signal attempt. A
+        // refused budget preserves the same binding/item until this finite cap.
+        if (binding.SmokeAttempts <= s_Policy.ScanRows) { return; }
+        binding.SmokeDone = true;
+        binding.SmokeScan = null;
+        HCRefuse("SITUATION_SMOKE_RETRY_EXHAUSTED_" + reason);
+    }
+
+    static void HCSignals(HCW38SituationBinding binding)
+    {
+        if (!binding || binding.SmokeDone) { return; }
+        if (FileExist("$profile:HollowCountry/acceptance/w38_situations.disable") || !HCProfileOn(binding.Profile)) { return; }
+        if (!HCWorldMaterializer.HCIdentity(binding.Lease)) { return; }
+        binding.SmokeAttempts++;
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { HCSmokeFailed(binding, "BUDGET"); return; }
+        eAIBase witness = eAIBase.Cast(binding.Group.GetMember(0));
+        if (!witness || !witness.IsAlive()) { HCSmokeFailed(binding, "WITNESS"); return; }
+        if (!binding.FactPublished)
+        {
+            binding.FactPublished = HCSituationSignals.HCPublish(witness.GetPosition());
+            if (!binding.FactPublished && !s_FactPending)
+            {
+                s_FactPending = true;
+                Print("[HC Situations] SITUATION_FACT_PLACE_PENDING discovery=native_perception runtime=PENDING");
+            }
+        }
         HCXAISiteDirector signalDirector = HCXAISiteDirector.Active();
-        if (!signalDirector) { return; }
-        foreach (Object signalCandidate : nearby)
+        if (!signalDirector || signalDirector.MemberProblemFor(witness.GetPosition()) != "") { HCSmokeFailed(binding, "VISIBILITY"); return; }
+        ItemBase signalStock = HCLeaseSmoke(binding);
+        if (!signalStock)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
-            if (!SmokeGrenadeBase.Cast(signalCandidate)) { continue; }
-            if (signalDirector.MemberProblemFor(signalCandidate.GetPosition()) != "") { continue; }
-            if (HCSituationSignals.HCSmoke(signalCandidate)) { return; }
+            if (!s_SmokePending)
+            {
+                s_SmokePending = true;
+                Print("[HC Situations] SITUATION_SMOKE_STOCK_PENDING discovery=gunfire_and_shared_facts runtime=PENDING");
+            }
+            HCSmokeFailed(binding, "STOCK");
+            return;
         }
-        if (!s_SmokePending)
+        if (signalStock.IsPendingDeletion()) { HCSmokeFailed(binding, "STOCK_LOST"); return; }
+        if (!binding.SmokeDropped)
         {
-            s_SmokePending = true;
-            Print("[HC Situations] SITUATION_SMOKE_STOCK_PENDING discovery=gunfire_and_shared_facts runtime=PENDING");
+            // Ownership is captured while it is still in the leased actor's
+            // inventory. Never adopt an item from the world or another owner.
+            if (!binding.SmokeOwner || signalStock.GetHierarchyRootPlayer() != binding.SmokeOwner) { HCSmokeFailed(binding, "OWNERSHIP"); return; }
+            if (signalDirector.MemberProblemFor(binding.SmokeOwner.GetPosition()) != "") { HCSmokeFailed(binding, "VISIBILITY"); return; }
+            if (!binding.SmokeOwner.ServerDropEntity(signalStock)) { HCSmokeFailed(binding, "DROP"); return; }
+            binding.SmokeDropped = true;
         }
+        if (signalStock.GetHierarchyRootPlayer() || signalStock.GetHierarchyParent()) { HCSmokeFailed(binding, "OWNERSHIP"); return; }
+        if (vector.DistanceSq(signalStock.GetPosition(), witness.GetPosition()) > s_Policy.ShelterMeters * s_Policy.ShelterMeters) { HCSmokeFailed(binding, "DISTANCE"); return; }
+        if (signalDirector.MemberProblemFor(signalStock.GetPosition()) != "") { HCSmokeFailed(binding, "VISIBILITY"); return; }
+        if (!HCSituationSignals.HCSmoke(signalStock)) { HCSmokeFailed(binding, "NATIVE_STOCK"); return; }
+        binding.SmokeDone = true;
+        Print("[HC Situations] SITUATION_SMOKE_ACTIVATED lease=" + binding.Lease + " runtime=PENDING");
     }
 
     static bool HCThreaten(HCXAISiteState party, HCW38SituationBinding binding)
@@ -343,6 +443,7 @@ class HCW38SituationRuntime
     static string HCObserve(HCSituationState opportunity)
     {
         if (!opportunity || !s_Active || opportunity.Id != s_Active.Id) { return ""; }
+        HCSignals(s_Active);
         array<eAIBase> members = s_Active.Members;
         if (!members || members.Count() == 0) { return ""; }
         foreach (eAIBase member : members)
