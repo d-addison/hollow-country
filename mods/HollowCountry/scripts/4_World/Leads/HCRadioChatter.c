@@ -9,6 +9,7 @@
 // 3_Game/Entities/Object.c:215,287,517,1219 deletion/position/alive/ruined;
 // 3_Game/Entities/Man.c:21 GetIdentity; gameplay.c:368 identity GetId;
 // 3_Game/tools/Component/ComponentEnergyManager.c:884,925 switch/work;
+// 3_Game/Systems/DynamicMusicPlayer/DynamicMusicPlayer.c:210-211 flat vector;
 // 3_Game/Global/Game.c:1120 IsServer; 1_Core/proto/EnConvert.c:210 DistanceSq;
 // EnConvert.c:30,115 int/float.ToString;
 // 3_Game/Client/Notifications/NotificationSystem.c:141 identity-targeted notification;
@@ -34,6 +35,7 @@ class HCRadioChatter : HCModule
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected ref array<Man> m_Listeners = new array<Man>();
     protected ref array<ref HCWorldLead> m_Fallback = new array<ref HCWorldLead>();
+    protected ref array<ref HCWorldFact> m_Facts = new array<ref HCWorldFact>();
     protected ref HCWorldLead m_Report;
     protected HCRadioChannel m_Channel;
     protected string m_Text;
@@ -43,6 +45,7 @@ class HCRadioChatter : HCModule
     protected int m_Recipients;
     protected float m_Elapsed = 60;
     protected bool m_Committed;
+    protected bool m_FromFallback;
     protected bool m_Ready;
     protected bool m_AdmissionPrinted;
 
@@ -87,11 +90,9 @@ class HCRadioChatter : HCModule
             return;
         }
         m_LegacyRates = new HCMorseRateStore;
-        if (!m_LegacyRates.Open())
-        {
-            m_Status.HCPublish("refused", "legacy_rate_store_fault");
-            return;
-        }
+        // The retired ledger is advisory migration input. Its own one-line
+        // fault diagnostic leaves ordinary shared channel receipts authoritative.
+        m_LegacyRates.Open();
         if (m_Store.Data.Channels.Count() == 0)
         {
             array<string> factions = {"locals", "volunteers", "scavengers", "raiders", "travellers"};
@@ -145,8 +146,45 @@ class HCRadioChatter : HCModule
         if (!player || !HCLeadPolicy.Valid(report) || report.Source != "world" || !(m_Defaults.ReportRangeMetres > 0)) { return false; }
         HCWorldPlace place = HCLeadPolicy.Place(report.TargetPlaceId);
         if (!place) { return false; }
-        float distanceSq = vector.DistanceSq(player.GetPosition(), place.Position);
+        // Authored place height is not terrain height: range is horizontal.
+        vector listenerPosition = player.GetPosition();
+        vector placePosition = place.Position;
+        listenerPosition[1] = 0;
+        placePosition[1] = 0;
+        float distanceSq = vector.DistanceSq(listenerPosition, placePosition);
         return distanceSq >= 0 && distanceSq <= m_Defaults.ReportRangeMetres * m_Defaults.ReportRangeMetres;
+    }
+
+    bool HasListener(HCWorldLead report)
+    {
+        foreach (Man candidateListener : m_Listeners)
+        {
+            PlayerBase player = PlayerBase.Cast(candidateListener);
+            if (Receiving(player, m_Channel.Frequency) && InReportRange(player, report)) { return true; }
+        }
+        return false;
+    }
+
+    HCWorldLead LatestInRange()
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!world) { return null; }
+        // Shared history is bounded and newest-first. At most 32 candidate facts
+        // and MaxListeners retained players are considered per channel start.
+        world.GetRecentFacts(604800, m_Facts);
+        int now = HCWorldClock.UTC();
+        int checked;
+        foreach (HCWorldFact fact : m_Facts)
+        {
+            checked = checked + 1;
+            if (checked > 32) { break; }
+            HCWorldLead candidate = new HCWorldLead;
+            if (!HCLeadPolicy.Build(fact, candidate, fact.PlaceId, HCLeadPolicy.Kind(fact.Kind), now) || !HCLeadPolicy.Valid(candidate)) { continue; }
+            candidate.Id = fact.Kind + "-" + fact.PlaceId + "-" + fact.At.ToString();
+            candidate.Source = "world";
+            if (HasListener(candidate)) { return candidate; }
+        }
+        return null;
     }
 
     void BeginChannel()
@@ -155,24 +193,11 @@ class HCRadioChatter : HCModule
         m_Channel = m_Store.Data.Channels[m_ChannelCursor];
         m_ChannelCursor = (m_ChannelCursor + 1) % 5;
         int now = HCWorldClock.UTC();
-        if (now < 1 || m_Channel.LastSent > now || now - m_Channel.LastSent < 600 || m_Channel.Sequence >= 2147483647) { m_Channel = null; return; }
-        m_Report = null;
-        while (m_Fallback.Count() > 0)
+        if (now < 1 || m_Channel.LastSent > now || now - m_Channel.LastSent < 600 || m_Channel.Sequence >= 2147483647)
         {
-            HCWorldLead queued = m_Fallback[0];
-            m_Fallback.RemoveOrdered(0);
-            if (queued.Expires > now && queued.Source == "world") { m_Report = queued; break; }
-        }
-        HCLeadModule leads = HCLeadModule.Get();
-        if (!m_Report && leads) { m_Report = leads.Latest(); }
-        // No canned NPC advice, briefing or notification when no fact exists.
-        if (!m_Report || !HCLeadPolicy.Valid(m_Report) || m_Report.Source != "world" || m_Report.Expires <= now) { m_Channel = null; return; }
-        m_Text = HCLeadPolicy.Text(m_Report);
-        if (m_Report.TextId == "morse_lead")
-        {
-            HCWorldPlace place = HCLeadPolicy.Place(m_Report.TargetPlaceId);
-            if (!place) { m_Channel = null; return; }
-            m_Text = "An earlier event was reported near " + place.Name + ". This is old news; things may have changed.";
+            m_Status.HCPublish("ready", "channel_cooldown_or_clock");
+            m_Channel = null;
+            return;
         }
         array<Man> roster = HCPerfPlayers.HCGet();
         m_Listeners.Clear();
@@ -183,6 +208,37 @@ class HCRadioChatter : HCModule
             return;
         }
         foreach (Man listener : roster) { m_Listeners.Insert(listener); }
+        m_Report = null;
+        m_FromFallback = false;
+        // Only note-origin fallback entries may survive a channel attempt.
+        // Scan the initial bounded queue once; distant notes cannot block facts.
+        int queuedCount = m_Fallback.Count();
+        while (queuedCount > 0)
+        {
+            queuedCount = queuedCount - 1;
+            HCWorldLead queued = m_Fallback[0];
+            m_Fallback.RemoveOrdered(0);
+            if (!HCLeadPolicy.Valid(queued) || queued.Expires <= now || queued.Source != "world") { continue; }
+            if (!HasListener(queued)) { m_Fallback.Insert(queued); continue; }
+            m_Report = queued;
+            m_FromFallback = true;
+            break;
+        }
+        if (!m_Report) { m_Report = LatestInRange(); }
+        // No canned NPC advice, briefing or notification when no fact exists.
+        if (!m_Report || !HCLeadPolicy.Valid(m_Report) || m_Report.Source != "world" || m_Report.Expires <= now)
+        {
+            m_Status.HCPublish("ready", "no_in_range_fact");
+            m_Channel = null;
+            return;
+        }
+        m_Text = HCLeadPolicy.Text(m_Report);
+        if (m_Report.TextId == "morse_lead")
+        {
+            HCWorldPlace place = HCLeadPolicy.Place(m_Report.TargetPlaceId);
+            if (!place) { m_Status.HCPublish("ready", "fact_place_unavailable"); m_Channel = null; return; }
+            m_Text = "An earlier event was reported near " + place.Name + ". This is old news; things may have changed.";
+        }
         m_ListenerCursor = 0;
         m_Recipients = 0;
         m_Committed = false;
@@ -198,7 +254,7 @@ class HCRadioChatter : HCModule
         string groupId = HCLeadPolicy.SoloGroup(listener.GetIdentity().GetId());
         if (groups) { groupId = groups.HCLeadGroup(listener); }
         if (groupId == "") { return false; }
-        return leads.Receive(report, groupId, "radio");
+        return leads.ReceiveResult(report, groupId, "radio") == HCLeadReceiveResult.RETAINED;
     }
 
     void HCRefuse(string reason)
@@ -209,6 +265,8 @@ class HCRadioChatter : HCModule
         m_Report = null;
         m_Listeners.Clear();
         m_Fallback.Clear();
+        m_Facts.Clear();
+        m_FromFallback = false;
         m_Status.HCPublish("refused", reason);
         Print("[HC Plan] HC-20 radio=refused morse=folded reports=" + m_Reports.ToString() + " reason=" + reason + " runtime=PENDING");
     }
@@ -230,7 +288,7 @@ class HCRadioChatter : HCModule
         if (!m_Channel) { return; }
         if (m_ListenerCursor >= m_Listeners.Count())
         {
-            if (!m_Committed && m_Report && m_Fallback.Count() < 4) { m_Fallback.Insert(m_Report); }
+            if (m_FromFallback && !m_Committed && m_Report && m_Fallback.Count() < 4) { m_Fallback.Insert(m_Report); }
             m_Channel = null;
             m_Report = null;
             m_Listeners.Clear();
@@ -283,6 +341,8 @@ class HCRadioChatter : HCModule
         m_LegacyRates = null;
         m_Listeners.Clear();
         m_Fallback.Clear();
+        m_Facts.Clear();
+        m_FromFallback = false;
         m_ChannelCursor = 0;
         m_ListenerCursor = 0;
         m_Elapsed = 60;

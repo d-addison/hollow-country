@@ -1,9 +1,9 @@
 // HC-20 / #148. Read-only migration of the old Morse anti-replay ledger.
-// Never delete/reset/rewrite it: honour its global and per-recipient cooldowns.
+// Never delete/reset/rewrite it: honour valid global/per-recipient cooldowns.
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist,
 // :525 MakeDirectory; 3_Game/tools/JsonFileLoader.c:69 LoadData;
 // 1_Core/proto/EnScript.c:380 Count, :470 RemoveOrdered; EnDebug.c:96 Print.
-// Bounded 4096-byte IO uses HCGroupIO. Uncertain temp/backup stays refused.
+// Bounded 4096-byte IO uses HCGroupIO. Legacy faults impose no cooldown.
 class HCMorseReceipt
 {
     int Fingerprint;
@@ -29,19 +29,21 @@ class HCMorseRateStore
 
     bool Fail()
     {
+        if (!m_Fault)
+        {
+            Print("[HC Plan] HC-20 radio=environmental morse=folded legacy_cooldown=ignored reason=legacy_rate_store_fault runtime=PENDING; preserve profile files");
+        }
         m_Fault = true;
-        Print("[HC Plan] HC-20 radio=refused morse=folded reports=0 reason=legacy_rate_store_fault runtime=PENDING; preserve profile files");
         return false;
     }
 
     bool Open()
     {
         int now = HCWorldClock.UTC();
-        if (now < 1 || FileExist(m_Temp)) { return Fail(); }
+        if (now < 1 || FileExist(m_Temp) || FileExist(m_Backup)) { return Fail(); }
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return Fail(); }
         if (!FileExist(m_Path))
         {
-            if (FileExist(m_Backup)) { return Fail(); }
             m_Data = new HCMorseRateData;
             return true;
         }
@@ -55,8 +57,8 @@ class HCMorseRateStore
             if (!receipt || receipt.At < 1 || receipt.At < previousAt || receipt.At > m_Data.LastUTC) { return Fail(); }
             previousAt = receipt.At;
         }
-        // Every legacy image reserved a receipt before delivery, including the
-        // newest timestamp. Malformed images cannot reset a budget silently.
+        // Every valid legacy image reserved a receipt before delivery, including
+        // its newest timestamp. Malformed images log once and impose no cooldown.
         if (m_Data.Receipts.Count() < 1 || previousAt != m_Data.LastUTC) { return Fail(); }
         return true;
     }
@@ -70,7 +72,8 @@ class HCMorseRateStore
 
     bool Allowed(int fingerprint, int now)
     {
-        if (m_Fault || !m_Data || now < m_Data.LastUTC) { return false; }
+        if (m_Fault) { return true; }
+        if (!m_Data || now < m_Data.LastUTC) { return false; }
         // Space rare clues out; stalls/restarts never catch up with a burst.
         if (m_Data.LastUTC > 0 && now - m_Data.LastUTC < 600) { return false; }
         int playerAt;
@@ -90,8 +93,8 @@ class HCMorseRateStore
 
 }
 
-// HC-20: compatibility shell until the lead removes the unchanged registration
-// below. There is no second producer, target scan, timer, RPC or save loop.
+// HC-20: unregistered compatibility shell. There is no second producer,
+// target scan, timer, RPC or save loop.
 // HCRadioChatter consumes delayed shared facts, including existing morse_lead.
 class HCMorseClues : HCModule
 {
