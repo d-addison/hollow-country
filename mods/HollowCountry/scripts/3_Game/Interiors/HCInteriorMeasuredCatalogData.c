@@ -179,4 +179,24 @@ class HCInteriorMeasuredCatalogCursor
     int CopyFrom = 0;
     int Rewrites = 0;
     bool Failed = false;
+    // Character reads go through a 1 KB window, as in HCInteriorTemplateCursor.
+    protected ref HCTextWindow m_Window;
+
+    void HCSetContent(string content)
+    {
+        Content = content;
+        m_Window = new HCTextWindow(content);
+    }
+
+    string HCAt(int index)
+    {
+        if (!m_Window) { m_Window = new HCTextWindow(Content); }
+        return m_Window.At(index);
+    }
+
+    string HCRange(int start, int count)
+    {
+        if (!m_Window) { m_Window = new HCTextWindow(Content); }
+        return m_Window.Range(start, count);
+    }
 }
