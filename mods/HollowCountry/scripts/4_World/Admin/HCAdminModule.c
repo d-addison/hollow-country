@@ -37,6 +37,10 @@ class HCAdminModule : HCModule
     protected ref HCDebugSnapshot m_Capture;
     protected bool m_DebugEnabled;
     protected float m_DeniedOverflowAt;
+    protected ref HCAdminLootMap m_LootMap;
+    protected PlayerIdentity m_LootMapSender;
+    protected int m_LootMapTicket;
+    protected float m_LootMapAfter;
 
     override string GetName() { return "AdminMap"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableAdminMap; }
@@ -133,12 +137,78 @@ class HCAdminModule : HCModule
     {
         if (!HCAuthorized(sender)) { HCRefused(sender); return false; }
         if (command == "status") { HCStatus(sender, ticket); return true; }
+        if (HCAdminWire.HCIsLootMap(command)) { return HCStartLootMap(sender, command, ticket); }
         return HCCommand(sender, command, value, ticket);
     }
 
     protected bool HCKnown(string command)
     {
         return HCAdminCatalog.HCKnown(command);
+    }
+
+    // Text-only read command registered on the existing RPC; no new wire data.
+    // Native EnString.c:113,199 Substring/Length; EnSystem.c:397,525
+    // FileExist/MakeDirectory. Profile export reuses verified intent/backup IO.
+    protected bool HCStartLootMap(PlayerIdentity sender, string command, int ticket)
+    {
+        if (!GetGame().IsServer() || !HCAuthorized(sender)) { return false; }
+        if (!m_DebugEnabled) { HCReply(sender, ticket, "lootmap", false, "EnableDebugSnapshot-off"); return false; }
+        if (command.Length() <= 8) { HCReply(sender, ticket, "lootmap", false, "usage_lootmap_class_or_prefix"); return false; }
+        if (m_LootMap) { HCReply(sender, ticket, "lootmap", false, "lootmap_job_cap=1"); return false; }
+        float now = GetGame().GetTickTime();
+        if (now < m_LootMapAfter) { HCReply(sender, ticket, "lootmap", false, "lootmap_cooldown"); return false; }
+        HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
+        m_LootMapAfter = now + limits.CooldownSeconds;
+        HCAdminLootMap job = new HCAdminLootMap;
+        string filter = command.Substring(8, command.Length() - 8);
+        bool started = job.HCStart(filter);
+        string root = "$profile:HollowCountry/debug";
+        if (!HCV2ThreatStore<HCAdminLootDocument>.CanOpen(HCAdminLootMap.PATH))
+        {
+            HCReply(sender, ticket, "lootmap", false, "lootmap_store_recovery_required"); return false;
+        }
+        if (!FileExist(root) && !MakeDirectory(root)) { HCReply(sender, ticket, "lootmap", false, "lootmap_export_directory"); return false; }
+        // Replace any previous export with pending/refused, before work begins.
+        if (!HCV2ThreatStore<HCAdminLootDocument>.Save(HCAdminLootMap.PATH, job.HCDocument(), HCAdminLootMap.MAX_BYTES))
+        {
+            HCReply(sender, ticket, "lootmap", false, "lootmap_export_failed"); return false;
+        }
+        if (!started) { HCSend(sender, job.HCReply(ticket)); return false; }
+        m_LootMap = job;
+        m_LootMapSender = sender;
+        m_LootMapTicket = ticket;
+        Print("[HC Plan] wp=168-5 state=started cells=0 positions=0 runtime=PENDING");
+        // Exactly one final RPC. Lead client wiring extends the ordinary 10s
+        // request timeout for this capped multi-tick job; no automatic retries.
+        return true;
+    }
+
+    protected void HCLootMapTick()
+    {
+        if (!m_LootMap) { return; }
+        if (!GetGame().IsServer() || !HCAuthorized(m_LootMapSender) || !HCPlayer(m_LootMapSender))
+        {
+            // Leave the export pending, never relabel cancelled work complete.
+            Print("[HC Plan] wp=168-5 state=refused reason=sender_unavailable runtime=PENDING");
+            m_LootMap = null;
+            m_LootMapSender = null;
+            return;
+        }
+        if (!m_LootMap.HCStep()) { return; }
+        HCAdminLootDocument data = m_LootMap.HCDocument();
+        if (!HCV2ThreatStore<HCAdminLootDocument>.Save(HCAdminLootMap.PATH, data, HCAdminLootMap.MAX_BYTES))
+        {
+            HCReply(m_LootMapSender, m_LootMapTicket, "lootmap", false, "lootmap_export_failed");
+        }
+        else
+        {
+            HCAdminReply reply = m_LootMap.HCReply(m_LootMapTicket);
+            Print(reply.Notice);
+            Print("[HC Plan] wp=168-5 state=" + data.state + " reason=" + data.reason + " positions=" + data.points.Count().ToString() + " runtime=PENDING");
+            HCSend(m_LootMapSender, reply);
+        }
+        m_LootMap = null;
+        m_LootMapSender = null;
     }
 
     void HCReceive(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
@@ -336,7 +406,7 @@ class HCAdminModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running) { return; }
-        if (!m_Pending && !m_Capture) { return; }
+        if (!m_Pending && !m_Capture && !m_LootMap) { return; }
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
         if (m_Pending)
@@ -358,6 +428,7 @@ class HCAdminModule : HCModule
                 m_CaptureSender = null;
             }
         }
+        HCLootMapTick();
         m_Players.Clear();
     }
 
@@ -376,6 +447,10 @@ class HCAdminModule : HCModule
         m_Tickets = null;
         m_Identities = null;
         m_Players = null;
+        m_LootMap = null;
+        m_LootMapSender = null;
+        m_LootMapTicket = 0;
+        m_LootMapAfter = 0;
     }
 }
 

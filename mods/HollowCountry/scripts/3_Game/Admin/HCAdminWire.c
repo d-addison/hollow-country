@@ -8,6 +8,15 @@ class HCAdminWire
     static const int REQUEST = 4853911;
     static const int REPLY = 4853912;
     static const int MENU = 48539;
+
+    // Text command registration uses the existing bounded Command string. The
+    // integer-only catalog cards cannot collect a class filter (lead UI wiring).
+    // Native EnString.c:240 IndexOf, :199 Length. No new RPC or wire field.
+    static bool HCIsLootMap(string command)
+    {
+        if (command == "lootmap") { return true; }
+        return command.Length() <= 104 && command.IndexOf("lootmap ") == 0;
+    }
 }
 
 class HCAdminRequest

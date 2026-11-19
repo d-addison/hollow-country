@@ -127,6 +127,7 @@ class HCAdminCatalog
 
     static bool HCKnown(string command)
     {
+        if (HCAdminWire.HCIsLootMap(command)) { return true; }
         array<ref HCAdminCommand> entries = Commands();
         for (int index = 0; index < entries.Count(); index++)
         {
