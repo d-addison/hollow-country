@@ -215,7 +215,9 @@ def fixture(enabled=True, trusted=True):
 
     game = NS(IsServer=lambda: True, GetWorldName=lambda: "chernarusplus",
               GetObjectsAtPosition3D=query)
-    e.update(HCBuildIdentity=build_identity(), EMap=EMap, ord=ord, Vector=lambda x, y, z: [x, y, z],
+    from tests.unit.json_loader_port import json_fields_port
+    # Authored HCJsonFields: the raw-key presence guard runs over the explicit synthetic record text.
+    e.update(HCJsonFields=json_fields_port(), HCBuildIdentity=build_identity(), EMap=EMap, ord=ord, Vector=lambda x, y, z: [x, y, z],
              vector=NS(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b))),
              House=SyntheticHouse, GetGame=lambda: game, NativeLoad=load,
              FileExist=lambda path: path in raw,

@@ -87,7 +87,12 @@ class HCXAISitePatrol : eAIDynamicPatrol
     }
     override void Spawn()
     {
-        if (m_Group || m_HCFinished) { return; }
+        if (m_HCFinished) { return; }
+        if (m_Group)
+        {
+            this.HCRefuseBudget("group already spawned");
+            return;
+        }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director)
         {
@@ -118,7 +123,12 @@ class HCXAISitePatrol : eAIDynamicPatrol
     override void SpawnAI_Deferred(int i)
     {
         m_HCPendingMembers = 0;
-        if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }
+        if (m_HCFinished) { return; }
+        if (m_HCTransient && m_Group && m_Group.Count() == 0)
+        {
+            this.HCRefuseBudget("transient group emptied before member spawn");
+            return;
+        }
         if (!m_Group || !m_Formation)
         {
             this.HCRefuseBudget("member spawn without a live group");

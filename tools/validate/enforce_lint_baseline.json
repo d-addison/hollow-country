@@ -10,69 +10,6 @@
       "count": 1,
       "line_at_review": 126,
       "review": "2026-11-18 WP-3 reviewed: safe, Open admits sourcePin only through HCSearchRules.PinValid (Length() == 64), so Substring(0, 16) is bounded"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
-      "symbol": "HCInfectedMemoryModule.OnStart",
-      "key": "if (!GetGame().IsServer() || !IsEnabled(settings) || m_Memory) return;",
-      "count": 1,
-      "line_at_review": 274,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.OnStart",
-      "key": "if (!FileExist(\"$profile:HollowCountry/interiors.json\")) return;",
-      "count": 1,
-      "line_at_review": 222,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
-      "symbol": "HCTapedLightStartup.OnStart",
-      "key": "if (m_Printed) { return; }",
-      "count": 1,
-      "line_at_review": 53,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereLifecycle.c",
-      "symbol": "HCServer.Start",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 15,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISitePatrol.Spawn",
-      "key": "if (m_Group || m_HCFinished) { return; }",
-      "count": 1,
-      "line_at_review": 79,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISitePatrol.SpawnAI_Deferred",
-      "key": "if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }",
-      "count": 1,
-      "line_at_review": 98,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S005",
-      "path": "mods/HollowCountry/scripts/3_Game/Interiors/HCInteriorMeasuredCatalogData.c",
-      "symbol": "HCInteriorMeasuredCatalogMeasuredProp.Index",
-      "key": "HCInteriorMeasuredCatalogMeasuredProp.Index relies on JSON initializer",
-      "count": 1,
-      "line_at_review": 55,
-      "review": "2026-11-19 #177 wave-8 review: HCInteriorMeasuredCatalogData.c:55; HCInteriorMeasuredCatalog.c:1131 compares Index to propIndex, so missing zero can alias the first prop. Interior owner must add raw-key presence; no measurement accepted by this exception."
     }
   ]
 }

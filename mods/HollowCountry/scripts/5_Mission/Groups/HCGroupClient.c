@@ -427,6 +427,13 @@ class HCGroupClient
         string error;
         if (!JsonFileLoader<HCGroupRequest>.MakeData(request, m_PendingPayload, error))
             return false;
+        // The clone below must read a serialized Color; a missing key would zero-fill to palette 0.
+        if (!HCJsonFields.Has(m_PendingPayload, "Color"))
+        {
+            Print("[HC Groups] request not sent: Color missing from the serialized payload; runtime=PENDING");
+            m_PendingPayload = "";
+            return false;
+        }
         if (m_PendingPayload.Length() > 4096)
         {
             m_PendingPayload = "";

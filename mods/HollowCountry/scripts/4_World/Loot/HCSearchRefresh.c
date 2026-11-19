@@ -104,6 +104,14 @@ class HCSearchRetirementPolicy
 class HCSearchRetirementStore
 {
     static const int MAX_BYTES = 524288;
+
+    // A missing RecentCount zero-fills to 0 and would pass the Recent.Count() equality below
+    // for an empty list, so presence is read from the raw text instead.
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Has(text, "RecentCount");
+    }
+
     protected string m_Path;
     protected string m_Root;
     protected ref HCSearchRetirementState m_Data;
@@ -119,6 +127,12 @@ class HCSearchRetirementStore
         if (FileExist(m_Path))
         {
             if (!HCV2ThreatStore<HCSearchRetirementState>.Load(m_Path, MAX_BYTES, m_Data)) { return false; }
+            string image;
+            if (!HCGroupIO.Read(m_Path, MAX_BYTES, image) || !HCSearchRetirementStore.HCFieldsPresent(image))
+            {
+                Print("[HC Search] retired.json refused: RecentCount missing or unreadable; no replay barrier is rewound");
+                return false;
+            }
         }
         else
         {
