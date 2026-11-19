@@ -1,0 +1,57 @@
+// HC-23 / #58 part 2: first exact native helmet pair, never runtime acceptance.
+// Spec -> plan -> task: tests/unit/test_hc_taped_lights.py and the review manifest
+// mission/hollow-country/lights/helmet-mounts.json. JSON is review data, not an
+// operator-controlled qualification source. All other pairs refuse explicitly.
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380,399,407
+// array Count/Get (indexing)/Insert. HC-7 owns the shared row type/Add helper.
+class HCTapedWearableCatalog
+{
+    static const string MANIFEST = "24abaeed06c1b28ee12a64be5816f0cf5ffd8f2c9716ac66dc035380c5a13038";
+
+    static bool Supported(HCTapedLightHostRow row)
+    {
+        if (!row) { return false; }
+        if (row.PrerequisiteSlot != "" || row.PrerequisiteClass != "") { return false; }
+        return row.HostClass == "Mich2001Helmet" && row.LightClass == "UniversalLight" && row.SlotName == "helmetFlashlight";
+    }
+
+    static bool Matches(HCTapedLightHostRow row, string host, string light, string slot)
+    {
+        if (!Supported(row)) { return false; }
+        return row.HostClass == host && row.LightClass == light && row.SlotName == slot;
+    }
+
+    static bool ManifestAllowed(array<ref HCTapedLightHostRow> rows)
+    {
+        if (!rows || rows.Count() != 1) { return false; }
+        return Supported(rows[0]);
+    }
+
+    static array<ref HCTapedLightHostRow> Rows()
+    {
+        array<ref HCTapedLightHostRow> rows = new array<ref HCTapedLightHostRow>;
+        HCTapedLightCatalog.Add(rows, "Mich2001Helmet", "UniversalLight", "helmetFlashlight", "", "");
+        return rows;
+    }
+
+    static TStringArray CompatibilityQueue()
+    {
+        TStringArray rows = new TStringArray;
+        rows.Insert("BallisticHelmet_Green");
+        rows.Insert("ConstructionHelmet_Orange");
+        rows.Insert("GorkaHelmet");
+        return rows;
+    }
+
+    static string Refusal(string host, string light, string slot)
+    {
+        if (host != "Mich2001Helmet" || light != "UniversalLight" || slot != "helmetFlashlight") { return "unsupported_helmet_pair"; }
+        return "helmet_mount_two_client_pending";
+    }
+
+    static bool Qualified()
+    {
+        // No file, client claim, transform or HC-7 acceptance opt-in can set this.
+        return false;
+    }
+}

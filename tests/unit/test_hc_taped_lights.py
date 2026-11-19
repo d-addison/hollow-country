@@ -12,8 +12,20 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_taped_lights -v
 RED: Ran 5 tests; FAILED (failures=6): AssertionError: 0 != 2 (spent-roll
 replay); partial custody leaked (host/tape/battery); 1 != 0 (missing plan line).
 GREEN: Ran 5 tests; OK. Native compilation/presentation remain unobserved.
+
+HC-23 spec -> plan -> task, 2026-11-18: first exact native helmet pair and
+compatibility queue, bounded startup/off receipt, HC-7 qualification seam.
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_taped_lights -v
+RED: AssertionError: True is not false : unsupported helmet mount accepted
+from a self-declared row. Ran 6 tests; FAILED (failures=1).
+GREEN: Ran 6 tests; OK. Native compile/boot/PBO/two-client acceptance PENDING.
+Required specification files are absent from this worker snapshot; the supplied
+HC-23 task/brief and runtime contract are the scoped design inputs.
 """
 import copy
+import hashlib
+import json
+from pathlib import Path
 import re
 from types import SimpleNamespace as NS
 import unittest
@@ -22,6 +34,25 @@ from tests.unit import test_taped_light_service as policy
 from tests.unit.test_group_server import EArray, body
 from tests.unit.test_group_ui import ui_member
 from tests.unit.test_taped_light_v1 import NATIVE, CATALOG, native_member
+
+ROOT = Path(__file__).resolve().parents[2]
+WEARABLE = ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCTapedWearableCatalog.c"
+HELMETS = ROOT / "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c"
+MANIFEST = ROOT / "mission/hollow-country/lights/helmet-mounts.json"
+
+
+def helmet_member(path, cls, method, state, env, *args):
+    """Existing restricted executor; only receiver/type syntax is adapted."""
+    text = path.read_text()
+    match = re.search(r'class ' + cls + r'\b[^\{]*\{', text)
+    source = body(text, match.end())
+    source = re.sub(r'\b(?:HCTapedLightHostRow|TStringArray)\s+(?=\w+\s*[=;])',
+                    'HCGroupNative ', source)
+    source = source.replace('new TStringArray', 'NewSlots()')
+    source = re.sub(r'\b(?:HCTapedLightBinding|HCOperationalStatus) '
+                    r'(?=(?:Resolve|HCGetOperationalStatus)\()', 'int ', source)
+    source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
+    return ui_member(source, method, state, dict(env), *args)
 
 
 class TapedLightConservationTests(unittest.TestCase):
@@ -95,6 +126,124 @@ class TapedLightConservationTests(unittest.TestCase):
 
 
 class TapedLightNativeCustodyTests(unittest.TestCase):
+    def test_helmet_manifest_refuses_unsupported_pairs_and_unqualified_binding(self):
+        # HC-23 spec/plan/task: exactly one native pair, no proxy authoring;
+        # queue other helmets, preserve HC-7 ownership, keep runtime=PENDING.
+        # Synthetic rows/entities/config outputs. The baseline uses HC-7's
+        # generic identity predicate until the helmet allowlist exists: an
+        # operator-authored unsupported row must not become its own evidence.
+        def matches(row, host, light, slot):
+            if not WEARABLE.exists():
+                from tests.unit.test_taped_light_v1 import member
+                return member(CATALOG, "HCTapedLightCatalog", "Matches", NS(),
+                              {}, row, host, light, slot)
+            state = NS()
+            state.Supported = lambda candidate: helmet_member(
+                WEARABLE, "HCTapedWearableCatalog", "Supported", state, {}, candidate)
+            return helmet_member(WEARABLE, "HCTapedWearableCatalog", "Matches",
+                                 state, {}, row, host, light, slot)
+
+        unsupported = NS(HostClass="ConstructionHelmet_Orange", LightClass="UniversalLight",
+                         SlotName="helmetFlashlight", PrerequisiteSlot="", PrerequisiteClass="")
+        self.assertFalse(matches(unsupported, unsupported.HostClass,
+                                 unsupported.LightClass, unsupported.SlotName),
+                         "unsupported helmet mount accepted from a self-declared row")
+        manifest = json.loads(MANIFEST.read_text())
+        rows = EArray(NS(**row) for row in manifest["NativePairs"])
+        self.assertEqual(1, len(rows))
+        row = rows[0]
+        self.assertEqual(("Mich2001Helmet", "UniversalLight", "helmetFlashlight"),
+                         (row.HostClass, row.LightClass, row.SlotName))
+        self.assertTrue(matches(row, row.HostClass, row.LightClass, row.SlotName))
+        for host, light, slot in (("mich2001helmet", row.LightClass, row.SlotName),
+                                  ("Mich2001Helmet_Black", row.LightClass, row.SlotName),
+                                  (row.HostClass, "Flashlight", row.SlotName),
+                                  (row.HostClass, "TLRLight", row.SlotName),
+                                  (row.HostClass, row.LightClass, "weaponFlashlight")):
+            with self.subTest(host=host, light=light, slot=slot):
+                self.assertFalse(matches(row, host, light, slot))
+                forged = NS(HostClass=host, LightClass=light, SlotName=slot,
+                            PrerequisiteSlot="", PrerequisiteClass="")
+                self.assertFalse(matches(forged, host, light, slot))
+        state = NS(Supported=lambda candidate: matches(
+            candidate, candidate.HostClass, candidate.LightClass, candidate.SlotName))
+        for candidates, expected in ((rows, True), (None, False), (EArray(), False),
+                                      (EArray([unsupported]), False),
+                                      (EArray([row, row]), False),
+                                      (EArray([row, unsupported]), False)):
+            self.assertEqual(expected, helmet_member(
+                WEARABLE, "HCTapedWearableCatalog", "ManifestAllowed", state, {}, candidates))
+        self.assertIn(hashlib.sha256(MANIFEST.read_bytes()).hexdigest(), WEARABLE.read_text())
+        compiled = re.findall(r'HCTapedLightCatalog.Add\(rows, "([^"]+)", "([^"]+)", "([^"]+)", "([^"]*)", "([^"]*)"\)', WEARABLE.read_text())
+        self.assertEqual([tuple(vars(row).values()) for row in rows], compiled)
+        queued = re.findall(r'rows.Insert\("([^"]+)"\)', WEARABLE.read_text())
+        self.assertEqual([row["HostClass"] for row in manifest["CompatibilityQueue"]], queued)
+        self.assertEqual("PENDING", manifest["RuntimeAcceptance"])
+        self.assertFalse(manifest["Qualified"])
+        self.assertEqual(3, len(manifest["CompatibilityQueue"]))
+        for candidate in manifest["CompatibilityQueue"]:
+            self.assertEqual("PENDING", candidate["RuntimeAcceptance"])
+            self.assertFalse(matches(unsupported, candidate["HostClass"], "UniversalLight", "helmetFlashlight"))
+
+        # A marker/HC-7 opt-in cannot qualify helmets. No inventory/light port
+        # is supplied: any mutation attempted by this off path fails the test.
+        self.assertFalse(helmet_member(WEARABLE, "HCTapedWearableCatalog", "Qualified", NS(), {}))
+        self.assertFalse(helmet_member(HELMETS, "HCTapedHelmetQualification", "Ready", NS(),
+                                      {"HCTapedWearableCatalog": NS(Qualified=lambda: False)}))
+        for host in (None, NS(), unsupported):
+            self.assertIsNone(helmet_member(HELMETS, "HCTapedHelmetQualification", "Resolve",
+                                           NS(), {}, host, NS()))
+        for host, expected in ((row.HostClass, "helmet_mount_two_client_pending"),
+                               (unsupported.HostClass, "unsupported_helmet_pair")):
+            self.assertEqual(expected, helmet_member(
+                WEARABLE, "HCTapedWearableCatalog", "Refusal", NS(), {}, host, "UniversalLight", "helmetFlashlight"))
+
+        # Explicit synthetic config API; absence on either end, foreign build
+        # or a client must refuse without inferring a mount from inheritance.
+        slots = {"CfgVehicles Mich2001Helmet attachments": EArray(["helmetFlashlight"]),
+                 "CfgVehicles UniversalLight inventorySlot": EArray(["helmetFlashlight"])}
+        probes = []
+        def config(path, out):
+            probes.append(path)
+            out.extend(slots[path])
+        server, build_ok = True, True
+        native_env = dict(GetGame=lambda: NS(IsServer=lambda: server, ConfigGetTextArray=config),
+                          HCBuildIdentity=NS(Matches=lambda build: build_ok,
+                                             SeenBuild=lambda: "synthetic-build"), NewSlots=EArray)
+        available = lambda: helmet_member(HELMETS, "HCTapedHelmetMounts", "NativeSlotAvailable", NS(), native_env)
+        self.assertTrue(available())
+        for path in slots:
+            saved = slots[path]
+            slots[path] = EArray()
+            self.assertFalse(available())
+            slots[path] = saved
+        probes.clear()
+        server = False
+        self.assertFalse(available())
+        server, build_ok = True, False
+        self.assertFalse(available())
+        self.assertEqual([], probes)
+        logs, status = [], NS(HCPublish=lambda *args: logs.append(args), HCStop=lambda: logs.append("stop"))
+        module = NS(mHCStarted=False, mHCStatus=status)
+        self.assertIs(status, helmet_member(HELMETS, "HCTapedHelmetMounts", "HCGetOperationalStatus", module, {}))
+        env = dict(Print=logs.append, HCV2Admission=NS(Line=lambda *args: "synthetic admission"),
+                   HCTapedWearableCatalog=NS(Rows=lambda: rows,
+                                            CompatibilityQueue=lambda: EArray(queued)))
+        module.NativeSlotAvailable = lambda: True
+        for _ in range(2):
+            helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStart", module, env, NS())
+        plan = [line for line in logs if isinstance(line, str) and line.startswith("[HC Plan] HC-23 ")]
+        self.assertEqual(1, len(plan))
+        for field in ("helmet_mounts=1", "qualified=0", "unsupported=3", "state=off",
+                      "reason=helmet_mount_two_client_pending", "runtime=PENDING"):
+            self.assertIn(field, plan[0])
+        helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStop", module, env)
+        self.assertFalse(module.mHCStarted)
+        self.assertIn("stop", logs)
+        module.NativeSlotAvailable = lambda: False
+        helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStart", module, env, NS())
+        self.assertIn(("off", "helmet_native_slot_unavailable"), logs)
+
     def test_failed_acquisition_releases_partial_owned_reservations(self):
         # Explicit synthetic native reservation API. A failed host/tape/battery
         # reservation does not grant us a lease for that item.
