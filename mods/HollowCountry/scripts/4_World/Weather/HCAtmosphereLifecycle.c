@@ -12,7 +12,11 @@ modded class HCServer
     {
         super.Start();
         if (!HCAtmosphereQualification.Enabled())
+        {
+            // Enabled() prints the gate that refused (settings, world, opt-in, weather owner) once.
+            Print("[HollowCountry][Atmosphere] not started: qualification gates not admitted (see the Atmosphere reason line above when a gate refused); vanilla weather retained");
             return;
+        }
         string atmosphereWorld;
         GetGame().GetWorldName(atmosphereWorld);
         atmosphereWorld.ToLower();

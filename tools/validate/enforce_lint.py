@@ -71,7 +71,9 @@ _PLAYER_MESSAGE = re.compile(r'\b(?:MessageStatus|MessageImportant|MessageAction
 _ROLE_GUARD = re.compile(r'^!?\s*(?:GetGame\s*\(\s*\)|g_Game|(?:[\w.]+\.)?(?:HC)?Is(?:Server|Client|DedicatedServer|Multiplayer)'
                          r'\s*\(\s*\))(?:\s*\.\s*(?:IsServer|IsClient|IsDedicatedServer|IsMultiplayer)\s*\(\s*\))?$')
 _REENTRY_GUARD = re.compile(r'^!?\s*(?:m_|s_)?\w*(?:Started|Running|Listening|Instance|Starting)$'
-                            r'|^(\w*Instance)\s*&&\s*\1\s*!=\s*this$|^!\s*IsEnabled\s*\(\s*\w+\s*\)$')
+                            r'|^(\w*Instance)\s*&&\s*\1\s*!=\s*this$|^!\s*IsEnabled\s*\(\s*\w+\s*\)$'
+                            # Positive-only bare member: "already printed / already finished" (never the inverse).
+                            r'|^(?:m_|s_)\w*(?:Printed|Finished)$')
 _REASON_IN_SCOPE = re.compile(r'\b\w*(?:[Rr]eason|Problem)\w*\b')
 # Native experiment / audit / probe harnesses report through their own receipts; the S rules
 # target gameplay and admission paths.

@@ -4,6 +4,7 @@ import re
 import unittest
 from pathlib import Path
 from types import SimpleNamespace as N
+from tests.unit.json_loader_port import json_fields_port
 from tests.unit.test_group_server import execute_member, translated_rules
 
 class ClientTests(unittest.TestCase):
@@ -17,7 +18,8 @@ class ClientTests(unittest.TestCase):
             HCGroupProtocol=N(VERSION=3,RPC_REQUEST=4853701),
             Math=N(RandomIntInclusive=lambda a,b:900001),
             ContentsValid=lambda f:True,Make=self.make,Load=self.load,
-            Transmit=self.tx,str=str)
+            Transmit=self.tx,str=str,Print=lambda *a:None,
+            HCJsonFields=json_fields_port())
         for n in ('ClearView','ResetSession','SnapshotValid','FrameOrder','Sync',
                   'Recover','Retry'):
             self.e[n]=lambda *a,n=n:self.run_method(n,*a)
@@ -30,7 +32,8 @@ class ClientTests(unittest.TestCase):
         self.c.m_LastSend=self.now
 
     def make(self,q):
-        self.c.m_PendingPayload=json.dumps(vars(q),sort_keys=True)
+        # Native MakeData serializes every declared member, so Color is always present.
+        self.c.m_PendingPayload=json.dumps({'Color':-1,**vars(q)},sort_keys=True)
         return True
 
     def load(self):

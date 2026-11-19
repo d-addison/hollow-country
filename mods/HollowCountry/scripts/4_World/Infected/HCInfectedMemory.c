@@ -304,7 +304,13 @@ class HCInfectedMemoryModule : HCModule
 
     override void OnStart(HCSettings settings)
     {
-        if (!GetGame().IsServer() || !IsEnabled(settings) || m_Memory) return;
+        if (!GetGame().IsServer() || !IsEnabled(settings)) return;
+        if (m_Memory)
+        {
+            // OnStart runs once per boot; a second call is a lifecycle fault worth one line.
+            Print("[HC InfectedMemory] start ignored: already_started");
+            return;
+        }
         Print(HCV2Admission.Line("InfectedMemory", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
         m_Memory = new HCInfectedMemory;
         m_Memory.Start();

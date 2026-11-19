@@ -36,10 +36,9 @@ RETIRED = {
     'HCCellarSamplerClass.Reason', 'HCCellarSamplerData.Method',
     'HCInteriorCandidate.SlotId', 'HCSettlementState.Version',
     'HCXAILocalityCoverage.Refusal',
+    # w28-s160: raw-key presence guard before the strict parse (tests.unit.test_hc_s160_final_burn).
+    'HCInteriorMeasuredCatalogMeasuredProp.Index',
 }
-# Genuinely safe: HCInteriorMeasuredCatalog.MeasuredStrict requires the exact
-# key set of every measured-prop object before LoadData (see the test below).
-KEPT = {'HCInteriorMeasuredCatalogMeasuredProp.Index'}
 
 
 def text(relative):
@@ -188,9 +187,6 @@ class LintRetirement(unittest.TestCase):
 
     def test_guarded_stores_no_longer_rely_on_the_json_initializer(self):
         self.assertEqual(set(), self.symbols & RETIRED)
-
-    def test_the_strictly_parsed_measured_prop_index_stays_reviewed(self):
-        self.assertTrue(KEPT <= self.symbols)
 
 
 if __name__ == '__main__':

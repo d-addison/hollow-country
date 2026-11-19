@@ -135,8 +135,11 @@ class OperationsTests(unittest.TestCase):
         patrol.m_HCTransient = True
         patrol.m_HCPendingMembers = 2
         living[0] = 0
+        reasons = []
+        patrol.HCRefuseBudget = lambda *reason: reasons.append(reason)
         authored.call('SpawnAI_Deferred', patrol, 1)
         self.assertEqual(0, patrol.m_HCPendingMembers)
+        self.assertEqual([('transient group emptied before member spawn',)], reasons)
 
     def test_raid_floor_defaults_override_respawn_and_lock_boundary(self):
         site = N(Id='mil-nwaf', Kind='patrol', RespawnSeconds=900)

@@ -263,7 +263,11 @@ class HCInteriorsModule : HCModule
         }
         #endif
         // Optional legacy pilot. The template override reports its own admission.
-        if (!FileExist("$profile:HollowCountry/interiors.json")) return;
+        if (!FileExist("$profile:HollowCountry/interiors.json"))
+        {
+            Print("[HC Interiors] legacy pilot off: interiors.json absent (optional); no pilot search or placement");
+            return;
+        }
         if (!HCInteriorJson<HCInteriorConfig>.Load("$profile:HollowCountry/interiors.json", m_Config) || !HCFieldsPresent(HCReadPilotText("$profile:HollowCountry/interiors.json")) || !ValidateConfig(settings))
         {
             Print("[HC Interiors] invalid legacy pilot configuration; pilot disabled");

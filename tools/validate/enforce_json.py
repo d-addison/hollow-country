@@ -248,14 +248,7 @@ def rule_json_defaults(project, source):
                                key=symbol + ' relies on JSON initializer')
 
 
-# Reviewed legacy exceptions use the same identity/count/stale mechanism as the
-# existing JSON baseline. They live beside this new rule to keep this worker's
-# edits within its tools/validate module scope. No unsafe store is excepted.
-LEGACY_BASELINE = [
-    dict(rule=RULE, path='mods/HollowCountry/scripts/3_Game/Groups/HCGroupData.c',
-         symbol='HCGroupRequest.Color', key='HCGroupRequest.Color relies on JSON initializer', count=1,
-         review='2026-11-19 #177: HCGroupClient.Send:428-437 JSON-clones only its own complete MakeData payload; Color is serialized, never an external/legacy JSON request.'),
-    dict(rule=RULE, path='mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c',
-         symbol='HCSearchRetirementState.RecentCount', key='HCSearchRetirementState.RecentCount relies on JSON initializer', count=1,
-         review='2026-11-19 #177: HCSearchRetirementStore.Open:133 requires RecentCount == Recent.Count(); absent zero admits only an empty recent list; fixed-size Archive is still required at :134. No depletion/history is removed.'),
-]
+# The two reviewed legacy exceptions (HCGroupRequest.Color, HCSearchRetirementState.RecentCount)
+# were retired by raw-key presence guards (HCGroupClient.Send, HCSearchRetirementStore.Open).
+# New entries need a review note and an owner; none is excepted.
+LEGACY_BASELINE = []

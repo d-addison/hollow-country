@@ -1465,6 +1465,13 @@ class HCInteriorMeasuredCatalog
         return found;
     }
 
+    // Record layout: root { Layouts [ layout { Survey { Props [ prop { ... }: prop objects sit at
+    // JSON depth 6; Keepouts also sit there but carry no Room key, so Room selects measured props.
+    static bool HCFieldsPresent(string recordText)
+    {
+        return HCJsonFields.Every(recordText, "Index", 6, "Room");
+    }
+
     static void MeasuredEnsureLoaded()
     {
         if (s_Attempted || !GetGame() || !GetGame().IsServer())
@@ -1517,6 +1524,13 @@ class HCInteriorMeasuredCatalog
         // the external operator/validator's responsibility.
         if (recordText != profile.ExpectedRecordText || candidateText != profile.ExpectedCandidateText || policyText != profile.ExpectedPolicyText || reportText != profile.ExpectedReportText)
         {
+            return;
+        }
+        // Native JsonFileLoader zero-fills a missing Index to 0, which would alias the first
+        // prop at the propIndex comparison in MeasuredLayout. Check the raw keys first.
+        if (!HCFieldsPresent(recordText))
+        {
+            Print("[HC Interiors] measured record refused: measured_prop_index_missing; native acceptance pending");
             return;
         }
         if (!MeasuredStrict(recordText, "record"))
