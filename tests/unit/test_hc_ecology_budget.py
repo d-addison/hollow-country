@@ -64,6 +64,14 @@ class EcologyBudgetBehavior(unittest.TestCase):
         self.check_job_shutdown()
         self.check_sampling_fairness()
         self.check_sampler()
+        with self.subTest(scenario='invalid_calibration_keeps_raw_cost_evidence'):
+            self.check_uncalibrated_cost()
+        with self.subTest(scenario='calibration_expires_at_window_and_stop'):
+            self.check_calibration_lifecycle()
+        with self.subTest(scenario='synchronous_save_success_and_failure_are_attributed'):
+            self.check_barrier_cost()
+        with self.subTest(scenario='startup_store_failure_is_attributed'):
+            self.check_startup_save_cost()
         runtime.m_Running=False
         source=(ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
         pump=translated(source,'Pump',{},'HCEcologyRuntime',True)
@@ -225,6 +233,93 @@ class EcologyBudgetBehavior(unittest.TestCase):
         self.assertEqual(-1,rules.ElapsedUs(1000,float('nan')))
         self.assertEqual(-1,rules.ElapsedUs(-1,1000))
         self.assertEqual(1000,rules.ElapsedUs(1000,1000))
+
+    def cost_runtime(self):
+        runtime,env,_=runtime_fixture()
+        runtime.m_StartupMaxTicks=1000;runtime.m_CallbackMaxTicks=2000
+        runtime.m_SaveMaxTicks=3000;runtime.m_AdmissionMaxTicks=4000
+        runtime.m_TicksPerMs=0
+        source=(ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
+        bind(source,('HCStartupTicks','HCCallbackTicks','HCSaveTicks','HCAdmissionTicks',
+                     'HCSetCalibration','HCResetCostTicks'),runtime,env,'HCEcologyRuntime')
+        return runtime
+
+    def check_uncalibrated_cost(self):
+        from tests.unit.test_perf_capture import sampler_fixture
+        runtime=self.cost_runtime()
+        sampler,clock,logs=sampler_fixture(runtime)
+        sampler.Start(1);sampler.RegisterModule('Ecology');sampler.SampleModule(0,0)
+        # Explicit frozen synthetic clock: conversion MUST refuse, but startup
+        # is a once-only observation and must remain visible in raw units.
+        sampler.Sample(1.,0)
+        costs=[line for line in logs if '[HC Cost]' in line]
+        self.assertEqual(1,len(costs), 'invalid calibration must publish raw costs before reset')
+        self.assertIn('startup_ticks=1000 callback_ticks=2000 save_ticks=3000 admission_ticks=4000',costs[0])
+        self.assertIn('reason=invalid_calibration',costs[0])
+        self.assertNotIn('_ms=',costs[0])
+        # A later window cannot relabel earlier raw costs with another rate.
+        clock.now=1.;clock.ticks=1000000
+        sampler.Sample(1.,0)
+        costs=[line for line in logs if '[HC Cost]' in line]
+        self.assertIn('startup_ms=unobserved',costs[-1])
+
+    def check_calibration_lifecycle(self):
+        from tests.unit.test_perf_capture import sampler_fixture
+        runtime=self.cost_runtime()
+        sampler,clock,_=sampler_fixture(runtime)
+        sampler.Start(1);sampler.RegisterModule('Ecology');sampler.SampleModule(0,0)
+        clock.now=1.;clock.ticks=1000000
+        sampler.Sample(1.,0)
+        self.assertEqual(1000,runtime.m_TicksPerMs, 'publish calibration on the completed window')
+        sampler.Sample(1.,0)  # frozen clock invalidates the previous window
+        self.assertEqual(0,runtime.m_TicksPerMs, 'invalid calibration must revoke cached conversion immediately')
+        clock.now=2.;clock.ticks=2000000
+        sampler.Sample(1.,0)
+        self.assertEqual(1000,runtime.m_TicksPerMs)
+        sampler.Stop()
+        self.assertEqual(0,runtime.m_TicksPerMs, 'stop cannot leave a valid conversion cached')
+
+    def check_barrier_cost(self):
+        owner,env,clock=runtime_fixture()
+        owner.m_Checkpoint=env['HCEcologyCheckpoint']()
+        owner.m_Checkpoint.Revision=1
+        owner.m_Dirty=True;owner.m_SaveMaxTicks=-1
+        env['TickCount']=lambda prior:clock.ticks-prior
+        outcome=NS(ok=True,duration=17)
+        def save(snapshot):
+            clock.ticks+=outcome.duration
+            return outcome.ok
+        owner.m_Store=NS(Save=save)
+        source=(ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
+        bind(source,('HCWriteCheckpoint','HCRecordSaveTicks'),owner,env,'HCEcologyRuntime')
+        self.assertTrue(owner.HCWriteCheckpoint())
+        self.assertEqual(17,owner.m_SaveMaxTicks, 'shutdown barrier belongs to save cost')
+        owner.m_Dirty=True;outcome.ok=False;outcome.duration=29
+        self.assertFalse(owner.HCWriteCheckpoint())
+        self.assertEqual(29,owner.m_SaveMaxTicks, 'failed IO also consumes save time')
+        owner.m_Dirty=False
+        before=clock.ticks
+        self.assertTrue(owner.HCWriteCheckpoint())
+        self.assertEqual(before,clock.ticks, 'clean/off checkpoint has no hidden IO')
+
+    def check_startup_save_cost(self):
+        owner,env,clock=runtime_fixture()
+        owner.m_Running=False;owner.m_AdmissionMaxTicks=-1;owner.m_SaveMaxTicks=-1
+        env['TickCount']=lambda prior:clock.ticks-prior
+        env['HCEcologyNative']=NS(Authority=lambda:True)
+        env['GetGame']=lambda:NS(GetTime=lambda:100,GetWorldName=lambda:'synthetic-world')
+        # Explicit codec port: frozen settings are already on the owner. This
+        # scenario exercises the admission-to-store timing path, not JSON IO.
+        env['HCEcologySettingsCodec']=NS(MakeData=lambda *args:True,LoadData=lambda *args:True)
+        def unavailable(world,session):
+            clock.ticks+=41
+            return None
+        env['HCEcologyRuntimeStore']=lambda:NS(Open=unavailable)
+        source=(ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
+        source=source.replace('JsonFileLoader<HCEcologyRuntimeSettings>','HCEcologySettingsCodec')
+        bind(source,('Begin','HCRecordSaveTicks'),owner,env,'HCEcologyRuntime')
+        self.assertFalse(owner.Begin(owner.m_Settings,'synthetic-world','session-b'))
+        self.assertEqual(41,owner.m_SaveMaxTicks, 'failed startup store IO belongs to save cost')
 
 
 if __name__ == '__main__':
