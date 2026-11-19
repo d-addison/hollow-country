@@ -88,10 +88,20 @@ class CompileTraps(unittest.TestCase):
         files = {W + 'HCRoads.c': 'class HCRoads\n{\n    FileHandle m_File;\n    void A()\n    {\n'
                                   '        m_File = OpenFile("$profile:x", FileMode.READ);\n'
                                   '        if (m_File != 0) { CloseFile(m_File); m_File = 0; }\n'
-                                  '        FileHandle local = OpenFile("$profile:y", FileMode.READ);\n'
-                                  '        local = 0;\n    }\n}\n'}
+                                  '        FileHandle handle = OpenFile("$profile:y", FileMode.READ);\n'
+                                  '        handle = 0;\n    }\n}\n'}
         found = run(files, 'HC-E010')
-        self.assertEqual([('HCRoads.c', 7, 'm_File'), ('HCRoads.c', 9, 'local')], where(found))
+        self.assertEqual([('HCRoads.c', 7, 'm_File'), ('HCRoads.c', 9, 'handle')], where(found))
+
+    def test_keyword_used_as_a_variable_name_is_flagged(self):
+        # Native boot 075 (96d8dd3 parent): hcxaibaseraid.c,270 "Expected name, not a keyword 'local'".
+        files = {W + 'HCRaid.c': 'class HCRaid\n{\n    int owned;\n    void A(out int count, notnull Object target)\n    {\n'
+                                 '        array<Object> local = new array<Object>;\n'
+                                 '        ref array<Object> kept = new array<Object>;\n'
+                                 '        string text = "array<Object> local = x";\n    }\n'
+                                 '    void B(int event) {}\n}\n'}
+        found = run(files, 'HC-E011')
+        self.assertEqual([('HCRaid.c', 3, 'owned'), ('HCRaid.c', 6, 'local'), ('HCRaid.c', 10, 'event')], where(found))
 
     def test_3_game_cannot_see_a_4_world_class(self):
         files = {W + 'HCWorldThing.c': 'class HCWorldThing\n{\n}\n',

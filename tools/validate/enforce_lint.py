@@ -47,6 +47,7 @@ RULES = {
     'HC-E007': 'method named like a visible type (unqualified calls resolve to the type)',
     'HC-E008': 'unbalanced method attribute (the source model cannot inspect the declaration)',
     'HC-E010': 'integer assigned to a FileHandle (native compile: Incompatible parameter); track open state in a bool',
+    'HC-E011': 'Enforce keyword used as a variable, member or parameter name (native compile: Expected name, not a keyword)',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -206,6 +207,19 @@ def rule_file_handle_int(project, source):
     for name in sorted(names):
         for match in re.finditer(r'(?<![\w.])' + name + r'\s*=\s*\d+\s*;', source.code):
             yield _finding('HC-E010', source, match.start(), name, RULES['HC-E010'])
+
+
+# Native boot 075: hcxaibaseraid.c,270 "Expected name, not a keyword 'local'"; compile-xai4-01 refused `owned`.
+_NAME_KEYWORDS = ('owned', 'out', 'inout', 'notnull', 'autoptr', 'reference', 'volatile', 'external', 'event',
+                  'thread', 'sealed', 'local')
+_NAME_KEYWORD_DECL = re.compile(r'\b([A-Za-z_][A-Za-z0-9_<>]*)\s+(%s)\s*(?==|;|,|\))' % '|'.join(_NAME_KEYWORDS))
+
+
+def rule_keyword_names(project, source):
+    for match in _NAME_KEYWORD_DECL.finditer(source.code):
+        if match.group(1) in ('ref', 'out', 'inout', 'notnull', 'autoptr', 'return', 'new', 'delete', 'typename'):
+            continue
+        yield _finding('HC-E011', source, match.start(2), match.group(2), RULES['HC-E011'])
 
 
 def rule_layers(project, source):
@@ -608,7 +622,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)
