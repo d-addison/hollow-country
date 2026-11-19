@@ -602,6 +602,18 @@ def bundle_candidate(bundle, mission):
     return candidate
 
 
+PACK_DIAGNOSTIC = '[HollowCountry] V2 optional pack '
+
+
+def unloaded_default_packs(diagnostics):
+    """Names of default packs plan() reported unloaded. Other plan() lines (the HC-32
+    receipt) are not pack verdicts; no pack line at all is itself a refusal."""
+    packs = [line[len(PACK_DIAGNOSTIC):] for line in diagnostics if line.startswith(PACK_DIAGNOSTIC)]
+    if not packs:
+        return ['<none reported>']
+    return [row.rsplit(' loaded=', 1)[0] for row in packs if not row.endswith(' loaded=1')]
+
+
 def bundle_apply(bundle, mission, workshop, loaded):
     """Rehearse on local scratch bytes, then reuse the receipt installers in order."""
     mission = mission_target(mission)
@@ -624,8 +636,9 @@ def bundle_apply(bundle, mission, workshop, loaded):
         install(rehearsal, scratch, managed_name=BUNDLE_MANAGED)
         travel.install(source, scratch)
         optional = plan(workshop, scratch, loaded, source / 'optional/overlay-policy.json')
-        if not all(line.endswith('loaded=1') for line in optional['diagnostics']):
-            raise ValueError('bundle requires all default optional overlays to be loaded')
+        unloaded = unloaded_default_packs(optional['diagnostics'])
+        if unloaded:
+            raise ValueError('bundle requires all default optional overlays to be loaded: ' + ', '.join(unloaded))
         install(optional, scratch)
         loot_boost.install(scratch, multiplier, points)
     apply_stack(mission, [

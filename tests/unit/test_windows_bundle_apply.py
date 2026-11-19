@@ -55,5 +55,24 @@ class SyncFileWritableOnWindows(unittest.TestCase):
                 self.assertTrue(posix and not posix[0] & (os.O_RDWR | os.O_WRONLY), posix)
 
 
+class DefaultPackGateIgnoresPlanReceipts(unittest.TestCase):
+    """Boot-052 friend-path install: plan() also appends the HC-32 receipt line, which
+    has no loaded= suffix; the default-pack gate must judge only the pack lines."""
+
+    PACKS = ['[HollowCountry] V2 optional pack %s loaded=1' % name
+             for name in ('AmbientAnimals', 'Bicycles', 'Navigation', 'RaGVehicles')]
+    HC32 = '[HC Plan] HC-32 vehicle_families=8 optional=1 refused=runtime_pending state=authored runtime=PENDING'
+
+    def test_all_packs_loaded_with_a_plan_receipt_is_accepted(self):
+        self.assertEqual([], optional_overlays.unloaded_default_packs(self.PACKS + [self.HC32]))
+
+    def test_an_unloaded_pack_is_named(self):
+        lines = self.PACKS[:2] + ['[HollowCountry] V2 optional pack Navigation loaded=0', self.PACKS[3], self.HC32]
+        self.assertEqual(['Navigation'], optional_overlays.unloaded_default_packs(lines))
+
+    def test_no_pack_lines_at_all_is_refused(self):
+        self.assertEqual(['<none reported>'], optional_overlays.unloaded_default_packs([self.HC32]))
+
+
 if __name__ == '__main__':
     unittest.main()
