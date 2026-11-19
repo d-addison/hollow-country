@@ -47,7 +47,7 @@ class ScavengeBehavior(unittest.TestCase):
             physical, saved, moves, walks, writes = ['source'], [], [], [], [0]
             locations, alive, route = ['home'], [True], [True]
             identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo',
-                         HCGeneration=lambda: 1)
+                         HCGeneration=lambda: 1, HCRouteId=lambda: 'route:synthetic')
             def save(row):
                 writes[0] += 1
                 if writes[0] == fail_write: return False
@@ -182,7 +182,7 @@ class ScavengeBehavior(unittest.TestCase):
         actor.GetIdentity = lambda: None
         actor.IsAlive = lambda: True
         actor.IsUnconscious = lambda: False
-        native_identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo', HCGeneration=lambda: 1)
+        native_identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo', HCGeneration=lambda: 1, HCRouteId=lambda: 'route:synthetic')
         io = N(Actor=actor, Source=source_cache, Home=home, Item=item, LeaseId='lease', Survey=None,
                Defaults=N(TransferRangeMeters=2.5))
         native_env = dict(GetGame=lambda: N(IsServer=lambda: True), ItemBase=N(Cast=lambda item: item),
