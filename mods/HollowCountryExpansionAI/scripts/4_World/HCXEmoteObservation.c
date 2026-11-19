@@ -8,12 +8,15 @@
 // :2116 SetSurrenderState, :8962 IsSurrendered; :3925 IsUnconscious;
 // 3_Game/Global/Game.c:1119/1120 IsClient/IsServer, :1535 GetTime;
 // 3_Game/Entities/Man.c:21 GetIdentity; 3_Game/gameplay.c:368 GetId;
-// 3_Game/constants.c:368/393 ID_EMOTE_GREETING/ID_EMOTE_HOLD. Clock: existing HCGroupClock.Utc.
+// 3_Game/constants.c:368/393/407 greeting/hold/surrender constants;
+// 4_World/Classes/EmoteClasses/EmoteClasses.c:2-6 greeting, :315-319 hold,
+// :428-432 surrender use those native IDs. Clock: existing HCGroupClock.Utc.
 // Installed Expansion ai_scripts.pbo: Entities/AI/eAIBase.c:9743 CanRaiseWeapon,
 // :9755 RaiseWeapon(false) clears queued shots; :1276 eAI_CanFire requires raised;
 // :10860/10867 Expansion_SetEmote/Expansion_PlayEmote (void; verify callback).
 // Classes/FSM/States/Fighting/eAIState_Fighting_Melee.c:53 requires raised;
 // Classes/Melee/eAIMeleeFightLogic_LightHeavy.c:260-276 gates new melee on raised.
+// Expansion Classes/eAIGroup.c:671 GetFaction, :685 GetName.
 // Existing HCXStance Owns/Visible/GetGroup/GetName seams retain their citations.
 // Extend the DTO already loaded by HCXAISiteDirector; no parallel settings file.
 modded class HCXAISitePolicy
@@ -69,6 +72,7 @@ modded class eAIBase
 modded class EmoteManager
 {
     protected int m_HCSignalSerial;
+    protected int m_HCGreetingSerial;
 
     override protected void CreateEmoteCallback(typename callbacktype, int id, int mask, bool fullbody)
     {
@@ -78,10 +82,21 @@ modded class EmoteManager
         {
             // Count actual new callbacks, never failed/replayed PlayEmote calls.
             // Saturation refuses future waves rather than wrapping/replaying.
-            if (m_HCSignalSerial < 2147483647) { m_HCSignalSerial++; }
+            if (m_HCSignalSerial < 2147483647)
+            {
+                m_HCSignalSerial++;
+                if (m_CurrentGestureID == EmoteConstants.ID_EMOTE_GREETING) { m_HCGreetingSerial = m_HCSignalSerial; }
+            }
         }
     }
     int HCSignalSerial() { return m_HCSignalSerial; }
+    // Greeting-only callback acknowledgement for rendezvous baselines. Generic
+    // callers retain HCSignalSerial; this token alone does not prove perception.
+    int HCSignalGreetingSerial()
+    {
+        if (m_HCSignalSerial == 2147483647) { return 0; }
+        return m_HCGreetingSerial;
+    }
     int HCSignalGesture()
     {
         if (!m_bEmoteIsPlaying || m_HCSignalSerial == 2147483647) { return 0; }
@@ -248,20 +263,23 @@ class HCXEmoteObservation
         }
         return s_Events.HCTake(1);
     }
-    static void Remember(eAIBase actor, PlayerBase player)
+    static void Remember(eAIBase actor, PlayerBase player, string faction = "")
     {
         if (!s_Running || !GetGame() || !GetGame().IsServer() || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return; }
         if (actor.GetGroup() == player.GetGroup()) { return; }
         if (!s_Store.ValidKey(actor.GetGroup().GetName()) || !s_Store.ValidKey(player.GetIdentity().GetId())) { return; }
         // Repeated EEHitBy callbacks for an existing receipt are a cheap no-op.
         // Explicit later Remember calls on the store can refresh retention.
-        if (s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId())) { return; }
+        if (s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId()) && (faction == "" || s_Store.HasFaction(faction, player.GetIdentity().GetId()))) { return; }
         if (!HCXEmoteObservation.EventWork())
         {
             HCXEmoteObservation.RefuseControl("betrayal_event_cap");
             return;
         }
-        if (!s_Store.Remember(actor.GetGroup().GetName(), player.GetIdentity().GetId(), HCGroupClock.Utc()) && !s_Store.Healthy() && !s_StoreRefused)
+        int eventUtc = HCGroupClock.Utc();
+        bool saved = s_Store.Remember(actor.GetGroup().GetName(), player.GetIdentity().GetId(), eventUtc);
+        if (saved && faction != "") { saved = s_Store.RememberFaction(faction, player.GetIdentity().GetId(), eventUtc); }
+        if (!saved && !s_Store.Healthy() && !s_StoreRefused)
         {
             s_StoreRefused = true;
             Print("[HC Plan] HC-5 signals=refused betrayal_store=quarantined text=off runtime=PENDING");
@@ -270,7 +288,9 @@ class HCXEmoteObservation
     static bool Grudge(eAIBase actor, PlayerBase player)
     {
         if (!s_Running || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return false; }
-        return s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId());
+        if (s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId())) { return true; }
+        string faction = HCXFactions.Id(actor.GetGroup().GetFaction());
+        return s_Store.HasFaction(faction, player.GetIdentity().GetId());
     }
     static bool Surrender(eAIBase actor, PlayerBase player, bool observed)
     {
@@ -294,6 +314,13 @@ class HCXEmoteObservation
         if (s_ControlRefused) { return; }
         s_ControlRefused = true;
         Print("[HC Plan] HC-5 signals=refused:" + reason + " betrayal_store=unchanged text=off runtime=PENDING");
+    }
+    // Caller supplies native LOS plus fresh geometry (as CalculateThreat does).
+    // Never discovers a player or reads gestures without that perception proof.
+    static bool HCObservedGreeting(eAIBase actor, PlayerBase player, bool observed, int baseline)
+    {
+        if (!observed || baseline < 0 || !HCXEmoteObservation.ControlReady() || !actor || !player || !player.GetEmoteManager()) { return false; }
+        return player.GetEmoteManager().HCSignalGesture() == EmoteConstants.ID_EMOTE_GREETING && player.GetEmoteManager().HCSignalSerial() > baseline;
     }
     static int Wave(eAIBase actor, PlayerBase player, bool observed, int consumed)
     {
