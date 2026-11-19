@@ -69,6 +69,9 @@ class MethodsTranslator(Translator):
                 if block is None or re.search(r'\b(' + '|'.join(self.methods) + r')\(', head)]
 
 
+# 977ee8e: HCCraftRefusal.WreckMessage names the module's enroll reasons.
+WRECK_REASONS = dict(HC_TABLE_FULL='wreck_table_full', HC_SAVE_FAILED='wreck_journal_save_failed')
+
 class RefusalReportTests(unittest.TestCase):
     def setUp(self):
         self.now = 100.0
@@ -199,7 +202,7 @@ class RefusalReportTests(unittest.TestCase):
              dict(HCVehicleFlipModule=N(Get=lambda: None, HCCandidate=lambda *a: True),
                   CarScript=N(Cast=lambda value: value))),
             ('HCActionSalvageWreck.c', 'HCActionSalvageWreck', 'salvage_unavailable',
-             dict(HCWreckSalvageModule=N(Get=lambda: None))),
+             dict(HCWreckSalvageModule=N(Get=lambda: None, **WRECK_REASONS))),
             ('HCActionSiphonFuel.c', 'HCActionSiphonFuel', 'siphon_diagnostic_unavailable',
              dict(HCSiphonDiagnosticLocks=lambda: N(), ValidateLive=lambda *a: False)),
             ('HCFuelSiphon.c', 'HCActionSiphonFuelFromCar', 'siphon_unavailable',
@@ -230,7 +233,7 @@ class RefusalReportTests(unittest.TestCase):
 
     def test_salvage_missing_module_is_reported_by_start_and_completion(self):
         action = self.action('HCActionSalvageWreck.c', 'HCActionSalvageWreck',
-                             HCWreckSalvageModule=N(Get=lambda: None),
+                             HCWreckSalvageModule=N(Get=lambda: None, **WRECK_REASONS),
                              HCWreckSalvageActionData=N(Cast=lambda value: value))
         def attempt():
             action.OnStartServer(self.data())

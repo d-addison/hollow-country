@@ -246,7 +246,7 @@ class ServerFlowTests(unittest.TestCase):
         self.assertLess(tick.index('s_Instance = this'), tick.index('HCSearchBinding.TemplatesComplete(this)'))
         self.assertIn('legacy pilot absent; template path in use', tick)
 
-    def test_absent_pilot_returns_quietly_but_present_invalid_pilot_is_an_error(self):
+    def test_absent_pilot_logs_one_off_line_but_present_invalid_pilot_is_an_error(self):
         for present in (False, True):
             target = N(s_Instance=None, IsEnabled=lambda settings: True, m_Config=None,
                        ValidateConfig=lambda settings: False)
@@ -257,7 +257,10 @@ class ServerFlowTests(unittest.TestCase):
             if present:
                 self.assertIn('[HC Interiors] invalid legacy pilot configuration; pilot disabled', logs)
             else:
-                self.assertEqual([], logs)
+                # w28-s160 (#160): the optional legacy pilot says once that it is off.
+                self.assertEqual(1, len(logs))
+                self.assertTrue(logs[0].startswith('[HC Interiors] legacy pilot off: interiors.json absent'))
+                self.assertNotIn('invalid', logs[0])
 
     def test_changed_sources_obey_enforce_local_rules(self):
         for path in (BINDING, TEMPLATES, SCRIPTS / '4_World/Loot/HCSearchHouses.c'):
