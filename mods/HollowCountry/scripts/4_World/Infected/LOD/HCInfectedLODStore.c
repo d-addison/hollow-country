@@ -191,6 +191,17 @@ class HCInfectedLODConfig
                 reason = "unreadable lod.json; preserving file";
                 return null;
             }
+            // Only EnableVirtualHerds, HerdWorld and VarietyNonCalmHoldSeconds
+            // may be absent; HCRestoreMissingDefaults names their defaults.
+            bool baselinePresent = true;
+            if (!HCJsonFields.Has(content, "SchemaVersion") || !HCJsonFields.Has(content, "EnableLOD") || !HCJsonFields.Has(content, "FullRange") || !HCJsonFields.Has(content, "IdleRange") || !HCJsonFields.Has(content, "MinSpawnDistance") || !HCJsonFields.Has(content, "MaterializeRange") || !HCJsonFields.Has(content, "FoldRange")) { baselinePresent = false; }
+            if (!HCJsonFields.Has(content, "VisibilityRange") || !HCJsonFields.Has(content, "ClassifyPerTick") || !HCJsonFields.Has(content, "MaxMaterialized") || !HCJsonFields.Has(content, "MaxPerHerd") || !HCJsonFields.Has(content, "MaxObservers") || !HCJsonFields.Has(content, "RegrowSeconds")) { baselinePresent = false; }
+            if (!HCJsonFields.Has(content, "PosedBudget") || !HCJsonFields.Has(content, "PosedFullBudget") || !HCJsonFields.Has(content, "PosedIdleBudget") || !HCJsonFields.Has(content, "MemberTypes") || !HCJsonFields.Has(content, "Herds")) { baselinePresent = false; }
+            if (!baselinePresent)
+            {
+                reason = "settings_missing_baseline_fields; preserving lod.json";
+                return null;
+            }
             HCRestoreMissingDefaults(config, content);
             if (config && config.SchemaVersion == 1)
             {

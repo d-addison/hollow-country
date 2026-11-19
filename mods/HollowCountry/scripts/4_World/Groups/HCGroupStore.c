@@ -39,6 +39,17 @@ class HCGroupStore
             string error;
             if (!HCGroupIO.Read(path, 8192, content)) return null;
             if (!JsonFileLoader<HCGroupSettings>.LoadData(content, settings, error)) return null;
+            // ShareDiscovery is the only supported missing-key default.
+            bool baselinePresent = true;
+            if (!HCJsonFields.Has(content, "SchemaVersion") || !HCJsonFields.Has(content, "Enabled") || !HCJsonFields.Has(content, "HCTeamPingEnabled") || !HCJsonFields.Has(content, "WorldIcons") || !HCJsonFields.Has(content, "MapIcons") || !HCJsonFields.Has(content, "RequireGPS") || !HCJsonFields.Has(content, "RequireLOS")) { baselinePresent = false; }
+            if (!HCJsonFields.Has(content, "RequireRadio") || !HCJsonFields.Has(content, "NavigationLayer") || !HCJsonFields.Has(content, "DiscoveryLayer") || !HCJsonFields.Has(content, "MissionLayer") || !HCJsonFields.Has(content, "MaxLOSRaysPerTick") || !HCJsonFields.Has(content, "MaxDiscoveries") || !HCJsonFields.Has(content, "MaxExplorers")) { baselinePresent = false; }
+            if (!HCJsonFields.Has(content, "DiscoveryIntervalSeconds") || !HCJsonFields.Has(content, "IconScale") || !HCJsonFields.Has(content, "LabelScale") || !HCJsonFields.Has(content, "MaxGroups") || !HCJsonFields.Has(content, "MaxMembers") || !HCJsonFields.Has(content, "MaxMarkers") || !HCJsonFields.Has(content, "MaxInvites")) { baselinePresent = false; }
+            if (!HCJsonFields.Has(content, "MaxRequestsPerSecond") || !HCJsonFields.Has(content, "MaxStoreBytes") || !HCJsonFields.Has(content, "KeepRevisions") || !HCJsonFields.Has(content, "InviteSeconds") || !HCJsonFields.Has(content, "MarkerRetentionSeconds") || !HCJsonFields.Has(content, "PositionIntervalSeconds") || !HCJsonFields.Has(content, "PositionStaleSeconds") || !HCJsonFields.Has(content, "MaxIconDistance")) { baselinePresent = false; }
+            if (!baselinePresent)
+            {
+                Print("[HC Groups] settings_missing_baseline_fields; preserving settings.json; service inactive runtime=PENDING");
+                return null;
+            }
             HCGroupSettingDefaults.HCRestoreMissingDefaults(settings, content);
             if (settings && settings.SchemaVersion == 1)
             {
