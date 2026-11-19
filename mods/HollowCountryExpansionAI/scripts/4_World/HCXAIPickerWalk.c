@@ -20,6 +20,14 @@
 // inference: the base observes real positions and owns the custody journal.
 class HCXAIPickerWalk : HCScavengeInventory
 {
+    // #201 additive custody veto: both HCMove preflights dispatch this hook.
+    // Native transfer and all Expansion walking APIs remain in their owners.
+    override bool HCPartyCurrent(HCScavengeState row)
+    {
+        if (!super.HCPartyCurrent(row)) { return false; }
+        return HCCampTheft.HCGuard(this, row);
+    }
+
     protected eAIGroup m_Group;
     protected ref array<vector> m_PreviousPoints = new array<vector>();
     protected eAIWaypointBehavior m_PreviousBehavior;
