@@ -135,7 +135,7 @@ class RolePlan(unittest.TestCase):
         text = re.sub(r"([\w.]+)\+\+", r"\1 += 1", self.source)
         text = re.sub(r"([\w.]+)--", r"\1 -= 1", text)
         # Only declaration syntax is adapted; the real tick body executes.
-        text = re.sub(r'\b(?:HCXAISiteDirector|HCXAISiteState|eAIGroup|eAIBase|eAITarget|HCAIPartyIdentity|HCAICampRoutineView|HCHoldouts|HCPickers|HCScavengeTrip|HCAITrade|HCTradeState|eAIWaypointBehavior|HCXAIRoleLease|ZombieBase) (?=\w+)', 'HCEventPort ', text)
+        text = re.sub(r'\b(?:HCXAISiteDirector|HCXAISiteState|eAIGroup|eAIBase|eAITarget|HCAIPartyIdentity|HCAICampRoutineView|HCHoldouts|HCPickers|HCScavengeTrip|HCAITrade|HCTradeState|eAIWaypointBehavior|HCXAIRoleLease|ZombieBase|HCWorldMaterializer|HCDebugProposalRow) (?=\w+)', 'HCEventPort ', text)
         visits = []
         states = EArray([N()])
         director = N(Phase=lambda: 'run', States=lambda: states)
@@ -163,13 +163,64 @@ class RolePlan(unittest.TestCase):
         self.assertEqual(['release'], releases)
         self.assertEqual([], job.m_Leases)
 
+    def _tick_text(self):
+        text = re.sub(r"([\w.]+)\+\+", r"\1 += 1", self.source)
+        text = re.sub(r"([\w.]+)--", r"\1 -= 1", text)
+        # Dotted member chains (state.Patrol.m_Group) are renamed mm_* so the
+        # translator's own-member rule (m_* -> self.m_*) leaves them alone.
+        text = re.sub(r'(?<=\.)m_(\w+)', r'mm_\1', text)
+        return re.sub(r'\b(?:HCXAISiteDirector|HCXAISiteState|eAIGroup|eAIBase|eAITarget|HCAIPartyIdentity|HCAICampRoutineView|HCHoldouts|HCPickers|HCScavengeTrip|HCAITrade|HCTradeState|eAIWaypointBehavior|HCXAIRoleLease|ZombieBase|HCWorldMaterializer|HCDebugProposalRow) (?=\w+)', 'HCEventPort ', text)
+
+    def test_perceived_incident_preempts_a_new_role_pick(self):
+        offers, due = [], []
+        group = N(Count=lambda: 2, IsInCombat=lambda: False)
+        state = N(Site=N(HousePosition=[1, 0, 1]), Qualified=True, Failed=False, Completed=False,
+                  Patrol=N(mm_HCLive=True, mm_Group=group), PatrolPoints=EArray([[5, 0, 5]]),
+                  ProposalId='p1', HCW70NextAt=0, HCW70DangerUntil=0)
+        states = EArray([state])
+        director = N(Phase=lambda: 'run', States=lambda: states)
+        def offer(g, home):
+            offers.append((g, home))
+            return answer[0]
+        answer = [True]
+        self.policy.HCDue = lambda *args: due.append(args) or False
+        env = dict(HCXAISiteDirector=N(Active=lambda: director),
+                   HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda *args: True)),
+                   HCUnitBudget=N(HC_WORK_ROLES=13), HCWorldClock=N(UTC=lambda: 100),
+                   HCXAIRolePolicy=self.policy,
+                   HCBaseRaid=N(HCOwns=lambda lease: False), HCPickers=N(Get=lambda: None),
+                   HCAITrade=N(HCGet=lambda: None), HCXAIIncidentResponse=N(HCOffer=offer))
+        tick = translate(self._tick_text(), 'OnTick', env, 'HCXAIRoleActivities', member=True)
+        job = N(m_Running=True, m_Config=N(GroupsPerTick=1, MaxActive=4, DangerMemorySeconds=60),
+                m_Leases=EArray(), m_Cursor=0, m_LeaseCursor=0,
+                m_Work=N(HCReset=lambda *args: None, HCContinue=lambda: True))
+        tick(job, 1)
+        self.assertEqual([(group, [5, 0, 5])], offers, 'the incident offer sees the patrol home')
+        self.assertEqual([], due, 'a group answering an incident gets no new role pick')
+        self.assertEqual([], job.m_Leases)
+        answer[0] = False
+        tick(job, 1)
+        self.assertEqual(2, len(offers))
+        self.assertEqual(1, len(due), 'without an incident the normal role cadence runs')
+
+    def test_repair_activity_reaches_the_landed_car_repair_owner(self):
+        calls = []
+        env = dict(HCXAICarRepair=N(HCOffer=lambda group, home: calls.append(home) or True))
+        start = translate(self._tick_text(), 'HCStart', env, 'HCXAIRoleActivities', member=True)
+        job = N(m_Config=N(EnableCarRepair=True))
+        self.assertEqual('', start(job, None, N(), None, N(), 'repair', [3, 0, 3], 100))
+        self.assertEqual([[3, 0, 3]], calls)
+        job.m_Config.EnableCarRepair = False
+        self.assertEqual('REPAIR_OPERATOR_OFF', start(job, None, N(), None, N(), 'repair', [3, 0, 3], 100))
+
     def test_existing_providers_and_admission_are_wired_without_new_movement(self):
         for token in ('director.HCParty(', 'HCFactionConflict.HCW70Offer(',
                       'producer.HCPlan(', 'HCBaseRaid.HCOwns(', 'HCXAICarRepair.HCOffer(group, home)',
-                      '#ifdef HCXAI_CAR_REPAIR', 'HCServer.HCTickWork().HCTakeFor(',
+                      'HCXAIIncidentResponse.HCOffer(group, incidentHome)', 'HCServer.HCTickWork().HCTakeFor(',
                       'HCPerfSlices', 'HCModuleReadiness.HCDerive(', 'HCV2Admission.Line(',
                       'role_activities.disable', 'HCJsonFields.Has('):
             self.assertIn(token, self.source)
+        self.assertNotIn('#ifdef HCXAI_CAR_REPAIR', self.source, 'car repair landed in this addon; no dormant define')
         for token in ('SetPosition(', 'OverrideTargetPosition(', 'CreateObject(', 'GetObjectsAtPosition'):
             self.assertNotIn(token, self.source)
 

@@ -391,7 +391,6 @@ class HCXAIRoleActivities : HCModule
     protected ref array<ref HCXAIRoleLease> m_Leases = new array<ref HCXAIRoleLease>;
     protected int m_LeaseCursor;
     protected string m_Fault;
-    protected bool m_RepairMissingLogged;
     protected bool m_RaidMissingLogged;
 
     override string GetName() { return "AIRoles"; }
@@ -489,17 +488,8 @@ class HCXAIRoleActivities : HCModule
         if (activity == "repair")
         {
             if (!m_Config.EnableCarRepair) { return "REPAIR_OPERATOR_OFF"; }
-#ifdef HCXAI_CAR_REPAIR
             if (HCXAICarRepair.HCOffer(group, home)) { return ""; }
             return "REPAIR_OFFER_REFUSED";
-#else
-            if (!m_RepairMissingLogged)
-            {
-                m_RepairMissingLogged = true;
-                Print("[HC Roles] CAR_REPAIR_PORT_MISSING runtime=PENDING");
-            }
-            return "CAR_REPAIR_PORT_MISSING";
-#endif
         }
         return "ROLE_ACTIVITY_UNSUPPORTED";
     }
@@ -547,7 +537,6 @@ class HCXAIRoleActivities : HCModule
             eAIGroup group = state.Patrol.m_Group;
             if (!group || group.Count() < 1) { continue; }
             if (group.IsInCombat()) { state.HCW70DangerUntil = now + m_Config.DangerMemorySeconds; }
-            if (!HCXAIRolePolicy.HCDue(m_Running, granted, now, state.HCW70NextAt, m_Leases.Count(), m_Config.MaxActive)) { continue; }
             // Never steal a reserved route/cargo controller. Native combat
             // remains free to act during every role lease.
             if (HCBaseRaid.HCOwns(state.ProposalId)) { continue; }
@@ -567,6 +556,12 @@ class HCXAIRoleActivities : HCModule
             {
                 if (tradeState.LeftLease == state.ProposalId || tradeState.RightLease == state.ProposalId) { continue; }
             }
+            // E1: a perceived world incident (gas, wreck, fight, horde) preempts a new
+            // role pick; the responder owns its own lease, budget and route restore.
+            vector incidentHome = state.Site.HousePosition;
+            if (state.PatrolPoints.Count() > 0) { incidentHome = state.PatrolPoints[0]; }
+            if (HCXAIIncidentResponse.HCOffer(group, incidentHome)) { continue; }
+            if (!HCXAIRolePolicy.HCDue(m_Running, granted, now, state.HCW70NextAt, m_Leases.Count(), m_Config.MaxActive)) { continue; }
             HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
             string homeId = "";
             vector home = state.Site.HousePosition;
