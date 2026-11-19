@@ -45,6 +45,11 @@ class HCNativeInfectedPack
     int RouteResult;
     int RoutePlanned;
     int RouteCompleted;
+    // #160 HC-S002: why the latest Start returned false ("" after a success or
+    // before the first call). Callers may read it; every refusal also logs once
+    // per reason, then every 512th time, so a per-tick caller cannot flood.
+    protected string m_RefusalReason;
+    protected static ref map<string, int> s_RefusalSeen = new map<string, int>;
 
     protected bool ActivateWaypoint(float now)
     {
@@ -135,28 +140,47 @@ class HCNativeInfectedPack
         return length <= maxSegment * 2 && vector.DistanceSq(path[path.Count() - 1], sampled) <= 4;
     }
 
+    protected bool HCRefuse(string reason)
+    {
+        m_RefusalReason = reason;
+        int seen = 0;
+        if (s_RefusalSeen.Contains(reason)) { seen = s_RefusalSeen.Get(reason); }
+        seen = seen + 1;
+        s_RefusalSeen.Set(reason, seen);
+        if (seen == 1 || seen % 512 == 0)
+        {
+            Print("[HC Infected] native pack route refused reason=" + reason + " count=" + seen.ToString() + " runtime=PENDING");
+        }
+        return false;
+    }
+
+    string HCRefusalReason() { return m_RefusalReason; }
+
     bool Start(array<HCInfectedActor> actors, vector destination, bool search, float now, float expires)
     {
-        if (s_PendingRelease.Count() > 0) return false;
-        if (!GetGame().IsServer() || !actors || actors.Count() < 1 || actors.Count() > 6 || !GetAIWorld() || expires <= now)
-            return false;
+        m_RefusalReason = "";
+        if (s_PendingRelease.Count() > 0) return HCRefuse("release_pending");
+        if (!GetGame().IsServer()) return HCRefuse("not_server");
+        if (!actors || actors.Count() < 1 || actors.Count() > 6) return HCRefuse("roster_bounds");
+        if (!GetAIWorld()) return HCRefuse("no_ai_world");
+        if (expires <= now) return HCRefuse("clue_expired");
         // The exact template and its type=InfectedPack exist in installed
         // DZ/aiconfigs/config.bin. Check again in the running config database.
         if (!GetGame().ConfigIsExisting("GroupBehaviourTemplates DZInfectedPackBeh"))
-            return false;
+            return HCRefuse("pack_template_missing");
         ZombieBase leader = actors[0].InfectedEntity;
         if (!leader || !leader.IsAlive())
-            return false;
+            return HCRefuse("leader_unavailable");
         InitFilter();
         vector start;
         if (!GetAIWorld().SampleNavmeshPosition(leader.GetPosition(), 1.5, m_Filter, start))
-            return false;
+            return HCRefuse("leader_off_navmesh");
         vector end;
         float radius = 120;
         if (search)
             radius = 24;
         if (!Reachable(start, destination, radius, end))
-            return false;
+            return HCRefuse("route_unreachable");
         ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
         route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 1.5));
         TVectorArray rooms;
@@ -172,10 +196,10 @@ class HCNativeInfectedPack
         foreach (HCInfectedActor candidate : actors)
         {
             if (!candidate.InfectedEntity || !candidate.InfectedEntity.IsAlive() || !candidate.InfectedEntity.GetAIAgent())
-                return false;
+                return HCRefuse("member_unavailable");
             int mind = candidate.InfectedEntity.GetMindStateSynced();
             if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT || candidate.Profile == "native_injured")
-                return false;
+                return HCRefuse("member_engaged");
         }
         m_LastPosition = leader.GetPosition();
         m_Search = search;
@@ -184,12 +208,12 @@ class HCNativeInfectedPack
         RouteEnd = end;
         Group = GetAIWorld().CreateGroup("DZInfectedPackBeh");
         if (!Group)
-            return false;
+            return HCRefuse("group_create_failed");
         BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
         if (!behaviour)
         {
             Group = null; // Empty groups are deleted next frame by AIWorld.
-            return false;
+            return HCRefuse("group_behaviour_missing");
         }
         m_RoutePlan = route;
         m_PendingRooms = rooms;
@@ -203,7 +227,7 @@ class HCNativeInfectedPack
         {
             Group = null; // Still empty; no agents are destroyed.
             RouteResult = 6;
-            return false;
+            return HCRefuse("waypoint_failed");
         }
         foreach (HCInfectedActor actor : actors)
         {

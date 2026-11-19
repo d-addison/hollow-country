@@ -68,6 +68,8 @@ class HCInfectedDoorsModule : HCModule
     protected int m_Opened;
     protected int m_Broken;
     protected int m_Refused;
+    // #160 HC-S001: cause of the latest refusal; read by the summary line.
+    protected string m_LastRefusal;
     protected int m_Full;
     protected ref array<ref HCInfectedDoorPressure> m_Doors;
     protected ref array<ref HCInfectedDoorScan> m_Scans;
@@ -104,6 +106,7 @@ class HCInfectedDoorsModule : HCModule
         m_Opened = 0;
         m_Broken = 0;
         m_Refused = 0;
+        m_LastRefusal = "none";
         m_Full = 0;
         m_Clock = 0;
         m_LogAt = 600;
@@ -133,10 +136,15 @@ class HCInfectedDoorsModule : HCModule
             m_LogAt = m_Clock + 600;
             int watched = m_Doors.Count();
             Print("[HC Doors] summary watched=" + watched.ToString() + " hits=" + m_Hits.ToString() + " opened=" + m_Opened.ToString() + " broken=" + m_Broken.ToString() + " refused=" + m_Refused.ToString() + " table_full=" + m_Full.ToString() + " runtime-unverified");
+            if (m_Refused > 0)
+            {
+                Print("[HC Doors] summary refusal last_refusal=" + m_LastRefusal + " refused=" + m_Refused.ToString() + " runtime-unverified");
+            }
             m_Hits = 0;
             m_Opened = 0;
             m_Broken = 0;
             m_Refused = 0;
+            m_LastRefusal = "none";
             m_Full = 0;
         }
     }
@@ -454,6 +462,7 @@ class HCInfectedDoorsModule : HCModule
         if (!building.CanDoorBeOpened(request))
         {
             m_Refused = m_Refused + 1;
+            m_LastRefusal = "building_rules_refused";
             return;
         }
         string verb = "opened";

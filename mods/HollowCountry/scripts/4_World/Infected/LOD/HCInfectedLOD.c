@@ -434,6 +434,8 @@ class HCInfectedLODModule : HCModule
         Print(HCV2Admission.Line("VirtualHerds", herdPreference, "W7-135", HCV2Gates.Qualified("W7-135")));
         if (!HCV2Admission.Admitted(lodPreference))
         {
+            reason = "operator_preference_off";
+            Print("[HC InfectedLOD] not started: " + reason + " runtime=PENDING");
             m_Config = null;
             return;
         }

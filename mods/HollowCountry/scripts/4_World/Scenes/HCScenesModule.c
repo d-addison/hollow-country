@@ -65,10 +65,19 @@ class HCScenesModule : HCModule
             return;
         }
         int now = Now();
-        if (now < 1) { return; }
+        if (now < 1)
+        {
+            Print("[HollowCountry] V2 scenes refused; utc_clock_unavailable");
+            return;
+        }
         m_Store = new HCSceneChainStore;
         m_State = m_Store.Open(now);
-        if (!m_State) { return; }
+        if (!m_State)
+        {
+            // HCSceneChainStore.Open already logged the persistence cause (reason=...).
+            Print("[HollowCountry] V2 scenes refused; store_unavailable");
+            return;
+        }
         m_Stories = new HCStorySchedule;
         bool storiesStarted = m_Stories.HCStart(m_State, m_Store, HCStoryPolicy.HCLoadConfig(), now, true);
         if (!storiesStarted && m_Stories.HCReason() != "operator-off")

@@ -53,7 +53,18 @@ class HCWeatherDaysModule : HCModule
             Print("[HollowCountry] V2 weather blocked: EnableAtmosphere is off");
             return;
         }
-        if (!HCAtmosphereQualification.SupportedWorld() || !HCAtmosphereQualification.DelegatedWeather()) return;
+        if (!HCAtmosphereQualification.SupportedWorld())
+        {
+            m_Status.HCPublish("refused", "WORLD_OR_BUILD_UNSUPPORTED");
+            Print("[HollowCountry] V2 weather blocked: WORLD_OR_BUILD_UNSUPPORTED; vanilla weather retained");
+            return;
+        }
+        if (!HCAtmosphereQualification.DelegatedWeather())
+        {
+            m_Status.HCPublish("refused", "XML_WEATHER_CONTROLLER_OWNS");
+            Print("[HollowCountry] V2 weather blocked: XML_WEATHER_CONTROLLER_OWNS; vanilla weather retained");
+            return;
+        }
         // Review P1: honour the v1 atmosphere admission (on by default; the
         // acceptance/atmosphere.disable marker turns both v1 and V2 weather off).
         if (!HCAtmosphereQualification.Qualified() && !HCAtmosphereQualification.LocalOptIn())
@@ -62,7 +73,12 @@ class HCWeatherDaysModule : HCModule
             return;
         }
         Mission mission = GetGame().GetMission();
-        if (!mission) return;
+        if (!mission)
+        {
+            m_Status.HCPublish("refused", "MISSION_UNAVAILABLE");
+            Print("[HollowCountry] V2 weather blocked: MISSION_UNAVAILABLE; vanilla weather retained");
+            return;
+        }
         m_Data = ChernarusPlusData.Cast(mission.GetWorldData());
         if (m_Data) m_Data.HCBeginWeatherDays();
         HCUpdateOperationalStatus();
