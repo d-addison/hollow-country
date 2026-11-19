@@ -222,10 +222,14 @@ class ScavengeBehavior(unittest.TestCase):
         gate = holdouts.index('houses.V2VisitAvailable()')
         self.assertLess(gate, holdouts.index('row.StockAttempts++;'))
 
-        # Adapter has a bounded live refusal; it cannot fabricate provider APIs.
+        # Adapter waits once for an idle owner, then binds the real walk port.
+        # Synthetic lifecycle fixture: no DayZ/Expansion evidence.
         adapter = ADAPTER.read_text()
-        worker = N(m_Enabled=False, m_Reported=False)
-        env = dict(Print=lambda s: None)
+        worker = N(m_Enabled=False, m_Reported=False, m_Bound=False, m_Port=None)
+        env = dict(Print=lambda s: None,
+                   HCXAIPickerWalk=lambda: N(HCFinishWalk=lambda: None),
+                   HCPickers=N(Get=lambda: None),
+                   HCServer=N(HCTickWork=lambda: N(HCTake=lambda cost: True)))
         bind(adapter, 'HCXAIScavengeAdapter', worker, ('Open', 'Step', 'Close'), env)
         worker.Open(N(EnableEncounters=False))
         worker.Step()

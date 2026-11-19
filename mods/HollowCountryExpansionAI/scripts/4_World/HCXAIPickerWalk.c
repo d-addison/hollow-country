@@ -1,0 +1,98 @@
+// HC-34 / LC-T409: original walk port, no copied Expansion implementation.
+// Installed ai_scripts.pbo, inspected read-only (script paths relative to PBO):
+// 4_World/DayZExpansion_AI/Classes/eAIGroup.c:213 AddWaypoint,
+// :222 GetWaypoints (live array; snapshot it), :241 ClearWaypoints (resets cursor),
+// :251 SetWaypointBehaviour, :304 GetWaypointBehaviour;
+// 4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 GetGroup;
+// 3_Game/DayZExpansion_AI/Enums/AIenums.c:6 eAIWaypointBehavior.ONCE.
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :385 Clear,
+// :407 Insert. Other calls are existing HC ports. Runtime acceptance PENDING.
+// Preserve the existing party's patrol, never create a second group. Each leg
+// and saved patrol is capped by Survey.MaxWaypoints. No scheduler or arrival
+// inference: the base observes real positions and owns the custody journal.
+class HCXAIPickerWalk : HCScavengeInventory
+{
+    protected eAIGroup m_Group;
+    protected ref array<vector> m_PreviousPoints = new array<vector>();
+    protected eAIWaypointBehavior m_PreviousBehavior;
+    protected string m_WalkRefusal;
+
+    override string HCWalkRefusal()
+    {
+        if (m_WalkRefusal != "") { return m_WalkRefusal; }
+        // No actor between trips: the walk provider itself is installed.
+        if (Actor && !Actor.GetGroup()) { return "PICKER_ACTOR_GROUP_MISSING"; }
+        return "";
+    }
+
+    override bool HCWalk(bool returning)
+    {
+        m_WalkRefusal = "";
+        if (!HCLive() || !Survey) { m_WalkRefusal = "PICKER_WALK_NOT_LIVE"; return false; }
+        eAIGroup group = Actor.GetGroup();
+        if (!group) { m_WalkRefusal = "PICKER_ACTOR_GROUP_MISSING"; return false; }
+        if (m_Group && m_Group != group) { m_WalkRefusal = "PICKER_ACTOR_GROUP_CHANGED"; return false; }
+        HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(LeaseId);
+        if (!HCAIPartyIdentity.HCValid(identity)) { m_WalkRefusal = "PICKER_IDENTITY_INVALID"; return false; }
+        HCPickerRoute route = Survey.HCFind(identity.HCRouteId());
+        if (!route || !route.Waypoints || route.Waypoints.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_ROUTE_UNSURVEYED"; return false; }
+        array<vector> points = new array<vector>();
+        route.HCLegPoints(returning, points);
+        if (points.Count() < 1 || points.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_ROUTE_LEG_INVALID"; return false; }
+        array<vector> previous = group.GetWaypoints();
+        if (!m_Group && previous.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_PATROL_WAYPOINT_CAP"; return false; }
+        if (!HCServer.HCTickWork().HCTake(1)) { m_WalkRefusal = "PICKER_WALK_WORK_BUDGET"; return false; }
+        if (!m_Group)
+        {
+            m_PreviousPoints.Clear();
+            for (int priorIndex = 0; priorIndex < previous.Count(); priorIndex++) { m_PreviousPoints.Insert(previous[priorIndex]); }
+            m_PreviousBehavior = group.GetWaypointBehaviour();
+            m_Group = group;
+        }
+        group.ClearWaypoints();
+        for (int legIndex = 0; legIndex < points.Count(); legIndex++) { group.AddWaypoint(points[legIndex]); }
+        group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        return true;
+    }
+
+    // Terminal custody, uncertain checkpoint or stop: resume the same group's
+    // prior patrol list and behavior. Reset cursor via ClearWaypoints, exactly
+    // as a fresh patrol request; never move or respawn a member. Weak group
+    // handle can expire after native destruction; then there is nothing to resume.
+    void HCFinishWalk()
+    {
+        if (m_Group)
+        {
+            m_Group.ClearWaypoints();
+            array<vector> restorePoints = m_PreviousPoints;
+            for (int restoreIndex = 0; restoreIndex < restorePoints.Count(); restoreIndex++) { m_Group.AddWaypoint(restorePoints[restoreIndex]); }
+            m_Group.SetWaypointBehaviour(m_PreviousBehavior);
+        }
+        m_Group = null;
+        m_PreviousPoints.Clear();
+    }
+
+    override void HCClear()
+    {
+        HCFinishWalk();
+        m_WalkRefusal = "";
+        super.HCClear();
+    }
+}
+
+// Observe the existing durable trip boundary, including native reentrant loss.
+// No new base interface, polling observer, save, inventory owner or reset/replay.
+modded class HCScavengeTrip
+{
+    override bool HCCheckpoint()
+    {
+        bool saved = super.HCCheckpoint();
+        HCXAIPickerWalk walkPort = HCXAIPickerWalk.Cast(m_IO);
+        if (walkPort && m_State)
+        {
+            string phase = m_State.Phase;
+            if (!saved || phase == "returned" || phase == "lost" || phase == "quarantined") { walkPort.HCFinishWalk(); }
+        }
+        return saved;
+    }
+}

@@ -411,13 +411,17 @@ class HCScavengeInventory
     bool HCAtSource()
     {
         if (!HCLive() || !Source) { return false; }
-        return vector.DistanceSq(Actor.GetPosition(), Source.GetPosition()) <= Defaults.TransferRangeMeters * Defaults.TransferRangeMeters;
+        float sourceRange = Defaults.TransferRangeMeters;
+        if (Survey) { sourceRange = Survey.ArrivalRangeMeters; }
+        return vector.DistanceSq(Actor.GetPosition(), Source.GetPosition()) <= sourceRange * sourceRange;
     }
 
     bool HCAtHome()
     {
         if (!HCLive() || !Home) { return false; }
-        return vector.DistanceSq(Actor.GetPosition(), Home.GetPosition()) <= Defaults.TransferRangeMeters * Defaults.TransferRangeMeters;
+        float homeRange = Defaults.TransferRangeMeters;
+        if (Survey) { homeRange = Survey.ArrivalRangeMeters; }
+        return vector.DistanceSq(Actor.GetPosition(), Home.GetPosition()) <= homeRange * homeRange;
     }
 
     bool HCAccessible(EntityAI cache)
@@ -743,6 +747,9 @@ class HCPickers : HCModule
         if (!route) { return "PICKER_ROUTE_UNSURVEYED"; }
         HCScavengeInventory port = m_Trip.m_IO;
         if (!port.HCBindSurveyed(actor, route, lease)) { port.HCClear(); return "PICKER_ANCHOR_STOCK_ABSENT"; }
+        // Reject an unbound walk before journal departure; keep the named cause.
+        string walkRefusal = port.HCWalkRefusal();
+        if (walkRefusal != "") { port.HCClear(); return walkRefusal; }
         string sourceId = HCSearchSupplyRegistry.PersistentId(port.Source);
         string homeId = HCSearchSupplyRegistry.PersistentId(port.Home);
         string itemId = HCSearchSupplyRegistry.PersistentId(port.Item);
