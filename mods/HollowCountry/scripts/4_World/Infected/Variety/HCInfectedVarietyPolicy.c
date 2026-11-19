@@ -17,6 +17,19 @@ class HCInfectedVarietyPolicy
         return seconds >= MIN_NONCALM_HOLD_SECONDS && seconds <= MAX_NONCALM_HOLD_SECONDS;
     }
 
+    // Source context chooses the role; the existing runner cap remains authoritative.
+    static int HCContextRole(string context, bool runnerRoom)
+    {
+        if (context == "roadside" && runnerRoom) { return 2; }
+        if (context == "roadside" || context == "wreck") { return 0; }
+        return 1;
+    }
+
+    static bool HCShouldWakeDormant(bool overCap, bool nativeAlert)
+    {
+        return overCap || nativeAlert;
+    }
+
     static float GroupScale(int players)
     {
         if (players <= 1) { return 0.6; }

@@ -1,0 +1,630 @@
+{
+  "SchemaVersion": 1,
+  "Runtime": "PENDING",
+  "MaxSites": 64,
+  "MaxFreshBodies": 3,
+  "GroupMembers": 3,
+  "ContextRange": 40,
+  "InterestRange": 1000,
+  "RequestRange": 1500,
+  "MinSpawnDistance": 120,
+  "VisibilityRange": 1100,
+  "MaxObservers": 8,
+  "GroupSpacing": 4,
+  "AutomaticIntervalSeconds": 600,
+  "Sites": [
+    {
+      "Id": "variety-wreck-1",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_Caravan_WBrown",
+      "Position": [
+        174.666367,
+        318.040619,
+        7480.197754
+      ]
+    },
+    {
+      "Id": "variety-wreck-2",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_hb02_aban1_blue",
+      "Position": [
+        1048.998901,
+        158.23912,
+        6682.125488
+      ]
+    },
+    {
+      "Id": "variety-wreck-3",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_hb01_aban2_blue",
+      "Position": [
+        2695.173096,
+        274.912079,
+        10060.628906
+      ]
+    },
+    {
+      "Id": "variety-wreck-4",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_sed01_aban2_white",
+      "Position": [
+        3370.325684,
+        203.926315,
+        12748.06543
+      ]
+    },
+    {
+      "Id": "variety-wreck-5",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_offroad02_aban2",
+      "Position": [
+        4479.185059,
+        340.680115,
+        9819.769531
+      ]
+    },
+    {
+      "Id": "variety-wreck-6",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_sed02_aban1_grey",
+      "Position": [
+        5819.530273,
+        78.083221,
+        2646.395996
+      ]
+    },
+    {
+      "Id": "variety-wreck-7",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_sed01_aban1_black",
+      "Position": [
+        6526.839355,
+        61.751633,
+        3511.647217
+      ]
+    },
+    {
+      "Id": "variety-wreck-8",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_Caravan_MGreen",
+      "Position": [
+        7281.884766,
+        157.803711,
+        12480.367188
+      ]
+    },
+    {
+      "Id": "variety-wreck-9",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_hb02_aban2_black",
+      "Position": [
+        9670.505859,
+        299.621643,
+        8849.604492
+      ]
+    },
+    {
+      "Id": "variety-wreck-10",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_hb01_aban2_green",
+      "Position": [
+        11264.990234,
+        194.680893,
+        12189.523438
+      ]
+    },
+    {
+      "Id": "variety-wreck-11",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_sed01_aban1_black",
+      "Position": [
+        12102.807617,
+        191.74617,
+        7221.525879
+      ]
+    },
+    {
+      "Id": "variety-wreck-12",
+      "Context": "wreck",
+      "SourceClass": "Land_Wreck_sed01_aban1_white",
+      "Position": [
+        12868.698242,
+        20.840263,
+        8044.429199
+      ]
+    },
+    {
+      "Id": "variety-church-1",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        1472.80896,
+        287.464966,
+        11930.185547
+      ]
+    },
+    {
+      "Id": "variety-church-2",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        2616.004639,
+        429.296387,
+        15215.744141
+      ]
+    },
+    {
+      "Id": "variety-church-3",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        2944.07959,
+        309.245361,
+        8037.760742
+      ]
+    },
+    {
+      "Id": "variety-church-4",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        5038.058105,
+        479.377655,
+        15082.183594
+      ]
+    },
+    {
+      "Id": "variety-church-5",
+      "Context": "church",
+      "SourceClass": "Land_Church3",
+      "Position": [
+        6076.018066,
+        315.687714,
+        7788.121582
+      ]
+    },
+    {
+      "Id": "variety-church-6",
+      "Context": "church",
+      "SourceClass": "Land_Church3",
+      "Position": [
+        7068.111328,
+        312.101471,
+        7717.410156
+      ]
+    },
+    {
+      "Id": "variety-church-7",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        8171.768066,
+        137.317978,
+        12361.649414
+      ]
+    },
+    {
+      "Id": "variety-church-8",
+      "Context": "church",
+      "SourceClass": "Land_Church1_Yellow",
+      "Position": [
+        9440.620117,
+        310.209686,
+        8847.576172
+      ]
+    },
+    {
+      "Id": "variety-church-9",
+      "Context": "church",
+      "SourceClass": "Land_Church3",
+      "Position": [
+        10584.402344,
+        48.620853,
+        2506.184082
+      ]
+    },
+    {
+      "Id": "variety-church-10",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        11213.69043,
+        200.291061,
+        12231.925781
+      ]
+    },
+    {
+      "Id": "variety-church-11",
+      "Context": "church",
+      "SourceClass": "Land_Church1_Yellow",
+      "Position": [
+        12940.795898,
+        28.655128,
+        8034.241699
+      ]
+    },
+    {
+      "Id": "variety-church-12",
+      "Context": "church",
+      "SourceClass": "Land_Chapel",
+      "Position": [
+        13484.288086,
+        38.402096,
+        14154.246094
+      ]
+    },
+    {
+      "Id": "variety-gas_station-1",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        300.600555,
+        296.574921,
+        9399.578125
+      ]
+    },
+    {
+      "Id": "variety-gas_station-2",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        1121.985229,
+        7.177962,
+        2417.455566
+      ]
+    },
+    {
+      "Id": "variety-gas_station-3",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        3000.45752,
+        344.119537,
+        7482.81543
+      ]
+    },
+    {
+      "Id": "variety-gas_station-4",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        3031.052734,
+        211.179871,
+        12656.985352
+      ]
+    },
+    {
+      "Id": "variety-gas_station-5",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        4349.941895,
+        178.404449,
+        13085.363281
+      ]
+    },
+    {
+      "Id": "variety-gas_station-6",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        4726.754395,
+        283.438812,
+        6389.692871
+      ]
+    },
+    {
+      "Id": "variety-gas_station-7",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        5857.977051,
+        279.267883,
+        10116.84668
+      ]
+    },
+    {
+      "Id": "variety-gas_station-8",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        7470.55127,
+        122.652611,
+        12659.392578
+      ]
+    },
+    {
+      "Id": "variety-gas_station-9",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        9518.679688,
+        7.212094,
+        2003.847534
+      ]
+    },
+    {
+      "Id": "variety-gas_station-10",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        10442.137695,
+        224.715897,
+        8884.391602
+      ]
+    },
+    {
+      "Id": "variety-gas_station-11",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        10750.474609,
+        145.989441,
+        10782.383789
+      ]
+    },
+    {
+      "Id": "variety-gas_station-12",
+      "Context": "gas_station",
+      "SourceClass": "Land_FuelStation_Build",
+      "Position": [
+        13369.897461,
+        6.213018,
+        6611.593262
+      ]
+    },
+    {
+      "Id": "variety-roadside-1",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        297.367767,
+        296.07489,
+        9329.927734
+      ]
+    },
+    {
+      "Id": "variety-roadside-2",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        2732.008301,
+        207.838364,
+        5417.405762
+      ]
+    },
+    {
+      "Id": "variety-roadside-3",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        3849.562256,
+        311.902374,
+        8854.833984
+      ]
+    },
+    {
+      "Id": "variety-roadside-4",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        5478.521973,
+        64.55674,
+        2612.654541
+      ]
+    },
+    {
+      "Id": "variety-roadside-5",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_Village2",
+      "Position": [
+        6078.25,
+        20.931112,
+        2827.880371
+      ]
+    },
+    {
+      "Id": "variety-roadside-6",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        6826.631836,
+        50.728073,
+        3549.387207
+      ]
+    },
+    {
+      "Id": "variety-roadside-7",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        8197.722656,
+        113.139313,
+        12755.658203
+      ]
+    },
+    {
+      "Id": "variety-roadside-8",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        10053.09082,
+        6.847792,
+        2089.608154
+      ]
+    },
+    {
+      "Id": "variety-roadside-9",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        10419.949219,
+        7.015893,
+        2248.297363
+      ]
+    },
+    {
+      "Id": "variety-roadside-10",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        11581.332031,
+        58.967499,
+        14606.414063
+      ]
+    },
+    {
+      "Id": "variety-roadside-11",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        12349.048828,
+        23.704689,
+        14386.223633
+      ]
+    },
+    {
+      "Id": "variety-roadside-12",
+      "Context": "roadside",
+      "SourceClass": "Land_BusStop_City",
+      "Position": [
+        13872.443359,
+        20.184551,
+        13347.820313
+      ]
+    },
+    {
+      "Id": "variety-building-1",
+      "Context": "building",
+      "SourceClass": "Land_House_1W12_Brown",
+      "Position": [
+        150.910538,
+        428.804657,
+        10423.052734
+      ]
+    },
+    {
+      "Id": "variety-building-2",
+      "Context": "building",
+      "SourceClass": "Land_House_2W01",
+      "Position": [
+        2648.521729,
+        198.021255,
+        5074.310059
+      ]
+    },
+    {
+      "Id": "variety-building-3",
+      "Context": "building",
+      "SourceClass": "Land_HouseBlock_1F4",
+      "Position": [
+        3405.002441,
+        199.930038,
+        12954.006836
+      ]
+    },
+    {
+      "Id": "variety-building-4",
+      "Context": "building",
+      "SourceClass": "Land_House_1W03",
+      "Position": [
+        4871.873535,
+        323.486328,
+        5633.708496
+      ]
+    },
+    {
+      "Id": "variety-building-5",
+      "Context": "building",
+      "SourceClass": "Land_House_2W01",
+      "Position": [
+        6263.356934,
+        46.760387,
+        3068.788086
+      ]
+    },
+    {
+      "Id": "variety-building-6",
+      "Context": "building",
+      "SourceClass": "Land_HouseBlock_2F6",
+      "Position": [
+        6662.319824,
+        13.104778,
+        2421.449951
+      ]
+    },
+    {
+      "Id": "variety-building-7",
+      "Context": "building",
+      "SourceClass": "Land_HouseBlock_1F1",
+      "Position": [
+        8044.388184,
+        118.253334,
+        12797.621094
+      ]
+    },
+    {
+      "Id": "variety-building-8",
+      "Context": "building",
+      "SourceClass": "Land_House_2W02",
+      "Position": [
+        9793.134766,
+        40.317055,
+        2253.158203
+      ]
+    },
+    {
+      "Id": "variety-building-9",
+      "Context": "building",
+      "SourceClass": "Land_House_1W07",
+      "Position": [
+        10599.77832,
+        9.219676,
+        2284.972412
+      ]
+    },
+    {
+      "Id": "variety-building-10",
+      "Context": "building",
+      "SourceClass": "Land_HouseBlock_2F8",
+      "Position": [
+        11516.699219,
+        65.912392,
+        14823.396484
+      ]
+    },
+    {
+      "Id": "variety-building-11",
+      "Context": "building",
+      "SourceClass": "Land_House_2W03_Brown",
+      "Position": [
+        12099.599609,
+        59.620232,
+        9048.952148
+      ]
+    },
+    {
+      "Id": "variety-building-12",
+      "Context": "building",
+      "SourceClass": "Land_House_1W10",
+      "Position": [
+        12876.111328,
+        22.253904,
+        8040.282227
+      ]
+    }
+  ],
+  "Source": "installed vanilla dayzOffline.chernarusplus/mapgrouppos.xml; anchors only, runtime clearance required",
+  "SourceSHA256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+  "Trace": {
+    "Spec": "issue-121; FR-008; FR-011; AC-007",
+    "Plan": "reuse LOD tracked materialization and observer services; one candidate/body per tick; no standing reverse-crawl",
+    "Tasks": [
+      "native crawler entry",
+      "CE context selection",
+      "bounded automatic/admin group",
+      "native perception wake",
+      "normal source and package runtime acceptance pending"
+    ]
+  }
+}

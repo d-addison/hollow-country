@@ -12,7 +12,8 @@
 // role changes invalidate that one-shot write; no per-frame reassertion is used.
 // Dormancy borrows native crawlers at tracked corpses or catalog rooms.
 // Never forces StartCommand_Crawl: :811-826 is an injury transition, not a
-// reversible lying/standing animation. Fresh-body spawning needs a shared lease.
+// reversible lying/standing animation. W56 requests the same native crawl
+// transition for newly materialized living bodies; they never stand back up.
 modded class ZombieBase
 {
     // Failed-roll backoff on HC-14's existing clock/cursor; no callback or IO.
@@ -94,6 +95,26 @@ modded class ZombieBase
         m_HCVarietyTriedDormant = true;
         m_HCVarietyDormant = true;
         m_HCVarietySleepUntil = now + 60;
+        return true;
+    }
+
+    // Fresh living body only, while the caller proves it unseen. Use the SAME
+    // crawl transition request consumed by vanilla ZombieBase.c:811-826; no
+    // health edits, resurrection, direct command takeover or reverse crawl.
+    // The native handler owns m_IsCrawling and SetSynchDirty (:820-822).
+    bool HCVarietyFreshCrawler(float now, string place, int role)
+    {
+        if (!GetGame().IsServer() || !HCInfectedVarietyModule.VarietyActive()) { return false; }
+        if (!IsAlive() || IsBeingBackstabbed() || m_HCVarietyTriedDormant) { return false; }
+        DayZInfectedInputController freshInput = GetInputController();
+        AIAgent freshAgent = GetAIAgent();
+        if (!freshInput || !freshAgent || freshInput.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM) { return false; }
+        HCVarietyAssign(role, place);
+        m_CrawlTransition = 0;
+        freshAgent.SetKeepInIdle(true);
+        m_HCVarietyTriedDormant = true;
+        m_HCVarietyDormant = true;
+        m_HCVarietySleepUntil = 0;
         return true;
     }
 

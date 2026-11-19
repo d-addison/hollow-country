@@ -15,10 +15,11 @@
 // Role/dormant place naming uses <=8*64 existing HCWorld place comparisons.
 // Room context reuses HCInfectedRoomCatalog.BuildProductionOrder: existing
 // per-tick bind-query cap/radius, <=1 anchor returned, existing room geometry.
-// No new persistence, entities, inventories, doors, destinations or noise.
+// No new persistence, inventory, door state, destinations or synthetic noise.
 // Off returns before allocations. Existing v1 admissions/caps remain in force.
 // Adopt existing crawlers at tracked corpses or inside catalog room volumes.
-// Never spawn fresh bodies, force injury, or move actors to a chosen setting.
+// Existing-body path never moves actors or forces injury. W56 fresh groups
+// use the separately bounded HCInfectedVariety queue and native crawl request.
 // #135: reads the shared infected LOD sample (Infected/LOD/HCInfectedLOD.c)
 // instead of re-scanning players when it proves nobody can be within 6 m, and
 // takes the posed budget (cap and full/idle sub-budgets) from lod.json; the
@@ -51,6 +52,7 @@ class HCInfectedVarietyModule : HCModule
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
         m_Variety = settings.EnableInfectedVariety;
+        HCInfectedVariety.HCStart(m_Variety);
         m_Scaling = settings.EnableGroupScaling;
         if (!m_Printed)
         {
@@ -65,7 +67,7 @@ class HCInfectedVarietyModule : HCModule
             m_Debug = new HCInfectedVarietyContributor;
             HCDebugSnapshot.HCRegister(m_Debug);
         }
-        Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; CE crawlers at corpses/catalog rooms; no fresh body creation; runtime acceptance pending");
+        Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; native crawlers at corpses/catalog rooms and authored CE places; bounded fresh queue; runtime acceptance pending");
     }
 
     // Base-class seam: never call a method introduced only on a later modded
@@ -127,6 +129,7 @@ class HCInfectedVarietyModule : HCModule
             }
         }
         m_Shot = false;
+        HCInfectedVariety.HCStep(m_Clock, m_Scale);
         m_Players.Clear();
         if (m_Clock >= m_LogAt)
         {
@@ -142,6 +145,7 @@ class HCInfectedVarietyModule : HCModule
     override void OnStop()
     {
         m_Running = false;
+        HCInfectedVariety.HCStop();
         HCInfectedModule infected = HCInfectedModule.Instance;
         if (infected) { infected.HCVarietyReleaseAll(); }
         if (m_Debug) { HCDebugSnapshot.HCUnregister(m_Debug); }
@@ -277,9 +281,8 @@ modded class HCInfectedModule
             }
             if (boundedEntity.HCVarietyDormant())
             {
-                bool expired = now >= boundedEntity.HCVarietySleepUntil();
                 bool overCap = dormant >= dormantCap;
-                if (expired || overCap)
+                if (HCInfectedVarietyPolicy.HCShouldWakeDormant(overCap, boundedEntity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM))
                 {
                     if (boundedEntity.HCVarietyWake()) { woken++; }
                 }
@@ -301,9 +304,9 @@ modded class HCInfectedModule
             if (!entity || !entity.IsAlive()) { continue; }
             if (entity.HCVarietyRole() < 0)
             {
-                int role = 1;
-                if (Math.RandomFloat01() < 0.5) { role = 0; }
-                if (runners < runnerCap && !entity.IsCrawling()) { role = 2; runners++; }
+                string context = HCInfectedVariety.HCContext(entity.GetPosition());
+                int role = HCInfectedVarietyPolicy.HCContextRole(context, runners < runnerCap && !entity.IsCrawling());
+                if (role == 2) { runners++; }
                 entity.HCVarietyAssign(role, HCVarietyPlaceAt(entity.GetPosition()));
             }
             if (entity.HCVarietyDormant())
@@ -330,7 +333,7 @@ modded class HCInfectedModule
             bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
             if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, dormantFull, dormantIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
             if (players.Count() > 32 || HCVarietyNearStanding(players, actor, entity, false)) { continue; }
-            if (!HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity)) { continue; }
+            if (!HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity) && HCInfectedVariety.HCContext(entity.GetPosition()) == "") { continue; }
             bool permitted = Math.RandomFloat01() < HCInfectedVarietyPolicy.DormantChance(nightness, rain);
             if (entity.HCVarietySleep(now, permitted))
             {
