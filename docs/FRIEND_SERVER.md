@@ -128,6 +128,15 @@ state, FAIL for legacy, invalid JSON or unsupported schemas, even when profile
 writes are skipped. This schema check establishes no native load or gameplay
 result; DayZ runtime acceptance remains pending.
 
+**Upgrading a hand-kept settings.json.** The server restores each missing V2/W5
+bool key to its declared default, which is `true`, so a hand-kept settings.json
+from before those keys existed will switch those features on when it loads. The
+installer's shipped templates carry every key, so a bundle install does not
+change anything. Only int zero-fill has been observed natively. Bool handling
+for absent keys is the declared-default restore in `HCApplyLegacy`, and no DayZ
+run has confirmed it. To keep a feature off, set its key to `false` explicitly.
+Nothing observed in DayZ yet.
+
 Rollback with the server stopped:
 
 ```sh
@@ -263,7 +272,11 @@ candidates, so a scale above 1 barely changes interiors; it mainly raises
 `MaxActiveInteriors` under the pilot candidate count: the server then trims the
 legacy pilot to the lowest stable slots (deterministic order) and logs
 `[HC Interiors] density trimmed legacy pilot candidates kept=N dropped=M cap=C`
-instead of refusing the whole pilot. The setting changes
+instead of refusing the whole pilot. Choose the scale before the first boot that
+writes `interiors_s1_e<Epoch>/manifest.json`: a later change that alters the
+trimmed count no longer matches the saved layout, and the pilot is then
+refused with `legacy layout identity changed` (state is kept, nothing is
+deleted). The setting changes
 neither search yield nor CE inventory, and never creates replacement loot.
 Feature preferences and native clearance/provider gates remain authoritative.
 Runtime acceptance and performance at 3–6 players remain pending.
