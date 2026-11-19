@@ -212,7 +212,8 @@ class HCTeamPingModule : HCModule
         string state = "off";
         if (s_Instance == this) { state = "ready"; }
         if (s_Instance != this && reason != "none") { state = "refused"; }
-        Print("[HC Plan] HC-26 group_recipients=" + recipients.ToString() + " expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal + " state=" + state + " refusals=" + m_Refused.ToString() + " runtime=PENDING");
+        string head = "[HC Plan] HC-26 group_recipients=" + recipients.ToString() + " expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal;
+        Print(head + " state=" + state + " refusals=" + m_Refused.ToString() + " runtime=PENDING");
         m_LastRefusal = "none";
     }
     override void OnStop()
@@ -256,12 +257,17 @@ modded class HCGroupService
     }
     bool HCPresentationAllows(string uid, HCGroupPlace pin)
     {
-        if (!pin || !HCPresentationRange(uid, pin.Position)) { return false; }
+        if (!pin) { return false; }
         if (pin.Id.IndexOf("hc-ping:") == 0)
         {
+            if (!HCPresentationRange(uid, pin.Position)) { return false; }
             HCTeamPingModule pings = HCTeamPingModule.Get();
             return pings && pings.HCVisible(uid, pin);
         }
+        // Corpse-run pins are gated on membership/life only, never on the
+        // recipient's distance: a respawned teammate kilometres away still
+        // needs the pin (MapIcons semantics, HCGroupService member rows).
+        if (!HCPingGroup(Peer(uid))) { return false; }
         // No live corpse-session observation exists for cached death pins.
         // Never invent corpse LOS/radio; refuse when either is required.
         if (m_Config.RequireLOS || m_Config.RequireRadio)
@@ -281,7 +287,8 @@ modded class HCGroupService
         {
             if (!HCPingGroup(recipient) || group.Members.Find(recipient.Id) < 0) { continue; }
             if (!HCPresentationRange(recipient.Id, source.Player.GetPosition()) || !VisibilityAllows(source, recipient)) { continue; }
-            NotificationSystem.SendNotificationToPlayerExtended(recipient.Player, 5, "Teammate status", source.Name + ": " + label);
+            // The sender sees its own marker but is not told about itself.
+            if (recipient.Id != source.Id) { NotificationSystem.SendNotificationToPlayerExtended(recipient.Player, 5, "Teammate status", source.Name + ": " + label); }
             SendSnapshot(recipient, HCGroupSnapshotKind.FULL, 0);
             count++;
         }

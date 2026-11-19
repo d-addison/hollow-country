@@ -63,7 +63,7 @@ class DeathStoreFixture:
     @staticmethod
     def image(prefix='hc-death:', next_id=2):
         return json.dumps(dict(Version=1, WorldName='chernarusplus', NextId=next_id,
-                              Rows=[dict(GroupId=1, PlayerId='synthetic-player',
+                              Rows=[dict(GroupId=1, Epoch=0, PlayerId='synthetic-player',
                                          Pin=dict(Id=prefix + '1', Name='Where Synthetic fell',
                                                   HCPinExpiresUtc=7300))]))
 
@@ -131,7 +131,7 @@ class V2PinsSmoke(unittest.TestCase):
     def test_publish_uses_own_kind_and_shared_staged_save(self):
         fixture = DeathStoreFixture()
         fixture.owner.m_State = NS(NextId=1, Rows=EArray())
-        group = NS(Id=1, Members=EArray(['synthetic-player']))
+        group = NS(Id=1, Epoch=1, Members=EArray(['synthetic-player']))
         self.assertTrue(fixture.owner.HCPublish(group, 'synthetic-player', 'Synthetic', [1, 0, 2]))
         self.assertEqual('hc-death:1', fixture.owner.m_State.Rows[0].Pin.Id)
         self.assertEqual(7300, fixture.owner.m_State.Rows[0].Pin.HCPinExpiresUtc)

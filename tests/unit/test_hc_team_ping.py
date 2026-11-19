@@ -131,7 +131,8 @@ class TeamPingPrivacy(unittest.TestCase):
         self.assertEqual(code.INVALID, module.HCReceive(alice, 99))
         self.assertEqual(code.OK, module.HCReceive(alice, 0))
         self.assertEqual(['alice', 'bob'], sent)
-        self.assertEqual(2, len(notices))
+        # The sender's own snapshot shows its marker; only teammates are notified.
+        self.assertEqual(1, len(notices))
         self.assertEqual(60, module.m_Rows[0].Pin.HCPinExpiresUtc - clock[0])
         self.assertEqual(code.RATE, module.HCReceive(alice, 0))
         clock[0] += 9
@@ -210,7 +211,11 @@ class TeamPingPrivacy(unittest.TestCase):
         self.assertEqual([], frames[-1][1])
         bob.Player.GetPosition = lambda: [1101, 0, 100]
         boundary['SendSnapshot'](service, bob, 0, 0)
-        self.assertEqual([], frames[-1][1])
+        # Pings are range-bound; a corpse-run pin is membership-bound only.
+        self.assertEqual([death_pin], frames[-1][1])
+        bob.Player.GetPosition = lambda: [5100, 0, 100]
+        self.assertTrue(service.HCPresentationAllows('bob', death_pin))
+        self.assertFalse(service.HCPresentationAllows('stranger', death_pin))
         bob.Player.GetPosition = lambda: [200, 0, 100]
         self.assertFalse(snapshot_context.active)
         self.assertEqual('', snapshot_context.uid)
