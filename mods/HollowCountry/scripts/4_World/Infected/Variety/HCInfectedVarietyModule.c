@@ -13,10 +13,12 @@
 // actors, at most 8*24 corpse/place checks, at most eight proximity rays; a single
 // shot visits 24 actors, admits at most three cues in ONE place, <=6 more rays.
 // Role/dormant place naming uses <=8*64 existing HCWorld place comparisons.
-// No map/object scans, persistence, entities, inventories, doors or new noise.
+// Room context reuses HCInfectedRoomCatalog.BuildProductionOrder: existing
+// per-tick bind-query cap/radius, <=1 anchor returned, existing room geometry.
+// No new persistence, entities, inventories, doors, destinations or noise.
 // Off returns before allocations. Existing v1 admissions/caps remain in force.
-// Missing report + shared spawn lease: fresh dormant creation and wreck/road
-// placement are SKIPPED. Existing native crawlers near tracked corpses only.
+// Adopt existing crawlers at tracked corpses or inside catalog room volumes.
+// Never spawn fresh bodies, force injury, or move actors to a chosen setting.
 // #135: reads the shared infected LOD sample (Infected/LOD/HCInfectedLOD.c)
 // instead of re-scanning players when it proves nobody can be within 6 m, and
 // takes the posed budget (cap and full/idle sub-budgets) from lod.json; the
@@ -63,7 +65,7 @@ class HCInfectedVarietyModule : HCModule
             m_Debug = new HCInfectedVarietyContributor;
             HCDebugSnapshot.HCRegister(m_Debug);
         }
-        Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; CE crawlers only; fresh dormant spawn/road placement skipped: shared body lease unavailable; runtime acceptance pending");
+        Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; CE crawlers at corpses/catalog rooms; no fresh body creation; runtime acceptance pending");
     }
 
     // Base-class seam: never call a method introduced only on a later modded
@@ -197,6 +199,17 @@ modded class HCInfectedModule
         return false;
     }
 
+    // Context selection only: an actor is already here. Do not use returned
+    // room points as destinations, create entities, or change door/path state.
+    // The existing catalog owns template binding and its per-tick query cap;
+    // native calls stay in that inspected service (HCInfectedRooms.c:1513-1609).
+    protected bool HCVarietyPlaceFits(ZombieBase candidate)
+    {
+        TVectorArray roomPoints = new TVectorArray;
+        HCInfectedRoomCatalog.BuildProductionOrder(candidate.GetPosition(), 1, roomPoints);
+        return roomPoints.Count() > 0;
+    }
+
     protected int HCVarietyInPlace(string place)
     {
         int total = 0;
@@ -317,7 +330,7 @@ modded class HCInfectedModule
             bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
             if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, dormantFull, dormantIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
             if (players.Count() > 32 || HCVarietyNearStanding(players, actor, entity, false)) { continue; }
-            if (!HCVarietyNearCorpse(entity)) { continue; }
+            if (!HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity)) { continue; }
             bool permitted = Math.RandomFloat01() < HCInfectedVarietyPolicy.DormantChance(nightness, rain);
             if (entity.HCVarietySleep(now, permitted))
             {
