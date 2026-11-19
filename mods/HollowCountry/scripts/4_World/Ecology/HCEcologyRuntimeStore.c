@@ -45,6 +45,8 @@ class HCEcologyRuntimeIO
 		string error;
 		if (text.Length() < 1 || text.Length() > 2048) { return null; }
 		if (!JsonFileLoader<HCEcologyCheckpoint>.LoadData(text, state, error)) { return null; }
+		// Samples/PathQueries default to -1; native load zero-fills absent ints (#177).
+		if (!HCJsonFields.Has(text, "Samples") || !HCJsonFields.Has(text, "PathQueries")) { return null; }
 		return state;
 	}
 

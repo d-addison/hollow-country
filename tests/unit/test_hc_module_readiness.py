@@ -54,7 +54,7 @@ class ReadinessLint(unittest.TestCase):
                      class Linked : HCModule {} modded class Linked { string GetName() { return "ok"; } }
                      class IndirectMissing : Missing {} class Unregistered : HCModule {}'''}
         findings = rules.module_readiness(files)
-        self.assertEqual([('HC-S005', 'Missing'), ('HC-S005', 'IndirectMissing')],
+        self.assertEqual([('HC-S006', 'Missing'), ('HC-S006', 'IndirectMissing')],
                          [(row.rule, row.symbol) for row in findings])
         for name in rules.ENGINE_TYPE_NAMES:
             with self.subTest(name=name):

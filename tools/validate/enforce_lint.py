@@ -26,6 +26,7 @@ import sys
 from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
 from tools.validate import enforce_json
+from tools.validate import enforce_rules_readiness as _readiness
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).with_name('enforce_lint_baseline.json')
@@ -52,6 +53,7 @@ RULES = {
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
     enforce_json.RULE: enforce_json.DESCRIPTION,
 }
+RULES.update(_readiness.RULES)  # HC-S006 module names, HC-E009 engine-type variable names
 
 _KEYWORDS = frozenset({'if', 'while', 'for', 'foreach', 'switch', 'return', 'new', 'delete', 'case',
                        'else', 'sizeof', 'typename', 'super', 'this', 'thread', 'string', 'int', 'float',
@@ -577,7 +579,8 @@ def rule_predicted_actions(project, source):
 
 ALL_RULES = (rule_parse_issues, rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
-             rule_predicted_actions, enforce_json.rule_json_defaults)
+             rule_predicted_actions, enforce_json.rule_json_defaults,
+             _readiness.rule_module_names, _readiness.rule_engine_type_names)
 
 
 def lint(sources, native=None, rules=ALL_RULES):

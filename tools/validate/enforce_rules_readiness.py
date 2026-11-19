@@ -1,4 +1,4 @@
-"""Wave 7 HC-S005/#175: pure, offline source checks; no native readiness proof.
+"""Wave 7 HC-S006/#175: pure, offline source checks; no native readiness proof.
 
 The lead registers the two rule adapters in enforce_lint. Pure entry points take
 source text only and share the established comment/string-aware source model.
@@ -14,7 +14,7 @@ from tools.validate import enforce_source as es
 ENGINE_TYPE_NAMES = frozenset({'Queue', 'Param', 'Class', 'Widget', 'Object', 'Man',
                                'Shape', 'Timer', 'Math', 'Managed'})
 RULES = {
-    'HC-S005': 'registered HCModule subclass has no authored GetName override',
+    'HC-S006': 'registered HCModule subclass has no authored GetName override',
     'HC-E009': 'variable named after a pinned engine type (native compile refusal)',
 }
 
@@ -54,8 +54,8 @@ def module_readiness(files):
                 named |= any(method.name == 'GetName' for link in definitions for method in link.methods)
                 current = next((link.base for link in definitions if not link.modded), '')
             if current == 'HCModule' and not named:
-                findings.append(SourceFinding('HC-S005', source.rel, definition.offset,
-                                              definition.name, RULES['HC-S005']))
+                findings.append(SourceFinding('HC-S006', source.rel, definition.offset,
+                                              definition.name, RULES['HC-S006']))
     return findings
 
 
