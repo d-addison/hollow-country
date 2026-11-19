@@ -12,6 +12,7 @@
   "RunMinMembers": 2,
   "RunMaxMembers": 6,
   "RunMaxHousesPerRun": 3,
+  "RunMaxCarriedHouseGoods": 3,
   "RunMaxHouseAttempts": 6,
   "RunMaxHouseCandidates": 8,
   "RunHouseSearchRadiusMeters": 120.0,

@@ -1,6 +1,6 @@
 // #144 scavenging run: bounded house stage, combat abort and the narrow house port.
-// One in-memory run per trip; it never touches the HC-34 custody journal (the picker
-// trip keeps owning the single source item) and never moves, spawns or deletes items.
+// One in-memory run per trip; house goods use additive HC-34 carry receipts.
+// No spawn/delete/refund; the existing native custody path unloads at observed home.
 // House goods come only through the shared search reservation (HCSearchHouses), reached
 // through HCPickHousePort; the base port is unbound and names that refusal.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:914 GetTickTime, :930
@@ -135,7 +135,7 @@ class HCPickRunner
         if (returning)
         {
             HCDropToken(port);
-            return "";
+            return port.HCCarryUnload(row);
         }
         string staged = HCHouseStage(port, survey, row, tick);
         if (staged != "" && staged != HCPickRunner.HOLD) { return HCEnd(port, survey, row, staged, "", now); }
@@ -190,7 +190,7 @@ class HCPickRunner
         if (!port.HCLive() || !port.HCPartyCurrent(row)) { return "RUN_ABORT_LEASE"; }
         if (Stage == "pick") { return HCPickNext(port, survey, tick); }
         if (Stage == "walk") { return HCWalkStep(port, survey, tick); }
-        if (Stage == "search") { return HCSearchStep(port, survey, tick); }
+        if (Stage == "search") { return HCSearchStep(port, survey, row, tick); }
         if (Stage == "back") { return HCBackStep(port, survey, tick); }
         return "";
     }
@@ -254,15 +254,22 @@ class HCPickRunner
         return HCPickRunner.HOLD;
     }
 
-    string HCSearchStep(HCScavengeInventory port, HCPickerSurvey survey, float tick)
+    string HCSearchStep(HCScavengeInventory port, HCPickerSurvey survey, HCScavengeState row, float tick)
     {
         if (tick - StageAt < survey.RunHouseSearchSeconds) { return HCPickRunner.HOLD; }
         HCPickHouseTarget target = Targets[CurrentIndex];
         EntityAI goods = port.Houses.HCItem(HouseToken);
+        if (!port.HCCarryPrepare(goods, row))
+        {
+            HCDropToken(port);
+            return HCGoBack(port, tick);
+        }
         bool committed = port.Houses.HCCommit(HouseToken);
+        bool recorded = port.HCCarryResult(committed, row);
         string goodsClass = "";
         if (committed && goods) { goodsClass = goods.GetType(); }
         HCDropToken(port);
+        if (!recorded) { return "RUN_ABORT_HOUSE_JOURNAL"; }
         string outcome = "refused";
         if (committed)
         {
