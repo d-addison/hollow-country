@@ -73,11 +73,14 @@ class TeleportBehavior(unittest.TestCase):
 
 
 class GroundBehavior(unittest.TestCase):
-    def ground(self, candidate=None, collision=False, water=False, surface=lambda x, z: 17, buildings=None):
+    def ground(self, candidate=None, collision=False, water=False, surface=lambda x, z: 17, buildings=None, cargo=None):
+        def query(pos, radius, objects, proxies):
+            objects.extend(buildings or [])
+            proxies.extend(cargo or [])
         game = NS(GetWorld=lambda: NS(GetWorldSize=lambda: 1000), SurfaceY=surface,
                   SurfaceIsSea=lambda x, z: water, SurfaceIsPond=lambda x, z: False,
                   IsBoxColliding=lambda *args: collision,
-                  GetObjectsAtPosition=lambda pos, radius, objects, proxies: objects.extend(buildings or []))
+                  GetObjectsAtPosition=query)
         config = NS(BoundaryMarginM=2, GroundOffsetM=.2, ClearanceWidthM=1,
                     ClearanceHeightM=2, MaxSlopeDeltaM=.4, BuildingQueryRadiusM=100, MaxBuildingObjects=128)
         scope = base_scope(GetGame=lambda: game, vector=NS(Zero=[0, 0, 0]),
@@ -109,6 +112,24 @@ class GroundBehavior(unittest.TestCase):
         # Explicit synthetic rotated local-space fixture.
         building.WorldToModel = lambda pos: [9, 0, 0]
         self.assertEqual([10, 17.2, 20], self.ground(buildings=[building]))
+
+    def test_distant_cargo_preserves_unobstructed_ground_but_near_cargo_refuses(self):
+        # Explicit synthetic cargo owner bbox; no engine geometry is exercised.
+        def box(bounds):
+            bounds.extend([[-1, -1, -1], [1, 1, 1]])
+            return True
+        owner = NS(IsBuilding=lambda: False, GetCollisionBox=box,
+                   WorldToModel=lambda pos: [-50, 0, 0])
+        cargo = NS(GetCargoOwner=lambda: owner)
+        self.assertEqual([10, 17.2, 20], self.ground(cargo=[cargo]))
+        owner.WorldToModel = lambda pos: [0, 0, 0]
+        self.assertEqual([0, 0, 0], self.ground(cargo=[cargo]))
+        owner.WorldToModel = lambda pos: [2, 0, 0]  # clearance overlaps bbox edge
+        self.assertEqual([0, 0, 0], self.ground(cargo=[cargo]))
+        owner.GetCollisionBox = lambda bounds: False
+        self.assertEqual([0, 0, 0], self.ground(cargo=[cargo]))
+        self.assertEqual([0, 0, 0], self.ground(cargo=[NS(GetCargoOwner=lambda: None)]))
+        self.assertEqual([0, 0, 0], self.ground(cargo=[cargo] * 129))
 
     def test_unknown_envelope_and_query_overflow_fail_closed(self):
         unknown = NS(IsBuilding=lambda: True, GetCollisionBox=lambda bounds: False)
