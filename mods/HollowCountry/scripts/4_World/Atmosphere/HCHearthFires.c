@@ -97,6 +97,7 @@ class HCHearthFires
     protected static int s_Cursor;
     protected static int s_HoldoutCursor;
     protected static int s_AttemptCursor;
+    protected static bool s_ReclaimFirst;
     protected static EntityAI s_Spending;
     protected static bool s_Running;
     protected static ref HCOperationalStatus s_Status = new HCOperationalStatus;
@@ -119,7 +120,7 @@ class HCHearthFires
         HCOperationalStatus status = HCGetOperationalStatus();
         Print(line + " state=" + status.HCState() + " native_visuals=1 runtime=PENDING");
     }
-    static void HCStop() { s_Running = false; s_Lit.Clear(); s_Attempts.Clear(); s_Cursor = 0; s_HoldoutCursor = 0; s_AttemptCursor = 0; s_Spending = null; s_Refusal = ""; }
+    static void HCStop() { s_Running = false; s_Lit.Clear(); s_Attempts.Clear(); s_Cursor = 0; s_HoldoutCursor = 0; s_AttemptCursor = 0; s_ReclaimFirst = false; s_Spending = null; s_Refusal = ""; }
     static bool HCRefuse(string reason)
     {
         if (s_Refusal != reason) { Print("[HC Hearth] refusal=" + reason + " runtime=PENDING"); }
@@ -220,10 +221,19 @@ class HCHearthFires
     static void HCTick()
     {
         if (!s_Running) { return; }
-        // Ignition gets first use of the shared allowance. Work-path returns
-        // still reach reclamation, which takes only the remaining allowance.
-        HCWorkTick();
-        HCReclaimAttempts();
+        // Alternate first access to the existing consumer allowance so neither
+        // phase can starve the other when the shared pool stays exhausted.
+        if (s_ReclaimFirst)
+        {
+            HCReclaimAttempts();
+            HCWorkTick();
+        }
+        else
+        {
+            HCWorkTick();
+            HCReclaimAttempts();
+        }
+        s_ReclaimFirst = !s_ReclaimFirst;
     }
 
     static void HCWorkTick()
