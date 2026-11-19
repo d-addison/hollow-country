@@ -182,6 +182,20 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 -mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
 ```
 
+## Release notes (2026-11-19 persistence recovery)
+
+- Rows already lost on old installs cannot be recovered by this upgrade. In
+  particular, the old progression v1-to-v2 migration could discard familiarity
+  rows before players joined. The corrected migration preserves surviving legacy
+  rows for their first living pickup; it cannot reconstruct previously lost rows.
+- Leftover ecology pending files, including zero-byte and whitespace-only files,
+  are copied and verified before their active name is removed. The last promoted
+  checkpoint then loads, or the ordinary fresh-store path runs. Consumed receipt
+  and pending quarantine archives retain the newest eight canonical UTC names
+  per source file. Older archives are pruned; live files and the newest archive
+  are preserved. Copy, readback and removal failures still preserve the pending
+  evidence and refuse ecology admission. Runtime acceptance remains pending.
+
 ## Operator notes (2026-11-18 batch)
 
 None of these behaviors has been observed in DayZ yet. They describe the source.

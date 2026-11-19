@@ -27,13 +27,23 @@ def authored(path, kind, target, env, member=False, only=None, modded=False):
     source = path.read_text()
     match = re.search(('modded class ' if modded else r'class ') + kind + r'(?:\s*(?::|extends)\s*\w+)?\s*\{', source)
     source = body(source, match.end())
+    for name, value in re.findall(r'static const int (\w+) = (\d+);', source):
+        setattr(target, name, int(value))
     names = re.findall(r'\b(?:static )?(?:bool|int|string|void|HC\w+) (\w+)\(', source)
     source = re.sub(r'\bFileHandle ', 'HCEventNativeFileHandle ', source)
     source = re.sub(r'FindFileHandle handle = FindFile\((.+?), filename, attr, (.+?)\)',
                     r'handle, filename, attr = find_first(\1, \2)', source)
+    source = re.sub(r'handle = FindFile\((.+?), filename, attr, (.+?)\)',
+                    r'handle, filename, attr = find_first(\1, \2)', source)
+    source = re.sub(r'new array<([^>]+)>(?!\s*\()', r'new array<\1>()', source)
+    source = re.sub(r'(\w+)\.Set\(([^,]+), ([^)]+)\)', r'\1[\2] = \3', source)
     source = source.replace('found = FindNextFile(handle, filename, attr)',
                             'found, filename, attr = find_next(handle)')
     source = source.replace('FileAttr attr', 'int attr')
+    source = source.replace('int count = ReadFile(handle, text, limit + 1)',
+                            'count, text = read_file(handle, limit + 1)')
+    source = re.sub(r'HCReadArchive\(([^,]+), ([^,]+), (\w+), ([^)]+)\)',
+                    r'((\3 := archive_read(\1, \2, \4)) != null)', source)
     source = re.sub(r'\b(HCRecovery\w+|HCPersistence\w+|HCGroupIO|HCGroupJson|HCWorldData|HCWorldClock|HCGroupClock|HCSaveJob|HCSaveScheduler|HCEscalation\w+|HCOperationalStatus|HCV2\w+)\b', r'HCEvent\1', source)
     scope = {('HCEvent' + k if k.startswith('HC') else k): v for k, v in env.items()}
     source = re.sub(r'HCEventHCGroupIO.HCReadRaw\(([^,]+), ([^,]+), (\w+)\)',
@@ -49,8 +59,14 @@ def authored(path, kind, target, env, member=False, only=None, modded=False):
     for name in names:
         if only is not None and name not in only:
             continue
-        fn = translate(source, name, scope, 'HCEvent' + kind, member=member)
-        params = re.search(r'\b' + name + r'\(([^)]*)\)', source)[1]
+        method_source = source
+        if name == 'HCReadArchive':
+            start = re.search(r'static bool HCReadArchive\([^)]*\)\s*\{', source).end()
+            content = body(source, start)
+            adapted = re.sub(r'return ([^;]+);', r'return (\1), text;', content)
+            method_source = source[:start] + adapted + source[start + len(content):]
+        fn = translate(method_source, name, scope, 'HCEvent' + kind, member=member)
+        params = re.search(r'\b(?:bool|int|string|void|HC\w+) ' + name + r'\(([^)]*)\)', source)[1]
         fn.__defaults__ = tuple(json.loads(p.split('=')[1].strip()) for p in params.split(',') if '=' in p)
         setattr(target, name, functools.partial(fn, target) if member else fn)
     return target
@@ -81,7 +97,8 @@ class Harness:
                           s_EscalationStarted=False, s_GroupsStarted=False)
         self.io = N()
         self.jobs = []
-        self.env = dict(HCRecoveryGate=self.gate, HCPersistenceDisposition=self.recovery,
+        from tests.unit.test_group_server import EArray
+        self.env = dict(HCRecoveryGate=self.gate, HCPersistenceDisposition=self.recovery, EArray=EArray,
                         HCGroupIO=self.io, HCWorldClock=N(UTC=lambda: self.now),
                         HCGroupClock=N(Utc=lambda: self.now),
                         Print=self.logs.append, str=str,
@@ -92,7 +109,9 @@ class Harness:
                         find_first=self.find_first, find_next=self.find_next,
                         CloseFindFile=self.close_find, FileAttr=N(DIRECTORY=0, INVALID=3),
                         FindFileFlags=N(DIRECTORIES=0), native_int=self.native_int,
-                        OpenFile=lambda *args: self.opened.append(args), FileMode=N(READ=0, WRITE=1),
+                        OpenFile=self.open_file, FileMode=N(READ=0, WRITE=1),
+                        read_file=self.read_file, CloseFile=lambda handle: None,
+                        archive_read=self.archive_read,
                         HCWorldData=N(Fresh=lambda now: N(Meta=N(Epoch=now)), Valid=lambda data: True),
                         HCSaveJob=N(STEP_MORE=0, STEP_DONE=1, STEP_FAILED=-1),
                         HCSaveScheduler=N(HCRegister=self.jobs.append, HCUnregister=lambda job: None,
@@ -127,6 +146,18 @@ class Harness:
         text = self.files.get(path)
         return text if text and len(text) <= limit else None
 
+    def open_file(self, path, mode):
+        self.opened.append((path, mode))
+        return path if path in self.files else None
+
+    def read_file(self, handle, limit):
+        text = self.files[handle][:limit]
+        return len(text), text
+
+    def archive_read(self, path, limit, allow_empty):
+        ok, text = self.recovery.HCReadArchive(path, limit, '', allow_empty)
+        return text if ok else None
+
     @staticmethod
     def native_int(value):
         # Explicit synthetic integer parse; no native overflow claim.
@@ -137,9 +168,9 @@ class Harness:
         # Explicit synthetic, nonrecursive directory enumeration in insertion order.
         self.searches.append(pattern)
         parent, glob = pattern.rsplit('/', 1)
-        entries = iter(p.rsplit('/', 1)[1] for p in self.files
+        entries = iter([p.rsplit('/', 1)[1] for p in self.files
                        if p.rsplit('/', 1)[0] == parent
-                       and fnmatch.fnmatchcase(p.rsplit('/', 1)[1], glob))
+                       and fnmatch.fnmatchcase(p.rsplit('/', 1)[1], glob)])
         _, filename, attr = self.find_next(entries)
         return entries, filename, attr
 
@@ -211,6 +242,35 @@ class Harness:
 
 
 class RecoveryBehavior(unittest.TestCase):
+    def test_archive_retention_keeps_newest_eight_and_preserves_live_and_other_files(self):
+        for suffix in ('.consumed-', '.quarantined-'):
+            with self.subTest(suffix=suffix):
+                h = Harness()
+                path = h.hc_path if suffix == '.consumed-' else '$profile:HollowCountry/Ecology/pending-synthetic.json'
+                h.files[path] = NativeText('synthetic live bytes')
+                # Deliberately shuffled, >64 backlog: names alone never attest a restore.
+                for stamp in list(range(70, 0, -2)) + list(range(1, 71, 2)):
+                    h.files[path + suffix + str(stamp)] = NativeText('synthetic archive ' + str(stamp))
+                protected = {path: h.files[path], path + suffix + '0': NativeText('noncanonical'),
+                             path + suffix + '070': NativeText('noncanonical'),
+                             path + suffix + '999.extra': NativeText('unowned sibling'),
+                             path + '.tmp': NativeText('live intent sibling')}
+                h.files.update(protected)
+                self.assertTrue(getattr(h.recovery, 'HCPruneArchives', lambda *a: False)(path, suffix),
+                                'archive retention must prune a backlog before the 64-candidate lookup')
+                self.assertEqual(set(protected) | {path + suffix + str(s) for s in range(63, 71)}, set(h.files))
+                self.assertTrue(all(h.files[p] == v for p, v in protected.items()))
+                self.assertEqual('synthetic archive 70', h.files[path + suffix + '70'])
+                # A failed old-archive removal never touches the live file or newest archive.
+                h.files[path + suffix + '1'] = NativeText('synthetic obsolete evidence')
+                h.env['DeleteFile'] = lambda p: False
+                authored(RECOVERY, 'HCPersistenceDisposition', h.recovery, h.env, only=('HCPruneArchives',))
+                before = dict(h.files)
+                self.assertFalse(h.recovery.HCPruneArchives(path, suffix))
+                self.assertEqual(before, h.files)
+                self.assertTrue(any('reason=archive_delete_failed' in line for line in h.logs))
+                self.assertEqual(len(h.searches), h.closed_searches)
+
     def assert_normal_lone_boot(self, h):
         self.assertTrue(h.recovery.HCLoad(), 'lone receipt must not refuse healthy stores')
         self.assertEqual(0, h.gate.HCGeneration(), 'lone receipt must never apply a restore')
@@ -237,11 +297,11 @@ class RecoveryBehavior(unittest.TestCase):
                 lines = [line for line in h.logs if 'recovery=consumed_receipt_cleanup' in line]
                 self.assertEqual(1, len(lines))
                 self.assertIn('runtime=PENDING', lines[0])
-                self.assertEqual([receipt + '.consumed-*'], h.searches)
-                self.assertEqual(1, h.closed_searches)
+                self.assertEqual([receipt + '.consumed-*'] * 2, h.searches)
+                self.assertEqual(2, h.closed_searches)
                 h.recovery.HCStop()
                 self.assertTrue(h.recovery.HCLoad())
-                self.assertEqual(1, len(h.searches), 'normal boots must not scan archives')
+                self.assertEqual(2, len(h.searches), 'normal boots must not scan archives')
 
     def test_unmatched_lone_receipt_refuses_only_restore_and_preserves_bytes(self):
         for receipt in (Harness.hc_path, Harness.native_path):
@@ -263,16 +323,18 @@ class RecoveryBehavior(unittest.TestCase):
                     self.assertEqual(1, len(refusals))
                     self.assertIn('reason=partial_restore_attestation', refusals[0])
 
-    def test_lone_archive_scan_is_bounded_and_closes_handle(self):
+    def test_lone_archive_scan_prunes_backlog_then_finds_newest_match_and_closes_handles(self):
         h = Harness()
         h.files[h.hc_path] = NativeText('synthetic lone receipt')
+        for stamp in range(100):
+            h.files[h.hc_path + '.consumed-' + str(stamp) + '.extra'] = NativeText('unowned sibling')
         for stamp in range(1, 66):
             h.files[h.hc_path + '.consumed-' + str(stamp)] = NativeText('different')
         h.files[h.hc_path + '.consumed-66'] = h.files[h.hc_path]
         self.assert_normal_lone_boot(h)
-        self.assertIn(h.hc_path, h.files, 'beyond-cap match must not authorize cleanup')
-        self.assertLessEqual(h.search_steps, 64)
-        self.assertEqual(1, h.closed_searches)
+        self.assertNotIn(h.hc_path, h.files, 'pruning must bring the newest match into the bounded lookup')
+        self.assertEqual(8, len([p for p in h.files if h.recovery.HCConsumedName(p.rsplit('/', 1)[1], 'recovery-hc.json')]))
+        self.assertEqual(len(h.searches), h.closed_searches)
 
     def test_lone_cleanup_failure_preserves_evidence_and_healthy_boot(self):
         h = Harness()
@@ -327,11 +389,18 @@ class RecoveryBehavior(unittest.TestCase):
             with self.subTest(revision=revision):
                 h = Harness()
                 h.restore_pair(revision)
+                for receipt in (h.hc_path, h.native_path):
+                    for stamp in range(1, 10):
+                        h.files[receipt + '.consumed-' + str(stamp)] = NativeText('synthetic prior receipt')
                 self.assertTrue(h.recovery.HCLoad())
                 self.assertNotIn(h.hc_path, h.files, 'restore attestation must be consumed')
                 self.assertNotIn(h.native_path, h.files)
                 self.assertIn(h.hc_path + '.consumed-100', h.files)
                 self.assertIn(h.native_path + '.consumed-100', h.files)
+                for receipt in (h.hc_path, h.native_path):
+                    self.assertEqual({receipt + '.consumed-' + str(s) for s in range(3, 10)} |
+                                     {receipt + '.consumed-100'},
+                                     {p for p in h.files if p.startswith(receipt + '.consumed-')})
                 h.files[h.world_path] = NativeText('{"epoch":100}')
                 h.recovery.HCStop()
                 self.assertTrue(h.recovery.HCLoad(), 'consumed hashes cannot pin subsequent saves')

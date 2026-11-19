@@ -34,6 +34,7 @@ class HCRecoveryNativeReceipt
 
 class HCPersistenceDisposition
 {
+    static const int HC_ARCHIVES_KEEP = 8;
     protected static bool s_Loaded;
     protected static bool s_LoadOK;
     protected static bool s_WorldStarted;
@@ -121,6 +122,8 @@ class HCPersistenceDisposition
             // Failure retains evidence and refuses restore, never a data rollback.
             if (!HCArchive("$profile:HollowCountry/recovery-hc.json", suffix, 4096) || !HCArchive("$profile:HollowCountry/recovery-native.json", suffix, 2048)) { return HCRefuseRestore("attestation_archive_failed"); }
             if (!DeleteFile("$profile:HollowCountry/recovery-hc.json") || !DeleteFile("$profile:HollowCountry/recovery-native.json")) { return HCRefuseRestore("attestation_consume_incomplete"); }
+            HCPruneArchives("$profile:HollowCountry/recovery-hc.json", ".consumed-");
+            HCPruneArchives("$profile:HollowCountry/recovery-native.json", ".consumed-");
         }
         HCRecoveryGate.HCAdmit(generation);
         s_LoadOK = true;
@@ -152,6 +155,8 @@ class HCPersistenceDisposition
         string archived;
         string path = "$profile:HollowCountry/" + receiptName;
         if (!HCGroupIO.HCReadRaw(path, limit, original)) { return false; }
+        // Retire a legacy backlog before the bounded byte-identity search.
+        if (!HCPruneArchives(path, ".consumed-")) { return false; }
         string filename;
         FileAttr attr;
         FindFileHandle handle = FindFile(path + ".consumed-*", filename, attr, FindFileFlags.DIRECTORIES);
@@ -160,9 +165,9 @@ class HCPersistenceDisposition
         int scanned = 0;
         while (found && scanned < 64)
         {
-            scanned++;
             if (attr != FileAttr.DIRECTORY && attr != FileAttr.INVALID && HCConsumedName(filename, receiptName))
             {
+                scanned++;
                 if (HCGroupIO.HCReadRaw("$profile:HollowCountry/" + filename, limit, archived) && archived == original)
                 {
                     CloseFindFile(handle);
@@ -178,23 +183,124 @@ class HCPersistenceDisposition
 
     static bool HCConsumedName(string filename, string receiptName)
     {
-        string prefix = receiptName + ".consumed-";
-        int start = prefix.Length();
-        int count = filename.Length() - start;
-        if (filename.IndexOf(prefix) != 0 || count < 1 || count > 10) { return false; }
-        string stamp = filename.Substring(start, count);
-        int utc = stamp.ToInt();
-        // Accept only the canonical positive-int UTC names HCLoad writes.
-        return utc > 0 && utc.ToString() == stamp;
+        return HCArchiveStamp(filename, receiptName + ".consumed-") > 0;
     }
 
-    static bool HCArchive(string path, string suffix, int limit)
+    static int HCArchiveStamp(string filename, string prefix)
+    {
+        int start = prefix.Length();
+        int count = filename.Length() - start;
+        if (filename.IndexOf(prefix) != 0 || count < 1 || count > 10) { return 0; }
+        string stamp = filename.Substring(start, count);
+        int utc = stamp.ToInt();
+        if (utc > 0 && utc.ToString() == stamp) { return utc; }
+        return 0;
+    }
+
+    // Startup/transaction cleanup only; no recurring scan. Streaming passes
+    // retain eight timestamps and at most eight deletion names in memory.
+    // EnScript.c:380/385/389/399/407 array Count/Clear/Set/Get/Insert;
+    // EnString.c:253 LastIndexOf; EnSystem.c:520-528 file API.
+    // Finish enumeration before deleting so iterator mutation is not assumed.
+    static bool HCPruneArchives(string path, string archiveKind)
+    {
+        if (archiveKind != ".consumed-" && archiveKind != ".quarantined-") { return false; }
+        int split = path.LastIndexOf("/") + 1;
+        if (split < 1 || split >= path.Length()) { return false; }
+        string root = path.Substring(0, split);
+        string prefix = path.Substring(split, path.Length() - split) + archiveKind;
+        string filename;
+        FileAttr attr;
+        FindFileHandle handle = FindFile(path + archiveKind + "*", filename, attr, FindFileFlags.DIRECTORIES);
+        if (!handle) { return true; }
+        ref array<int> newest = new array<int>;
+        bool found = filename != "";
+        int stamp;
+        int index;
+        int lowest;
+        while (found)
+        {
+            stamp = HCArchiveStamp(filename, prefix);
+            if (attr != FileAttr.DIRECTORY && attr != FileAttr.INVALID && stamp > 0)
+            {
+                if (newest.Count() < HCPersistenceDisposition.HC_ARCHIVES_KEEP) { newest.Insert(stamp); }
+                else
+                {
+                    index = 1;
+                    lowest = 0;
+                    while (index < newest.Count())
+                    {
+                        if (newest.Get(index) < newest.Get(lowest)) { lowest = index; }
+                        index++;
+                    }
+                    if (stamp > newest.Get(lowest)) { newest.Set(lowest, stamp); }
+                }
+            }
+            found = FindNextFile(handle, filename, attr);
+        }
+        CloseFindFile(handle);
+        if (newest.Count() < HCPersistenceDisposition.HC_ARCHIVES_KEEP) { return true; }
+        int floor = newest.Get(0);
+        index = 1;
+        while (index < newest.Count())
+        {
+            if (newest.Get(index) < floor) { floor = newest.Get(index); }
+            index++;
+        }
+        // Close the directory iterator before deleting each bounded batch.
+        ref array<string> obsolete = new array<string>;
+        bool removed = true;
+        while (removed)
+        {
+            removed = false;
+            handle = FindFile(path + archiveKind + "*", filename, attr, FindFileFlags.DIRECTORIES);
+            if (!handle) { return true; }
+            found = filename != "";
+            obsolete.Clear();
+            while (found && obsolete.Count() < HCPersistenceDisposition.HC_ARCHIVES_KEEP)
+            {
+                stamp = HCArchiveStamp(filename, prefix);
+                if (attr != FileAttr.DIRECTORY && attr != FileAttr.INVALID && stamp > 0 && stamp < floor)
+                {
+                    obsolete.Insert(root + filename);
+                }
+                found = FindNextFile(handle, filename, attr);
+            }
+            CloseFindFile(handle);
+            foreach (string obsoletePath : obsolete)
+            {
+                if (!DeleteFile(obsoletePath) || FileExist(obsoletePath))
+                {
+                    Print("[HC Plan] HC-28 recovery=archive_prune_refused reason=archive_delete_failed runtime=PENDING");
+                    return false;
+                }
+                removed = true;
+            }
+        }
+        return true;
+    }
+
+    // Empty-file admission is opt-in for pending evidence only. Receipts and
+    // persisted images retain HCGroupIO's nonempty requirement.
+    // EnSystem.c:417/425/443 OpenFile/ReadFile/CloseFile: 0 bytes is valid EOF.
+    static bool HCReadArchive(string path, int limit, out string text, bool allowEmpty)
+    {
+        if (!allowEmpty) { return HCGroupIO.HCReadRaw(path, limit, text); }
+        if (limit < 1 || limit > 1048576) { return false; }
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int count = ReadFile(handle, text, limit + 1);
+        CloseFile(handle);
+        return count >= 0 && count <= limit && text.Length() == count;
+    }
+
+    static bool HCArchive(string path, string suffix, int limit, bool allowEmpty = false)
     {
         string original;
         string archived;
-        if (!HCGroupIO.HCReadRaw(path, limit, original) || FileExist(path + suffix)) { return false; }
+        if (!HCReadArchive(path, limit, original, allowEmpty) || FileExist(path + suffix)) { return false; }
         if (!CopyFile(path, path + suffix)) { return false; }
-        return HCGroupIO.HCReadRaw(path + suffix, limit, archived) && archived == original;
+        return HCReadArchive(path + suffix, limit, archived, allowEmpty) && archived == original;
     }
 
     static bool HCMatchImage(string path, int limit, int length, int checksum)
