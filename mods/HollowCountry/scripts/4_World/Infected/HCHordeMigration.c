@@ -89,7 +89,8 @@ class HCHordeRoutes
         if (!route.Nodes || route.Nodes.Count() < 2 || route.Nodes.Count() > 8) { return false; }
         vector previous;
         int index = 0;
-        foreach (vector point : route.Nodes)
+        array<vector> routeNodes = route.Nodes;
+        foreach (vector point : routeNodes)
         {
             if (!HCInfectedStore.ValidPosition(point)) { return false; }
             if (index > 0)
@@ -124,7 +125,8 @@ class HCHordeRoutes
         if (!document.Enabled) { return false; }
         s_Reason = "ROUTE_SURVEY_PENDING";
         bool admitted = false;
-        foreach (HCHordeRouteSurvey route : document.Routes)
+        array<ref HCHordeRouteSurvey> documentRoutes = document.Routes;
+        foreach (HCHordeRouteSurvey route : documentRoutes)
         {
             if (route && route.Surveyed)
             {
@@ -142,7 +144,8 @@ class HCHordeRoutes
         if (!s_Document || !s_Document.Enabled || !clue) { return null; }
         HCHordeRouteDefaults cfg = s_Document.Defaults;
         float bindSq = cfg.SurveyBindMetres * cfg.SurveyBindMetres;
-        foreach (HCHordeRouteSurvey route : s_Document.Routes)
+        array<ref HCHordeRouteSurvey> selectedRoutes = s_Document.Routes;
+        foreach (HCHordeRouteSurvey route : selectedRoutes)
         {
             if (!ValidSurvey(route, cfg)) { continue; }
             vector first = route.Nodes[0];
@@ -160,49 +163,74 @@ class HCHordeRoutes
 class HCHordeMigration : HCModule
 {
     protected static bool s_Active;
-    protected bool m_WaitingPrinted;
+    protected string m_LastSummary;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     override string GetName() { return "HordeMigration"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
     static bool Active() { return s_Active; }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
 
+    // Summaries describe the existing route/owner state. No route survey or
+    // native verdict is fabricated, and a quiet cohort is not a service refusal.
+    protected void HCReport(string phase, int drifting)
+    {
+        string signature = phase + ":" + m_Status.HCState() + ":" + drifting.ToString();
+        if (signature == m_LastSummary) { return; }
+        m_LastSummary = signature;
+        string admitted = "0";
+        if (s_Active) { admitted = "1"; }
+        string line = "[HC Plan] HC-46 route=all phase=" + phase + " state=" + m_Status.HCState();
+        Print(line + " routes_admitted=" + admitted + " drifting_cohorts=" + drifting.ToString() + " runtime=PENDING");
+    }
+
+    protected void HCRefreshStatus(HCInfectedModule infected)
+    {
+        if (!s_Active)
+        {
+            m_Status.HCPublish("refused", HCHordeRoutes.Reason());
+            if (HCHordeRoutes.Reason() == "ROUTE_OPERATOR_OFF") { m_Status.HCPublish("off", "route_operator_off"); }
+            HCReport(HCHordeRoutes.Reason(), 0);
+            return;
+        }
+        string reason = "infected_provider_missing";
+        if (infected) { reason = infected.HCV2MigrationReason(); }
+        HCModuleReadiness.HCDerive(m_Status, s_Active, "", reason, "survey_routes_loaded_admitted_unverified_runtime_pending");
+        if (reason == "hordes_operator_off" || reason == "stimulus_routes_operator_off") { m_Status.HCPublish("off", reason); }
+        if (reason != "") { HCReport(reason, 0); return; }
+        int drifting = infected.HCV2MigrationDrifting();
+        string phase = "waiting_for_perceived_cue_or_eligible_cohort";
+        if (drifting > 0) { phase = "native_route_in_progress"; }
+        HCReport(phase, drifting);
+    }
+
     override void OnStart(HCSettings settings)
     {
-        Print(HCV2Admission.Line("HordeMigration", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
-        m_WaitingPrinted = false;
+        Print(HCV2Admission.Line("HordeMigration", IsEnabled(settings), "EXP-S4", HCV2Gates.Qualified("EXP-S4")) + " runtime=PENDING");
+        m_LastSummary = "";
+        s_Active = false;
+        if (!IsEnabled(settings))
+        {
+            m_Status.HCPublish("off", "world_operator_off");
+            HCReport("world_operator_off", 0);
+            return;
+        }
         s_Active = HCHordeRoutes.HCLoad(GetGame().GetWorldName());
-        m_Status.HCPublish("refused", HCHordeRoutes.Reason());
-        if (HCHordeRoutes.Reason() == "ROUTE_OPERATOR_OFF") { m_Status.HCPublish("off", "route_operator_off"); }
-        // Wave 16 owner decision: a loaded, valid route document is admitted unverified (the EXP-S4
-        // admission line above names the missing native verdict once; the two HC-46 lines below
-        // name the physical observer and fresh-visual parts that stay refused). Ready is derived
-        // from the loaded document; operator opt-out is Enabled=false in route-surveys.json.
-        if (s_Active) { m_Status.HCPublish("ready", "survey_routes_loaded_admitted_unverified_runtime_pending"); }
-        Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=" + HCHordeRoutes.Reason() + " state=" + m_Status.HCState() + " admitted=0 max_cohorts=2 runtime=PENDING");
-        Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=FRESH_VISUAL_RECEIPT_UNEXPOSED state=refused count=0 runtime=PENDING");
-        Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=PHYSICAL_ROUTE_OBSERVER_CONTRACT_PENDING state=refused noise_ttl_max=30 observer_quiet=60 count=0 runtime=PENDING");
+        HCRefreshStatus(HCInfectedModule.Instance);
     }
     override void OnTick(float deltaTime)
     {
         if (!s_Active) { return; }
         HCInfectedModule infected = HCInfectedModule.Instance;
-        if (!infected) { return; }
-        int packs = infected.HCV2MigrationStep();
-        if (packs == 0 && !m_WaitingPrinted)
-        {
-            m_WaitingPrinted = true;
-            Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=PHYSICAL_COHORT_OR_ADMISSION_PENDING state=refused admitted=0 max_cohorts=2 runtime=PENDING");
-        }
+        if (infected && infected.HCV2MigrationReason() == "") { infected.HCV2MigrationStep(); }
+        HCRefreshStatus(infected);
     }
     override void OnStop()
     {
         s_Active = false;
-        // Infected owner's existing Tick/OnStop and retained release ledger own
-        // native cleanup. No membership transfer or LOD body mutation here.
+        // Infected owner's retained release ledger owns native cleanup.
         HCHordeRoutes.HCClear();
         m_Status.HCPublish("off", "route_owner_stopped");
-        Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=stopped state=off max_cohorts=2 runtime=PENDING");
+        HCReport("stopped", 0);
     }
 }
 
@@ -212,6 +240,30 @@ modded class HCInfectedModule
     protected int m_HCRouteActorCursor;
     protected ref HCUnitBudget m_HCRouteUnits = new HCUnitBudget;
     protected ref HCWorkBudget m_HCRouteWork = new HCWorkBudget;
+
+    // Read-only owner observations, bounded by the existing two-pack ceiling.
+    string HCV2MigrationReason()
+    {
+        if (!m_Healthy) { return "infected_owner_unhealthy"; }
+        if (!m_Hordes) { return "hordes_operator_off"; }
+        if (!m_Config || !m_State || !m_Admission) { return "infected_owner_state_missing"; }
+        if (!m_Config.EnableHordeStimulusRoutes) { return "stimulus_routes_operator_off"; }
+        if (!m_Admission.HordeStimulusRoutes) { return "stimulus_route_dependency_unavailable"; }
+        if (!HeardAdmitted()) { return "perceived_noise_provider_unavailable"; }
+        if (m_Packs.Count() > 2 || m_Packs.Count() != m_State.Groups.Count() || m_Actors.Count() > 24) { return "cohort_roster_inconsistent"; }
+        return "";
+    }
+
+    int HCV2MigrationDrifting()
+    {
+        int drifting = 0;
+        for (int packIndex = 0; packIndex < m_Packs.Count() && packIndex < 2; packIndex++)
+        {
+            HCNativeInfectedPack candidate = m_Packs[packIndex];
+            if (candidate && candidate.IsV2Drifting()) { drifting++; }
+        }
+        return drifting;
+    }
 
     int HCV2MigrationStep()
     {
@@ -293,7 +345,8 @@ modded class HCNativeInfectedPack
         HCHordeRouteSurvey route = HCHordeRoutes.Select(leader.GetPosition(), clue);
         if (!route) { return; }
         m_HCRouteMembers.Clear();
-        foreach (ZombieBase admittedMember : m_Members)
+        array<ZombieBase> admittedMembers = m_Members;
+        foreach (ZombieBase admittedMember : admittedMembers)
         {
             if (!admittedMember || m_HCRouteMembers.Find(admittedMember) >= 0) { m_HCRouteMembers.Clear(); return; }
             m_HCRouteMembers.Insert(admittedMember);
@@ -325,7 +378,8 @@ modded class HCNativeInfectedPack
     {
         if (m_Members.Count() != m_V2MemberCount) { return false; }
         m_RoutePlan.Clear();
-        m_RoutePlan.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 4));
+        BehaviourGroupInfectedPackWaypointParams routeWaypoint = new BehaviourGroupInfectedPackWaypointParams(end, 4);
+        m_RoutePlan.Insert(routeWaypoint);
         RoutePlanned = 1;
         RouteCompleted = 0;
         RoutePurpose = 1;
@@ -369,7 +423,8 @@ modded class HCNativeInfectedPack
         vector centroid;
         float worst = 0;
         int memberIndex = 0;
-        foreach (ZombieBase member : m_Members)
+        array<ZombieBase> currentMembers = m_Members;
+        foreach (ZombieBase member : currentMembers)
         {
             if (member != m_HCRouteMembers[memberIndex]) { return V2End(now, 6); }
             memberIndex++;
@@ -387,7 +442,8 @@ modded class HCNativeInfectedPack
         if (!leader) { return V2End(now, 6); }
         centroid = centroid * (1.0 / m_V2MemberCount);
         m_LastPosition = leader.GetPosition();
-        foreach (ZombieBase clustered : m_Members)
+        array<ZombieBase> clusterMembers = m_Members;
+        foreach (ZombieBase clustered : clusterMembers)
         {
             if (vector.DistanceSq(clustered.GetPosition(), centroid) > cfg.CohesionMetres * cfg.CohesionMetres) { return V2End(now, 5); }
         }
@@ -447,6 +503,7 @@ modded class HCModuleRegistry
     override void RegisterModules()
     {
         super.RegisterModules();
-        Register(new HCHordeMigration);
+        HCHordeMigration migrationModule = new HCHordeMigration;
+        Register(migrationModule);
     }
 }
