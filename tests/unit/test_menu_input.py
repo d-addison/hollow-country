@@ -43,7 +43,14 @@ class MenuInput(unittest.TestCase):
 
     def test_every_hc_menu_locks_on_show_unlocks_on_hide_and_closes_on_back(self):
         found = menus()
-        self.assertEqual(3, len(found), [p.name for p, _ in found])
+        # HC-38 retired the quest menu: HCEventMenu stays only as an inert type whose Init builds
+        # nothing, so it never shows and has no input to lock.
+        inert = [(p, t) for p, t in found if p.name == 'HCEventMenu.c']
+        self.assertEqual(1, len(inert))
+        self.assertRegex(inert[0][1], r'override\s+Widget\s+Init\s*\(\s*\)\s*\{\s*return\s+null;\s*\}')
+        self.assertIsNone(body(inert[0][1], 'OnShow'))
+        found = [(p, t) for p, t in found if p.name != 'HCEventMenu.c']
+        self.assertEqual(2, len(found), [p.name for p, _ in found])
         for path, text in found:
             with self.subTest(menu=path.name):
                 show, hide, update = body(text, 'OnShow'), body(text, 'OnHide'), body(text, 'Update')

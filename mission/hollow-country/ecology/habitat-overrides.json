@@ -73,7 +73,7 @@
     "Event": "AnimalSheep",
     "SelectedVariant": "Animal_OvisGmelini",
     "Reason": "Installed public scope=2 class and model entry inspected in animals_nasdara.pbo. Presence on disk does not prove it is loaded on Chernarus. Keep this XML unreferenced unless the addon is loaded and native qualification passes.",
-    "PopulationAccounting": "Retain nominal=5/min=4/max=5 and global AnimalMaxCount. Replace one optional ram slot with an optional mouflon slot; keep stock ewe minimum and do not create another event or loot supply."
+    "PopulationAccounting": "Retain nominal=5/min=4/max=5 and the global CE animal cap. Replace one optional ram slot with an optional mouflon slot; keep stock ewe minimum and do not create another event or loot supply."
   },
   "Species": [
     {
