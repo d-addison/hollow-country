@@ -95,19 +95,77 @@ class HCTapedPackMounts : HCModule
         return NativeSlotAvailable(binding.PairId);
     }
 
+    // Mission manifest read: bounded (file is under 16 KiB), "" when unreadable.
+    protected static string ReadManifest()
+    {
+        string text;
+        if (!HCGroupIO.Read("$mission:hollow-country/lights/backpack-mounts.json", 16384, text)) { return ""; }
+        return text;
+    }
+
+    // Native JsonFileLoader zero-fills missing ints, so callers guard presence.
+    protected static HCTapedPackManifest ParseManifest(string text)
+    {
+        HCTapedPackManifest manifest;
+        string error;
+        if (!JsonFileLoader<HCTapedPackManifest>.LoadData(text, manifest, error)) { return null; }
+        return manifest;
+    }
+
+    // Returns "" once Configure() accepted the closed manifest defaults, else a
+    // refusal reason with nothing configured. The file cannot qualify a pair.
+    static string ApplyManifest(string text)
+    {
+        if (text == "") { return "mount_manifest_unreadable"; }
+        if (!HCJsonFields.Has(text, "SchemaVersion") || !HCJsonFields.Has(text, "Qualified") || !HCJsonFields.Has(text, "SettingsContract")) { return "mount_manifest_fields_missing"; }
+        if (!HCJsonFields.Check(text, "DefaultCrossSlotLights", 2, false) || !HCJsonFields.Check(text, "DefaultPermittedPairIds", 2, false) || !HCJsonFields.Check(text, "MaxPermittedPairIds", 2, false)) { return "mount_manifest_fields_missing"; }
+        HCTapedPackManifest manifest = ParseManifest(text);
+        if (!manifest || !manifest.SettingsContract || !manifest.SettingsContract.DefaultPermittedPairIds) { return "mount_manifest_invalid"; }
+        if (manifest.SchemaVersion != 1) { return "mount_manifest_schema"; }
+        if (manifest.Qualified) { return "mount_manifest_qualified_claim"; }
+        HCTapedPackSettingsContract contract = manifest.SettingsContract;
+        TStringArray ids = contract.DefaultPermittedPairIds;
+        if (contract.MaxPermittedPairIds != 2 || ids.Count() > contract.MaxPermittedPairIds) { return "pack_mount_settings_refused"; }
+        HCTapedLightMountSettings preferences = new HCTapedLightMountSettings;
+        preferences.crossSlotLights = contract.DefaultCrossSlotLights;
+        foreach (string pairId : ids) { preferences.permittedPairIds.Insert(pairId); }
+        if (!Configure(preferences)) { return "pack_mount_settings_refused"; }
+        return "";
+    }
+
+    // Loads the manifest once per start; Reset() on stop makes the next start reload.
+    static string LoadSettings()
+    {
+        if (mHCConfigured) { return ""; }
+        return ApplyManifest(ReadManifest());
+    }
+
     override void OnStart(HCSettings settings)
     {
         if (mHCStarted) { return; }
         mHCStarted = true;
+        string loadReason = LoadSettings();
+        string config = "loaded";
+        if (loadReason != "") { config = loadReason; }
         string reason = PairRefusal("tortilla_universal_mount");
         string crossReason = PairRefusal("tortilla_universal_cross");
         string crossSlot = HCV2Admission.OnOff(CrossSlotEnabled());
         int permitted = mHCPermitted.Count();
-        mHCStatus.HCPublish("off", reason);
-        Print(HCV2Admission.Line("TapedPackMounts", false, reason, false));
-        string line = "[HC Plan] HC-52 pack_pairs=1 cross_slot=" + crossSlot + " qualified=0";
-        line = line + " permitted=" + permitted.ToString() + " state=off reason=" + reason;
-        Print(line + " authored=1 admitted=0 observed=0 runtime=PENDING");
+        int qualified = 0;
+        if (HCTapedPackCatalog.Qualified("tortilla_universal_mount")) { qualified = qualified + 1; }
+        if (CrossSlotEnabled() && HCTapedPackCatalog.Qualified("tortilla_universal_cross")) { qualified = qualified + 1; }
+        // off: cross-slot setting off. refused: setting on, no per-pair client
+        // check receipt exists. ready only once a pair is qualified by code.
+        string state = "off";
+        string stateReason = "cross_slot_disabled";
+        if (CrossSlotEnabled()) { state = "refused"; stateReason = "client_check_pending"; }
+        if (qualified > 0) { state = "ready"; stateReason = "pairs_client_checked"; }
+        if (loadReason != "") { state = "degraded"; stateReason = loadReason; }
+        mHCStatus.HCPublish(state, stateReason);
+        Print(HCV2Admission.Line("TapedPackMounts", false, stateReason, false));
+        string line = "[HC Plan] HC-52 pack_pairs=1 cross_slot=" + crossSlot + " qualified=" + qualified.ToString();
+        line = line + " permitted=" + permitted.ToString() + " state=" + state + " reason=" + stateReason;
+        Print(line + " authored=1 admitted=0 observed=0 config=" + config + " runtime=PENDING");
         Print("[HC Plan] HC-52 pair=tortilla_universal_mount state=refused reason=" + reason + " runtime=PENDING");
         Print("[HC Plan] HC-52 pair=tortilla_universal_cross state=refused reason=" + crossReason + " runtime=PENDING");
     }
@@ -117,5 +175,14 @@ class HCTapedPackMounts : HCModule
         Reset();
         mHCStarted = false;
         mHCStatus.HCStop();
+    }
+}
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCTapedPackMounts());
     }
 }
