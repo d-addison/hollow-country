@@ -71,7 +71,9 @@ class BasesRoundTwo(unittest.TestCase):
                                       Decayed=lambda value, now, last: value),
                        HCCampVisitors=NS(Step=lambda *args: None),
                        HCCampMailbox=NS(Step=lambda *args: None),
-                       HCCampProbes=NS(Step=lambda *args: None),
+                       # Explicit synthetic visitor refusal; tier/respawn policy remains authored.
+                       HCCampProbes=NS(Step=lambda *args: None,
+                                      HCRequestVisitorParty=lambda *args: False),
                        HCCampTheft=NS(Step=lambda *args: None),
                        Fact=lambda *args: None)
             env['super'] = NS(Candidate=lambda hearth, now: run(native, 'Candidate', state, env, hearth, now))
