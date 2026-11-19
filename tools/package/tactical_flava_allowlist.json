@@ -778,6 +778,24 @@
     "sha256": "c74dece98f812560b1a191307c26d4b41b0b3b37662e37348a1a924618f32ecf"
    }
   ],
+  "class_pins": {
+   "TF_AK74M": "0cac10feb193eba72837c417d67df3029577398c0208707d53ed823534e67ea4",
+   "TF_ElcanSpecterDROptic_Black": "e2c11ca126fcf3490d6838a4859f1c938eaaa538054f31cc887c8232b304556f",
+   "TF_ElcanSpecterDROptic_FDE": "c4e26ac3e8ab735ef0f9f14d6ce0898c6034e8adf43407e63b8947c3a844ef1e",
+   "TF_ElcanSpecterDR_6xOptic_Black": "3314fb7f033da2c73a745202b5fdf1b373e8b98ca1658eb46a633897c6771528",
+   "TF_ElcanSpecterDR_6xOptic_FDE": "d47773ede8d73b2100c695efb359fb1ea1e66caeae5c16992d3ef59f6ef2d604",
+   "TF_M14_Adapter": "522ab898de66b3432cd99bdf9f3f75f0cbf43b5ba7306d419b2493394605d681",
+   "TF_M14_STD": "4e23fe2f55936d1b7b09d0ded3baaff0a20c802ffb5a130a8e0983cb91ab7fe5",
+   "TF_M1A_Black": "ac58d080309b89d7d10b4be10317c0309c08050d1f7808a0b50640874c580ae2",
+   "TF_M24": "551b6368bccd249882649983e9c2f6900e8aa8e7e1c1681eabb53176c33a37e7",
+   "TF_MP443": "323a053db289c00541e580d4f50893086a450bb67a59bf0b18a4f60a1fcc8160",
+   "TF_Mag_AK74_Bakelit30Rnd": "3e31fff5270aa3deb615f553bcae9c7a6331c8eaf4b44723d6efb8e194b1c871",
+   "TF_Mag_M14_10Rnd": "dfa37811ece618bb479fbc50311e39d0c60df91d7aaa3ffbbc59c17bad85c8bc",
+   "TF_Mag_M14_20Rnd": "dc8f16cfd15d311e3f09bf89fe2774bbe517b8e6948f40f31e4152daf7a04792",
+   "TF_Mag_MP443_18Rnd": "6570f12c4a8fcd361df5e483bf6264c6825a387aedfbffa165fa18218cb7a834",
+   "TF_Mag_VPO190_4Rnd": "cdd467f1624f89cffa1e51115b6a0dbbc3b6a7cb219cc018c6854de9f98690bf",
+   "TF_VPO190": "311f7cf3e22c80e4f24e5cf954fcb9d51fb715b7efc39a764afb0a621671433b"
+  },
   "aggregate_weapon_budget": {
    "nominal": 62,
    "min": 31
