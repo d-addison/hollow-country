@@ -19,7 +19,11 @@ class BaseRaidIntegrationTests(unittest.TestCase):
     def test_base_raid_has_its_own_tick_budget_consumer(self):
         consts = dict(re.findall(r'static const int (HC_WORK_\w+) = (\d+);', BUDGET.read_text()))
         self.assertEqual('12', consts.get('HC_WORK_BASE_RAID'))
-        self.assertEqual('13', consts['HC_WORK_CONSUMERS'])
+        # Later consumers append ids; the raid id stays inside the counted range
+        # and no other consumer shares it (exact count is pinned in defaults_round2).
+        ids = [int(v) for k, v in consts.items() if k not in ('HC_WORK_CONSUMERS', 'HC_WORK_UNBOUNDED')]
+        self.assertLess(12, int(consts['HC_WORK_CONSUMERS']))
+        self.assertEqual(1, ids.count(12))
 
     def test_base_raid_config_rows_are_registered_and_consistent(self):
         rows = {r['key']: r for r in json.loads(sc.REGISTRY.read_text()) if r['owner'] == 'HCBaseRaidConfig'}
