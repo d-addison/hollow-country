@@ -916,7 +916,7 @@ class NewLayersAreRegistered(unittest.TestCase):
         text = MODULE.read_text()
         for name in ('HCDebugPickersContributor', 'HCDebugGroupPinsContributor', 'HCDebugProposalsContributor'):
             self.assertIn('HCKeep(new %s);' % name, text)
-        self.assertEqual(12, len(re.findall(r'^\s*HCKeep\(', text, re.M)))
+        self.assertEqual(13, len(re.findall(r'^\s*HCKeep\(', text, re.M)))
 
     def test_no_contributor_exports_player_identity(self):
         text = SNAPSHOT.read_text()

@@ -5,6 +5,18 @@ Actual RED: python3 -B -m unittest tests.unit.test_w37_conflict -v
 AssertionError: Missing authored class: HCConflictPolicy (FAILED, failures=2).
 GREEN: python3 -B -m unittest tests.unit.test_w37_conflict -v (8 tests, OK).
 The focused reader + shared-brief suite ran 78 tests, OK; runtime=PENDING.
+
+Round 2 spec/plan/tasks (#146/#198, inputs/task.md + inputs/round2.md):
+- Rotate one journal retry per tick; block pending sites, continue unrelated sites.
+- Capture group deceased-count baselines on bind; require this encounter's evidence.
+- Register conflict debug contributor through the snapshot owner's lifecycle.
+RED: python3 -B -m unittest tests.unit.test_w37_conflict -v
+Actual: ('faction_clash', 'synthetic-b', 1) not found in [] :
+        a player parked at A must not stall outcomes at B
+Actual: True is not false : a pre-existing casualty cannot finish this encounter
+Actual: 1 != 0 (missing conflict debug registration).
+GREEN command/result retained in .banso-writer/commit-message and round2 report.
+Fixtures execute authored handlers against explicit synthetic ports, never DayZ.
 """
 from pathlib import Path
 from types import SimpleNamespace as N
@@ -90,7 +102,8 @@ class W37WorldBehavior(unittest.TestCase):
                    HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer,n: True)),
                    HCConflictConfig=N(WORK_CONSUMER=6),
                    HCWorldMaterializer=N(HCDebugGet=lambda: None),
-                   HCFactionConflict=N(Cell=lambda p:'0:0', HCReserveDataOutcome=lambda *a:True),
+                   HCFactionConflict=N(Cell=lambda p:'0:0', HCReserveDataOutcome=lambda *a:True,
+                                       HCTerritoryPending=lambda place:False),
                    HCInfectedModule=N(Instance=None),
                    GetGame=lambda: N(GetTime=lambda: clock[0]), Print=lines.append, str=str)
         translate(source, 'HCWorldModule', env, only=('HCConflictStep','HCConflictFar',
@@ -156,6 +169,56 @@ class W37WorldBehavior(unittest.TestCase):
         self.assertEqual([],b.Territory)
         self.assertEqual(1,len(calls),'idempotent transfer does not repeat chatter')
 
+    def test_pending_site_receipt_rotates_without_stalling_other_sites(self):
+        # Explicit synthetic battlefield A, distant B, player parked at A.
+        from tests.unit.test_hc_faction_outcomes import syntax
+        owner,cfg,a,b,players,calls,lines,clock,env = self.fixture()
+        site_a = owner.m_Data.Places[0]
+        site_b = N(Id='synthetic-b', Position=[5010,0,10], Name='Synthetic B')
+        owner.m_Data.Places.Insert(site_b)
+        owner.m_Data.Place = lambda key: site_a if key == site_a.Id else site_b
+        env['HCFactionConflict'].Cell = lambda pos: '0:0' if pos[0] < 1000 else '5:0'
+        a.Territory.Insert('5:0')
+        b.Territory.Insert('5:0')
+        receipt = N(PlaceId=site_a.Id, LeftFaction='locals', RightFaction='raiders',
+                    State='LEFT_REMAINS', TerritoryEpoch=90, TerritoryApplied=False, LeftSurvivors=1)
+        history = N(PlaceId='synthetic-history', TerritoryEpoch=0,
+                    TerritoryApplied=False, LeftSurvivors=-1)
+        source = syntax((WORLD/'HCFactionConflict.c').read_text()).replace('protected ', '')
+        source = re.sub(r'array<[^;=]+> (?=\w+ =)', 'HCArray ', source)
+        replay_env = dict(HCWorldModule=N(Get=lambda:owner), HCWorldClock=env['HCWorldClock'])
+        translate(source, 'HCFactionConflict', replay_env, only=('HCServiceWorld','HCTerritoryPending'))
+        saves, retries, offers = [], [], []
+        observed = owner.HCConflictObserved
+        owner.HCConflictObserved = lambda row,config: retries.append(row.PlaceId) or observed(row,config)
+        module = N(m_ConflictConfig=cfg, m_Outcomes=N(Rows=EArray([receipt,history])),
+                   m_OutcomeCursor=0, m_Current=None, s_CombatPort=N(
+                       HCOffer=lambda *args:offers.append(args), HCActiveAt=lambda key:False),
+                   HCDecline=lines.append, HCSave=lambda:saves.append(True) or True)
+        replay_env['s_Instance'] = module
+        replay_env['s_CombatPort'] = module.s_CombatPort
+        env['HCFactionConflict'].HCTerritoryPending = replay_env['HCTerritoryPending']
+        players.Insert(N(GetIdentity=lambda:True, GetPosition=lambda:site_a.Position))
+        service = lambda: replay_env['HCServiceWorld'](module)
+        for _ in range(6):
+            service()
+            clock[0] += 1
+        self.assertIn(('faction_clash',site_b.Id,1), calls,
+                      'a player parked at A must not stall outcomes at B')
+        self.assertFalse(receipt.TerritoryApplied)
+        self.assertIn('0:0', b.Territory)
+        self.assertEqual([], offers, 'pending A must not offer a new fight')
+        self.assertEqual([site_a.Id]*3, retries, 'one receipt per tick, rotating over history')
+        players.Clear()
+        for _ in range(4):
+            service()
+            clock[0] += 1
+        self.assertTrue(receipt.TerritoryApplied, 'A retries after the player leaves')
+        self.assertNotIn('0:0', b.Territory)
+        self.assertEqual([True], saves)
+        self.assertEqual(1, sum(kind == 'locals_pushed_raiders' and site == site_a.Id
+                                for kind,site,_ in calls), 'receipt publication stays idempotent')
+
     def test_pressure_uses_real_infected_owner_without_simulated_casualties(self):
         owner,cfg,a,b,players,calls,lines,clock,env = self.fixture()
         camp=N(PlaceId='synthetic-place',FactionId='locals',Occupants=2)
@@ -196,11 +259,11 @@ class W37CombatCompletion(unittest.TestCase):
         from tests.unit.test_hc_faction_outcomes import syntax
         source=(ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXFactionCombatAdapter.c').read_text()
         env={}
-        translate(syntax(source).replace('protected ','').replace('override ','').replace('eAIGroup group', 'HCGroup group').replace('ref array<eAIGroup> m_Groups', 'HCArray m_Groups'),'HCXFactionCombatAdapter',env,only=('HCDisengaged',))
+        translate(syntax(source).replace('protected ','').replace('override ','').replace('eAIGroup group', 'HCGroup group').replace('ref array<eAIGroup> m_Groups', 'HCArray m_Groups').replace('ref array<int> m_InitialDeceased', 'HCArray m_InitialDeceased'),'HCXFactionCombatAdapter',env,only=('HCDisengaged',))
         combat=[False]
         deaths=[0]
         group=N(IsInCombat=lambda:combat[0],DeceasedCount=lambda:deaths[0])
-        owner=N(m_Groups=EArray([group]),m_SeenCombat=False)
+        owner=N(m_Groups=EArray([group]),m_InitialDeceased=EArray([0]),m_SeenCombat=False)
         finish=lambda:env['HCDisengaged'](owner,'synthetic:encounter')
         self.assertFalse(finish())
         combat[0]=True
@@ -210,5 +273,81 @@ class W37CombatCompletion(unittest.TestCase):
         owner.m_SeenCombat=False
         deaths[0]=1
         self.assertTrue(finish(),'a recorded real death also establishes a fight')
+
+    def test_preexisting_casualty_is_not_current_encounter_combat(self):
+        from tests.unit.test_hc_faction_outcomes import syntax
+        source=(ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXFactionCombatAdapter.c').read_text()
+        source=syntax(source).replace('protected ','').replace('override ','')
+        source=source.replace('eAIGroup group', 'HCGroup group').replace('eAIBase body', 'HCBody body')
+        source=re.sub(r'array<[^;=]+> (?=\w+)', 'HCArray ', source)
+        env=dict(eAIBase=N(Cast=lambda actor:actor),
+                 HCWorldMaterializer=N(HCIdentity=lambda lease:True),
+                 HCAIPartyIdentity=N(HCValid=lambda identity:True),
+                 HCXFactions=N(Id=lambda faction:faction,HCWorldId=lambda faction:faction),
+                 HCXFactionCombatAdapter=N(MAX_RECORDED_GROUPS=2))
+        translate(source,'HCXFactionCombatAdapter',env,only=('HCSurveyed','HCOwns','HCDisengaged'))
+        deaths, combat = [2], [False]
+        group=N(IsInCombat=lambda:combat[0],DeceasedCount=lambda:deaths[0],GetFaction=lambda:'locals')
+        actor=N(IsAlive=lambda:True,GetIdentity=lambda:None,GetGroup=lambda:group)
+        owner=N(m_Groups=EArray(),m_InitialDeceased=EArray([99]),m_SeenCombat=True,
+                HCSurveyState=lambda *args:True, HCLeaseAtPlace=lambda *args:True,
+                HCLeaseState=lambda lease:N(Patrol=N(m_Group=group)))
+        self.assertTrue(env['HCSurveyed'](owner,'synthetic-a','survey'))
+        self.assertTrue(env['HCOwns'](owner,'lease','locals',actor,'synthetic-a','survey'))
+        finish=lambda:env['HCDisengaged'](owner,'synthetic:encounter')
+        self.assertFalse(finish(), 'a pre-existing casualty cannot finish this encounter')
+        self.assertEqual([2],owner.m_InitialDeceased,'bind captures cumulative deaths once')
+        deaths[0]=3
+        self.assertTrue(env['HCOwns'](owner,'lease','locals',actor,'synthetic-a','survey'))
+        self.assertTrue(finish(), 'a new death since binding establishes this fight')
+        env['HCSurveyed'](owner,'synthetic-a','survey')
+        env['HCOwns'](owner,'lease','locals',actor,'synthetic-a','survey')
+        self.assertFalse(finish(), 'the next encounter must capture a fresh baseline')
+        combat[0]=True
+        self.assertFalse(finish())
+        combat[0]=False
+        self.assertTrue(finish(), 'observed combat can establish a fight without deaths')
+
+
+class W37DebugRegistration(unittest.TestCase):
+    def test_snapshot_module_registers_conflict_contributor(self):
+        source=(ROOT/'mods/HollowCountry/scripts/4_World/Debug/HCDebugSnapshotModule.c').read_text()
+        self.assertEqual(1,source.count('HCConflictDebugContributor conflicts = new HCConflictDebugContributor;'))
+        self.assertEqual(1,source.count('HCKeep(conflicts);'))
+
+    def test_conflict_contributor_follows_snapshot_module_lifecycle(self):
+        # Synthetic registration ports; execute the authored startup/stop bodies.
+        class SyntheticWorldName(str):
+            def ToLower(self): pass
+        source=(ROOT/'mods/HollowCountry/scripts/4_World/Debug/HCDebugSnapshotModule.c').read_text()
+        source=source.replace('protected ','').replace('override ','')
+        source=source.replace('HCV2ThreatStore<HCDebugDocument>', 'HCStore')
+        source=source.replace('new array<ref HCDebugContributor>', 'new HCArray')
+        source=source.replace('ref array<ref HCDebugContributor>', 'HCArray')
+        source=source.replace('new HCDebugLeadsContributor(players)', 'HCMakeLeads(players)')
+        registered, removed = [], []
+        env=dict(HCArray=EArray, PATH='synthetic:snapshot',
+                 HCDebugSnapshot=N(HCRegister=registered.append,HCUnregister=removed.append),
+                 HCStore=N(CanOpen=lambda path:True),FileExist=lambda path:True,
+                 GetGame=lambda:N(IsServer=lambda:True,GetWorldName=lambda:SyntheticWorldName('chernarusplus')),
+                 HCV2Admission=N(Line=lambda *args:'synthetic admission'),Print=lambda line:None,
+                 HCMakeLeads=lambda players:N(kind='HCDebugLeadsContributor'))
+        for name in re.findall(r'new (HCDebug\w+Contributor|HCConflictDebugContributor)',source):
+            env[name]=lambda name=name:N(kind=name)
+        translate(source,'HCDebugSnapshotModule',env,only=('OnStart','HCKeep','OnStop'))
+        owner=N(m_Running=False,m_AdmissionPrinted=False,m_Builtins=None,
+                IsEnabled=lambda settings:settings.EnableDebugSnapshot,
+                HCRefuse=lambda:self.fail('synthetic prerequisites are present'))
+        owner.HCKeep=lambda row:env['HCKeep'](owner,row)
+        env['OnStart'](owner,N(EnableDebugSnapshot=False))
+        self.assertEqual([],registered)
+        env['OnStart'](owner,N(EnableDebugSnapshot=True))
+        self.assertEqual(1,sum(row.kind == 'HCConflictDebugContributor' for row in registered))
+        self.assertEqual(13,len(registered))
+        env['OnStart'](owner,N(EnableDebugSnapshot=True))
+        self.assertEqual(13,len(registered),'repeated startup must not duplicate registrations')
+        env['OnStop'](owner)
+        self.assertEqual(registered,removed,'stop unregisters the owned conflict contributor too')
+        self.assertIsNone(owner.m_Builtins)
 
 if __name__ == '__main__': unittest.main()

@@ -65,6 +65,8 @@ class HCDebugSnapshotModule : HCModule
         HCKeep(new HCDebugPickersContributor);
         HCKeep(new HCDebugGroupPinsContributor);
         HCKeep(new HCDebugProposalsContributor);
+        HCConflictDebugContributor conflicts = new HCConflictDebugContributor;
+        HCKeep(conflicts);
         m_Elapsed = 0;
         m_Running = true;
     }

@@ -141,18 +141,22 @@ class HCFactionConflict : HCModule
     {
         HCWorldModule world = HCWorldModule.Get();
         if (!world || !m_ConflictConfig) { return; }
-        // Replay one durable observed result before producing any new fight.
+        // Retry at most one durable receipt per tick, rotating even when viewers
+        // keep its site pending. Unrelated sites still receive their normal step.
+        if (m_OutcomeCursor >= m_Outcomes.Rows.Count()) { m_OutcomeCursor = 0; }
         if (m_OutcomeCursor < m_Outcomes.Rows.Count())
         {
             HCTerritoryOutcomeRow outcome = m_Outcomes.Rows[m_OutcomeCursor];
+            m_OutcomeCursor++;
             if (outcome.TerritoryEpoch > 0 && !outcome.TerritoryApplied && outcome.LeftSurvivors >= 0)
             {
-                if (!world.HCConflictObserved(outcome, m_ConflictConfig)) { HCDecline("TERRITORY_PUBLICATION_PENDING"); return; }
-                outcome.TerritoryApplied = true;
-                if (!HCSave()) { return; }
+                if (!world.HCConflictObserved(outcome, m_ConflictConfig)) { HCDecline("TERRITORY_PUBLICATION_PENDING"); }
+                else
+                {
+                    outcome.TerritoryApplied = true;
+                    if (!HCSave()) { return; }
+                }
             }
-            m_OutcomeCursor++;
-            return;
         }
         if (m_Current)
         {
@@ -166,6 +170,19 @@ class HCFactionConflict : HCModule
             return;
         }
         world.HCConflictStep(m_ConflictConfig, s_CombatPort);
+    }
+
+    // Read only the validated <=128-row journal. Pending sites cannot produce
+    // another fight or pressure outcome before their territory receipt publishes.
+    static bool HCTerritoryPending(string place)
+    {
+        if (!s_Instance || !s_Instance.m_Outcomes) { return false; }
+        array<ref HCTerritoryOutcomeRow> rows = s_Instance.m_Outcomes.Rows;
+        foreach (HCTerritoryOutcomeRow row : rows)
+        {
+            if (row.PlaceId == place && row.TerritoryEpoch > 0 && !row.TerritoryApplied && row.LeftSurvivors >= 0) { return true; }
+        }
+        return false;
     }
 
     static bool HCReserveDataOutcome(string place, int now)
@@ -316,6 +333,7 @@ class HCFactionConflict : HCModule
             if (prior.LeftLease == leftLease || prior.RightLease == leftLease) { return ""; }
             if (prior.LeftLease == rightLease || prior.RightLease == rightLease) { return ""; }
         }
+        if (HCTerritoryPending(place)) { HCDecline("TERRITORY_PUBLICATION_PENDING"); return ""; }
         if (m_Current || m_Outcomes.Rows.Count() >= HCTerritoryOutcomes.MAX_ROWS)
         {
             HCDecline("ENCOUNTER_OR_HISTORY_CAP");
@@ -675,6 +693,7 @@ modded class HCWorldModule
         HCWorldFaction right = m_Data.Factions[m_ConflictRight];
         m_ConflictPlace++;
         if (m_ConflictPlace >= m_Data.Places.Count()) { m_ConflictRight++; }
+        if (HCFactionConflict.HCTerritoryPending(place.Id)) { return; }
         if (!HCConflictBudget(config, place.Id, now)) { return; }
         string cell = HCFactionConflict.Cell(place.Position);
         bool far = HCConflictFar(place, config);
