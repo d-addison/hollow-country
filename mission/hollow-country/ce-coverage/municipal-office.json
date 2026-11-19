@@ -1,0 +1,83 @@
+{
+  "acceptance": [
+    "Survey actual office floor access, door phases and prototype transform; retain all inaccessible/unknown floors as pending.",
+    "Review exact class/category/pin conversion support before emitting any office CE delta.",
+    "Native CE reach/restart/stock comparison and two-client HC-54 conservation remain pending."
+  ],
+  "groups": {
+    "Land_Office_Municipal2": {
+      "candidates": [],
+      "categories": [
+        "tools",
+        "containers",
+        "clothes"
+      ],
+      "container": "lootFloor",
+      "source_points": null,
+      "stock_instances": 1,
+      "tags": [
+        "floor"
+      ],
+      "usage": [
+        "Town",
+        "Office"
+      ]
+    }
+  },
+  "kind": "hc-ce-coverage-input",
+  "new_distances": [],
+  "production_enabled": false,
+  "provenance": {
+    "census_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+    "dispositions": {
+      "furnish": "path_pending",
+      "room": "path_pending",
+      "search": "no_ce_points"
+    },
+    "evidence_role": "design_input",
+    "hc53_followup": "HC53-N171",
+    "note": "One found candidate is not accepted all-floor geometry or CE evidence. Offices Land_Office1/2 have separate HC-53 coverage and receive no edits here.",
+    "sampler": "interior-sampler-112",
+    "sampler_index": 42,
+    "sha256": "d991d8b7c4df0d807470374667d6cf84b4d8a6ee7c2dfee34401eaece618c8a1",
+    "source": "tools/audit/data/hc53/coverage.json",
+    "stock_mapgroupproto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+  },
+  "qualification": {
+    "accepted_geometry_exclusions": 0,
+    "admitted": 0,
+    "authored": 0,
+    "observed": 0,
+    "pending_instances": 1
+  },
+  "refusal": "HC57_OFFICE_SURVEY_PENDING",
+  "refusals": [
+    {
+      "id": "HC57_OFFICE_SURVEY_PENDING",
+      "reason": "HC-53 path_pending/no_ce_points; no accepted office result, native floor reach, stock comparison or restart evidence."
+    },
+    {
+      "id": "HC57_OFFICE_CONVERTER_UNSUPPORTED",
+      "reason": "Existing interior_points and CE converter admit tenements plus calibration only; never relabel office as tenement or weaken class gates to bypass this."
+    }
+  ],
+  "runtime_acceptance": "pending",
+  "schema": 1,
+  "source": null,
+  "state": "pending_survey",
+  "trace": {
+    "canonical_link": "HC-11 lead must link this input in canonical Banso spec/plan/tasks; canonical files absent here.",
+    "plan": "HC-57 municipal-office gap; HC-24/53 sample contract; HC-54/55 composition pending.",
+    "requirements": [
+      "LOOT-03",
+      "FR-003",
+      "FR-004",
+      "FR-011"
+    ],
+    "tasks": {
+      "HC57-C2": "Publish empty pending survey input with named refusal.",
+      "HC57-OFFICE-NATIVE": "Survey exact class floors/rotations using existing sampler before proposing a separate reviewed office conversion contract."
+    }
+  },
+  "work_package": "HC-57"
+}

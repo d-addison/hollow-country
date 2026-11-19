@@ -1,0 +1,248 @@
+{
+  "acceptance": [
+    "Exact-source DayZDiag and normal signed PBO/server with source/PBO/mission/config/dependency hashes.",
+    "Native loot reach and no buried/floating loot on each authored height band and observed rotation, paired against stock; do not generalize to untested floors.",
+    "No script/CE errors; off path leaves stock unchanged; stop/restart and rollback preserve native inventory without duplicates.",
+    "Two clients race floor/search claims through HC-54; compose finite supply once. Production remains disabled until observed acceptance."
+  ],
+  "composition": {
+    "external_result_required": true,
+    "floor_allocation_owner": "HC-54/55; do not allocate or replenish separate search stock",
+    "hc57_only_effective_pin": "8b235016b8b4817092fd1e64babe84c98a0b84b63c4a46358b5fba416c0599a6",
+    "hc57_only_pin_scope": "Offline subset applied to exact stock only. Recompute after HC-55 composition; not a boot observation or production pin.",
+    "input_option": "--input mission/hollow-country/ce-coverage/apartments.json",
+    "lead_edits": [
+      {
+        "edit": "Add 'ce-coverage/apartments.json' and 'ce-coverage/municipal-office.json' to MISSION_FILES.",
+        "file": "tools/package/pbo.py"
+      },
+      {
+        "edit": "HC-62: add a fixed bounded cached HC-57 entry using both authored input hashes, apartments authored=8, office=pending_survey, admitted=0, observed=0, state=refused and runtime=PENDING until native qualification. effective_pin must be the final composed mapgroupproto hash, not the stock pin or an authored count.",
+        "file": "mods/HollowCountry/scripts/4_World/Core/HCServer.c + mods/HollowCountry/scripts/4_World/Operations/HCOperationalContributors.c"
+      },
+      {
+        "edit": "Link HC57-C1/C2/L1/N1 and HC57-OFFICE-NATIVE; retain pending office conversion, all-floor/rotation coverage and native acceptance.",
+        "file": "canonical Banso spec/plan/tasks (HC-11 owner)"
+      }
+    ],
+    "owner": "lead / HC-55",
+    "receipt": "Existing delta native run/pins, manifest, before/after hashes and byte-exact rollback; source input hash from validate --input.",
+    "search": "Regenerate search manifests from final effective mapgroupproto after HC-55 data; never from stock alone.",
+    "writer": "tools/package/ce_coverage.py generate"
+  },
+  "groups": {
+    "Land_Tenement_Big": {
+      "candidates": [
+        {
+          "id": "hc57_big_band_a_01",
+          "position": [
+            0.907744,
+            -19.7608,
+            0.502536
+          ]
+        },
+        {
+          "id": "hc57_big_band_a_02",
+          "position": [
+            6.90759,
+            -19.7608,
+            0.503124
+          ]
+        }
+      ],
+      "categories": [
+        "tools",
+        "containers",
+        "clothes"
+      ],
+      "container": "lootFloor",
+      "source_points": 4,
+      "stock_instances": 38,
+      "tags": [
+        "floor"
+      ],
+      "usage": [
+        "Town"
+      ]
+    },
+    "Land_Tenement_Small": {
+      "candidates": [
+        {
+          "id": "hc57_small_band_a_01",
+          "position": [
+            1.50809,
+            -7.5196,
+            1.44623
+          ]
+        },
+        {
+          "id": "hc57_small_band_a_02",
+          "position": [
+            6.50883,
+            -7.5196,
+            1.44189
+          ]
+        },
+        {
+          "id": "hc57_small_band_b_01",
+          "position": [
+            0.512823,
+            -0.719674,
+            2.44807
+          ]
+        },
+        {
+          "id": "hc57_small_band_b_02",
+          "position": [
+            1.509,
+            -0.719616,
+            -0.558093
+          ]
+        },
+        {
+          "id": "hc57_small_band_c_01",
+          "position": [
+            -0.493052,
+            6.08032,
+            1.45404
+          ]
+        },
+        {
+          "id": "hc57_small_band_c_02",
+          "position": [
+            0.507096,
+            6.08042,
+            -0.54598
+          ]
+        }
+      ],
+      "categories": [
+        "tools",
+        "containers",
+        "clothes"
+      ],
+      "container": "lootFloor",
+      "source_points": 22,
+      "stock_instances": 132,
+      "tags": [
+        "floor"
+      ],
+      "usage": [
+        "Town"
+      ]
+    }
+  },
+  "kind": "hc-ce-coverage-input",
+  "native_api_evidence": [
+    {
+      "file": "3_Game/CE/CentralEconomy.c",
+      "key": "N10",
+      "lines": [
+        239,
+        251,
+        265,
+        297,
+        310
+      ],
+      "scope": "Inspected exports and observation tools; no all-floor eligibility/restart acceptance API or new runtime call."
+    },
+    {
+      "file": "3_Game/Entities/Object.c",
+      "key": "N16",
+      "lines": [
+        287,
+        305,
+        370,
+        873,
+        874
+      ],
+      "scope": "Existing sampler pose/bounds/transforms; geometry measurements do not prove CE eligibility."
+    },
+    {
+      "file": "3_Game/Global/DayZPhysics.c",
+      "key": "N16",
+      "lines": [
+        199,
+        208
+      ],
+      "scope": "Existing sampler rays only; no new engine call."
+    },
+    {
+      "file": "3_Game/Entities/Building.c",
+      "key": "N7",
+      "lines": [
+        31,
+        46,
+        49,
+        52,
+        55,
+        61,
+        67,
+        73
+      ],
+      "scope": "Existing sampler door observation; no claim of native loot reach."
+    }
+  ],
+  "new_distances": [],
+  "offline_receipts": {
+    "green_actual": "Ran 1 test; OK. Synthetic source/class/pin/category/duplicate refusal, existing install/rollback and census port selection checked.",
+    "green_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_ce_inputs -v",
+    "limits": "Offline checks establish tooling and content consistency only; no DayZ process, client, PBO boot or production enablement.",
+    "red_actual": "TypeError: generate() got an unexpected keyword argument 'input_bytes'; Ran 1 test; FAILED (errors=1).",
+    "red_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_ce_inputs -v"
+  },
+  "production_enabled": false,
+  "proposed_diagnostic": "[HC Plan] HC-57 apartments=8 office=pending_survey effective_pin=<final-composed-mapgroupproto-sha256> state=<off|refused|ready> admitted=<observed> observed=<observed> runtime=PENDING",
+  "provenance": {
+    "external_result": "~/.cache/hollow-country/ce-coverage-20261117/result-120.json",
+    "hc53_coverage_sha256": "d991d8b7c4df0d807470374667d6cf84b4d8a6ee7c2dfee34401eaece618c8a1",
+    "native_build": "1.30.164289",
+    "note": "120 identifies the external sampler run, not a count of authored or accepted points. All external records remain design inputs; no new native run was executed.",
+    "plan_sha256": "4bd9cccd8ba5ae82043c008b76b9f17b7ce4f7a390009406286582aea15b56cd",
+    "result_candidates": 26,
+    "run_label": "interior-sampler-120",
+    "run_placements": 64
+  },
+  "qualification": {
+    "accepted_geometry_exclusions": 0,
+    "admitted": 0,
+    "authored": 8,
+    "observed": 0,
+    "remaining_source_candidates": 18,
+    "world_coverage": "pending; subset does not qualify all floors or 170 instances"
+  },
+  "refusal": "HC57_NATIVE_ACCEPTANCE_PENDING",
+  "runtime_acceptance": "pending",
+  "schema": 1,
+  "selection_policy": "Two candidate cells in each of three small-building height bands and two in the sole big-building source band. Band names are coordinate strata, not accepted floor semantics. Other candidates, floors, rotations and instances remain pending.",
+  "source": {
+    "evidence_role": "design_input",
+    "native_run_id": "9f66f79a69720ed2ce9070edda2e5181",
+    "pins": {
+      "census_sha256": "1ad4d0be18bc15aa77fabafedc6a98cf4f63dd857940d9d7d186874f41216cc0",
+      "hook_sha256": "ac5d1c60307b6fc6832428cfa24853736bbbb5a0004f767fcf6a3307e6b31353",
+      "mapgroupproto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+    },
+    "result_sha256": "c7bc04c47e616ceb1e16b03acec7978a5684b354e1568513deca5c35d867f2a6"
+  },
+  "state": "candidate",
+  "trace": {
+    "canonical_link": "HC-11 lead must link this input in canonical Banso spec/plan/tasks; canonical files absent here.",
+    "plan": "Consolidated coverage plan HC-57; consumes HC-24/53; publishes before HC-54/55 composition.",
+    "requirements": [
+      "LOOT-03",
+      "FR-003",
+      "FR-004",
+      "FR-006",
+      "FR-011",
+      "FR-012"
+    ],
+    "tasks": {
+      "HC57-C1": "Name a bounded subset from sampler-120; preserve small/big denominators.",
+      "HC57-C2": "Record the municipal office gap separately without invented CE points.",
+      "HC57-L1": "Reuse exact-source selection, CE delta, receipt and rollback tooling.",
+      "HC57-N1": "Pending: each floor/rotation, stock comparison, restart and two-client HC-54 search race."
+    }
+  },
+  "work_package": "HC-57"
+}
