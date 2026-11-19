@@ -47,6 +47,11 @@ class HCTapedHelmetMounts : HCModule
             state = "degraded";
             reason = "helmet_native_slot_unavailable";
         }
+        if (!HCTapedLightAdmission.Admitted())
+        {
+            state = "off";
+            reason = "taped_light_unavailable";
+        }
         if (FileExist("$profile:HollowCountry/acceptance/taped_helmet.disable"))
         {
             state = "off";
