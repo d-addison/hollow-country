@@ -10,7 +10,8 @@
   "SupplyOwner": "native_skinning",
   "ObservationSource": "HCWildlifeObservation.HCSnapshot",
   "RangeBasis": "Inherit species.json PlayerObservationRadiusM: approximate vanilla 1000 m network bubble and 1 km rifle hearing; no new range or predator perception claim.",
-  "AuthoredDisposition": "AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN",
+  "AuthoredDisposition": "finite_economy_provider",
   "RuntimeAcceptance": "PENDING",
-  "Trace": "HC-49 / #149; HC-15/48 native cohort; HC-19 issued story window. No authored sites admitted, arbitrary loot, replay or refill. Paired journal and native inventory backup required."
+  "Trace": "HC-49 / #149; observed HC-15/48 receipts retain native skinning. Separate HCWildlifeProviders authors two permanently spent, journaled native deer bodies through the event economy allowance; no replay, refill or added loot. All runtime acceptance PENDING.",
+  "AuthoredConfig": "ecology/HCWildlife-providers.json"
 }

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- HC-48 conditional candidate: NOT registered in economycore by this package.
-     Require loaded DZ_Animals_ovis_gmelini and the habitat-overrides.json gates.
+<!-- HC-48 default-on candidate for HCWildlife_habitats.build.
+     Replace the existing stock event through the shared atomic installer;
+     never register this file as a second CE event owner. Installer integration
+     is pending. Require inspected classes, preserve native runtime=PENDING.
      Replace AnimalSheep by name, never append a second herd/population event.
      Preserve stock herd quota, ewe minimum, timing, flags and radii. One optional
      ram slot becomes an optional mouflon slot. Native mixed-herd behavior and
