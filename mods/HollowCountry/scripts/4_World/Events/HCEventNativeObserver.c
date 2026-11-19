@@ -32,6 +32,14 @@ class HCEventNativeObserver : HCEventObjectiveProvider
     protected ref array<ref HCEventNativeLease> m_Leases = new array<ref HCEventNativeLease>();
     protected ref array<ref HCEventDwell> m_Dwells = new array<ref HCEventDwell>();
 
+    // HC-41 uses a separate server receipt capability, never the retired quest
+    // target registration or a class/position match as CE incident ownership.
+    // N10: CentralEconomy.c:228-735 exposes no incident lifecycle/stock callback.
+    HCNativeIncidentSource HCIncidentSource()
+    {
+        return new HCNativeIncidentSource;
+    }
+
     static string Identity(PlayerBase player)
     {
         if (!GetGame() || !GetGame().IsServer() || !player || player.IsPendingDeletion() || !player.IsAlive())

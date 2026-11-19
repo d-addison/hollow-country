@@ -47,6 +47,10 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'ai/loadouts/HollowCountry_Holdout.json',
                  # HC-43 finite Raider/Traveller loadouts (not yet mapped by HCXAISites).
                  'ai/loadouts/HollowCountry_Raider.json', 'ai/loadouts/HollowCountry_Traveller.json',
+                 # HC-35 one reciprocal AI-to-AI trade recipe (inert until the provider is qualified).
+                 'ai/trade-recipes.json',
+                 # HC-42 regional story-kit site candidates (authored; indexed-site consumer pending).
+                 'events/story-sites.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
                  'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',

@@ -1,0 +1,642 @@
+{
+  "SchemaVersion": 1,
+  "Package": "HC-42",
+  "WorldName": "chernarusplus",
+  "State": "authored; indexed-site runtime integration pending",
+  "Runtime": "PENDING",
+  "Trace": [
+    "HC-42",
+    "HC-19",
+    "HC-43",
+    "#138"
+  ],
+  "Sources": {
+    "SceneChains": "events/scene-chains.json",
+    "SceneChainsSha256": "f2cd9497dbcb70a8a3722ca057d11b9153bc2da6f2f5f1ef36962f220d87e041",
+    "KitSource": "mods/HollowCountry/scripts/4_World/Scenes/HCSceneKits.c",
+    "KitSourceSha256": "7a38f5d2c3d473377e73550ff757ed9225a9101ebb40b5d47c9560b819ead5da",
+    "ReviewedSites": "mods/HollowCountry/scripts/4_World/Events/HCEventReviewedSites.c",
+    "ReviewedSitesSha256": "8bb02518b0bce1860c7339e0dcc0e398a13c66362c7e7f617c41e5d947efe425",
+    "LocalityContent": "ai/sites.json#HC43",
+    "LocalityContentSha256": "80e62e969e3433f8bbd6cf0130cf90657959ac487ae8bf5fb0970bab6b523bf7",
+    "LocalityQueue": "ai/localities.json",
+    "LocalityQueueSha256": "c7803266d8cf12ab8480b04ea82c2da29097f4e94e1205b1b163388bdaabb867",
+    "WorldConfig": "addons/worlds_chernarusplus.pbo/config.bin:CfgWorlds/ChernarusPlus/Names",
+    "WorldConfigSha256": "e0e1317c097c50d35378a2a5ba1e77b882f8380984667b17b1d4539bab2a27a7",
+    "MapGroupPosSha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+    "MapGroupProtoSha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+  },
+  "SelectionPolicy": "Finite authored pairs only; never a Cartesian product or procedural prop factory. Select only qualified pairs after indexed-site integration. Reuse unchanged HCSceneKits.Find layouts and native observer/materializer cleanup.",
+  "IdentityPolicy": "Candidate and site IDs are reusable template keys, never story identities. HC-19 alone issues monotonically unique identities and commits the selected kit/site plan before materialization. Preserve pinned legacy plans, completion watermarks and terminal exceptions; no replay, refill or history reset.",
+  "SchedulePolicy": "Reuse HC-19 ArrivalSeconds, Window and world-UTC schedule, including one eligible arrival after downtime and no catch-up burst. HCVisualSeasons is not this clock. Scene activation remains capped at two leases.",
+  "QualificationPolicy": "SourceReviewed is data provenance only. A zero-height HC-43 label is not a ground transform. Qualified requires an exact kit/site/layout native survey receipt plus DayZDiag, signed PBO/server and two-client acceptance; no JSON flag alone admits placement.",
+  "CluePolicy": "Setting is authored design text, not a published world fact or observed outcome. Radio reports, notes and body clues use their existing owners; no quest, dialogue or trader interface. Fold Morse into ordinary radio reports. Static bags are scenery, never corpses or inventory.",
+  "InventoryPolicy": "All ten kits remain empty non-inventory scenery. No item creation, cargo replenishment, fuel grant, corpse mutation, new inventory owner or CE lifecycle adoption.",
+  "RangePolicy": "No new ranges or offsets; unchanged kit transforms and existing placement/observer constraints apply. Locality map labels grant no radius-based coverage or access.",
+  "Refusals": [
+    "HC42_INDEX_INTEGRATION_PENDING",
+    "HC42_KIT_SITE_SURVEY_PENDING",
+    "HC42_NATIVE_ANCHOR_PENDING",
+    "HC42_ISLAND_ACCESS_PENDING",
+    "HC42_COVERAGE_PENDING",
+    "HC42_NATIVE_CE_STORY_IDENTITY_UNEXPOSED"
+  ],
+  "Coverage": {
+    "LocalitySource": "ai/sites.json#HC43.Localities",
+    "Eligibility": "Every locality and island remains eligible over time; pending geometry/access and temporary quiet never exclude a locality.",
+    "CandidateLocalityIds": [
+      "berezino",
+      "drakon",
+      "kamenka",
+      "krasnostav",
+      "kumyrna",
+      "novaya-petrovka",
+      "novodmitrovsk",
+      "otmel",
+      "pavlovo",
+      "prison-island",
+      "severograd",
+      "skalisty",
+      "staroye",
+      "svetloyarsk",
+      "tisy",
+      "vybor",
+      "zelenogorsk"
+    ],
+    "PendingLocalityIds": [
+      "balota",
+      "belaya-polyana",
+      "berezhki",
+      "bogatyrka",
+      "bor",
+      "chernaya-polyana",
+      "chernogorsk",
+      "devils-castle",
+      "dobroye",
+      "dolina",
+      "drozhino",
+      "dubovo",
+      "dubrovka",
+      "elektrozavodsk",
+      "galkino",
+      "gorka",
+      "green-mountain",
+      "grishino",
+      "guglovo",
+      "gvozdno",
+      "kabanino",
+      "kalinovka",
+      "kamensk",
+      "kamyshovo",
+      "karmanovka",
+      "khelm",
+      "komarovo",
+      "kozlovka",
+      "krasnoye",
+      "lopatino",
+      "mogilevka",
+      "msta",
+      "myshkino",
+      "nadezhdino",
+      "nagornoye",
+      "nizhnee",
+      "novoselki",
+      "novy-sobor",
+      "nw-airfield",
+      "olsha",
+      "orlovets",
+      "pogorevka",
+      "polana",
+      "polesovo",
+      "prigorodki",
+      "pulkovo",
+      "pusta",
+      "pustoshka",
+      "ratnoye",
+      "rogovo",
+      "shakhovka",
+      "sinystok",
+      "skvsch-biathlon-arena",
+      "solnechny",
+      "sosnovka",
+      "stary-sobor",
+      "stary-yar",
+      "svergino",
+      "svyatoy-roman-ski-resort",
+      "tisy-military",
+      "topolniki",
+      "tulga",
+      "turovo",
+      "vavilovo",
+      "vybor-military",
+      "vyshnaya-dubrovka",
+      "vyshnoye",
+      "vysotovo",
+      "zabolotye",
+      "zaprudnoye",
+      "zvir"
+    ],
+    "PendingResidentialSource": "ai/sites.json#HC43.ResidentialClusters",
+    "PendingResidentialReason": "Resolve cluster membership through HC-43/HC-18 before authoring exact story sites; proxies are not additional accepted settlements.",
+    "Refusal": "HC42_COVERAGE_PENDING"
+  },
+  "Sites": [
+    {
+      "Id": "kamenka-supply-cache",
+      "LocalityId": "kamenka",
+      "Island": false,
+      "AnchorSource": "HCEventReviewedSites.Curated",
+      "SourceRef": "kamenka-supply-cache",
+      "Anchor": [
+        2512.352,
+        6.736,
+        2054.215
+      ],
+      "SourceReviewed": true,
+      "Surveyed": false,
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "staroye-traffic-cache",
+      "LocalityId": "staroye",
+      "Island": false,
+      "AnchorSource": "HCEventReviewedSites.Curated",
+      "SourceRef": "staroye-traffic-cache",
+      "Anchor": [
+        10676.524,
+        125.785,
+        4579.396
+      ],
+      "SourceReviewed": true,
+      "Surveyed": false,
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "kumyrna-ambush-cache",
+      "LocalityId": "kumyrna",
+      "Island": false,
+      "AnchorSource": "HCEventReviewedSites.Curated",
+      "SourceRef": "kumyrna-ambush-cache",
+      "Anchor": [
+        8393.078,
+        292.062,
+        5998.555
+      ],
+      "SourceReviewed": true,
+      "Surveyed": false,
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-severograd",
+      "LocalityId": "severograd",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "severograd",
+      "Anchor": [
+        8168.484,
+        0,
+        12573.602
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-krasnostav",
+      "LocalityId": "krasnostav",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "krasnostav",
+      "Anchor": [
+        11203.167,
+        0,
+        12340.808
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-svetloyarsk",
+      "LocalityId": "svetloyarsk",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "svetloyarsk",
+      "Anchor": [
+        13989.74,
+        0,
+        13263.78
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-berezino",
+      "LocalityId": "berezino",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "berezino",
+      "Anchor": [
+        12372.383,
+        0,
+        9760.981
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-vybor",
+      "LocalityId": "vybor",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "vybor",
+      "Anchor": [
+        3909.831,
+        0,
+        9019.614
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-novodmitrovsk",
+      "LocalityId": "novodmitrovsk",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "novodmitrovsk",
+      "Anchor": [
+        11339.77,
+        0,
+        14391.05
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-novaya-petrovka",
+      "LocalityId": "novaya-petrovka",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "novaya-petrovka",
+      "Anchor": [
+        3477.169,
+        0,
+        12931.243
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-zelenogorsk",
+      "LocalityId": "zelenogorsk",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "zelenogorsk",
+      "Anchor": [
+        2796,
+        0,
+        5166
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-pavlovo",
+      "LocalityId": "pavlovo",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "pavlovo",
+      "Anchor": [
+        1693.98,
+        0,
+        3858.65
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-tisy",
+      "LocalityId": "tisy",
+      "Island": false,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "tisy",
+      "Anchor": [
+        3441.65,
+        0,
+        14799.55
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-skalisty",
+      "LocalityId": "skalisty",
+      "Island": true,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "skalisty",
+      "Anchor": [
+        13715.454,
+        0,
+        3118.78
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    },
+    {
+      "Id": "hc42-drakon",
+      "LocalityId": "drakon",
+      "Island": true,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "drakon",
+      "Anchor": [
+        11191,
+        0,
+        2443
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    },
+    {
+      "Id": "hc42-otmel",
+      "LocalityId": "otmel",
+      "Island": true,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "otmel",
+      "Anchor": [
+        11581.25,
+        0,
+        3213.24
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    },
+    {
+      "Id": "hc42-prison-island",
+      "LocalityId": "prison-island",
+      "Island": true,
+      "AnchorSource": "HC43ContentManifest.Localities",
+      "SourceRef": "prison-island",
+      "Anchor": [
+        2816.601,
+        0,
+        1277.96
+      ],
+      "SourceReviewed": false,
+      "Surveyed": false,
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    }
+  ],
+  "Candidates": [
+    {
+      "Id": "hc42-kumyrna-last-stand",
+      "Kit": "last-stand",
+      "SiteId": "kumyrna-ambush-cache",
+      "Variant": "primary",
+      "Setting": "Perimeter abandoned beside the inland ambush route; spent casings and static bags are clues, not recorded casualties.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-staroye-quarantine-checkpoint",
+      "Kit": "quarantine-checkpoint",
+      "SiteId": "staroye-traffic-cache",
+      "Variant": "primary",
+      "Setting": "Checkpoint supplies left beside the southern inland traffic route; no usable medical cargo.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kamenka-evacuation-point",
+      "Kit": "evacuation-point",
+      "SiteId": "kamenka-supply-cache",
+      "Variant": "primary",
+      "Setting": "Coastal departure attempt: a wreck and scattered bags, with the passage left open.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kamenka-supply-drop-remains",
+      "Kit": "supply-drop-remains",
+      "SiteId": "kamenka-supply-cache",
+      "Variant": "primary",
+      "Setting": "Southern coastal supply handling area reduced to empty packing scenery.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kumyrna-convoy-wreck",
+      "Kit": "convoy-wreck",
+      "SiteId": "kumyrna-ambush-cache",
+      "Variant": "primary",
+      "Setting": "Two different convoy wrecks and a pallet on an inland route; neither wreck grants fuel or loot.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kumyrna-survivor-distress-camp",
+      "Kit": "survivor-distress-camp",
+      "SiteId": "kumyrna-ambush-cache",
+      "Variant": "primary",
+      "Setting": "An abandoned inland shelter with a bed and empty bags; no survivor or rescue objective is asserted.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kamenka-supply-drop-opened",
+      "Kit": "supply-drop-opened",
+      "SiteId": "kamenka-supply-cache",
+      "Variant": "primary",
+      "Setting": "An opened coastal relief shell and empty packing crates; no inventory container or reward cache.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kamenka-convoy-roadside",
+      "Kit": "convoy-roadside",
+      "SiteId": "kamenka-supply-cache",
+      "Variant": "primary",
+      "Setting": "Military wrecks beside the southern route; shoulder alignment awaits the native survey.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-staroye-quarantine-cordon",
+      "Kit": "quarantine-cordon",
+      "SiteId": "staroye-traffic-cache",
+      "Variant": "primary",
+      "Setting": "An abandoned inland cordon with static hazard bags; no road closure or corpse inventory.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-kumyrna-survivor-cold-camp",
+      "Kit": "survivor-cold-camp",
+      "SiteId": "kumyrna-ambush-cache",
+      "Variant": "primary",
+      "Setting": "An inland cold hearth and shelter; no fire, warmth, cooking or cargo.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_KIT_SITE_SURVEY_PENDING"
+    },
+    {
+      "Id": "hc42-severograd-last-stand",
+      "Kit": "last-stand",
+      "SiteId": "hc42-severograd",
+      "Variant": "regional",
+      "Setting": "A northern industrial perimeter abandoned after an unknown disturbance.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-krasnostav-quarantine-checkpoint",
+      "Kit": "quarantine-checkpoint",
+      "SiteId": "hc42-krasnostav",
+      "Variant": "regional",
+      "Setting": "A northeastern checkpoint with its approach and native doors kept usable.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-svetloyarsk-evacuation-point",
+      "Kit": "evacuation-point",
+      "SiteId": "hc42-svetloyarsk",
+      "Variant": "regional",
+      "Setting": "A northeastern coastal departure trace; no scripted transport or teleport.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-berezino-supply-drop-remains",
+      "Kit": "supply-drop-remains",
+      "SiteId": "hc42-berezino",
+      "Variant": "regional",
+      "Setting": "Empty relief packing in the eastern port region.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-vybor-convoy-wreck",
+      "Kit": "convoy-wreck",
+      "SiteId": "hc42-vybor",
+      "Variant": "regional",
+      "Setting": "A western inland convoy trace awaiting an open shoulder and route survey.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-novodmitrovsk-survivor-distress-camp",
+      "Kit": "survivor-distress-camp",
+      "SiteId": "hc42-novodmitrovsk",
+      "Variant": "regional",
+      "Setting": "An abandoned northern city shelter; no AI presence is inferred from scenery.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-novaya-petrovka-supply-drop-opened",
+      "Kit": "supply-drop-opened",
+      "SiteId": "hc42-novaya-petrovka",
+      "Variant": "regional",
+      "Setting": "An opened relief shell near the northwestern settlement; no loot restock.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-zelenogorsk-convoy-roadside",
+      "Kit": "convoy-roadside",
+      "SiteId": "hc42-zelenogorsk",
+      "Variant": "regional",
+      "Setting": "A southwestern inland transport trace awaiting shoulder clearance.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-pavlovo-quarantine-cordon",
+      "Kit": "quarantine-cordon",
+      "SiteId": "hc42-pavlovo",
+      "Variant": "regional",
+      "Setting": "An abandoned western containment position; no blocked road or door.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-tisy-survivor-cold-camp",
+      "Kit": "survivor-cold-camp",
+      "SiteId": "hc42-tisy",
+      "Variant": "regional",
+      "Setting": "An empty far-northern shelter with an inert hearth in every season.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_NATIVE_ANCHOR_PENDING"
+    },
+    {
+      "Id": "hc42-skalisty-survivor-distress-camp",
+      "Kit": "survivor-distress-camp",
+      "SiteId": "hc42-skalisty",
+      "Variant": "regional",
+      "Setting": "An island-local abandoned shelter, pending a measured island landing and access route.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    },
+    {
+      "Id": "hc42-drakon-survivor-cold-camp",
+      "Kit": "survivor-cold-camp",
+      "SiteId": "hc42-drakon",
+      "Variant": "regional",
+      "Setting": "A cold island shelter; mainland proximity never qualifies its access.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    },
+    {
+      "Id": "hc42-otmel-supply-drop-remains",
+      "Kit": "supply-drop-remains",
+      "SiteId": "hc42-otmel",
+      "Variant": "regional",
+      "Setting": "Empty island supply packing, pending an island-local placement and access survey.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    },
+    {
+      "Id": "hc42-prison-island-supply-drop-opened",
+      "Kit": "supply-drop-opened",
+      "SiteId": "hc42-prison-island",
+      "Variant": "regional",
+      "Setting": "An empty island relief shell; native doors, stairs and landing access must remain clear.",
+      "Qualified": false,
+      "NativeReceipt": "",
+      "Refusal": "HC42_ISLAND_ACCESS_PENDING"
+    }
+  ]
+}

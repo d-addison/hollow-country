@@ -152,7 +152,7 @@ class HCSceneChains
         HCSceneCatalog catalog = new HCSceneCatalog;
         catalog.Chains.Insert(Plan("scene-kamenka", "kamenka-supply-cache", "convoy-roadside", "survivor-distress-camp", "supply-drop-remains"));
         catalog.Chains.Insert(Plan("scene-staroye", "staroye-traffic-cache", "quarantine-checkpoint", "evacuation-point", "last-stand"));
-        catalog.Chains.Insert(Plan("scene-kumyrna", "kumyrna-ambush-cache", "last-stand", "survivor-distress-camp", "evacuation-point"));
+        catalog.Chains.Insert(Plan("scene-kumyrna", "kumyrna-ambush-cache", "convoy-wreck", "survivor-distress-camp", "evacuation-point"));
         // First two finish around hour 30. Leave the third a fresh independent
         // window at hour 36, rather than exhausting its lifetime in a queue.
         catalog.Chains[2].Stages[0].DelaySeconds = 129600;

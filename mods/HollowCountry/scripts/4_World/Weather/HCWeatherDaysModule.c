@@ -105,6 +105,9 @@ modded class ChernarusPlusData
     // HC-6 visual season clock; this weather owner starts, ticks and stops it.
     protected ref HCVisualSeasons m_HCVisualSeasons;
 
+    // HC-50 read-only seam for the one-shot white-terrain boot receipt.
+    HCVisualSeasons HCWinterTerrainSeasons() { return m_HCVisualSeasons; }
+
     string HCAdminWeatherCounts()
     {
         if (!m_HCWeatherDaysActive) { return "active=0 override=n/a"; }

@@ -80,6 +80,7 @@ Thumbs.db
 !/docs/FRIEND_SERVER_AI_RUNBOOK.md
 !/docs/OUTSTANDING.md
 !/docs/OPS_RECOVERY.md
+!/docs/WINTER_TERRAIN_OPTIONS.md
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py

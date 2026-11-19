@@ -1,3 +1,12 @@
+// HC-42 content index: MIS/events/story-sites.json names finite kit/site
+// opportunities, NOT runtime HCEventSite approvals. The ten layouts below and
+// their verified class/model provenance are unchanged. A locality label is not
+// a placement transform; source-reviewed anchors are not native kit surveys.
+// Reserved Scenes/#138 integration must resolve an indexed, qualified pair,
+// pin its plan through HC-19 BEFORE materialization and keep the existing lease,
+// observer, work/save budgets and cleanup ownership. Never mint identities from
+// candidate IDs or rotate/rewrite the pinned plans of already issued stories.
+// Receipt/refusals are HC-62's bounded status integration, not a content tick.
 // W5-PERF-3: queued kits create <=1 prop per module tick; <=2 live leases.
 // Pending creation uses only runtime handles; existing chain intent is durable.
 // LC-T309 / #93 / #120, EXP-S3. Source/package only; no native acceptance.
