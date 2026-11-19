@@ -1,7 +1,8 @@
 """Offline builder for the class-level interior template pack (docs/INTERIOR_TEMPLATES_CONTRACT.md, T2).
 
     python3 tools/package/interior_templates.py build --census census.json [--census more.json] \
-        --proto mapgroupproto.xml --pos mapgrouppos.xml [--types types.xml] --out <empty dir outside the checkout>
+        --proto mapgroupproto.xml --pos mapgrouppos.xml [--types types.xml] [--authored-themes] \
+        --out <empty dir outside the checkout>
 
 Inputs are the native interior sampler census (one or more runs; each carries ``native_run_id`` and
 ``house_classes``, the House denominator) plus the stock ``mapgroupproto.xml`` and ``mapgrouppos.xml``,
@@ -11,7 +12,9 @@ at most 1,500 props) and ``build-manifest.json`` (pins for the assembler; the ga
 Search sites require ``types.xml`` so their group IDs bind only to emitted search groups.
 
 Everything is provisional room evidence: the census is sampled geometry, the prop boxes are
-reviewed native log boxes when available, otherwise conservative guesses; the stock frame comes from the sampler's native verdict. Nothing here shows
+reviewed native log boxes when available, otherwise conservative guesses in the legacy diagnostic
+mode only. With --authored-themes the CLI uses HC-56 themes and refuses unmeasured props. The stock frame comes
+from the sampler's native verdict. Nothing here shows
 how DayZ places, renders or spawns anything; runtime acceptance stays pending.
 """
 import argparse
@@ -67,6 +70,8 @@ RUN_ID = re.compile(r"[0-9a-f]{32}")
 CLASS_NAME = re.compile(r"[A-Za-z0-9_]{1,128}")
 HISTORIES = ("family", "ransacked", "abandoned")
 BOXES_PATH = Path(__file__).with_name("interior_prop_boxes.json")
+AUTHORED_PATH = REPO_ROOT / "tools/package/interior_themes"
+AUTHORED_FILES = ("home-layouts.json", "service-layouts.json")
 BOX_LOG_LIMIT = 64 * 1024 * 1024
 BOX_MARKER = "[HC Interiors] prop box "
 BOX_LINE = re.compile(r"type=([A-Za-z0-9_]+) min=<([^<>]+)> max=<([^<>]+)>\s*\"?\s*$")
@@ -93,13 +98,22 @@ def sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def generator_sha256(boxes_bytes=None):
+def authored_inputs():
+    """Reviewed source intentions, not a runtime mission/profile loader."""
+    return {name: _read(AUTHORED_PATH / name, interior_catalog.AUTHORED_LIMIT) for name in AUTHORED_FILES}
+
+
+def generator_sha256(boxes_bytes=None, authored_bytes=None):
     """Pin all generator inputs without adding unrecognised runtime Source keys."""
     if boxes_bytes is None:
         boxes_bytes = _read(BOXES_PATH, FILE_CAP)
-    return sha256(_dump({"interior_templates.py": sha256(Path(__file__).read_bytes()),
-                         "interior_catalog.py": sha256(Path(interior_catalog.__file__).read_bytes()),
-                         "interior_prop_boxes.json": sha256(boxes_bytes)}))
+    pins = {"interior_templates.py": sha256(Path(__file__).read_bytes()),
+            "interior_catalog.py": sha256(Path(interior_catalog.__file__).read_bytes()),
+            "interior_prop_boxes.json": sha256(boxes_bytes)}
+    if authored_bytes is not None:
+        # Distinguish an empty authored queue from the legacy diagnostic mode too.
+        pins["authored"] = {name: sha256(raw) for name, raw in sorted(authored_bytes.items())}
+    return sha256(_dump(pins))
 
 
 def load_boxes(raw):
@@ -653,6 +667,27 @@ def _slots(rooms, lattice, step, keepouts, name="", specs=None):
             for slot in taken["slots"]]
 
 
+def _authored_slots(theme, rooms, lattice, step, keepouts, specs):
+    """All-or-nothing fit through the existing origin-aware HC-24 placement check."""
+    if theme is None:
+        return [], "authored_queue"
+    if any(specs[kind]["BoxSource"] != "measured" for kind in theme["PropClasses"]):
+        return [], "missing_prop_measurements"
+    taken = {"slots": [], "cells": {}}
+    for index, kind in enumerate(theme["PropClasses"]):
+        slot = None
+        for offset in range(len(rooms)):
+            room = rooms[(index + offset) % len(rooms)]
+            slot = _place(kind, room, lattice, step, keepouts, taken, specs)
+            if slot is not None:
+                break
+        if slot is None:
+            return [], "clearance_failed"
+        slot["History"] = [theme["History"]]
+        taken["slots"].append({"Id": len(taken["slots"]) + 1, **slot})
+    return taken["slots"], ""
+
+
 # ----------------------------------------------------------------------------------------------
 # Search sites
 # ----------------------------------------------------------------------------------------------
@@ -731,7 +766,7 @@ def _nearest_room(rooms, point):
 # Template, furnish and chunk assembly
 # ----------------------------------------------------------------------------------------------
 
-def _template(name, measurement, group, ids, frame, specs=None):
+def _template(name, measurement, group, ids, frame, specs=None, authored=None):
     rooms, lattice, step = _build_rooms(measurement)
     if not rooms:
         return "unsupported_geometry", None
@@ -748,7 +783,12 @@ def _template(name, measurement, group, ids, frame, specs=None):
         return "unsupported_geometry", None
     stock = [p for item in (group["containers"] if group else []) for p in item["points"]]
     keepouts, keeps_dropped = _keepouts(measurement, rooms, step, model, stock, frame)
-    slots = _slots(rooms, lattice, step, keepouts, name, specs)
+    theme_reason = ""
+    theme = None if authored is None else authored.get(name)
+    if authored is None:
+        slots = _slots(rooms, lattice, step, keepouts, name, specs)
+    else:
+        slots, theme_reason = _authored_slots(theme, rooms, lattice, step, keepouts, specs)
     sites, supported, dropped, sites_dropped = ([], 0, 0, 0)
     if group:
         sites, supported, dropped, sites_dropped = _sites(group, ids, frame, rooms, model)
@@ -761,9 +801,12 @@ def _template(name, measurement, group, ids, frame, specs=None):
                 "Rooms": [{"Id": r["id"], "Label": "room", "Min": r["box"]["Min"], "Max": r["box"]["Max"],
                            "Anchor": r["anchor"], "FloorY": r["floor"], "Cells": r["count"]} for r in rooms],
                 "KeepOuts": keepouts, "PropSlots": slots, "SearchSites": sites}
+    if theme is not None:
+        document["TemplateId"] = theme["Id"]
     if len(_dump(document)) > FILE_CAP:
         raise TemplateError("template for %s exceeds %d bytes" % (name, FILE_CAP))
     return None, {"document": document, "supported": supported, "dropped": dropped,
+                  "theme_reason": theme_reason,
                   "keepouts_dropped_outside_model": keeps_dropped, "sites_dropped_outside_model": sites_dropped}
 
 
@@ -876,20 +919,27 @@ def _count(values):
 
 
 def build(censuses, proto, pos, reach_source="strict", min_agreement=DEFAULT_MIN_AGREEMENT,
-          max_furnished=MAX_FURNISHED, types_bytes=None, boxes_bytes=None):
-    """Template pack files (name -> bytes), a summary and the manifest. Raises TemplateError on any refusal."""
+          max_furnished=MAX_FURNISHED, types_bytes=None, boxes_bytes=None, authored_bytes=None):
+    """Build HC-24 files; pass authored_inputs() for HC-56 measured-only furnishing.
+
+    None retains the pre-existing diagnostic API for its callers/fixtures. An explicit empty
+    mapping queues every furnishing family. Neither mode establishes native acceptance.
+    """
     try:
-        return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes)
+        return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes,
+                      authored_bytes)
     except TemplateError:
         raise
     except ValueError as error:
         raise TemplateError(str(error)) from error
 
 
-def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes):
+def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes,
+           authored_bytes):
     if boxes_bytes is None:
         boxes_bytes = _read(BOXES_PATH, FILE_CAP)
     specs = prop_specs(boxes_bytes)
+    authored = None if authored_bytes is None else interior_catalog.authored_layouts(authored_bytes)
     if reach_source not in pts.REACH_SOURCES:
         raise TemplateError("reach_source must be one of " + ", ".join(pts.REACH_SOURCES))
     if (not isinstance(min_agreement, (int, float)) or isinstance(min_agreement, bool)
@@ -919,7 +969,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     if frame != "rot90":
         raise TemplateError("runtime templates require census frame rot90; got %r" % frame)
     instances = _instances(rows)
-    generator = generator_sha256(boxes_bytes)
+    generator = generator_sha256(boxes_bytes, authored_bytes)
     sources = {"mapgroupproto": sha256(proto_bytes), "mapgrouppos": sha256(pos_bytes), "generator": generator}
     if types_bytes is not None:
         from tools.package import search_context
@@ -936,7 +986,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         group = proto.get(name)
         points = [c for c in (group["containers"] if group else []) if c["name"] in SOURCES and c["points"]]
         if reason is None:
-            reason, built = _template(name, measurement, group, ids, frame, specs)
+            reason, built = _template(name, measurement, group, ids, frame, specs, authored)
             if reason is None:
                 templates[name] = built
         if reason in SEARCH_ONLY_REASONS and points:
@@ -1016,11 +1066,36 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         values = [row[field] for row in table]
         summary[field.lower()] = {"covered": values.count("covered"),
                                   "excluded": _count([v for v in values if v != "covered"])}
+    if authored is not None:
+        dispositions = {row["BuildingClass"]: row["Furniture"] for row in table}
+        theme_rows = []
+        for name, theme in sorted(authored.items()):
+            reason = dispositions.get(name, "not_observed_as_house")
+            if name in templates and templates[name].get("theme_reason"):
+                reason = templates[name]["theme_reason"]
+            missing = [kind for kind in theme["PropClasses"] if specs[kind]["BoxSource"] != "measured"]
+            selected_instances = sum(row["BuildingClass"] == name for row in furnish)
+            cap_refused = 0
+            if name in templates and templates[name]["document"]["PropSlots"]:
+                cap_refused = len(instances.get(name, ())) - selected_instances
+            theme_rows.append({"Id": theme["Id"], "BuildingClass": name,
+                               "State": "admitted" if reason == "covered" else "refused",
+                               "Reason": "" if reason == "covered" else reason,
+                               "MissingPropMeasurements": missing,
+                               "SelectedInstances": selected_instances, "CapRefusedInstances": cap_refused})
+        summary["authored"] = {"themes": len(authored), "admitted": len(furnished), "props": total,
+                               "refused": sum(row["State"] == "refused" for row in theme_rows),
+                               "queued_classes": len(set(names) - set(authored)), "layouts": theme_rows}
     manifest = {"SchemaVersion": SCHEMA_VERSION, "Kind": "hc-interior-templates-build", "PackId": pack_id,
                 "Frame": frame, "FrameVerdict": frame_evidence, "ExcludedProtoClasses": excluded,
                 "Provisional": True, "Sources": dict(sorted(sources.items())),
                 "Parameters": parameters,
                 "Files": [{"File": n, "Sha256": sha256(files[n]), "Bytes": len(files[n])} for n in sorted(files)]}
+    if authored is not None:
+        # Offline handoff to HC-62's fixed status path. Runtime leaves stay unchanged;
+        # these authoring/admission counts are never observations of placed props.
+        manifest["AuthoredThemes"] = dict(summary["authored"], RuntimeAcceptance="pending",
+                                         SourceSha256={n: sha256(raw) for n, raw in sorted(authored_bytes.items())})
     return Build(files, summary, manifest)
 
 
@@ -1044,6 +1119,20 @@ def summary_lines(summary, pack_id):
     for name, source in summary.get("prop_boxes", {}).items():
         lines.append("prop box %s: %s" % (name, source))
     lines.append("histories: " + " ".join("%s=%d" % (h, summary.get("histories", {}).get(h, 0)) for h in HISTORIES))
+    if "authored" in summary:
+        themes = summary["authored"]
+        state = "ready" if themes["admitted"] else "refused"
+        if themes["themes"] == 0:
+            state = "off"
+        lines.append("[HC Plan] HC-56 themes=%d props=%d cap=%d refused=%d state=%s authored=%d admitted=%d runtime=PENDING"
+                     % (themes["themes"], themes["props"], MAX_FURNISHED, themes["refused"], state,
+                        themes["themes"], themes["admitted"]))
+        lines.append("HC-56 authored_queue classes=%d" % themes["queued_classes"])
+        for row in themes["layouts"]:
+            lines.append("HC-56 layout=%s class=%s state=%s reason=%s missing_props=%s selected_instances=%d over_budget=%d"
+                         % (row["Id"], row["BuildingClass"], row["State"], row["Reason"] or "none",
+                            ",".join(row["MissingPropMeasurements"]) or "none", row["SelectedInstances"],
+                            row["CapRefusedInstances"]))
     return lines
 
 
@@ -1098,6 +1187,8 @@ def main(argv=None):
     build_parser.add_argument("--reach-source", choices=pts.REACH_SOURCES, default="strict")
     build_parser.add_argument("--min-agreement", type=float, default=DEFAULT_MIN_AGREEMENT)
     build_parser.add_argument("--max-furnished", type=int, default=MAX_FURNISHED)
+    build_parser.add_argument("--authored-themes", action="store_true",
+                              help="HC-56: furnish only reviewed home/service themes with measured prop boxes; other families queue")
     ingest_parser = commands.add_parser("ingest-boxes", help="merge native box logs into the reviewed box database; review diff before building")
     ingest_parser.add_argument("--log", required=True, help="script log containing native prop box diagnostics")
     ingest_parser.add_argument("--out", type=Path, default=BOXES_PATH, help="reviewed box database (default: tools/package/interior_prop_boxes.json)")
@@ -1128,7 +1219,8 @@ def main(argv=None):
         result = build(censuses, _read(args.proto, pts.MAX_STOCK_BYTES), _read(args.pos, pts.MAX_STOCK_BYTES),
                        reach_source=args.reach_source, min_agreement=args.min_agreement,
                        max_furnished=args.max_furnished,
-                       types_bytes=_read(args.types, pts.MAX_STOCK_BYTES) if args.types else None)
+                       types_bytes=_read(args.types, pts.MAX_STOCK_BYTES) if args.types else None,
+                       authored_bytes=authored_inputs() if args.authored_themes else None)
         _write(out, result)
     except (TemplateError, OSError, ValueError) as error:
         print("refused: %s" % error, file=sys.stderr)

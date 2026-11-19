@@ -67,6 +67,8 @@ PROPS = {name: {'Size': size, 'History': histories, 'Role': role,
                 'Evidence': (_CRATE_CONFIG if name == 'StaticObj_Misc_WoodenCrate' else _FURNITURE_CONFIG) + name}
          for name, size, histories, role in _PROP_ROWS}
 SEARCH_TYPES = tuple(name for name, spec in PROPS.items() if spec['Role'] == 'container')
+AUTHORED_LIMIT = 32767
+AUTHORED_LAYOUT_CAP = 3
 ROOMS = {'kitchen', 'pantry', 'bedroom', 'storage', 'living-room', 'workshop', 'bathroom', 'hallway'}
 KINDS = {'native-build', 'asset-config', 'geometry', 'door-clearance', 'stairs-clearance'}
 
@@ -135,6 +137,46 @@ def load_record(raw):
         return json.loads(raw.decode('utf-8'), object_pairs_hook=json_pairs, parse_constant=reject_constant)
     except (UnicodeError, RecursionError) as exc:
         raise ValueError('invalid UTF-8 or excessive JSON depth') from exc
+
+
+def authored_layouts(inputs):
+    """HC-56 intentions only: no authored coordinates or invented native boxes.
+
+    The caller explicitly selects this mode; an empty mapping queues all furniture.
+    Exact bytes are pinned by the template generator, never added to the runtime DTOs.
+    """
+    require(isinstance(inputs, dict) and len(inputs) <= 2, 'authored input cap')
+    require(all(name in ('home-layouts.json', 'service-layouts.json') for name in inputs),
+            'unknown authored theme file')
+    layouts, identities = {}, set()
+    for name, raw in sorted(inputs.items()):
+        byte_input(raw, AUTHORED_LIMIT)
+        document = load_record(raw)
+        fields(document, 'SchemaVersion RuntimeAcceptance Pending Layouts')
+        require(type(document['SchemaVersion']) is int and document['SchemaVersion'] == 1
+                and document['RuntimeAcceptance'] == 'pending', 'unsupported authored schema/acceptance')
+        for pending in bounded_list(document['Pending'], 1, 8):
+            text_value(pending)
+        for entry in bounded_list(document['Layouts'], 1, AUTHORED_LAYOUT_CAP):
+            fields(entry, 'Id BuildingClass History PropClasses Intent')
+            identity = identifier(entry['Id'])
+            building = entry['BuildingClass']
+            require(isinstance(building, str) and re.fullmatch(r'Land_[A-Za-z0-9_]{1,123}', building),
+                    'invalid authored building class')
+            require(identity not in identities and building not in layouts, 'duplicate authored identity/class')
+            history = entry['History']
+            require(isinstance(history, str) and history in ('family', 'ransacked', 'abandoned'),
+                    'invalid authored history')
+            props = bounded_list(entry['PropClasses'], 2, 5)
+            require(all(isinstance(prop, str) and prop in PROPS and history in PROPS[prop]['History']
+                        for prop in props), 'unsupported authored prop/history')
+            require(len(set(props)) == len(props), 'duplicate authored prop')
+            require(history != 'abandoned' or len(props) == 2, 'abandoned layout must stay sparse')
+            text_value(entry['Intent'])
+            identities.add(identity)
+            layouts[building] = entry
+            require(len(layouts) <= AUTHORED_LAYOUT_CAP, 'authored layout cap')
+    return layouts
 
 
 def portable_name(name):
