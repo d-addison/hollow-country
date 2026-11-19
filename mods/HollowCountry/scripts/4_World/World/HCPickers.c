@@ -237,7 +237,7 @@ class HCPickerSurvey
         if (Version != 1) { return "PICKER_SURVEY_VERSION"; }
         if (MaxLegMeters <= 0 || MapExtentMeters <= 0 || ArrivalRangeMeters <= 0 || ArrivalRangeMeters > pickup.TransferRangeMeters) { return "PICKER_SURVEY_LIMITS"; }
         if (MaxRoutes < 1 || MaxWaypoints < 2 || MaxScannedObjects < 1 || MaxCargoScan < 1) { return "PICKER_SURVEY_LIMITS"; }
-        if (Routes.Count() < 1) { return "PICKER_SURVEY_EMPTY"; }
+        if (!Routes || Routes.Count() < 1) { return "PICKER_SURVEY_EMPTY"; }
         if (Routes.Count() > MaxRoutes) { return "PICKER_SURVEY_ROUTE_CAP"; }
         for (int routeIndex = 0; routeIndex < Routes.Count(); routeIndex++)
         {
@@ -247,6 +247,7 @@ class HCPickerSurvey
             {
                 if (Routes[priorIndex].RouteId == route.RouteId) { return "PICKER_ROUTE_ID_DUPLICATE"; }
             }
+            if (!route.Waypoints) { return "PICKER_ROUTE_WAYPOINTS"; }
             int count = route.Waypoints.Count();
             if (count < 2 || count > MaxWaypoints) { return "PICKER_ROUTE_WAYPOINTS"; }
             if (route.HomeIndex < 0 || route.SourceIndex < 0 || route.HomeIndex >= count || route.SourceIndex >= count || route.HomeIndex == route.SourceIndex) { return "PICKER_ROUTE_ANCHORS"; }
@@ -254,6 +255,7 @@ class HCPickerSurvey
             {
                 HCPickerPoint point = route.Waypoints[pointIndex];
                 HCPickerPoint following = route.Waypoints[(pointIndex + 1) % count];
+                if (!point || !following) { return "PICKER_ROUTE_POINT_INVALID"; }
                 if (point.X <= 0 || point.Z <= 0 || point.X >= MapExtentMeters || point.Z >= MapExtentMeters) { return "PICKER_ROUTE_POINT_INVALID"; }
                 if (following.X <= 0 || following.Z <= 0 || following.X >= MapExtentMeters || following.Z >= MapExtentMeters) { return "PICKER_ROUTE_POINT_INVALID"; }
                 float deltaX = following.X - point.X;
@@ -686,9 +688,19 @@ class HCPickers : HCModule
     // Derived from the real journal and survey state; never hard-coded.
     void HCPublishReadiness()
     {
-        if (!m_Trip || !m_Trip.m_Ready) { m_Status.HCPublish("refused", "HC34_JOURNAL_UNAVAILABLE"); return; }
-        if (!m_Survey) { m_Status.HCPublish("degraded", m_SurveyRefusal); return; }
-        m_Status.HCPublish("ready", "journal_and_survey_loaded");
+        string state = "ready";
+        string reason = "journal_and_survey_loaded";
+        if (!m_Trip || !m_Trip.m_Ready)
+        {
+            state = "refused";
+            reason = "HC34_JOURNAL_UNAVAILABLE";
+        }
+        else if (!m_Survey)
+        {
+            state = "degraded";
+            reason = m_SurveyRefusal;
+        }
+        if (m_Status.HCState() != state || m_Status.HCReason() != reason) { m_Status.HCPublish(state, reason); }
     }
 
     // The one part this module cannot supply itself, named once (derived from the bound port).
@@ -720,7 +732,10 @@ class HCPickers : HCModule
     // Returns "" when the trip left, else the named refusal. One native bind + one journal write.
     string HCBeginSurveyed(HCAIPartyIdentity identity, string lease, PlayerBase actor)
     {
-        if (!m_Trip || !m_Trip.m_Ready || !m_Trip.m_IO || !m_Survey) { return "PICKER_NOT_READY"; }
+        if (m_Trip) { HCPublishReadiness(); }
+        if (!m_Trip || !m_Trip.m_Ready || !m_Trip.m_IO || !m_Trip.m_State || !m_Survey) { return "PICKER_NOT_READY"; }
+        // Admission must precede binding: rejected requests retain the active custody chain.
+        if (m_Trip.m_Busy || m_Trip.m_State.Phase != "idle") { return "PICKER_LEAVE_REFUSED"; }
         if (!actor || !HCAIPartyIdentity.HCValid(identity) || lease == "") { return "PICKER_IDENTITY_INVALID"; }
         m_Units.HCReset(1);
         if (!m_Units.HCTake(1)) { return "PICKER_BUDGET"; }
@@ -732,7 +747,9 @@ class HCPickers : HCModule
         string homeId = HCSearchSupplyRegistry.PersistentId(port.Home);
         string itemId = HCSearchSupplyRegistry.PersistentId(port.Item);
         string actorId = HCSearchSupplyRegistry.PersistentId(port.Actor);
-        if (!m_Trip.HCLeave(identity, lease, sourceId, actorId, homeId, itemId)) { port.HCClear(); return "PICKER_LEAVE_REFUSED"; }
+        bool left = m_Trip.HCLeave(identity, lease, sourceId, actorId, homeId, itemId);
+        HCPublishReadiness();
+        if (!left) { port.HCClear(); return "PICKER_LEAVE_REFUSED"; }
         return "";
     }
 
@@ -780,6 +797,8 @@ class HCPickers : HCModule
 
     override void OnTick(float deltaTime)
     {
+        // Preserve off status when no trip was started. Refresh before every tick early return.
+        if (m_Trip) { HCPublishReadiness(); }
         // Refused/off path does not scan houses, players, inventory or saves.
         if (!m_Trip || !m_Trip.m_Ready || !m_Trip.m_State) { return; }
         if (m_Trip.m_State.Phase != "leaving" && m_Trip.m_State.Phase != "returning") { return; }
@@ -787,6 +806,7 @@ class HCPickers : HCModule
         m_WorkBudget.HCReset(1);
         if (!m_Units.HCTake(1) || !m_WorkBudget.HCContinue()) { return; }
         m_Trip.HCStep();
+        HCPublishReadiness();
     }
 
     override void OnStop()

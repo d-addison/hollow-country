@@ -43,7 +43,7 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  # Optional Expansion AI patrol contract and examples; inert without the addon and its marker.
                  'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json',
                  'ai/AIPatrolSettings.override.json',
-                 'ai/localities.json', 'ai/sites.json', 'ai/loadouts/HollowCountry_Patrol.json', 'ai/loadouts/HollowCountry_Scavenger.json',
+                 'ai/localities.json', 'ai/sites.json', 'ai/picker-routes.json', 'ai/loadouts/HollowCountry_Patrol.json', 'ai/loadouts/HollowCountry_Scavenger.json',
                  'ai/loadouts/HollowCountry_Holdout.json',
                  # HC-43 finite Raider/Traveller loadouts (not yet mapped by HCXAISites).
                  'ai/loadouts/HollowCountry_Raider.json', 'ai/loadouts/HollowCountry_Traveller.json',
