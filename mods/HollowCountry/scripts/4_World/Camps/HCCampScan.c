@@ -5,8 +5,6 @@
 // :882 root player, :1897 attachment, :3374 persistent ID, :3409 GetCompEM;
 // inventory :1884; 3_Game/Systems/Inventory/Inventory.c:138 GetCargo.
 // 4_World/Entities/ItemBase/TentBase.c:22/461 PITCHED/GetState;
-// ItemBase/BaseBuildingBase.c:882 GetConstruction; Classes/ConstructionBase.c:1173 IsPartConstructed; ItemBase/BaseBuildingBase/Fence.c:405/411
-// wall_base_down/up; ItemBase/BaseBuildingBase/Totem.c:285 flag_mast;
 // ItemBase/TrapBase.c:155 IsActive; Core/Inherited/InventoryItem.c:18/22
 // GetTunedFrequency/IsReceiving; 3_Game/tools/Component/ComponentEnergyManager.c:925
 // IsWorking. Hard cap 128 results; oversize areas fail closed without tier gain.
@@ -82,20 +80,7 @@ class HCCampScan
             if (item.IsKindOf("CamoNet") && !item.GetHierarchyParent()) { scan.Camo = true; }
             if (item.IsKindOf("GardenPlot") || item.IsKindOf("Greenhouse")) { scan.Garden = true; }
             if (item.IsKindOf("Pot") || item.IsKindOf("Cauldron") || item.IsKindOf("FryingPan")) { scan.Kitchen = true; }
-            TerritoryFlag pole = TerritoryFlag.Cast(item);
-            if (pole && pole.FindAttachmentBySlotName("Material_FPole_Flag"))
-            {
-                float mast = pole.GetAnimationPhase("flag_mast");
-                if (mast < 0.1) { scan.RaisedFlag = true; scan.Flag = "welcome"; }
-                else if (mast < 0.9) { scan.Flag = "caution"; }
-                else { scan.Flag = "closed"; }
-            }
-            Fence fence = Fence.Cast(item);
-            if (fence && fence.GetConstruction())
-            {
-                if (fence.GetConstruction().IsPartConstructed("wall_base_down")) { scan.Walls++; }
-                if (fence.GetConstruction().IsPartConstructed("wall_base_up")) { scan.Walls++; }
-            }
+            // HC-17: flags/walls never determine a camp tier or ownership.
             TrapBase trap = TrapBase.Cast(item);
             if (trap && trap.IsActive())
             {

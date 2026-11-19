@@ -4,6 +4,8 @@
 // HCGroupIO: EnSystem.c:417/425/443/462/525/528/531 read/write/mkdir/copy/delete;
 // 3_Game/tools/JsonFileLoader.c:69/85 JSON load/save. No rename API exists.
 // 1_Core/proto/EnScript.c:380/394/407 array count/find/insert.
+// HC-17 metadata validation: 1_Core/proto/EnString.c:199 Length;
+// 1_Core/proto/EnDebug.c:96 Print. Position/ACL limits use HCGroupRules/HCAILimits.
 // Temp intent + backup + copy/readback is fail-closed, NOT atomic rename/fsync.
 class HCCampRecord : HCWorldCamp
 {
@@ -20,9 +22,22 @@ class HCCampRecord : HCWorldCamp
     ref array<string> Answered = new array<string>(); // paper refs only, no text
 }
 
+// HC-17 ownership metadata only. Native containers retain their own inventory
+// and persistence. No item IDs, quantities, decorative stash or door health.
+class HCBuildingClaimRecord
+{
+    int GroupId;
+    string BuildingId;
+    vector Position;
+    int ClaimedUtc;
+    int LastVisitUtc;
+}
+
 class HCCampData
 {
     int Version = 1;
+    int ClaimsVersion = 1; // old fire camps get EMPTY claims; never infer buildings
+    ref array<ref HCBuildingClaimRecord> Claims = new array<ref HCBuildingClaimRecord>();
     string WorldName;
     int SavedUtc;
     ref array<ref HCCampRecord> Camps = new array<ref HCCampRecord>();
@@ -34,9 +49,29 @@ class HCCampStore
     static const string PATH = "$profile:HollowCountry/camps.json";
     static const int BYTES = 1048576;
 
+    // Duplicate group/building rows are contested migration, never first-wins.
+    static bool HCClaimsValid(HCCampData data, int now)
+    {
+        if (!data || data.ClaimsVersion != 1 || !data.Claims || data.Claims.Count() > HCAILimits.Get().MaxCamps) { return false; }
+        foreach (HCBuildingClaimRecord claim : data.Claims)
+        {
+            if (!claim || claim.GroupId < 1 || claim.BuildingId.Length() < 1 || claim.BuildingId.Length() > 512 || !HCGroupRules.PositionValid(claim.Position)) { return false; }
+            if (claim.ClaimedUtc < 1 || claim.LastVisitUtc < claim.ClaimedUtc || claim.LastVisitUtc > now) { return false; }
+            int matches = 0;
+            foreach (HCBuildingClaimRecord other : data.Claims)
+            {
+                if (!other) { return false; }
+                if (other.GroupId == claim.GroupId || other.BuildingId == claim.BuildingId) { matches++; }
+            }
+            if (matches != 1) { return false; }
+        }
+        return true;
+    }
+
     static bool Valid(HCCampData data, int now)
     {
         if (!data || data.Version != 1 || data.WorldName != GetGame().GetWorldName() || data.SavedUtc < 1 || data.SavedUtc > now) { return false; }
+        if (!HCClaimsValid(data, now)) { Print("[HC Plan] HC-17 state=refused reason=claims_schema_or_contested_migration runtime=PENDING"); return false; }
         if (!data.Camps || data.Camps.Count() > HCAILimits.Get().MaxCamps || !data.TheftRows || data.TheftRows.Count() > 1024) { Print("[HC AI] camps state invalid or exceeds AILimits.MaxCamps; load refused"); return false; }
         array<string> groups = new array<string>();
         array<string> ids = new array<string>();
@@ -83,6 +118,7 @@ class HCCampStore
 
     static bool Save(HCCampData data, int now)
     {
+        if (!data || !HCV2ThreatStore<HCCampData>.CanOpen(PATH)) { return false; }
         data.SavedUtc = now;
         return Valid(data, now) && HCV2ThreatStore<HCCampData>.Save(PATH, data, BYTES);
     }

@@ -15,8 +15,10 @@ class HCCampTiers
     static int Evaluate(bool hearth, bool shelter, bool storage, bool flag, bool food, bool kitchen, int walls, int lights, bool radio)
     {
         if (!hearth || !shelter || !storage) { return 0; }
-        if (!flag || !food || !kitchen) { return 1; }
-        if (walls < 3 || lights < 2 || !radio) { return 2; }
+        // HC-17: legacy visit classification only; no wall/flag progression.
+        // Explicit building claims never write tiers or admit new respawns.
+        if (!food || !kitchen) { return 1; }
+        if (lights < 2 || !radio) { return 2; }
         return 3;
     }
 
