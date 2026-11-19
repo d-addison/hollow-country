@@ -9,24 +9,45 @@
 class HCSeasonVisualPolicy
 {
     static const int VERSION = 1;
-    static const float SNAPSHOT_TTL_SECONDS = 90.0;
-    static const float SNAPSHOT_HEARTBEAT_SECONDS = 30.0;
-    static const float FOG_BLEND_HOURS = 0.5;
-    static const float BASELINE_FOG = 0.04;
-    static const float SUMMER_RAIN_SCALE = 0.5;
-    static const float AUTUMN_RAIN_MIN = 0.45;
-    static const float AUTUMN_FOG_MIN = 0.18;
-    static const float WINTER_FOG_MIN = 0.08;
-    static const float AUTUMN_CLOUD_MIN = 0.75;
-    static const float WINTER_CLOUD_MIN = 0.80;
+    static float SNAPSHOT_TTL_SECONDS = 90.0;
+    static float SNAPSHOT_HEARTBEAT_SECONDS = 30.0;
+    static float FOG_BLEND_HOURS = 0.5;
+    static float BASELINE_FOG = 0.04;
+    static float SUMMER_RAIN_SCALE = 0.5;
+    static float AUTUMN_RAIN_MIN = 0.45;
+    static float AUTUMN_FOG_MIN = 0.18;
+    static float WINTER_FOG_MIN = 0.08;
+    static float AUTUMN_CLOUD_MIN = 0.75;
+    static float WINTER_CLOUD_MIN = 0.80;
     // Same 0.6 lower threshold documented by native Weather.c:309; retain the
     // native 1 upper threshold and 30-second stopping time in the existing weather owner.
-    static const float SNOW_CLOUD_THRESHOLD = 0.6;
-    static const float WINTER_SNOWFALL = 0.55;
-    static const float SPRING_GRADE = 0.06;
-    static const float SUMMER_GRADE = 0.04;
-    static const float AUTUMN_GRADE = 0.14;
-    static const float WINTER_GRADE = 0.12;
+    static float SNOW_CLOUD_THRESHOLD = 0.6;
+    static float WINTER_SNOWFALL = 0.55;
+    static float SPRING_GRADE = 0.06;
+    static float SUMMER_GRADE = 0.04;
+    static float AUTUMN_GRADE = 0.14;
+    static float WINTER_GRADE = 0.12;
+
+    static void HCConfigure(HCc2SeasonTuning config)
+    {
+        HCc2SeasonTuning.HCSet(config);
+        HCSeasonVisualPolicy.SNAPSHOT_TTL_SECONDS = config.SNAPSHOT_TTL_SECONDS;
+        HCSeasonVisualPolicy.SNAPSHOT_HEARTBEAT_SECONDS = config.SNAPSHOT_HEARTBEAT_SECONDS;
+        HCSeasonVisualPolicy.FOG_BLEND_HOURS = config.FOG_BLEND_HOURS;
+        HCSeasonVisualPolicy.BASELINE_FOG = config.BASELINE_FOG;
+        HCSeasonVisualPolicy.SUMMER_RAIN_SCALE = config.SUMMER_RAIN_SCALE;
+        HCSeasonVisualPolicy.AUTUMN_RAIN_MIN = config.AUTUMN_RAIN_MIN;
+        HCSeasonVisualPolicy.AUTUMN_FOG_MIN = config.AUTUMN_FOG_MIN;
+        HCSeasonVisualPolicy.WINTER_FOG_MIN = config.WINTER_FOG_MIN;
+        HCSeasonVisualPolicy.AUTUMN_CLOUD_MIN = config.AUTUMN_CLOUD_MIN;
+        HCSeasonVisualPolicy.WINTER_CLOUD_MIN = config.WINTER_CLOUD_MIN;
+        HCSeasonVisualPolicy.SNOW_CLOUD_THRESHOLD = config.SNOW_CLOUD_THRESHOLD;
+        HCSeasonVisualPolicy.WINTER_SNOWFALL = config.WINTER_SNOWFALL;
+        HCSeasonVisualPolicy.SPRING_GRADE = config.SPRING_GRADE;
+        HCSeasonVisualPolicy.SUMMER_GRADE = config.SUMMER_GRADE;
+        HCSeasonVisualPolicy.AUTUMN_GRADE = config.AUTUMN_GRADE;
+        HCSeasonVisualPolicy.WINTER_GRADE = config.WINTER_GRADE;
+    }
 
     static bool HCValidPhase(string phase)
     {
@@ -52,8 +73,8 @@ class HCSeasonVisualPolicy
     {
         float result = HCUnit(baseline);
         if (night || calm) { return result; }
-        if (phase == "autumn" && result < AUTUMN_CLOUD_MIN) { return AUTUMN_CLOUD_MIN; }
-        if (phase == "winter" && result < WINTER_CLOUD_MIN) { return WINTER_CLOUD_MIN; }
+        if (phase == "autumn" && result < HCc2SeasonTuning.HCGet().AUTUMN_CLOUD_MIN) { return HCc2SeasonTuning.HCGet().AUTUMN_CLOUD_MIN; }
+        if (phase == "winter" && result < HCc2SeasonTuning.HCGet().WINTER_CLOUD_MIN) { return HCc2SeasonTuning.HCGet().WINTER_CLOUD_MIN; }
         return result;
     }
 
@@ -62,8 +83,8 @@ class HCSeasonVisualPolicy
         float result = HCUnit(baseline);
         if (!HCValidPhase(phase)) { return result; }
         if (phase == "winter" || night || calm) { return 0.0; }
-        if (phase == "summer") { return result * SUMMER_RAIN_SCALE; }
-        if (phase == "autumn" && cloud >= 0.65 && cloud <= 1.0 && result < AUTUMN_RAIN_MIN) { return AUTUMN_RAIN_MIN; }
+        if (phase == "summer") { return result * HCc2SeasonTuning.HCGet().SUMMER_RAIN_SCALE; }
+        if (phase == "autumn" && cloud >= HCc2SeasonTuning.HCGet().AutumnRainCloudThreshold && cloud <= 1.0 && result < HCc2SeasonTuning.HCGet().AUTUMN_RAIN_MIN) { return HCc2SeasonTuning.HCGet().AUTUMN_RAIN_MIN; }
         return result;
     }
 
@@ -71,25 +92,25 @@ class HCSeasonVisualPolicy
     {
         float result = HCUnit(baseline);
         if (night || calm) { return result; }
-        if (phase == "autumn" && result < AUTUMN_FOG_MIN) { return AUTUMN_FOG_MIN; }
-        if (phase == "winter" && result < WINTER_FOG_MIN) { return WINTER_FOG_MIN; }
+        if (phase == "autumn" && result < HCc2SeasonTuning.HCGet().AUTUMN_FOG_MIN) { return HCc2SeasonTuning.HCGet().AUTUMN_FOG_MIN; }
+        if (phase == "winter" && result < HCc2SeasonTuning.HCGet().WINTER_FOG_MIN) { return HCc2SeasonTuning.HCGet().WINTER_FOG_MIN; }
         return result;
     }
 
     // Fade inside the daylight interval; never add seasonal fog at night.
     static float HCFogDaylight(float hour)
     {
-        if (!(hour > 5.0) || !(hour < 20.0)) { return 0.0; }
-        if (hour < 5.0 + FOG_BLEND_HOURS) { return (hour - 5.0) / FOG_BLEND_HOURS; }
-        if (hour > 20.0 - FOG_BLEND_HOURS) { return (20.0 - hour) / FOG_BLEND_HOURS; }
+        if (!(hour > HCc2SeasonTuning.HCGet().FogDayStartHour) || !(hour < HCc2SeasonTuning.HCGet().FogDayEndHour)) { return 0.0; }
+        if (hour < HCc2SeasonTuning.HCGet().FogDayStartHour + HCc2SeasonTuning.HCGet().FOG_BLEND_HOURS) { return (hour - HCc2SeasonTuning.HCGet().FogDayStartHour) / HCc2SeasonTuning.HCGet().FOG_BLEND_HOURS; }
+        if (hour > HCc2SeasonTuning.HCGet().FogDayEndHour - HCc2SeasonTuning.HCGet().FOG_BLEND_HOURS) { return (HCc2SeasonTuning.HCGet().FogDayEndHour - hour) / HCc2SeasonTuning.HCGet().FOG_BLEND_HOURS; }
         return 1.0;
     }
 
     static float HCSnowfall(string phase, float cloud, bool night, bool calm)
     {
         if (phase != "winter" || night || calm) { return 0.0; }
-        if (!(cloud >= SNOW_CLOUD_THRESHOLD) || !(cloud <= 1.0)) { return 0.0; }
-        return WINTER_SNOWFALL;
+        if (!(cloud >= HCc2SeasonTuning.HCGet().SNOW_CLOUD_THRESHOLD) || !(cloud <= 1.0)) { return 0.0; }
+        return HCc2SeasonTuning.HCGet().WINTER_SNOWFALL;
     }
 
     static string HCGradeName(string phase)
@@ -101,10 +122,10 @@ class HCSeasonVisualPolicy
 
     static float HCGradeWeight(string phase)
     {
-        if (phase == "spring") { return SPRING_GRADE; }
-        if (phase == "summer") { return SUMMER_GRADE; }
-        if (phase == "autumn") { return AUTUMN_GRADE; }
-        if (phase == "winter") { return WINTER_GRADE; }
+        if (phase == "spring") { return HCc2SeasonTuning.HCGet().SPRING_GRADE; }
+        if (phase == "summer") { return HCc2SeasonTuning.HCGet().SUMMER_GRADE; }
+        if (phase == "autumn") { return HCc2SeasonTuning.HCGet().AUTUMN_GRADE; }
+        if (phase == "winter") { return HCc2SeasonTuning.HCGet().WINTER_GRADE; }
         return 0.0;
     }
 }

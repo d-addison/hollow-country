@@ -26,8 +26,8 @@ modded class ChernarusPlusData
 
     protected void HCConfigureAtmosphereDefaults()
     {
-        m_WeatherDefaultSettings.m_RainThreshold = 0.65;
-        m_WeatherDefaultSettings.m_StormThreshold = 0.85;
+        m_WeatherDefaultSettings.m_RainThreshold = HCWeatherConfig.HCGet().RainCloudThreshold;
+        m_WeatherDefaultSettings.m_StormThreshold = HCWeatherConfig.HCGet().StormCloudThreshold;
         m_WeatherDefaultSettings.m_OvercastMinTime = 300;
         m_WeatherDefaultSettings.m_OvercastMaxTime = 300;
         m_WeatherDefaultSettings.m_OvercastMinLength = 300;
@@ -59,8 +59,8 @@ modded class ChernarusPlusData
         m_Weather.GetWindMagnitude().SetLimits(0, 16);
         m_Weather.GetWindDirection().SetLimits(-3.14159, 3.14159);
         m_Weather.SetWindMaximumSpeed(16);
-        m_Weather.SetStorm(1, m_WeatherDefaultSettings.m_StormThreshold, 90);
-        m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1, 90);
+        m_Weather.SetStorm(1, m_WeatherDefaultSettings.m_StormThreshold, HCWeatherConfig.HCGet().StormDurationSeconds);
+        m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1, HCWeatherConfig.HCGet().RainStopSeconds);
         // Already-loaded native DTO, before joins: native sync owns distribution.
         // Preserve the existing native/operator seasonal temperature arrays.
         // Owner rule 2026-11-17: never dark nights. Config 0 is lighting_default

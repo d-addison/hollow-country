@@ -276,8 +276,8 @@ modded class ChernarusPlusData
         m_Weather.GetWindMagnitude().SetLimits(0.0, 16.0);
         m_Weather.GetWindDirection().SetLimits(-3.14159, 3.14159);
         m_Weather.SetWindMaximumSpeed(16.0);
-        m_Weather.SetStorm(1.0, m_WeatherDefaultSettings.m_StormThreshold, 90.0);
-        m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1.0, 90.0);
+        m_Weather.SetStorm(1.0, m_WeatherDefaultSettings.m_StormThreshold, HCWeatherConfig.HCGet().StormDurationSeconds);
+        m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1.0, HCWeatherConfig.HCGet().RainStopSeconds);
         // Same bright-night baseline and owner as v1; personal light untouched.
         CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 0;
         HCTickWeatherDays();

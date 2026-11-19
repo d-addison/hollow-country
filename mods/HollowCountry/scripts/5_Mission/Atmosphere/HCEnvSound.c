@@ -32,8 +32,8 @@ class HCEnvSound
     void HCEnvSound()
     {
         float now = GetGame().GetTickTime();
-        m_NextLayer = now + 45;
-        m_NextHowl = now + Math.RandomFloatInclusive(600, 900);
+        m_NextLayer = now + HCc2PresentationConfig.HCGet().SoundStartupSeconds;
+        m_NextHowl = now + Math.RandomFloatInclusive(HCc2PresentationConfig.HCGet().HowlGapMinSeconds, HCc2PresentationConfig.HCGet().HowlGapMaxSeconds);
     }
 
     static bool CanPlay(float now, float nextAt, bool hasSound)
@@ -89,7 +89,7 @@ class HCEnvSound
             // An ambient tail only; never a gunshot or AI stimulus. No entities spawned.
             position = position + Vector(220, 10, 220);
             duration = 15;
-            m_NextHowl = now + Math.RandomFloatInclusive(600, 900);
+            m_NextHowl = now + Math.RandomFloatInclusive(HCc2PresentationConfig.HCGet().HowlGapMinSeconds, HCc2PresentationConfig.HCGet().HowlGapMaxSeconds);
         }
         else if (forest)
         {
@@ -100,11 +100,11 @@ class HCEnvSound
         }
         else return;
         // Bound retries even if an installed sound class is unavailable.
-        m_NextLayer = now + Math.RandomFloatInclusive(180, 300);
+        m_NextLayer = now + Math.RandomFloatInclusive(HCc2PresentationConfig.HCGet().LayerGapMinSeconds, HCc2PresentationConfig.HCGet().LayerGapMaxSeconds);
         if (!GetGame().ConfigIsExisting("CfgSoundSets " + soundSet)) return;
         m_Sound = SEffectManager.PlaySoundEnviroment(soundSet, position, 2, 2, loop);
         if (!m_Sound) return;
-        m_Sound.SetSoundMaxVolume(0.2);
+        m_Sound.SetSoundMaxVolume(HCc2PresentationConfig.HCGet().SoundVolume);
         m_Wind = loop;
         m_StopAt = now + duration;
         LogLayer(layer);

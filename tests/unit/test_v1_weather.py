@@ -25,9 +25,16 @@ WORLD = WEATHER / 'HCChernarusAtmosphere.c'
 
 
 def authored_policy():
+    from tests.unit.test_c2_atmoscfg import defaults_env
     source = re.sub(r'//[^\n]*', '', POLICY.read_text())
     namespace = {'__builtins__': {}, 'f32': f32, 'FLOAT_MAX': FLOAT_MAX,
                  'Math': NS(Floor=math.floor)}
+    namespace.update(defaults_env())
+    # Native DTO floats are binary32, as are the policy inputs above.
+    defaults = defaults_env()['HCWeatherConfig'].HCGet()
+    weather_config = NS(**{key: f32(value) for key, value in vars(defaults).items()
+                           if type(value) in (int, float)})
+    namespace['HCWeatherConfig'] = NS(HCGet=lambda: weather_config)
     signatures = re.findall(r'static (bool|float) (\w+)\(([^)]*)\)', source)
     if not signatures or len(signatures) != len(re.findall(r'\bstatic\b', source)):
         raise AssertionError('unsupported policy declaration')
@@ -85,6 +92,9 @@ def v1_admission():
 
 def authored(path, name, context, *args):
     """Mechanical language adapter, refusing unrecognized loops/control flow."""
+    from tests.unit.test_c2_atmoscfg import defaults_env
+    for key, value in defaults_env().items():
+        context.setdefault(key, value)
     source = path.read_text()
     match = re.search(r'\b(?:bool|void|float) ' + name + r'\(([^)]*)\)', source)
     parameters = [p.strip().split()[-1] for p in match[1].split(',') if p.strip()]
