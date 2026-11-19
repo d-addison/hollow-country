@@ -8,7 +8,7 @@
   body { margin:0; } header { padding:16px 22px; border-bottom:1px solid #384443; }
   h1 { margin:0 0 7px; font-size:21px; } p { margin:5px 0; color:#bcc9c2; }
   main { display:flex; gap:18px; padding:18px; align-items:flex-start; }
-  aside { width:255px; flex-shrink:0; } #layers label { display:block; margin:9px 0; }
+  aside { width:255px; flex-shrink:0; } #layers label { display:block; margin:9px 0; } #legend { padding-left:18px; font-size:12px; }
   button { background:#304240; color:#eff5e7; border:1px solid #718078; padding:7px 12px; border-radius:4px; cursor:pointer; }
   #view { flex:1; min-width:0; } canvas { display:block; width:100%; aspect-ratio:1; background:#1b2929; border:1px solid #53625c; }
   #hover { min-height:95px; white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; background:#182325; }
@@ -22,6 +22,7 @@
     <p id="status" role="status">Waiting for snapshot…</p>
     <p class="muted">Refreshes every 15 seconds. Hover a point or route for details. Grid coordinates are metres.</p>
     <div id="layers" aria-label="Visible layers"></div>
+    <ul id="legend" class="muted" aria-label="Layer legend and bounds"></ul>
     <label for="loot-filter">Loot class or prefix (viewer filter)</label>
     <input id="loot-filter" type="text" maxlength="96" placeholder="Bandage">
     <label><input id="loot-exact" type="checkbox"> Exact class</label>
@@ -38,6 +39,7 @@
 const canvas = document.getElementById('map'), ctx = canvas.getContext('2d');
 const status = document.getElementById('status'), hover = document.getElementById('hover');
 const layerBox = document.getElementById('layers'), worldSize = 15360;
+const legendBox = document.getElementById('legend');
 const lootFilter = document.getElementById('loot-filter'), lootExact = document.getElementById('loot-exact');
 const lootStatus = document.getElementById('loot-status');
 const palette = ['#ffc16e','#75d9d0','#ff8989','#c7b1ff','#bde775','#8ac7ff','#ffaedc','#f2e3a2'];
@@ -50,6 +52,12 @@ const towns = [['Chernogorsk',6700,2600],['Elektrozavodsk',10400,2200],['Berezin
  ['Green Mountain',3700,6000],['Devils Castle',6900,11400],['Tisy',1700,14200]];
 let snapshot = null, received = 0, busy = false, imageReady = false;
 let lootmap = null;
+// Legend text per layer. Rows state ledger/catalog meaning, never a live-body claim.
+const legendText = {
+  camps: 'camp sites: ledger state only, overlays holdouts and ai-camps; bounded layer',
+  holdouts: 'holdout houses: ledger state, not a body-presence claim',
+  'ai-camps': 'logical camp level/supply/population; runtime pending'
+};
 let pointsOnCanvas = [], routesOnCanvas = [];
 const enabled = new Map(), colors = new Map(), image = new Image();
 image.onload = () => { imageReady = true; document.getElementById('background').textContent = 'Operator map image · full world extent'; draw(); };
@@ -68,6 +76,20 @@ function syncLayers() {
     input.addEventListener('change',() => { enabled.set(name,input.checked); draw(); });
     label.style.color = colors.get(name); label.append(input,document.createTextNode(' '+name));
     layerBox.append(label);
+  }
+  describeLegend();
+}
+function describeLegend() {
+  const stats = new Map(((snapshot && snapshot.layerStats) || []).map(row => [row.layer,row]));
+  legendBox.replaceChildren();
+  for (const name of [...enabled.keys()].sort()) {
+    const row = stats.get(name), text = legendText[name];
+    if (!row && !text) continue;
+    const item = document.createElement('li');
+    const bound = row ? ` · ${row.shown} of ${row.total} shown${row.truncated ? ' (truncated: omitted rows exist)' : ''}` : '';
+    item.textContent = `${name}: ${text || 'bounded layer'}${bound}`;
+    item.style.color = colors.get(name) || '';
+    legendBox.append(item);
   }
 }
 function draw() {

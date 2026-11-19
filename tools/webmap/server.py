@@ -44,6 +44,17 @@ def _validate(data):
                              (("id", 96), ("label", 128), ("detail", 256)))
             if not valid_text or not _coordinate(point.get("x")) or not _coordinate(point.get("z")):
                 raise ValueError("invalid point fields")
+    stats = data.get("layerStats", [])
+    if not isinstance(stats, list) or len(stats) > 16:
+        raise ValueError("invalid layer stats")
+    for row in stats:
+        if not isinstance(row, dict) or not _text(row.get("layer"), 48) or not row["layer"]:
+            raise ValueError("invalid layer stat")
+        total, shown, truncated = (row.get(key) for key in ("total", "shown", "truncated"))
+        if not all(type(value) is int for value in (total, shown, truncated)):
+            raise ValueError("invalid layer stat counts")
+        if not 0 <= shown <= total <= 1000000 or truncated != int(shown < total):
+            raise ValueError("inconsistent layer stat")
     for route in routes:
         if not isinstance(route, dict):
             raise ValueError("invalid route")

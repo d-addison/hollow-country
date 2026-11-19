@@ -44,7 +44,7 @@ class HCDebugSnapshotModule : HCModule
         m_Builtins = new array<ref HCDebugContributor>;
         HCDebugPlayersContributor players = new HCDebugPlayersContributor;
         HCKeep(players);
-        HCKeep(new HCDebugHoldoutsContributor);
+        HCKeep(new HCDebugCampSitesContributor);
         HCKeep(new HCDebugDeadDropsContributor);
         HCKeep(new HCDebugSheltersContributor);
         HCKeep(new HCDebugEventsContributor);

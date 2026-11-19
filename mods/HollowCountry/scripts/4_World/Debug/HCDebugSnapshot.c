@@ -6,6 +6,12 @@
 // Registry: 16 contributors; each Describe gets 64 points and 8 routes,
 // each route <=64 vertices. Snapshot totals <=1024 points/128 routes.
 // No entities, discovery, provider claims or inventory writes in this API.
+// w27-debugmap: the 1024-point wire cap is split. Shared contributors (ai-units,
+// players, ...) may fill MAX_POINTS - DEBUG_LAYER_POINTS; the hardened layers
+// below (camps) draw on their own DEBUG_LAYER_POINTS share via HCAddLayerPoint,
+// so neither side squeezes the other and the total never exceeds the wire cap.
+// Each hardened layer also reports total/shown/truncated through HCNoteLayer.
+// Leads and Scenes have no read-only enumeration on their modules: not authored.
 class HCDebugContributor
 {
     void HCDescribe(HCDebugSnapshot snapshot) {}
@@ -28,12 +34,21 @@ class HCDebugRoute
     ref array<ref array<float>> points = new array<ref array<float>>;
 }
 
+class HCDebugLayerStat
+{
+    string layer;
+    int total;
+    int shown;
+    int truncated;
+}
+
 class HCDebugDocument
 {
     int version = 1;
     int time;
     ref map<string, ref array<ref HCDebugPoint>> layers = new map<string, ref array<ref HCDebugPoint>>;
     ref array<ref HCDebugRoute> routes = new array<ref HCDebugRoute>;
+    ref array<ref HCDebugLayerStat> layerStats = new array<ref HCDebugLayerStat>;
     ref array<string> operational = new array<string>;
     int contributors;
     int truncated;
@@ -42,11 +57,19 @@ class HCDebugDocument
 
 class HCDebugSnapshot
 {
+    static const int MAX_POINTS = 1024;
+    static const int MAX_CONTRIBUTOR_POINTS = 64;
+    // Own share of the wire cap for hardened layers; carved out of MAX_POINTS.
+    static const int DEBUG_LAYER_POINTS = 88;
+    // Camps layer: one row per holdout; mirrors the holdouts layer bound.
+    static const int CAMP_LAYER_CAP = 24;
+    static const int MAX_LAYER_STATS = 16;
     protected static ref array<ref HCDebugContributor> s_Contributors;
     protected ref array<ref HCDebugContributor> m_Contributors;
     protected ref HCDebugDocument m_Document;
     protected int m_Cursor;
     protected int m_PointCount;
+    protected int m_LayerPoints;
     protected int m_ContributorPoints;
     protected int m_ContributorRoutes;
     protected bool m_Describing;
@@ -154,8 +177,42 @@ class HCDebugSnapshot
 
     void AddPoint(string layer, string id, vector pos, string label, string detail)
     {
-        if (!m_Describing || m_PointCount >= 1024 || m_ContributorPoints >= 64) { return; }
+        int sharedCap = HCDebugSnapshot.MAX_POINTS - HCDebugSnapshot.DEBUG_LAYER_POINTS;
+        if (!m_Describing || m_PointCount >= sharedCap || m_ContributorPoints >= HCDebugSnapshot.MAX_CONTRIBUTOR_POINTS) { return; }
         if (layer == "" || id == "" || !HCPositionValid(pos)) { return; }
+        HCInsertPoint(layer, id, pos, label, detail);
+        m_PointCount++;
+        m_ContributorPoints++;
+    }
+
+    // Hardened layers: own share, so the shared pool above is never squeezed.
+    // Returns true only when the row was kept (callers report shown vs total).
+    bool HCAddLayerPoint(string layer, string id, vector pos, string label, string detail)
+    {
+        if (!m_Describing || m_LayerPoints >= HCDebugSnapshot.DEBUG_LAYER_POINTS) { return false; }
+        if (m_ContributorPoints >= HCDebugSnapshot.MAX_CONTRIBUTOR_POINTS) { return false; }
+        if (layer == "" || id == "" || !HCPositionValid(pos)) { return false; }
+        HCInsertPoint(layer, id, pos, label, detail);
+        m_LayerPoints++;
+        m_ContributorPoints++;
+        return true;
+    }
+
+    // One count/truncated row per hardened layer per capture (bounded).
+    void HCNoteLayer(string layer, int total, int shown)
+    {
+        if (!m_Describing || m_Document.layerStats.Count() >= HCDebugSnapshot.MAX_LAYER_STATS) { return; }
+        HCDebugLayerStat stat = new HCDebugLayerStat;
+        stat.layer = HCText(layer, 48);
+        stat.total = total;
+        stat.shown = shown;
+        stat.truncated = 0;
+        if (shown < total) { stat.truncated = 1; }
+        m_Document.layerStats.Insert(stat);
+    }
+
+    protected void HCInsertPoint(string layer, string id, vector pos, string label, string detail)
+    {
         string layerName = HCText(layer, 48);
         array<ref HCDebugPoint> rows = m_Document.layers.Get(layerName);
         if (!rows)
@@ -170,8 +227,6 @@ class HCDebugSnapshot
         point.label = HCText(label, 128);
         point.detail = HCText(detail, 256);
         rows.Insert(point);
-        m_PointCount++;
-        m_ContributorPoints++;
     }
 
     void AddRoute(string layer, string id, array<vector> points, string label)
@@ -210,6 +265,33 @@ class HCDebugSnapshot
     }
 
     HCDebugDocument HCDocument() { return m_Document; }
-    int HCPointCount() { return m_PointCount; }
+    int HCPointCount() { return m_PointCount + m_LayerPoints; }
     int HCRouteCount() { return m_Document.routes.Count(); }
+}
+
+// w27-debugmap: read-only Camps layer. Replaces the plain holdouts contributor
+// in its registry slot (the registry cap stays 16): the base class still emits
+// the existing holdouts layer, then this adds id/position/ledger state per camp
+// site from the public HCHoldouts.Count/Snapshot seam. No player ids or names,
+// no routine/occupant detail, no entity search. A ledger state is not a body claim.
+class HCDebugCampSitesContributor : HCDebugHoldoutsContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        super.HCDescribe(snapshot);
+        HCHoldouts holdouts = HCHoldouts.Get();
+        if (!holdouts) { return; }
+        int total = holdouts.Count();
+        int work = total;
+        if (work > HCDebugSnapshot.CAMP_LAYER_CAP) { work = HCDebugSnapshot.CAMP_LAYER_CAP; }
+        int shown = 0;
+        for (int index = 0; index < work; index++)
+        {
+            HCWorldHoldout row = holdouts.Snapshot(index);
+            if (!row) { continue; }
+            string detail = "state=" + row.State + "; ledger state, not a body-presence claim";
+            if (snapshot.HCAddLayerPoint("camps", row.Id, row.HousePos, row.PlaceId, detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("camps", total, shown);
+    }
 }
