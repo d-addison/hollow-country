@@ -175,23 +175,6 @@ def prop_specs(boxes_bytes):
     return specs
 
 
-def _index_template_budget(sources):
-    """Bytes left for index.json TemplateFiles entries when every other index list is at its maximum.
-
-    index.json is itself a pack file under FILE_CAP. The reserve takes the contract maxima (16 class,
-    16 furnish and 64 search-group chunks) and every source pin assemble may add, so no later search
-    build or stock pin can push the index past the cap.
-    """
-    from tools.package import interiors_profile as ip
-    pins = dict(sources, **{key: "0" * 64 for key in ip.TEMPLATE_SOURCES})
-    lists = {field: [{"File": "%s-%s.json" % (spec[0], "0" * spec[1]), "Sha256": "0" * 64}] * spec[2]
-             for field, spec in ip.TEMPLATE_LISTS.items() if field != "TemplateFiles"}
-    index = {"SchemaVersion": 2, "Kind": "hc-interior-templates", "WorldName": ip.WORLD, "Build": ip.BUILD,
-             "PackId": "0" * 32, "SourcePin": "0" * 64, "Frame": "rot90", "Provisional": True,
-             "Sources": pins, "TemplateFiles": [], **lists}
-    return FILE_CAP - len(_dump(index))
-
-
 def _dump(document):
     return (json.dumps(document, separators=(",", ":"), ensure_ascii=True) + "\n").encode("ascii")
 
@@ -966,15 +949,14 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
             reasons[name] = reason
             if frame is not None and points:
                 search_only += 1
-    # Templates with rooms rank first, then by placed instances; slots end at the count or index byte cap.
+    # Paging bounds each metadata file; only the template count limits admission.
     ranked = sorted(templates, key=lambda n: (bool(templates[n].get("search_only")),
                                               -len(instances.get(n, ())), n))
-    kept, used, budget = 0, 0, _index_template_budget(sources)
+    kept = 0
     for name in ranked:
-        cost = len('{"File":"t-0000.json","BuildingClass":%s,"Sha256":"%s"},' % (json.dumps(name), "0" * 64))
-        if kept >= MAX_TEMPLATES or used + cost > budget:
+        if kept >= MAX_TEMPLATES:
             break
-        kept, used = kept + 1, used + cost
+        kept += 1
     over = set(ranked[kept:])
     for name in over:
         del templates[name]

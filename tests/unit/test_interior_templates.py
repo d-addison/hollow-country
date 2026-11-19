@@ -531,42 +531,26 @@ class ClassRowTests(unittest.TestCase):
         self.assertEqual(table[names[3]]["Rooms"], "covered")
         self.assertEqual(tpl.MAX_TEMPLATES, 512)
 
-    def test_the_index_byte_budget_marks_the_rest_over_budget(self):
-        # index.json is one pack file under the 32767-byte cap, so its TemplateFiles entries are budgeted.
-        names = ["Land_Many_%03d" % i for i in range(4)]
-        rows = calibration_rows()
-        for name in names:
-            rows += house_rows(name)
-        pos = pos_xml([(n, "%d 0 0" % (i * 50), "0") for i, n in enumerate(names)] + [(names[3], "999 0 0", "0")])
-        proto = proto_xml([group(n, [container("lootFloor", [point("2.0 0.0 3.0")])]) for n in names])
-        entry = len('{"File":"t-0000.json","BuildingClass":"Land_Many_000","Sha256":"%s"},' % ("0" * 64))
-        with mock.patch.object(tpl, "_index_template_budget", lambda sources: 2 * entry + entry // 2):
-            result = tpl.build([encode(census(rows, list(CALIBRATION) + names))], proto, pos)
-        table = class_rows(result)
-        over = [n for n in names if table[n]["Rooms"] == "over_budget"]
-        self.assertEqual(len(over), 2)
-        self.assertEqual(len([n for n in result.files if n.startswith("t-")]), 2)
-        self.assertEqual(table[names[3]]["Rooms"], "covered")
-
-    def test_a_full_template_budget_fits_the_largest_possible_index(self):
-        # Every other list at its contract maximum (16 class, 16 furnish, 64 group chunks), every source
-        # pin present and eight census runs: the templates that fit the budget still fit one index file.
-        from tools.package import interiors_profile as ip
-        sources = {"census-run-%d" % i: "a" * 64 for i in range(8)}
-        budget = tpl._index_template_budget(sources)
-        name = "Land_" + "X" * 40
-        cost = len('{"File":"t-0000.json","BuildingClass":"%s","Sha256":"%s"},' % (name, "0" * 64))
-        pins = dict(sources, **{key: "b" * 64 for key in ip.TEMPLATE_SOURCES})
-        index = {"SchemaVersion": 2, "Kind": "hc-interior-templates", "WorldName": ip.WORLD, "Build": ip.BUILD,
-                 "PackId": "c" * 32, "SourcePin": "d" * 64, "Frame": "rot90", "Provisional": True,
-                 "Sources": dict(sorted(pins.items())),
-                 "ClassFiles": [{"File": "classes-%03d.json" % i, "Sha256": "e" * 64} for i in range(16)],
-                 "TemplateFiles": [{"File": "t-%04d.json" % i, "Sha256": "f" * 64, "BuildingClass": name}
-                                   for i in range(budget // cost)],
-                 "FurnishFiles": [{"File": "furnish-%03d.json" % i, "Sha256": "e" * 64} for i in range(16)],
-                 "GroupFiles": [{"File": "search-groups-%03d.json" % i, "Sha256": "e" * 64} for i in range(64)]}
-        self.assertLessEqual(len(ip._compact(index)), tpl.FILE_CAP)
-        self.assertGreater(budget // cost, 100)
+    def test_paged_index_keeps_every_template_up_to_512(self):
+        # Explicit synthetic surveyed classes; no world geometry evidence.
+        names = ['Land_Many_%03d_' % i + 'X' * 60 for i in range(513)]
+        censuses = []
+        for offset in range(0, len(names), 20):
+            batch = names[offset:offset + 20]
+            rows = calibration_rows()
+            for name in batch:
+                rows += house_rows(name)
+            censuses.append(encode(census(rows, list(CALIBRATION) + batch,
+                                          run_id=format(offset + 1, '032x'))))
+        pos = pos_xml([(name, '0 0 0', '0') for name in names])
+        proto = proto_xml([group(name, [container('lootFloor', [point('2 0 3')])]) for name in names])
+        result = tpl.build(censuses, proto, pos)
+        built = [name for name in result.files if name.startswith('t-')]
+        self.assertEqual(512, len(built))
+        self.assertEqual(1, sum(row['Rooms'] == 'over_budget' for row in class_rows(result).values()))
+        bindings = [dict(File=name, BuildingClass=load(result, name)['BuildingClass'], Sha256='a'*64)
+                    for name in built]
+        self.assertGreater(len(json.dumps(bindings).encode()), 32767)
 
     def test_furnish_budget_exhaustion_marks_a_class_over_budget(self):
         result = standard(max_furnished=0)

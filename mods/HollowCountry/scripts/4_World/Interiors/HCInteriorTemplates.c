@@ -1,4 +1,4 @@
-// Atomic, startup-only admission. SHA-256 authenticity belongs to the operator
+// Atomic admission, staged across startup ticks. SHA-256 authenticity belongs to the operator
 // install receipt; script checks syntax and cross-file binding, never hashes.
 // Pack source (Workshop self-provisioning, 2026-11-18): an operator pack in
 // $profile:HollowCountry/templates always wins; otherwise the default pack that
@@ -7,6 +7,7 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist and :417
 // OpenFile/:425 ReadFile on a PBO path, as 3_Game/tools/JsonFileLoader.c:9-18
 // reads "scripts/data/notifications.json" (Client/Notifications/NotificationSystem.c:74,285).
+// GetGame().IsServer: 3_Game/Global/Game.c:1120; TickCount: EnSystem.c:106.
 class HCInteriorTemplates
 {
     static const string ROOT_PATH = "$profile:HollowCountry/templates/";
@@ -19,8 +20,10 @@ class HCInteriorTemplates
     protected static ref array<ref HCInteriorTemplate> s_Templates = new array<ref HCInteriorTemplate>;
     protected static ref array<ref HCInteriorSearchGroup> s_Groups = new array<ref HCInteriorSearchGroup>;
     protected static ref array<ref HCInteriorFurnishRow> s_Furnish = new array<ref HCInteriorFurnishRow>;
-    protected static int s_Bytes;
-    protected static int s_Files;
+    protected static ref HCInteriorPackJob s_Job = new HCInteriorPackJob;
+    protected static int s_LoadPhase;
+    protected static int s_LoadChunk;
+    protected static int s_LoadStart;
     protected static string s_Reason;
     protected static int s_MaxProps = 5;
 
@@ -158,6 +161,9 @@ class HCInteriorTemplates
         {
             return false;
         }
+        // Emit one bounded pack refusal before clearing the retained job.
+        if (s_Job.Started && s_Job.Reason == "") { HCInteriorPackIndex.HCFail(s_Job, reason); }
+        HCInteriorPackIndex.HCReset(s_Job);
         s_Loaded = false;
         s_Index = null;
         s_Classes.Clear();
@@ -196,37 +202,31 @@ class HCInteriorTemplates
         return content;
     }
 
-    static string ReadStrict(string fileName, string schema, string kind)
-
+    // HCReadChunk alone owns byte/file accounting and strict parsing.
+    static string ReadStrict(string fileName, string schema, string pin)
     {
-        if (s_Files >= 610)
+        string content = HCInteriorPackIndex.HCReadChunk(s_Job, fileName, schema, pin);
+        if (s_Job.Reason != "") { Refuse(s_Job.Reason); }
+        return content;
+    }
 
-        {
-            Refuse("file_cap");
-            return "";
-        }
-        string raw = Read(s_Root + fileName, kind);
-        if (raw.Length() < 1 || raw.Length() > 32767)
-
-        {
-            Refuse("file_size_or_read:" + fileName);
-            return "";
-        }
-        s_Files = s_Files + 1;
-        s_Bytes = s_Bytes + raw.Length();
-        if (s_Bytes > 20971520)
-
-        {
-            Refuse("pack_size");
-            return "";
-        }
-        string nativeText = HCInteriorTemplatesStrict.NativeText(raw, schema);
-        if (nativeText == "")
-
-        {
-            Refuse("strict_keys_or_json:" + fileName);
-        }
-        return nativeText;
+    static void HCLoadReset(bool receipt = false)
+    {
+        if (receipt) { HCInteriorPackIndex.HCReceipt(s_Job, s_Classes.Count(), false); }
+        HCInteriorPackIndex.HCReset(s_Job);
+        s_Attempted = false;
+        s_Loaded = false;
+        s_Index = null;
+        s_Classes.Clear();
+        s_Templates.Clear();
+        s_Groups.Clear();
+        s_Furnish.Clear();
+        s_Root = "";
+        s_Source = "";
+        s_Reason = "";
+        s_LoadPhase = 0;
+        s_LoadChunk = 0;
+        s_LoadStart = 0;
     }
 
     // "profile", "pbo" or "missing" once EnsureLoaded has run.
@@ -368,7 +368,7 @@ class HCInteriorTemplates
             seen.Insert(binding.BuildingClass);
             number = number + 1;
         }
-        return 1 + index.ClassFiles.Count() + index.TemplateFiles.Count() + index.FurnishFiles.Count() + index.GroupFiles.Count() <= 610;
+        return index.ClassFiles.Count() + index.TemplateFiles.Count() + index.FurnishFiles.Count() + index.GroupFiles.Count() <= 610;
     }
 
     // Each pack class must be a House class the engine knows. The engine has thousands of House
@@ -786,60 +786,62 @@ class HCInteriorTemplates
         return false;
     }
 
+    // Begin once at boot. The owning module advances this retained job on ticks.
     static void EnsureLoaded(HCInteriorConfig legacy, int maxProps = 5)
-
     {
-        if (s_Attempted)
-
-        {
-            return;
-        }
+        if (s_Attempted) { return; }
         s_Attempted = true;
-        // Issue #138: the load runs once in OnStart, before the HC Perf sampler starts, so it is timed
-        // here (raw EnSystem.c:106 TickCount units, compare with ticks_per_ms in the first [HC Perf] line).
-        int loadStart = TickCount(0);
-        if (maxProps < 1 || maxProps > 20)
-
-        {
-            Refuse("prop_setting");
-            return;
-        }
+        s_LoadStart = TickCount(0);
+        if (maxProps < 1 || maxProps > 20) { Refuse("prop_setting"); return; }
         s_MaxProps = maxProps;
         s_Root = SelectRoot();
+        Print("[HC Interiors] templates source=" + s_Source + " root=" + s_Root + "; operator profile pack wins, shipped pack is read in place and never copied");
         if (s_Root == "")
-
         {
             Print(HCV1Admission.Refused("InteriorPlacement", "interior_placement", "template pack missing from $profile:HollowCountry/templates and HollowCountry/data/defaults/templates"));
-            Refuse("pack_missing source=missing; no $profile:HollowCountry/templates/index.json and no shipped HollowCountry/data/defaults/templates/index.json");
-            return;
         }
-        Print("[HC Interiors] templates source=" + s_Source + " root=" + s_Root + "; operator profile pack wins, shipped pack is read in place and never copied");
+        bool started = HCInteriorPackIndex.HCStart(s_Job, s_Root);
+        if (s_Job.Reason != "") { Refuse(s_Job.Reason); return; }
+        if (!started) { Refuse("pack_start"); }
+    }
+
+    static bool HCLoadFinished()
+    {
+        return s_Attempted && (s_Loaded || s_Reason != "");
+    }
+
+    // 1 yields the entire module tick, including between metadata pages.
+    static int HCLoadStep(HCInteriorConfig legacy, HCWorkBudget budget)
+    {
+        if (!s_Attempted || s_Loaded || s_Reason != "") { return 0; }
+        int status = HCInteriorPackIndex.HCStep(s_Job, budget);
+        if (s_Job.Reason != "") { Refuse(s_Job.Reason); return 2; }
+        if (status == 1) { return 1; }
+        if (status == 2) { Refuse("pack_step"); return 2; }
+        // Consume the admitted index object; never reload index.json.
+        s_Index = s_Job.Index;
+        HCInteriorTemplateIndex index = s_Index;
         string error;
-        string content = ReadStrict("index.json", "index", "index");
-        if (content == "")
-
+        string content;
+        if (s_LoadPhase == 0)
         {
-            return;
-        }
-        HCInteriorTemplateIndex index = new HCInteriorTemplateIndex;
-        if (!JsonFileLoader<HCInteriorTemplateIndex>.LoadData(content, index, error) || !IndexValid(index))
-
-        {
-            Refuse("index_or_pin");
-            return;
-        }
-        s_Index = index;
-        int chunk = 0;
-        foreach (HCInteriorTemplateFile classFile : index.ClassFiles)
-
-        {
-            content = ReadStrict(classFile.FileName, "classes", "classes" + chunk.ToString());
+            if (s_LoadChunk >= index.ClassFiles.Count())
+            {
+                if (!ClassesValid()) { Refuse("house_denominator"); return 2; }
+                if (LegacyConflict(legacy)) { Refuse("rooms_conflict"); return 2; }
+                s_LoadPhase = 1;
+                s_LoadChunk = 0;
+                return 0;
+            }
+            if (!budget || !budget.HCContinue()) { return 1; }
+            HCInteriorTemplateFile classFile = index.ClassFiles.Get(s_LoadChunk);
+            content = ReadStrict(classFile.FileName, "classes", classFile.Sha256);
             HCInteriorTemplateClasses classes = new HCInteriorTemplateClasses;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateClasses>.LoadData(content, classes, error) || classes.SchemaVersion != 2 || classes.Chunk != chunk || !classes.Rows || classes.Rows.Count() < 1 || classes.Rows.Count() > 160)
+            if (content == "" || !JsonFileLoader<HCInteriorTemplateClasses>.LoadData(content, classes, error) || classes.SchemaVersion != 2 || classes.Chunk != s_LoadChunk || !classes.Rows || classes.Rows.Count() < 1 || classes.Rows.Count() > 160)
 
             {
                 Refuse("classes_chunk");
-                return;
+                return 2;
             }
             foreach (HCInteriorTemplateClassRow classRow : classes.Rows)
 
@@ -848,40 +850,28 @@ class HCInteriorTemplates
 
                 {
                     Refuse("class_row");
-                    return;
+                    return 2;
                 }
                 s_Classes.Insert(classRow);
             }
-            chunk = chunk + 1;
         }
-        if (!ClassesValid())
-
+        if (s_LoadPhase == 1)
         {
-            Refuse("house_denominator");
-            return;
-        }
-        if (LegacyConflict(legacy))
-
-        {
-            if (s_Source == "pbo")
-
+            if (s_LoadChunk >= index.GroupFiles.Count())
             {
-                Print("[HC Interiors] shipped template pack yields to the operator's legacy room owner; legacy rooms unchanged");
+                s_LoadPhase = 2;
+                s_LoadChunk = 0;
+                return 0;
             }
-            Refuse("rooms_conflict");
-            return;
-        }
-        chunk = 0;
-        foreach (HCInteriorTemplateFile groupFile : index.GroupFiles)
-
-        {
-            content = ReadStrict(groupFile.FileName, "groups", "groups" + chunk.ToString());
+            if (!budget || !budget.HCContinue()) { return 1; }
+            HCInteriorTemplateFile groupFile = index.GroupFiles.Get(s_LoadChunk);
+            content = ReadStrict(groupFile.FileName, "groups", groupFile.Sha256);
             HCInteriorTemplateGroups groups = new HCInteriorTemplateGroups;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateGroups>.LoadData(content, groups, error) || groups.SchemaVersion != 2 || groups.Chunk != chunk || !groups.Groups || groups.Groups.Count() < 1 || groups.Groups.Count() > 512)
+            if (content == "" || !JsonFileLoader<HCInteriorTemplateGroups>.LoadData(content, groups, error) || groups.SchemaVersion != 2 || groups.Chunk != s_LoadChunk || !groups.Groups || groups.Groups.Count() < 1 || groups.Groups.Count() > 512)
 
             {
                 Refuse("groups_chunk");
-                return;
+                return 2;
             }
             foreach (HCInteriorSearchGroup groupRow : groups.Groups)
 
@@ -890,48 +880,61 @@ class HCInteriorTemplates
 
                 {
                     Refuse("group_row");
-                    return;
+                    return 2;
                 }
                 s_Groups.Insert(groupRow);
             }
-            chunk = chunk + 1;
         }
-        chunk = 0;
-        foreach (HCInteriorTemplateFileBinding templateFile : index.TemplateFiles)
-
+        if (s_LoadPhase == 2)
         {
-            content = ReadStrict(templateFile.FileName, "template", "template" + chunk.ToString());
-            HCInteriorTemplate templateRow = new HCInteriorTemplate;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplate>.LoadData(content, templateRow, error) || templateRow.BuildingClass != templateFile.BuildingClass || FindTemplate(templateRow.BuildingClass) || !TemplateValid(templateRow))
+            if (s_LoadChunk >= index.TemplateFiles.Count())
+            {
+                foreach (HCInteriorTemplateClassRow checkRow : s_Classes)
+                {
+                    if (Covered(checkRow) != (FindTemplate(checkRow.BuildingClass) != null))
+                    {
+                        Refuse("template_coverage");
+                        return 2;
+                    }
+                }
+                s_LoadPhase = 3;
+                s_LoadChunk = 0;
+                return 0;
+            }
+            if (!budget || !budget.HCContinue()) { return 1; }
+            HCInteriorTemplateFileBinding templateFile = index.TemplateFiles.Get(s_LoadChunk);
+            content = ReadStrict(templateFile.FileName, "template", templateFile.Sha256);
+            HCInteriorTemplate loadedTemplate = new HCInteriorTemplate;
+            if (content == "" || !JsonFileLoader<HCInteriorTemplate>.LoadData(content, loadedTemplate, error) || loadedTemplate.BuildingClass != templateFile.BuildingClass || FindTemplate(loadedTemplate.BuildingClass) || !TemplateValid(loadedTemplate))
 
             {
                 Refuse("template_or_evidence_pin");
-                return;
+                return 2;
             }
-            s_Templates.Insert(templateRow);
-            chunk = chunk + 1;
+            s_Templates.Insert(loadedTemplate);
         }
-        foreach (HCInteriorTemplateClassRow checkRow : s_Classes)
-
+        if (s_LoadPhase == 3)
         {
-            if (Covered(checkRow) != (FindTemplate(checkRow.BuildingClass) != null))
-
+            if (s_LoadChunk >= index.FurnishFiles.Count())
             {
-                Refuse("template_coverage");
-                return;
+                if (!FurnishValid()) { Refuse("furnish_binding_or_budget"); return 2; }
+                s_Loaded = true;
+                HCInteriorPackIndex.HCReceipt(s_Job, s_Classes.Count(), true);
+                int loadStart = s_LoadStart;
+                int loadTicks = TickCount(loadStart);
+                string receipt = "[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Job.Files.ToString();
+                Print(receipt + " bytes=" + s_Job.Bytes.ToString() + " load_ticks=" + loadTicks.ToString());
+                return 0;
             }
-        }
-        chunk = 0;
-        foreach (HCInteriorTemplateFile furnishFile : index.FurnishFiles)
-
-        {
-            content = ReadStrict(furnishFile.FileName, "furnish", "furnish" + chunk.ToString());
+            if (!budget || !budget.HCContinue()) { return 1; }
+            HCInteriorTemplateFile furnishFile = index.FurnishFiles.Get(s_LoadChunk);
+            content = ReadStrict(furnishFile.FileName, "furnish", furnishFile.Sha256);
             HCInteriorTemplateFurnish furnish = new HCInteriorTemplateFurnish;
-            if (content == "" || !JsonFileLoader<HCInteriorTemplateFurnish>.LoadData(content, furnish, error) || furnish.SchemaVersion != 2 || furnish.Chunk != chunk || !furnish.Rows || furnish.Rows.Count() < 1 || furnish.Rows.Count() > 128)
+            if (content == "" || !JsonFileLoader<HCInteriorTemplateFurnish>.LoadData(content, furnish, error) || furnish.SchemaVersion != 2 || furnish.Chunk != s_LoadChunk || !furnish.Rows || furnish.Rows.Count() < 1 || furnish.Rows.Count() > 128)
 
             {
                 Refuse("furnish_chunk");
-                return;
+                return 2;
             }
             foreach (HCInteriorFurnishRow furnishRow : furnish.Rows)
 
@@ -940,20 +943,62 @@ class HCInteriorTemplates
 
                 {
                     Refuse("furnish_rows");
-                    return;
+                    return 2;
                 }
                 s_Furnish.Insert(furnishRow);
             }
-            chunk = chunk + 1;
         }
-        if (!FurnishValid())
+        s_LoadChunk = s_LoadChunk + 1;
+        return 0;
+    }
+}
 
+// HC-24 lifecycle bridge stays with its reader. All overridden hooks are declared
+// on the base HCInteriorsModule; no call depends on a later modded link's methods.
+// The existing template extension begins the load after super.OnStart returns.
+// Shared module ticks (runtime contract) advance metadata/leaves before that
+// extension's instance guard, including when the optional legacy pilot is absent.
+modded class HCInteriorsModule
+{
+    protected bool m_PackLoading;
+    protected ref HCWorkBudget m_PackBudget = new HCWorkBudget;
+
+    override void OnStart(HCSettings settings)
+    {
+        super.OnStart(settings);
+        m_PackLoading = GetGame().IsServer() && IsEnabled(settings);
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        super.OnTick(deltaTime);
+        if (!m_PackLoading || !GetGame().IsServer()) { return; }
+        HCSettings settings = HCServer.Get().GetSettings();
+        if (!IsEnabled(settings)) { this.OnStop(); return; }
+        m_PackBudget.HCReset(8);
+        int slice = 0;
+        int status = 0;
+        while (slice < 8 && !HCInteriorTemplates.HCLoadFinished())
         {
-            Refuse("furnish_binding_or_budget");
-            return;
+            status = HCInteriorTemplates.HCLoadStep(m_Config, m_PackBudget);
+            if (status == 1) { return; }
+            slice = slice + 1;
         }
-        s_Loaded = true;
-        int loadTicks = TickCount(loadStart);
-        Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Files.ToString() + " bytes=" + s_Bytes.ToString() + " load_ticks=" + loadTicks.ToString());
+        if (!HCInteriorTemplates.HCLoadFinished()) { return; }
+        m_PackLoading = false;
+        if (HCInteriorTemplates.Loaded())
+        {
+            s_Instance = this;
+            HCInteriorTemplatePlacement.Place(this, settings, m_Objects, -1);
+            if (!FileExist("$profile:HollowCountry/interiors.json")) { Print("[HC Interiors] legacy pilot absent; template path in use"); }
+        }
+        HCSearchBinding.TemplatesComplete(this);
+    }
+
+    override void OnStop()
+    {
+        m_PackLoading = false;
+        HCInteriorTemplates.HCLoadReset(true);
+        super.OnStop();
     }
 }
