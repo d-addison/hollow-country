@@ -311,7 +311,9 @@ class SourceWiringTests(unittest.TestCase):
     # CanStart) and by the two-consumer tests above (interiors, infected). This presence check stays as the
     # cheap guard that a loop was not re-pointed at another id, and that no consumer id is orphaned.
     def test_every_consumer_id_is_taken_somewhere_in_4_world(self):
-        sources = "".join(path.read_text() for path in (SCRIPTS / "4_World").rglob("*.c"))
+        # The Expansion AI addon charges the shared budget too (trade, #145).
+        addon = SCRIPTS.parents[1] / "HollowCountryExpansionAI/scripts/4_World"
+        sources = "".join(path.read_text() for root in (SCRIPTS / "4_World", addon) for path in root.rglob("*.c"))
         for name in CONST:
             if name in ("HC_WORK_CONSUMERS", "HC_WORK_UNBOUNDED"):
                 continue

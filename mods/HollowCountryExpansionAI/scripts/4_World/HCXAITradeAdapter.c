@@ -48,7 +48,7 @@ class HCXTradeInventoryScan
         if (Complete) { return null; }
         while (Frames.Count() > 0 && Visited < limit)
         {
-            if (!HCServer.HCTickWork().HCTake(1)) { return null; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_TRADE, 1)) { return null; }
             HCXTradeInventoryFrame frame = Frames[Frames.Count() - 1];
             EntityAI entity = frame.NodeEntity;
             if (!entity) { Frames.RemoveOrdered(Frames.Count() - 1); continue; }
@@ -101,7 +101,7 @@ class HCXTradeInventoryScan
 // Classes/EmoteManager.c:1026 CanPlayEmote; 3_Game/constants.c:368
 // ID_EMOTE_GREETING; 3_Game/Entities/Man.c:21 GetIdentity.
 // Bound by the modded HCXAIAdapter below (same start/stop as the other addon ports).
-// Greeting acknowledgements read HCSignalSerial + HCSignalGesture from HC-5;
+// Greeting acknowledgements read HCSignalGreetingSerial + HCSignalGesture from HC-5;
 // native/two-client acceptance remains pending. The producer supplies a funded
 // road plan; an unsolicited distant pair still declines with a named reason.
 class HCXAITradeAdapter : HCTradeInventory
@@ -262,7 +262,7 @@ class HCXAITradeAdapter : HCTradeInventory
     protected bool HCNewGreetings(eAIBase left, eAIBase right)
     {
         if (left.GetEmoteManager().HCSignalGesture() != EmoteConstants.ID_EMOTE_GREETING || right.GetEmoteManager().HCSignalGesture() != EmoteConstants.ID_EMOTE_GREETING) { return false; }
-        return m_Gestures.HCObserved(left.GetEmoteManager().HCSignalSerial(), right.GetEmoteManager().HCSignalSerial());
+        return m_Gestures.HCObserved(left.GetEmoteManager().HCSignalGreetingSerial(), right.GetEmoteManager().HCSignalGreetingSerial());
     }
 
     // Both actors must advance their server emote-callback serial after the baseline
@@ -273,10 +273,12 @@ class HCXAITradeAdapter : HCTradeInventory
         eAIBase left = eAIBase.Cast(LeftActor);
         eAIBase right = eAIBase.Cast(RightActor);
         if (!row || !left || !right || !left.GetEmoteManager() || !right.GetEmoteManager()) { return false; }
+        // Each side must see the other (fresh geometry); a greeting through a wall is not an exchange.
+        if (!HCXStance.Visible(left, right) || !HCXStance.Visible(right, left)) { return false; }
         string key = HCTradeGestureGate.HCKey(row);
         if (!m_Gestures.HCArmedFor(key))
         {
-            m_Gestures.HCArm(key, left.GetEmoteManager().HCSignalSerial(), right.GetEmoteManager().HCSignalSerial(), Recipe.GestureRequests);
+            m_Gestures.HCArm(key, left.GetEmoteManager().HCSignalGreetingSerial(), right.GetEmoteManager().HCSignalGreetingSerial(), Recipe.GestureRequests);
         }
         if (HCNewGreetings(left, right)) { return true; }
         if (m_Gestures.HCTakeRequest())
@@ -530,7 +532,7 @@ class HCXAITradeProducer
         int count = states.Count();
         if (count < 2) { return; }
         if (m_RightIndex >= count || m_LeftIndex >= count - 1) { m_LeftIndex = 0; m_RightIndex = 1; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_TRADE, 1)) { return; }
         HCXAISiteState left = states[m_LeftIndex];
         HCXAISiteState right = states[m_RightIndex];
         HCNextPair(count);

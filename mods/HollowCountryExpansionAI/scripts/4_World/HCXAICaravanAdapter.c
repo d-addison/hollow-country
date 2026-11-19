@@ -169,7 +169,7 @@ class HCXAICaravanRoads
             // HCTake (no consumer starvation credit) until the lead assigns the
             // independent HC_WORK_TRADE consumer slot. Never borrow another id.
             if (!m_Work.HCContinue()) { return; }
-            if (unit % Config.RoadNodesPerWorkUnit == 0 && !HCServer.HCTickWork().HCTake(1)) { return; }
+            if (unit % Config.RoadNodesPerWorkUnit == 0 && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_TRADE, 1)) { return; }
             if (Phase == "loading") { HCLoadNode(); }
             else if (Phase == "nearest") { HCNearest(); }
             else if (Phase == "search") { HCSearch(); }

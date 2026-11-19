@@ -131,7 +131,7 @@ class CaravanProviderBehavior(unittest.TestCase):
             children.append(N(GetInventory=lambda: inventory([]), GetType=lambda i=index: 'wanted' if i == 10 else 'other',
                               IsRuined=lambda: False, GetHierarchyRootPlayer=lambda: actor))
         scan = N(Actor=None, Wanted='', Found=None, Visited=0, Complete=False, Frames=EArray())
-        env = dict(HCEventArray=EArray, HCServer=N(HCTickWork=lambda: N(HCTake=take)),
+        env = dict(HCEventArray=EArray, HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: consumer == 10 and take(cost))), HCUnitBudget=N(HC_WORK_TRADE=10),
                    HCXTradeInventoryFrame=lambda: N(NodeEntity=None, Checked=False, Attachment=0, CargoIndex=0),
                    ItemBase=N(Cast=lambda entity: None if entity is actor else entity))
         bind(source, 'HCXTradeInventoryScan', scan, ('HCStart', 'HCStep', 'HCRetire'), env)
@@ -368,7 +368,7 @@ class CaravanProviderBehavior(unittest.TestCase):
                   Nodes=nodes, Frontier=EArray(), Path=EArray(), Phase='idle', Reason='',
                   m_Scan=0, m_Head=0, m_Start=-1, m_End=-1, m_StartGap=0, m_EndGap=0,
                   From=None, To=None, m_Length=0, m_Work=N(HCReset=lambda *a: None, HCContinue=lambda: True))
-        env = dict(HCEventArray=EArray, HCServer=N(HCTickWork=lambda: N(HCTake=take)),
+        env = dict(HCEventArray=EArray, HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: consumer == 10 and take(cost))), HCUnitBudget=N(HC_WORK_TRADE=10),
                    vector=N(Distance=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))**0.5, DistanceSq=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))))
         bind(source, 'HCXAICaravanRoads', graph, ('HCPlan', 'HCNearest', 'HCSearch', 'HCStep'), env)
         self.assertTrue(graph.HCPlan([0,0,0], [3,0,0]))

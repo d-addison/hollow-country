@@ -44,7 +44,9 @@ class HCUnitBudget
     // Wave 17: player-base stash scan (#151) and faction conflict outcomes (#146).
     static const int HC_WORK_BASES = 8;
     static const int HC_WORK_CONFLICT = 9;
-    static const int HC_WORK_CONSUMERS = 10;
+    // AI-to-AI caravan pairing and cargo scans (#145).
+    static const int HC_WORK_TRADE = 10;
+    static const int HC_WORK_CONSUMERS = 11;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
