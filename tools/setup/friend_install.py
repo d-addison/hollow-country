@@ -268,6 +268,13 @@ def load_bundle(bundle):
         raise Refused('bundle_tampered', 'these bundle files are missing or changed since the bundle was built: %s%s; '
                       'unzip the bundle again' % (', '.join(bad[:8]), ' and %d more' % (len(bad) - 8) if len(bad) > 8 else ''))
     listed = {row['path'] for row in rows}
+    folded = {}
+    for rel in sorted(listed):
+        folded.setdefault(rel.casefold(), []).append(rel)
+    clashes = [' / '.join(names) for names in folded.values() if len(names) > 1]
+    if clashes:
+        raise Refused('bundle_tampered', 'these bundle paths differ only by case and would overwrite each other on '
+                      'Windows: %s; unzip the bundle again' % ', '.join(clashes[:8]))
     absent = [rel for rel in ('start-server.bat', 'serverDZ-hollow-country.txt') if rel not in listed]
     if absent:
         raise Refused('bundle_tampered', '%s is not listed in %s; unzip the bundle again' % (', '.join(absent), BUNDLE_MANIFEST))
@@ -442,12 +449,13 @@ def analyze(ctx):
             for rel, source in bundle_walk(ctx.bundle, ctx.manifest, folder):
                 action, sha = classify_file(ctx, rel, source)
                 a.own.append((rel, source, action, sha))
-                expected.add(rel)
+                expected.add(rel.casefold())
             installed = ctx.server / folder / 'addons'
             if installed.is_dir() and not installed.is_symlink():
                 for path in sorted(installed.iterdir()):
                     rel = '%s/addons/%s' % (folder, path.name)
-                    if path.is_file() and path.suffix.lower() in ('.pbo', '.bisign') and rel not in expected:
+                    # NTFS is case-insensitive: a case-only variant of an expected file is the file just written.
+                    if path.is_file() and path.suffix.lower() in ('.pbo', '.bisign') and rel.casefold() not in expected:
                         a.stale.append(rel)
         for rel, source in bundle_walk(ctx.bundle, ctx.manifest, 'keys'):
             action, sha = classify_file(ctx, rel, source)
@@ -574,8 +582,10 @@ def track_target(ctx, rel, tree=False):
     safe_relative(rel)
     ws.check_no_symlink_below(ctx.server, rel)
     ensure_journal(ctx)
+    key = rel.casefold()
     for row in ctx.journal['entries']:
-        if rel == row['path'] or (row['kind'] == 'tree' and rel.startswith(row['path'] + '/')):
+        path = row['path'].casefold()
+        if key == path or (row['kind'] == 'tree' and key.startswith(path + '/')):
             return
     target = ctx.server / rel
     parent = Path(rel).parent

@@ -1566,3 +1566,32 @@ class ReviewRoundTwoTests(InstallerCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CaseFoldTests(InstallerCase):
+    """Synthetic NTFS case-insensitivity fixtures (review P2-1/P2-2); no Windows behavior is established."""
+
+    def test_a_case_only_variant_of_an_expected_pbo_is_not_treated_as_stale(self):
+        put(self.server, '@HollowCountry/addons/HollowCountry.pbo', b'OLD CASE')
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertTrue((self.server / '@HollowCountry/addons/HollowCountry.pbo').exists())
+        self.assertEqual(list((self.server / fi.BACKUP_DIR).rglob('HollowCountry.pbo')), [])
+
+    def test_a_bundle_listing_two_paths_that_differ_only_by_case_refuses(self):
+        put(self.bundle, 'profiles/HollowCountry/Settings.json', '{"EnableX": false}')
+        write_manifest(self.bundle)
+        code, out, err = self.run_cli()
+        self.assertEqual(code, 2)
+        self.assertIn('bundle_tampered', err)
+        self.assertIn('differ only by case', err)
+
+    def test_track_target_treats_a_case_variant_as_already_captured(self):
+        ctx = mock.Mock()
+        ctx.server = self.server
+        ctx.backup_root = self.tmp / 'backup-root'
+        ctx.journal = {'entries': [{'path': '@HollowCountry/addons/hollowcountry.pbo', 'kind': 'file'}]}
+        with mock.patch.object(fi, 'ensure_journal'), mock.patch.object(fi, 'record_written') as recorded:
+            fi.track_target(ctx, '@HollowCountry/addons/HollowCountry.PBO')
+        recorded.assert_not_called()
+        self.assertEqual(len(ctx.journal['entries']), 1)
