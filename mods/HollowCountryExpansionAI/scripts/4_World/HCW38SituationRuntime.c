@@ -152,7 +152,7 @@ class HCW38SituationRuntime
         if (!states || states.Count() == 0) { return ""; }
         for (int visited = 0; visited < s_Policy.ScanRows && visited < states.Count(); visited++)
         {
-            if (!HCServer.HCTickWork().HCTake(1)) { return ""; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return ""; }
             s_Cursor = s_Cursor % states.Count();
             HCXAISiteState candidate = states[s_Cursor];
             s_Cursor++;
@@ -195,7 +195,7 @@ class HCW38SituationRuntime
         if (!states || states.Count() == 0) { return null; }
         for (int checked = 0; checked < s_Policy.ScanRows && checked < states.Count(); checked++)
         {
-            if (!HCServer.HCTickWork().HCTake(1)) { return null; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return null; }
             s_TargetCursor = s_TargetCursor % states.Count();
             HCXAISiteState target = states[s_TargetCursor];
             s_TargetCursor++;
@@ -246,7 +246,7 @@ class HCW38SituationRuntime
             inspected++;
             if (vector.DistanceSq(position, leader.GetPosition()) > s_Policy.ShelterMeters * s_Policy.ShelterMeters) { continue; }
             if (director.MemberProblemFor(position) != "") { continue; }
-            if (!HCServer.HCTickWork().HCTake(8)) { break; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { break; }
             // Placement is a qualified existing navmesh point, checked out of
             // every player's sight by the existing site director immediately
             // before creation. No combat target is assigned to the infected.

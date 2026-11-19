@@ -120,7 +120,7 @@ class HCEventCacheSpawner
         if (!HCPhysicalEnabled()) { return null; }
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         if (!policy) { return null; }
-        if (!HCServer.HCTickWork().HCTake(8)) { return null; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { return null; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(anchor, mission.Radius, nearby, proxies);

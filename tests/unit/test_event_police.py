@@ -216,12 +216,12 @@ class PoliceBinding(sites.Fixture):
         self.assertEqual(0, len(self.spawner.PoliceLedger().m_Granted))
 
     def test_shared_budget_refuses_scan_and_allows_later_retry(self):
-        self.e['HCServer'] = N(HCTickWork=lambda: N(HCTake=lambda cost: False))
+        self.e['HCServer'] = N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: False))
         for _ in range(3):
             self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
         self.assertEqual([], self.scans)
         self.assertEqual([], self.game.created)
-        self.e['HCServer'] = N(HCTickWork=lambda: N(HCTake=lambda cost: True))
+        self.e['HCServer'] = N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: consumer == 11))
         self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
         self.assertEqual([], self.game.created)
 

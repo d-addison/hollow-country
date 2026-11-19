@@ -180,7 +180,8 @@ class Fixture(unittest.TestCase):
         self.e["HCEventRewardIO"] = FakeIO
         self.e["HCEventSitesGate"] = N(Admitted=lambda: True)
         self.e["HCW38SituationPolicy"] = N(HCGet=lambda: N(PhysicalScanObjects=64, PhysicalScanCargo=16))
-        self.e["HCServer"] = N(HCTickWork=lambda: N(HCTake=lambda cost: True))
+        self.e["HCServer"] = N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: consumer == 11))
+        self.e["HCUnitBudget"] = N(HC_WORK_SITUATIONS=11)
         self.e["FileExist"] = lambda path: False
         self.e["HCV2Admission"] = N(Line=lambda *args: "synthetic admission runtime=PENDING")
 
@@ -560,7 +561,7 @@ class ObjectiveAdapters(Fixture):
         self.f = runtime_tests.NativeObservationTests()
         self.f.setUp()
         self.f.e.update({k: v for k, v in self.e.items() if k in (
-            "HCW38SituationPolicy", "HCServer", "FileExist", "HCV2Admission",
+            "HCW38SituationPolicy", "HCServer", "HCUnitBudget", "FileExist", "HCV2Admission",
             "HCEventSitesGate", "HCEventRewardIO", "ECE_PLACE_ON_SURFACE", "ECE_NOPERSISTENCY_WORLD", "ECE_NOLIFETIME")})
         self.f.e["Print"] = self.logs.append
         self.f.e["native_int"] = self.e["native_int"]

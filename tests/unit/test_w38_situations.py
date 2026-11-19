@@ -89,7 +89,7 @@ class Situations(unittest.TestCase):
                    s_Policy=N(MaxThreats=2, MaxRouteNodes=32, ShelterMeters=20, InfectedClass='native-infected'),
                    eAIBase=N(Cast=lambda actor: actor), ZombieBase=N(Cast=lambda actor: actor),
                    HCXAISiteDirector=N(Active=lambda: director),
-                   HCServer=N(HCTickWork=lambda: N(HCTake=lambda cost: True)),
+                   HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: consumer == 11)), HCUnitBudget=N(HC_WORK_SITUATIONS=11),
                    GetGame=lambda: N(CreateObjectEx=lambda kind,p,flags: made.append((kind,p,flags)) or N()),
                    vector=N(DistanceSq=lambda a,b: (a-b)**2),
                    ECE_INITAI=1, ECE_PLACE_ON_SURFACE=2, HCRefuse=lambda reason: False)
@@ -148,7 +148,7 @@ class Situations(unittest.TestCase):
         env = dict(EArray=EArray, FileExist=lambda path: False, HCPhysicalEnabled=lambda: True,
             GetGame=lambda: N(IsServer=lambda: True,
                 GetObjectsAtPosition3D=lambda at, radius, nearby, proxies: nearby.append(cache)),
-            HCServer=N(HCTickWork=lambda: N(HCTake=lambda cost: True)),
+            HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: consumer == 11)), HCUnitBudget=N(HC_WORK_SITUATIONS=11),
             HCEventSitesGate=N(Admitted=lambda: True), ItemBase=N(Cast=lambda item: item),
             HCW38SituationPolicy=N(HCGet=lambda: N(PhysicalScanObjects=64, PhysicalScanCargo=16)),
             vector=N(DistanceSq=lambda a,b: (a-b)**2),
