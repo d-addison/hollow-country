@@ -19,4 +19,6 @@ class HCXAISituationAdapter : HCSituationActorPort
     }
     override bool HCReady() { return false; }
     override string HCSelect(HCSituationState opportunity) { return ""; }
+    override bool HCBegin(HCSituationState opportunity) { return false; }
+    override string HCObserve(HCSituationState opportunity) { return ""; }
 }

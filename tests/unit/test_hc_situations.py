@@ -20,6 +20,17 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'mods/HollowCountry/scripts'
 
 
+def cached_status():
+    """Execute the HC-1 cache, with explicit synthetic native strings."""
+    env = {}
+    source = (SCRIPTS/'3_Game/HCOperationalStatus.c').read_text().replace('    protected ', '    ')
+    translate(source, 'HCOperationalStatus', env, only=('HCPublish', 'HCState', 'HCReason'))
+    owner = N(m_State=EStr('unknown'), m_Reason=EStr('owner_state_unknown'), m_Readiness=EStr('unknown'))
+    for name in ('HCPublish', 'HCState', 'HCReason'):
+        setattr(owner, name, MethodType(env[name], owner))
+    return owner
+
+
 def director_fixture(image=None, enabled=True, fail=False):
     """Explicit synthetic DTO, HC-19 save barrier, HC-10 claim and actor port.
 
@@ -27,12 +38,12 @@ def director_fixture(image=None, enabled=True, fail=False):
     gameplay policy: all transitions/retirement decisions execute Enforce bodies.
     """
     source = (SCRIPTS/'4_World/Events/HCSituationDirector.c').read_text()
-    source = source.replace('    protected ', '    ')
+    source = source.replace('    protected ', '    ').replace('array<string> ', 'EArray ').replace('array<ref HCSituationProfileRow>', 'Slots')
     chain = N(Id=EStr('hc-story-5'), StorySequence=5, DueAt=100, ExpiresAt=200,
               Complete=False, Cancelled=False)
     state = copy.deepcopy(image) if image else N(LastNow=100,
-        Stories=N(LegacyThrough=4, NextSequence=6, HCFirstSurvivor=None), Chains=EArray([chain]))
-    calls, logs, images = [], [], []
+        Stories=N(LegacyThrough=4, NextSequence=6, HCFirstSurvivor=None, HCSituations=None), Chains=EArray([chain]))
+    calls, logs, images, selected_profiles = [], [], [], []
     actors = N(HCReady=lambda: True, HCRefusal=lambda: EStr('NO_OBSERVED_SURVIVOR'),
                HCSelect=lambda row: EStr('synthetic-owned-lease'),
                HCBegin=lambda row: calls.append(('begin', row.Lease)) or True,
@@ -43,29 +54,41 @@ def director_fixture(image=None, enabled=True, fail=False):
             return False
         images.append(copy.deepcopy(value))
         return True
+    refused = N(HCReady=lambda: False, HCRefusal=lambda: EStr('PROFILE_PROVIDER_UNAVAILABLE'),
+                HCSelect=lambda row: (_ for _ in ()).throw(AssertionError('refused select')),
+                HCBegin=lambda row: (_ for _ in ()).throw(AssertionError('refused begin')),
+                HCObserve=lambda row: EStr(''), HCEnd=lambda row: calls.append(('end-refused', row.Lease)))
+    def profile_port(profile):
+        selected_profiles.append(profile)
+        return actors if profile == 'survivor' else refused
     env = dict(GetGame=lambda: N(IsServer=lambda: True), Print=logs.append,
                HCV2Admission=N(Admitted=lambda preference: preference),
                HCStoryPolicy=N(HCValid=lambda s: True),  # Synthetic already-admitted HC-19 owner.
                HCEventDirector=N(TextValid=lambda s, n: 0 < len(s) <= n),
-               HCSituationActors=N(HCGet=lambda: actors),
+               HCSituationActors=N(HCGet=lambda: actors, HCForProfile=profile_port),
+               HCSituationLimits=N(MAX_PROFILE_ROWS=5), EArray=EArray,
+               HCSituationProfileRow=lambda: N(Profile=EStr(''), Enabled=False,
+                   LifetimeSeconds=0, Attempted=False, Opportunity=None, Actors=None),
                HCWorldMaterializer=N(HCIdentity=lambda lease: object() if lease == 'synthetic-owned-lease' else None),
-               HCSituationState=lambda: N(Version=1, Id=EStr(''), StorySequence=0, DueAt=0,
+               HCSituationState=lambda: N(Version=1, Profile=EStr(''), Id=EStr(''), StorySequence=0, DueAt=0,
                    EndsAt=0, Phase=EStr('pending'), Outcome=EStr(''), Lease=EStr(''), Refusal=EStr('')),
                HCOperationalStatus=lambda: N(HCPublish=lambda *args: calls.append(('status', args))))
     table, _ = methods(source, 'HCSituationDirector')
     translate(source, 'HCSituationDirector', env)
     owner = N(m_State=None, m_Store=None, m_Actors=None, m_Enabled=False,
+              m_Rows=EArray(), m_Cursor=0, m_Status=cached_status(),
               m_Fault=False, m_Attempted=False, m_Effective=EStr('off'), m_Reason=EStr('not_started'),
               m_Units=N(HCReset=lambda n: calls.append(('units', n)), HCTake=lambda n: True),
               m_Work=N(HCReset=lambda n: None, HCContinue=lambda: True))
     for name, (static, _, _) in table.items():
         setattr(owner, name, env[name] if static else MethodType(env[name], owner))
     owner.HCOpen(state, N(Save=save), enabled)
-    return N(owner=owner, state=state, actors=actors, calls=calls, logs=logs, images=images)
+    return N(owner=owner, state=state, actors=actors, calls=calls, logs=logs, images=images, selected_profiles=selected_profiles)
 
 
 class SituationBehavior(unittest.TestCase):
     def test_independent_lifecycle_and_retired_quest_requests(self):
+        self.check_named_profile_wiring()
         # Existing restricted transport port executes the actual OnRPC handler
         # with synthetic native identities, journal and transport. No reward
         # grant is fabricated: legacy runtime already blocks reward completion.
@@ -244,7 +267,7 @@ class SituationBehavior(unittest.TestCase):
         for profile in manifest.Profiles:
             identity = policies['HCIdentity'](run.state.Chains[0], profile)
             identities.append(identity)
-            opportunity = N(Version=1, Id=identity, StorySequence=NativeInt(5), DueAt=100,
+            opportunity = N(Version=1, Profile=EStr(''), Id=identity, StorySequence=NativeInt(5), DueAt=100,
                             EndsAt=100 + profile.LifetimeSeconds, Phase=EStr('pending'),
                             Lease=EStr(''), Outcome=EStr(''), Refusal=EStr(''))
             self.assertTrue(policies['HCOpportunityValid'](profile, opportunity, run.state.Stories))
@@ -295,7 +318,7 @@ class SituationBehavior(unittest.TestCase):
                 setattr(owner, name, MethodType(lifecycle[name], owner))
             owner.HCOpen(enabled)
             owner.HCOpen(enabled)
-            self.assertEqual(2, len(receipts))
+            self.assertEqual(1, len(receipts))
             self.assertTrue(all('lease=none' in line and 'runtime=PENDING' in line for line in receipts))
             return owner, loads, receipts, status
         transit_off, off_loads, _, off_status = transit_boot(False)
@@ -304,7 +327,7 @@ class SituationBehavior(unittest.TestCase):
         transit_on, on_loads, on_receipts, on_status = transit_boot(True)
         self.assertEqual(['load'], on_loads)
         self.assertEqual(('refused', 'TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED'), on_status[-1])
-        self.assertTrue(all('authored=1 admitted=0 observed=0' in line for line in on_receipts))
+        self.assertTrue(all('authored=2 admitted=0 observed=0' in line for line in on_receipts))
         transit_on.HCClose()
         close_receipts = len(on_receipts)
         transit_on.HCClose()
@@ -315,6 +338,192 @@ class SituationBehavior(unittest.TestCase):
         _, bad_loads, _, bad_status = transit_boot(True, None)
         self.assertEqual(['load'], bad_loads)
         self.assertEqual(('refused', 'TRANSIT_MANIFEST_INVALID'), bad_status[-1])
+
+    def check_named_profile_wiring(self):
+        run = director_fixture()
+        names = ('survivor', 'raid', 'column', 'roadside-position', 'threatened-exodus')
+        self.assertEqual(list(names), [slot.Profile for slot in run.owner.m_Rows])
+        self.assertEqual(5, run.owner.HCCount())
+        self.assertFalse(run.owner.HCEnableProfile('sixth', True, 0))
+        for name in names[1:]:
+            self.assertTrue(run.owner.HCEnableProfile(name, True, 0))
+        self.assertTrue(run.owner.HCOffer(run.state.Chains[0]))
+        self.assertEqual(1, len(run.images), 'all named offers share one durable barrier')
+        self.assertEqual(4, len(run.state.Stories.HCSituations))
+        self.assertEqual(5, len({row.Id for row in
+            [run.state.Stories.HCFirstSurvivor] + run.state.Stories.HCSituations}))
+        self.assertFalse(run.owner.HCOffer(run.state.Chains[0]))
+        self.assertEqual(1, len(run.images), 'retained identities never replay')
+        # One retained row per budgeted step, with independent attempts/leases.
+        for _ in names:
+            run.owner.HCStep(100)
+        self.assertEqual(1, sum(call[0] == 'begin' for call in run.calls))
+        self.assertTrue(all(row.Phase == 'pending' for row in run.state.Stories.HCSituations))
+        self.assertEqual(list(names), run.selected_profiles[:5])
+        self.assertIs(run.owner.HCStatus(), run.owner.HCStatus())
+        legacy = copy.deepcopy(run.images[0])
+        legacy.Stories.HCSituations = None  # Native absent additive array.
+        old = director_fixture(legacy)
+        self.assertEqual(5, old.owner.HCCount())
+        self.assertEqual('pending', old.state.Stories.HCFirstSurvivor.Phase)
+        corrupt = copy.deepcopy(run.images[0])
+        corrupt.Stories.HCSituations.append(copy.deepcopy(corrupt.Stories.HCSituations[0]))
+        self.assertFalse(director_fixture(corrupt).owner.m_Enabled)
+        zero_version = copy.deepcopy(run.images[0])
+        zero_version.Stories.HCSituations[0].Version = 0
+        self.assertFalse(director_fixture(zero_version).owner.m_Enabled)
+        duplicate_lease = copy.deepcopy(run.images[0])
+        for row in duplicate_lease.Stories.HCSituations[:2]:
+            row.Lease, row.Phase = EStr('synthetic-owned-lease'), EStr('active')
+        self.assertFalse(director_fixture(duplicate_lease).owner.m_Enabled)
+        # Existing restricted actor selection dispatches by exact profile.
+        actor_source = (SCRIPTS/'4_World/Events/HCSituationDirector.c').read_text()
+        actor_source = actor_source.replace('s_Adapter', 'HCSituationActors.s_Adapter')
+        actor_source = actor_source.replace('s_Raid', 'HCSituationActors.s_Raid')
+        actor_source = actor_source.replace('s_Transit', 'HCSituationActors.s_Transit')
+        actor_source = actor_source.replace('s_Unavailable', 'HCSituationActors.s_Unavailable')
+        registry = N(s_Adapter=object(), s_Raid=object(), s_Transit=object(), s_Unavailable=object())
+        actor_env = dict(HCSituationActors=registry)
+        translate(actor_source, 'HCSituationActors', actor_env, only=('HCForProfile',))
+        for name, expected in zip(names, (registry.s_Adapter, registry.s_Raid, registry.s_Raid,
+                                           registry.s_Transit, registry.s_Transit)):
+            self.assertIs(expected, actor_env['HCForProfile'](name))
+        self.assertIs(registry.s_Unavailable, actor_env['HCForProfile']('unknown'))
+        self.check_module_wiring()
+
+    def check_module_wiring(self):
+        source = (SCRIPTS/'4_World/Events/HCEventModule.c').read_text()
+        for fragment in ('new HCSituationDirector', 'new HCCampRaidSituation',
+                         'new HCTransitSituation', 'm_Situations.HCStep(',
+                         'm_Situations.HCClose()', 'm_Raids.HCClose()',
+                         'm_Transit.HCClose()', 'override HCOperationalStatus HCGetOperationalStatus()'):
+            self.assertIn(fragment, source)
+        source = source.replace('    protected ', '    ').replace('    override ', '    ')
+        for field in ('s_SituationOwner', 's_Instance', 's_CleanupOwner'):
+            source = source.replace(field, 'HCEventModule.' + field)
+        source = source.replace('this', 'self').replace('array<ref HCEventMission> ', 'Roster ')
+        raid_source = (SCRIPTS/'4_World/Events/HCCampRaidSituation.c').read_text().replace('    protected ', '    ')
+        transit_source = (SCRIPTS/'4_World/Events/HCTransitSituation.c').read_text().replace('    protected ', '    ')
+        raid_json = json.loads((ROOT/'mission/hollow-country/events/raids.json').read_text())
+        transit_json = json.loads((ROOT/'mission/hollow-country/events/transit-situations.json').read_text())
+        def dto(value):
+            if isinstance(value, dict):
+                return N(**{key: dto(item) for key, item in value.items()})
+            if isinstance(value, list):
+                return EArray(dto(item) for item in value)
+            return EStr(value) if isinstance(value, str) else value
+        raid_config, transit_config = dto(raid_json), dto(transit_json)
+        for enabled, bind_source in ((True, True), (False, True), (True, False)):
+            loads, receipts, published, directors = [], [], [], []
+            upstream = director_fixture()
+            bound = N(state=upstream.state if bind_source else None,
+                      store=upstream.owner.m_Store if bind_source else None)
+            native = N(game=N(IsServer=lambda: True, GetTickTime=lambda: 200))
+            common = dict(GetGame=lambda: native.game,
+                          HCV2Admission=N(Admitted=lambda preference: preference), Print=receipts.append)
+            def raid_factory():
+                env = dict(common, HCCampRaidActors=N(HCGet=lambda: N(HCRefusal=lambda: EStr('RAID_PROVIDER_UNAVAILABLE'))))
+                table, _ = methods(raid_source, 'HCCampRaidSituation')
+                translate(raid_source, 'HCCampRaidSituation', env,
+                          only=tuple(name for name in table if name != 'HCLoad'))
+                owner = N(m_Config=None, m_Enabled=False, m_Reports=0, m_Status=cached_status(),
+                          m_Effective=EStr('off'), m_Reason=EStr('not_started'))
+                for name, (static, _, _) in table.items():
+                    if name != 'HCLoad':
+                        setattr(owner, name, env[name] if static else MethodType(env[name], owner))
+                return owner
+            def transit_factory():
+                env = dict(common, HCLoad=lambda: loads.append('transit') or transit_config)
+                names = ('HCOpen', 'HCClose', 'HCReport', 'HCStatus', 'HCFind')
+                translate(transit_source, 'HCTransitSituation', env, only=names)
+                owner = N(m_Opened=False, m_Closed=False, m_Manifest=None, m_Authored=0,
+                          m_Status=cached_status(), m_Effective=EStr('off'), m_Reason=EStr('not_started'))
+                for name in names:
+                    setattr(owner, name, MethodType(env[name], owner))
+                return owner
+            def director_factory():
+                run = director_fixture(enabled=False)
+                run.actors.HCReady = lambda: False
+                directors.append(run)
+                return run.owner
+            # Static load and instance construction are distinct authored ports.
+            raid_factory.HCLoad = lambda: loads.append('raid') or raid_config
+            module_type = N(s_SituationOwner=None, s_Instance=None, s_CleanupOwner=None)
+            env = dict(common, HCEventModule=module_type,
+                       HCSituationDirector=director_factory, HCCampRaidSituation=raid_factory,
+                       HCTransitSituation=transit_factory,
+                       # Shipping transit port: unbound, so the unavailable port refuses.
+                       HCSituationActors=N(HCForProfile=lambda profile: N(HCReady=lambda: False)),
+                       HCSituationSource=N(HCState=lambda: bound.state, HCStore=lambda: bound.store),
+                       HCGroupClock=N(Utc=lambda: 1577836900),
+                       HCOperationalContributors=N(HCRegisterOwner=lambda name:
+                           N(HCObserve=lambda requested, status, now: published.append((name, requested, status.HCState())))))
+            names = ('HCStartSituations', 'HCStepSituations', 'HCPublishSituations',
+                     'HCCloseSituations', 'HCGetOperationalStatus', 'OnStart', 'OnTick', 'OnStop')
+            translate(source, 'HCEventModule', env, only=names)
+            module = N(m_SituationStatus=cached_status(), m_Situations=None, m_Raids=None,
+                       m_Transit=None, m_Runtime=None, m_EventRPC=None, m_Config=N(Enabled=False))
+            for name in names:
+                setattr(module, name, MethodType(env[name], module))
+            module.OnStart(N(EnableEncounters=enabled))
+            director, raids, transit = module.m_Situations, module.m_Raids, module.m_Transit
+            self.assertEqual(['raid', 'transit'] if enabled else [], loads)
+            self.assertEqual(1, sum('HC-39' in line for line in receipts))
+            self.assertEqual(1, sum('HC-40' in line for line in receipts))
+            self.assertEqual('off', raids.HCStatus().HCState())
+            self.assertEqual('refused' if enabled else 'off', transit.HCStatus().HCState())
+            self.assertIs(raids.HCStatus(), raids.HCStatus())
+            self.assertIs(transit.HCStatus(), transit.HCStatus())
+            self.assertIs(module.HCGetOperationalStatus(), module.HCGetOperationalStatus())
+            for _ in range(12):
+                module.OnTick(1)
+            self.assertEqual(['raid', 'transit'] if enabled else [], loads, 'tick never reloads manifests')
+            self.assertEqual('pending' if enabled and bind_source else None,
+                getattr(upstream.state.Stories.HCFirstSurvivor, 'Phase', None))
+            self.assertEqual(0, len(upstream.state.Stories.HCSituations or []),
+                'unready transit providers write no durable situation rows')
+            rows = [getattr(row, 'Profile', '') for row in (upstream.state.Stories.HCSituations or [])]
+            # A refused transit port must not write durable rows: history admits one
+            # row per profile, so an unready provider would burn the profile for the world.
+            self.assertNotIn('roadside-position', rows)
+            self.assertNotIn('threatened-exodus', rows)
+            self.assertFalse(any(call[0] == 'begin' for run in directors for call in run.calls),
+                             'shipping-style refused ports never begin an actor action')
+            self.assertEqual(1 if enabled and bind_source else 0, len(upstream.images))
+            self.assertEqual(3, len({name for name, _, _ in published}))
+            module.OnStop()
+            count = len(receipts)
+            module.OnStop()
+            module.OnTick(1)
+            self.assertEqual(count, len(receipts))
+            self.assertEqual('off', module.HCGetOperationalStatus().HCState())
+            self.assertIsNone(module.m_Situations)
+            module.OnStart(N(EnableEncounters=enabled))
+            self.assertIsNot(director, module.m_Situations)
+            self.assertEqual(['raid', 'transit'] * 2 if enabled else [], loads)
+            native.game = None  # Shutdown must still release/cache without a Game singleton.
+            module.OnStop()
+
+        # Exact shared binding clears only its own live source, after requesting
+        # situation closure. There is no second state/store or null-before-close.
+        source_port = (SCRIPTS/'4_World/Events/HCSituationDirector.c').read_text()
+        source_port = source_port.replace('s_State', 'HCSituationSource.s_State')
+        source_port = source_port.replace('s_Store', 'HCSituationSource.s_Store')
+        registry = N(s_State=None, s_Store=None)
+        closures = []
+        ports = dict(HCSituationSource=registry,
+                     HCEventModule=N(HCSourceClosing=lambda: closures.append((registry.s_State, registry.s_Store))))
+        translate(source_port, 'HCSituationSource', ports)
+        live_state, live_store = N(synthetic='state'), N(synthetic='store')
+        ports['HCBind'](live_state, live_store)
+        ports['HCClear'](N(synthetic='other-owner'))
+        self.assertEqual([], closures)
+        self.assertIs(live_state, ports['HCState']())
+        ports['HCClear'](live_state)
+        ports['HCClear'](live_state)
+        self.assertEqual([(live_state, live_store)], closures)
+        self.assertIsNone(ports['HCState']())
+        self.assertIsNone(ports['HCStore']())
 
     def check_raid_profiles(self):
         manifest = json.loads((ROOT/'mission/hollow-country/events/raids.json').read_text())
@@ -333,13 +542,17 @@ class SituationBehavior(unittest.TestCase):
                         State='OCCUPIED', ReoccupyAfter=0))
         leases = {'synthetic-lease': identity, 'synthetic-target': target_identity}
         proposal = N(Id='synthetic-lease', Identity=identity, Kind='RAIDER', FactionId='raiders')
-        opportunity = N(Version=1, Id=EStr('hc-story-5-raid'), StorySequence=5,
+        opportunity = N(Version=1, Profile=EStr(''), Id=EStr('hc-story-5-raid'), StorySequence=5,
                         Phase='pending', DueAt=100, EndsAt=500, Lease=EStr(''),
                         Outcome='', Refusal=EStr(''))
         progress = N(LegacyThrough=4, NextSequence=6)
         adapter_env = {}
         adapter_source = (ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRaidAdapter.c').read_text()
         translate(adapter_source.replace('    override ', '    '), 'HCXAIRaidAdapter', adapter_env)
+        self.assertFalse(adapter_env['HCReady'](N()))
+        self.assertEqual('', adapter_env['HCSelect'](N(), opportunity))
+        self.assertFalse(adapter_env['HCBegin'](N(), opportunity))
+        self.assertEqual('', adapter_env['HCObserve'](N(), opportunity))
         provider = N(HCRefusal=lambda: adapter_env['HCRefusal'](N()))
         env = dict(HCWorldLimits=N(Token=lambda s: bool(s) and len(s) <= 96),
                    HCAIPartyIdentity=N(HCValid=lambda value: value is not None),
@@ -353,7 +566,8 @@ class SituationBehavior(unittest.TestCase):
                    HCCampRaidActors=N(HCGet=lambda: provider),
                    HCOperationalStatus=lambda: N(HCPublish=lambda *args: calls.append(args)))
         source = (SCRIPTS/'4_World/Events/HCCampRaidSituation.c').read_text().replace('    protected ', '    ')
-        translate(source, 'HCCampRaidSituation', env)
+        raid_methods, _ = methods(source, 'HCCampRaidSituation')
+        translate(source, 'HCCampRaidSituation', env, only=tuple(name for name in raid_methods if name != 'HCLoad'))
         self.assertTrue(env['HCValidConfig'](config))
         config.Version = 0  # Native missing-int behavior: never silently upgrade or enable.
         self.assertFalse(env['HCValidConfig'](config))
@@ -401,9 +615,12 @@ class SituationBehavior(unittest.TestCase):
         leases['synthetic-target'] = target_identity
 
         owner = N(m_Config=None, m_Enabled=False, m_Reports=0,
+                  m_Status=N(HCPublish=lambda *args: None),
                   m_Effective=EStr('off'), m_Reason=EStr('not_started'))
         table, _ = methods(source, 'HCCampRaidSituation')
         for name, (static, _, _) in table.items():
+            if name == 'HCLoad':
+                continue
             setattr(owner, name, env[name] if static else MethodType(env[name], owner))
         owner.HCOpen(None, True)
         self.assertEqual('refused', owner.m_Effective, 'a failed config load must not look operator-disabled')

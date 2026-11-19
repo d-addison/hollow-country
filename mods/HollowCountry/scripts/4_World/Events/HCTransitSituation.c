@@ -2,7 +2,7 @@
 // situation director, population owner, route planner or persistence service.
 // Spec/plan/task: HC-19 issues fresh durable identities -> HC-38 intent/store
 // barriers -> existing HC-10 lease -> HC-36 verified walking route. The last
-// seam is absent in this checkout; source authoring stops at named refusal.
+// seam has no provider/clearance evidence; admission stops at named refusal.
 // HC-5/37 remain the sole observed signal, stance and betrayal owners.
 //
 // Native scripts-1.30.164289 inspected evidence:
@@ -121,14 +121,14 @@ class HCTransitSituation
     void HCReport(string kind, string phase)
     {
         string authored = "0";
-        if (m_Authored == 2) { authored = "1"; }
+        if (m_Authored == 2) { authored = "2"; }
         string line = "[HC Plan] HC-40 kind=" + kind + " lease=none phase=" + phase;
         line += " state=" + m_Effective + " refusal=" + m_Reason;
         line += " authored=" + authored + " admitted=0 observed=0 count_cap=2 runtime=PENDING";
         Print("" + line);
     }
 
-    // The lead wires HCEventModule to call this once at startup, never from an offer/tick
+    // HCEventModule calls this once at startup, never from an offer/tick
     // loop. Startup diagnostics only: no module registration or actor ownership.
     void HCOpen(bool enabled)
     {
@@ -148,8 +148,7 @@ class HCTransitSituation
             }
         }
         m_Status.HCPublish(m_Effective, m_Reason);
-        HCReport("roadside", m_Effective);
-        HCReport("exodus", m_Effective);
+        HCReport("roadside,exodus", m_Effective);
     }
 
     HCOperationalStatus HCStatus() { return m_Status; }
@@ -162,8 +161,7 @@ class HCTransitSituation
         m_Effective = "off";
         m_Reason = "owner_closed";
         m_Status.HCPublish(m_Effective, m_Reason);
-        HCReport("roadside", "off");
-        HCReport("exodus", "off");
+        HCReport("roadside,exodus", "off");
         // No actor, provider override, reservation or inventory to release.
         // HC-38/HC-10 own all future bindings and uncertain-stop reconciliation.
     }

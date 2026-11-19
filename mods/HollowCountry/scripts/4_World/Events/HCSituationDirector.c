@@ -1,15 +1,22 @@
-// HC-38 / #147/#148. One pinned survivor opportunity, carried by HC-19's
-// schedule/store, NOT another module, scheduler, spawner or scenario engine.
+// HC-38/39/40, Wave 6 / #147/#146: five retained named profiles, one HC-19
+// state/store, transition barrier and HC-10 lease validator. No new scheduler,
+// routine save, actor/cargo owner or gameplay capability. Runtime PENDING.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:1120 IsServer;
-// 1_Core/proto/EnDebug.c:96 Print. All remaining calls are existing HC ports.
-// Only transition barriers save (HCSceneChainStore.Save: verified intent,
-// backup/copy/readback); routine saves remain with the owner's HCSaveJob.
-// Backup scene-chains.json with world/custody AND engine inventory. An unknown
-// result never recreates a body, replenishes cargo or restarts this identity.
+// 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnDebug.c:96 Print;
+// 1_Core/proto/EnScript.c:380 Count, :394 Find, :407 Insert; EnString.c:199 Length.
+// Backup scene-chains.json with world/custody AND engine inventory.
+
+class HCSituationLimits
+{
+    static const int MAX_PROFILE_ROWS = 5;
+}
 
 class HCSituationState
 {
     int Version = 1;
+    // Empty only for the legacy HCFirstSurvivor. No new version/int migration:
+    // absent additive strings/arrays mean legacy; Version=0 is always refused.
+    string Profile;
     string Id;
     int StorySequence;
     int DueAt;
@@ -20,17 +27,14 @@ class HCSituationState
     string Refusal;
 }
 
-// Fixed-size retained history survives HC-19 retirement of its source chain.
-// Absent/null on old saves means no first opportunity has been issued yet.
 modded class HCStoryProgress
 {
     ref HCSituationState HCFirstSurvivor;
+    ref array<ref HCSituationState> HCSituations;
 }
 
-// Server-only binding to an EXISTING HC-10-owned survivor, never a client
-// request. Select is read-only; Begin can request a verified emote only AFTER
-// the intent barrier. End releases this observation binding, never the body,
-// cargo or HC-10 reservation. The provider continues its ordinary lifecycle.
+// Trusted server binding. Read-only selection precedes the durable intent;
+// Begin/Observe/End never transfer ownership of HC-10 bodies or cargo.
 class HCSituationActorPort
 {
     bool HCReady() { return false; }
@@ -44,32 +48,76 @@ class HCSituationActorPort
 class HCSituationActors
 {
     protected static ref HCSituationActorPort s_Adapter;
+    protected static ref HCSituationActorPort s_Raid;
+    protected static ref HCSituationActorPort s_Transit;
+    protected static ref HCSituationActorPort s_Unavailable = new HCSituationActorPort;
 
     static void HCBind(HCSituationActorPort adapter) { s_Adapter = adapter; }
-    static HCSituationActorPort HCGet()
+    static void HCBindRaid(HCSituationActorPort adapter) { s_Raid = adapter; }
+    static void HCBindTransit(HCSituationActorPort adapter) { s_Transit = adapter; }
+    static HCSituationActorPort HCGet() { return HCForProfile("survivor"); }
+    static HCSituationActorPort HCForProfile(string profile)
     {
-        if (s_Adapter) { return s_Adapter; }
-        return new HCSituationActorPort;
+        if (profile == "survivor" && s_Adapter) { return s_Adapter; }
+        if ((profile == "raid" || profile == "column") && s_Raid) { return s_Raid; }
+        if ((profile == "roadside-position" || profile == "threatened-exodus") && s_Transit) { return s_Transit; }
+        return s_Unavailable;
     }
+}
+
+// Scene owner publishes its EXACT live state/store after HC-19 opens and clears
+// before stopping. Never open another store over the same path. Missing binding
+// is a named refusal, not authority to synthesize a new world or story clock.
+class HCSituationSource
+{
+    protected static ref HCSceneChainState s_State;
+    protected static ref HCSceneChainStore s_Store;
+    static void HCBind(HCSceneChainState state, HCSceneChainStore store) { s_State = state; s_Store = store; }
+    static void HCClear(HCSceneChainState state)
+    {
+        if (s_State != state) { return; }
+        HCEventModule.HCSourceClosing();
+        s_State = null;
+        s_Store = null;
+    }
+    static HCSceneChainState HCState() { return s_State; }
+    static HCSceneChainStore HCStore() { return s_Store; }
+}
+
+class HCSituationProfileRow
+{
+    string Profile;
+    bool Enabled;
+    int LifetimeSeconds;
+    bool Attempted;
+    ref HCSituationState Opportunity;
+    ref HCSituationActorPort Actors;
 }
 
 class HCSituationDirector
 {
     protected ref HCSceneChainState m_State;
     protected ref HCSceneChainStore m_Store;
-    protected ref HCSituationActorPort m_Actors;
+    protected ref array<ref HCSituationProfileRow> m_Rows = new array<ref HCSituationProfileRow>;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected int m_Cursor;
     protected bool m_Enabled;
     protected bool m_Fault;
-    protected bool m_Attempted;
     protected string m_Effective = "off";
     protected string m_Reason = "not_started";
+
+    static bool HCProfileValid(string profile)
+    {
+        return profile == "survivor" || profile == "raid" || profile == "column" || profile == "roadside-position" || profile == "threatened-exodus";
+    }
 
     static bool HCValid(HCSituationState row, HCStoryProgress progress)
     {
         if (!row) { return true; }
         if (!progress || row.Version != 1 || !HCEventDirector.TextValid(row.Id, 48)) { return false; }
+        if (row.Profile != "" && !HCProfileValid(row.Profile)) { return false; }
         if (row.StorySequence <= progress.LegacyThrough || row.StorySequence >= progress.NextSequence) { return false; }
         if (row.DueAt < 1 || row.EndsAt <= row.DueAt || row.EndsAt > 1000086400) { return false; }
         if (row.Refusal.Length() > 96 || row.Lease.Length() > 96) { return false; }
@@ -79,8 +127,67 @@ class HCSituationDirector
         return row.Outcome == "dead" || row.Outcome == "departed" || row.Outcome == "unknown";
     }
 
+    static bool HCHistoryValid(HCStoryProgress progress)
+    {
+        if (!progress || !HCValid(progress.HCFirstSurvivor, progress)) { return false; }
+        array<string> profiles = new array<string>();
+        array<string> identities = new array<string>();
+        array<string> leases = new array<string>();
+        HCSituationState survivor = progress.HCFirstSurvivor;
+        if (survivor)
+        {
+            if (survivor.Profile != "" && survivor.Profile != "survivor") { return false; }
+            identities.Insert(survivor.Id);
+            if (survivor.Lease != "") { leases.Insert(survivor.Lease); }
+        }
+        // Old JSON images have no additive array. Never require an initializer
+        // to have survived native deserialization or infer a cooldown receipt.
+        if (!progress.HCSituations) { return true; }
+        if (progress.HCSituations.Count() >= HCSituationLimits.MAX_PROFILE_ROWS) { return false; }
+        foreach (HCSituationState row : progress.HCSituations)
+        {
+            if (!row || !HCValid(row, progress) || !HCProfileValid(row.Profile) || row.Profile == "survivor") { return false; }
+            if (profiles.Find(row.Profile) >= 0 || identities.Find(row.Id) >= 0) { return false; }
+            if (row.Lease != "" && leases.Find(row.Lease) >= 0) { return false; }
+            profiles.Insert(row.Profile);
+            identities.Insert(row.Id);
+            if (row.Lease != "") { leases.Insert(row.Lease); }
+        }
+        return true;
+    }
+
+    protected void HCAddProfile(string profile)
+    {
+        if (m_Rows.Count() >= HCSituationLimits.MAX_PROFILE_ROWS || HCFind(profile)) { return; }
+        HCSituationProfileRow slot = new HCSituationProfileRow;
+        slot.Profile = profile;
+        slot.Enabled = profile == "survivor";
+        m_Rows.Insert(slot);
+    }
+
+    HCSituationProfileRow HCFind(string profile)
+    {
+        foreach (HCSituationProfileRow slot : m_Rows)
+        {
+            if (slot.Profile == profile) { return slot; }
+        }
+        return null;
+    }
+
+    int HCCount() { return m_Rows.Count(); }
+
+    bool HCEnableProfile(string profile, bool enabled, int lifetimeSeconds)
+    {
+        HCSituationProfileRow slot = HCFind(profile);
+        if (!slot || lifetimeSeconds < 0 || lifetimeSeconds > 3600) { return false; }
+        slot.Enabled = enabled;
+        slot.LifetimeSeconds = lifetimeSeconds;
+        return true;
+    }
+
     void HCReport()
     {
+        m_Status.HCPublish(m_Effective, m_Reason);
         string identity = "none";
         string phase = "none";
         string pinned = "0";
@@ -90,21 +197,17 @@ class HCSituationDirector
             phase = m_State.Stories.HCFirstSurvivor.Phase;
             pinned = "1";
         }
+        // Preserve the first-survivor receipt byte for byte, including its cap.
         string line = "[HC Plan] HC-38 opportunity=" + identity + " phase=" + phase;
         line += " quest_ui=off state=" + m_Effective + " refusal=" + m_Reason;
         Print(line + " pinned=" + pinned + " count_cap=1 runtime=PENDING");
     }
 
-    HCOperationalStatus HCStatus()
-    {
-        HCOperationalStatus status = new HCOperationalStatus;
-        status.HCPublish(m_Effective, m_Reason);
-        return status;
-    }
+    HCOperationalStatus HCStatus() { return m_Status; }
 
     protected bool HCCommit()
     {
-        if (m_Fault || !HCValid(m_State.Stories.HCFirstSurvivor, m_State.Stories) || !m_Store.Save(m_State))
+        if (m_Fault || !HCHistoryValid(m_State.Stories) || !m_Store.Save(m_State))
         {
             m_Fault = true;
             m_Enabled = false;
@@ -119,135 +222,181 @@ class HCSituationDirector
 
     bool HCOpen(HCSceneChainState state, HCSceneChainStore store, bool enabled)
     {
-        // Caller must close before reuse. A fault cannot be cleared in process.
         if (m_Enabled || m_Fault) { return false; }
+        if (m_Rows.Count() == 0)
+        {
+            HCAddProfile("survivor");
+            HCAddProfile("raid");
+            HCAddProfile("column");
+            HCAddProfile("roadside-position");
+            HCAddProfile("threatened-exodus");
+        }
         m_Effective = "off";
         m_Reason = "operator_off";
         if (!HCV2Admission.Admitted(enabled) || !GetGame() || !GetGame().IsServer()) { HCReport(); return false; }
-        if (!state || !store || !state.Stories || !HCStoryPolicy.HCValid(state))
+        m_Effective = "refused";
+        m_Reason = "SITUATION_SOURCE_UNAVAILABLE";
+        if (!state || !store) { HCReport(); return false; }
+        if (!state.Stories || !HCStoryPolicy.HCValid(state) || !HCHistoryValid(state.Stories))
         {
-            m_Effective = "refused";
-            m_Reason = "SITUATION_STATE_INVALID";
-            HCReport();
-            return false;
-        }
-        if (!HCValid(state.Stories.HCFirstSurvivor, state.Stories))
-        {
-            m_Effective = "refused";
             m_Reason = "SITUATION_STATE_INVALID";
             HCReport();
             return false;
         }
         m_State = state;
         m_Store = store;
-        m_Actors = HCSituationActors.HCGet();
         m_Enabled = true;
-        m_Attempted = false;
-        m_Effective = "refused";
-        m_Reason = m_Actors.HCRefusal();
-        if (m_Actors.HCReady()) { m_Effective = "ready"; m_Reason = "observed_actor_port_ready"; }
-        HCSituationState restored = state.Stories.HCFirstSurvivor;
-        // Restart never binds a replacement to an issued intent/active story.
-        // Provider ownership is independent; no death or rescue is inferred.
-        if (restored && (restored.Phase == "intent" || restored.Phase == "active"))
+        m_Cursor = 0;
+        foreach (HCSituationProfileRow slot : m_Rows)
         {
-            m_Actors.HCEnd(restored);
-            return HCFinish("unknown");
+            slot.Attempted = false;
+            slot.Opportunity = null;
+            slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
+            if (slot.Profile == "survivor") { slot.Opportunity = state.Stories.HCFirstSurvivor; }
+            else if (state.Stories.HCSituations)
+            {
+                foreach (HCSituationState retained : state.Stories.HCSituations)
+                {
+                    if (retained.Profile == slot.Profile) { slot.Opportunity = retained; }
+                }
+            }
+        }
+        HCSituationActorPort survivorActors = HCFind("survivor").Actors;
+        m_Reason = survivorActors.HCRefusal();
+        if (survivorActors.HCReady()) { m_Effective = "ready"; m_Reason = "observed_actor_port_ready"; }
+        // A crash never rebinds an issued intent/active story to a replacement.
+        foreach (HCSituationProfileRow restored : m_Rows)
+        {
+            if (restored.Opportunity && (restored.Opportunity.Phase == "intent" || restored.Opportunity.Phase == "active"))
+            {
+                if (!HCFinish(restored, "unknown")) { return false; }
+            }
         }
         HCReport();
         return true;
     }
 
-    // Owner calls after HC-19's new arrival has been durably issued. The first
-    // new identity pins this one content slice, even with zero connected players.
-    // Legacy/completed chains cannot become a new survivor or replay cargo.
     bool HCOffer(HCSceneChain chain)
     {
-        if (!m_Enabled || !chain || m_State.Stories.HCFirstSurvivor) { return false; }
+        if (!m_Enabled || !chain) { return false; }
         if (chain.Complete || chain.Cancelled || m_State.Chains.Find(chain) < 0) { return false; }
         if (chain.StorySequence <= m_State.Stories.LegacyThrough || chain.StorySequence >= m_State.Stories.NextSequence) { return false; }
-        HCSituationState row = new HCSituationState;
-        row.Id = chain.Id + "-survivor";
-        row.StorySequence = chain.StorySequence;
-        row.DueAt = chain.DueAt;
-        row.EndsAt = chain.ExpiresAt;
-        m_State.Stories.HCFirstSurvivor = row;
+        bool changed = false;
+        foreach (HCSituationProfileRow slot : m_Rows)
+        {
+            if (!slot.Enabled || slot.Opportunity) { continue; }
+            HCSituationState row = new HCSituationState;
+            row.Profile = slot.Profile;
+            row.Id = chain.Id + "-" + slot.Profile;
+            // HC-40's established durable suffixes are roadside/exodus.
+            if (slot.Profile == "roadside-position") { row.Id = chain.Id + "-roadside"; }
+            if (slot.Profile == "threatened-exodus") { row.Id = chain.Id + "-exodus"; }
+            row.StorySequence = chain.StorySequence;
+            row.DueAt = chain.DueAt;
+            row.EndsAt = chain.ExpiresAt;
+            if (slot.LifetimeSeconds > 0 && row.EndsAt - row.DueAt > slot.LifetimeSeconds) { row.EndsAt = row.DueAt + slot.LifetimeSeconds; }
+            slot.Opportunity = row;
+            if (slot.Profile == "survivor") { m_State.Stories.HCFirstSurvivor = row; }
+            else
+            {
+                if (!m_State.Stories.HCSituations) { m_State.Stories.HCSituations = new array<ref HCSituationState>(); }
+                m_State.Stories.HCSituations.Insert(row);
+            }
+            changed = true;
+        }
+        if (!changed) { return false; }
         return HCCommit();
     }
 
-    protected bool HCFinish(string outcome)
+    protected bool HCFinish(HCSituationProfileRow slot, string outcome)
     {
-        HCSituationState row = m_State.Stories.HCFirstSurvivor;
-        row.Phase = "closed";
-        row.Outcome = outcome;
+        slot.Opportunity.Phase = "closed";
+        slot.Opportunity.Outcome = outcome;
         if (!HCCommit()) { return false; }
-        m_Actors.HCEnd(row);
+        slot.Actors.HCEnd(slot.Opportunity);
         return true;
     }
 
-    void HCStep(int now)
+    protected void HCStepRow(HCSituationProfileRow slot, int now)
     {
-        if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return; }
-        HCSituationState row = m_State.Stories.HCFirstSurvivor;
+        HCSituationState row = slot.Opportunity;
         if (!row || row.Phase == "closed") { return; }
-        m_Units.HCReset(1);
-        m_Work.HCReset(1);
-        if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
-        if (now < m_State.LastNow || now > 999000000) { return; }
-        if (now >= row.EndsAt) { HCFinish("unknown"); return; }
-        if (now < row.DueAt) { return; }
+        if (now >= row.EndsAt) { HCFinish(slot, "unknown"); return; }
+        if (!slot.Enabled || now < row.DueAt) { return; }
         if (row.Phase == "pending")
         {
-            // One binding attempt per open, no hidden route/player scan loop.
-            if (m_Attempted) { return; }
-            m_Attempted = true;
-            // Optional addon startup may follow the base scene owner. Resolve
-            // its binding at the first due slice, after all modules started.
-            m_Actors = HCSituationActors.HCGet();
-            if (!m_Actors.HCReady())
+            if (slot.Attempted) { return; }
+            slot.Attempted = true;
+            slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
+            if (!slot.Actors.HCReady())
             {
-                m_Effective = "refused";
-                m_Reason = m_Actors.HCRefusal();
-                HCReport();
+                if (slot.Profile == "survivor")
+                {
+                    m_Effective = "refused";
+                    m_Reason = slot.Actors.HCRefusal();
+                    HCReport();
+                }
                 return;
             }
-            m_Effective = "ready";
-            m_Reason = "observed_actor_port_ready";
-            string lease = m_Actors.HCSelect(row);
+            string lease = slot.Actors.HCSelect(row);
             if (lease == "" || !HCWorldMaterializer.HCIdentity(lease))
             {
-                m_Effective = "refused";
-                m_Reason = m_Actors.HCRefusal();
-                HCReport();
+                if (slot.Profile == "survivor")
+                {
+                    m_Effective = "refused";
+                    m_Reason = slot.Actors.HCRefusal();
+                    HCReport();
+                }
                 return;
             }
             row.Lease = lease;
             row.Phase = "intent";
+            if (slot.Profile == "survivor") { m_Effective = "ready"; m_Reason = "observed_actor_port_ready"; }
             if (!HCCommit()) { return; }
-            if (!m_Actors.HCBegin(row)) { HCFinish("unknown"); return; }
+            if (!slot.Actors.HCBegin(row)) { HCFinish(slot, "unknown"); return; }
             row.Phase = "active";
             HCCommit();
             return;
         }
         if (row.Phase != "active") { return; }
-        if (!HCWorldMaterializer.HCIdentity(row.Lease)) { HCFinish("unknown"); return; }
-        // Never accept client completion, inferred intervention or a timer as
-        // rescue. The port may only report an actual native death/departure.
-        string outcome = m_Actors.HCObserve(row);
-        if (outcome == "dead" || outcome == "departed") { HCFinish(outcome); }
+        if (!HCWorldMaterializer.HCIdentity(row.Lease)) { HCFinish(slot, "unknown"); return; }
+        string outcome = slot.Actors.HCObserve(row);
+        if (outcome == "dead" || outcome == "departed") { HCFinish(slot, outcome); }
+    }
+
+    void HCStep(int now)
+    {
+        if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return; }
+        if (now < m_State.LastNow || now > 999000000) { return; }
+        m_Units.HCReset(1);
+        m_Work.HCReset(1);
+        // Find one retained nonterminal row; bounded by the five-profile cap.
+        // Empty/off rows cost no actor calls; survivor-only cadence is unchanged.
+        for (int index = 0; index < m_Rows.Count(); index++)
+        {
+            if (m_Cursor >= m_Rows.Count()) { m_Cursor = 0; }
+            HCSituationProfileRow slot = m_Rows[m_Cursor];
+            m_Cursor++;
+            if (!slot.Opportunity || slot.Opportunity.Phase == "closed") { continue; }
+            if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
+            HCStepRow(slot, now);
+            return;
+        }
     }
 
     void HCClose()
     {
-        if (m_State && m_State.Stories && m_Actors)
+        // Clear bindings after a single release even when a close barrier fails.
+        foreach (HCSituationProfileRow slot : m_Rows)
         {
-            HCSituationState row = m_State.Stories.HCFirstSurvivor;
-            if (row && (row.Phase == "intent" || row.Phase == "active"))
+            HCSituationState row = slot.Opportunity;
+            if (row && slot.Actors && (row.Phase == "intent" || row.Phase == "active"))
             {
                 bool ended = false;
-                if (!m_Fault) { ended = HCFinish("unknown"); }
-                if (!ended) { m_Actors.HCEnd(row); }
+                if (!m_Fault) { ended = HCFinish(slot, "unknown"); }
+                if (!ended) { slot.Actors.HCEnd(row); }
             }
+            slot.Actors = null;
         }
         m_Enabled = false;
         m_Effective = "off";

@@ -48,7 +48,16 @@ def authored_module(env):
                                   "m_AIProvider": None})
     env["HCEventModule"] = cls
     names = re.findall(r"^    (?:static |override )?(?:bool|string|void|HCEvent\w+) (\w+)\(", source, re.M)
+    # Explicit synthetic V2 owner boundary for these legacy V1/RPC fixtures.
+    # Actual HC-38/39/40 handlers execute in test_hc_situations.
+    situation_ports = {'HCStartSituations', 'HCStepSituations', 'HCPublishSituations',
+                       'HCSourceClosing', 'HCCloseSituations', 'HCStoryArrived', 'HCOfferSituation'}
+    cls.HCStartSituations = lambda self, settings: None
+    cls.HCStepSituations = lambda self: None
+    cls.HCCloseSituations = lambda self: None
     for name in names:
+        if name in situation_ports:
+            continue
         fn = runtime_tests.translate(source, name, env, "HCEventModule", name != "Get")
         setattr(cls, name, staticmethod(fn) if name == "Get" else fn)
     return cls

@@ -841,7 +841,10 @@ class EventModuleLifecycleTests(unittest.TestCase):
         source = (ROOT / "4_World/Events/HCEventModule.c").read_text()
         source = re.sub(r"GetGame\(\)\.GetWorldName\((\w[\w.]*)\);", r"\1 = GetGame().GetWorldName();", source)
         source = re.sub(r"\bs_(Instance|CleanupOwner)\b", r"HCEventModule.s_\1", source)
-        cls = type("AuthoredModule", (), {"s_Instance": None, "s_CleanupOwner": None})
+        # Explicit synthetic V2 collaborators: actual situation execution lives
+        # in test_hc_situations; this fixture isolates legacy clock/cleanup.
+        cls = type("AuthoredModule", (), {"s_Instance": None, "s_CleanupOwner": None,
+            "HCStepSituations": lambda self: None, "HCCloseSituations": lambda self: None})
         env["HCEventModule"] = cls
         for name in ("Context", "OnTick", "PlayerDisconnected", "OnStop"):
             setattr(cls, name, translate(source, name, env, "HCEventModule", True))

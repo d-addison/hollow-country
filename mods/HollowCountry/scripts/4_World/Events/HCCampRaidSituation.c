@@ -3,13 +3,12 @@
 // cap, inventory owner, door override or separate gameplay state machine.
 // HC-38 owns situation validation/barriers/history; HC-16 owns funded camps;
 // HC-37 owns opposed-faction observations; HC-10 owns body/cargo fold-back.
-// HC-38 currently pins only HCFirstSurvivor: it is NOT a generic profile
-// registry. Lead must not replace that survivor with one of these profiles.
-// Generic durable situation/cooldown integration remains pending with HC-38.
+// HC-38 owns a bounded named-profile registry; cooldown/combat/custody
+// observations are still unverified and never inferred from an empty history.
 // Native scripts-1.30.164289, inspected read-only:
 // 3_Game/Global/Game.c:1120 IsServer; 3_Game/gameplay.c:636 GetGame;
 // 1_Core/proto/EnDebug.c:96 Print; EnString.c:199 Length;
-// EnScript.c:380 Count, :394 Find.
+// EnScript.c:380 Count, :394 Find; 3_Game/tools/JsonFileLoader.c:69 LoadData.
 // All remaining calls are existing HC ports. No N17 AI SDK is inferred.
 
 class HCCampRaidProfile
@@ -34,9 +33,9 @@ class HCCampRaidConfig
 // activation port: a JSON flag, route label or client cannot install capability.
 // Expanding this requires observed walking/retreat, combat/cargo callbacks and
 // durable HC-38 integration, not changing the refusal string into a ready flag.
-class HCCampRaidActorPort
+class HCCampRaidActorPort : HCSituationActorPort
 {
-    string HCRefusal() { return "RAID_PROVIDER_UNAVAILABLE"; }
+    override string HCRefusal() { return "RAID_PROVIDER_UNAVAILABLE"; }
 }
 
 class HCCampRaidActors
@@ -53,8 +52,10 @@ class HCCampRaidActors
 class HCCampRaidSituation
 {
     protected ref HCCampRaidConfig m_Config;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Enabled;
     protected int m_Reports;
+    protected int m_Authored;
     protected string m_Effective = "off";
     protected string m_Reason = "not_started";
 
@@ -122,20 +123,32 @@ class HCCampRaidSituation
         m_Reports++;
         string line = "[HC Plan] HC-39 kind=" + kind + " party=" + party + " outcome=" + outcome;
         line += " state=" + m_Effective + " refusal=" + m_Reason;
-        Print(line + " admitted=0 observed=0 report_cap=16 runtime=PENDING");
+        string authored = "0";
+        if (m_Authored == 2) { authored = "2"; }
+        Print(line + " authored=" + authored + " admitted=0 observed=0 count_cap=2 report_cap=16 runtime=PENDING");
     }
 
-    HCOperationalStatus HCStatus()
+    HCOperationalStatus HCStatus() { return m_Status; }
+
+    static HCCampRaidConfig HCLoad()
     {
-        HCOperationalStatus status = new HCOperationalStatus;
-        status.HCPublish(m_Effective, m_Reason);
-        return status;
+        string encoded;
+        string error;
+        HCCampRaidConfig config;
+        if (!HCGroupIO.Read("$mission:hollow-country/events/raids.json", 8192, encoded)) { return null; }
+        if (!JsonFileLoader<HCCampRaidConfig>.LoadData(encoded, config, error)) { return null; }
+        if (!HCValidConfig(config)) { return null; }
+        return config;
     }
+
+    bool HCProfilesEnabled() { return m_Enabled; }
 
     void HCOpen(HCCampRaidConfig config, bool enabled)
     {
         m_Enabled = false;
         m_Config = null;
+        m_Authored = 0;
+        if (HCValidConfig(config)) { m_Authored = 2; }
         m_Effective = "off";
         m_Reason = "operator_off";
         if (HCV2Admission.Admitted(enabled) && (!config || config.Enabled))
@@ -149,8 +162,8 @@ class HCCampRaidSituation
                 m_Reason = HCCampRaidActors.HCGet().HCRefusal();
             }
         }
-        HCReport("raid", "none", m_Effective);
-        HCReport("column", "none", m_Effective);
+        m_Status.HCPublish(m_Effective, m_Reason);
+        HCReport("raid,column", "none", m_Effective);
     }
 
     bool HCAdmit(HCCampRaidProfile profile, HCSituationState opportunity, HCStoryProgress progress, HCWorldProposal proposal, string targetLease, int now, int lastEndedAt, string exitRef, string returnRef)
@@ -162,6 +175,7 @@ class HCCampRaidSituation
         m_Effective = "refused";
         string party = "none";
         if (proposal && HCAIPartyIdentity.HCValid(proposal.Identity)) { party = proposal.Identity.HCPartyId(); }
+        m_Status.HCPublish(m_Effective, m_Reason);
         HCReport(profile.Kind, party, "refused");
         // NEVER begin, mutate the lifecycle, debit camp/cargo or release HC-10.
         // Existing provider death/cleanup/result handlers retain all ownership.
@@ -174,7 +188,7 @@ class HCCampRaidSituation
         m_Config = null;
         m_Effective = "off";
         m_Reason = "owner_closed";
-        HCReport("raid", "none", "off");
-        HCReport("column", "none", "off");
+        m_Status.HCPublish(m_Effective, m_Reason);
+        HCReport("raid,column", "none", "off");
     }
 }
