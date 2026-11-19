@@ -276,7 +276,11 @@ class CombinedWorkTests(unittest.TestCase):
         craft_source = re.sub(r'else[ \t]*\n([^\n]+)', r'else { \1 }', craft_source)
         for old, new in (('m_Started', 'Started'), ('m_Validated', 'Validated'), ('m_Crafted', 'Crafted')):
             craft_source = craft_source.replace(old, new)
+        siphon_lifecycle = []  # Explicit synthetic collaborator for crafting hooks.
         craft_env = dict(HCCraftingGate=craft, HCCraftingNativeChecks=N(Run=lambda: True),
+                         HCActionSiphonFuel=N(
+                             ProductionStart=lambda enabled: siphon_lifecycle.append(('start', enabled)),
+                             ProductionStop=lambda: siphon_lifecycle.append(('stop', None))),
                          GetGame=lambda: f.game, Print=lambda text: None)
         craft_state = N(IsEnabled=lambda settings: settings.EnableCrafting)
         craft_start = event.translate(craft_source, 'OnStart', craft_env, 'HCCraftingModule', True)
@@ -319,6 +323,7 @@ class CombinedWorkTests(unittest.TestCase):
             self.assertEqual([], group_callbacks)
             self.assertEqual([], f.queued)
             self.assertFalse(craft.Started)
+            self.assertEqual([('start', True), ('stop', None)] * (cycle + 1), siphon_lifecycle)
 
     # DESIGN QUESTION (reviewed: MaxTickWorkItems is per module; no shared-budget requirement) mods/HollowCountry/scripts/4_World/Core/HCServer.c:61:
     # independent module loops receive no shared remaining
