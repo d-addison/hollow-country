@@ -4,20 +4,78 @@
 // Presence must distinguish absent keys from explicit operator false/0. Scan
 // keys, never values/nested lookalikes. EnString.c:33 HexToInt, :86 ToAscii, :113 Substring,
 // :199 Length, :448 Get, installed scripts-1.30.164289. No new file IO/API.
+// Boot 084: per-character string.Get/Substring on the 988 KB shipped site
+// policy did not finish in 8 minutes (cost grows with the text size, while 21
+// sites booted). Scans read through 1 KB windows so each Get touches a window.
+class HCTextWindow
+{
+    static const int SIZE = 1024;
+    protected string m_Text;
+    protected int m_Length;
+    protected int m_Start;
+    protected string m_Window;
+
+    void HCTextWindow(string text)
+    {
+        m_Text = text;
+        m_Length = text.Length();
+        m_Start = -1;
+    }
+
+    int Length() { return m_Length; }
+
+    protected void HCLoad(int index)
+    {
+        m_Start = index - (index % SIZE);
+        int count = SIZE;
+        if (m_Start + count > m_Text.Length()) { count = m_Text.Length() - m_Start; }
+        m_Window = m_Text.Substring(m_Start, count);
+    }
+
+    string At(int index)
+    {
+        if (index < 0 || index >= m_Length) { return ""; }
+        if (m_Start < 0 || index < m_Start || index >= m_Start + SIZE) { this.HCLoad(index); }
+        return m_Window.Get(index - m_Start);
+    }
+
+    // Copy [start, start+count) without touching the whole text per letter.
+    string Range(int start, int count)
+    {
+        if (start < 0 || count < 0 || start + count > m_Length) { return ""; }
+        if (count == 0) { return ""; }
+        this.At(start);
+        if (start - m_Start + count <= m_Window.Length()) { return m_Window.Substring(start - m_Start, count); }
+        string joined = "";
+        int index = start;
+        while (index < start + count)
+        {
+            joined = joined + this.At(index);
+            index++;
+        }
+        return joined;
+    }
+}
+
 class HCJsonFields
 {
     static bool KeyMatches(string text, int start, int stop, string key)
+    {
+        return HCJsonFields.KeyMatchesAt(new HCTextWindow(text), start, stop, key);
+    }
+
+    static bool KeyMatchesAt(HCTextWindow text, int start, int stop, string key)
     {
         if (start < 0 || stop > text.Length() || start > stop) { return false; }
         int cursor = start;
         int keyIndex = 0;
         while (cursor < stop && keyIndex < key.Length())
         {
-            string letter = text.Get(cursor);
+            string letter = text.At(cursor);
             if (letter == "\\")
             {
-                if (cursor + 5 >= stop || text.Get(cursor + 1) != "u") { return false; }
-                string hexDigits = text.Substring(cursor + 2, 4);
+                if (cursor + 5 >= stop || text.At(cursor + 1) != "u") { return false; }
+                string hexDigits = text.Range(cursor + 2, 4);
                 string expected = key.Get(keyIndex);
                 if (hexDigits.HexToInt() != expected.ToAscii()) { return false; }
                 cursor = cursor + 6;
@@ -34,32 +92,33 @@ class HCJsonFields
 
     static bool Check(string text, string key, int targetDepth, bool every, string selector = "")
     {
+        HCTextWindow window = new HCTextWindow(text);
         int depth = 0;
         int cursor = 0;
-        int length = text.Length();
+        int length = window.Length();
         bool found = false;
         bool seen = false;
         bool selected = false;
         while (cursor < length)
         {
-            string token = text.Get(cursor);
+            string token = window.At(cursor);
             if (token == "\"")
             {
                 int start = cursor + 1;
                 cursor = start;
-                while (cursor < length && text.Get(cursor) != "\"")
+                while (cursor < length && window.At(cursor) != "\"")
                 {
-                    if (text.Get(cursor) == "\\") { cursor = cursor + 1; }
+                    if (window.At(cursor) == "\\") { cursor = cursor + 1; }
                     cursor = cursor + 1;
                 }
                 int after = cursor + 1;
-                while (after < length && (text.Get(after) == " " || text.Get(after) == "\n" || text.Get(after) == "\r" || text.Get(after) == "\t")) { after = after + 1; }
-                if (depth == targetDepth && after < length && text.Get(after) == ":" && KeyMatches(text, start, cursor, key))
+                while (after < length && (window.At(after) == " " || window.At(after) == "\n" || window.At(after) == "\r" || window.At(after) == "\t")) { after = after + 1; }
+                if (depth == targetDepth && after < length && window.At(after) == ":" && KeyMatchesAt(window, start, cursor, key))
                 {
                     seen = true;
                     found = true;
                 }
-                if (depth == targetDepth && after < length && text.Get(after) == ":" && KeyMatches(text, start, cursor, selector)) { selected = true; }
+                if (depth == targetDepth && after < length && window.At(after) == ":" && KeyMatchesAt(window, start, cursor, selector)) { selected = true; }
             }
             else
             {

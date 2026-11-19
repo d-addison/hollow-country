@@ -17,28 +17,31 @@ class HCXAIRespawnDefaults
     static array<string> HCKeys(string text, bool allDepths = false)
     {
         array<string> names = new array<string>();
+        // Windowed reads: the shipped site policy is near 1 MB (boot 084 hang).
+        HCTextWindow window = new HCTextWindow(text);
+        int length = window.Length();
         int cursor = 0;
         int depth = 0;
-        while (cursor < text.Length())
+        while (cursor < length)
         {
-            string token = text.Get(cursor);
+            string token = window.At(cursor);
             if (token == "\"")
             {
                 int start = cursor + 1;
                 cursor = start;
                 bool escaped = false;
-                while (cursor < text.Length() && text.Get(cursor) != "\"")
+                while (cursor < length && window.At(cursor) != "\"")
                 {
-                    if (text.Get(cursor) == "\\") { escaped = true; cursor++; }
+                    if (window.At(cursor) == "\\") { escaped = true; cursor++; }
                     cursor++;
                 }
-                if (cursor >= text.Length()) { return null; }
+                if (cursor >= length) { return null; }
                 int after = cursor + 1;
-                while (after < text.Length() && (text.Get(after) == " " || text.Get(after) == "\n" || text.Get(after) == "\r" || text.Get(after) == "\t")) { after++; }
-                if ((depth == 1 || allDepths) && after < text.Length() && text.Get(after) == ":")
+                while (after < length && (window.At(after) == " " || window.At(after) == "\n" || window.At(after) == "\r" || window.At(after) == "\t")) { after++; }
+                if ((depth == 1 || allDepths) && after < length && window.At(after) == ":")
                 {
                     if (escaped) { return null; }
-                    string keyName = text.Substring(start, cursor - start);
+                    string keyName = window.Range(start, cursor - start);
                     if (names.Find(keyName) < 0) { names.Insert(keyName); }
                 }
             }

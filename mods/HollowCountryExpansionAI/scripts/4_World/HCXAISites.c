@@ -965,6 +965,8 @@ class HCXAISiteDirector : Managed
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", shippedLocalities);
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-formations.json", HCXAIDefaults.Shipped() + "expansion-ai-formations.json");
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-tactics.json", HCXAIDefaults.Shipped() + "expansion-ai-tactics.json");
+        // Startup step markers: log timestamps locate slow steps on large policies.
+        Print("[HC Expansion AI] start step=defaults_checked");
         m_Policy = HCXAISiteDirector.LoadPolicy();
         if (!m_Policy)
         {
@@ -973,6 +975,7 @@ class HCXAISiteDirector : Managed
             Print(this.HCLocalitySummary() + " refusal=site_policy_unreadable");
             return;
         }
+        Print("[HC Expansion AI] start step=policy_loaded");
         string problem = HCXAISiteRules.PolicyProblem(m_Policy);
         if (problem != "")
         {
@@ -991,6 +994,7 @@ class HCXAISiteDirector : Managed
                 return;
             }
         }
+        Print("[HC Expansion AI] start step=policy_checked");
         if (!this.HCStartLocalities())
         {
             this.HCLocalityFault();
