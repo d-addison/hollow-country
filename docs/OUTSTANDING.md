@@ -39,12 +39,13 @@ Landed on main since the 2026-11-18 snapshot, so no longer in flight:
 - wave 12: the #193 wave 11 review follow-ups (journal and event labels, wreck enroll reasons with their own player text, the trade slot released only after the idle save, the HC-48 counts read from the habitat manifest, a configurable infected non-calm hold, a restored `HerdWorld` default, the pack `not_started` reason), the admin loot map tick budget and kept marks, Wine noise ignored in signature checks with a PBO hash cache, the debug map lead-ledger and Scenes layers (registry cap 20, fair admin wire), and the last #160 HC-S001/HC-S005 entries;
 - wave 13: the #194 wave 12 review follow-ups (the trade log refusal, the HC-48 manifest tally with `manifest_bytes`/`manifest_cap` and a 64 KB read cap, one `lod.json` restore line, the site `spawn skipped` line, the loot map running tick budget, `min_rows_per_tick` and kept-mark filter labels, an LRU PBO hash cache with unique temp files, strict Wine `err:` lines in signature checks), the shared per-tick work budget (#138), the `EnableTapedPackMounts` setting with per-pair receipts (#58), and the debug map pickers, group-pins and materializer-proposals layers.
 - wave 14: the #195 wave 13 review follow-ups (a separate detached-recycle consumer id, Interiors expired locks freed on start, behavioural refresh-resume and recycle budget harnesses, typed `Checked` and ISO `CheckDate` receipt checks with a 64 KB receipt ceiling, debug picker getters gated on a ready journal, test-only lead debug getters removed, a rounded-up loot map cadence, the kept-mark label tied to the last ok run, a hash cache keyed on inode and ctime with an orphan temp sweep).
+- wave 15: the #196 wave 14 review follow-ups (the core tick loop leaves at once when a module stops the server, a named `HCGroupIO.HC_RAW_READ_CAP`, a Gregorian `CheckDate` check, per-pair receipt rows for the 29 cross-slot weapon pairs, the admin Notice cut on entry boundaries with `+N more`, the kept-mark label in the loot map legend, a merging hash cache write, and the null-trip picker, expired-lock takeover and ctime harnesses).
 
 Now:
 
 | Item | State |
 | --- | --- |
-| Next wave | The #196 wave 14 follow-ups; republish the Workshop items and friend bundle once a batch is stable |
+| Next wave | The wave 15 review follow-ups; republish the Workshop items and friend bundle once a batch is stable |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -78,7 +79,7 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
 - **#193** wave 11 review follow-ups: landed in wave 12; the light-mount setting and per-pair receipt landed in wave 13. Still open: the trade provider is unbound (refusal-only), and the native checks (unmapped manifest keys, `static const` DTO members, the 0-byte pending file).
 - **#194** wave 12 review follow-ups: landed in wave 13. Still open: a file rewritten with the same size and mtime outside the 2 s racy window keeps its cached hash (inherent to the size+mtime key), and the native checks.
 - **#195** wave 13 review follow-ups: landed in wave 14. The remaining P3s and native checks moved to #196.
-- **#196** wave 14 review follow-ups: tick budget, receipt, debug map and loot map/hash cache P3s, plus the carried native checks (3 to 6 player `[HC TickWork]` measurement, live debug layers, two-client wire check).
+- **#196** wave 14 review follow-ups: tick budget, receipt, debug map and loot map/hash cache P3s, plus the carried native checks (3 to 6 player `[HC TickWork]` measurement, live debug layers, two-client wire check). Landed in wave 15; the remaining P3s and native checks move to the wave 15 follow-ups issue.
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
@@ -127,7 +128,7 @@ Carried from the 2026-11-18 snapshot unless a commit changed them.
 - **Camp theft** stays off (fail closed) until lock state is defined.
 - **Taped lights #58:**
   - Helmet mounts (HC-23) are a fail-closed catalogue. Backpack mounts (HC-52) load `mission/hollow-country/lights/backpack-mounts.json` at boot. The operator setting `EnableTapedPackMounts` (default false) gates them and publishes `off reason=setting_off`; with it on, `mission/hollow-country/lights/pair-receipts.json` is read once (bounded by `MaxReceiptBytes`) and a pair needs `Checked=true`. `Qualified()` is still false, so no pair attaches.
-  - The approved cross-slot pairs, TLRLight on 22 rail rifles and UniversalLight on 7 pistols, stay disabled behind a setting. Each pair needs its own client check. Still to do: client checks for every pair. The receipt catalogue only names `tortilla_universal_mount` and `tortilla_universal_cross`; the per-weapon pairs above are not in it yet.
+  - The approved cross-slot pairs, TLRLight on 22 rail rifles and UniversalLight on 7 pistols, stay disabled behind a setting. Each pair needs its own client check. Still to do: client checks for every pair. Since wave 15 the receipt sheet has 31 rows (the 2 pack pairs plus the 29 weapon pairs as `cross_<Host>_<Light>`, all `Checked=false`, `MaxReceiptBytes` 32768); the weapon-pair admission path itself is not built yet.
 
 ## 5. V3 features (open epics)
 
