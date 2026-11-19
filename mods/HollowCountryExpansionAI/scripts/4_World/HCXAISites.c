@@ -1167,7 +1167,7 @@ class HCXAISiteDirector : Managed
         state.Patrol = patrol;
         if (!state.Transient) { Print("[HC Expansion AI] site " + site.Id + " configured respawn=" + config.RespawnTime.ToString() + "s; raid timestamps persist in expansion-ai-owned.json"); }
     }
-    protected float HCActivationRadius(HCXAISite site, bool transient)
+    float HCActivationRadius(HCXAISite site, bool transient)
     {
         float radius = site.ActivationRadius;
         if (!transient) { radius = HCXAISiteRules.EncounterRadius(site.ActivationRadius); }

@@ -9,6 +9,11 @@
   "LineOfSightRange": 1000.0,
   "MaxLegLength": 400.0,
   "CacheClearRadius": 300.0,
+  "RaidCooldownFloorSeconds": 0,
+  "ActivationRadiusScale": 0.0,
+  "MaxSignalWorkPerSecond": 8,
+  "MaxBetrayalRows": 128,
+  "BetrayalRetentionSeconds": 172800,
   "Sites": [
     {
       "Id": "police-chernogorsk",

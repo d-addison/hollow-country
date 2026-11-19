@@ -55,8 +55,12 @@ class EncounterTests(unittest.TestCase):
         self.env['Math'] = N(AbsFloat=abs)
         self.env['HCXAIRules'] = api((SCRIPTS / 'HCXAIRules.c').read_text(), self.env)
         self.env['HCXAISiteRules'] = api((SCRIPTS / 'HCXAISiteRules.c').read_text(), self.env)
+        # Synthetic director: unscaled policy (ActivationRadiusScale absent), so the
+        # provider trigger radius is the encounter radius; its scaling has its own tests.
         self.director = N(Phase=lambda: self.phase, OwnedSession=lambda: self.owned_session,
-                          States=lambda: self.states)
+                          States=lambda: self.states,
+                          HCActivationRadius=lambda site, transient:
+                              self.env['HCXAISiteRules'].EncounterRadius(site.ActivationRadius))
         self.env['HCXAISiteDirector'] = N(Active=lambda: self.director)
         self.env['HCXAIJournal'] = N(Open=self.open_journal)
         self.env['ExpansionStatic'] = N(GetTimestamp=lambda utc=False: 1763400000 if utc else -1)

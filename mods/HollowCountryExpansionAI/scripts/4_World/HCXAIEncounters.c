@@ -184,7 +184,7 @@ class HCXAIEncounters : Managed
             if (state.Site.Checkpoint) { continue; }
             float gap = HCXAISiteRules.RouteGap(state.PatrolPoints, anchor);
             bool patrolled = state.Patrol != null;
-            string problem = HCXAISiteRules.EncounterProblem(state.Qualified, patrolled, this.SiteBound(state.Site.Id), gap, HCXAISiteRules.EncounterRadius(state.Site.ActivationRadius));
+            string problem = HCXAISiteRules.EncounterProblem(state.Qualified, patrolled, this.SiteBound(state.Site.Id), gap, director.HCActivationRadius(state.Site, false));
             if (nearestId == "none" || gap < nearestGap)
             {
                 nearestId = state.Site.Id;

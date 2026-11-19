@@ -343,3 +343,20 @@ class CheckpointTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+REPO = Path(__file__).resolve().parents[2]
+
+
+class ShippedPolicyMirror(unittest.TestCase):
+    """The profile-provisioning mirror must ship the same policy keys as the mission copy."""
+    def test_packaged_default_matches_mission_policy(self):
+        import json
+        mission = json.loads((REPO / 'mission/hollow-country/ai/sites.json').read_text())
+        mirror = json.loads((REPO / 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json').read_text())
+        self.assertEqual(mission, mirror)
+
+    def test_encounter_binding_uses_the_scaled_provider_radius(self):
+        text = (REPO / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIEncounters.c').read_text()
+        self.assertIn('director.HCActivationRadius(state.Site, false)', text)
+        self.assertNotIn('HCXAISiteRules.EncounterRadius(state.Site.ActivationRadius))', text)

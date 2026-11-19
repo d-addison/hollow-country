@@ -1486,7 +1486,8 @@ class ShippedDefaultsTests(unittest.TestCase):
         wait = sites[sites.index('    protected void StepWait()'):sites.index('    protected HCXAISiteAdmission Observe()')]
         self.assertLess(wait.index('HCXAIDefaults.ProvisionLoadouts(m_Policy)'), wait.index('this.Observe()'))
         encounters = (SCRIPTS / 'HCXAIEncounters.c').read_text()
-        self.assertIn('HCXAISiteRules.EncounterRadius(state.Site.ActivationRadius)', encounters)
+        # Encounters bind with the same (operator-scaled) radius the provider triggers at.
+        self.assertIn('director.HCActivationRadius(state.Site, false)', encounters)
         self.assertNotIn('this.SiteBound(state.Site.Id), gap, 600)', encounters)
         self.assertIn('HCXAISiteRules.EncounterRadius(site.ActivationRadius)', sites)
 
