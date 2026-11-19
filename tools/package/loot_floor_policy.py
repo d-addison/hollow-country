@@ -1,32 +1,12 @@
-"""Floor loot policy: prefer clothing and trash on floors; move other classes to compatible shelves where capacity permits.
+"""Strict clothing/exact-garbage floor admission, applied to operator-owned CE files.
 
-Owner direction 2026-11-19: apart from some clothes and garbage, items should not spawn on floors. The CE places a
-type only where a container lists its category and, when the type carries tags, where a container carries one of them
-(stock rows already use the ``floor`` and ``shelves`` tags that way). This module is the data-driven version of that
-rule, applied at install time by ``loot_boost.plan`` on the operator's own installed mission bytes; nothing from the
-vanilla files is shipped:
-
-* ``retag_types``: every building-loot type (nominal > 0, category in ``shelf_categories``, not a firearm-roster class)
-  that is not floor eligible (clothing category, a listed class or a listed class pattern) loses its ``floor`` tag and
-  gains ``shelves``. Eligible classes and every other row keep their exact bytes.
-* ``rebalance_proto``: containers on the floor (named in ``floor_container_names``, or named in
-  ``height_checked_container_names`` with every point within ``floor_band_m`` of the group's lowest point) lose the
-  ``shelves`` tag, so shelf-only classes cannot use them. The floor slots those classes used (container lootmax times
-  the displaced share of the nominal they could draw) move to the same building's shelf containers, never above the
-  container's point count or ``max_container_lootmax``; the remainder is reported as unplaced, never invented.
-  A floor container that no shelf of its building can take keeps its stock tags (loot stays about equal), except
-  the boost's own extra floor containers (``extra_floor_container_names``), which are extras on top of stock and
-  convert even without replacement room: their shelf-only share is reported unplaced. Floors needed by a global
-  stock fallback retain eligibility, including extra floors, and are reported as retained.
-
-Placement is resolved before type restrictions: any class needed by a retained stock floor keeps its original tags
-globally. Receiver allocation conservatively requires compatibility with every displaced class, including usage.
-Transfers subtract the displaced slots from floor maxima, leave group maxima intact, and report group-bounded
-usable capacity.
-
-Every limit is a named field of ``mission/hollow-country/loot-points/floor-policy.json`` (``enabled`` is the operator
-opt-out). Offline only: whether the CE honours the rewritten tags and the resulting shelf density stay pending a native
-server session (runtime=PENDING).
+Equipment (including firearms) loses floor eligibility regardless of spare shelf
+capacity. Existing raised shelf containers receive displaced capacity only when
+category, tag and usage agree, within their point count and the configured cap.
+Nominal/min, group maxima and physical coordinates are never invented. Unmatched
+finite demand is recorded in the install receipt rather than restored to floors
+or duplicated into Search. Counts are offline CE estimates, runtime=PENDING.
+The policy is enabled by default with floor-policy.json enabled=false opt-out.
 """
 import json
 import math
@@ -43,11 +23,10 @@ KIND = 'hollow-country-loot-floor-policy'
 MAX_POLICY_BYTES = 64 * 1024
 NAME = re.compile(r'[A-Za-z0-9_]{1,80}')
 KEYS = {'schema', 'kind', 'enabled', 'note', 'floor_categories', 'floor_classes', 'floor_class_patterns',
-        'shelf_categories', 'floor_tag', 'shelf_tag', 'floor_container_names', 'height_checked_container_names', 'extra_floor_container_names',
+        'shelf_categories', 'floor_tag', 'shelf_tag', 'floor_container_names', 'floor_container_tags', 'height_checked_container_names', 'extra_floor_container_names',
         'floor_band_m', 'capacity'}
 CAPACITY_KEYS = {'enabled', 'max_container_lootmax', 'preserve_tolerance'}
-KEPT = frozenset({'weapons', 'explosives', 'lootdispatch'})
-SHELF_CATEGORY_CHOICES = frozenset({'tools', 'containers', 'food', 'books'})
+SHELF_CATEGORY_CHOICES = frozenset({'tools', 'containers', 'food', 'books', 'weapons', 'explosives', 'lootdispatch'})
 FLOOR_BAND_RANGE = (0.1, 3.0)
 MAX_CONTAINER_LOOTMAX = 40
 MAX_LIST = 256
@@ -61,7 +40,7 @@ def _names(value, what):
 
 
 def parse_policy(data):
-    """Validated policy dict (patterns compiled under ``_patterns``); refuses unknown or unbounded values."""
+    """Validated exact-class policy; refuses unknown or unbounded values."""
     if len(data) > MAX_POLICY_BYTES:
         raise ValueError('floor policy exceeds its byte bound')
     doc = json.loads(data)
@@ -72,23 +51,24 @@ def parse_policy(data):
         raise ValueError('floor policy is missing a named field')
     floor_categories = _names(doc['floor_categories'], 'floor_categories')
     shelf_categories = _names(doc['shelf_categories'], 'shelf_categories')
-    if set(floor_categories) & KEPT or not set(shelf_categories) <= SHELF_CATEGORY_CHOICES:
-        raise ValueError('floor policy may not move weapons, explosives or dispatch rows')
+    if not set(floor_categories) <= {'clothes'} or not set(shelf_categories) <= SHELF_CATEGORY_CHOICES:
+        raise ValueError('floor categories must be clothing; equipment belongs on shelves')
     if set(floor_categories) & set(shelf_categories):
         raise ValueError('a category cannot be both floor and shelf')
     patterns = doc['floor_class_patterns']
     if not isinstance(patterns, list) or len(patterns) > MAX_LIST or any(
             not isinstance(p, str) or not 1 <= len(p) <= 80 for p in patterns):
         raise ValueError('floor policy patterns must be a bounded list of short strings')
-    try:
-        compiled = [re.compile(p) for p in patterns]
-    except re.error as error:
-        raise ValueError(f'floor policy pattern does not compile: {error}') from None
+    if patterns:
+        raise ValueError('garbage eligibility requires exact class names, not patterns')
     for key in ('floor_tag', 'shelf_tag'):
         if not isinstance(doc[key], str) or not NAME.fullmatch(doc[key]):
             raise ValueError(f'floor policy {key} must be a plain name')
     _names(doc['floor_classes'], 'floor_classes')
     _names(doc['floor_container_names'], 'floor_container_names')
+    _names(doc['floor_container_tags'], 'floor_container_tags')
+    if doc['floor_tag'] == doc['shelf_tag']:
+        raise ValueError('floor and shelf tags must differ')
     _names(doc['height_checked_container_names'], 'height_checked_container_names')
     if not set(_names(doc['extra_floor_container_names'], 'extra_floor_container_names')) <= set(
             doc['floor_container_names']):
@@ -104,7 +84,6 @@ def parse_policy(data):
     if (type(top) is not int or not 1 <= top <= MAX_CONTAINER_LOOTMAX or isinstance(tol, bool)
             or not isinstance(tol, (int, float)) or not math.isfinite(tol) or not 0.0 <= tol <= 0.5):
         raise ValueError('floor policy capacity bounds')
-    doc['_patterns'] = compiled
     doc['_classes'] = {c.lower() for c in doc['floor_classes']}
     return doc
 
@@ -116,10 +95,8 @@ def shipped_policy(repo=None):
 
 
 def floor_eligible(name, category, policy):
-    """True for clothing, listed trash classes and listed class patterns; the data decides, never script."""
-    if category in policy['floor_categories'] or name.lower() in policy['_classes']:
-        return True
-    return any(p.search(name) for p in policy['_patterns'])
+    """Only clothing and explicitly named garbage may retain floor eligibility."""
+    return category in policy['floor_categories'] or name.lower() in policy['_classes']
 
 
 # ------------------------------------------------------------------------------------------------ types
@@ -127,7 +104,7 @@ def floor_eligible(name, category, policy):
 _TAG = re.compile(r'<tag\s+name="([^"]*)"\s*/>')
 
 
-def retag_types(data, policy, roster=frozenset(), preserve=frozenset()):
+def retag_types(data, policy, roster=frozenset()):
     """Return (bytes, rows). rows: (name, categories, tags_before, tags_after, nominal, usage)."""
     economy.xml(data, 'types')
     text = data.decode('utf-8-sig')
@@ -147,12 +124,12 @@ def retag_types(data, policy, roster=frozenset(), preserve=frozenset()):
         nominal = re.search(r'<nominal>\s*(\d+)\s*</nominal>', body)
         value = int(nominal.group(1)) if nominal else 0
         after = list(tags)
-        movable = (cats and set(cats) <= set(policy['shelf_categories']) and not set(cats) & KEPT
-                   and name.lower() not in roster and value > 0
-                   and not floor_eligible(name, cats[0], policy))
-        if movable and name not in preserve:
+        # Roster membership protects supply quantities, never equipment floor placement.
+        movable = ((bool(cats) or floor_tag in tags or value > 0)
+                   and not all(floor_eligible(name, category, policy) for category in (cats or [''])))
+        if movable:
             after = [t for t in tags if t != floor_tag]
-            if shelf_tag not in after:
+            if (floor_tag in tags or not tags) and shelf_tag not in after:
                 after.append(shelf_tag)
             if sorted(after) != sorted(tags):
                 edits.extend(_retag_edits(masked, opening.end(), body, tags, floor_tag, shelf_tag))
@@ -181,6 +158,9 @@ def _retag_edits(masked, base, body, tags, floor_tag, shelf_tag):
                 start -= 1
         return [(start, base + floor.end(), '')]
     last = list(re.finditer(r'<category\s+name="[^"]*"\s*/>', body))
+    if not last:
+        # Uncategorized stock rows still must not gain unrestricted floor eligibility.
+        return [(base, base, '<tag name="%s"/>' % shelf_tag)]
     anchor = last[-1]
     line = body.rfind('\n', 0, anchor.start())
     lead = body[line + 1:anchor.start()] if line >= 0 else ''
@@ -208,28 +188,23 @@ def _verify_retag(before, after, expected):
 
 
 def type_table(rows_by_file):
-    """{name: (category, tags_before, tags_after, nominal, usage)}; later files win like a loaded override."""
+    """{name: (categories, tags_before, tags_after, nominal, usage)}; later files win like a loaded override."""
     table = {}
     for rows in rows_by_file:
         for name, cats, before, after, nominal, usages in rows:
-            if cats:
-                table[name] = (cats[0], frozenset(before), frozenset(after), nominal, frozenset(usages))
+            table[name] = (frozenset(cats), frozenset(before), frozenset(after), nominal, frozenset(usages))
     return table
 
 
 # ------------------------------------------------------------------------------------------------ prototype
 
 
-def _accepted(table, cats, tags, which):
-    """Nominal a container can draw: category listed, and a tagged row needs a shared tag (CE matching model)."""
-    total = 0
-    for category, before, after, nominal, usages in table.values():
-        if category not in cats or category in KEPT:
-            continue
-        row_tags = before if which == 'before' else after
-        if not row_tags or row_tags & tags:
-            total += nominal
-    return total
+def _matches(row, container, which):
+    categories, before, after, nominal, usages = row
+    tags = before if which == 'before' else after
+    return (nominal > 0 and bool(categories & container['cats'])
+            and (not tags or bool(tags & set(container['tags'])))
+            and (not usages or not container['usages'] or bool(usages & container['usages'])))
 
 
 def _scan(text, masked, default_lootmax):
@@ -278,10 +253,12 @@ def _scan(text, masked, default_lootmax):
 
 
 def _is_floor(container, group_floor, policy):
-    if container['name'] in policy['floor_container_names']:
+    # Mixed floor/shelf tags are not evidence that all points are raised surfaces.
+    if (container['name'] in policy['floor_container_names']
+            or set(container['tags']) & set(policy['floor_container_tags'])):
         return True
     if container['name'] in policy['height_checked_container_names'] and container['ys']:
-        return max(container['ys']) <= group_floor + policy['floor_band_m']
+        return min(container['ys']) <= group_floor + policy['floor_band_m']
     return False
 
 
@@ -291,7 +268,7 @@ def _floor_tag_edits(masked, container, floor_tag, shelf_tag):
     edits = []
     found = list(_TAG.finditer(body))
     for m in found:
-        if m.group(1) == shelf_tag:
+        if m.group(1) != floor_tag:
             cut = start + m.start()
             while cut > start and masked[cut - 1] in ' \t':
                 cut -= 1
@@ -314,9 +291,13 @@ def _floor_tag_edits(masked, container, floor_tag, shelf_tag):
     return edits
 
 
-def rebalance_proto(data, rows_by_file, policy, preserve=None):
-    """Return (bytes, report): floor containers become floor only and their displaced slots move to shelves."""
-    preserve = set() if preserve is None else preserve
+def rebalance_proto(data, rows_by_file, policy):
+    """Strict floor tags plus bounded shelf transfers; receipt includes per-class supply gaps.
+
+    Slots are allocated to displaced classes by nominal-weighted largest remainder,
+    then to compatible existing shelf points. This is a finite capacity estimate,
+    not a promise of CE counts, distribution or native geometry qualification.
+    """
     economy.xml(data, 'prototype')
     text = data.decode('utf-8-sig')
     masked = loot_boost._mask(text)
@@ -328,7 +309,14 @@ def rebalance_proto(data, rows_by_file, policy, preserve=None):
     report = {'enabled': True, 'floor_containers': 0, 'converted': 0, 'kept_without_shelf_room': 0,
               'tags_rewritten': 0, 'displaced': 0, 'transferred': 0, 'unplaced': 0,
               'floor_nonclothing_slots_before': 0.0, 'floor_nonclothing_slots_after': 0.0,
-              'slots_before': 0, 'slots_after': 0}
+              'slots_before': 0, 'slots_after': 0, 'supply': {}, 'supply_gaps': {}}
+    supply = report['supply']
+    for name, row in sorted(table.items()):
+        if row[3] > 0 and not all(floor_eligible(name, category, policy) for category in (row[0] or {''})):
+            supply[name] = {'nominal': row[3], 'compatible_shelf_points': 0,
+                            'displaced_slot_estimate': 0.0, 'requested_slots': 0,
+                            'transferred_slots': 0, 'unplaced_slots': 0,
+                            'groups_without_receiver': []}
     edits = []
     for gname, group_max, containers in _scan(text, masked, default_lootmax):
         report['slots_before'] += min(group_max, sum(min(c['lootmax'], len(c['ys'])) for c in containers))
@@ -336,57 +324,59 @@ def rebalance_proto(data, rows_by_file, policy, preserve=None):
         group_floor = min(ys) if ys else 0.0
         floors, shelves = [], []
         for c in containers:
-            if c['cats'] <= KEPT:
-                continue
             if _is_floor(c, group_floor, policy):
                 floors.append(c)
-            elif shelf_tag in c['tags'] and c['cats'] & set(policy['shelf_categories']):
+            elif shelf_tag in c['tags']:
                 shelves.append(c)
         room = [max(0, min(len(c['ys']), cap['max_container_lootmax']) - c['lootmax']) if cap['enabled'] else 0
                 for c in shelves]
         gained = [0] * len(shelves)
+        compatible = {name: [i for i, receiver in enumerate(shelves) if _matches(table[name], receiver, 'after')]
+                      for name in supply}
+        for name, indexes in compatible.items():
+            if group_max > 0:
+                supply[name]['compatible_shelf_points'] += sum(
+                    min(len(shelves[i]['ys']), shelves[i]['lootmax'] + room[i]) for i in indexes)
         for c in floors:
-            tags_after = {t for t in c['tags'] if t != shelf_tag} | {floor_tag}
-            before = _accepted(table, c['cats'], frozenset(c['tags']), 'before')
-            if before <= 0:
-                continue  # draws nothing from the types: no slots to displace, nothing to rewrite
             report['floor_containers'] += 1
-            displaced_names = {name for name, (cat, old, new, nominal, usages) in table.items()
-                               if nominal > 0 and cat in c['cats'] and (not old or old & set(c['tags']))
-                               and new and not new & tags_after}
-            # Newly admitted rows do not replace demand from rows that lost floor eligibility.
-            share = sum(table[name][3] for name in displaced_names) / before
-            slots = min(c['lootmax'], len(c['ys']), group_max)  # the CE never spawns more than the container has points
-            need = int(math.floor(slots * share + 0.5))
-            report['floor_nonclothing_slots_before'] += slots * share
-            # A replacement must admit every displaced row; otherwise retain the stock floor.
-            # This deliberately conservative allocation cannot count a books-only slot for a tool.
-            compatible = [all(table[name][0] in receiver['cats']
-                              and (not table[name][2] or table[name][2] & set(receiver['tags']))
-                              and (not table[name][4] or not receiver['usages']
-                                   or table[name][4] & receiver['usages'])
-                              for name in displaced_names) for receiver in shelves]
-            free = sum(r - g for r, g, ok in zip(room, gained, compatible) if ok)
-            extra = c['name'] in policy['extra_floor_container_names']  # added by the boost: never above stock
-            unavailable = displaced_names and not any(
-                ok and receiver['lootmax'] + available > 0
-                for receiver, available, ok in zip(shelves, room, compatible))
-            if displaced_names & preserve or (not extra and (unavailable or
-                    (need and free < need - int(need * cap['preserve_tolerance'])))):
-                preserve.update(displaced_names)
-                report['kept_without_shelf_room'] += 1  # no shelf to take them: this floor keeps its stock tags
-                report['floor_nonclothing_slots_after'] += slots * share
-                continue
             report['converted'] += 1
-            if sorted(tags_after) != sorted(c['tags']):
+            if set(c['tags']) != {floor_tag}:
                 report['tags_rewritten'] += 1
                 edits.extend(_floor_tag_edits(masked, c, floor_tag, shelf_tag))
+            accepted = {name: row for name, row in table.items() if _matches(row, c, 'before')}
+            before = sum(row[3] for row in accepted.values())
+            displaced = sorted(name for name in accepted if name in supply)
+            if not before or not displaced:
+                continue
+            slots = min(c['lootmax'], len(c['ys']), group_max)
+            estimates = {name: slots * table[name][3] / before for name in displaced}
+            estimate = sum(estimates.values())
+            need = min(slots, int(math.floor(estimate + 0.5)))
+            requests = {name: int(math.floor(estimates[name])) for name in displaced}
+            order = sorted(displaced, key=lambda name: (-(estimates[name] - requests[name]), name))
+            for name in order[:need - sum(requests.values())]:
+                requests[name] += 1
+            report['floor_nonclothing_slots_before'] += estimate
             placed = 0
-            while placed < need and any(ok and r > g for r, g, ok in zip(room, gained, compatible)):
-                for index in range(len(shelves)):
-                    if compatible[index] and placed < need and gained[index] < room[index]:
-                        gained[index] += 1
-                        placed += 1
+            # Most constrained demand first; no slot can be transferred twice.
+            for name in sorted(displaced, key=lambda name: (len(compatible[name]), name)):
+                record = supply[name]
+                record['displaced_slot_estimate'] += estimates[name]
+                record['requested_slots'] += requests[name]
+                indexes = compatible[name]
+                if not any(shelves[i]['lootmax'] + room[i] > 0 and shelves[i]['ys'] for i in indexes):
+                    if gname not in record['groups_without_receiver']:
+                        record['groups_without_receiver'].append(gname)
+                remaining = requests[name]
+                for index in indexes:
+                    transfer = min(remaining, room[index] - gained[index])
+                    gained[index] += transfer
+                    remaining -= transfer
+                    placed += transfer
+                    record['transferred_slots'] += transfer
+                    if not remaining:
+                        break
+                record['unplaced_slots'] += remaining
             if need:
                 edits.append((c['open'][0], c['open'][1],
                               loot_boost._with_lootmax(c['tag_open'], c['lootmax'] - need)))
@@ -396,13 +386,29 @@ def rebalance_proto(data, rows_by_file, policy, preserve=None):
         for c, gain in zip(shelves, gained):
             if gain:
                 edits.append((c['open'][0], c['open'][1], loot_boost._with_lootmax(c['tag_open'], c['lootmax'] + gain)))
+    for name, record in supply.items():
+        record['displaced_slot_estimate'] = round(record['displaced_slot_estimate'], 4)
+        if record['unplaced_slots'] or record['groups_without_receiver'] or not record['compatible_shelf_points']:
+            report['supply_gaps'][name] = record
     for key in ('floor_nonclothing_slots_before', 'floor_nonclothing_slots_after'):
         report[key] = round(report[key], 2)
     output = loot_boost._encode(loot_boost._apply(text, edits), data)
     output_text = output.decode('utf-8-sig')
+    after_groups = _scan(output_text, loot_boost._mask(output_text), default_lootmax)
     report['slots_after'] = sum(min(limit, sum(min(c['lootmax'], len(c['ys'])) for c in containers))
-                                for _, limit, containers in _scan(output_text, loot_boost._mask(output_text),
-                                                                  default_lootmax))
+                                for _, limit, containers in after_groups)
+    for _, limit, containers in after_groups:
+        floor_y = min((y for c in containers for y in c['ys']), default=0.0)
+        for c in containers:
+            if not _is_floor(c, floor_y, policy):
+                continue
+            accepted_after = {name: row for name, row in table.items() if _matches(row, c, 'after')}
+            total = sum(row[3] for row in accepted_after.values())
+            prohibited = sum(row[3] for name, row in accepted_after.items() if name in supply)
+            if total:
+                report['floor_nonclothing_slots_after'] += min(limit, c['lootmax'], len(c['ys'])) * prohibited / total
+    if report['floor_nonclothing_slots_after']:
+        raise ValueError('floor policy verification failed: equipment can still use a floor container')
     _verify_proto(data, output, report, policy)
     return output, report
 
@@ -436,6 +442,8 @@ def _verify_proto(before, after, report, policy):
                 delta = int(lm_new) - (int(lm_old) if lm_old is not None else _default(old))
                 gain += max(0, delta)
                 removed += max(0, -delta)
+    if report['displaced'] != report['transferred'] + report['unplaced']:
+        raise ValueError('floor policy verification failed: displaced supply accounting')
     if gain != report['transferred'] or removed != report['displaced']:
         raise ValueError('floor policy verification failed: transferred lootmax does not match the edits')
 
@@ -452,8 +460,9 @@ def describe(report):
     if not report.get('enabled'):
         return 'floor policy disabled (floor-policy.json enabled=false or file absent): plain loot boost'
     return ('floor policy retagged_types=%d floor_containers=%d converted=%d kept_without_shelf_room=%d '
-            'displaced_slots=%d moved_to_shelves=%d unplaced=%d floor_nonclothing_slots %.1f->%.1f runtime=PENDING '
+            'displaced_slots=%d moved_to_shelves=%d unplaced=%d floor_nonclothing_slots %.1f->%.1f '
             '(CE honouring the rewritten tags is unobserved until a native server session)'
             % (report.get('retagged_types', 0), report['floor_containers'], report['converted'],
                report['kept_without_shelf_room'], report['displaced'], report['transferred'], report['unplaced'],
-               report['floor_nonclothing_slots_before'], report['floor_nonclothing_slots_after']))
+               report['floor_nonclothing_slots_before'], report['floor_nonclothing_slots_after'])
+            + ' supply_gap_classes=%d runtime=PENDING' % len(report.get('supply_gaps', {})))

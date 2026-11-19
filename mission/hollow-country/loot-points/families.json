@@ -1,31 +1,243 @@
 {
   "schema": 1,
   "kind": "hollow-country-loot-families",
-  "note": "First matching family wins. Categories must exist in the target cfglimitsdefinition.xml. Group usage (Medic, Police, Military, ...) still selects which items of a category spawn; added spots never carry firearm or explosive categories, and every stock container that lists them keeps its lootmax, so firearms keep their scarcity.",
+  "note": "First matching family wins. Floor coordinates admit clothing and the tools category solely for exact garbage classes allowed by the default-on strict floor policy; equipment is shelf-only across all loaded types. Surface coordinates remain existing measured shelf/container points, not raised floor coordinates. Group usage still selects contextual items. Firearm supply quantities are unchanged; unmatched shelf demand is reported, never restored to floors.",
   "families": [
-    {"family": "kitchen", "match": ["Kitchen", "_Pub$", "Village_Pub", "Store", "Grocery", "FastFood", "Hotel"],
-     "floor": {"categories": ["food", "containers", "tools"], "tags": ["floor"]},
-     "surface": {"categories": ["food", "tools"], "tags": ["shelves"]}},
-    {"family": "medical", "match": ["HealthCare", "Hospital", "Medical"],
-     "floor": {"categories": ["tools", "containers", "clothes"], "tags": ["floor"]},
-     "surface": {"categories": ["tools"], "tags": ["shelves"]}},
-    {"family": "police", "match": ["PoliceStation", "Prison"],
-     "floor": {"categories": ["clothes", "tools", "containers"], "tags": ["floor"]},
-     "surface": {"categories": ["tools", "books"], "tags": ["shelves"]}},
-    {"family": "fire", "match": ["FireStation"],
-     "floor": {"categories": ["tools", "clothes", "containers"], "tags": ["floor"]},
-     "surface": {"categories": ["tools"], "tags": ["shelves"]}},
-    {"family": "military", "match": ["^Land_Mil_", "^Land_Tisy_", "Barracks", "^Land_Airfield", "Guardhouse", "Bunker", "^Land_Tower_TC"],
-     "floor": {"categories": ["clothes", "containers", "tools"], "tags": ["floor"]},
-     "surface": {"categories": ["tools", "clothes"], "tags": ["shelves"]}},
-    {"family": "garage_shed", "match": ["Garage", "Shed", "Workshop", "Barn", "Factory", "Repair", "Warehouse", "Sawmill", "Mine_", "Quarry", "CementWorks", "CoalPlant", "Power", "Water_Station", "DieselPowerPlant", "FuelStation", "^Land_Farm_", "Greenhouse", "Polytunnel", "Construction", "^Land_Rail_", "Lighthouse", "Boathouse"],
-     "floor": {"categories": ["tools", "containers"], "tags": ["floor"]},
-     "surface": {"categories": ["tools"], "tags": ["shelves"]}},
-    {"family": "civic", "match": ["School", "Office", "Church", "Chapel", "Radio_building", "BusStation", "Castle"],
-     "floor": {"categories": ["books", "tools", "clothes"], "tags": ["floor"]},
-     "surface": {"categories": ["books", "tools"], "tags": ["shelves"]}},
-    {"family": "residential", "match": ["^Land_House", "^Land_Slum_House", "^Land_Camp_House", "^Land_Ruin_House", "^Land_Village_"],
-     "floor": {"categories": ["tools", "containers", "clothes"], "tags": ["floor"]},
-     "surface": {"categories": ["food", "tools"], "tags": ["shelves"]}}
+    {
+      "family": "kitchen",
+      "match": [
+        "Kitchen",
+        "_Pub$",
+        "Village_Pub",
+        "Store",
+        "Grocery",
+        "FastFood",
+        "Hotel"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "food",
+          "tools"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "medical",
+      "match": [
+        "HealthCare",
+        "Hospital",
+        "Medical"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "tools"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "police",
+      "match": [
+        "PoliceStation",
+        "Prison"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "tools",
+          "books"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "fire",
+      "match": [
+        "FireStation"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "tools"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "military",
+      "match": [
+        "^Land_Mil_",
+        "^Land_Tisy_",
+        "Barracks",
+        "^Land_Airfield",
+        "Guardhouse",
+        "Bunker",
+        "^Land_Tower_TC"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "tools",
+          "clothes"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "garage_shed",
+      "match": [
+        "Garage",
+        "Shed",
+        "Workshop",
+        "Barn",
+        "Factory",
+        "Repair",
+        "Warehouse",
+        "Sawmill",
+        "Mine_",
+        "Quarry",
+        "CementWorks",
+        "CoalPlant",
+        "Power",
+        "Water_Station",
+        "DieselPowerPlant",
+        "FuelStation",
+        "^Land_Farm_",
+        "Greenhouse",
+        "Polytunnel",
+        "Construction",
+        "^Land_Rail_",
+        "Lighthouse",
+        "Boathouse"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "tools"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "civic",
+      "match": [
+        "School",
+        "Office",
+        "Church",
+        "Chapel",
+        "Radio_building",
+        "BusStation",
+        "Castle"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "books",
+          "tools"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    },
+    {
+      "family": "residential",
+      "match": [
+        "^Land_House",
+        "^Land_Slum_House",
+        "^Land_Camp_House",
+        "^Land_Ruin_House",
+        "^Land_Village_"
+      ],
+      "floor": {
+        "categories": [
+          "clothes",
+          "tools"
+        ],
+        "tags": [
+          "floor"
+        ]
+      },
+      "surface": {
+        "categories": [
+          "food",
+          "tools"
+        ],
+        "tags": [
+          "shelves"
+        ]
+      }
+    }
   ]
 }
