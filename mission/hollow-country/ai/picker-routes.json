@@ -10,7 +10,7 @@
   "MaxScannedObjects": 128,
   "MaxCargoScan": 16,
   "RunMinMembers": 2,
-  "RunMaxMembers": 4,
+  "RunMaxMembers": 6,
   "RunMaxHousesPerRun": 3,
   "RunMaxHouseAttempts": 6,
   "RunMaxHouseCandidates": 8,

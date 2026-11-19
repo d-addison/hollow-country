@@ -66,12 +66,12 @@ class PartyBoundsAndCaps(unittest.TestCase):
         self.policy = h.policy()
         self.survey = h.shipped_survey()
 
-    def test_two_to_four_members_are_admitted(self):
-        for members in (2, 3, 4):
+    def test_two_to_six_members_are_admitted(self):
+        # Owner 2026-11-19: raise the cap so 5-6 member groups can run.
+        for members in (2, 3, 4, 5, 6):
             self.assertEqual('', self.policy.PartyRefusal(self.survey, members), members)
         self.assertEqual('PICKER_PARTY_TOO_SMALL', self.policy.PartyRefusal(self.survey, 1))
-        self.assertEqual('PICKER_PARTY_TOO_LARGE', self.policy.PartyRefusal(self.survey, 5))
-        self.assertEqual('PICKER_PARTY_TOO_LARGE', self.policy.PartyRefusal(self.survey, 6))
+        self.assertEqual('PICKER_PARTY_TOO_LARGE', self.policy.PartyRefusal(self.survey, 7))
 
     def test_bounds_come_from_the_survey_not_the_code(self):
         survey = h.shipped_survey(RunMinMembers=3, RunMaxMembers=3)
