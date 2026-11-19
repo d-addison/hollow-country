@@ -1,3 +1,96 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; EnDebug.c:96 Print.
+// EnConvert.c:30,115 int/float.ToString; EnDebug.c:96 Print.
+// Bounded HCGroupIO read; absent/invalid fields retain constructor defaults.
+class HCSignsConfig
+{
+    int MaxFlies = 6;
+    int MaxObjects = 512;
+    int MaxForceLit = 24;
+    float HouseRadius = 125;
+    float FlyRadius = 25;
+    float ScanSeconds = 10;
+    float ColdC = 10;
+    float SummarySeconds = 60;
+    int SummaryAreas = 6;
+    int SnapshotPlayers = 90;
+    protected static ref HCSignsConfig s_Config;
+    static HCSignsConfig HCGet()
+    {
+        if (s_Config) { return s_Config; }
+        HCOperatorSettingsRegistry.HCLocalPolicyInit();
+        s_Config = new HCSignsConfig;
+        string path = "$profile:HollowCountry/signs-of-life.json";
+        if (FileExist(path))
+        {
+            string text;
+            string error;
+            HCSignsConfig decoded;
+            if (HCGroupIO.Read(path, 4096, text) && JsonFileLoader<HCSignsConfig>.LoadData(text, decoded, error) && decoded)
+                s_Config.HCApply(decoded, text);
+            else
+                Print("[HC Config] HCSignsConfig invalid_json defaults_restored runtime=PENDING");
+        }
+        Print("[HC Config] HCSignsConfig objects=" + s_Config.MaxObjects.ToString() + " flies=" + s_Config.MaxFlies.ToString() + " forced=" + s_Config.MaxForceLit.ToString() + " runtime=PENDING");
+        Print("[HC Config] HCSignsConfig house_m=" + s_Config.HouseRadius.ToString() + " fly_m=" + s_Config.FlyRadius.ToString() + " scan_s=" + s_Config.ScanSeconds.ToString() + " runtime=PENDING");
+        Print("[HC Config] HCSignsConfig summary_s=" + s_Config.SummarySeconds.ToString() + " areas=" + s_Config.SummaryAreas.ToString() + " cold_c=" + s_Config.ColdC.ToString() + " players=" + s_Config.SnapshotPlayers.ToString() + " runtime=PENDING");
+        return s_Config;
+    }
+    void HCApply(HCSignsConfig decoded, string text)
+    {
+        if (HCJsonFields.Has(text, "MaxFlies"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.MaxFlies", decoded.MaxFlies)) { MaxFlies = decoded.MaxFlies; }
+            else { Print("[HC Config] SignsOfLife.MaxFlies invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "MaxObjects"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.MaxObjects", decoded.MaxObjects)) { MaxObjects = decoded.MaxObjects; }
+            else { Print("[HC Config] SignsOfLife.MaxObjects invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "MaxForceLit"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.MaxForceLit", decoded.MaxForceLit)) { MaxForceLit = decoded.MaxForceLit; }
+            else { Print("[HC Config] SignsOfLife.MaxForceLit invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "HouseRadius"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.HouseRadius", decoded.HouseRadius)) { HouseRadius = decoded.HouseRadius; }
+            else { Print("[HC Config] SignsOfLife.HouseRadius invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "FlyRadius"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.FlyRadius", decoded.FlyRadius)) { FlyRadius = decoded.FlyRadius; }
+            else { Print("[HC Config] SignsOfLife.FlyRadius invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "ScanSeconds"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.ScanSeconds", decoded.ScanSeconds)) { ScanSeconds = decoded.ScanSeconds; }
+            else { Print("[HC Config] SignsOfLife.ScanSeconds invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "ColdC"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.ColdC", decoded.ColdC)) { ColdC = decoded.ColdC; }
+            else { Print("[HC Config] SignsOfLife.ColdC invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "SummarySeconds"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.SummarySeconds", decoded.SummarySeconds)) { SummarySeconds = decoded.SummarySeconds; }
+            else { Print("[HC Config] SignsOfLife.SummarySeconds invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "SummaryAreas"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.SummaryAreas", decoded.SummaryAreas)) { SummaryAreas = decoded.SummaryAreas; }
+            else { Print("[HC Config] SignsOfLife.SummaryAreas invalid_range default_retained runtime=PENDING"); }
+        }
+        if (HCJsonFields.Has(text, "SnapshotPlayers"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SignsOfLife.SnapshotPlayers", decoded.SnapshotPlayers)) { SnapshotPlayers = decoded.SnapshotPlayers; }
+            else { Print("[HC Config] SignsOfLife.SnapshotPlayers invalid_range default_retained runtime=PENDING"); }
+        }
+    }
+}
+
 // Fix-round RPC native evidence, installed scripts-1.30.164289:
 // 3_Game/gameplay.c:104-117 ScriptRPC/Send; 1_Core/proto/Serializer.c:57/58
 // Write/Read; 3_Game/Global/Game.c:945 GetPlayers, :1120 IsServer;
@@ -22,15 +115,13 @@
 // Occupied holdout snapshots are ordering hints and cannot create a light/fire.
 class HCSignsOfLife extends HCModule
 {
-    static const int MAX_LIT = 4;
-    static const int MAX_SMOKE = 2;
-    static const int MAX_FLIES = 6;
-    static const int MAX_OBJECTS = 512;
-    static const int MAX_FORCE_LIT = 24;
-    static const float HOUSE_RADIUS = 125.0;
-    static const float FLY_RADIUS = 25.0;
-    static const float SCAN_SECONDS = 10.0;
-    static const float COLD_C = 10.0;
+    static int MAX_FLIES = 6;
+    static int MAX_OBJECTS = 512;
+    static int MAX_FORCE_LIT = 24;
+    static float HOUSE_RADIUS = 125;
+    static float FLY_RADIUS = 25;
+    static float SCAN_SECONDS = 10;
+    static float COLD_C = 10;
 
     // Client-only received snapshot. No server ForceLit allocation or sink.
     // HCSignsHoldoutRPC owns the authoritative server snapshot separately.
@@ -59,14 +150,28 @@ class HCSignsOfLife extends HCModule
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("SignsOfLife", true, "EXP-A5", HCV2Gates.Qualified("EXP-A5")));
+        HCApplySettings();
         HCHearthFires.HCStart();
         m_Day = -1;
-        m_Clock = 60.0;
+        m_Clock = HCSignsConfig.HCGet().SummarySeconds;
         m_Started = true;
+    }
+
+    static void HCApplySettings()
+    {
+        HCSignsConfig config = HCSignsConfig.HCGet();
+        HCSignsOfLife.MAX_FLIES = config.MaxFlies;
+        HCSignsOfLife.MAX_OBJECTS = config.MaxObjects;
+        HCSignsOfLife.MAX_FORCE_LIT = config.MaxForceLit;
+        HCSignsOfLife.HOUSE_RADIUS = config.HouseRadius;
+        HCSignsOfLife.FLY_RADIUS = config.FlyRadius;
+        HCSignsOfLife.SCAN_SECONDS = config.ScanSeconds;
+        HCSignsOfLife.COLD_C = config.ColdC;
     }
 
     static int RealDay()
     {
+        HCApplySettings();
         int year, month, day;
         GetYearMonthDayUTC(year, month, day);
         int seconds = HCGroupClock.CalendarUtc(year, month, day, 0, 0, 0);
@@ -93,7 +198,8 @@ class HCSignsOfLife extends HCModule
     {
         if (!HCSignsOfLife.ForceLit) { return false; }
         int examined = 0;
-        foreach (vector forced : HCSignsOfLife.ForceLit)
+        array<vector> forcedPositions = HCSignsOfLife.ForceLit;
+        foreach (vector forced : forcedPositions)
         {
             if (examined >= HCSignsOfLife.MAX_FORCE_LIT) return false;
             examined = examined + 1;
@@ -165,7 +271,7 @@ class HCSignsOfLife extends HCModule
         return a[1] < b[1];
     }
 
-    // Fixed-size ordered insertion: at most six comparisons, independent of
+    // Fixed-size ordered insertion bounded by the caller cap, independent of
     // native query order within the bounded result prefix inspected below.
     static void Offer(array<Object> selected, Object source, int day, int cap)
     {
@@ -183,6 +289,7 @@ class HCSignsOfLife extends HCModule
 
     static void SelectHouses(Object viewer, int day, array<Object> lit, array<Object> smoke)
     {
+        HCApplySettings();
         lit.Clear();
         smoke.Clear();
         if (!viewer || day < 0) return;
@@ -214,9 +321,10 @@ class HCSignsOfLife extends HCModule
 
     override void OnTick(float deltaTime)
     {
+        if (!m_Started) { return; }
         HCHearthFires.HCTick();
         m_Clock += deltaTime;
-        if (m_Clock < 60.0) return;
+        if (m_Clock < HCSignsConfig.HCGet().SummarySeconds) return;
         int today = RealDay();
         if (today < 0) return;
         if (today != m_Day)
@@ -230,10 +338,10 @@ class HCSignsOfLife extends HCModule
             GetGame().GetPlayers(m_Viewers);
         }
         if (m_Summarized) { m_Clock = 0; return; }
-        // Daily summary is a bounded sample of at most six player areas, one
+        // Daily summary is a bounded sample of configured player areas, one
         // query per tick. Counts are peak per-area policy slots in that sample,
         // never claims of effects observed or entities spawned on the server.
-        if (m_Area < m_Viewers.Count() && m_Area < 6)
+        if (m_Area < m_Viewers.Count() && m_Area < HCSignsConfig.HCGet().SummaryAreas)
         {
             ref array<Object> lit = new array<Object>;
             ref array<Object> smoke = new array<Object>;
@@ -245,7 +353,7 @@ class HCSignsOfLife extends HCModule
         }
         string litSummary = "n/a day";
         if (DuskOrNight()) { litSummary = m_LitCount.ToString(); }
-        Print("[HollowCountry] V2 signs of life day=" + m_Day.ToString() + " lit=" + litSummary + " smoke=" + m_SmokeCount.ToString() + " cap=" + MAX_LIT.ToString());
+        Print("[HollowCountry] V2 signs of life day=" + m_Day.ToString() + " lit=" + litSummary + " smoke=" + m_SmokeCount.ToString() + " cap=" + HCHearthConfig.HCGet().MaxLit.ToString());
         m_Summarized = true;
         m_Clock = 0;
         m_Viewers.Clear();
@@ -285,7 +393,8 @@ class HCSignsHoldoutRPC
         if (player.GetIdentity() != identity || s_Occupied.Count() > 24) { return; }
         ScriptRPC rpc = new ScriptRPC;
         rpc.Write(s_Occupied.Count());
-        foreach (vector position : s_Occupied) { rpc.Write(position); }
+        array<vector> occupied = s_Occupied;
+        foreach (vector position : occupied) { rpc.Write(position); }
         // Null target avoids waiting for the player entity to replicate.
         rpc.Send(null, HCSignsHoldoutRPC.RPC_HOLDOUTS, true, identity);
     }
@@ -307,7 +416,7 @@ class HCSignsHoldoutRPC
         foreach (vector position : positions) { s_Occupied.Insert(position); }
         array<Man> players = new array<Man>;
         GetGame().GetPlayers(players);
-        int playerCount = Math.Min(players.Count(), 90);
+        int playerCount = Math.Min(players.Count(), HCSignsConfig.HCGet().SnapshotPlayers);
         for (int playerIndex = 0; playerIndex < playerCount; playerIndex++)
         {
             PlayerBase player = PlayerBase.Cast(players[playerIndex]);
