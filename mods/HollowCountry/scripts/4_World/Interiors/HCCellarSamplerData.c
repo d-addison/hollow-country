@@ -16,11 +16,13 @@ class HCCellarSamplerInstance
 
 class HCCellarSamplerClass
 {
+    static const string DEFAULT_DISPOSITION = "pending";
+    static const string DEFAULT_REASON = "native_survey_pending";
     string BuildingClass;
     string Model;
     string SurveyTask;
-    string Disposition = "pending";
-    string Reason = "native_survey_pending";
+    string Disposition = DEFAULT_DISPOSITION;
+    string Reason = DEFAULT_REASON;
     // Operator-surveyed local player-height points ON the actual stairs.
     // Default false: geometry probes cannot identify a staircase reliably.
     bool StairsMeasured;
@@ -33,6 +35,15 @@ class HCCellarSamplerClass
     int AcceptedInstances;
     bool Inconsistent;
     ref array<ref HCCellarSamplerInstance> Instances = new array<ref HCCellarSamplerInstance>;
+
+    // Native LoadData zero-fills a missing key to "", not the initializer. A
+    // missing diagnostic restores the declared pending state, which grants nothing;
+    // an explicit authored value is kept.
+    void HCRestoreDeclaredDefaults()
+    {
+        if (Disposition == "") { Disposition = DEFAULT_DISPOSITION; }
+        if (Reason == "") { Reason = DEFAULT_REASON; }
+    }
 }
 
 // HC-31: existing generator distances moved to authored configuration. Local
@@ -46,11 +57,18 @@ class HCCellarTriggerDefaults
 
 class HCCellarSamplerData
 {
+    static const string DEFAULT_METHOD = "ground-floor-owner-rays-3x3-clearance-v1";
     int SchemaVersion;
     string WorldName;
     bool Complete;
-    string Method = "ground-floor-owner-rays-3x3-clearance-v1";
+    string Method = DEFAULT_METHOD;
     int SkippedTiles;
     ref HCCellarTriggerDefaults TriggerDefaults;
     ref array<ref HCCellarSamplerClass> Classes;
+
+    // Authored seeds omit Method; native zero-fill would stamp the output with "".
+    void HCRestoreDeclaredMethod()
+    {
+        if (Method == "") { Method = DEFAULT_METHOD; }
+    }
 }

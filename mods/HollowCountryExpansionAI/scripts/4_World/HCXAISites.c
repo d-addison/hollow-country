@@ -303,6 +303,8 @@ class HCXAILocalitySave : HCSaveJob
         foreach (HCXAILocalityCoverage row : Data.Rows)
         {
             if (!row || !HCXAIRules.Token(row.LocalityId) || row.LocalityId.Length() > 48 || ids.Find(row.LocalityId) >= 0 || row.NextSite < 0 || row.LastSelected < 0 || row.LastSelected > Data.SelectionSerial || row.LastObserved < 0 || row.LastObserved > row.LastSelected || row.PendingSinceSerial < 0 || row.PendingSinceSerial > Data.SelectionSerial || row.RetryAt < 0 || row.Refusal.Length() > 192) { return false; }
+            // Native zero-fill reads a missing Refusal as "": a pending row keeps its declared reason.
+            if (row.Pending && row.Refusal == "") { row.Refusal = "route_not_reviewed"; }
             ids.Insert(row.LocalityId);
         }
         return true;

@@ -37,6 +37,7 @@ class HCSettlementDecayStore
 {
     static bool HCFieldsPresent(string text)
     {
+        if (!HCJsonFields.Has(text, "Version")) { return false; }
         if (!HCJsonFields.Every(text, "LastDay", 3)) { return false; }
         if (!HCJsonFields.Every(text, "Ransack", 3) || !HCJsonFields.Every(text, "Barricades", 3)) { return false; }
         return HCJsonFields.Every(text, "Remains", 3) && HCJsonFields.Every(text, "Notices", 3);
