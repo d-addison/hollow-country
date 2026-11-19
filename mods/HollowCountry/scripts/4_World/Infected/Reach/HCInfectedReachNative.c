@@ -38,6 +38,7 @@ modded class ZombieBase
     protected int m_HCReachArmed;
     protected float m_HCReachArmedAt;
     protected Transport m_HCReachVehicle;
+    protected PlayerBase m_HCReachPlayer;
     protected DayZInfectedAttackType m_HCReachAttack;
 
     override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
@@ -53,6 +54,9 @@ modded class ZombieBase
         {
             // The swing ended or was interrupted without a hit frame.
             m_HCReachArmed = 0;
+            m_HCReachPlayer = null;
+            m_HCReachAttack = null;
+            m_HCReachVehicle = null;
         }
         HCInfectedReachModule reach = HCInfectedReachModule.Active();
         HCInfectedReachState state = null;
@@ -122,6 +126,13 @@ modded class ZombieBase
         float dz = aim[2] - own[2];
         float horizontal = Math.Sqrt(dx * dx + dz * dz);
 
+        // HC-47: no forced locomotion/vault without native traversal receipts.
+        // Clearing transient intent leaves native movement/audio intact.
+        if (!HCInfectedReachPolicy.HCForcedMovementSupported())
+        {
+            state.Phase = HCInfectedReachPolicy.PhaseNone();
+            state.VaultType = -1;
+        }
         // Unreachable back-off: native locomotion steered by controller
         // overrides, re-applied each frame, released the moment it ends.
         if (state.Phase != HCInfectedReachPolicy.PhaseNone())
@@ -167,7 +178,7 @@ modded class ZombieBase
         bool fresh = now - state.LineAt <= 2.5;
         bool facing = HCInfectedReachModule.FacingDegrees(this, dx, dz, horizontal) <= 35;
         bool vanillaCan = CanAttackToPosition(aim) && vector.Distance(aim, own) <= 1.7;
-        bool legs = HCInfectedReachPolicy.MayStrike(vertical, horizontal, 1.7, state.LineClear, fresh, true, vanillaCan);
+        bool legs = HCInfectedReachPolicy.HCExtendedReachSupported() && HCInfectedReachPolicy.MayStrike(vertical, horizontal, 1.7, state.LineClear, fresh, true, vanillaCan);
         DayZInfectedAttackType attack = null;
 
         if (state.Vehicle && now - state.VehicleAt <= 2.5)
@@ -184,6 +195,7 @@ modded class ZombieBase
                     m_ActualAttackType = attack;
                     m_HCReachAttack = attack;
                     m_HCReachVehicle = state.Vehicle;
+                    m_HCReachPlayer = target;
                     m_HCReachArmed = 2;
                     m_HCReachArmedAt = now;
                     StartCommand_Attack(state.Vehicle, attack.m_Type, attack.m_Subtype);
@@ -201,6 +213,7 @@ modded class ZombieBase
         m_ActualAttackType = attack;
         m_HCReachAttack = attack;
         m_HCReachVehicle = null;
+        m_HCReachPlayer = target;
         m_HCReachArmed = 1;
         m_HCReachArmedAt = now;
         StartCommand_Attack(target, attack.m_Type, attack.m_Subtype);
@@ -226,7 +239,43 @@ modded class ZombieBase
         {
             HCReachHitLegs(reach);
         }
+        m_HCReachPlayer = null;
+        m_HCReachAttack = null;
         return true;
+    }
+
+    // HC-47 native source facts, re-read at WasHit rather than trusting the
+    // admission slot or cached LOS. DayZInfectedInputController.c:9-10;
+    // ZombieBase.c:609-674 native attack/hit lifecycle; :1060/:1090 exclusions.
+    protected bool HCReachCurrentTarget(PlayerBase target)
+    {
+        if (!target || !target.IsAlive() || !IsAlive() || IsCrawling() || IsBeingBackstabbed()) { return false; }
+        DayZInfectedInputController controller = GetInputController();
+        if (!controller || controller.GetTargetEntity() != target) { return false; }
+        int mind = controller.GetMindState();
+        return mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT;
+    }
+
+    // One sorted first-contact ray; every non-target obstruction refuses. A
+    // surface near the shin may be a closed door/wall, never a reach receipt.
+    // Same endpoints as the existing ReachModule.LineCheck (no added range).
+    // DayZPhysics.c:199 RaycastRV, EntityAI.c:879 GetHierarchyRoot;
+    // Object.c:287 GetPosition, EnScript.c:743/:750 set Count/Get.
+    protected bool HCReachContactLine(PlayerBase target)
+    {
+        if (!HCInfectedReachPolicy.HCThreatTakeContact()) { return false; }
+        vector origin = GetPosition() + HCInfectedReachPolicy.HC_CONTACT_ORIGIN_OFFSET;
+        vector finish = target.GetPosition() + HCInfectedReachPolicy.HC_CONTACT_TARGET_OFFSET;
+        vector contact;
+        vector normal;
+        int component;
+        set<Object> hits = new set<Object>;
+        bool hit = DayZPhysics.RaycastRV(origin, finish, contact, normal, component, hits, null, this, true, false, ObjIntersectFire);
+        if (!hit) { return true; }
+        if (hits.Count() == 0) { return false; }
+        Object first = hits.Get(0);
+        EntityAI entity = EntityAI.Cast(first);
+        return first == target || (entity && entity.GetHierarchyRoot() == target);
     }
 
     protected void HCReachHitLegs(HCInfectedReachModule reach)
@@ -234,15 +283,14 @@ modded class ZombieBase
         PlayerBase target = PlayerBase.Cast(m_ActualTarget);
         if (!reach || !target || !target.IsAlive() || !m_HCReachAttack) { return; }
         if (target.GetMeleeTargetType() == EMeleeTargetType.NONALIGNABLE || target.GetCommand_Vehicle()) { return; }
+        if (target != m_HCReachPlayer || !HCReachCurrentTarget(target)) { return; }
         vector own = GetPosition();
         vector aim = target.GetPosition();
-        float vertical = aim[1] - own[1];
-        float dx = aim[0] - own[0];
-        float dz = aim[2] - own[2];
-        float horizontal = Math.Sqrt(dx * dx + dz * dz);
-        // Re-check at contact: the target may have stepped back during the swing.
-        bool inBand = HCInfectedReachPolicy.Elevated(vertical) && horizontal <= m_HCReachAttack.m_Distance + 0.3;
-        if (!inBand || !reach.LineCheck(this, target))
+        // Native permission AND native selected attack's full 3D distance.
+        // DayZInfected.c:115 CanAttackToPosition; ZombieBase.c:649 distance.
+        // No horizontal extension, contact epsilon or remembered LOS bypass.
+        if (!CanAttackToPosition(aim) || vector.Distance(own, aim) > m_HCReachAttack.m_Distance) { return; }
+        if (!HCReachContactLine(target))
         {
             reach.CountStrike(false);
             return;
@@ -267,6 +315,7 @@ modded class ZombieBase
         Transport vehicle = m_HCReachVehicle;
         m_HCReachVehicle = null;
         if (!reach || !vehicle || !m_HCReachAttack) { return; }
+        if (!HCReachCurrentTarget(m_HCReachPlayer)) { return; }
         vector origin = GetPosition() + "0 1.0 0";
         vector toward = vehicle.GetPosition() - GetPosition();
         vector finish = origin + Vector(toward[0], 0, toward[2]).Normalized() * 1.9;
