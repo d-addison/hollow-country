@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LOOT = ROOT / 'mods/HollowCountry/scripts/4_World/Admin/HCAdminLootMap.c'
 CLIENT = ROOT / 'mods/HollowCountry/scripts/5_Mission/Admin/HCAdminClient.c'
 WIRE = ROOT / 'mods/HollowCountry/scripts/3_Game/Admin/HCAdminWire.c'
+MENU = ROOT / 'mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c'
 CHERNARUS_M = 15360  # explicit synthetic world edge (GetWorldSize), not read from DayZ
 
 
@@ -203,7 +204,7 @@ class ClientWiring(unittest.TestCase):
                             m_LootStale=False, m_LootMarksShown=False)
         self.members = ('HCValid', 'HCSend', 'HCFeedback', 'HCMergeLootMap', 'HCCarryLootMarks',
                         'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop', 'HCLootMarkCount',
-                        'HCLootFilterOf', 'HCLootLayerStatus', 'HCLootFilterLabel')
+                        'HCLootFilterOf', 'HCLootLayerStatus', 'HCLootFilterLabel', 'HCLayerRowLabel')
         self.fields = ('m_Ticket', 'm_Expected', 'm_Pending', 'm_RequestUntil', 'm_Command', 'm_NextSend',
                        'm_LootTicket', 'm_LootUntil', 'm_LootViewUntil', 'm_SnapshotTicket', 'm_Player',
                        'm_Authorized', 'm_SnapshotUntil', 'm_Listening', 'm_OpenRequested', 'm_LastReply',
@@ -211,7 +212,7 @@ class ClientWiring(unittest.TestCase):
                        'm_LootStale', 'm_LootMarksShown')
         for name in ('HCValid', 'HCSend', 'HCLootMap', 'HCMergeLootMap', 'HCLootMarkCount', 'HCCarryLootMarks',
                      'HCExpireMarks', 'HCExpireLoot', 'HCStop', 'HCLootFilterOf', 'HCLootLayerStatus',
-                     'HCLootFilterLabel'):
+                     'HCLootFilterLabel', 'HCLayerRowLabel'):
             fn = compile_authored(CLIENT, 'HCAdminClient', name, self.env, self.members, modded=False,
                                   native_strings=EStr, fields=self.fields)
             setattr(c, name, lambda *args, fn=fn: fn(c, *args))
@@ -433,6 +434,73 @@ class ClientWiring(unittest.TestCase):
         self.receive(c, self.reply(fourth, notice='started ticket=4 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
         self.receive(c, self.reply(fourth, snapshot=True, marks=0, notice='[HC Admin] cmd=lootmap result=ok reason='))
         self.assertEqual('', c.HCLootLayerStatus())
+
+    def test_the_layer_list_row_carries_the_filter_and_the_previous_run_mark(self):
+        # #196: the layer list widget (HCAdminLayers) shows the kept-mark label, not only the
+        # status line and the notice.
+        c = self.build()
+        self.assertEqual('lootmap', c.HCLayerRowLabel(EStr('lootmap')), 'no marks shown, no label')
+        c.HCLootMap(EStr('Bandage'))
+        first = self.sent[-1].Ticket
+        self.now = 101.0
+        self.receive(c, self.reply(first, notice='started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(first, snapshot=True, marks=2, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual('lootmap [filter=Bandage]', c.HCLayerRowLabel(EStr('lootmap')))
+        self.assertEqual('ai-units', c.HCLayerRowLabel(EStr('ai-units')), 'only the lootmap row is labelled')
+        c.m_NextSend = 0.0
+        self.now = 200.0
+        c.m_LastReply = 200.0
+        c.HCLootMap(EStr('Rag*'))
+        second = self.sent[-1].Ticket
+        self.receive(c, self.reply(second, notice='started ticket=2 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(second, snapshot=True, marks=0,
+                                   notice='[HC Admin] cmd=lootmap result=refused reason=job_tick_cap'))
+        self.assertEqual('lootmap [filter=Bandage, previous run]', c.HCLayerRowLabel(EStr('lootmap')))
+
+    def test_the_menu_layer_list_shows_the_label_and_toggles_by_the_raw_layer_name(self):
+        rows = []
+        client = N(View=N(Marks=Arr([N(Layer='lootmap', Route=0, Position=(1, 0, 2), Label='l', Detail='d'),
+                                     N(Layer='camps', Route=0, Position=(3, 0, 4), Label='c', Detail='d')])),
+                   Hidden=Arr(['camps']),
+                   HCLayerRowLabel=lambda layer: 'lootmap [filter=Bandage, previous run]' if layer == 'lootmap' else layer)
+        menu = N(m_Map=N(ClearUserMarks=lambda: None, AddUserMark=lambda *args: None),
+                 m_Routes=N(Clear=lambda: None), m_Layers=N(ClearItems=lambda: None,
+                 AddItem=lambda text, data, column: rows.append(text)),
+                 m_LayerNames=Arr(), m_Client=client, HCRenderRoutes=lambda: None)
+        render = compile_authored(MENU, 'HCAdminMenu', 'HCRenderMap',
+                                  base_scope(ARGB=lambda *args: 0, array=Arr, HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24)), ('HCRenderRoutes',), modded=False,
+                                  native_strings=EStr, fields=())
+        render(menu)
+        self.assertEqual(['[on] lootmap [filter=Bandage, previous run]', '[off] camps'], rows)
+        self.assertEqual(['lootmap', 'camps'], list(menu.m_LayerNames), 'the toggle keeps the raw layer name')
+
+    def test_all_24_wire_layers_plus_lootmap_are_listed_and_the_late_ones_toggle(self):
+        # #196: the list was capped at 16 while the wire carries up to 24 layers plus lootmap.
+        names = ['layer%02d' % i for i in range(24)] + ['lootmap']
+        rows = []
+        client = N(View=N(Marks=Arr([N(Layer=name, Route=0, Position=(1, 0, 2), Label='l', Detail='d')
+                                     for name in names])),
+                   Hidden=Arr(), HCLayerRowLabel=lambda layer: layer, HCValid=lambda: True, HCBusy=lambda: False)
+        selected = [20]
+        menu = N(m_Map=N(ClearUserMarks=lambda: None, AddUserMark=lambda *args: None),
+                 m_Routes=N(Clear=lambda: None),
+                 m_Layers=N(ClearItems=lambda: rows.clear(), AddItem=lambda text, data, column: rows.append(text),
+                            GetSelectedRow=lambda: selected[0]),
+                 m_LayerNames=Arr(), m_Client=client, m_Tabs=Arr(), HCRenderRoutes=lambda: None)
+        scope = base_scope(ARGB=lambda *args: 0, array=Arr, HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24))
+        render = compile_authored(MENU, 'HCAdminMenu', 'HCRenderMap', scope, ('HCRenderRoutes',), modded=False,
+                                  native_strings=EStr, fields=())
+        render(menu)
+        self.assertEqual(25, len(rows))
+        self.assertEqual('[on] lootmap', rows[24])
+        menu.HCRenderMap = lambda: render(menu)
+        click = compile_authored(MENU, 'HCAdminMenu', 'OnClick', scope, ('HCRenderMap',), modded=False,
+                                 native_strings=EStr, fields=())
+        for index in (20, 24):  # a late wire layer, and lootmap itself
+            selected[0] = index
+            self.assertTrue(click(menu, N(GetName=lambda: 'HCAdminToggle'), 0, 0, 0))
+            self.assertEqual(names[index], client.Hidden[-1])
+            self.assertTrue(rows[index].startswith('[off] '))
 
     def test_kept_marks_of_an_unfiltered_run_are_still_labelled(self):
         # Wave 14 (#195): the label follows its own "marks are shown" flag, not a non-empty

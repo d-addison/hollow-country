@@ -311,7 +311,7 @@ class HCAdminMenu : UIScriptedMenu
         for (int markIndex = 0; markIndex < m_Client.View.Marks.Count(); markIndex++)
         {
             HCAdminMark mark = m_Client.View.Marks[markIndex];
-            if (m_LayerNames.Find(mark.Layer) < 0 && m_LayerNames.Count() < 16) { m_LayerNames.Insert(mark.Layer); }
+            if (m_LayerNames.Find(mark.Layer) < 0 && m_LayerNames.Count() < HCAdminSnapshotWire.MAX_WIRE_LAYERS + 1) { m_LayerNames.Insert(mark.Layer); }
             if (m_Client.Hidden.Find(mark.Layer) >= 0) { continue; }
             if (mark.Route == 0)
             {
@@ -322,7 +322,7 @@ class HCAdminMenu : UIScriptedMenu
         {
             string flag = "[on] ";
             if (m_Client.Hidden.Find(m_LayerNames[layerIndex]) >= 0) { flag = "[off] "; }
-            m_Layers.AddItem(flag + m_LayerNames[layerIndex], null, 0);
+            m_Layers.AddItem(flag + m_Client.HCLayerRowLabel(m_LayerNames[layerIndex]), null, 0);
         }
         HCRenderRoutes();
     }

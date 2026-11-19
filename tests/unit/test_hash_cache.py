@@ -180,18 +180,103 @@ class OrphanTempSweep(CacheCase):
         self.assertTrue((self.cache / hash_cache.CACHE_FILE).is_file())
 
 
-class LastWriterWins(CacheCase):
-    def test_interleaved_writers_leave_one_valid_file_and_the_last_write_wins(self):
-        self.assertIn('last writer wins', hash_cache.__doc__.lower())
-        row = lambda ch: {'size': 1, 'mtime_ns': 1, 'sha256': ch * 64, 'used': 1}
+class ConcurrentWritersMerge(CacheCase):
+    """#196: before the atomic replace the writer re-reads the file and merges, so two builds that each
+    added a different key both survive (a narrow race between the re-read and the replace remains)."""
+
+    row = staticmethod(lambda ch, used=1: {'size': 1, 'mtime_ns': 1, 'sha256': ch * 64, 'used': used})
+
+    def test_two_writers_that_each_add_a_different_key_both_survive(self):
         first = self.entries()  # both writers loaded the same (empty) state
         second = self.entries()
-        first['/a'] = row('a')
-        second['/b'] = row('b')
+        first['/a'] = self.row('a')
+        second['/b'] = self.row('b')
         hash_cache._store(self.cache, first)
         hash_cache._store(self.cache, second)
-        self.assertEqual({'/b'}, set(self.entries()))  # the first writer's row is lost, never corrupted
+        self.assertEqual({'/a', '/b'}, set(self.entries()))
         self.assertEqual([hash_cache.CACHE_FILE], sorted(p.name for p in self.cache.iterdir()))
+
+    def test_the_newer_use_stamp_wins_per_key_whichever_writer_holds_it(self):
+        hash_cache._store(self.cache, {'/k': self.row('a', used=500)})
+        hash_cache._store(self.cache, {'/k': self.row('b', used=100)})  # an older stale copy must not win
+        self.assertEqual('a' * 64, self.entries()['/k']['sha256'])
+        hash_cache._store(self.cache, {'/k': self.row('c', used=900)})
+        self.assertEqual('c' * 64, self.entries()['/k']['sha256'])
+        hash_cache._store(self.cache, {'/k': self.row('d', used=900)})  # a tie goes to the writer in hand
+        self.assertEqual('d' * 64, self.entries()['/k']['sha256'])
+
+    def test_the_cap_is_kept_over_the_merged_rows_least_recently_used_first(self):
+        hash_cache._store(self.cache, {'/old': self.row('a', used=10), '/mid': self.row('b', used=20)})
+        with mock.patch.object(hash_cache, 'MAX_ENTRIES', 2):
+            hash_cache._store(self.cache, {'/new': self.row('c', used=30)})
+        self.assertEqual({'/mid', '/new'}, set(self.entries()))
+
+    def test_a_corrupt_file_on_disk_does_not_stop_the_write(self):
+        self.cache.mkdir()
+        (self.cache / hash_cache.CACHE_FILE).write_text('{not json', encoding='utf-8')
+        hash_cache._store(self.cache, {'/a': self.row('a')})
+        self.assertEqual({'/a'}, set(self.entries()))
+
+    def test_the_module_says_merge_not_last_writer_wins(self):
+        self.assertNotIn('last writer wins', hash_cache.__doc__.lower())
+        self.assertIn('merge', hash_cache.__doc__.lower())
+
+
+class FutureStampIsPersistedClamped(CacheCase):
+    def test_the_next_write_persists_a_clamped_future_stamp_for_a_row_it_did_not_touch(self):
+        import json
+        self.cache.mkdir()
+        future = {'size': 1, 'mtime_ns': 1, 'sha256': 'e' * 64, 'used': 10 ** 21}
+        (self.cache / hash_cache.CACHE_FILE).write_text(
+            json.dumps({'schema': hash_cache.CACHE_SCHEMA, 'entries': {'/future': future}}), encoding='utf-8')
+        path = self.old_file('a.pbo', b'a')
+        hash_cache.cached_sha256(path)  # a different key; this write must persist the clamp
+        raw = json.loads((self.cache / hash_cache.CACHE_FILE).read_text(encoding='utf-8'))
+        self.assertLessEqual(raw['entries']['/future']['used'], 10 ** 16)  # on disk, not just in memory
+
+
+CTIME_RETRIES = 50  # bounded: 50 rewrites, 10 ms apart, is half a second at most
+CTIME_PAUSE_SECONDS = 0.01
+
+
+def rewrite_until_ctime_moves(path, rewrite, retries=CTIME_RETRIES, pause=CTIME_PAUSE_SECONDS):
+    """Run `rewrite()` until `path` reports a different st_ctime_ns, retrying a bounded number of times.
+
+    Returns the number of rewrites it took. Raises unittest.SkipTest, naming the reason, when the
+    filesystem never advances ctime (a coarse-timestamp filesystem), because then the same-stat
+    rewrite scenario cannot be produced and the test would prove nothing."""
+    before = path.stat().st_ctime_ns
+    for attempt in range(1, retries + 1):
+        rewrite()
+        if path.stat().st_ctime_ns != before:
+            return attempt
+        time.sleep(pause)
+    raise unittest.SkipTest('filesystem_ctime_not_advancing: st_ctime_ns unchanged after %d rewrites' % retries)
+
+
+class CtimeRetryHelper(unittest.TestCase):
+    class Stat:
+        def __init__(self, ticks):
+            self.ticks, self.calls, self.writes = ticks, 0, 0
+
+        def stat(self):
+            self.calls += 1
+            return type('S', (), {'st_ctime_ns': self.ticks.get(self.writes, 0)})()
+
+        def write(self):
+            self.writes += 1
+
+    def test_it_returns_once_ctime_moves_even_when_the_first_rewrite_lands_in_the_same_tick(self):
+        fake = self.Stat({3: 1})  # the ctime only advances on the third rewrite
+        self.assertEqual(3, rewrite_until_ctime_moves(fake, fake.write, pause=0))
+        self.assertEqual(3, fake.writes)
+
+    def test_it_skips_with_a_named_reason_when_ctime_never_advances(self):
+        fake = self.Stat({})
+        with self.assertRaises(unittest.SkipTest) as caught:
+            rewrite_until_ctime_moves(fake, fake.write, retries=4, pause=0)
+        self.assertIn('filesystem_ctime_not_advancing', str(caught.exception))
+        self.assertEqual(4, fake.writes)  # bounded
 
 
 class RewrittenFileKeepsItsStamp(CacheCase):
@@ -200,9 +285,10 @@ class RewrittenFileKeepsItsStamp(CacheCase):
         first = hash_cache.cached_sha256(path)
         self.assertEqual(hashlib.sha256(b'aaaa').hexdigest(), first)
         self.assertIn(str(path.absolute()), self.entries())  # it was cached (outside the racy window)
-        time.sleep(0.05)  # ctime ticks are coarse; the rewrite must land in a later one
-        path.write_bytes(b'bbbb')
-        os.utime(path, ns=(10 ** 9, 10 ** 9))  # same size, same mtime_ns as before
+        def rewrite():
+            path.write_bytes(b'bbbb')
+            os.utime(path, ns=(10 ** 9, 10 ** 9))  # same size, same mtime_ns as before
+        rewrite_until_ctime_moves(path, rewrite)  # skips, named, if this filesystem has coarse ctime
         self.assertEqual(hashlib.sha256(b'bbbb').hexdigest(), hash_cache.cached_sha256(path))
 
     def test_a_replaced_file_with_the_same_size_and_mtime_is_rehashed(self):
