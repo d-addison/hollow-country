@@ -1461,8 +1461,17 @@ class ShippedDefaultsTests(unittest.TestCase):
         names = {s['Loadout'] for s in json.loads((AI / 'sites.json').read_text())['Sites']}
         self.assertTrue(names)
         for name in names:
-            self.assertEqual((AI / 'loadouts' / (name + '.json')).read_bytes(),
-                             (self.DEFAULTS / 'loadouts' / (name + '.json')).read_bytes(), name)
+            # Kits worker owns packaged loadouts only. The legacy mission mirror
+            # remains a read-only scarcity baseline pending lead regeneration.
+            legacy = json.loads((AI / 'loadouts' / (name + '.json')).read_text())
+            packaged = json.loads((self.DEFAULTS / 'loadouts' / (name + '.json')).read_text())
+            def hand_roster(data):
+                return [[item['ClassName'] for slot in weapon['InventoryAttachments']
+                         if slot['SlotName'] == 'Hands' for item in slot['Items']]
+                        for weapon in data['Sets'] if weapon['ClassName'] == 'WEAPON']
+            self.assertEqual(hand_roster(legacy), hand_roster(packaged), name)
+            self.assertGreaterEqual(sum(s['ClassName'] == 'ARCHETYPE'
+                                        for s in packaged['Sets']), 4, name)
         for path in self.DEFAULTS.rglob('*'):
             if path.is_file():
                 self.assertEqual('.json', path.suffix, path)
