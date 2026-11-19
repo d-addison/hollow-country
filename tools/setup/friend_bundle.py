@@ -225,7 +225,15 @@ def profile_files(profiles):
             dropped += len(legacy)
             print('left out %s: the interior template pack refuses to load (rooms_conflict) beside them'
                   % ', '.join(legacy))
+    # The AI site policy ships from the repo mission source, never from the profile snapshot: an old
+    # snapshot carried the 21-site PBO default, and the mod keeps any profile that differs from the
+    # mission image as an operator edit, so the full-map sites never reached the server.
+    for rel, source in PROFILE_FROM_MISSION.items():
+        keep = [(r, path) for r, path in keep if r != rel] + [(rel, SOURCE / source)]
     return keep, dropped
+
+
+PROFILE_FROM_MISSION = {'HollowCountry/expansion-ai-sites.json': 'ai/sites.json'}
 
 
 # Exact authored source paths, never a basename search through unrelated JSON.
@@ -236,8 +244,8 @@ PROFILE_SOURCES = {
     'HollowCountry/stamina.json': ('config/hollow-country-stamina.json',),
     'HollowCountry/interiors.json': ('mission/hollow-country/interiors/interiors.json',),
     'HollowCountry/expansion-ai-sites.json': (
-        'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json',
-        'mission/hollow-country/ai/sites.json'),
+        'mission/hollow-country/ai/sites.json',
+        'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'),
     'HollowCountry/expansion-ai-localities.json': (
         'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-localities.json',
         'mission/hollow-country/ai/localities.json'),
