@@ -69,10 +69,11 @@ def check_consistency(*, registry=None, shipped=None, native=None):
     if errors: return errors
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
+    shipped_rules = {key for key in rules if not key.startswith('WildlifeProviders.')}
     for label, image in images:
         values = flatten(image)
         for key in sorted(values.keys() - rules.keys()): errors.append(f'{label}: unregistered key {key}')
-        for key in sorted(rules.keys() - values.keys()): errors.append(f'{label}: missing key {key}')
+        for key in sorted(shipped_rules - values.keys()): errors.append(f'{label}: missing key {key}')
         for key in values.keys() & rules.keys():
             default = rules[key]['default']
             if values[key] != default or type(values[key]) is not type(default):
@@ -105,6 +106,21 @@ def check_consistency(*, registry=None, shipped=None, native=None):
     for key, row in nested.items():
         if ai_defaults.get(key) != row['default'] or ai_ranges.get(key) != (row['min'], row['max']):
             errors.append(f'AILimits default/range differs for {key}')
+    # The wildlife module owns a separate mission DTO; its scalar rules share
+    # the compiled registry but are not fields of the global HCSettings DTO.
+    if registry is None:
+        provider = json.loads((ROOT / 'mission/hollow-country/ecology/HCWildlife-providers.json').read_text())
+        provider_source = (ROOT / 'mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c').read_text()
+        for key, row in rules.items():
+            if not key.startswith('WildlifeProviders.'):
+                continue
+            field = key.removeprefix('WildlifeProviders.')
+            if provider.get(field) != row['default'] or type(provider.get(field)) is not type(row['default']):
+                errors.append('Wildlife provider default/type differs for ' + key)
+            if row['type'] in ('int', 'float'):
+                binding = 'HCOperatorSettingsRegistry.HCValid("' + key + '", config.' + field + ')'
+                if binding not in provider_source:
+                    errors.append('Wildlife provider validation binding differs for ' + key)
     return errors
 
 
