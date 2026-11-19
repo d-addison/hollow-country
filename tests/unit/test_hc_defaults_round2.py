@@ -357,7 +357,8 @@ class LODWorkBudget(unittest.TestCase):
         self.assertEqual(18, getattr(klass, 'HC_WORK_INCIDENT_RESPONSE', None))
         self.assertEqual(19, klass.HC_WORK_CONSUMERS)
         hearth = (ROOT / 'mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c').read_text(encoding='utf-8')
-        self.assertEqual(3, hearth.count('HCTakeFor(HCUnitBudget.HC_WORK_HEARTH, 1)'))
+        # Observation, holdout dispatch, ignition and attempt reclamation.
+        self.assertEqual(4, hearth.count('HCTakeFor(HCUnitBudget.HC_WORK_HEARTH, 1)'))
         self.assertNotIn('HCTickWork().HCTake(1)', hearth)
         formations = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c').read_text(encoding='utf-8')
         self.assertIn('HCTakeFor(HCUnitBudget.HC_WORK_FORMATION, 1)', formations)

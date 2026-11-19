@@ -134,7 +134,7 @@ class FundedIgnitionTests(unittest.TestCase):
                    HCWorldClock=N(UTC=lambda: now[0]),
                    HCObserverTransitionGate=N(CanTransition=lambda *args: hidden[0]),
                    HCServer=N(HCTickWork=lambda: N(HCTake=lambda n: True, HCTakeFor=lambda consumer, n: True)),
-                   HCUnitBudget=N(HC_WORK_HEARTH=16),
+                   HCUnitBudget=N(HC_WORK_HEARTH=16), Math=N(Min=min),
                    FireplaceIndoor=N(Cast=lambda value: value, CanPlaceFireplaceInSelectedSpot=lambda *a: True),
                    ItemBase=N(Cast=lambda value: value), GetGame=lambda: N(IsServer=lambda: True, CreateObjectEx=create),
                    vector=N(Zero=[0, 0, 0], DistanceSq=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))),
@@ -144,7 +144,7 @@ class FundedIgnitionTests(unittest.TestCase):
         env['HCHoldouts'] = N(Get=lambda: None)
         # Static storage binding only; execute the authored tick control flow.
         tick_source = re.sub(r'(?<![\w.])(s_\w+)', r'HCHearthFires.\1', tick_source)
-        for method in ('HCReclaimAttempts', 'HCTick'):
+        for method in ('HCReclaimAttempts', 'HCWorkTick', 'HCTick'):
             if 'static void ' + method + '(' in tick_source:
                 setattr(policy, method, translate(tick_source, method, env, 'HCHearthFires'))
         policy.HCFuelReady = translate(source, 'HCFuelReady', env, 'HCHearthFires')
@@ -152,6 +152,42 @@ class FundedIgnitionTests(unittest.TestCase):
         return N(light=lambda target=house: light(target, actor, stash, 'holdout', 'synthetic-home'),
                  cargo=cargo, created=created, refusals=refusals, paper=paper, wood=wood,
                  matches=matches, policy=policy, now=now, hidden=hidden, stash=stash, cfg=cfg, env=env, house=house)
+
+    def test_reclamation_does_not_starve_funded_holdout_with_two_units_left(self):
+        from tests.unit.tick_budget_fixture import new_budget, constants
+        f = self.fixture()
+        work = new_budget()
+        ids = constants()
+        f.env['HCUnitBudget'] = N(**ids)
+        f.env['HCServer'].HCTickWork = lambda: work
+        f.policy.s_HoldoutCursor = 0
+        f.policy.s_Attempts.Set(f.house, f.now[0])
+        f.env['HCHoldouts'].Get = lambda: N(Count=lambda: 1, HCHearthLight=lambda index: f.light())
+        for _ in range(180):
+            work.HCReset(3)
+            self.assertTrue(work.HCTakeFor(ids['HC_WORK_INFECTED'], 1))
+            f.policy.HCTick()
+            f.now[0] += 1
+        self.assertEqual(1, len(f.created), 'funded holdout must ignite despite expired attempt reclamation')
+        self.assertEqual(1, f.matches.used)
+
+    def test_attempt_sweep_inspects_each_entry_only_once(self):
+        f = self.fixture()
+        f.cfg.HearthsPerTick = 4
+        fresh = object()
+        f.policy.s_Attempts.Set(object(), f.now[0])
+        f.policy.s_Attempts.Set(fresh, f.now[0] + 60)
+        inspected = []
+        native_get_key = f.policy.s_Attempts.GetKey
+        def get_key(index):
+            key = native_get_key(index)
+            inspected.append(key)
+            return key
+        f.policy.s_Attempts.GetKey = get_key
+        f.policy.HCTick()
+        self.assertEqual(2, len(inspected), 'a sweep must not revisit fresh entries after removing expired ones')
+        self.assertEqual(2, len(set(inspected)))
+        self.assertEqual({fresh}, set(f.policy.s_Attempts))
 
     def test_expired_attempts_allow_new_houses_past_lifetime_cap(self):
         f = self.fixture()
