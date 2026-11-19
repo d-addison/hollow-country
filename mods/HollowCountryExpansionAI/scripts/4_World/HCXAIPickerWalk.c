@@ -20,12 +20,40 @@
 // inference: the base observes real positions and owns the custody journal.
 class HCXAIPickerWalk : HCScavengeInventory
 {
-    // #201 additive custody veto: both HCMove preflights dispatch this hook.
-    // Native transfer and all Expansion walking APIs remain in their owners.
-    override bool HCPartyCurrent(HCScavengeState row)
+    // #208: observation is transfer eligibility, never party identity.
+    // Reuse the configured party cooldown as the maximum observed-home wait;
+    // no new timer, scheduler, inventory owner or retry of a native move.
+    protected int m_DepositWaitUntil;
+    protected ref HCScavengeState m_TransferState;
+
+    override bool HCAtHome()
     {
-        if (!super.HCPartyCurrent(row)) { return false; }
-        return HCCampTheft.HCGuard(this, row);
+        if (!super.HCAtHome()) { return false; }
+        HCScavengeState homeCheck = new HCScavengeState;
+        homeCheck.Phase = "returning";
+        if (HCCampTheft.HCGuard(this, homeCheck)) { return true; }
+        int now = ExpansionStatic.GetTimestamp(true);
+        if (m_DepositWaitUntil == 0) { m_DepositWaitUntil = now + Defaults.PartyCooldownSeconds; }
+        // At expiry enter the normal durable intent/refusal path. HCMove still
+        // vetoes observation, retaining the exact physical item on the carrier.
+        return now >= m_DepositWaitUntil;
+    }
+
+    override int HCMove(bool returning, HCScavengeState row)
+    {
+        if (!HCCampTheft.HCGuard(this, row)) { return 4; }
+        m_TransferState = row;
+        int result = super.HCMove(returning, row);
+        m_TransferState = null;
+        return result;
+    }
+
+    override bool HCAccessible(EntityAI cache)
+    {
+        // Base HCMove repeats accessibility after inventory preflight callbacks.
+        // Retain that second observer veto without changing HCPartyCurrent.
+        if (m_TransferState && !HCCampTheft.HCGuard(this, m_TransferState)) { return false; }
+        return super.HCAccessible(cache);
     }
 
     protected eAIGroup m_Group;
@@ -91,6 +119,8 @@ class HCXAIPickerWalk : HCScavengeInventory
     override void HCClear()
     {
         HCFinishWalk();
+        m_DepositWaitUntil = 0;
+        m_TransferState = null;
         m_WalkRefusal = "";
         super.HCClear();
     }
