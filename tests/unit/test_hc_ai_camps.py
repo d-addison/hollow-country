@@ -441,14 +441,14 @@ class AICampBehavior(unittest.TestCase):
         self.assertEqual(remaining, (pool.Stock, pool.Population))
         api.HCRaid(a, 50000, cfg)
         restored, restored_pool = deepcopy(a), deepcopy(pool)  # Explicit synthetic DTO restart.
-        self.assertFalse(api.HCGrow(restored, 50000+604799, cfg))
-        self.assertTrue(api.HCGrow(restored, 50000+604800, cfg))
+        self.assertFalse(api.HCGrow(restored, 50000+cfg.RaidLockoutSeconds-1, cfg))
+        self.assertTrue(api.HCGrow(restored, 50000+cfg.RaidLockoutSeconds, cfg))
         self.assertEqual(remaining, (restored_pool.Stock, restored_pool.Population))
         self.assertEqual(3, restored.Population, 'a theft/raid does not invent deaths')
         self.assertTrue(api.HCDeath(restored))
         self.assertEqual(2, restored.Population)
         restored.Supply = 0
-        self.assertFalse(api.HCGrow(restored, 50000+604800+cfg.GrowthSeconds, cfg))
+        self.assertFalse(api.HCGrow(restored, 50000+cfg.RaidLockoutSeconds+cfg.GrowthSeconds, cfg))
         self.assertTrue(api.HCUpkeep(restored, restored.LastUpkeep+cfg.UpkeepSeconds, cfg))
         self.assertEqual(-1, restored.Level)
         self.assertTrue(api.HCDeath(restored))

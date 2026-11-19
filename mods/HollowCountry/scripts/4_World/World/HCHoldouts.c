@@ -302,7 +302,7 @@ class HCHoldouts : HCModule
             if (!row || !row.Ledger || !HCEncounterCacheIO.Valid(row.Cache) || ids.Contains(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.HouseClass) || !HCWorldLimits.Position(row.Ledger.HousePos)) { HCRefuseState(); return; }
             if (row.Ledger.State != "DORMANT" && row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT" && row.Ledger.State != "RAIDED" && row.Ledger.State != "ABANDONED") { HCRefuseState(); return; }
             if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > HCAILimits.SIZE_CEILING || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) { HCRefuseState(); return; }
-            if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 604800) { HCRefuseState(); return; }
+            if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 60) { HCRefuseState(); return; }
             if (!HCAICampLifecycle.HCValidLife(row.Camp, m_State.CampPolicy) || row.Camp.Home != row.Ledger.Id) { HCRefuseState(); return; }
             if (row.Camp.Allocated)
             {
@@ -342,7 +342,7 @@ class HCHoldouts : HCModule
         receipt += " reserve=" + m_State.Resources.Stock.ToString() + " cap=" + m_State.CampPolicy.ReserveCap.ToString();
         receipt += " refunded=" + m_State.Resources.Refunded.ToString() + " roles=0 state=ready refusal=EAT_FIRE_REPAIR_UNPROVEN runtime=PENDING";
         Print("" + receipt);
-        Print("[HollowCountry] V2 holdouts ready catalog/occupied caps from AILimits raid_lockout=604800s; bodies require materializer");
+        Print("[HollowCountry] V2 holdouts ready catalog/occupied caps from AILimits raid_lockout=" + m_State.CampPolicy.RaidLockoutSeconds.ToString() + "s; bodies require materializer runtime=PENDING");
         HCSyncLights();
     }
 
@@ -892,7 +892,8 @@ class HCHoldouts : HCModule
         if (!SaveChanged()) { return; }
         PublishState(row);
         if (!SaveChanged()) { return; }
-        Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=604800s");
+        int raidLockout = m_State.CampPolicy.RaidLockoutSeconds;
+        Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=" + raidLockout.ToString() + "s runtime=PENDING");
     }
 
     override void OnTick(float deltaTime)

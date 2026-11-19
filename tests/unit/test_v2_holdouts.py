@@ -143,6 +143,8 @@ class HoldoutsSmoke(unittest.TestCase):
         from tests.unit.test_map_layers import translate
         world_source = (SOURCE.parent / 'HCWorldModule.c').read_text()
         holdouts_source = (SOURCE.parent / 'HCHoldouts.c').read_text()
+        # Native scalar formatting only; keep the configured raid decision authored.
+        holdouts_source = holdouts_source.replace('raidLockout.ToString()', 'str(raidLockout)')
         clock = [1000000]
         row = N(Ledger=N(Id='synthetic-house', PlaceId='synthetic-place',
                         FactionId='locals', HouseClass='Land_House_1W01',
@@ -199,8 +201,8 @@ class HoldoutsSmoke(unittest.TestCase):
         raid_env['Raid'](module, 0)
         self.assertEqual(('RAIDED', 0),
                          (ledger.Holdouts[0].State, ledger.Holdouts[0].Occupants))
-        self.assertFalse(transition_env['HCAdvanceOccupancy'](module, 0, clock[0] + 604799))
-        self.assertTrue(transition_env['HCAdvanceOccupancy'](module, 0, clock[0] + 604800))
+        self.assertFalse(transition_env['HCAdvanceOccupancy'](module, 0, clock[0] + camp_policy.RaidLockoutSeconds - 1))
+        self.assertTrue(transition_env['HCAdvanceOccupancy'](module, 0, clock[0] + camp_policy.RaidLockoutSeconds))
         module.PublishState(row)
         self.assertEqual(1, len(ledger.Holdouts))
         self.assertEqual('OCCUPIED', ledger.Holdouts[0].State)

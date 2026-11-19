@@ -24,7 +24,7 @@ class HCAICampPolicy
     int HubCost = 8;
     int GrowthSeconds = 3600;
     int UpkeepSeconds = 86400;
-    int RaidLockoutSeconds = 604800;
+    int RaidLockoutSeconds = 1800;
     int RoleSeconds = 120;
     // Existing holdout BindOccupant envelope (30 m), 3% of the approximately
     // 1000 m vanilla network bubble / rifle hearing range. Not a perception boost.
@@ -42,8 +42,8 @@ class HCAICampPolicy
         if (ReservePopulationRegenPerDay < 1 || ReservePopulationRegenPerDay > ReservePopulationCap) { return false; }
         if (BivouacCost < 1 || HouseholdCost < 1 || StableCost < 1 || HubCost < 1) { return false; }
         if (BivouacCost + HouseholdCost + StableCost + HubCost > CampAllocation) { return false; }
-        if (GrowthSeconds < 60 || UpkeepSeconds < 3600 || RaidLockoutSeconds != 604800) { return false; }
-        if (GrowthSeconds > 604800 || UpkeepSeconds > 604800 || RaidLockoutSeconds > 2592000) { return false; }
+        if (GrowthSeconds < 60 || UpkeepSeconds < 3600 || RaidLockoutSeconds < 60) { return false; }
+        if (GrowthSeconds > 604800 || UpkeepSeconds > 604800 || RaidLockoutSeconds > 604800) { return false; }
         return RoleSeconds >= 60 && RoleSeconds <= 3600 && RoutineRangeMeters >= 1 && RoutineRangeMeters <= 30 && ArrivalToleranceMeters == 1;
     }
 }

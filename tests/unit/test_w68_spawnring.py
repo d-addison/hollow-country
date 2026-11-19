@@ -99,7 +99,7 @@ class SpawnRingTests(unittest.TestCase):
         env.update(A=A, HCXAISiteSpawnConfig=lambda: N(), TVectorArray=A,
                    HCAILimits=N(Get=lambda: N(WorldSeed=42), GroupSize=lambda *args: 2),
                    HCXFactions=N(SiteFaction=lambda site: 'Guards'),
-                   HCXAISiteDirector=N(RaidCooldown=lambda *args: 3600),
+                   HCXAISiteDirector=N(HCRespawnDelay=lambda *args: 900),
                    HCXAIQualification=N(ProviderProblem=lambda: ''),
                    HCXAIRules=N(PatrolProblem=lambda *args: ''), vector=N(Zero=(0, 0, 0)),
                    HCXAITestProvider=N(CreateEx=lambda config, origin: configs.append(config) or N()))
@@ -115,6 +115,7 @@ class SpawnRingTests(unittest.TestCase):
         state = N(Site=site, Transient=False, OpenRoute=False, PatrolPoints=A([(0, 0, 0), (10, 0, 0)]))
         authored.call('Create', owner, state)
         self.assertEqual(1, len(configs))
+        self.assertEqual(900, configs[0].RespawnTime)
         self.assertEqual((1875, 2125, 'WALK'),
                          (configs[0].MinDistRadius, configs[0].MaxDistRadius, configs[0].Speed))
         self.assertEqual(state.PatrolPoints, configs[0].Waypoints)
