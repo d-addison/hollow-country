@@ -74,7 +74,11 @@ class TradeBehavior(unittest.TestCase):
         saves = []
         homes = N(m_Ready=True, m_Dirty=False, m_State=N(Rows=EArray([left, right, other])),
                   SaveChanged=lambda: saves.append((left.Camp.Supply, right.Camp.Supply)) is None)
-        bind(source, 'HCHoldouts', homes, ('HCTradeDebit',), dict(Math=N(Max=max), HCEventArray=EArray))
+        bind(source, 'HCHoldouts', homes, ('HCTradeDebit', 'HCTradeCanDebit'), dict(Math=N(Max=max), HCEventArray=EArray))
+        self.assertTrue(homes.HCTradeCanDebit('a', 'b'))
+        self.assertFalse(homes.HCTradeCanDebit('a', 'missing'))
+        self.assertFalse(homes.HCTradeCanDebit('a', 'a'))
+        self.assertEqual([], saves)
         self.assertTrue(homes.HCTradeDebit('a', 'b', 3))
         self.assertEqual([(2, 0)], saves)
         self.assertEqual(7, other.Camp.Supply)
@@ -130,7 +134,7 @@ class CaravanProviderBehavior(unittest.TestCase):
         env = dict(HCEventArray=EArray, HCServer=N(HCTickWork=lambda: N(HCTake=take)),
                    HCXTradeInventoryFrame=lambda: N(NodeEntity=None, Checked=False, Attachment=0, CargoIndex=0),
                    ItemBase=N(Cast=lambda entity: None if entity is actor else entity))
-        bind(source, 'HCXTradeInventoryScan', scan, ('HCStart', 'HCStep'), env)
+        bind(source, 'HCXTradeInventoryScan', scan, ('HCStart', 'HCStep', 'HCRetire'), env)
         scan.HCStart(actor, 'wanted')
         for tick in range(100):
             remaining[0] = 2
@@ -148,6 +152,59 @@ class CaravanProviderBehavior(unittest.TestCase):
         self.assertTrue(scan.Complete)
         self.assertEqual(64, scan.Visited)
         self.assertLess(native_reads[0], 64)
+        actor.IsAlive = lambda: False
+        self.assertIsNone(scan.HCStep(64))
+        self.assertIsNone(scan.Actor)
+        self.assertIsNone(scan.Found)
+        self.assertEqual([], scan.Frames)
+
+    def test_casualty_or_invalid_lease_releases_candidate_and_reselects(self):
+        source = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c').read_text()
+        source = re.sub(r'array<[^>]+>', 'HCEventArray', source.replace('eAIGroup', 'HCGroupPort').replace('eAIBase', 'PlayerBase').replace('array<ref ', 'array<'))
+        for casualty in ('dead', 'deleted', 'lease-invalid'):
+            with self.subTest(casualty=casualty):
+                group = N()
+                actor = N(IsAlive=lambda: casualty != 'dead', GetGroup=lambda: group)
+                scan = N(Actor=None if casualty == 'deleted' else actor,
+                         Lease='left', Found=None, Complete=False, Frames=EArray([N()]))
+                bind(source, 'HCXTradeInventoryScan', scan, ('HCRetire',), {})
+                port = N(m_Scans=EArray([scan]), Walker=None,
+                         HCLeaseGroup=lambda lease: None if casualty == 'lease-invalid' else group,
+                         HCHolder=lambda *args: None, HCClear=lambda: None,
+                         PlannedLeft='left', PlannedRight='right')
+                scan_methods = ['HCScansComplete', 'HCResetScans', 'HCRetireInvalidScans']
+                bind(source, 'HCXAITradeAdapter', port, scan_methods, {})
+                roads = N(Phase='idle')
+                producer = N(m_Port=port, m_Carrier=None, m_Partner=None,
+                             m_Outbound=None, m_Inbound=None, m_Planning=True,
+                             m_Travelling=False, m_Returning=False, m_JourneyKey='',
+                             m_LeftLease='left', m_RightLease='right',
+                             m_LeftHome='a', m_RightHome='b', m_Recipe=N(LeftClass='a', RightClass='b'))
+                bind(source, 'HCXAITradeProducer', producer, ('HCPlan', 'HCClearTrip', 'HCSettleJourney'),
+                     dict(HCXAICaravanRoads=N(HCGet=lambda: roads)))
+                producer.HCPlan()
+                self.assertFalse(producer.m_Planning, 'casualty must release the selected candidate')
+                self.assertTrue(scan.Complete)
+                self.assertIsNone(scan.Actor)
+                self.assertIsNone(scan.Found)
+                self.assertEqual([], scan.Frames)
+                self.assertEqual([], port.m_Scans)
+                self.assertEqual('', producer.m_LeftLease)
+                # The next producer tick can now select another funded pair.
+                selected = []
+                producer.HCLoad = lambda: True
+                producer.HCCandidate = lambda: selected.append('next-pair')
+                producer.m_Losses = N(Rows=EArray())
+                producer.m_Recipe.MaxLossReceipts = 8
+                producer.m_Recipe.OfferIntervalSeconds = 1
+                producer.m_LastOffer = 0
+                roads.HCStep = lambda: None
+                trade = N(HCGetOperationalStatus=lambda: N(HCState=lambda: 'ready'), HCTrading=lambda: False)
+                bind(source, 'HCXAITradeProducer', producer, ('HCStep',),
+                     dict(HCAITrade=N(HCGet=lambda: trade), HCXAICaravanRoads=N(HCGet=lambda: roads),
+                          HCWorldClock=N(UTC=lambda: 100), HCTradeOfferPolicy=N(HCDue=lambda *args: True)))
+                producer.HCStep()
+                self.assertEqual(['next-pair'], selected)
 
     def test_return_ambush_records_the_exchanged_physical_cargo_once(self):
         source = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c').read_text()
@@ -158,11 +215,15 @@ class CaravanProviderBehavior(unittest.TestCase):
         inbound = N(IsRuined=lambda: False, GetQuantity=lambda: 1, GetHierarchyRootPlayer=lambda: owner[0])
         producer = N(m_Carrier=carrier, m_Partner=partner, m_Outbound=outbound, m_Inbound=inbound,
                      m_Losses=N(Rows=EArray()), m_Recipe=N(MaxLossReceipts=8, LossSupplyDebit=1),
-                     m_Store=N(), m_LeftHome='a', m_RightHome='b', m_Failed=False,
+                     m_Store=N(Save=lambda data: True), m_LeftHome='a', m_RightHome='b', m_Failed=False,
                      HCRefuse=lambda reason: None)
-        env = dict(HCTradeLossRow=N, HCTradeLossBarrier=lambda: N(HCApply=lambda: applied.append(True) is None),
+        def barrier():
+            result = N(HCDebit=lambda row: applied.append(True) is None)
+            bind(SOURCE.read_text(), 'HCTradeLossBarrier', result, ('HCApply',), {})
+            return result
+        env = dict(HCTradeLossRow=lambda: N(Phase='new'), HCTradeLossBarrier=barrier,
                    Print=lambda line: None, HCEventArray=EArray)
-        bind(source, 'HCXAITradeProducer', producer, ('HCLoss',), env)
+        bind(source, 'HCXAITradeProducer', producer, ('HCLoss', 'HCRecordLoss'), env)
         state = N(Id=EStr('hc35-first-barter'), StartedAt=100, Phase='complete',
                   Transfer='reciprocal_confirmed', LeftQuantity=2, RightQuantity=1)
         producer.HCLoss(state)
@@ -175,6 +236,73 @@ class CaravanProviderBehavior(unittest.TestCase):
         producer.m_Inbound = None
         producer.HCLoss(state)
         self.assertEqual([True, True], applied, 'deleted retained cargo is also a loss')
+
+    def test_restart_mid_journey_records_one_loss_without_creating_cargo(self):
+        from copy import deepcopy
+        source = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c').read_text()
+        source = source.replace('new HCEncounterStore<HCTradeLossData>("hc35-caravan-losses")', 'HCTradeStore()')
+        source = re.sub(r'array<[^>]+>', 'HCEventArray', source.replace('array<ref ', 'array<'))
+        persisted, debits = [], []
+        allocations_ready = [False]
+        cargo = ['physical-outbound', 'physical-inbound']  # explicit synthetic existing inventory
+        def save(data):
+            persisted.append(deepcopy(data))
+            return True
+        store = N(Save=save, Load=lambda *args: deepcopy(persisted[-1]))
+        def barrier():
+            result = N(HCDebit=lambda row: debits.append((row.LeftCamp, row.RightCamp, row.Debit)) is None)
+            bind(SOURCE.read_text(), 'HCTradeLossBarrier', result, ('HCApply',), {})
+            return result
+        env = dict(HCTradeLossRow=lambda: N(Phase='new'), HCTradeLossBarrier=barrier,
+                   HCHoldouts=N(Get=lambda: N(HCTradeCanDebit=lambda *args: allocations_ready[0])),
+                   Print=lambda line: None, HCEventArray=EArray)
+        def producer(data):
+            result = N(m_Losses=data, m_Store=store, m_JourneyKey='', m_Failed=False,
+                       m_Opened=False, m_Port=N(),
+                       m_LeftHome='a', m_RightHome='b',
+                       m_Recipe=N(MaxLossReceipts=8, LossSupplyDebit=1, MinimumCampReserve=4), HCRefuse=lambda reason: None)
+            load_env = env.copy()
+            load_env.update(HCAITrade=N(HCGet=lambda: N(HCRecipe=lambda: result.m_Recipe)),
+                            HCTradeStore=lambda: store, HCTradeLossData=N,
+                            HCWorldLimits=N(Token=lambda value: bool(value)))
+            bind(source, 'HCXAITradeProducer', result,
+                 ('HCDepart', 'HCRecoverJourneys', 'HCRecordLoss', 'HCSettleJourney', 'HCLoad'), load_env)
+            return result
+        initial = producer(N(Version=1, Rows=EArray()))
+        state = N(Id=EStr('hc35-first-barter'), StartedAt=100)
+        # Execute the actual provider departure hook; the durable marker must
+        # exist even before an already-nearby pair reports meeting arrival.
+        port = N(Producer=initial, HCAtMeeting=lambda: bool(persisted))
+        bind(source.replace('if (HCAtMeeting())', 'if (self.HCAtMeeting())'),
+             'HCXAITradeAdapter', port, ('HCBeginWalk',), {})
+        self.assertTrue(port.HCBeginWalk(state))
+        self.assertEqual('journey', persisted[-1].Rows[0].Phase)
+        # Fresh owner: all native actor/item/route handles have disappeared.
+        restarted = producer(deepcopy(persisted[-1]))
+        self.assertFalse(restarted.HCLoad())
+        self.assertEqual([], debits, 'startup waits for both funded allocations')
+        allocations_ready[0] = True
+        self.assertTrue(restarted.HCLoad())
+        self.assertTrue(restarted.HCLoad())
+        again = producer(deepcopy(persisted[-1]))
+        self.assertTrue(again.HCLoad())
+        self.assertEqual([('a', 'b', 1)], debits)
+        self.assertEqual(1, len(again.m_Losses.Rows))
+        self.assertEqual('complete', again.m_Losses.Rows[0].Phase)
+        self.assertEqual(['physical-outbound', 'physical-inbound'], cargo)
+        # A normally returned journey is durably retired without a loss.
+        returned = producer(N(Version=1, Rows=EArray()))
+        self.assertTrue(returned.HCDepart(state))
+        self.assertTrue(returned.HCSettleJourney())
+        self.assertEqual([], persisted[-1].Rows)
+        self.assertEqual([('a', 'b', 1)], debits)
+        # Failed durable departure cannot issue movement or a meeting success.
+        failed = producer(N(Version=1, Rows=EArray()))
+        failed.m_Store = N(Save=lambda data: False)
+        failed_port = N(Producer=failed, HCAtMeeting=lambda: self.fail('uncheckpointed departure'))
+        bind(source.replace('if (HCAtMeeting())', 'if (self.HCAtMeeting())'),
+             'HCXAITradeAdapter', failed_port, ('HCBeginWalk',), {})
+        self.assertFalse(failed_port.HCBeginWalk(state))
 
     def test_home_route_restore_defers_cleanup_during_combat(self):
         source = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c').read_text()

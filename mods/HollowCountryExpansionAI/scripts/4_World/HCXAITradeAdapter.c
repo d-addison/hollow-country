@@ -14,6 +14,7 @@ class HCXTradeInventoryScan
 {
     eAIBase Actor;
     string Wanted;
+    string Lease;
     ItemBase Found;
     int Visited;
     bool Complete;
@@ -33,9 +34,15 @@ class HCXTradeInventoryScan
             Frames.Insert(held);
         }
     }
+    void HCRetire()
+    {
+        Complete = true;
+        Actor = null; Found = null;
+        Frames.Clear();
+    }
     ItemBase HCStep(int limit)
     {
-        if (!Actor || !Actor.IsAlive()) { return null; }
+        if (!Actor || !Actor.IsAlive()) { HCRetire(); return null; }
         if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }
@@ -103,6 +110,7 @@ class HCXAITradeAdapter : HCTradeInventory
     protected bool m_RouteNoted;
     protected ref array<ref HCXTradeInventoryScan> m_Scans = new array<ref HCXTradeInventoryScan>;
     ref HCXAICaravanAdapter Walker;
+    HCXAITradeProducer Producer;
     string ProducerFault;
     string PlannedLeft;
     string PlannedRight;
@@ -131,7 +139,7 @@ class HCXAITradeAdapter : HCTradeInventory
 
     // First existing item of this class an actor carries, scanning at most the
     // recipe's named InventoryScanLimit entries. Nothing is created or moved.
-    protected ItemBase HCCarried(eAIBase actor, string itemClass)
+    protected ItemBase HCCarried(eAIBase actor, string itemClass, string lease)
     {
         if (!actor || !Recipe) { return null; }
         array<ref HCXTradeInventoryScan> scans = m_Scans;
@@ -141,14 +149,33 @@ class HCXAITradeAdapter : HCTradeInventory
         }
         if (m_Scans.Count() >= HCAILimits.SIZE_CEILING * 2) { return null; }
         HCXTradeInventoryScan created = new HCXTradeInventoryScan;
+        created.Lease = lease;
         created.HCStart(actor, itemClass);
         m_Scans.Insert(created);
         return created.HCStep(Recipe.InventoryScanLimit);
     }
 
-    void HCResetScans() { m_Scans.Clear(); }
+    // Retire stale cursors even when HCHolder skips their dead/deleted actor.
+    // GetGroup evidence: installed DayZPlayerImplement.c:234 (see above).
+    void HCRetireInvalidScans()
+    {
+        array<ref HCXTradeInventoryScan> scans = m_Scans;
+        foreach (HCXTradeInventoryScan scan : scans)
+        {
+            if (!scan.Actor || !scan.Actor.IsAlive()) { scan.HCRetire(); continue; }
+            eAIGroup group = HCLeaseGroup(scan.Lease);
+            if (!group || scan.Actor.GetGroup() != group) { scan.HCRetire(); }
+        }
+    }
+    void HCResetScans()
+    {
+        array<ref HCXTradeInventoryScan> scans = m_Scans;
+        foreach (HCXTradeInventoryScan scan : scans) { scan.HCRetire(); }
+        m_Scans.Clear();
+    }
     bool HCScansComplete()
     {
+        HCRetireInvalidScans();
         if (m_Scans.Count() == 0) { return true; }
         array<ref HCXTradeInventoryScan> scans = m_Scans;
         foreach (HCXTradeInventoryScan scan : scans) { if (!scan.Complete && !scan.Found) { return false; } }
@@ -158,6 +185,7 @@ class HCXAITradeAdapter : HCTradeInventory
     eAIBase HCHolder(string lease, string itemClass, out ItemBase found)
     {
         found = null;
+        HCRetireInvalidScans();
         eAIGroup group = HCLeaseGroup(lease);
         if (!group) { return null; }
         int count = group.Count();
@@ -166,7 +194,7 @@ class HCXAITradeAdapter : HCTradeInventory
         {
             eAIBase actor = eAIBase.Cast(group.GetMember(member));
             if (!actor || !actor.IsAlive() || actor.GetIdentity()) { continue; }
-            found = HCCarried(actor, itemClass);
+            found = HCCarried(actor, itemClass, lease);
             if (found) { return actor; }
         }
         return null;
@@ -205,6 +233,7 @@ class HCXAITradeAdapter : HCTradeInventory
 
     override bool HCBeginWalk(HCTradeState row)
     {
+        if (Producer && !Producer.HCDepart(row)) { return false; }
         if (HCAtMeeting()) { return true; }
         if (row && Walker && row.LeftLease == PlannedLeft && row.RightLease == PlannedRight)
         {
@@ -329,6 +358,7 @@ class HCXAITradeProducer
     string m_LeftHome;
     string m_RightHome;
     string m_Refusal;
+    string m_JourneyKey;
     bool m_Opened;
     bool m_Failed;
     bool m_Planning;
@@ -342,6 +372,7 @@ class HCXAITradeProducer
     void HCOpen(HCXAITradeAdapter port)
     {
         m_Port = port;
+        port.Producer = this;
         Print("[HC Plan] HC-35 producer=started funded_pairs=bounded existing_cargo=only runtime=PENDING");
     }
     void HCRefuse(string reason)
@@ -370,13 +401,69 @@ class HCXAITradeProducer
         array<string> keys = new array<string>;
         foreach (HCTradeLossRow receipt : receipts)
         {
-            if (!receipt || !HCWorldLimits.Token(receipt.Key) || !HCWorldLimits.Token(receipt.LeftCamp) || !HCWorldLimits.Token(receipt.RightCamp) || receipt.LeftCamp == receipt.RightCamp || receipt.Debit < 1 || receipt.Debit > m_Recipe.MinimumCampReserve || receipt.Phase != "complete" || keys.Find(receipt.Key) >= 0)
+            if (!receipt || !HCWorldLimits.Token(receipt.Key) || !HCWorldLimits.Token(receipt.LeftCamp) || !HCWorldLimits.Token(receipt.RightCamp) || receipt.LeftCamp == receipt.RightCamp || receipt.Debit < 1 || receipt.Debit > m_Recipe.MinimumCampReserve || (receipt.Phase != "complete" && receipt.Phase != "journey") || keys.Find(receipt.Key) >= 0)
             {
                 m_Failed = true; HCRefuse("TRADE_LOSS_INTENT_RECONCILIATION_REQUIRED"); return false;
             }
             keys.Insert(receipt.Key);
         }
+        if (!HCRecoverJourneys()) { return false; }
         m_Opened = true;
+        return true;
+    }
+    // Persist camp identities BEFORE movement. No transient actor/item handle
+    // is a restart identity; an interrupted journey becomes a loss, never cargo.
+    bool HCDepart(HCTradeState state)
+    {
+        if (!state || !m_Store || m_Failed) { return false; }
+        string key = state.Id + ":" + state.StartedAt.ToString();
+        if (m_JourneyKey == key) { return true; }
+        if (m_Losses.Rows.Count() >= m_Recipe.MaxLossReceipts) { return false; }
+        HCTradeLossRow journey = new HCTradeLossRow;
+        journey.Key = key; journey.LeftCamp = m_LeftHome; journey.RightCamp = m_RightHome;
+        journey.Debit = m_Recipe.LossSupplyDebit; journey.Phase = "journey";
+        m_Losses.Rows.Insert(journey);
+        if (!m_Store.Save(m_Losses)) { m_Failed = true; HCRefuse("TRADE_JOURNEY_WRITE_FAILED"); return false; }
+        m_JourneyKey = key;
+        return true;
+    }
+    bool HCRecordLoss(HCTradeLossRow loss)
+    {
+        if (loss.Phase == "complete") { return true; }
+        if (loss.Phase == "journey") { loss.Phase = "new"; }
+        HCTradeLossBarrier barrier = new HCTradeLossBarrier;
+        barrier.m_Row = loss; barrier.m_Data = m_Losses;
+        barrier.m_Store = m_Store; barrier.m_Ready = true;
+        if (!barrier.HCApply()) { m_Failed = true; HCRefuse("TRADE_LOSS_INTENT_RECONCILIATION_REQUIRED"); return false; }
+        Print("[HC Caravan] loss=recorded both_camps_debited=1 relationship=damaged_once cargo=physical_no_reward runtime=PENDING");
+        return true;
+    }
+    bool HCRecoverJourneys()
+    {
+        array<ref HCTradeLossRow> receipts = m_Losses.Rows;
+        foreach (HCTradeLossRow journey : receipts)
+        {
+            if (journey.Phase != "journey") { continue; }
+            HCHoldouts homes = HCHoldouts.Get();
+            // Wait for the existing allocation owner before writing debit intent.
+            if (!homes || !homes.HCTradeCanDebit(journey.LeftCamp, journey.RightCamp)) { return false; }
+            if (!HCRecordLoss(journey)) { return false; }
+            Print("[HC Caravan] restart=journey_loss_reconciled cargo_created=0 runtime=PENDING");
+        }
+        return true;
+    }
+    bool HCSettleJourney()
+    {
+        if (m_JourneyKey == "") { return true; }
+        int receiptIndex = m_Losses.Rows.Count() - 1;
+        while (receiptIndex >= 0)
+        {
+            HCTradeLossRow receipt = m_Losses.Rows[receiptIndex];
+            if (receipt.Key == m_JourneyKey && receipt.Phase == "journey") { m_Losses.Rows.RemoveOrdered(receiptIndex); }
+            receiptIndex -= 1;
+        }
+        if (!m_Store.Save(m_Losses)) { m_Failed = true; HCRefuse("TRADE_JOURNEY_WRITE_FAILED"); return false; }
+        m_JourneyKey = "";
         return true;
     }
     int HCRelationship(string leftCamp, string rightCamp, int factionRelation)
@@ -385,6 +472,7 @@ class HCXAITradeProducer
         array<ref HCTradeLossRow> receipts = m_Losses.Rows;
         foreach (HCTradeLossRow receipt : receipts)
         {
+            if (receipt.Phase != "complete") { continue; }
             if ((receipt.LeftCamp == leftCamp && receipt.RightCamp == rightCamp) || (receipt.LeftCamp == rightCamp && receipt.RightCamp == leftCamp)) { relation--; }
         }
         return relation;
@@ -417,17 +505,13 @@ class HCXAITradeProducer
         if (!lost) { return; }
         string key = state.Id + ":" + state.StartedAt.ToString();
         array<ref HCTradeLossRow> receipts = m_Losses.Rows;
-        foreach (HCTradeLossRow prior : receipts) { if (prior.Key == key) { return; } }
+        foreach (HCTradeLossRow prior : receipts) { if (prior.Key == key) { HCRecordLoss(prior); return; } }
         if (m_Losses.Rows.Count() >= m_Recipe.MaxLossReceipts) { m_Failed = true; HCRefuse("TRADE_LOSS_RECEIPT_CAP"); return; }
         HCTradeLossRow loss = new HCTradeLossRow;
         loss.Key = key; loss.LeftCamp = m_LeftHome; loss.RightCamp = m_RightHome;
         loss.Debit = m_Recipe.LossSupplyDebit;
         m_Losses.Rows.Insert(loss);
-        HCTradeLossBarrier barrier = new HCTradeLossBarrier;
-        barrier.m_Row = loss; barrier.m_Data = m_Losses;
-        barrier.m_Store = m_Store; barrier.m_Ready = true;
-        if (!barrier.HCApply()) { m_Failed = true; HCRefuse("TRADE_LOSS_INTENT_RECONCILIATION_REQUIRED"); return; }
-        Print("[HC Caravan] loss=recorded both_camps_debited=1 relationship=damaged_once cargo=physical_no_reward runtime=PENDING");
+        HCRecordLoss(loss);
     }
     void HCNextPair(int count)
     {
@@ -472,6 +556,8 @@ class HCXAITradeProducer
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (!roads) { return; }
+        if (!m_Port.HCLeaseGroup(m_LeftLease) || !m_Port.HCLeaseGroup(m_RightLease)) { HCClearTrip(); return; }
+        if (m_Carrier && (!m_Carrier.IsAlive() || !m_Partner || !m_Partner.IsAlive())) { HCClearTrip(); return; }
         if (!m_Carrier)
         {
             ItemBase leftStock;
@@ -482,22 +568,22 @@ class HCXAITradeProducer
             {
                 // Fully scanned candidate without cargo is finite refusal;
                 // pending budget work retains its own actor/frame cursor.
-                if (m_Port.HCScansComplete()) { m_Planning = false; m_Port.HCResetScans(); }
+                if (m_Port.HCScansComplete()) { HCClearTrip(); }
                 return;
             }
             HCHoldouts camps = HCHoldouts.Get();
-            if (!camps) { m_Planning = false; return; }
+            if (!camps) { HCClearTrip(); return; }
             HCAICampRoutineView source = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(m_LeftLease));
             HCAICampRoutineView destination = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(m_RightLease));
-            if (!source || !destination) { m_Planning = false; return; }
+            if (!source || !destination || !source.Home || !destination.Home) { HCClearTrip(); return; }
             float envelope = roads.Config.MaxApproachMeters * roads.Config.MaxApproachMeters;
             if (vector.DistanceSq(leftActor.GetPosition(), source.Home.HousePos) > envelope || vector.DistanceSq(rightActor.GetPosition(), destination.Home.HousePos) > envelope || vector.DistanceSq(leftActor.GetPosition(), rightActor.GetPosition()) > roads.Config.MaxJourneyMeters * roads.Config.MaxJourneyMeters)
             {
-                m_Planning = false; HCRefuse("TRADE_CAMP_APPROACH_OR_JOURNEY_RANGE"); return;
+                HCClearTrip(); HCRefuse("TRADE_CAMP_APPROACH_OR_JOURNEY_RANGE"); return;
             }
             m_Port.Walker = new HCXAICaravanAdapter;
             m_Port.Walker.Corridor = roads.Config;
-            if (!m_Port.Walker.HCPrepare(m_LeftLease, leftActor, rightActor.GetPosition())) { m_Planning = false; return; }
+            if (!m_Port.Walker.HCPrepare(m_LeftLease, leftActor, rightActor.GetPosition())) { m_Port.Walker = null; HCClearTrip(); return; }
             m_Carrier = leftActor; m_Partner = rightActor;
             m_Outbound = leftStock; m_Inbound = rightStock;
             m_Port.PlannedLeft = m_LeftLease; m_Port.PlannedRight = m_RightLease;
@@ -513,14 +599,18 @@ class HCXAITradeProducer
     }
     void HCClearTrip()
     {
-        if (m_Port.Walker)
+        if (m_Port.Walker && (m_Travelling || m_JourneyKey != ""))
         {
-            m_Port.Walker.HCReleasePartner();
+            if (!m_Port.Walker.HCRestoreRoute()) { return; }
             if (m_Port.Walker.m_PartnerGroup) { return; }
         }
+        if (!HCSettleJourney()) { return; }
         m_Planning = false; m_Travelling = false; m_Returning = false;
         m_Carrier = null; m_Partner = null; m_Outbound = null; m_Inbound = null;
-        m_Port.Walker = null; m_Port.HCResetScans();
+        m_Port.Walker = null; m_Port.HCResetScans(); m_Port.HCClear();
+        m_Port.PlannedLeft = ""; m_Port.PlannedRight = "";
+        m_LeftLease = ""; m_RightLease = "";
+        m_LeftHome = ""; m_RightHome = "";
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (roads && roads.Phase != "failed" && roads.Phase != "loading") { roads.Phase = "idle"; }
     }
@@ -568,5 +658,5 @@ class HCXAITradeProducer
         if (status.HCState() != "ready" || trade.HCTrading() || !HCTradeOfferPolicy.HCDue(HCWorldClock.UTC(), m_LastOffer, m_Recipe.OfferIntervalSeconds)) { return; }
         HCCandidate();
     }
-    void HCClose() { m_Port = null; m_Store = null; m_Losses = null; }
+    void HCClose() { if (m_Port) { m_Port.Producer = null; } m_Port = null; m_Store = null; m_Losses = null; }
 }

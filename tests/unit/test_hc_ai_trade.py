@@ -342,7 +342,7 @@ class TradeBehavior(unittest.TestCase):
         # Wave 16: the addon adapter is ready exactly while the site director runs, and
         # its rendezvous walk is declined (logged once) unless the pair is already in
         # range. The emote-ack gate is admitted unverified in the module, not refused here.
-        adapter = N(m_RouteNoted=False, Walker=None, PlannedLeft="", PlannedRight="")
+        adapter = N(m_RouteNoted=False, Producer=None, Walker=None, PlannedLeft="", PlannedRight="")
         meeting = [False]
         director = N(Phase=lambda: 'wait')
         printed = []
