@@ -40,6 +40,20 @@ class HCWorldProposalLease
     bool OutcomeApplied;
 }
 
+// w29-debugmap #194: detached read-only row for the `materializer-proposals`
+// debug layer (an ACTIVE proposal lease, not an eligible ledger candidate). No
+// party identity, faction id or lease handle leaves the owner.
+class HCDebugProposalRow
+{
+    string Id;
+    string PlaceId;
+    string Kind;
+    vector Position;
+    int ActorCap;
+    string State = "queued";
+    int AgeSeconds;
+}
+
 // Narrow READ-ONLY ledger seam, authored here without editing world owners'
 // files. Returns fresh proposals, never retained ledger rows. Fixed indices
 // use configured holdout/party spans for cooldowns (fixed for this process). The place anchor is deliberately NOT a house or player position.
@@ -410,6 +424,35 @@ class HCWorldMaterializer : HCModule
             if (identityLease.Proposal.Id == leaseId && identityLease.Claimed) { return identityLease.Proposal.Identity; }
         }
         return null;
+    }
+
+    // w29-debugmap #194: read-only debug seam. Only a running module is visible.
+    // These getters never call Next/Expire/HCClaim/Resolve, never claim or finish a
+    // lease, and return detached rows. Runtime acceptance pending.
+    static HCWorldMaterializer HCDebugGet()
+    {
+        if (!s_Instance || !s_Instance.m_Running) { return null; }
+        return s_Instance;
+    }
+
+    int HCDebugProposalCount() { return m_Active.Count(); }
+
+    HCDebugProposalRow HCDebugProposal(int wanted)
+    {
+        if (wanted < 0 || wanted >= m_Active.Count()) { return null; }
+        HCWorldProposalLease lease = m_Active[wanted];
+        if (!lease || !lease.Proposal) { return null; }
+        HCDebugProposalRow row = new HCDebugProposalRow;
+        row.Id = lease.Proposal.Id;
+        row.PlaceId = lease.Proposal.PlaceId;
+        row.Kind = lease.Proposal.Kind;
+        row.Position = lease.Proposal.Position;
+        row.ActorCap = lease.Proposal.ActorCap;
+        if (lease.Claimed) { row.State = "claimed"; }
+        if (lease.Finished) { row.State = "finished"; }
+        if (lease.Finished && lease.Materialized) { row.State = "materialized"; }
+        row.AgeSeconds = Math.Floor(m_Clock - lease.Created);
+        return row;
     }
 
     static bool CanPropose(int active, int actors, int actorCap)

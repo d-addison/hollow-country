@@ -3,8 +3,9 @@
 // :866,926 map Get/Insert; EnString.c:137,199,212 SubstringUtf8/Length/LengthUtf8.
 // Layers/routes are serialized by JsonFileLoader (3_Game/tools/JsonFileLoader.c:85).
 // The envelope's literal "map" key cannot be an Enforce field: map is a type.
-// Registry: HC_REGISTRY_CAP (20) contributors: 9 built-ins, 6 module
-// singletons, 3 Expansion AI pages (w28 #193 review). Each Describe gets 64 points and 8 routes,
+// Registry: HC_REGISTRY_CAP (24) contributors: 12 built-ins, 6 module
+// singletons, 3 Expansion AI pages (w29 #194: +pickers, group-pins,
+// materializer-proposals built-ins). Each Describe gets 64 points and 8 routes,
 // each route <=64 vertices. Snapshot totals <=1024 points/128 routes.
 // No entities, discovery, provider claims or inventory writes in this API.
 // w27-debugmap: the 1024-point wire cap is split. Shared contributors (ai-units,
@@ -43,6 +44,8 @@ class HCDebugLayerStat
     int total;
     int shown;
     int truncated;
+    // w29 #194: rows with no drawable position, counted apart from total.
+    int unplaced;
 }
 
 class HCDebugDocument
@@ -63,14 +66,22 @@ class HCDebugSnapshot
     static const int MAX_POINTS = 1024;
     static const int MAX_CONTRIBUTOR_POINTS = 64;
     // Own share of the wire cap for hardened layers; carved out of MAX_POINTS.
-    static const int DEBUG_LAYER_POINTS = 88;
+    // w29 #194: 24 camps + 56 lead-ledger + 8 scenes + 4 pickers + 32 group pins +
+    // 24 materializer proposals = 148; the shared pool keeps MAX_POINTS - 148.
+    static const int DEBUG_LAYER_POINTS = 148;
     // Camps layer: one row per holdout; mirrors the holdouts layer bound.
     static const int CAMP_LAYER_CAP = 24;
     // Lead ledger rows (store ceiling is 64) and scene leases (owner lease cap is 2).
     static const int LEAD_LAYER_CAP = 56;
     static const int SCENE_LAYER_CAP = 8;
+    // w29 #194: picker trips (owner holds one trip per picker module, so a few
+    // rows is ample), shared group pins (group cap 32 x per-group pins, bounded
+    // here) and active materializer proposal leases.
+    static const int PICKER_LAYER_CAP = 4;
+    static const int GROUP_PIN_LAYER_CAP = 32;
+    static const int PROPOSAL_LAYER_CAP = 24;
     static const int MAX_LAYER_STATS = 16;
-    static const int HC_REGISTRY_CAP = 20;
+    static const int HC_REGISTRY_CAP = 24;
     protected static ref array<ref HCDebugContributor> s_Contributors;
     protected ref array<ref HCDebugContributor> m_Contributors;
     protected ref HCDebugDocument m_Document;
@@ -218,6 +229,19 @@ class HCDebugSnapshot
         m_Document.layerStats.Insert(stat);
     }
 
+    // w29 #194: rows whose place is unknown cannot be drawn, so they stay out of
+    // `total` and ride on the stat row as `unplaced`. Needs the layer's stat row.
+    void HCNoteUnplaced(string layer, int count)
+    {
+        if (!m_Describing || count <= 0) { return; }
+        string layerName = HCText(layer, 48);
+        for (int statIndex = 0; statIndex < m_Document.layerStats.Count(); statIndex++)
+        {
+            HCDebugLayerStat stat = m_Document.layerStats[statIndex];
+            if (stat.layer == layerName) { stat.unplaced = count; return; }
+        }
+    }
+
     protected void HCInsertPoint(string layer, string id, vector pos, string label, string detail)
     {
         string layerName = HCText(layer, 48);
@@ -307,29 +331,40 @@ class HCDebugCampSitesContributor : HCDebugHoldoutsContributor
 }
 
 // w28-debugmap #193: read-only lead ledger layer (`lead-ledger`; the older `leads`
-// layer shows only what online recipients received). Place-level rows from the
-// owner's HCDebugLeadCount/HCDebugLead: kind and expiry only, no group id, no live
-// position (targets are authored named places). Bounded by LEAD_LAYER_CAP.
+// layer shows only what online recipients received). Place-level rows: kind and
+// expiry only, no group id, no live position (targets are authored named places).
+// w29 #194: HCWorldClock.UTC() is read ONCE per Describe and passed to the owner's
+// one-pass batch getter HCDebugLeadRows. A lead whose target place is unknown cannot
+// be drawn: it is NOT counted in `total` (total = drawable rows) and is reported as
+// `unplaced` on the layer's stat row. Bounded by LEAD_LAYER_CAP.
 class HCDebugLeadLedgerContributor : HCDebugContributor
 {
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
         HCLeadModule leads = HCLeadModule.Get();
         if (!leads) { return; }
-        int total = leads.HCDebugLeadCount();
-        int work = total;
-        if (work > HCDebugSnapshot.LEAD_LAYER_CAP) { work = HCDebugSnapshot.LEAD_LAYER_CAP; }
+        int now = HCWorldClock.UTC();
+        array<ref HCWorldLead> rows = new array<ref HCWorldLead>;
+        leads.HCDebugLeadRows(now, rows);
+        int total = 0;
         int shown = 0;
-        for (int index = 0; index < work; index++)
+        int unplaced = 0;
+        for (int index = 0; index < rows.Count(); index++)
         {
-            HCWorldLead lead = leads.HCDebugLead(index);
-            if (!lead) { continue; }
+            HCWorldLead lead = rows[index];
             HCWorldPlace place = HCLeadPolicy.Place(lead.TargetPlaceId);
-            if (!place) { continue; }
+            if (!place)
+            {
+                unplaced++;
+                continue;
+            }
+            total++;
+            if (shown >= HCDebugSnapshot.LEAD_LAYER_CAP) { continue; }
             string detail = "kind=" + lead.Kind + "; expires=" + lead.Expires.ToString() + "; ledger row at place level; group id withheld";
             if (snapshot.HCAddLayerPoint("lead-ledger", lead.Id, place.Position, place.Name, detail)) { shown++; }
         }
         snapshot.HCNoteLayer("lead-ledger", total, shown);
+        snapshot.HCNoteUnplaced("lead-ledger", unplaced);
     }
 }
 
@@ -357,5 +392,90 @@ class HCDebugScenesContributor : HCDebugContributor
             if (snapshot.HCAddLayerPoint("scenes", row.ChainId, row.Anchor, row.ChainId, detail)) { shown++; }
         }
         snapshot.HCNoteLayer("scenes", total, shown);
+    }
+}
+
+// w29-debugmap #194: read-only Pickers layer, one row per active AI picker trip
+// from HCPickers.HCDebugPickerCount/HCDebugPicker (detached rows: phase, locator
+// and a position only). Trip state is a ledger/provider state, not a body-presence
+// claim; a trip with no known position is counted `unplaced`, never drawn. No
+// party or actor ids leave the owner. Bounded by PICKER_LAYER_CAP.
+class HCDebugPickersContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCPickers pickers = HCPickers.Get();
+        if (!pickers) { return; }
+        int count = pickers.HCDebugPickerCount();
+        int total = 0;
+        int shown = 0;
+        int unplaced = 0;
+        for (int index = 0; index < count; index++)
+        {
+            HCDebugPickerRow row = pickers.HCDebugPicker(index);
+            if (!row) { continue; }
+            if (!row.HasPosition)
+            {
+                unplaced++;
+                continue;
+            }
+            total++;
+            if (shown >= HCDebugSnapshot.PICKER_LAYER_CAP) { continue; }
+            string detail = "phase=" + row.Phase + "; located=" + row.Locator + "; trip state, not a body-presence claim";
+            if (snapshot.HCAddLayerPoint("pickers", "picker-" + index.ToString(), row.Position, "picker", detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("pickers", total, shown);
+        snapshot.HCNoteUnplaced("pickers", unplaced);
+    }
+}
+
+// w29-debugmap #194: read-only Group pins layer. Group pins are server-side
+// (HCGroupService/HCGroupPins), so the layer reads the owner's detached rows:
+// position, kind and expiry only. The pin id, name, group and any player id or
+// Steam data are withheld by the owner; ids here are anonymous per-capture indices.
+// Bounded by GROUP_PIN_LAYER_CAP; the owner returns the true total.
+class HCDebugGroupPinsContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCGroupService groups = HCGroupService.Get();
+        if (!groups) { return; }
+        array<ref HCDebugGroupPinRow> rows = new array<ref HCDebugGroupPinRow>;
+        int total = groups.HCDebugPins(HCDebugSnapshot.GROUP_PIN_LAYER_CAP, rows);
+        int shown = 0;
+        for (int index = 0; index < rows.Count(); index++)
+        {
+            HCDebugGroupPinRow row = rows[index];
+            string detail = "kind=" + row.Kind + "; expires=" + row.ExpiresUtc.ToString() + "; group, player and name withheld";
+            if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("group-pins", total, shown);
+    }
+}
+
+// w29-debugmap #194: read-only Materializer proposals layer: the ACTIVE proposal
+// leases (queued/claimed/materialized), not the eligible ledger rows that the
+// materializer candidates layer shows. Reads detached rows through
+// HCWorldMaterializer.HCDebugProposalCount/HCDebugProposal, which never claim,
+// expire or finish a lease. Lease state is not a live-body claim. Bounded by
+// PROPOSAL_LAYER_CAP.
+class HCDebugProposalsContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
+        if (!materializer) { return; }
+        int total = materializer.HCDebugProposalCount();
+        int work = total;
+        if (work > HCDebugSnapshot.PROPOSAL_LAYER_CAP) { work = HCDebugSnapshot.PROPOSAL_LAYER_CAP; }
+        int shown = 0;
+        for (int index = 0; index < work; index++)
+        {
+            HCDebugProposalRow row = materializer.HCDebugProposal(index);
+            if (!row) { continue; }
+            string detail = "state=" + row.State + "; kind=" + row.Kind + "; actor_cap=" + row.ActorCap.ToString() + "; age=" + row.AgeSeconds.ToString() + "s; lease state, not a live-body claim";
+            if (snapshot.HCAddLayerPoint("materializer-proposals", row.Id, row.Position, row.PlaceId, detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("materializer-proposals", total, shown);
     }
 }

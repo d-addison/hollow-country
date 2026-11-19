@@ -155,3 +155,10 @@ level, no group ids) and `scenes` (lease anchors, not an entity-presence claim) 
 their `layerStats` rows. The in-game admin wire carries the same per-layer
 `sent/total` in its Notice. Offline check only: `tests/unit/test_debug_map_layers.py`;
 nothing observed in DayZ yet.
+
+w29 (#194): the legend also describes `pickers`, `group-pins` (kind, position and
+expiry only; no player ids or names) and `materializer-proposals` (active leases,
+not the eligible `materializer_candidates` rows). A `layerStats` row may carry an
+optional `unplaced` count (rows with no drawable position, kept out of `total`);
+it is validated when present and shown in the legend. Offline check only:
+`tests/unit/test_debug_map_layers.py`; nothing observed in DayZ yet.

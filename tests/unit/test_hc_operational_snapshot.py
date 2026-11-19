@@ -209,7 +209,7 @@ class OperationalSnapshot(unittest.TestCase):
 
     def test_full_contributor_registry_attempts_once_and_reset_clears_refusals(self):
         service, debug, _, _, _ = fixture()
-        for _ in range(20):
+        for _ in range(debug.HC_REGISTRY_CAP):
             self.assertTrue(debug.HCRegister(object()))
         for index in range(64):
             service.HCRegisterOwner(NativeString('owner-' + str(index)))
@@ -317,10 +317,12 @@ class OperationalSnapshot(unittest.TestCase):
 
         # Maximum authored capture envelope, synthetic native arrays only.
         wire_scope = dict(scope, HCAdminReply=lambda:N(Lines=EArray(), Marks=EArray()),
-                          HCAdminMark=lambda:N(), Vector=lambda x,y,z:(x,y,z))
+                          HCAdminMark=lambda:N(), Vector=lambda x,y,z:(x,y,z),
+                          HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24))
         wire = N()
         bind(wire, WORLD / 'Admin/HCAdminSnapshotWire.c', 'HCAdminSnapshotWire',
-             ('HCMark','HCSlot','HCAllocate','HCBuild'), wire_scope, members=('HCMark','HCSlot','HCAllocate'))
+             ('HCMark','HCSlot','HCAllocate','HCFitted','HCBuild'), wire_scope,
+             members=('HCMark','HCSlot','HCAllocate','HCFitted'))
         doc.layers = NativeMap({str(i):EArray([N(x=1,z=2,label='fixture',detail='fixture')
                                               for _ in range(32)]) for i in range(32)})
         doc.routes = EArray([N(layer='fixture', label='route',
@@ -330,7 +332,7 @@ class OperationalSnapshot(unittest.TestCase):
         delivered = wire.HCBuild(capture, 19)
         self.assertEqual(19, delivered.Ticket)
         self.assertEqual(512, len(delivered.Marks))
-        self.assertEqual(16, len({mark.Layer for mark in delivered.Marks}))
+        self.assertEqual(24, len({mark.Layer for mark in delivered.Marks}))  # MAX_WIRE_LAYERS
         self.assertEqual(64, len(delivered.Lines))
         self.assertIn('truncated=14', delivered.Lines[-1])  # 11 row + 2 registry + 1 wire
         self.assertIn('dropped=8704', delivered.Notice)
@@ -354,17 +356,18 @@ class OperationalSnapshot(unittest.TestCase):
         send(transport, sender, delivered)
         self.assertEqual(1, len(sent))
 
-        # The 20-contributor ceiling remains authoritative and refusal visible.
-        for _ in range(19): self.assertTrue(debug.HCRegister(object()))
+        # The named registry ceiling remains authoritative and refusal visible.
+        cap = debug.HC_REGISTRY_CAP
+        for _ in range(cap - 1): self.assertTrue(debug.HCRegister(object()))
         self.assertFalse(debug.HCRegister(object()))
-        self.assertEqual(20, debug.HCContributorCount())
+        self.assertEqual(cap, debug.HCContributorCount())
         self.assertEqual(1, debug.s_RegistrationRefusals)
         service.HCReset()
-        self.assertEqual(19, debug.HCContributorCount())
+        self.assertEqual(cap - 1, debug.HCContributorCount())
         self.assertEqual(0, service.HCCount())
         self.assertEqual(0, service.HCRefused())
         service.HCRegisterOwner(NativeString('restart'))
-        self.assertEqual(20, debug.HCContributorCount())
+        self.assertEqual(cap, debug.HCContributorCount())
         service.HCReset()
         self.assertTrue(debug.HCRegister(object()))
         service.HCRegisterOwner(NativeString('full-registry'))
@@ -418,7 +421,8 @@ class DebugRegistryCapacity(unittest.TestCase):
 
     def test_lead_ledger_and_scenes_layers_are_registered_builtins(self):
         text = self.MODULE.read_text(encoding='utf-8')
-        for name in ('HCDebugLeadLedgerContributor', 'HCDebugScenesContributor'):
+        for name in ('HCDebugLeadLedgerContributor', 'HCDebugScenesContributor', 'HCDebugPickersContributor',
+                     'HCDebugGroupPinsContributor', 'HCDebugProposalsContributor'):
             self.assertIn('HCKeep(new %s);' % name, text)
 
     def test_every_static_registrant_fits_under_the_cap(self):
@@ -433,5 +437,6 @@ class DebugRegistryCapacity(unittest.TestCase):
         # HCXAILiveMap registers its two pages through one loop call site.
         self.assertIn('HCDebugSnapshot.HCRegister(contributor);', live)
         total = builtins + others + 1
-        self.assertGreaterEqual(builtins, 9)
+        self.assertGreaterEqual(builtins, 12)
+        self.assertGreaterEqual(self.cap(), 24)
         self.assertLessEqual(total, self.cap(), 'registrants %d exceed the debug registry cap' % total)
