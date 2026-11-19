@@ -5,6 +5,8 @@
 // IsServer, :934 GetWorldName; JsonFileLoader.c:69 LoadData via HCGroupJson.
 // IO/readback evidence is on HCGroupIO; EnSystem.c:525/528/531 supplies
 // MakeDirectory/DeleteFile/CopyFile. No atomic rename/fsync/native snapshot API.
+// EnSystem.c:520/521/522 FindFile/FindNextFile/CloseFindFile;
+// EnString.c:199/223/240/113/20 Length/Hash/IndexOf/Substring/ToInt.
 class HCRecoveryHCReceipt
 {
     int Version;
@@ -72,13 +74,21 @@ class HCPersistenceDisposition
         }
         bool hasHC = FileExist("$profile:HollowCountry/recovery-hc.json");
         bool hasNative = FileExist("$profile:HollowCountry/recovery-native.json");
+        if (hasHC != hasNative)
+        {
+            if (hasHC) { HCLoneReceipt("recovery-hc.json", 4096); }
+            else { HCLoneReceipt("recovery-native.json", 2048); }
+            // A single receipt cannot attest a restore. Independent store
+            // validation still runs, even if cleanup could not be completed.
+            hasHC = false;
+            hasNative = false;
+        }
         int generation = 0;
         string suffix;
         if (hasHC || hasNative)
         {
             HCRecoveryHCReceipt hc;
             HCRecoveryNativeReceipt nativeReceipt;
-            if (!hasHC || !hasNative) { return HCRefuseRestore("partial_restore_attestation"); }
             if (!HCGroupJson<HCRecoveryHCReceipt>.Load("$profile:HollowCountry/recovery-hc.json", 4096, hc) || !hc) { return HCRefuseRestore("hc_receipt_corrupt"); }
             if (!HCGroupJson<HCRecoveryNativeReceipt>.Load("$profile:HollowCountry/recovery-native.json", 2048, nativeReceipt) || !nativeReceipt) { return HCRefuseRestore("native_receipt_corrupt"); }
             if (hc.Version != 1 || nativeReceipt.Version != 1 || hc.Generation < 1 || hc.Generation > 1000000000 || hc.GroupRevision < 0 || hc.GroupRevision > 1000000000) { return HCRefuseRestore("receipt_schema_or_identity"); }
@@ -118,6 +128,66 @@ class HCPersistenceDisposition
         return true;
     }
 
+    static void HCLoneReceipt(string receiptName, int limit)
+    {
+        string path = "$profile:HollowCountry/" + receiptName;
+        if (!HCHasConsumedArchive(receiptName, limit))
+        {
+            HCRefuseRestore("partial_restore_attestation");
+            return;
+        }
+        // Only the redundant active receipt is removed; its verified archive
+        // and all store files remain untouched. Failed cleanup retries next boot.
+        if (!DeleteFile(path))
+        {
+            HCRefuseRestore("stale_receipt_cleanup_failed");
+            return;
+        }
+        Print("[HC Plan] HC-28 recovery=consumed_receipt_cleanup receipt=" + receiptName + " action=removed runtime=PENDING");
+    }
+
+    static bool HCHasConsumedArchive(string receiptName, int limit)
+    {
+        string original;
+        string archived;
+        string path = "$profile:HollowCountry/" + receiptName;
+        if (!HCGroupIO.HCReadRaw(path, limit, original)) { return false; }
+        string filename;
+        FileAttr attr;
+        FindFileHandle handle = FindFile(path + ".consumed-*", filename, attr, FindFileFlags.DIRECTORIES);
+        if (!handle) { return false; }
+        bool found = filename != "";
+        int scanned = 0;
+        while (found && scanned < 64)
+        {
+            scanned++;
+            if (attr != FileAttr.DIRECTORY && attr != FileAttr.INVALID && HCConsumedName(filename, receiptName))
+            {
+                if (HCGroupIO.HCReadRaw("$profile:HollowCountry/" + filename, limit, archived) && archived == original)
+                {
+                    CloseFindFile(handle);
+                    return true;
+                }
+            }
+            found = false;
+            if (scanned < 64) { found = FindNextFile(handle, filename, attr); }
+        }
+        CloseFindFile(handle);
+        return false;
+    }
+
+    static bool HCConsumedName(string filename, string receiptName)
+    {
+        string prefix = receiptName + ".consumed-";
+        int start = prefix.Length();
+        int count = filename.Length() - start;
+        if (filename.IndexOf(prefix) != 0 || count < 1 || count > 10) { return false; }
+        string stamp = filename.Substring(start, count);
+        int utc = stamp.ToInt();
+        // Accept only the canonical positive-int UTC names HCLoad writes.
+        return utc > 0 && utc.ToString() == stamp;
+    }
+
     static bool HCArchive(string path, string suffix, int limit)
     {
         string original;
@@ -138,8 +208,8 @@ class HCPersistenceDisposition
     static bool HCAdmitStore(string name) { return HCRecoveryGate.HCReady(name); }
     static bool HCQuarantine(string name, string reason) { return HCRecoveryGate.HCRefuse(name, reason); }
 
-    // An invalid optional attestation refuses this startup without labelling
-    // any player file corrupt. Operator evidence remains at its original path.
+    // Refuse the restore without labelling any player file corrupt. Paired
+    // validation failures refuse startup; lone receipts continue normal boot.
     static bool HCRefuseRestore(string reason)
     {
         Print("[HC Plan] HC-28 recovery=attestation_refused reason=" + reason + " quarantine=0 runtime=PENDING");
