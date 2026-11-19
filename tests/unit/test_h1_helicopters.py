@@ -10,7 +10,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace as NS
+from types import MethodType, SimpleNamespace as NS
 
 from tests.unit.test_admin_test_kit import Cell, base_scope, compile_authored, strip_comments
 from tests.unit.test_group_server import EArray
@@ -144,6 +144,124 @@ class PolicyDecisions(unittest.TestCase):
                 cell = Cell()
                 self.assertEqual(state, derive(None, *args, cell))
                 self.assertEqual(reason, cell.value)
+
+
+class SyntheticCar:
+    """Explicit fake tank and provider classification, with identity semantics."""
+    def __init__(self, helicopter=True):
+        self.this = self
+        self.helicopter = helicopter
+        self.fraction = 0.35
+        self.m_HCHeliOverflow = False
+        self.leaks = []
+
+    def GetType(self):
+        return "heli" if self.helicopter else "car"
+
+    def GetFluidCapacity(self, fluid):
+        return 100.0
+
+    def GetFluidFraction(self, fluid):
+        return self.fraction
+
+    def Leak(self, fluid, litres):
+        self.leaks.append(litres)
+        self.fraction -= litres / 100.0
+
+
+class EventLifecycle(unittest.TestCase):
+    def setUp(self):
+        # Admission/config are explicit synthetic preconditions; no disk or engine.
+        self.publications, self.owner_events = [], []
+        owner = NS(HCObserve=lambda *args: self.owner_events.append("observe"),
+                   HCStop=lambda *args: self.owner_events.append("stop"))
+        self.policy = NS(s_Admission=True, s_Active=True, s_Enabled=True,
+                         s_Provider=True, s_Overflow=0, s_Shaped=0, s_Refusal="", s_Line="",
+                         s_Config=NS(MaxTracked=1, WorldCap=1, SpawnFuelMaxFraction=0.1),
+                         s_Tracked=EArray([]), s_Owner=owner,
+                         s_Status=NS(HCPublish=lambda state, reason: self.publications.append(state)))
+        fields = tuple(self.policy.__dict__)
+        methods = ("HCEnabled", "HCTrack", "HCUntrack", "HCSpawnFuel", "HCAdmit",
+                   "HCExcessFuel", "HCPublishStatus", "HCGetOperationalStatus", "HCStart", "HCStop")
+        derive = compile_authored(POLICY, "HCHeliPolicy", "HCDerive", base_scope(), modded=False)
+        # This fake bridges the native out-string argument; status decisions still
+        # execute the authored HCDerive. Reason values have separate direct tests.
+        self.policy.HCDerive = lambda *args: derive(None, *args[:-1], Cell())
+        self.policy.HCIsHelicopter = lambda name: name == "heli"
+        self.policy.HCRefuse = lambda reason: None
+        scope = base_scope(GetGame=lambda: NS(GetTickTime=lambda: 1.0),
+                           CarFluid=NS(FUEL=0), Print=lambda line: None,
+                           HCOperationalContributors=NS(HCRegisterOwner=lambda name: owner))
+        for name in methods:
+            fn = compile_authored(POLICY, "HCHeliPolicy", name, scope,
+                                  members=methods + ("HCDerive", "HCIsHelicopter", "HCRefuse"),
+                                  fields=fields, modded=False)
+            setattr(self.policy, name, MethodType(fn, self.policy))
+        # Execute the actual authored hooks, with explicit no-op vanilla super.
+        hooks = NS(EEInit=lambda: None, EEOnCECreate=lambda: None, EEDelete=lambda parent: None)
+        self.hooks = {name: compile_authored(POLICY, "CarScript", name,
+                      base_scope(HCHeliPolicy=self.policy, super=hooks), fields=("this",))
+                      for name in ("EEInit", "EEOnCECreate", "EEDelete")}
+
+    def test_overflow_init_ce_delete_caps_fuel_and_recovers(self):
+        a, b = SyntheticCar(), SyntheticCar()
+        self.hooks["EEInit"](a)
+        self.hooks["EEInit"](b)
+        self.hooks["EEOnCECreate"](b)
+        self.assertAlmostEqual(0.1, b.fraction)
+        self.assertEqual(1, self.policy.s_Overflow)
+        self.hooks["EEInit"](b)
+        self.hooks["EEOnCECreate"](b)
+        self.assertEqual(1, self.policy.s_Overflow)
+        self.assertEqual(1, len(b.leaks))
+        self.hooks["EEDelete"](b, None)
+        self.assertEqual(0, self.policy.s_Overflow)
+        self.assertEqual("ready", self.publications[-1])
+        self.hooks["EEDelete"](b, None)
+        self.assertEqual(0, self.policy.s_Overflow)
+
+    def test_capacity_return_recovers_and_callback_promotes_survivor(self):
+        a, b = SyntheticCar(), SyntheticCar()
+        self.hooks["EEInit"](a)
+        self.hooks["EEInit"](b)
+        self.assertEqual("degraded", self.publications[-1])
+        self.hooks["EEDelete"](a, None)
+        self.assertEqual("ready", self.publications[-1])
+        self.hooks["EEInit"](b)
+        self.assertEqual([b], list(self.policy.s_Tracked))
+        self.assertEqual(0, self.policy.s_Overflow)
+        self.hooks["EEDelete"](b, None)
+        self.assertEqual([], list(self.policy.s_Tracked))
+
+    def test_non_helicopter_fuel_is_untouched(self):
+        car = SyntheticCar(helicopter=False)
+        self.hooks["EEInit"](car)
+        self.hooks["EEOnCECreate"](car)
+        self.assertEqual([], car.leaks)
+        self.assertEqual([], list(self.policy.s_Tracked))
+        self.hooks["EEDelete"](car, None)
+        self.assertEqual([], self.publications)
+
+    def test_stop_callbacks_getter_and_restart(self):
+        self.policy.HCStart()
+        self.assertEqual("ready", self.publications[-1])
+        self.policy.HCStop()
+        self.assertEqual("off", self.publications[-1])
+        self.assertEqual("stop", self.owner_events[-1])
+        car = SyntheticCar()
+        self.hooks["EEInit"](car)
+        self.hooks["EEOnCECreate"](car)
+        self.policy.HCGetOperationalStatus()
+        self.assertEqual("off", self.publications[-1])
+        self.assertFalse(self.policy.HCEnabled())
+        self.assertEqual([], car.leaks)
+        self.assertEqual([], list(self.policy.s_Tracked))
+        self.policy.HCStart()
+        self.assertTrue(self.policy.HCEnabled())
+        self.hooks["EEInit"](car)
+        self.hooks["EEOnCECreate"](car)
+        self.assertAlmostEqual(0.1, car.fraction)
+        self.assertEqual("ready", self.publications[-1])
 
 
 class SourceContract(unittest.TestCase):

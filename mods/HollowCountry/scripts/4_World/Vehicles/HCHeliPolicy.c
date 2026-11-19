@@ -65,6 +65,8 @@ class HCHeliPolicyConfig
 class HCHeliPolicy
 {
     protected static bool s_Admission;
+    // Vehicle init may precede HCServer.Start; stop must never re-admit via callbacks.
+    protected static bool s_Active = true;
     protected static bool s_Enabled;
     protected static bool s_Provider;
     protected static int s_Overflow;
@@ -145,6 +147,7 @@ class HCHeliPolicy
     // Server only; opt-out, config and provider are sampled once.
     static bool HCEnabled()
     {
+        if (!s_Active) { return false; }
         if (s_Admission) { return s_Enabled && s_Provider && s_Config != null; }
         if (!GetGame() || !GetGame().IsServer()) { return false; }
         s_Admission = true;
@@ -195,8 +198,17 @@ class HCHeliPolicy
         int admitted = HCAdmit(s_Tracked, car, s_Config.MaxTracked);
         if (admitted == 2)
         {
-            s_Overflow++;
+            if (!car.m_HCHeliOverflow)
+            {
+                car.m_HCHeliOverflow = true;
+                s_Overflow++;
+            }
             HCRefuse("HELI_TRACK_CAP");
+        }
+        if (admitted == 0 && car.m_HCHeliOverflow)
+        {
+            car.m_HCHeliOverflow = false;
+            s_Overflow--;
         }
         if (admitted == 0 || admitted == 2) { HCPublishStatus(); }
     }
@@ -204,9 +216,15 @@ class HCHeliPolicy
     static void HCUntrack(CarScript car)
     {
         if (!car || !s_Tracked) { return; }
+        bool wasOverflow = car.m_HCHeliOverflow;
+        if (wasOverflow)
+        {
+            car.m_HCHeliOverflow = false;
+            s_Overflow--;
+        }
         int index = s_Tracked.Find(car);
-        if (index < 0) { return; }
-        s_Tracked.Remove(index);
+        if (index < 0 && !wasOverflow) { return; }
+        if (index >= 0) { s_Tracked.Remove(index); }
         HCPublishStatus();
     }
 
@@ -214,7 +232,8 @@ class HCHeliPolicy
     static void HCSpawnFuel(CarScript car)
     {
         HCTrack(car);
-        if (!car || !s_Tracked || s_Tracked.Find(car) < 0) { return; }
+        if (!car || !HCEnabled()) { return; }
+        if (!HCIsHelicopter(car.GetType())) { return; }
         float capacity = car.GetFluidCapacity(CarFluid.FUEL);
         float excess = HCExcessFuel(capacity, car.GetFluidFraction(CarFluid.FUEL), s_Config.SpawnFuelMaxFraction);
         if (excess <= 0) { return; }
@@ -230,11 +249,16 @@ class HCHeliPolicy
         if (s_Tracked) { trackedCount = s_Tracked.Count(); }
         int worldCap = 0;
         if (s_Config) { worldCap = s_Config.WorldCap; }
+        // Overflow identities live on the vehicles, not in an unbounded registry.
+        // Count survivors even before their next callback can use a freed slot.
+        int population = trackedCount + s_Overflow;
+        int excessTracked = 0;
+        if (s_Config && population > s_Config.MaxTracked) { excessTracked = population - s_Config.MaxTracked; }
         bool configOk = s_Config != null;
         string reason = "";
-        string state = HCDerive(s_Admission, s_Enabled, configOk, s_Provider, trackedCount, worldCap, s_Overflow, reason);
+        string state = HCDerive(s_Admission && s_Active, s_Enabled, configOk, s_Provider, population, worldCap, excessTracked, reason);
         s_Status.HCPublish(state, reason);
-        if (s_Owner && GetGame()) { s_Owner.HCObserve(s_Enabled, s_Status, GetGame().GetTickTime()); }
+        if (s_Owner && GetGame()) { s_Owner.HCObserve(s_Enabled && s_Active, s_Status, GetGame().GetTickTime()); }
         string line = "[HC Helicopters] " + state + " reason=" + reason + " tracked=" + trackedCount.ToString();
         if (line == s_Line) { return; }
         s_Line = line;
@@ -257,6 +281,7 @@ class HCHeliPolicy
 
     static void HCStart()
     {
+        s_Active = true;
         HCEnabled();
         s_Owner = HCOperationalContributors.HCRegisterOwner("Helicopters");
         HCPublishStatus();
@@ -264,6 +289,8 @@ class HCHeliPolicy
 
     static void HCStop()
     {
+        s_Active = false;
+        HCPublishStatus();
         if (s_Owner && GetGame()) { s_Owner.HCStop(GetGame().GetTickTime()); }
         s_Owner = null;
     }
@@ -290,6 +317,9 @@ modded class HCServer
 // classes are tracked. Super runs first so vanilla/provider fuel is set before capping.
 modded class CarScript
 {
+    // One server-owned identity bit per overflow vehicle; no extra reference list.
+    bool m_HCHeliOverflow;
+
     override void EEInit()
     {
         super.EEInit();
