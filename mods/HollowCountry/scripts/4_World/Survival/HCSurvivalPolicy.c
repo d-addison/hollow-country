@@ -61,6 +61,23 @@ class HCSurvivalRuntime
         return milliseconds / 1000;
     }
 
+    // N17: 3_Game/Entities/EntityAI.c:3374 GetPersistentID(out int x4).
+    // Native persistence owns generation identity. No account ID, session object
+    // address, random guess or living position is used as a character key.
+    // All-zero allocation is unknown and refuses familiarity. Stability across
+    // native save/load/death is an acceptance experiment, never offline proof.
+    static string HCCharacterKey(PlayerBase player)
+    {
+        if (!HCIsServer() || !player) { return ""; }
+        int part1;
+        int part2;
+        int part3;
+        int part4;
+        player.GetPersistentID(part1, part2, part3, part4);
+        if (part1 == 0 && part2 == 0 && part3 == 0 && part4 == 0) { return ""; }
+        return "c:" + part1.ToString() + ":" + part2.ToString() + ":" + part3.ToString() + ":" + part4.ToString();
+    }
+
     static string HCIdentityKey(PlayerBase player)
     {
         if (!HCIsServer() || !player) { return ""; }
