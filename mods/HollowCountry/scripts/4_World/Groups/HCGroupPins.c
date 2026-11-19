@@ -61,9 +61,19 @@ class HCGroupPins : HCModule
     protected float m_RefreshSeconds;
     protected float m_LogSeconds = 600;
     protected ref HCDeathPins m_DeathPins;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     static HCGroupPins Get() { return s_Instance; }
     override string GetName() { return "MapPins"; }
+
+    // Wave 16: started = this module is the registered pin source (s_Instance), never hard-coded.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool started = false;
+        if (s_Instance == this) { started = true; }
+        HCModuleReadiness.HCDerive(m_Operational, started, "", "", "map_pins_started");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableGroups; }
 
     override void OnStart(HCSettings settings)

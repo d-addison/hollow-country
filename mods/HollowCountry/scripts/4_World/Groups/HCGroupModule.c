@@ -3,8 +3,23 @@ class HCGroupModule extends HCModule
 {
     protected ref HCGroupSettings m_Config;
     protected ref HCGroupService m_Service;
+    // Wave 16: cached readiness derived from the live service, never hard-coded.
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Groups"; }
+
+    // Ready = the service started and the recovery gate is open. A started service whose gate was closed by
+    // a store refusal is degraded (a real fault), a start that was refused reports the refusal.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool started = false;
+        string fault = "";
+        if (m_Service) { started = true; }
+        if (started && !HCRecoveryGate.HCReady("groups")) { fault = "recovery_gate_closed"; }
+        HCModuleReadiness.HCDerive(m_Operational, started, m_Refusal, fault, "group_service_started");
+        return m_Operational;
+    }
 
     override bool IsEnabled(HCSettings settings)
     {
@@ -20,6 +35,7 @@ class HCGroupModule extends HCModule
         if (!m_Service.Start(m_Config))
         {
             Print("[HC Groups] start refused: check settings, UTC, world and persistence; service inactive");
+            m_Refusal = "service_start_refused";
             m_Service = null;
             return;
         }
@@ -46,10 +62,12 @@ modded class HCGroupModule
 {
     override void OnStart(HCSettings settings)
     {
+        m_Refusal = "";
         HCPersistenceDisposition.HCStartStore("groups");
         if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("groups"))
         {
             Print("[HC Plan] HC-28 store=groups state=refused runtime=PENDING");
+            m_Refusal = "recovery_gate_refused_groups_store";
             return;
         }
         super.OnStart(settings);

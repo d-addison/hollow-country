@@ -129,8 +129,19 @@ class HCWorldMaterializer : HCModule
     protected bool m_Running;
     protected bool m_AdmissionPrinted;
     protected bool m_StartedOnce;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Materializer"; }
+
+    // Wave 16: a running materializer whose party custody could not be read keeps the AI budget blocked
+    // (HCAIBudget.Block above): that is a real degradation, never ready.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        string fault = "";
+        if (m_Running && !m_CustodyReady) { fault = "custody_unreadable_ai_budget_blocked"; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, "", fault, "materializer_custody_loaded");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
 
     override void OnStart(HCSettings settings)

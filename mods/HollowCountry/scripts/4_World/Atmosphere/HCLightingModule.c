@@ -3,7 +3,17 @@
 // Native Print: installed scripts-1.30.164289/1_Core/proto/EnDebug.c:96.
 class HCLightingModule: HCModule
 {
+    protected bool m_Started;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
     override string GetName() { return "Lighting"; }
+
+    // Wave 16: cached readiness from the live started flag (never hard-coded).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", "", "server_admission_logged_client_runtime_pending");
+        return m_Operational;
+    }
 
     override bool IsEnabled(HCSettings settings)
     {
@@ -13,7 +23,10 @@ class HCLightingModule: HCModule
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("Lighting", true, "EXP-A2", HCV2Gates.Qualified("EXP-A2")));
+        m_Started = true;
     }
+
+    override void OnStop() { m_Started = false; }
 }
 
 modded class HCModuleRegistry

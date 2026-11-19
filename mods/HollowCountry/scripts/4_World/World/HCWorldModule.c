@@ -25,6 +25,8 @@ class HCWorldModule : HCModule
     protected int m_Cursor;
     protected int m_StepsSinceSave;
     protected string m_HoldoutRefusal;
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     static HCWorldModule Get()
     {
@@ -34,6 +36,15 @@ class HCWorldModule : HCModule
 
     override string GetName() { return "World"; }
 
+    // Wave 16: ready = world data loaded and ticking; a closed recovery gate on a running world is a real fault.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        string fault = "";
+        if (m_Running && !HCRecoveryGate.HCReady("world")) { fault = "recovery_gate_closed"; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, fault, "world_data_loaded");
+        return m_Operational;
+    }
+
     override bool IsEnabled(HCSettings settings)
     {
         return settings && settings.EnableWorld;
@@ -42,10 +53,12 @@ class HCWorldModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (m_Running || !IsEnabled(settings)) { return; }
+        m_Refusal = "";
         HCPersistenceDisposition.HCStartStore("world");
         if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("world"))
         {
             Print("[HC Plan] HC-28 store=world state=refused runtime=PENDING");
+            m_Refusal = "recovery_gate_refused_world_store";
             return;
         }
         if (!m_AdmissionPrinted)
@@ -58,12 +71,14 @@ class HCWorldModule : HCModule
         {
             HCRecoveryGate.HCClose("world");
             Print("[HollowCountry] V2 world unavailable: unsupported UTC clock");
+            m_Refusal = "utc_clock_unsupported";
             return;
         }
         m_Store = new HCWorldStore;
         if (!m_Store.Load())
         {
             Print("[HollowCountry] V2 world unavailable: profile or UTC inaccessible");
+            m_Refusal = "world_store_unavailable";
             return;
         }
         m_Data = m_Store.Data();

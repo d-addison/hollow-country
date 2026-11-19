@@ -61,8 +61,17 @@ class HCSignsOfLife extends HCModule
     protected bool m_Summarized;
     protected float m_Clock;
     protected ref array<Man> m_Viewers = new array<Man>;
+    protected bool m_Started;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "SignsOfLife"; }
+
+    // Wave 16: cached readiness from the live started flag (never hard-coded).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", "", "signs_scan_started");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableSignsOfLife; }
 
     override void OnStart(HCSettings settings)
@@ -70,6 +79,7 @@ class HCSignsOfLife extends HCModule
         Print(HCV2Admission.Line("SignsOfLife", true, "EXP-A5", HCV2Gates.Qualified("EXP-A5")));
         m_Day = -1;
         m_Clock = 60.0;
+        m_Started = true;
     }
 
     static int RealDay()
@@ -255,6 +265,7 @@ class HCSignsOfLife extends HCModule
 
     override void OnStop()
     {
+        m_Started = false;
         m_Viewers.Clear();
     }
 }

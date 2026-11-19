@@ -109,6 +109,9 @@ class HCSearchBinding : HCModule
     protected bool m_Claimed;
     protected bool m_Done;
     protected int m_Attempts;
+    protected string m_Refusal;
+    protected string m_Fault;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected HCInteriorsModule m_Owner;
     protected ref HCSettings m_Settings;
     protected ref HCInteriorConfig m_Config;
@@ -126,6 +129,16 @@ class HCSearchBinding : HCModule
         return "SearchBinding";
     }
 
+    // Wave 16: started = the lazy search service is up and not stopped; a refused measured-interior hand-over
+    // after start is a real degradation (m_Fault); a missing admission marker or a stopped module is a refusal.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool running = false;
+        if (m_Started && !m_Stopped) { running = true; }
+        HCModuleReadiness.HCDerive(m_Operational, running, m_Refusal, m_Fault, "search_service_started_supply_lazy");
+        return m_Operational;
+    }
+
     override bool IsEnabled(HCSettings settings)
     {
         return settings && settings.EnableInteriors && settings.EnableSearch;
@@ -137,15 +150,19 @@ class HCSearchBinding : HCModule
         if (m_Stopped)
         {
             Print("[HC Search Binding] start refused: module already stopped; search remains refused");
+            m_Refusal = "module_already_stopped";
             return;
         }
         if (!HCInteriorRules.SearchAdmitted())
         {
             Print("[HC Search Binding] off: search admission marker absent; search remains refused");
+            m_Refusal = "search_admission_marker_absent";
             return;
         }
         if (s_Instance && s_Instance != this) return;
         m_Started = true;
+        m_Refusal = "";
+        m_Fault = "";
         m_Settings = settings;
         m_Provider = new HCSearchSupplyProvider;
         m_Houses = new HCSearchHouses;
@@ -246,7 +263,11 @@ class HCSearchBinding : HCModule
     {
         m_Done = true;
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Attempt);
-        if (reason != "") Print("[HC Search Binding] refused: " + reason);
+        if (reason != "")
+        {
+            m_Fault = "measured_binding_refused";
+            Print("[HC Search Binding] refused: " + reason);
+        }
         m_Owner = null;
         m_Config = null;
         m_Manifest = null;

@@ -12,6 +12,8 @@ class HCServer
     protected ref HCModuleRegistry m_Registry;
     protected ref array<ref HCModule> m_Active = new array<ref HCModule>();
     protected ref HCOperationalStatusCache m_Operational = new HCOperationalStatusCache();
+    // Wave 16: boot-time state/reason of each ACTIVE module (same order as m_Active) for late readiness lines.
+    protected ref HCOperationalChanges m_Changes = new HCOperationalChanges();
     protected bool m_Started;
     protected bool m_SettingsRefusalLogged;
     protected float m_LastTick;
@@ -55,6 +57,7 @@ class HCServer
         if (m_Active.Count() > 0) Stop();
         HCInfectedVisionQualification.HCThreatReset(false);
         m_Operational.HCReset();
+        m_Changes.HCReset();
         HCOperationalContributors.HCReset();
         m_OperationalRefreshAt = 0;
         if (!HCNativeSelfTests.Run())
@@ -111,6 +114,7 @@ class HCServer
             }
             reported = module.HCGetOperationalStatus();
             m_Operational.HCCapture(module.GetName(), moduleEnabled, reported);
+            if (moduleEnabled) { m_Changes.HCBaseline(reported); }
             opOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
             if (opOwner) { opOwner.HCObserve(moduleEnabled, reported, GetGame().GetTickTime()); }
             // OnStart returning alone is not readiness. Internal started flags
@@ -192,6 +196,7 @@ class HCServer
             int refreshIndex = 0;
             HCOperationalOwner refreshOwner = null;
             HCOperationalStatus refreshStatus = null;
+            string refreshLine = "";
             foreach (HCModule refreshModule : m_Active)
             {
                 if (refreshIndex >= 64) { break; }
@@ -201,6 +206,9 @@ class HCServer
                 {
                     refreshStatus = refreshModule.HCGetOperationalStatus();
                     refreshOwner.HCObserve(true, refreshStatus, now);
+                    // Wave 16: one line per state change after boot ("" when unchanged: no allocation).
+                    refreshLine = m_Changes.HCChange(refreshIndex - 1, refreshModule.GetName(), refreshStatus);
+                    if (refreshLine != "") { Print("" + refreshLine); }
                 }
             }
         }
@@ -214,6 +222,7 @@ class HCServer
         m_TickActive = false;
         // Retain off/unknown receipts even if a later stop callback aborts.
         m_Operational.HCStopAll();
+        m_Changes.HCReset();
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
         float stopNow = -1;
         if (GetGame()) { stopNow = GetGame().GetTickTime(); }

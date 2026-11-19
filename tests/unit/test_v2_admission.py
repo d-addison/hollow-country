@@ -114,6 +114,7 @@ class StartPrintTests(unittest.TestCase):
         context['HCV2Admission'].OperationalSummary = lambda cache: '[HC Plan] HC-1 status rows=0'
         context['HCV2Admission'].NonModuleSummary = lambda: '[HC Plan] HC-1 non-module'
         state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None, m_Registry=None,
+                  m_Changes=N(HCReset=lambda: None, HCBaseline=lambda status: None, HCChange=lambda index, name, status: ''),
                   m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
                                   HCCapture=lambda name, requested, reported: None),
                   m_LastTick=0, Tick=lambda: None, Stop=lambda: None,

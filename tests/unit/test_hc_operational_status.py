@@ -102,6 +102,7 @@ class OperationalLifecycleTests(unittest.TestCase):
             admission.NonModuleSummary = translate(admission_source, 'NonModuleSummary', env)
         state = N(m_Started=False, m_Active=core.NativeArray(), m_Registry=None,
                   m_Settings=None, m_LastTick=0, m_Operational=cache, Tick=lambda: None,
+                  m_Changes=N(HCReset=lambda: None, HCBaseline=lambda status: None, HCChange=lambda index, name, status: ''),
                   m_TickWork=tick_fixture.new_budget(), m_TickActive=False,
                   m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,
                            RegisterModule=lambda name: None))

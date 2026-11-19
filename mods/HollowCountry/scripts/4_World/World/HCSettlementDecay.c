@@ -105,9 +105,21 @@ class HCSettlementDecay : HCModule
     protected int m_Cursor;
     protected float m_Elapsed;
     protected ref array<string> m_RefusalReasons = new array<string>;
+    protected bool m_Started;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "SettlementDecay"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
+
+    // Wave 16: started = OnStart ran (store and save job registered; the town state loads on the first world
+    // tick by design). m_Fault is a real persistence/clock/schema fault that halts the tick: degraded.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        string fault = "";
+        if (m_Fault) { fault = "persistence_clock_or_schema_fault"; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", fault, "decay_started_state_loads_with_world");
+        return m_Operational;
+    }
 
     static int RansackAfter(int prior, int day, int severity)
     {
@@ -131,6 +143,7 @@ class HCSettlementDecay : HCModule
         m_SaveJob = new HCSettlementSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
+        m_Started = true;
         // World may start after us; resolve it on the bounded module tick.
     }
 
@@ -338,6 +351,7 @@ class HCSettlementDecay : HCModule
             HCSaveScheduler.HCFlush(m_SaveJob);
             HCSaveScheduler.HCUnregister(m_SaveJob);
         }
+        m_Started = false;
         m_State = null;
     }
 }

@@ -10,8 +10,20 @@
 // HCServer starts modules on the server; this is a bounded startup receipt only.
 class HCSurvivalAlignmentModule : HCModule
 {
+    protected bool m_Started;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
     override string GetName() { return "SurvivalAlignment"; }
     override bool IsEnabled(HCSettings settings) { return true; }
+
+    // Wave 16: cached readiness from the live started flag (the stamina scale receipt was logged).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", "", "stamina_alignment_receipt_logged");
+        return m_Operational;
+    }
+
+    override void OnStop() { m_Started = false; }
 
     override void OnStart(HCSettings settings)
     {
@@ -21,6 +33,7 @@ class HCSurvivalAlignmentModule : HCModule
         string stamina = "off";
         if (HCStaminaIntegration.Enabled()) { stamina = "on"; }
         Print("[HC Plan] HC-2 stamina_drain=" + drain.ToString() + " recovery=" + recovery.ToString() + " stamina=" + stamina + " meal_heat=off hooks=0 runtime=PENDING");
+        m_Started = true;
     }
 }
 

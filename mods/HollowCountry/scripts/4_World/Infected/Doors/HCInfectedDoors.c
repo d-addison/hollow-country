@@ -80,6 +80,15 @@ class HCInfectedDoorsModule : HCModule
 
     override string GetName() { return "InfectedDoors"; }
 
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
+    // Wave 16: cached readiness from the live started flag (never hard-coded).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, "", "", "door_pressure_started");
+        return m_Operational;
+    }
+
     override bool IsEnabled(HCSettings settings)
     {
         if (!settings) { return false; }

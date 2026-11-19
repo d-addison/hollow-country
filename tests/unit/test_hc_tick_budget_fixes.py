@@ -155,7 +155,7 @@ class RefreshHarness:
             def expr(self, text, names):
                 return super().expr(text, names).replace("self.s_Instance", "_refresh_state.s_Instance")
 
-        self.env = dict(HCModule=object, EArray=houses.EArray, HMap=houses.HMap, find_out=houses.find_out,
+        self.env = dict(HCModule=object, HCOperationalStatus=object, EArray=houses.EArray, HMap=houses.HMap, find_out=houses.find_out,
                         Print=self.printed.append, HCGroupClock=N(Utc=lambda: self.utc),
                         _refresh_state=N(s_Instance=None),
                         HCSearchRules=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap))

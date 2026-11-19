@@ -345,8 +345,22 @@ class HCSearchRefreshModule : HCModule
     protected int m_BatchLeft;
     protected bool m_BatchChanged;
     protected float m_Hour;
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "LootRefresh"; }
+
+    // Wave 16: started = this module is the registered instance (state loaded and valid); a store that
+    // faulted after start is a real degradation, an invalid state at start is a refusal.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool started = false;
+        string fault = "";
+        if (s_Instance == this) { started = true; }
+        if (started && m_Store && !m_Store.Healthy()) { fault = "refresh_store_fault"; }
+        HCModuleReadiness.HCDerive(m_Operational, started, m_Refusal, fault, "refresh_state_loaded");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
 
     static string Key(string scope, string siteId) { return scope + "/" + siteId; }
@@ -384,11 +398,13 @@ class HCSearchRefreshModule : HCModule
     {
         if (s_Instance || !GetGame() || !GetGame().IsServer() || !IsEnabled(settings)) return;
         m_Settings = settings;
+        m_Refusal = "";
         Print(HCV2Admission.Line("LootRefresh", true, "none", true));
         m_Store = new HCSearchRefreshStore;
         m_State = m_Store.Open();
         if (!Valid(HCGroupClock.Utc()))
         {
+            m_Refusal = "refresh_state_invalid";
             m_Store.Fault();
             return;
         }

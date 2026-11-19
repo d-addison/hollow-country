@@ -38,6 +38,8 @@ class HCDeadDrops : HCModule
     protected ref HCDeadDropState m_State;
     protected ref array<ref HCEncounterCacheIO> m_Caches = new array<ref HCEncounterCacheIO>;
     protected bool m_Ready;
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected bool m_Dirty;
     protected int m_Next;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
@@ -46,6 +48,13 @@ class HCDeadDrops : HCModule
 
     static HCDeadDrops Get() { if (s_Instance && s_Instance.m_Ready) { return s_Instance; } return null; }
     override string GetName() { return "DeadDrops"; }
+
+    // Wave 16: ready only once the drop state loaded and validated (m_Ready); a refused state reports why.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Ready, m_Refusal, "", "dead_drop_state_loaded");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     int Count() { if (!m_State) { return 0; } return m_State.Rows.Count(); }
 
@@ -130,6 +139,7 @@ class HCDeadDrops : HCModule
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("DeadDrops", true, "EXP-L4", HCV2Gates.Qualified("EXP-L4")));
+        m_Refusal = "";
         m_Store = new HCEncounterStore<HCDeadDropState>("dead-drops");
         m_State = m_Store.Load(new HCDeadDropState, "Rows");
         if (!m_State || m_State.Version != 1 || !m_State.Rows) { HCRefuseState(); return; }
@@ -162,6 +172,7 @@ class HCDeadDrops : HCModule
 
     protected void HCRefuseState()
     {
+        m_Refusal = "dead_drop_state_invalid_or_save_failed";
         Print("[HollowCountry] V2 dead drops refused: invalid dead-drops.json state or save failure; preserve file, .tmp and .bak");
     }
 

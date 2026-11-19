@@ -186,6 +186,7 @@ class CoreFixture:
                        m_LastTick=0, m_Registry=None, m_SettingsRefusalLogged=False,
                        # Wave 13 (#138): the authored shared tick budget (offline port of HCUnitBudget).
                        m_TickWork=tickbudget.new_budget(), m_TickActive=False,
+                       m_Changes=N(HCReset=lambda: None, HCBaseline=lambda status: None, HCChange=lambda index, name, status: ''),
                        m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
                                        HCCapture=lambda name, requested, reported: None),
                        m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,
