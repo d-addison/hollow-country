@@ -4,10 +4,12 @@ Everything is generated at install time from the operator's own installed missio
 file or dump is shipped. One install edits, in place and with byte-exact backups:
 
 * ``db/types.xml`` and every types file registered in ``cfgeconomycore.xml`` (except the generated
-  optional-pack folder, which holds hunting/vehicle types, not building loot): ``nominal`` and ``min``
+  optional-pack folder for quantity scaling): ``nominal`` and ``min``
   are multiplied for the building-loot categories in SCALED_CATEGORIES only. Weapons, explosives,
   lootdispatch, uncategorised rows (vehicle parts) and every firearms-roster class keep their exact
-  current values, so firearms, ammunition, magazines and attachments stay at the scarcity the owner chose.
+  supply quantities, so firearms, ammunition, magazines and attachments stay at the scarcity the owner chose.
+  The default-on strict floor policy separately retags every loaded equipment row, including these classes
+  and optional-pack rows, to keep them off floors; unmatched shelf capacity is reported in the receipt.
 * ``db/globals.xml``: ``RespawnTypes`` (types refilled per CE respawn cycle) is multiplied so a persistent
   storage reaches the larger nominals; every other knob is left alone and reported.
 * ``mapgroupproto.xml``: group/container ``lootmax`` (defaults included) are multiplied, weapons-only
@@ -233,13 +235,13 @@ def _verify_types(before, after, expected):
             raise ValueError(f'types verification failed: {name} changed beyond nominal/min')
 
 
-def types_files(mission):
-    """db/types.xml plus every registered ce types file (optional-pack folder excluded), in load order."""
+def types_files(mission, include_optional=False):
+    """Loaded CE types in load order; optional-pack quantities remain outside boost scaling."""
     root = economy.xml(economy.read_plain(mission, CORE), 'economycore')
     names = [STOCK_TYPES]
     for ce in root.findall('ce'):
         folder = ce.get('folder') or ''
-        if folder.strip('/') == OPTIONAL_FOLDER:
+        if folder.strip('/') == OPTIONAL_FOLDER and not include_optional:
             continue
         for row in ce.findall('file'):
             if row.get('type') == 'types':
@@ -615,13 +617,13 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     roster = _roster_names()
     policy, policy_sha = _floor_policy(floor_policy)
     outputs, counts, tag_rows = [], {'types': {}}, []
-    scaled_types = {}
-    for name in types_files(mission):
+    for name in types_files(mission, include_optional=policy is not None):
         before = economy.read_plain(mission, name)
-        after, count = scale_types(before, multiplier, roster)
+        after, count = before, 0
+        if not name.startswith(OPTIONAL_FOLDER + '/'):
+            after, count = scale_types(before, multiplier, roster)
         counts['types'][name] = count
         if policy is not None:
-            scaled_types[name] = after
             after, rows = loot_floor_policy.retag_types(after, policy, roster)
             tag_rows.append(rows)
         outputs.append((name, before, after))
@@ -633,17 +635,8 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     proto_after, report = scale_proto(proto_before, multiplier, overlay, _limits(mission) if overlay else None)
     counts['mapgroupproto'] = report
     if policy is not None:
-        # Resolve all fallback dependencies before imposing global type restrictions.
-        preserve = set()
-        while True:
-            previous = set(preserve)
-            planned_proto, floor = loot_floor_policy.rebalance_proto(proto_after, tag_rows, policy, preserve)
-            if previous == preserve:
-                break
-        proto_after = planned_proto
-        outputs = [(n, b, loot_floor_policy.retag_types(scaled_types[n], policy, roster, preserve)[0])
-                   if n in scaled_types else (n, b, a) for n, b, a in outputs]
-        floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if r[0] not in preserve and sorted(r[2]) != sorted(r[3]))
+        proto_after, floor = loot_floor_policy.rebalance_proto(proto_after, tag_rows, policy)
+        floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if sorted(r[2]) != sorted(r[3]))
         floor['policy_sha256'] = policy_sha
     else:
         floor = {'enabled': False}
@@ -874,7 +867,7 @@ def rollback_inputs(mission):
 
 def describe(result):
     counts = result['counts']
-    lines = ['loot boost multiplier=%s (firearms/ammo/explosives/vehicle parts unchanged)' % result['multiplier']]
+    lines = ['loot boost multiplier=%s (firearms/ammo/explosives/vehicle-part supply quantities unchanged)' % result['multiplier']]
     for name, count in counts['types'].items():
         lines.append('  types %s scaled_rows=%d' % (name, count))
     knobs = counts['globals']

@@ -2,23 +2,44 @@
   "schema": 1,
   "kind": "hollow-country-loot-floor-policy",
   "enabled": true,
-  "note": "Owner direction 2026-11-19: apart from clothing and trash, items should not lie on floors. Floor-height containers keep their points and lootmax; non-listed classes are retagged shelf-only in every loaded types file, floor-height containers lose the shelves tag, and the floor capacity those classes used is moved to the building's own shelf containers (never above the container's point count or max_container_lootmax). Set enabled to false to keep the plain loot boost. CE behaviour of the rewritten tags is runtime=PENDING until a native server session.",
-  "floor_categories": ["clothes"],
-  "floor_classes": [
-    "Broom", "BurlapSack", "Pipe", "PileOfWoodenPlanks", "MetalPlate", "Netting", "BarbedWire", "FryingPan",
-    "FarmingHoe", "Pitchfork", "Sickle", "MeatTenderizer", "CarRadiator", "WineBottle"
+  "note": "Owner direction 2026-11-19: only clothing and exactly named garbage (Paper) may use floor coordinates. No bag, barrel, pouch, tool, weapon or vehicle-part patterns count as garbage. Every loaded equipment type loses floor eligibility, including firearms and optional CE layers; supply quantities are retained. Displaced capacity moves only to compatible existing shelves, bounded by their points and max_container_lootmax. Unplaced demand and missing shelf routes are recorded per class in the install receipt; no floor fallback or Search grants. preserve_tolerance is a legacy schema field and does not permit retention. Set enabled=false for operator opt-out. CE matching and geometry runtime=PENDING. Mixed floor/shelves or ground-tagged containers are treated as floors, not shelf receivers.",
+  "floor_categories": [
+    "clothes"
   ],
-  "floor_class_patterns": ["^Barrel_", "^Flag_", "Bag(_|$)", "^HipPack", "Pouch", "Sack$"],
-  "shelf_categories": ["tools", "containers", "food", "books"],
+  "floor_classes": [
+    "Paper"
+  ],
+  "floor_class_patterns": [],
+  "shelf_categories": [
+    "tools",
+    "containers",
+    "food",
+    "books",
+    "weapons",
+    "explosives",
+    "lootdispatch"
+  ],
   "floor_tag": "floor",
   "shelf_tag": "shelves",
-  "floor_container_names": ["lootFloor", "lootGround", "lootHCFloor"],
-  "height_checked_container_names": ["loot"],
-  "extra_floor_container_names": ["lootHCFloor"],
+  "floor_container_names": [
+    "lootFloor",
+    "lootGround",
+    "lootHCFloor"
+  ],
+  "height_checked_container_names": [
+    "loot"
+  ],
+  "extra_floor_container_names": [
+    "lootHCFloor"
+  ],
   "floor_band_m": 0.75,
   "capacity": {
     "enabled": true,
     "max_container_lootmax": 12,
-    "preserve_tolerance": 0.1
-  }
+    "preserve_tolerance": 0.0
+  },
+  "floor_container_tags": [
+    "floor",
+    "ground"
+  ]
 }

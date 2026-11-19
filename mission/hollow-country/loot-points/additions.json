@@ -13,7 +13,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -47,7 +46,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -126,7 +124,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -205,7 +202,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -284,7 +280,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -362,8 +357,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -440,8 +435,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -473,8 +468,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -496,8 +491,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -574,8 +569,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -652,8 +647,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -710,9 +705,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -739,9 +733,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -768,9 +761,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -797,9 +789,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -841,9 +832,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -870,8 +860,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -948,8 +938,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1026,8 +1016,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1104,8 +1094,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1172,8 +1162,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -1230,8 +1220,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -1258,8 +1248,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1336,8 +1326,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1414,9 +1404,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -1478,9 +1467,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1547,9 +1535,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -1576,9 +1563,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
             "clothes",
-            "containers"
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1655,9 +1641,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1735,8 +1720,7 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "tools",
-            "containers"
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1813,9 +1797,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -1892,8 +1875,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 4,
@@ -1971,8 +1953,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 4,
@@ -2050,8 +2031,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -2098,8 +2079,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2176,8 +2157,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2254,8 +2235,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2332,8 +2313,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2410,8 +2391,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2488,8 +2469,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2556,8 +2537,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -2589,8 +2570,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -2622,8 +2603,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -2695,8 +2676,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -2723,8 +2704,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -2756,8 +2737,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -2779,8 +2760,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 4,
@@ -2858,8 +2838,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 4,
@@ -2937,9 +2916,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3016,9 +2994,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -3060,9 +3037,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -3094,9 +3070,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -3138,9 +3113,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3217,9 +3191,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3296,9 +3269,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3375,9 +3347,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3454,9 +3425,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3528,9 +3498,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3607,9 +3576,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3686,9 +3654,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3765,9 +3732,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3839,9 +3805,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -3903,9 +3868,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -3982,9 +3946,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -4061,9 +4024,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -4125,8 +4087,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 3,
@@ -4189,9 +4150,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -4233,9 +4193,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4257,9 +4216,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -4311,9 +4269,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4340,9 +4297,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4374,9 +4330,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -4413,9 +4368,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -4457,9 +4411,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -4536,9 +4489,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4565,9 +4517,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4599,9 +4550,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -4643,9 +4593,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -4687,9 +4636,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4716,9 +4664,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -4745,9 +4692,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -4789,9 +4735,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -4863,9 +4808,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -4942,9 +4886,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5021,9 +4964,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5100,9 +5042,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5179,9 +5120,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5248,9 +5188,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5317,9 +5256,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -5371,9 +5309,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5450,9 +5387,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -5520,7 +5456,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -5599,7 +5534,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -5678,7 +5612,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -5757,7 +5690,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 3,
@@ -5821,7 +5753,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 2,
@@ -5865,7 +5796,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -5944,7 +5874,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 2,
@@ -5988,7 +5917,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -6067,7 +5995,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -6146,7 +6073,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -6225,7 +6151,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -6304,7 +6229,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6332,9 +6256,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
             "clothes",
-            "containers"
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -6412,7 +6335,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6436,7 +6358,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 2,
@@ -6485,7 +6406,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6519,7 +6439,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6548,7 +6467,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 2,
@@ -6587,7 +6505,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6621,7 +6538,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6655,7 +6571,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -6689,7 +6604,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -6763,7 +6677,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 2,
@@ -6801,8 +6714,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -6859,8 +6772,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -6887,8 +6800,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -6915,9 +6828,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -6994,9 +6906,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7073,8 +6984,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -7132,8 +7043,7 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "tools",
-            "containers"
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -7171,8 +7081,7 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "tools",
-            "containers"
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7249,8 +7158,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7327,9 +7236,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7406,8 +7314,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7484,8 +7392,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -7527,8 +7435,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -7585,8 +7493,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 2,
           "points": [
@@ -7628,8 +7536,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 3,
           "points": [
@@ -7686,8 +7594,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7764,8 +7672,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7837,8 +7745,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -7865,9 +7773,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "books",
-            "tools",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -7945,7 +7852,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -8024,7 +7930,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -8103,7 +8008,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -8182,7 +8086,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -8260,8 +8163,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 4,
@@ -8340,7 +8242,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -8419,7 +8320,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 2,
@@ -8458,7 +8358,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 1,
@@ -8482,7 +8381,6 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "containers",
             "tools"
           ],
           "lootmax": 4,
@@ -8555,9 +8453,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -8635,8 +8532,7 @@
         "lootHCFloor": {
           "categories": [
             "clothes",
-            "tools",
-            "containers"
+            "tools"
           ],
           "lootmax": 4,
           "points": [
@@ -8713,8 +8609,7 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "food",
-            "containers",
+            "clothes",
             "tools"
           ],
           "lootmax": 4,
@@ -8792,9 +8687,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers",
-            "clothes"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -8821,8 +8715,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -8854,8 +8748,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -8877,8 +8771,8 @@
       "containers": {
         "lootHCFloor": {
           "categories": [
-            "tools",
-            "containers"
+            "clothes",
+            "tools"
           ],
           "lootmax": 1,
           "points": [
@@ -8911,6 +8805,8 @@
   "runtime_acceptance": "pending",
   "schema": 1,
   "sources": {
+    "families_sha256": "b79a417e9f45e08336485e8cc1a40725c54304126d2aa9accf78f723d71a360b",
+    "floor_policy_sha256": "c2a755a4a0488f41da501417cb223b13d44f4c3b2d726231fa746d02463444ba",
     "geom_census_sha256": [
       "1909e463191da0d2bb0951d22e59c967da085eed5c248996334ea2a054a43aaa",
       "1ad4d0be18bc15aa77fabafedc6a98cf4f63dd857940d9d7d186874f41216cc0",
