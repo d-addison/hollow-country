@@ -150,14 +150,16 @@ class VarietyRoutes(unittest.TestCase):
                   m_Members=Array([member]), Group=group, RouteEnd=[0.,0.,0.],
                   Release=lambda: calls.append('release') or True,
                   HCVarietyNextSegment=lambda now: calls.append('next') or True)
-        tick = translate(str(path), 'override bool Tick(', ('Release', 'HCVarietyNextSegment'),
-                         fields=('Group', 'RouteEnd'),
-                         HCInfectedVarietyModule=N(VarietyActive=lambda: True),
-                         HCInfectedVariety=N(HCHidden=lambda *a: hidden[0]),
-                         HCPerfPlayers=N(HCGet=lambda: Array()),
-                         DayZInfectedConstants=N(MINDSTATE_CALM=0),
-                         vector=N(DistanceSq=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))),
-                         super=N(Tick=lambda now: calls.append('native_tick') or True))
+        scope = dict(HCInfectedVarietyModule=N(VarietyActive=lambda: True),
+                     HCInfectedVariety=N(HCHidden=lambda *a: hidden[0]),
+                     HCPerfPlayers=N(HCGet=lambda: Array()),
+                     DayZInfectedConstants=N(MINDSTATE_CALM=0),
+                     vector=N(DistanceSq=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))),
+                     super=N(Tick=lambda now: calls.append('native_tick') or True))
+        maintain = translate(str(path), 'bool HCMaintain(', ('Release',), fields=('Group', 'RouteEnd'), **scope)
+        owner.HCMaintain = lambda now: maintain(owner, now)
+        tick = translate(str(path), 'override bool Tick(', ('HCMaintain', 'Release', 'HCVarietyNextSegment'),
+                         fields=('Group', 'RouteEnd'), **scope)
         self.assertTrue(tick(owner, 1.))
         self.assertEqual(['next', 'native_tick'], calls)
         calls.clear()
@@ -168,5 +170,34 @@ class VarietyRoutes(unittest.TestCase):
         hidden[0] = True
         self.assertFalse(tick(owner, 99.))
         self.assertEqual(['release'], calls)
+
+    def test_refused_budget_still_runs_the_active_pack_safety_release(self):
+        """Review P1: expiry/sight release must not wait for the shared infected budget."""
+        path = AREA / 'HCInfectedVarietyRoutes.c'
+        calls = []
+        pack = N(Tick=lambda now: calls.append('tick') or True,
+                 HCMaintain=lambda now: calls.append('maintain') or now < 50.)
+        state = N(s_Config=N(EnableMigration=True), s_Routes=None, s_Pack=pack, s_NextScan=0.)
+        grant = [False]
+        cleared = []
+        with tempfile.TemporaryDirectory() as folder:
+            fixture = Path(folder) / path.name
+            fixture.write_text(path.read_text().replace(' { ', ' {\n '))
+            step = translate(str(fixture), 'static void HCStep(', (), statics=tuple(vars(state)), STATICS=state,
+                             HCInfectedVarietyModule=N(VarietyActive=lambda: True),
+                             HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: grant[0])),
+                             HCUnitBudget=N(HC_WORK_INFECTED=3),
+                             HCClearRoster=lambda: cleared.append(True))
+        step(None, 10.)
+        self.assertEqual(['maintain'], calls)
+        self.assertIs(pack, state.s_Pack)
+        grant[0] = True
+        step(None, 11.)
+        self.assertEqual(['maintain', 'tick'], calls)
+        grant[0] = False
+        step(None, 60.)
+        self.assertEqual(['maintain', 'tick', 'maintain'], calls)
+        self.assertIsNone(state.s_Pack)
+        self.assertEqual([True], cleared)
 
 if __name__ == '__main__': unittest.main()
