@@ -9,8 +9,6 @@ GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_v2_world -v
 Ran 1 test; OK.
 """
 import json
-import os
-import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace as N
@@ -92,7 +90,7 @@ class WorldSmoke(unittest.TestCase):
             self.assertIsNotNone(herb, 'scripted herb needs a packaged CE persistence row')
             self.assertEqual(('0', '0'), (herb.findtext('nominal'), herb.findtext('min')))
 
-    def test_cap_refusal_and_corrupt_load_preserve_backup_and_start_fresh(self):
+    def test_cap_refusal_and_corrupt_load_preserves_files_and_quarantines(self):
         self.assertTrue(DATA.is_file(), 'missing world implementation HCWorldData.c')
         logs = []
         env = dict(Print=logs.append, str=str, len=len)
@@ -124,21 +122,19 @@ class WorldSmoke(unittest.TestCase):
             env.update(FileExist=lambda p: Path(p).exists(),
                        HCWorldClock=N(UTC=lambda: 123456),
                        HCWorldData=N(Fresh=lambda now: N(Meta=N(Epoch=now), Facts=[])))
-            env.update(Read=lambda p: Path(p).read_text(),
-                       CopyFile=lambda a, b: bool(shutil.copyfile(a, b)),
-                       DeleteFile=lambda p: os.remove(p) is None)
-            preserve = translate(STORE.read_text(), 'Preserve', env, 'HCWorldStore', member=True)
-            store.Read = env['Read']
-            store.Preserve = lambda f: preserve(store, f)
-            loaded = translate(STORE.read_text(), 'Load', env, 'HCWorldStore', member=True)
-            self.assertTrue(loaded(store))
-            self.assertTrue(store.m_KeepBackup)
-            self.assertTrue(store.m_Fresh)
-            self.assertEqual(123456, store.m_Data.Meta.Epoch)
-            self.assertEqual([], store.m_Data.Facts)
+            refused = []
+            env['HCPersistenceDisposition'] = N(HCAdmitStore=lambda name: True,
+                HCQuarantine=lambda name, reason: refused.append((name, reason)) or False)
+            loaded = translate(STORE.read_text().replace('HCWorldData ', 'HCEventWorldData '), 'Load', env, 'HCWorldStore', member=True)
+            self.assertFalse(loaded(store))
+            self.assertTrue(store.m_Fault)
+            self.assertFalse(store.m_Fresh)
+            self.assertIsNone(store.m_Data)
             self.assertEqual('{"synthetic":"preserve me"}', backup.read_text())
-            self.assertEqual('{synthetic corrupt JSON', Path(str(image) + '.rejected').read_text())
-            self.assertIn('[HollowCountry] V2 world load rejected; fresh world; rejected image kept as world.json.rejected, backup preserved', logs)
+            self.assertEqual('{synthetic corrupt JSON', image.read_text())
+            self.assertFalse(Path(str(image) + '.rejected').exists())
+            self.assertEqual([('world', 'world_parse_or_schema_failure')], refused)
+
 
 
 if __name__ == '__main__':

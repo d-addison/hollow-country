@@ -79,6 +79,7 @@ Thumbs.db
 !/docs/INFECTED_CHEESE_AUDIT.md
 !/docs/FRIEND_SERVER_AI_RUNBOOK.md
 !/docs/OUTSTANDING.md
+!/docs/OPS_RECOVERY.md
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py
