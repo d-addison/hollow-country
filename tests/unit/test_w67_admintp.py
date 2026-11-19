@@ -73,16 +73,49 @@ class TeleportBehavior(unittest.TestCase):
 
 
 class GroundBehavior(unittest.TestCase):
-    def ground(self, candidate=None, collision=False, water=False, surface=lambda x, z: 17):
+    def ground(self, candidate=None, collision=False, water=False, surface=lambda x, z: 17, buildings=None):
         game = NS(GetWorld=lambda: NS(GetWorldSize=lambda: 1000), SurfaceY=surface,
                   SurfaceIsSea=lambda x, z: water, SurfaceIsPond=lambda x, z: False,
-                  IsBoxColliding=lambda *args: collision)
+                  IsBoxColliding=lambda *args: collision,
+                  GetObjectsAtPosition=lambda pos, radius, objects, proxies: objects.extend(buildings or []))
         config = NS(BoundaryMarginM=2, GroundOffsetM=.2, ClearanceWidthM=1,
-                    ClearanceHeightM=2, MaxSlopeDeltaM=.4)
+                    ClearanceHeightM=2, MaxSlopeDeltaM=.4, BuildingQueryRadiusM=100, MaxBuildingObjects=128)
         scope = base_scope(GetGame=lambda: game, vector=NS(Zero=[0, 0, 0]),
                            Vector=lambda x, y, z: [x, y, z], array=EArray)
-        fn = compile_authored(SOURCE, 'HCAdminTeleport', 'HCGround', scope, modded=False)
-        return fn(NS(m_Config=config), candidate or [10, 999, 20], object())
+        owner = NS(m_Config=config)
+        # Fixed native out-vector array is syntax scaffolding only.
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / 'HCAdminTeleport.c'
+            fixture.write_text(SOURCE.read_text().replace('vector bounds[2];',
+                'array<vector> bounds = new array<vector>;'))
+            if 'bool HCOutsideBuildings(' in SOURCE.read_text():
+                outside = compile_authored(fixture, 'HCAdminTeleport', 'HCOutsideBuildings',
+                                           scope, modded=False)
+                owner.HCOutsideBuildings = lambda pos: outside(owner, pos)
+            fn = compile_authored(fixture, 'HCAdminTeleport', 'HCGround', scope,
+                                  ('HCOutsideBuildings',), modded=False)
+            return fn(owner, candidate or [10, 999, 20], object())
+
+    def test_hollow_building_envelope_refuses_even_without_collision(self):
+        def box(bounds):
+            bounds.extend([[-5, -1, -6], [5, 10, 6]])
+            return True
+        building = NS(IsBuilding=lambda: True, GetCollisionBox=box,
+                      WorldToModel=lambda pos: [0, 0, 0])
+        self.assertEqual([0, 0, 0], self.ground(buildings=[building]))
+        building.WorldToModel = lambda pos: [7, 0, 0]
+        self.assertEqual([0, 0, 0], self.ground(buildings=[building]))
+        # Explicit synthetic rotated local-space fixture.
+        building.WorldToModel = lambda pos: [9, 0, 0]
+        self.assertEqual([10, 17.2, 20], self.ground(buildings=[building]))
+
+    def test_unknown_envelope_and_query_overflow_fail_closed(self):
+        unknown = NS(IsBuilding=lambda: True, GetCollisionBox=lambda bounds: False)
+        self.assertEqual([0, 0, 0], self.ground(buildings=[unknown]))
+        prop = NS(IsBuilding=lambda: False)
+        self.assertEqual([10, 17.2, 20], self.ground(buildings=[prop]))
+        self.assertEqual([0, 0, 0], self.ground(buildings=[prop] * 129))
 
     def test_safe_y_uses_surface_not_authored_altitude(self):
         self.assertEqual([10, 17.2, 20], self.ground())
@@ -112,6 +145,8 @@ class ConfigAndBudgetBehavior(unittest.TestCase):
         apply(config, decoded, set())
         self.assertTrue(config.Enabled)
         self.assertEqual(.2, config.GroundOffsetM)
+        self.assertTrue(config.IncludeActiveSituations)
+        self.assertEqual((100, 128), (config.BuildingQueryRadiusM, config.MaxBuildingObjects))
         decoded.RowsPerTick = 3
         apply(config, decoded, {'RowsPerTick'})
         self.assertEqual(3, config.RowsPerTick)
@@ -119,7 +154,8 @@ class ConfigAndBudgetBehavior(unittest.TestCase):
                                  modded=False, fields=fields)
         self.assertTrue(valid(config))
         for field, value in (('RowsPerTick', 0), ('PageSize', 65), ('MaxDestinations', 257),
-                             ('GroundOffsetM', float('nan')), ('ClearanceHeightM', 0)):
+                             ('GroundOffsetM', float('nan')), ('ClearanceHeightM', 0),
+                             ('BuildingQueryRadiusM', 0), ('MaxBuildingObjects', 513)):
             bad = NS(**vars(config))
             setattr(bad, field, value)
             self.assertFalse(valid(bad), field)
@@ -149,7 +185,17 @@ class ConfigAndBudgetBehavior(unittest.TestCase):
         scope = base_scope(HCServer=NS(Get=lambda: NS(HCTickWork=lambda: NS(HCTake=take))),
             HCCampModule=NS(Get=lambda: NS(HCEncounterCount=lambda: 1, HCEncounterTarget=lambda i, now: camp)),
             HCHoldouts=NS(Get=lambda: NS(Count=lambda: 1, Snapshot=lambda i: home)),
-            HCWorldClock=NS(UTC=lambda: 100))
+            HCWorldClock=NS(UTC=lambda: 100),
+            HCWorldIncidents=NS(HCNowSeconds=lambda: 100, HCGet=lambda: NS(
+                HCActive=lambda: True, HCCount=lambda: 3,
+                HCRowAt=lambda i: [NS(Kind='synthetic-fire', Position=[50, 0, 60], ExpiresAt=101),
+                                   NS(Kind='expired', Position=[60, 0, 70], ExpiresAt=100),
+                                   NS(Kind='unlocated', Position=[0, 0, 0], ExpiresAt=0)][i],
+                HCGone=lambda row: False)),
+            HCEventModule=NS(Get=lambda: NS(Runtime=lambda: NS(Snapshot=lambda: NS(Runs=EArray([
+                NS(Phase=1, Objective=NS(Id='synthetic-active', Source=[70, 0, 80])),
+                NS(Phase=3, Objective=NS(Id='closed', Source=[80, 0, 90]))]))))),
+            HCEventRunPhase=NS(ACTIVE=1), vector=NS(Zero=[0, 0, 0]))
         fn = compile_authored(SOURCE, 'HCAdminTeleport', 'HCStep', scope, ('HCAdd', 'HCRefuse'), modded=False)
         owner = NS(m_CatalogStarted=True, m_Enabled=True, m_Complete=False, m_Config=config,
                    m_Work=NS(HCReset=lambda count: None, HCContinue=lambda: True),
@@ -157,11 +203,25 @@ class ConfigAndBudgetBehavior(unittest.TestCase):
                    m_Sites=NS(Sites=EArray([NS(Id='synthetic-site', Waypoints=EArray([[20, 0, 30]]))])))
         owner.HCAdd = lambda label, pos: owner.m_Destinations.append((label, pos))
         owner.HCRefuse = lambda reason: self.fail(reason)
-        for tick in range(12):
+        for tick in range(24):
             before = len(owner.m_Destinations)
             remaining[0] = 1
             fn(owner)
             self.assertLessEqual(len(owner.m_Destinations) - before, 1)
+            if owner.m_Complete:
+                break
+        self.assertTrue(owner.m_Complete)
+        self.assertEqual(['Incident synthetic-fire', 'Event synthetic-active', 'AI synthetic-site', 'Camp 1', 'Holdout 1'], [r[0] for r in owner.m_Destinations])
+        config.IncludeActiveSituations = False
+        owner.m_Stage = owner.m_Cursor = 0
+        owner.m_Complete = False
+        owner.m_Destinations.clear()
+        # Disabled dynamic listing must never even access either registry.
+        scope['HCWorldIncidents'].HCGet = lambda: self.fail('disabled incident access')
+        scope['HCEventModule'].Get = lambda: self.fail('disabled event access')
+        for tick in range(24):
+            remaining[0] = 1
+            fn(owner)
             if owner.m_Complete:
                 break
         self.assertTrue(owner.m_Complete)
