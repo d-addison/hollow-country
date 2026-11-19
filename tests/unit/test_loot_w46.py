@@ -248,14 +248,14 @@ class FloorAdmissionIntegration(unittest.TestCase):
                 family + '_' + colour
                 for family in ('LeatherJacket', 'LeatherShoes', 'LeatherHat')
                 for colour in ('Natural', 'Beige', 'Brown', 'Black')
-            } | {'LeatherShirt_Natural', 'DrysackBag_Green', 'DrysackBag_Orange',
+            } | {'LeatherGloves_' + c for c in ('Natural', 'Beige', 'Brown', 'Black')} | {'LeatherShirt_Natural', 'DrysackBag_Green', 'DrysackBag_Orange',
                  'DrysackBag_Yellow', 'TortillaBag_Desert'}
             self.assertEqual(dm.SUPPLY_UNVERIFIED_FLOOR, expected_floor)
             files = economy.generate(mission, profile() | {'name': 'contextual-pilot'})
             emitted = economy._unique(economy.xml(files['ce/types.xml'], 'types'))
             self.assertEqual(emitted['DrysackBag_Green'].find('flags').get('crafted'), '0')
             report = json.loads(files['economy-report.json'])['supply']
-            self.assertEqual((report['admitted'], report['floor_refused'], report['observed']), (55, 0, 0))
+            self.assertEqual((report['admitted'], report['floor_refused'], report['observed']), (59, 0, 0))
             for row in dm.load_rows():
                 item = emitted[row['class']]
                 self.assertEqual(int(item.findtext('nominal')), row['nominal'])

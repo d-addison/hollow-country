@@ -38,6 +38,7 @@ EXTRAS = (
     + ['PilotJacket_' + c for c in ('Black', 'Brown', 'Yellow')]
     + ['DownJacket_' + c for c in ('Blue', 'Red', 'Orange', 'Green')]
     + ['SkiGloves_' + c for c in ('90s', 'Blue', 'Red')]
+    + ['LeatherGloves_' + c for c in ('Beige', 'Black', 'Brown', 'Natural')]
     + ['SkiGoggles_' + c for c in ('BlackYellow', 'WhiteClear', 'WhiteDark')]
     + ['Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow']
     + ['Attack2Bag_Black', 'Attack2Bag_Yeger', 'AssaultBag_Winter', 'CoyoteBag_Winter',
@@ -603,7 +604,7 @@ class UsefulSupply(Base):
             economy.install_delta(self.stage(files), self.root)
         self.assertEqual(self.before, tree(self.root))
 
-    def test_pilot_emits_all_fifty_five_finite_supply_rows(self):
+    def test_pilot_emits_all_fifty_nine_finite_supply_rows(self):
         files = self.generate()
         emitted = economy._unique(ET.fromstring(files['ce/types.xml']))
         expected = {
@@ -611,6 +612,7 @@ class UsefulSupply(Base):
                for family in ('LeatherJacket', 'LeatherShoes', 'LeatherHat')
                for colour in ('Natural', 'Beige', 'Brown', 'Black')},
             'LeatherShirt_Natural': ('unresolved', 'HC22_CRAFTED_FLOOR_UNPROVEN'),
+            **{'LeatherGloves_' + c: ('native-floor', None) for c in ('Beige', 'Black', 'Brown', 'Natural')},
             **{'DrysackBag_' + c: ('native-craft', 'HC22_CRAFTED_FLOOR_UNPROVEN')
                for c in ('Green', 'Orange', 'Yellow')},
             'TortillaBag_Desert': ('native-carrier', 'HC22_EVENT_CARRIER_UNQUALIFIED')}
@@ -620,7 +622,7 @@ class UsefulSupply(Base):
         for name in ('Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'):
             self.assertEqual(emitted[name].findtext('nominal'), '5')
             self.assertEqual({n.get('name') for n in emitted[name].findall('usage')}, {'Town', 'Village'})
-        self.assertEqual((report['authored'], report['admitted'], report['observed']), (55, 55, 0))
+        self.assertEqual((report['authored'], report['admitted'], report['observed']), (59, 59, 0))
         self.assertEqual(report['runtime_acceptance'], 'pending')
         self.assertEqual(report['dispositions_sha256'], economy.sha(dm.SUPPLY_DATA.read_bytes()))
         self.assertEqual(json.loads(files['delta-manifest.json'])['supply_new_type_classes'],

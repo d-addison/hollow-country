@@ -382,6 +382,126 @@
    "acceptance": "pending-local"
   },
   {
+   "class": "LeatherGloves_Beige",
+   "nominal": 1,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village houses; reviewed finite floor proposal, crafted flag cleared at emission (audit #199, admitted unverified)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherGloves_Black",
+   "nominal": 1,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village houses; reviewed finite floor proposal, crafted flag cleared at emission (audit #199, admitted unverified)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherGloves_Brown",
+   "nominal": 1,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village houses; reviewed finite floor proposal, crafted flag cleared at emission (audit #199, admitted unverified)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherGloves_Natural",
+   "nominal": 1,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village houses; reviewed finite floor proposal, crafted flag cleared at emission (audit #199, admitted unverified)",
+   "acceptance": "pending-local"
+  },
+  {
    "class": "LeatherShirt_Natural",
    "nominal": 2,
    "min": 1,

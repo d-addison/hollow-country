@@ -23,7 +23,7 @@ DATA = Path(__file__).with_name('datamined_items.json')
 SUPPLY_DATA = Path(__file__).resolve().parents[2] / 'config/loot-dispositions.json'
 # HC-22 non-weapon permission. Never widen the HC-21 firearm parent allowlist.
 SUPPLY_NEW_TYPES = frozenset({'Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'})
-SUPPLY_UNVERIFIED_FLOOR = frozenset(['DrysackBag_Green', 'DrysackBag_Orange', 'DrysackBag_Yellow', 'LeatherHat_Beige', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural', 'LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherShirt_Natural', 'LeatherShoes_Beige', 'LeatherShoes_Black', 'LeatherShoes_Brown', 'LeatherShoes_Natural', 'TortillaBag_Desert'])
+SUPPLY_UNVERIFIED_FLOOR = frozenset(['DrysackBag_Green', 'DrysackBag_Orange', 'DrysackBag_Yellow', 'LeatherGloves_Beige', 'LeatherGloves_Black', 'LeatherGloves_Brown', 'LeatherGloves_Natural', 'LeatherHat_Beige', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural', 'LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherShirt_Natural', 'LeatherShoes_Beige', 'LeatherShoes_Black', 'LeatherShoes_Brown', 'LeatherShoes_Natural', 'TortillaBag_Desert'])
 ACCEPTANCE = 'pending-local'
 FLAG_ORDER = ('count_in_cargo', 'count_in_hoarder', 'count_in_map', 'count_in_player', 'crafted', 'deloot')
 ROW_KEYS = ('class', 'nominal', 'min', 'lifetime', 'restock', 'quantmin', 'quantmax', 'cost', 'flags',

@@ -369,13 +369,13 @@ class CommittedPolicy(unittest.TestCase):
                           ('Matchbox', 'tools'), ('AmmoBox', 'containers'), ('Crowbar', 'tools')):
             self.assertFalse(self.policy.floor_eligible(name, cat, self.doc), name)
 
-    def test_the_seventeen_reviewed_floor_rows_are_admitted_in_the_ledger_and_stay_floor_eligible(self):
+    def test_the_twenty_one_reviewed_floor_rows_are_admitted_in_the_ledger_and_stay_floor_eligible(self):
         from tools.package import datamined_items as items
         ledger = json.loads((REPO / 'config/loot-dispositions.json').read_bytes())
         admitted = {e['class'] for e in ledger['entries'] if e['floor_admitted']}
         self.assertEqual(len(admitted), 59)  # 55 datamined floor rows + 4 LeatherGloves admitted by audit #199
-        self.assertEqual(len(items.SUPPLY_UNVERIFIED_FLOOR), 17)
-        self.assertLessEqual(set(items.SUPPLY_UNVERIFIED_FLOOR), admitted, '#199: none of the 17 is withheld')
+        self.assertEqual(len(items.SUPPLY_UNVERIFIED_FLOOR), 21)
+        self.assertLessEqual(set(items.SUPPLY_UNVERIFIED_FLOOR), admitted, '#199: none of the 21 is withheld')
         for name in sorted(items.SUPPLY_UNVERIFIED_FLOOR):
             category = 'containers' if 'Bag' in name else 'clothes'
             self.assertTrue(self.policy.floor_eligible(name, category, self.doc), name)
