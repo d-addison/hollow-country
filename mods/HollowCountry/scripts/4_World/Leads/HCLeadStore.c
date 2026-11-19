@@ -69,6 +69,7 @@ class HCLeadStore
     protected ref array<ref HCWorldFact> m_Facts = new array<ref HCWorldFact>();
     protected int m_DuplicateRefusals;
     protected string m_LastTraceRefusal;
+    protected string m_FaultAt = "unspecified"; // names the refusing step in the fault line
     protected ref HCLeadSaveJob m_SaveJob;
     protected int m_SaveStage;
     protected int m_Revision;
@@ -270,13 +271,18 @@ class HCLeadStore
         string error;
         // Field initializers must never turn a truncated/empty JSON object into
         // a fresh ledger and silently release physical-note reservations.
+        m_FaultAt = "decode_header";
         if (text.IndexOf("\"SchemaVersion\"") < 0 || text.IndexOf("\"LastWrite\"") < 0 || text.IndexOf("\"Serial\"") < 0 || text.IndexOf("\"Leads\"") < 0 || text.IndexOf("\"Notes\"") < 0 || text.IndexOf("\"Bodies\"") < 0 || text.IndexOf("\"Channels\"") < 0) { return null; }
         bool hasTraceVersion = text.IndexOf("\"TraceVersion\"") >= 0;
         if (hasTraceVersion && (text.IndexOf("\"Traces\"") < 0 || text.IndexOf("\"TraceAfter\"") < 0)) { return null; }
+        m_FaultAt = "decode_json";
         if (text == "" || !JsonFileLoader<HCLeadData>.LoadData(text, value, error)) { return null; }
         // A legacy ledger has no record of already destroyed/expired clues.
         // Admit only facts observed AFTER migration; never invent old history.
         if (!hasTraceVersion) { value.TraceAfter = HCWorldClock.UTC(); }
+        m_FaultAt = "decode_rows";
+        if (value && !value.Traces) { m_FaultAt = "decode_traces_missing"; }
+        if (value && value.Traces && !HCTraceValid(value)) { m_FaultAt = "decode_traces_invalid"; }
         if (!Valid(value)) { return null; }
         return value;
     }
@@ -284,7 +290,9 @@ class HCLeadStore
     bool Open()
     {
         s_Instance = this;
+        m_FaultAt = "open_clock_or_folder";
         if (HCWorldClock.UTC() < 1 || (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry"))) { return Fault(); }
+        m_FaultAt = "open_tmp_present";
         if (FileExist(m_Path + ".tmp")) { return Fault(); }
         if (FileExist(m_Path))
         {
@@ -294,6 +302,7 @@ class HCLeadStore
         else
         {
             // A lone backup is an uncertain deletion, never permission to reset caps.
+            m_FaultAt = "open_lone_backup";
             if (FileExist(m_Path + ".bak")) { return Fault(); }
             Data = new HCLeadData;
         }
@@ -309,7 +318,7 @@ class HCLeadStore
     bool Fault()
     {
         m_Healthy = false;
-        Print("[HollowCountry] V2 leads persistence fault; feature suspended; files and reservations preserved");
+        Print("[HollowCountry] V2 leads persistence fault; feature suspended; files and reservations preserved at=" + m_FaultAt);
         return false;
     }
 
@@ -344,7 +353,9 @@ class HCLeadStore
         if (!m_Healthy) { return HCSaveFailed(); }
         if (m_SaveStage == 0)
         {
+            m_FaultAt = "save_rows";
             if (!Valid(Data)) { return HCSaveFailed(); }
+            m_FaultAt = "save_serialize";
             Data.LastWrite = HCWorldClock.UTC();
             string error;
             if (!JsonFileLoader<HCLeadData>.MakeData(Data, m_PendText, error)) { return HCSaveFailed(); }
@@ -359,7 +370,7 @@ class HCLeadStore
             if (FileExist(m_Path))
             {
                 m_PendPrior = HCWorldStore.Read(m_Path);
-                if (!Decode(m_PendPrior)) { return HCSaveFailed(); }
+                if (!Decode(m_PendPrior)) { m_FaultAt = "save_prior_" + m_FaultAt; return HCSaveFailed(); }
             }
             m_SaveStage = 2;
             return HCSaveJob.STEP_MORE;
@@ -371,6 +382,7 @@ class HCLeadStore
         m_SaveStage = 0;
         m_PendText = "";
         m_PendPrior = "";
+        m_FaultAt = "save_commit";
         if (!HCWorldStore.Write(m_Path + ".tmp", text)) { return HCSaveFailed(); }
         if (prior != "")
         {
