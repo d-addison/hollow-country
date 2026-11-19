@@ -51,8 +51,8 @@ class HCInfectedVarietyModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
-        m_Variety = settings.EnableInfectedVariety;
-        HCInfectedVariety.HCStart(m_Variety);
+        m_Variety = HCInfectedVariety.HCOperatorEnabled(settings.EnableInfectedVariety);
+        HCInfectedVariety.HCStart(settings.EnableInfectedVariety);
         m_Scaling = settings.EnableGroupScaling;
         if (!m_Printed)
         {

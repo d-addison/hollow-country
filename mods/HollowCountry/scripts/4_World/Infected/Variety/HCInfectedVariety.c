@@ -4,7 +4,8 @@
 // IsServer, :1176 SurfaceY; 3_Game/Entities/Object.c:287 GetPosition, :517
 // IsAlive; 1_Core/proto/EnConvert.c:210 DistanceSq; EnScript.c:380 Count,
 // :385 Clear, :394 Find, :407 Insert, :470 RemoveOrdered; EnDebug.c:96 Print. Creation/registration remains
-// in HCLODMaterialize, geometry in HCObserverTransitionGate/HCInfectedLOD.
+// in HCLODMaterialize (native 3_Game/Global/Game.c:703 CreateObjectEx;
+// 3_Game/CE/CentralEconomy.c:18,38 ECE_INITAI/ECE_PLACE_ON_SURFACE), geometry in HCObserverTransitionGate/HCInfectedLOD.
 // HCWorldMaterializer owns faction/cargo proposals; infected are CE bodies,
 // so do not counterfeit faction ledger rows or acquire an AI cargo lease.
 // Retain weak body handles including corpses; no refill or deletion on stop.
@@ -23,6 +24,8 @@ class HCInfectedVarietyConfig
     int MaxSites = 64;
     int MaxFreshBodies = 3;
     int GroupMembers = 3;
+    // Every second fresh body is standing; 0 opts out of this variant.
+    int StandingRiserEvery = 2;
     float ContextRange = 40;
     float InterestRange = 1000;
     float RequestRange = 1500;
@@ -37,6 +40,7 @@ class HCInfectedVarietyConfig
     {
         if (SchemaVersion != 1 || !Sites || Sites.Count() < 1 || Sites.Count() > MaxSites) { return false; }
         if (MaxSites < 1 || MaxSites > 64 || GroupMembers < 1 || GroupMembers > MaxFreshBodies || MaxFreshBodies > 3) { return false; }
+        if (StandingRiserEvery < 0 || StandingRiserEvery > MaxFreshBodies) { return false; }
         if (!(ContextRange >= 1 && ContextRange <= 100 && InterestRange >= 120 && InterestRange <= 1500)) { return false; }
         if (!(MinSpawnDistance >= 120 && VisibilityRange >= 1100 && VisibilityRange <= 1500)) { return false; }
         if (!(RequestRange >= InterestRange && RequestRange <= 3000 && MaxObservers >= 1 && MaxObservers <= 8)) { return false; }
@@ -73,28 +77,46 @@ class HCInfectedVariety
         s_Running = false;
         s_Pending = false;
         s_Fault = "";
-        bool enabled = preference && !FileExist("$profile:HollowCountry/acceptance/infected_variety.disable");
-        Print(HCV2Admission.Line("InfectedVarietyPlaces", enabled, "W56-native-crawler", false) + " runtime=PENDING");
-        if (!enabled) { return; }
+        bool enabled = HCOperatorEnabled(preference);
+        Print(HCV2Admission.Line("InfectedVarietyPlaces", enabled, "W60-native-fresh-variants", false) + " runtime=PENDING");
+        if (!enabled)
+        {
+            s_Fault = "operator_preference";
+            if (preference) { s_Fault = "infected_variety_disabled"; }
+            Print("[HC Variety] state=off reason=" + s_Fault + " runtime=PENDING");
+            return;
+        }
+        if (!HCLoadConfig()) { return; }
+        s_Running = true;
+        Print("[HC Variety] fresh_crawlers=admitted_unverified standing_risers=native_standing_idle places=authored_CE opt_out=acceptance/infected_variety.disable runtime=PENDING");
+        Print("[HC Variety] migration=authored_routes_retained reason=road_terrain_topology_missing runtime=PENDING");
+    }
+
+    static bool HCOperatorEnabled(bool preference)
+    {
+        return preference && !FileExist("$profile:HollowCountry/acceptance/infected_variety.disable");
+    }
+
+    static bool HCLoadConfig()
+    {
         string content = HCWorldStore.Read("$mission:hollow-country/infected/variety-runtime.json");
         string error;
         // Every operational scalar is required: native JSON zero-fill must not
         // silently turn missing ranges/caps into an unbounded permissive gate.
-        array<string> keys = {"SchemaVersion", "MaxSites", "MaxFreshBodies", "GroupMembers", "ContextRange", "InterestRange", "RequestRange", "MinSpawnDistance", "VisibilityRange", "MaxObservers", "GroupSpacing", "AutomaticIntervalSeconds", "Sites"};
+        array<string> keys = {"SchemaVersion", "MaxSites", "MaxFreshBodies", "GroupMembers", "StandingRiserEvery", "ContextRange", "InterestRange", "RequestRange", "MinSpawnDistance", "VisibilityRange", "MaxObservers", "GroupSpacing", "AutomaticIntervalSeconds", "Sites"};
         foreach (string key : keys)
         {
-            if (!HCJsonFields.Has(content, key)) { s_Fault = "variety_data_missing_field:" + key; HCRefuse(s_Fault); return; }
+            if (!HCJsonFields.Has(content, key)) { s_Fault = "variety_data_missing_field:" + key; HCRefuse(s_Fault); return false; }
         }
         HCInfectedVarietyConfig config;
         if (!JsonFileLoader<HCInfectedVarietyConfig>.LoadData(content, config, error) || !config || !config.HCValid())
         {
             s_Fault = "variety_data_invalid";
             HCRefuse(s_Fault);
-            return;
+            return false;
         }
         s_Config = config;
-        s_Running = true;
-        Print("[HC Variety] fresh_crawlers=admitted_unverified places=authored_CE native_rise=unexposed opt_out=acceptance/infected_variety.disable runtime=PENDING");
+        return true;
     }
 
     static string HCFault() { return s_Fault; }
@@ -236,7 +258,14 @@ class HCInfectedVariety
         // normal tracked living actor, without replacement or deletion.
         if (s_Made == 0) { s_Used.Insert(s_Selected); }
         s_Made++;
-        if (!body.HCVarietyFreshCrawler(now, site.Id, HCInfectedVarietyPolicy.HCContextRole(site.Context, false)))
+        bool entered;
+        int role = HCInfectedVarietyPolicy.HCContextRole(site.Context, false);
+        if (HCInfectedVarietyPolicy.HCStandingFresh(s_Made - 1, s_Config.StandingRiserEvery))
+        {
+            entered = body.HCVarietyFreshStanding(now, site.Id, role);
+        }
+        else { entered = body.HCVarietyFreshCrawler(now, site.Id, role); }
+        if (!entered)
         {
             s_Pending = false;
             HCRefuse("fresh_native_entry_refused_body_retained");

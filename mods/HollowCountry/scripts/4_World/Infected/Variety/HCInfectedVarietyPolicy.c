@@ -17,6 +17,12 @@ class HCInfectedVarietyPolicy
         return seconds >= MIN_NONCALM_HOLD_SECONDS && seconds <= MAX_NONCALM_HOLD_SECONDS;
     }
 
+    // Zero-based group ordinal; named config cadence 0 disables standing only.
+    static bool HCStandingFresh(int ordinal, int every)
+    {
+        return every > 0 && ordinal >= 0 && (ordinal + 1) % every == 0;
+    }
+
     // Source context chooses the role; the existing runner cap remains authoritative.
     static int HCContextRole(string context, bool runnerRoom)
     {

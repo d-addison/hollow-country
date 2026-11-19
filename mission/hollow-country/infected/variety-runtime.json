@@ -624,7 +624,11 @@
       "CE context selection",
       "bounded automatic/admin group",
       "native perception wake",
-      "normal source and package runtime acceptance pending"
+      "normal source and package runtime acceptance pending",
+      "issue-213 standing living idle variant; never reverse native crawl",
+      "issue-213 marker isolation and restart readiness",
+      "road/terrain topology unavailable; authored migration sites retained"
     ]
-  }
+  },
+  "StandingRiserEvery": 2
 }
