@@ -61,12 +61,25 @@ class HCXAISitePatrol : eAIDynamicPatrol
     int m_HCPendingMembers;
     string m_HCRefusal;
     protected int m_HCNextBudgetLogMs;
+    protected int m_HCNextSkipLogMs;
+    // Interval of each per-site limiter: refusals and benign skips are limited separately (#194).
+    static const int HC_SITE_LOG_INTERVAL_MS = 60000;
+
+    // A benign re-entry (the spawner calls Spawn again while the group is live) is not a refusal:
+    // its own line and limiter, so it can never use up the window of a real refusal line.
+    protected void HCLogSkipped(string why)
+    {
+        int nowMs = GetGame().GetTime();
+        if (nowMs < m_HCNextSkipLogMs) { return; }
+        m_HCNextSkipLogMs = nowMs + HC_SITE_LOG_INTERVAL_MS;
+        Print("[HC Expansion AI] site " + m_HCSiteId + " spawn skipped: " + why);
+    }
 
     protected void HCRefuseBudget(string problem = "")
     {
         int nowMs = GetGame().GetTime();
         if (nowMs < m_HCNextBudgetLogMs) { return; }
-        m_HCNextBudgetLogMs = nowMs + 60000;
+        m_HCNextBudgetLogMs = nowMs + HC_SITE_LOG_INTERVAL_MS;
         if (problem != "") { Print("[HC Expansion AI] site " + m_HCSiteId + " spawn refused: " + problem); }
         else { Print("[HC AI] site shared population reservation refused id=" + m_HCSiteId); }
     }
@@ -90,7 +103,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
         if (m_HCFinished) { return; }
         if (m_Group)
         {
-            this.HCRefuseBudget("group already spawned");
+            this.HCLogSkipped("group already live");
             return;
         }
         HCXAISiteDirector director = HCXAISiteDirector.Active();

@@ -87,7 +87,8 @@ class HabitatReceiptLine(unittest.TestCase):
             Read=lambda path, limit: self.reads.append((path, limit)) or (text if len(text) <= limit else ""))
         self.state = SimpleNamespace(s_HabitatState="", s_HabitatLoaded=False, s_HabitatValid=False,
                                      s_HabitatSpeciesNative=0, s_HabitatSpeciesPending=0,
-                                     s_HabitatSpeciesAddon=0, s_HabitatNative=0, s_HabitatLegacy=0)
+                                     s_HabitatSpeciesAddon=0, s_HabitatNative=0, s_HabitatLegacy=0,
+                                     s_HabitatBytes=0, s_HabitatReason="")
         self.e["hab"] = self.state
         source = _lowered(NATIVE.read_text().replace("s_Habitat", "hab.s_Habitat"))
         native = SimpleNamespace()
@@ -95,7 +96,8 @@ class HabitatReceiptLine(unittest.TestCase):
         # Class constants the translated statics reference bare; read from the authored source.
         for name, value in re.findall(r'static const (?:string|int) (HC_HABITAT_\w+) = ("[^"]*"|\d+);', source):
             self.e[name] = json.loads(value)
-        for name in ("HCHabitatCount", "HCHabitatLoad", "HCHabitatRefusals"):
+            setattr(native, name, json.loads(value))  # static const read qualified: HCEcologyNative.NAME
+        for name in ("HCHabitatCount", "HCHabitatBlank", "HCHabitatKey", "HCHabitatLoad", "HCHabitatRefusals"):
             setattr(native, name, translated(source, name, self.e, "HCEcologyNative"))
         self.call = native.HCHabitatRefusals
 
@@ -138,6 +140,9 @@ class HabitatReceiptLine(unittest.TestCase):
             self.fresh(self.manifest_text)
             self.call(state)
             self.assertIn("species=0 habitats=0 target_pairs_supported=0 state=" + state, self.logs[0])
+            # The manifest itself was read fine, so its authored counts stay real.
+            self.assertIn("authored_species=%d authored_habitats=%d" % (
+                len(self.manifest["Species"]), len(self.manifest["Habitats"])), self.logs[0])
 
     def test_same_state_prints_once_and_unknown_state_is_refused(self):
         self.call("ready")
@@ -177,8 +182,58 @@ class HabitatReceiptLine(unittest.TestCase):
         self.assertEqual(1, len(self.reads))
         path, limit = self.reads[0]
         self.assertEqual("$mission:hollow-country/ecology/habitat-overrides.json", path)
-        self.assertEqual(self.manifest["ManifestMaxBytes"], limit)
+        # #194: the read cap is a named const raised to 65536 (the manifest's own declared bound,
+        # 32768, is the floor); native ReadFile takes any length (JsonFileLoader.c:3 reads 100000000).
+        self.assertEqual(65536, limit)
+        self.assertGreaterEqual(limit, self.manifest["ManifestMaxBytes"])
         self.assertLessEqual(len(self.manifest_text.encode()), limit)
+
+    def test_ready_line_reports_manifest_bytes_and_cap_before_the_runtime_tail(self):
+        self.call("ready")
+        line = self.logs[0]
+        self.assertIn(" manifest_bytes=%d manifest_cap=65536 runtime=PENDING" % len(self.manifest_text), line)
+        self.assertNotIn("manifest_refusal", line)
+
+    def test_manifest_between_the_old_and_new_cap_still_reads(self):
+        big = self.synthetic(species=(1500, 1, 1))
+        self.assertGreater(len(big), 32768)
+        self.assertLess(len(big), 65536)
+        self.fresh(big)
+        self.call("ready")
+        self.assertIn("state=ready", self.logs[0])
+        self.assertIn("manifest_bytes=%d manifest_cap=65536" % len(big), self.logs[0])
+
+    def test_manifest_over_the_cap_refuses_with_a_named_reason_and_its_size(self):
+        huge = self.synthetic(species=(3000, 1, 1))
+        self.assertGreater(len(huge), 65536)
+        self.fresh(huge)
+        self.call("ready")
+        self.assertEqual(1, len(self.logs))
+        line = self.logs[0]
+        self.assertIn("state=refused", line)
+        self.assertIn("manifest_refusal=manifest_over_cap", line)
+        self.assertIn("manifest_bytes=%d manifest_cap=65536" % len(huge), line)
+        self.assertIn("authored_species=unread authored_habitats=unread", line)
+        self.assertEqual(2, len(self.reads), "one capped read plus one bounded probe, only on failure")
+        self.assertLessEqual(self.reads[1][1], 1048576)
+
+    def test_section_keys_tolerate_any_whitespace_around_the_colon(self):
+        plain = self.synthetic()
+        for gap in (" ", "  ", "\n", " \t\r\n ", ""):
+            spaced = re.sub(r'("Species"|"Habitats"|"TargetPairs"):', lambda m: m[1] + gap + ":" + gap, plain)
+            self.fresh(spaced)
+            self.call("ready")
+            self.assertIn("state=ready", self.logs[0], repr(gap))
+            self.assertIn("authored_species=6 authored_habitats=3", self.logs[0], repr(gap))
+        # A key-looking string value is not a key: the colon must follow the quoted name.
+        decoy = plain.replace('"Version": 1,', '"Version": 1, "Note": "Species", ', 1)
+        self.fresh(decoy)
+        self.call("ready")
+        self.assertIn("authored_species=6 authored_habitats=3", self.logs[0])
+        # An unbounded run of blanks is not skipped forever.
+        self.fresh(re.sub(r'("Species"):', lambda m: m[1] + " " * 400 + ":", plain))
+        self.call("ready")
+        self.assertIn("manifest_refusal=manifest_sections_missing", self.logs[0])
 
     def test_missing_or_inconsistent_manifest_refuses_instead_of_claiming_counts(self):
         broken = {
@@ -188,12 +243,20 @@ class HabitatReceiptLine(unittest.TestCase):
             "unknown species disposition": self.synthetic(species_extra='{"Disposition": "mystery"}'),
             "empty habitats": self.synthetic(habitats=(0, 0)),
         }
+        reasons = {"unreadable": "manifest_unreadable", "no sections": "manifest_sections_missing",
+                   "sections out of order": "manifest_sections_missing",
+                   "unknown species disposition": "manifest_dispositions_inconsistent",
+                   "empty habitats": "manifest_dispositions_inconsistent"}
         for name, text in broken.items():
             self.fresh(text)
             self.call("ready")
             self.assertEqual(1, len(self.logs), name)
             self.assertIn("species=0 habitats=0 target_pairs_supported=0 state=refused", self.logs[0], name)
-            self.assertIn("authored_species=0 authored_habitats=0", self.logs[0], name)
+            # #194: a refused manifest never claims counts, not even authored 0.
+            self.assertIn("authored_species=unread authored_habitats=unread", self.logs[0], name)
+            self.assertNotIn("authored_species=0", self.logs[0], name)
+            self.assertIn("species_dispositions=unread habitat_dispositions=unread", self.logs[0], name)
+            self.assertIn(" manifest_refusal=" + reasons[name], self.logs[0], name)
             self.assertTrue(self.logs[0].endswith("runtime=PENDING"), name)
 
     def test_manifest_stays_inert(self):

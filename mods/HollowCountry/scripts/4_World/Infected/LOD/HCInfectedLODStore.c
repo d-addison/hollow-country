@@ -126,21 +126,33 @@ class HCInfectedLODConfig
     // initializer. HerdWorld "" would silently disable every herd seed and a 0
     // hold is out of range, so a lod.json written before these keys existed would
     // disable the whole module. Restore the declared default of just these two keys
-    // (taken from a fresh instance), print one line per defaulted key; every other
+    // (taken from a fresh instance) in memory only; the operator's file is never
+    // rewritten. ONE line per boot lists every restored key (#194); every other
     // missing or invalid key still fails IsValid exactly as before.
     static void HCRestoreMissingDefaults(HCInfectedLODConfig config, string content)
     {
         HCInfectedLODConfig declared = new HCInfectedLODConfig;
+        string keys = "";
+        string restored = "";
         if (!HCJsonFields.Has(content, "HerdWorld"))
         {
             config.HerdWorld = declared.HerdWorld;
-            Print("[HC InfectedLOD] lod.json missing key HerdWorld; declared default restored value=" + declared.HerdWorld + " runtime=PENDING");
+            keys = "HerdWorld";
+            restored = "HerdWorld=" + declared.HerdWorld;
         }
         if (!HCJsonFields.Has(content, "VarietyNonCalmHoldSeconds"))
         {
             config.VarietyNonCalmHoldSeconds = declared.VarietyNonCalmHoldSeconds;
-            Print("[HC InfectedLOD] lod.json missing key VarietyNonCalmHoldSeconds; declared default restored value=" + declared.VarietyNonCalmHoldSeconds.ToString() + " runtime=PENDING");
+            if (keys != "")
+            {
+                keys = keys + ",";
+                restored = restored + " ";
+            }
+            keys = keys + "VarietyNonCalmHoldSeconds";
+            restored = restored + "VarietyNonCalmHoldSeconds=" + declared.VarietyNonCalmHoldSeconds.ToString();
         }
+        if (keys == "") { return; }
+        Print("[HC InfectedLOD] lod.json missing keys " + keys + "; declared defaults restored " + restored + " runtime=PENDING");
     }
 
     // Bounded read (64 KiB) then parse; a missing file gets the template.

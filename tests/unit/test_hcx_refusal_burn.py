@@ -223,7 +223,8 @@ class SiteDirectorAndPatrolRefusals(unittest.TestCase):
         self.env = dict(A=A, len=len, str=str, Print=self.logs.append,
                         GetGame=lambda: N(GetTime=lambda: self.now[0]),
                         HCRefusal=HCREFUSAL, vector=N(Distance=math.dist),
-                        Vector=lambda *a: a, HCXAISiteDirector=N(Active=lambda: None))
+                        Vector=lambda *a: a, HCXAISiteDirector=N(Active=lambda: None),
+                        HC_SITE_LOG_INTERVAL_MS=60000)  # named const of HCXAISitePatrol (#194)
         self.source = (SCRIPTS / 'HCXAISites.c').read_text()
         # Native Substring port: the syntax adapter cannot parse the nested Length().
         self.source = self.source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)',

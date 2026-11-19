@@ -77,7 +77,7 @@ class MissingKeyGuards(unittest.TestCase):
         self.assertNotIn('lod.json missing HerdWorld; preserving file', load)
         restore = store.split('static void HCRestoreMissingDefaults(', 1)[1].split('\n    }\n', 1)[0]
         self.assertIn('HCJsonFields.Has(content, "HerdWorld")', restore)
-        self.assertIn('missing key HerdWorld', restore)
+        self.assertIn('lod.json missing keys ', restore)  # one line per boot, #194
 
     def test_legacy_interior_pilot_candidates_need_an_explicit_slot(self):
         present = self.present('4_World/Interiors/HCInteriorModule.c')

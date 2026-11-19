@@ -115,6 +115,23 @@ class NonCalmHold(unittest.TestCase):
         self.assertIn('ValidNonCalmHold(VarietyNonCalmHoldSeconds)', STORE.read_text())
 
 
+class StaticReachability(unittest.TestCase):
+    def test_modded_static_has_one_link_and_only_callers_in_other_classes(self):
+        # #194 native check: HCVarietyNonCalmHoldSeconds is added by the single modded
+        # HCInfectedLOD link and called only from modded ZombieBase (a different class), so
+        # no earlier link of HCInfectedLOD can call it (Enforce compile rule 1). It compiled
+        # natively at boot 069 with 0 script errors; no base declaration is needed.
+        scripts = INFECTED.parents[1]
+        links = [p for p in scripts.rglob('*.c') if re.search(r'^modded class HCInfectedLOD\b', p.read_text(), re.M)]
+        self.assertEqual(['HCInfectedVarietyNative.c'], [p.name for p in links])
+        callers = [p.name for p in scripts.rglob('*.c')
+                   if re.search(r'HCInfectedLOD\.HCVarietyNonCalmHoldSeconds\(', p.read_text())]
+        self.assertEqual(['HCInfectedVarietyNative.c'], callers)
+        text = (INFECTED / 'Variety/HCInfectedVarietyNative.c').read_text()
+        caller = text.split('HCInfectedLOD.HCVarietyNonCalmHoldSeconds()', 1)[0].rsplit('\nmodded class ', 1)[1].split('\n', 1)[0]
+        self.assertEqual('ZombieBase', caller)
+
+
 class MissingKeyDefaults(unittest.TestCase):
     def restore(self):
         printed = []
@@ -139,6 +156,25 @@ class MissingKeyDefaults(unittest.TestCase):
         self.assertEqual(1, len(printed), printed)
         self.assertIn('HerdWorld', printed[0])
         self.assertIn('runtime=PENDING', printed[0])
+
+    def test_an_old_file_missing_both_keys_prints_one_line_listing_every_restored_key(self):
+        # #194 (wave 13): one line per boot, not one per key; the operator's file is not rewritten.
+        restore, printed = self.restore()
+        cfg = self.zero_filled()
+        restore(cfg, '{"SchemaVersion":1}')
+        self.assertEqual(('chernarusplus', 600), (cfg.HerdWorld, cfg.VarietyNonCalmHoldSeconds))
+        self.assertEqual(1, len(printed), printed)
+        self.assertIn('lod.json missing keys HerdWorld,VarietyNonCalmHoldSeconds; declared defaults restored', printed[0])
+        self.assertIn('HerdWorld=chernarusplus', printed[0])
+        self.assertIn('VarietyNonCalmHoldSeconds=600', printed[0])
+        self.assertTrue(printed[0].endswith('runtime=PENDING'))
+        # A complete file stays silent.
+        restore, printed = self.restore()
+        restore(self.zero_filled(), '{"SchemaVersion":1,"HerdWorld":"x","VarietyNonCalmHoldSeconds":9}')
+        self.assertEqual([], printed)
+        load = STORE.read_text().split('static HCInfectedLODConfig Load(out string reason)', 1)[1].split('\n    }\n', 1)[0]
+        existing = load.split('if (FileExist(path))', 1)[1].split('else if', 1)[0]
+        self.assertNotIn('SaveFile', existing, 'an existing lod.json is never rewritten')
 
     def test_present_keys_are_left_alone_including_an_explicit_empty_world(self):
         restore, printed = self.restore()

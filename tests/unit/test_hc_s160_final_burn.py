@@ -131,24 +131,52 @@ class SiteReentryReasons(unittest.TestCase):
         source = source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)', 'synthetic_suffix(m_HCSiteId)')
         source = source.replace('super.Spawn();', 'synthetic_spawn(this);')
         source = source.replace('super.SpawnAI_Deferred(i);', 'synthetic_super(i);')
+        # Named const the sources read bare (lowered from the authored declaration).
+        for name, value in re.findall(r'static const int (HC_\w+) = (\d+);', source):
+            env[name] = int(value)
         self.authored = Authored(source, env)
 
     def patrol(self, **fields):
         owner = N(m_Group=None, m_Formation=None, m_HCFinished=False, m_HCTransient=False,
-                  m_HCSiteId='synthetic-site', m_HCNextBudgetLogMs=0, m_HCPendingMembers=0)
+                  m_HCSiteId='synthetic-site', m_HCNextBudgetLogMs=0, m_HCNextSkipLogMs=0, m_HCPendingMembers=0)
         owner.__dict__.update(fields)
         owner.HCRefuseBudget = lambda *a: self.authored.call('HCRefuseBudget', owner, *a)
+        owner.HCLogSkipped = lambda *a: self.authored.call('HCLogSkipped', owner, *a)
         return owner
 
-    def test_spawn_with_a_live_group_names_a_bounded_reason_and_a_finished_site_stays_quiet(self):
+    def test_spawn_with_a_live_group_is_a_skip_line_with_its_own_limiter_and_a_finished_site_stays_quiet(self):
         patrol = self.patrol(m_Group=N(Count=lambda: 2))
         for _ in range(20):
             self.authored.call('Spawn', patrol)
-        self.assertEqual(['[HC Expansion AI] site synthetic-site spawn refused: group already spawned'], self.logs)
+        self.assertEqual(['[HC Expansion AI] site synthetic-site spawn skipped: group already live'], self.logs)
         self.logs.clear()
         done = self.patrol(m_HCFinished=True)
         self.authored.call('Spawn', done)
         self.assertEqual([], self.logs)
+
+    def test_a_benign_reentry_never_masks_a_real_refusal(self):
+        # #194: the re-entry used the shared 60 s refusal limiter, so a real refusal inside that
+        # window was swallowed. The two lines are limited separately, in either order.
+        patrol = self.patrol(m_Group=N(Count=lambda: 2))
+        self.authored.call('Spawn', patrol)
+        patrol.m_Group = None
+        self.now[0] += 1000
+        self.authored.call('Spawn', patrol)
+        self.assertEqual(['[HC Expansion AI] site synthetic-site spawn skipped: group already live',
+                          '[HC Expansion AI] site synthetic-site spawn refused: sites not running'], self.logs)
+        again = self.patrol()
+        self.logs.clear()
+        self.authored.call('Spawn', again)
+        again.m_Group = N(Count=lambda: 2)
+        self.now[0] += 1000
+        self.authored.call('Spawn', again)
+        self.assertEqual(['[HC Expansion AI] site synthetic-site spawn refused: sites not running',
+                          '[HC Expansion AI] site synthetic-site spawn skipped: group already live'], self.logs)
+        self.now[0] += 100000
+        again.m_Group = None
+        self.authored.call('Spawn', again)
+        self.assertEqual(3, len(self.logs), 'each limiter still reopens after its own interval')
+        self.assertFalse([line for line in self.logs if 'group already spawned' in line])
 
     def test_deferred_member_of_an_emptied_transient_group_names_a_bounded_reason(self):
         patrol = self.patrol(m_HCTransient=True, m_Group=N(Count=lambda: 0), m_Formation=N())
