@@ -9,6 +9,28 @@ class HCInteriorTemplateCursor
     bool Failed;
     int CopyFrom;
     string NativeText;
+    // Character reads go through a 1 KB window: string Get/Substring cost
+    // grows with the whole string, so per-character scans of a large leaf
+    // would otherwise cost far more than their slice budget.
+    protected ref HCTextWindow m_Window;
+
+    void HCSetContent(string content)
+    {
+        Content = content;
+        m_Window = new HCTextWindow(content);
+    }
+
+    string HCAt(int index)
+    {
+        if (!m_Window) { m_Window = new HCTextWindow(Content); }
+        return m_Window.At(index);
+    }
+
+    string HCRange(int start, int count)
+    {
+        if (!m_Window) { m_Window = new HCTextWindow(Content); }
+        return m_Window.Range(start, count);
+    }
 }
 
 class HCInteriorTemplateFile

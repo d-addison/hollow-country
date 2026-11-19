@@ -542,7 +542,7 @@ class HCInteriorMeasuredCatalog
         {
             return -1;
         }
-        string ch = cursor.Content.Get(cursor.Index);
+        string ch = cursor.HCAt(cursor.Index);
         return ch.ToAscii();
     }
 
@@ -581,7 +581,7 @@ class HCInteriorMeasuredCatalog
             if (code == 34)
             {
                 int length = cursor.Index - begin;
-                string result = MeasuredCopy(cursor.Content, begin, length);
+                string result = cursor.HCRange(begin, length);
                 cursor.Index = cursor.Index + 1;
                 return result;
             }
@@ -645,7 +645,7 @@ class HCInteriorMeasuredCatalog
             int remaining = cursor.Content.Length() - cursor.Index;
             if (remaining >= 4)
             {
-                string yes = cursor.Content.Substring(cursor.Index, 4);
+                string yes = cursor.HCRange(cursor.Index, 4);
                 if (yes == "true")
                 {
                     cursor.Index = cursor.Index + 4;
@@ -654,7 +654,7 @@ class HCInteriorMeasuredCatalog
             }
             if (remaining >= 5)
             {
-                string no = cursor.Content.Substring(cursor.Index, 5);
+                string no = cursor.HCRange(cursor.Index, 5);
                 if (no == "false")
                 {
                     cursor.Index = cursor.Index + 5;
@@ -849,7 +849,7 @@ class HCInteriorMeasuredCatalog
             return false;
         }
         HCInteriorMeasuredCatalogCursor cursor = new HCInteriorMeasuredCatalogCursor;
-        cursor.Content = content;
+        cursor.HCSetContent(content);
         if (!MeasuredValue(cursor, schema, 0))
         {
             return false;
@@ -894,7 +894,7 @@ class HCInteriorMeasuredCatalog
             return "";
         }
         HCInteriorMeasuredCatalogCursor cursor = new HCInteriorMeasuredCatalogCursor;
-        cursor.Content = content;
+        cursor.HCSetContent(content);
         if (!MeasuredValue(cursor, schema, 0))
         {
             return "";

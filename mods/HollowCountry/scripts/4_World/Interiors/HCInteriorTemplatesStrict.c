@@ -304,7 +304,7 @@ class HCInteriorTemplatesStrict
         {
             return -1;
         }
-        string ch = cursor.Content.Get(cursor.Index);
+        string ch = cursor.HCAt(cursor.Index);
         return ch.ToAscii();
     }
 
@@ -351,7 +351,7 @@ class HCInteriorTemplatesStrict
 
             {
                 int length = cursor.Index - begin;
-                string result = CopyText(cursor.Content, begin, length);
+                string result = cursor.HCRange(begin, length);
                 cursor.Index = cursor.Index + 1;
                 return result;
             }
@@ -413,7 +413,7 @@ class HCInteriorTemplatesStrict
             return false;
         }
         int offset = begin;
-        if (cursor.Content.Get(offset) == "-")
+        if (cursor.HCAt(offset) == "-")
 
         {
             offset = offset + 1;
@@ -422,7 +422,7 @@ class HCInteriorTemplatesStrict
         while (offset < cursor.Index)
 
         {
-            string ch = cursor.Content.Get(offset);
+            string ch = cursor.HCAt(offset);
             int digit = ch.ToAscii() - 48;
             if (amount > 214748364 || (amount == 214748364 && digit > 7))
 
@@ -458,7 +458,7 @@ class HCInteriorTemplatesStrict
             if (remaining >= 4)
 
             {
-                string yes = cursor.Content.Substring(cursor.Index, 4);
+                string yes = cursor.HCRange(cursor.Index, 4);
                 if (yes == "true")
 
                 {
@@ -469,7 +469,7 @@ class HCInteriorTemplatesStrict
             if (remaining >= 5)
 
             {
-                string no = cursor.Content.Substring(cursor.Index, 5);
+                string no = cursor.HCRange(cursor.Index, 5);
                 if (no == "false")
 
                 {
@@ -736,7 +736,7 @@ class HCInteriorTemplatesStrict
             return "";
         }
         HCInteriorTemplateCursor cursor = new HCInteriorTemplateCursor;
-        cursor.Content = content;
+        cursor.HCSetContent(content);
         if (!Value(cursor, schema, 0))
 
         {

@@ -25,7 +25,7 @@ class HCW64InteriorStrict
     void HCStart(string content, string schema)
     {
         m_Cursor = new HCInteriorTemplateCursor;
-        m_Cursor.Content = content;
+        m_Cursor.HCSetContent(content);
         m_Frames.Clear();
         m_Done = false;
         m_Failed = content.Length() < 1 || content.Length() > 32767;

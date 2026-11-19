@@ -208,7 +208,7 @@ class HCInteriorPackIndex
         string schema = "index";
         int versionKey = raw.IndexOf("\"SchemaVersion\"");
         HCInteriorTemplateCursor probe = new HCInteriorTemplateCursor;
-        probe.Content = raw;
+        probe.HCSetContent(raw);
         probe.Index = versionKey + 15;
         if (versionKey >= 0 && HCInteriorTemplatesStrict.Take(probe, 58))
         {
