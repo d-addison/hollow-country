@@ -638,7 +638,7 @@ modded class HCSearchHouses
         while (examined < limit)
         {
             if (m_CompactNext >= m_Journal.Count()) { m_CompactNext = 0; }
-            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_MAINT, 1)) { break; }
+            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COMPACT, 1)) { break; }
             int compactIndex = m_CompactNext;
             m_CompactNext++;
             examined++;

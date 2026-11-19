@@ -19,12 +19,26 @@ _FIELDS = ("m_Limit", "m_Used", "m_Items", "m_Served", "m_Starved", "m_WindowUse
            "m_WindowTicks", "m_WindowIndex", "m_WindowElapsed")
 
 
-def constants():
-    return {m[1]: int(m[2]) for m in re.finditer(r"static const int (\w+) = (\d+);", BUDGET.read_text())}
+def budget_source(search_split=False):
+    """Local fixture copy of the exact pending #197 integration edit.
+
+    D cannot edit HCUnitBudget.c. Search tests explicitly opt in to this copy
+    until L integrates the requested id. Other harnesses see the real registry.
+    """
+    source = BUDGET.read_text()
+    if search_split and "HC_WORK_SEARCH_COMPACT" not in source:
+        source = source.replace("static const int HC_WORK_CONSUMERS = 19;",
+                                "static const int HC_WORK_SEARCH_COMPACT = 19;\n"
+                                "    static const int HC_WORK_CONSUMERS = 20;")
+    return source
+
+
+def constants(search_split=False):
+    return {m[1]: int(m[2]) for m in re.finditer(r"static const int (\w+) = (\d+);", budget_source(search_split))}
 
 
 def budget_methods():
-    text = BUDGET.read_text()
+    text = budget_source()
     return [m[1] for m in re.finditer(r"^    (?:bool|int|void|string|float) (\w+)\(", text, re.M)]
 
 
@@ -32,9 +46,9 @@ class _Store:
     s_IdleWork = None
 
 
-def new_budget():
+def new_budget(search_split=False):
     """A fresh transpiled HCUnitBudget instance (members zeroed like the Enforce constructor)."""
-    text = BUDGET.read_text()
+    text = budget_source(search_split)
     budget = N(**{name: 0 for name in _FIELDS})
     for name in budget_methods():
         fn = translated(text, name, {}, "HCUnitBudget", integer_division=True)
@@ -45,13 +59,16 @@ def new_budget():
 class _BudgetClass:
     """Static side of HCUnitBudget: its constants, and `new HCUnitBudget()`."""
 
+    def __init__(self, search_split=False):
+        self.search_split = search_split
+
     def __call__(self):
-        return new_budget()
+        return new_budget(self.search_split)
 
 
-def budget_class():
-    klass = _BudgetClass()
-    vars(klass).update(constants())
+def budget_class(search_split=False):
+    klass = _BudgetClass(search_split)
+    vars(klass).update(constants(search_split))
     return klass
 
 

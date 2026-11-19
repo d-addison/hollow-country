@@ -30,7 +30,7 @@ from tests.unit import tick_budget_fixture as tickbudget
 from tests.unit.test_group_server import EArray
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts"
-CONST = tickbudget.constants()
+CONST = tickbudget.constants(search_split=True)
 # .get: the base tree has no consumer ids, so the behavioural tests fail there instead of the import.
 INFECTED, INTERIORS = CONST.get("HC_WORK_INFECTED", 0), CONST.get("HC_WORK_INTERIORS", 1)
 CONSUMERS = CONST.get("HC_WORK_CONSUMERS", 5)
@@ -45,7 +45,7 @@ class BudgetRuleTests(unittest.TestCase):
         self.assertGreater(CONST["HC_WORK_UNBOUNDED"], 1000000)
 
     def test_a_spent_budget_still_admits_each_consumers_first_item_once(self):
-        budget = tickbudget.new_budget()
+        budget = tickbudget.new_budget(search_split=True)
         budget.HCReset(4)
         taken = [budget.HCTakeFor(INFECTED, 1) for _ in range(6)]
         self.assertEqual([True] * 4 + [False] * 2, taken)
@@ -59,7 +59,7 @@ class BudgetRuleTests(unittest.TestCase):
     def test_exact_bound_is_limit_plus_one_forced_unit_per_later_consumer(self):
         for limit in (1, 4, 8, 32):
             with self.subTest(limit=limit):
-                budget = tickbudget.new_budget()
+                budget = tickbudget.new_budget(search_split=True)
                 budget.HCReset(limit)
                 total = 0
                 for consumer in range(CONSUMERS):
@@ -69,7 +69,7 @@ class BudgetRuleTests(unittest.TestCase):
                 self.assertEqual(CONSUMERS - 1, budget.HCStarved())
 
     def test_a_consumer_that_finds_budget_left_is_not_counted_as_starved(self):
-        budget = tickbudget.new_budget()
+        budget = tickbudget.new_budget(search_split=True)
         budget.HCReset(8)
         for _ in range(3):
             self.assertTrue(budget.HCTakeFor(INFECTED, 1))
@@ -79,7 +79,7 @@ class BudgetRuleTests(unittest.TestCase):
         self.assertEqual(8, budget.HCUsed())
 
     def test_reset_clears_forced_flags_so_the_next_tick_forces_again(self):
-        budget = tickbudget.new_budget()
+        budget = tickbudget.new_budget(search_split=True)
         for tick in range(3):
             budget.HCReset(2)
             while budget.HCTakeFor(INFECTED, 1):
@@ -89,7 +89,7 @@ class BudgetRuleTests(unittest.TestCase):
             self.assertEqual(1, budget.HCStarved(), tick)
 
     def test_window_report_has_the_perf_fields_once_per_window_and_stays_pending(self):
-        budget = tickbudget.new_budget()
+        budget = tickbudget.new_budget(search_split=True)
         lines = []
         for tick in range(130):
             budget.HCReset(4)
@@ -108,7 +108,7 @@ class BudgetRuleTests(unittest.TestCase):
 
 class AccessorTests(unittest.TestCase):
     def test_no_hcserver_instance_returns_a_usable_budget_that_never_refuses(self):
-        klass = tickbudget.budget_class()
+        klass = tickbudget.budget_class(search_split=True)
         accessor = tickbudget.tick_work_accessor(None, klass)
         budget = accessor()
         self.assertIsNotNone(budget)
@@ -117,8 +117,8 @@ class AccessorTests(unittest.TestCase):
         self.assertTrue(budget.HCTakeFor(INTERIORS, 1))
 
     def test_an_instance_outside_a_core_tick_gets_the_idle_budget_not_the_spent_core_one(self):
-        klass = tickbudget.budget_class()
-        state = N(m_TickWork=tickbudget.new_budget(), m_TickActive=False)
+        klass = tickbudget.budget_class(search_split=True)
+        state = N(m_TickWork=tickbudget.new_budget(search_split=True), m_TickActive=False)
         state.m_TickWork.HCReset(1)
         state.m_TickWork.HCTakeFor(INFECTED, 1)
         accessor = tickbudget.tick_work_accessor(state, klass)
@@ -127,8 +127,8 @@ class AccessorTests(unittest.TestCase):
         self.assertTrue(all(idle.HCTakeFor(INFECTED, 1) for _ in range(100)))
 
     def test_during_a_core_tick_the_accessor_returns_the_shared_budget(self):
-        klass = tickbudget.budget_class()
-        state = N(m_TickWork=tickbudget.new_budget(), m_TickActive=True)
+        klass = tickbudget.budget_class(search_split=True)
+        state = N(m_TickWork=tickbudget.new_budget(search_split=True), m_TickActive=True)
         accessor = tickbudget.tick_work_accessor(state, klass)
         self.assertIs(state.m_TickWork, accessor())
         self.assertIs(state.m_TickWork, accessor())
@@ -140,7 +140,7 @@ class CoreTickTests(unittest.TestCase):
         f.state.Start()
         f.state.m_Settings.MaxTickWorkItems = 7
         seen = []
-        klass = tickbudget.budget_class()
+        klass = tickbudget.budget_class(search_split=True)
         accessor = tickbudget.tick_work_accessor(f.state, klass)
 
         def probe(elapsed):
@@ -188,7 +188,7 @@ class TwoConsumerFixture:
         self.f.state.m_Settings.MaxTickWorkItems = limit
         self.limit = limit
         self.visits = []
-        klass = tickbudget.budget_class()
+        klass = tickbudget.budget_class(search_split=True)
         accessor = tickbudget.tick_work_accessor(self.f.state, klass)
         self.infected = infected.StartedModule(flags=infected.NO_ADMISSION, hordes=False, work=limit)
         self.infected.tick_klass, self.infected.tick_work = klass, accessor
@@ -325,7 +325,7 @@ class SourceWiringTests(unittest.TestCase):
             "4_World/Infected/HCInfectedModule.c": ("HC_WORK_INFECTED",),
             "4_World/Interiors/HCInteriorModule.c": ("HC_WORK_INTERIORS",),
             "4_World/Loot/HCSearchHouses.c": ("HC_WORK_SEARCH_BIND", "HC_WORK_SEARCH_MAINT", "HC_WORK_SEARCH_DETACHED"),
-            "4_World/Loot/HCSearchRefresh.c": ("HC_WORK_SEARCH_REFRESH", "HC_WORK_SEARCH_MAINT"),
+            "4_World/Loot/HCSearchRefresh.c": ("HC_WORK_SEARCH_REFRESH", "HC_WORK_SEARCH_COMPACT"),
         }
         for path, ids in wiring.items():
             text = self.read(path)

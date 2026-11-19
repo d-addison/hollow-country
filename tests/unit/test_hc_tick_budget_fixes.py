@@ -18,13 +18,13 @@ from tests.unit import tick_budget_fixture as tickbudget
 from tests.unit.test_group_server import EArray
 from tests.unit.test_v2_loot_refresh import SyntheticId
 
-CONST = tickbudget.constants()
+CONST = tickbudget.constants(search_split=True)
 INFECTED = CONST.get("HC_WORK_INFECTED", 0)
 
 
 def spent_budget(limit=1):
     """A synthetic shared budget whose pool is already used up by another consumer (INFECTED)."""
-    budget = tickbudget.new_budget()
+    budget = tickbudget.new_budget(search_split=True)
     budget.HCReset(limit)
     while budget.HCTakeFor(INFECTED, 1):
         pass
@@ -78,9 +78,9 @@ class RecycleStarvationTests(houses.HouseCase):
         ids = [CONST[name] for name in CONST if name.startswith("HC_WORK_") and name not in
                ("HC_WORK_CONSUMERS", "HC_WORK_UNBOUNDED")]
         self.assertEqual(CONST["HC_WORK_CONSUMERS"], len(ids))
-        self.assertEqual(19, CONST["HC_WORK_CONSUMERS"])
+        self.assertEqual(20, CONST["HC_WORK_CONSUMERS"])
         for limit in (1, 4, 32):
-            budget = tickbudget.new_budget()
+            budget = tickbudget.new_budget(search_split=True)
             budget.HCReset(limit)
             total = 0
             for consumer in range(CONST["HC_WORK_CONSUMERS"]):
@@ -160,7 +160,7 @@ class RefreshHarness:
                         _refresh_state=N(s_Instance=None),
                         HCSearchRules=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap))
         tickbudget.install(self.env)
-        self.budget = tickbudget.new_budget()
+        self.budget = tickbudget.new_budget(search_split=True)
         self.env["HCServer"].HCTickWork = lambda: self.budget
         for code in RefreshSyntax(source, only=("HCSearchRefreshRow", "HCSearchRefreshState", "HCSearchRefreshPolicy",
                                                 "HCSearchRefreshModule")).classes():
@@ -275,7 +275,7 @@ class ModdedLinkTranslator(houses.Translator):
         super().__init__(source, only)
         base = "".join((houses.LOOT / name).read_text() for name in self.BASE_FILES)
         self.base_names = set(re.findall(r"\b(m_\w+)\b", base))
-        self.base_names |= set(re.findall(r"^\s+(?:override |static |protected )*[\w<>]+ (\w+)\(", base, re.M))
+        self.base_names |= set(re.findall(r"^[ \t]+(?!(?:return|else|if)\b)(?:override |static |protected )*[\w<>]+ (\w+)\(", base, re.M))
 
     def block(self, text, names, indent):
         return super().block(text, set(names) | self.base_names, indent)
@@ -290,6 +290,7 @@ class HouseBudgetCase(houses.HouseCase):
     def with_refresh_mods(self, **settings_override):
         self.h = houses.Harness(**settings_override)
         env = self.h.env
+        tickbudget.install(env, klass=tickbudget.budget_class(search_split=True))
         self.marks = []
         env["HCSearchRefreshModule"] = N(
             Mark=lambda scope, site, only=False: self.marks.append(("mark", site, only)),
@@ -325,7 +326,7 @@ class HouseBudgetCase(houses.HouseCase):
     def test_charge_query_takes_a_shared_unit_and_stays_inside_its_own_cap(self):
         self.h = houses.Harness()
         # Roomy pool: the per-tick own cap (MaxBindQueriesPerTick=2) is the only limit.
-        roomy = tickbudget.new_budget()
+        roomy = tickbudget.new_budget(search_split=True)
         roomy.HCReset(32)
         route_budget(self.h.env, roomy)
         self.assertEqual([True, True, False], [self.h.houses.ChargeQuery() for _ in range(3)])
@@ -368,7 +369,7 @@ class HouseBudgetCase(houses.HouseCase):
         self.h.houses.m_Journal.PruneLegacyTombstones = lambda limit: True
         count = self.h.houses.m_Journal.Count()
         self.h.houses.m_CompactNext = 0
-        budget = tickbudget.new_budget()
+        budget = tickbudget.new_budget(search_split=True)
         budget.HCReset(32)
         route_budget(self.h.env, budget)
         self.h.houses.CompactSettled()
