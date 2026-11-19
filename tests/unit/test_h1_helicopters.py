@@ -33,33 +33,23 @@ def manifest():
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
 
 
-class PendingDependency(unittest.TestCase):
-    def test_helicopter_provider_is_pending_not_active(self):
+class ActiveDependency(unittest.TestCase):
+    # Owner subscribed 2026-11-19; the pair is now an active client dependency.
+    def test_helicopter_provider_is_active(self):
         data = manifest()
-        pending = {m["id"]: m for m in data.get("pending_mods", [])}
-        self.assertIn(VEHICLES_ID, pending)
-        self.assertIn(LICENSED_ID, pending)
-        active = {m["id"] for m in data["mods"]}
-        self.assertFalse({VEHICLES_ID, LICENSED_ID} & active, "install tools must not fetch it before the owner subscribes")
-        # The active manifest still loads unchanged for friend/local installs.
-        loaded = ws.load_manifest(MANIFEST)
-        self.assertNotIn("@Expansion-Vehicles", [m["folder"] for m in loaded["mods"]])
+        self.assertFalse(data.get("pending_mods"))
+        active = {m["id"]: m for m in data["mods"]}
+        for mod_id in (VEHICLES_ID, LICENSED_ID):
+            self.assertIn(mod_id, active)
+            self.assertEqual(("client", "pve_patrols", False), (active[mod_id]["side"], active[mod_id]["group"], active[mod_id]["publish"]))
 
-    def test_promoted_entries_validate_and_load_between_core_and_ai(self):
-        data = manifest()
-        promoted = copy.deepcopy(data)
-        promoted["mods"] = data["mods"] + data["pending_mods"]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "workshop_mods.json"
-            path.write_text(json.dumps(promoted), encoding="utf-8")
-            loaded = ws.load_manifest(path)
+    def test_active_entries_load_between_core_and_ai(self):
+        loaded = ws.load_manifest(MANIFEST)
         order = [m["folder"] for m in loaded["mods"]]
         core, ai = order.index("@Expansion-Core"), order.index("@Expansion-AI")
         self.assertLess(core, order.index("@Expansion-Licensed"))
         self.assertLess(order.index("@Expansion-Licensed"), order.index("@Expansion-Vehicles"))
         self.assertLess(order.index("@Expansion-Vehicles"), ai)
-        for mod in data["pending_mods"]:
-            self.assertEqual(("client", "pve_patrols", False), (mod["side"], mod["group"], mod["publish"]))
         self.assertFalse([f for f in order if f.startswith("@Expansion") and "Animations" in f], "Expansion-Animations is not allowed")
 
 

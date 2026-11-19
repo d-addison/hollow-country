@@ -40,6 +40,24 @@
       "publish": false
     },
     {
+      "id": "2116157322",
+      "name": "Expansion-Licensed",
+      "folder": "@Expansion-Licensed",
+      "rank": 32,
+      "side": "client",
+      "group": "pve_patrols",
+      "publish": false
+    },
+    {
+      "id": "2291785437",
+      "name": "Expansion-Vehicles",
+      "folder": "@Expansion-Vehicles",
+      "rank": 35,
+      "side": "client",
+      "group": "pve_patrols",
+      "publish": false
+    },
+    {
       "id": "2792982069",
       "name": "Expansion-AI",
       "folder": "@Expansion-AI",
@@ -137,27 +155,6 @@
       "side": "client",
       "group": "pve_patrols",
       "publish": true
-    }
-  ],
-  "pending_note": "pending_mods are approved dependencies that the install tools ignore (only mods is read) until the owner has subscribed and a native boot is recorded; the lead then moves them into mods. Helicopters: Expansion-Vehicles needs Expansion-Licensed; neither needs Expansion-Animations. Used as subscribed Workshop items only, never repacked.",
-  "pending_mods": [
-    {
-      "id": "2116157322",
-      "name": "Expansion-Licensed",
-      "folder": "@Expansion-Licensed",
-      "rank": 32,
-      "side": "client",
-      "group": "pve_patrols",
-      "publish": false
-    },
-    {
-      "id": "2291785437",
-      "name": "Expansion-Vehicles",
-      "folder": "@Expansion-Vehicles",
-      "rank": 35,
-      "side": "client",
-      "group": "pve_patrols",
-      "publish": false
     }
   ]
 }
