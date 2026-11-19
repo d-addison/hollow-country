@@ -780,9 +780,16 @@ def check_wave7_weather_owner(test, policy_env, policy):
             test.assertEqual((0., policy.WINTER_SNOWFALL), snow.limits)
             snow.limits = (.1, .7)  # SYNTHETIC foreign write in the very same tick.
             foreign[0] = True
+            refusals = sum('SNOW_LIMITS_FOREIGN' in line for line in logs)
             if ending: owner.HCEndWeatherDays()
             else: owner.HCTickWeatherDays()
             test.assertEqual((.1, .7), snow.limits, 'handover overwrote foreign snowfall limits')
+            test.assertEqual(refusals + 1, sum('SNOW_LIMITS_FOREIGN' in line for line in logs),
+                             'skipped snowfall release must log one named refusal')
+            test.assertTrue(any('SNOW_LIMITS_FOREIGN' in line and 'runtime=PENDING' in line for line in logs))
+            owner.HCTickWeatherDays()
+            test.assertEqual(refusals + 1, sum('SNOW_LIMITS_FOREIGN' in line for line in logs),
+                             'suspended ticks repeated the snowfall refusal')
 
 
 def check_wave7_lighting_start(test):

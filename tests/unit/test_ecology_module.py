@@ -10,6 +10,17 @@ from types import SimpleNamespace
 from tests.unit.test_ecology_runtime import ROOT, environment, translated
 
 SOURCE = ROOT / "4_World/Ecology/HCEcologyRuntimeModule.c"
+# The shared syntax-only translator recognises local declarations only for the
+# HCEvent* spelling. Rename the TYPE token of every `HCOperational* name =`
+# declaration; call sites such as HCOperationalContributors.X() stay authored.
+_LOCAL_OPERATIONAL_TYPE = re.compile(r"\bHCOperational(\w+)(\s+\w+\s*=)")
+
+
+def translator_spelling(text):
+    adapted, count = _LOCAL_OPERATIONAL_TYPE.subn(r"HCEventOperational\1\2", text)
+    if count < 1:
+        raise AssertionError("fixture found no HCOperational* local declaration to spell for the translator")
+    return adapted
 
 
 class EcologyModuleBehavior(unittest.TestCase):
@@ -47,8 +58,7 @@ class EcologyModuleBehavior(unittest.TestCase):
         # Explicit synthetic HC-25 registration port. The wildlife behavioral
         # test executes real HC-25 capture; this legacy fixture has no registry.
         self.e['HCOperationalContributors'] = SimpleNamespace(HCRegisterOwner=lambda name: None)
-        self.source = SOURCE.read_text().replace('s_Instance', 'hc49_static.instance')
-        self.source = self.source.replace('HCOperationalOwner wildlifeOwner', 'HCEventOperationalOwner wildlifeOwner')
+        self.source = translator_spelling(SOURCE.read_text()).replace('s_Instance', 'hc49_static.instance')
         self.module = SimpleNamespace(m_Settings=None, m_Started=False, Session=lambda: "s20261117-010203-77",
                                       m_WildlifeScenes=None, m_Status=status, m_WildlifeStatus=wildlife_status)
         self.module.HCObserveWildlife = lambda requested: self.method('HCObserveWildlife')(self.module, requested)
@@ -67,6 +77,14 @@ class EcologyModuleBehavior(unittest.TestCase):
         self.settings = None
         self.assertFalse(self.method("IsEnabled")(self.module, None))
         self.assertEqual(["close", "close"], self.calls)
+
+    def test_translator_spelling_changes_only_local_type_tokens(self):
+        self.assertIn("HCEventOperationalOwner wildlifeOwner =", self.source)
+        self.assertIn("HCOperationalContributors.HCRegisterOwner(", self.source)
+        self.assertEqual("x = HCOperationalContributors.A();",
+                         translator_spelling("HCOperationalOwner o = 1;\nx = HCOperationalContributors.A();").split("\n")[1])
+        with self.assertRaises(AssertionError):
+            translator_spelling("no declaration here")
 
     def test_client_never_admits(self):
         self.game.IsServer = lambda: False

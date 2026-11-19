@@ -239,6 +239,31 @@ class StoryModuleBehavior(unittest.TestCase):
                 self.assertEqual(reason != 'invalid-state', owner.m_Running)
                 self.assertEqual(reason != 'invalid-state', ('register',) in self.calls)
 
+    def test_operator_off_stories_never_bind_the_situation_source(self):
+        # HC-38: HCEventModule offers every retained chain once from the bound
+        # source. With HC-19 off nothing may be offered; ready still binds once.
+        for reason, started, bound in (('', True, 1), ('operator-off', False, 0)):
+            with self.subTest(reason=reason):
+                owner = self.owner()
+                state = owner.m_State
+                owner.m_Running = False
+                owner.m_AdmissionPrinted = True
+                owner.m_SummaryPrinted = True
+                owner.IsEnabled = lambda settings: True
+                owner.m_SaveJob = None
+                binds = []
+                self.env.update(GetGame=lambda: N(IsServer=lambda: True, GetWorldName=lambda: 'chernarusplus'),
+                                HCSceneChainStore=lambda: N(Open=lambda now: state),
+                                HCStoryPolicy=N(HCLoadConfig=lambda: N()),
+                                HCStorySchedule=lambda: N(HCStart=lambda *args: started, HCReason=lambda: reason),
+                                HCSceneSaveJob=lambda: N(),
+                                HCSituationSource=N(HCBind=lambda s, st: binds.append(s), HCClear=lambda s: None),
+                                HCSaveScheduler=N(HCRegister=lambda job: self.calls.append(('register',))))
+                self.bind(owner, 'OnStart')
+                owner.OnStart(N())
+                self.assertEqual(bound, len(binds), 'operator-off Stories exposed retained chains to HC-38')
+                self.assertTrue(owner.m_Running, 'legacy Scenes must keep running with Stories off')
+
     def test_retired_release_reclaims_only_its_bounded_refusal_keys(self):
         class Reasons(dict):
             def Remove(self, key):
