@@ -92,6 +92,9 @@ class HCServer
         // on the foreach line) once the body passed a returned status object
         // straight into a call. Keep the array and status in locals.
         array<ref HCModule> modules = m_Registry.GetModules();
+        bool saveServiceRefused = false;
+        bool dependsOnSharedSaves = false;
+        string sharedSaveOwnerName = "";
         bool moduleEnabled = false;
         bool moduleStarted = false;
         bool moduleReady = false;
@@ -103,18 +106,31 @@ class HCServer
         {
             // Exactly one lifecycle admission read; it may load local config.
             moduleEnabled = module.IsEnabled(m_Settings);
+            sharedSaveOwnerName = module.GetName();
+            // Includes embedded persistence: Camps owns BuildingClaim;
+            // WeatherDays starts VisualSeasons. Refuse before either start hook.
+            dependsOnSharedSaves = sharedSaveOwnerName == "World" || sharedSaveOwnerName == "SettlementDecay" || sharedSaveOwnerName == "Escalation" || sharedSaveOwnerName == "Scenes";
+            dependsOnSharedSaves = dependsOnSharedSaves || sharedSaveOwnerName == "Ecology" || sharedSaveOwnerName == "Forage" || sharedSaveOwnerName == "Leads" || sharedSaveOwnerName == "Progression";
+            dependsOnSharedSaves = dependsOnSharedSaves || sharedSaveOwnerName == "Camps" || sharedSaveOwnerName == "InfectedLOD" || sharedSaveOwnerName == "WeatherDays";
+            saveServiceRefused = moduleEnabled && dependsOnSharedSaves && !HCPerfConfig.HCGet().EnableSharedSaves;
             moduleStarted = false;
             moduleReady = false;
             moduleConflicted = false;
-            if (moduleEnabled)
+            if (moduleEnabled && !saveServiceRefused)
             {
                 m_Active.Insert(module);
                 module.OnStart(m_Settings);
                 moduleStarted = true;
             }
-            reported = module.HCGetOperationalStatus();
+            reported = null;
+            if (saveServiceRefused)
+            {
+                reported = new HCOperationalStatus();
+                reported.HCPublish("refused", "shared_save_service_operator_off");
+            }
+            if (!saveServiceRefused) { reported = module.HCGetOperationalStatus(); }
             m_Operational.HCCapture(module.GetName(), moduleEnabled, reported);
-            if (moduleEnabled) { m_Changes.HCBaseline(reported); }
+            if (moduleStarted) { m_Changes.HCBaseline(reported); }
             opOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
             if (opOwner) { opOwner.HCObserve(moduleEnabled, reported, GetGame().GetTickTime()); }
             // OnStart returning alone is not readiness. Internal started flags
