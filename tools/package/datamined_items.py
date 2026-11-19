@@ -45,9 +45,6 @@ EXCLUDED_PATTERN = re.compile(r'(^|_)(test|dev|debug)|keys?(_|$)', re.I)
 CRAFT_PATTERN = re.compile(r'^(LeatherPants|LeatherStorageVest)_', re.I)
 MAX_XML_BYTES = 16 * 1024 * 1024
 MAX_JSON_BYTES = 1024 * 1024
-MAX_DISPOSITION_BYTES = 8 * 1024 * 1024
-MAX_DISPOSITIONS = 8192
-DISPOSITION_PAGE_SIZE = 128
 MAX_CONFIG_BYTES = 64 * 1024 * 1024
 MAX_HEADER_BYTES = 16 * 1024 * 1024
 MAX_PBO_ENTRIES = 200_000
@@ -288,27 +285,23 @@ def total_nominal(rows):
 def supply_disposition_bytes(path=None):
     """Repo-only policy input; portable tool exports intentionally omit this ledger."""
     try:
-        with Path(path or SUPPLY_DATA).open('rb') as handle:
-            raw = handle.read(MAX_DISPOSITION_BYTES + 1)
+        raw = Path(path or SUPPLY_DATA).read_bytes()
     except FileNotFoundError:
         raise ValueError('HC22_DISPOSITIONS_MISSING: economy generate/install requires the repository ledger') from None
-    if len(raw) > MAX_DISPOSITION_BYTES:
+    if len(raw) > MAX_JSON_BYTES:
         _fail('HC22_DISPOSITIONS_SIZE')
     return raw
 
 
 def load_supply_dispositions(path=None):
-    """Bounded identity ledger; page descriptors never imply native eligibility."""
+    """Small authored HC-22 decisions, not a census or native eligibility verdict."""
     raw = supply_disposition_bytes(path)
     doc = json.loads(raw)
     if (not isinstance(doc, dict) or type(doc.get('schema')) is not int or doc['schema'] != 1
             or doc.get('kind') != 'hollow-country-loot-dispositions'
             or doc.get('runtime_acceptance') != 'pending'
-            or not isinstance(doc.get('entries'), list) or not 1 <= len(doc['entries']) <= MAX_DISPOSITIONS):
+            or not isinstance(doc.get('entries'), list) or not 1 <= len(doc['entries']) <= 256):
         _fail('HC22_DISPOSITIONS_SCHEMA')
-    pages = doc.get('pages')
-    if pages is not None and pages != disposition_pages(doc['entries']):
-        _fail('HC22_DISPOSITIONS_PAGES')
     seen = set()
     for entry in doc['entries']:
         if (not isinstance(entry, dict) or set(entry) != {'class', 'purpose', 'route', 'floor_admitted',
@@ -333,31 +326,9 @@ def load_supply_dispositions(path=None):
     return doc
 
 
-def disposition_pages(entries):
-    """Deterministic bounded slices, preserving the schema-1 entries interface.
-
-    No engine scan or per-tick work: packaging consumers can walk at most 128
-    identities per page. The complete JSON read is separately capped at 8 MiB.
-    """
-    return [{'offset': offset, 'count': len(entries[offset:offset + DISPOSITION_PAGE_SIZE])}
-            for offset in range(0, len(entries), DISPOSITION_PAGE_SIZE)]
-
-
-def iter_supply_disposition_pages(dispositions):
-    """Yield bounded pages without copying or rebuilding a full identity index."""
-    entries = dispositions['entries']
-    if not 1 <= len(entries) <= MAX_DISPOSITIONS:
-        _fail('HC22_DISPOSITIONS_SCHEMA')
-    for page in disposition_pages(entries):
-        yield entries[page['offset']:page['offset'] + page['count']]
-
-
 def supply_rows(rows, dispositions):
     """Select reviewed finite proposals; floor flag overrides are applied only at emission."""
-    requested = {row['class'] for row in rows}
-    decisions = {e['class']: e for page in iter_supply_disposition_pages(dispositions)
-                 for e in page if e['class'] in requested}
-    reviewed_rows = {row['class']: row for row in load_rows()}
+    decisions = {e['class']: e for e in dispositions['entries']}
     selected, refused = [], []
     for row in rows:
         entry = decisions.get(row['class'])
@@ -368,7 +339,7 @@ def supply_rows(rows, dispositions):
                             'reason': entry['refusal'] or 'HC22_NON_FLOOR_ROUTE'})
             continue
         # Owner 2026-11-19: exact shipped proposals admitted; emission clears floor-blocking flags.
-        reviewed = reviewed_rows.get(row['class'])
+        reviewed = next((r for r in load_rows() if r['class'] == row['class']), None)
         if row['flags'][4:] != '00' and (row['class'] not in SUPPLY_UNVERIFIED_FLOOR or row != reviewed):
             _fail('HC22_UNQUALIFIED_FLOOR_FLAGS: ' + row['class'])
         if row['stock'] == 'absent' and row['class'] not in SUPPLY_NEW_TYPES:
@@ -477,7 +448,7 @@ def type_rows(stock, vocabulary=None, include_new=False, rows=None, floor=False)
     field except nominal/min/lifetime/restock/usage/value (and category only where stock has none).
     Stock-absent item rows are returned only with ``include_new`` for inspection; the installer
     admits only NEW_TYPE_PARENTS additions, built separately by reviewed_new_type for the roster.
-    ``floor`` admits only the exact 21 reviewed HC-22 special-flag proposals to clear crafted;
+    ``floor`` admits only the exact 17 reviewed HC-22 proposals to clear crafted;
     TortillaBag_Desert also clears deloot. Source rows retain their stock flags
     for validation, and other profiles retain those flags.
     Pure: never mutates ``stock``.

@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "status": "59-selected-21-special-flag-admitted-runtime-pending",
+ "status": "offline-only-runtime-pending",
  "flags_order": [
   "count_in_cargo",
   "count_in_hoarder",
