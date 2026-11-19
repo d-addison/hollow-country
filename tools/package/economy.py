@@ -200,6 +200,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         value_vocab = _unique(limits.findall('./valueflags/value'))
         changed, rows, totals = firearms.roster_items(types, vocabulary, value_vocab, roster,
                                                       include_roster_datamined)
+        firearms.check_family_routes(source, roster, rows)
         out.extend(changed)
         firearms_classes = sorted(n.get('name') for n in changed)
         firearms_report = {
@@ -764,7 +765,7 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     that may change MUTABLE_ALLOWED (firearms and datamined rows); ``datamined`` names the classes that may
     additionally ADD the one category CATEGORY_ADDED declares for them. Profile rows stay at ``mutable``.
     ``new_types`` explicitly admits only NEW_TYPE_PARENTS additions. Their full row must equal the
-    reviewed stock-parent clone at half nominal/min, including all flags, tags and placement fields.
+    reviewed stock-parent clone with authored family shares, including all flags, tags and placement fields.
     Reviewed variants already in stock (including case aliases) use that same strict parent comparison
     when widened by the roster; unrelated stock classes retain the original per-field rules.
     """
@@ -804,10 +805,11 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
         if reviewed_name is not None and (name in new_types or name in widened):
             if name not in stock and name not in new_types:
                 raise ValueError('new class needs explicit reviewed new-type permission')
-            expected_new = datamined_items.reviewed_new_type(reviewed_name, stock)
+            from tools.package import firearms
+            expected_new = firearms.reviewed_type(reviewed_name, stock)
             _validate_budget(expected_new)
             if _full(item) != _full(expected_new):
-                raise ValueError(f'new class must exactly clone its reviewed parent at 2x scarcity: {name}')
+                raise ValueError(f'new class must exactly clone its reviewed parent with the authored family share: {name}')
             new_usages = item.findall('usage')
             _unique(new_usages)
             if not new_usages or any(node.get('name') not in vocabulary for node in new_usages):

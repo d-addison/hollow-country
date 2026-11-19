@@ -107,6 +107,9 @@ def validate_roster(roster):
                     raise ValueError(f'weapon needs {field} list: {name}')
         elif 'ammo' in e or 'magazines' in e:
             raise ValueError(f'only weapons carry ammo/magazines: {name}')
+    referenced_magazines = {m for e in entries if e['kind'] == 'weapon' for m in e['magazines']}
+    if by_kind.get('magazine', set()) - referenced_magazines:
+        raise ValueError('unreferenced magazine support row')
     datamined = {e['class'] for e in entries if e.get('datamined')}
     for e in entries:
         if e['kind'] == 'weapon':
@@ -229,8 +232,9 @@ def render_family_summary(roster):
             names = [f"`{e['class']}` {e['set']['nominal']}/{e['set']['min']} × {e['unit_rounds']}"
                      for e in entries if e['family'] == budget['family']]
             lines.append(f"| {budget['family']} | {budget['nominal']} / {budget['min']} | " + '; '.join(names) + ' |')
+    native_count = sum(e['disposition'] in {'keep-native-budget', 'review-native-budget'} for e in weapons)
     lines += ['', '### Formerly off-roster positives', '',
-              'All 32 are retained explicitly. `keep-native-budget` preserves their native route; '
+              f'All {native_count} are retained explicitly. `keep-native-budget` preserves their native route at 2x scarcity; '
               'skin members share the family ceiling. `review-native-budget` preserves SV98 while refusing functional acceptance.', '',
               '| Class | Disposition | Family |', '| --- | --- | --- |']
     lines += [f"| `{e['class']}` | {e['disposition']} | {e['family']} |" for e in weapons
@@ -243,14 +247,16 @@ def render_family_summary(roster):
 def reviewed_type(name, stock, roster=None):
     """Narrow installer seam: full reviewed parent row with only authored nominal/min shares.
 
-    The lead must replace economy.install's old half-parent expectation with this helper. All
-    other fields, the independent NEW_TYPE_PARENTS allowlist and new-entry permissions stay exact.
+    economy.install uses this helper. All other fields, the independent NEW_TYPE_PARENTS
+    allowlist and new-entry permissions stay exact.
     """
     roster = roster if roster is not None else json.loads(ROSTER_PATH.read_bytes())
     validate_roster(roster)
     item = economy.datamined_items.reviewed_new_type(name, stock)
     if 'family_budgets' in roster:
-        entry = next(e for e in roster['entries'] if e['class'] == name)
+        entry = next((e for e in roster['entries'] if e['class'] == name), None)
+        if entry is None:
+            raise ValueError(f'reviewed class missing from roster: {name}')
         for field in ('nominal', 'min'):
             item.find(field).text = str(entry['set'][field])
     return item
@@ -375,8 +381,15 @@ def check_effective_support(source, stock, entries, generated, managed_folders=(
                   lambda name: _nominal(effective_lower, name),
                   ammo_fields=ammo_fields)
     if any('family' in entry for entry in entries):
-        roster = json.loads(ROSTER_PATH.read_bytes())
-        validate_roster(roster)
+        # The supplied entries are the policy, including for a custom --roster. Their
+        # authored weighted shares bound effective rows; never substitute the shipped file.
+        caps = {}
+        for entry in entries:
+            family = entry.get('family')
+            cap = caps.setdefault(family, {'family': family, 'kind': entry['kind'], 'nominal': 0, 'min': 0})
+            for field in ('nominal', 'min'):
+                cap[field] += entry['set'][field] * entry.get('unit_rounds', 1)
+        roster = {'entries': entries, 'family_budgets': list(caps.values())}
         effective_rows = _effective_family_rows(roster, effective_lower)
         family_totals(roster, effective_rows)
         check_family_routes(source, roster, effective_rows)
