@@ -271,9 +271,12 @@ Plan/tasks (source complete, runtime pending):
   40-record cap, materializes an item, applies familiarity to refill delay,
   rejects duplicate pickup rewards and verifies character death/new-life reset.
 - P2: archive the validated legacy image to `progression.v1.json` before
-  conversion. Carry scores into v2 only for a currently observed living account
-  with a nonzero native character ID. Emit one `[HC Plan]` line with
-  `rows_dropped` and `rows_mapped`; unmapped rows remain in the archive.
+  conversion. Carry scores into v2 for a currently observed living account
+  with a nonzero native character ID; other rows stay in v2 as bounded
+  deferred rows (`LegacyDeferred`) and map once on that account's first living
+  pickup, or reset on an observed death (#169). Emit one `[HC Plan] HC-13 legacy`
+  line with `migrated`, `deferred` and `dropped_over_cap` counts. An archive
+  byte-identical to the current v1 image lets an interrupted migration continue.
   Archive failure leaves v1 untouched. Existing archives are never overwritten;
   a v1/archive collision requires operator recovery before another migration.
 - P2: `GetPersistentID(0,0,0,0)`, unavailable character handles and empty identity
