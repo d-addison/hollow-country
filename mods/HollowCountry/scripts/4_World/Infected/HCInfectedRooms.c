@@ -129,6 +129,12 @@ class HCInfectedProductionRoomDocument
 
 class HCInfectedRoomCatalog
 {
+    // HC-47: a measured room volume orders clue-search candidates only. N7 door
+    // state and N16 ray contact do not certify a connected infected pathgraph,
+    // upstairs traversal, a forced-door passage or a safe damage contact.
+    static bool HCThreatRoomReachSupported() { return false; }
+    static string HCThreatRoomReason() { return "room_path_receipts_pending"; }
+
     static const string DIAGNOSTIC_PATH = "$profile:HollowCountry/Infected/measured-rooms.json";
     protected static ref array<ref HCInfectedRoomBinding> s_Bindings = new array<ref HCInfectedRoomBinding>;
     protected static bool s_DiagnosticAttempted = false;

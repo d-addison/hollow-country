@@ -7,6 +7,57 @@
 // proves only these rules, never native animation, landing or damage behaviour.
 class HCInfectedReachPolicy
 {
+    // HC-47 / #121. Legacy scalar experiments below are retained for traceability,
+    // but callers must consume these effective flags. A sampled floor/navmesh
+    // point or room anchor is not a traversal/landing/damage receipt.
+    static bool HCExtendedReachSupported() { return false; }
+    static bool HCForcedMovementSupported() { return false; }
+
+    // Existing LineCheck endpoint defaults, not a new sensing/reach range.
+    // Origin follows vanilla ZombieBase.c:774 GetAttackPitch (+1.8 m);
+    // target shin (+0.5 m) reuses ReachModule.LineCheck, geometry unqualified.
+    static const vector HC_CONTACT_ORIGIN_OFFSET = "0 1.8 0";
+    static const vector HC_CONTACT_TARGET_OFFSET = "0 0.5 0";
+
+    protected static ref HCUnitBudget s_HCThreatBudget;
+    protected static float s_HCThreatBudgetAfter;
+
+    // At most 16 extra contact rays per running-server second (existing reach
+    // slot cap). No observer scan, recurring job, save loop or new distance.
+    // Game.c:914 GetTickTime, :1120 IsServer (installed 1.30.164289).
+    static bool HCThreatTakeContact()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return false; }
+        float now = GetGame().GetTickTime();
+        if (!s_HCThreatBudget) { s_HCThreatBudget = new HCUnitBudget; }
+        if (now >= s_HCThreatBudgetAfter)
+        {
+            s_HCThreatBudget.HCReset(16);
+            s_HCThreatBudgetAfter = now + 1;
+        }
+        return s_HCThreatBudget.HCTake(1);
+    }
+
+    static void HCThreatResetBudget()
+    {
+        s_HCThreatBudget = null;
+        s_HCThreatBudgetAfter = 0;
+    }
+
+    // Lead-owned module startup prints this AFTER observing vision admission.
+    // This is a proposed diagnostic, never a native geometry acceptance receipt.
+    static string HCThreatSummary(bool reachRequested)
+    {
+        string vision = HCInfectedVisionQualification.HCThreatState();
+        if (!reachRequested)
+        {
+            return "[HC Plan] HC-47 reach=off vision=" + vision + " refusals=0 runtime=PENDING";
+        }
+        string line = "[HC Plan] HC-47 reach=refused vision=" + vision + " refusals=3";
+        line = line + " extra_reach=native_geometry_unqualified forced_movement=traversal_unqualified";
+        return line + " rooms=" + HCInfectedRoomCatalog.HCThreatRoomReason() + " runtime=PENDING";
+    }
+
     // Phases of the unreachable back-off. NONE also covers the cooldown.
     static int PhaseNone() { return 0; }
     static int PhaseRetreat() { return 1; }

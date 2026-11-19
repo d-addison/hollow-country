@@ -15,8 +15,29 @@
 // not admitted the override returns exactly the native value.
 class HCInfectedVisionQualification
 {
+    // HC-47: module owner supplies effective EnableInfected at start/stop. Off
+    // returns the exact native scalar before marker/light/clothing work. This
+    // range callback never establishes LOS or changes native target selection;
+    // rain/fog/snow/light occlusion and HCVisualSeasons remain native-owned.
+    protected static bool s_HCThreatEnabled = true;
     protected static bool s_Checked;
     protected static bool s_OptIn;
+
+    static void HCThreatReset(bool enabled)
+    {
+        s_HCThreatEnabled = enabled;
+        s_Checked = false;
+        s_OptIn = false;
+    }
+
+    // Cached observation only: an unqueried preference is not effective on.
+    static string HCThreatState()
+    {
+        if (!s_HCThreatEnabled) { return "off"; }
+        if (!s_Checked) { return "pending"; }
+        if (!s_OptIn) { return "off"; }
+        return "on";
+    }
 
     // Evidence required: local-server runs logging detection distance with
     // the light on and off at night, and with and without worn camouflage.
@@ -32,6 +53,7 @@ class HCInfectedVisionQualification
 
     static bool Admitted()
     {
+        if (!s_HCThreatEnabled) { return false; }
         if (Qualified())
             return true;
         if (!s_Checked)
