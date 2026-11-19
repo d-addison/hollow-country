@@ -69,7 +69,6 @@ class HCEventRuntime
         HCEventRuntimeState state = store.Load(context.WorldName);
         if (!state || !HCEventRuntimePolicy.StateValid(state) || state.Director.WorldName != context.WorldName)
         {
-            Print("[HC Events] persistence admission failed; preserve journal, no fallback");
             return HCRefuse("persistence_admission_failed");
         }
         m_State = state;
@@ -108,7 +107,6 @@ class HCEventRuntime
         {
             if (!HCEventDirector.Terminal(record.Status))
             {
-                Print("[HC Events] restored live session requires a fresh session token");
                 return HCRefuse("restored_live_session");
             }
         }

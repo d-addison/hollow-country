@@ -46,6 +46,7 @@ class JournalDirectory(unittest.TestCase):
         io = cls()
         io.m_Root = self.ROOT_DIR
         io.m_Refusal = ''
+        io.m_Label = 'journal directory'
         return io, logs
 
     def test_each_directory_refusal_names_its_reason_once(self):
@@ -56,6 +57,15 @@ class JournalDirectory(unittest.TestCase):
             self.assertFalse(io.Ensure(), reason)
             self.assertFalse(io.Ensure(), reason)
             self.assertEqual(['[HC Events] journal directory refused reason=' + reason], logs)
+
+    def test_reward_io_logs_under_its_own_label_not_the_journal_one(self):
+        io, logs = self.io('$profile:HollowCountry')
+        rewards = (ROOT / '4_World/Events/HCEventRewards.c').read_text()
+        translate(rewards, 'HCEventRewardIO', dict(), 'HCEventRewardIO', True)(io)
+        self.assertEqual('$profile:HollowCountry/Events/rewards', io.m_Root)
+        self.assertFalse(io.Ensure())
+        self.assertFalse(io.Ensure())
+        self.assertEqual(['[HC Events] reward directory refused reason=profile_directory_unavailable'], logs)
 
 
 class TransportRefusals(unittest.TestCase):
@@ -96,6 +106,27 @@ class TransportRefusals(unittest.TestCase):
         self.assertEqual(['[HC Events] opt-in transport refused reason=rate_limited',
                           '[HC Events] opt-in transport refused reason=clock_invalid'], self.logs)
 
+    def test_recovered_admission_is_logged_again_when_it_refuses_again(self):
+        peer = N(RateWindow=100., RateCount=0)
+        self.rpc.m_LastTime = 100.
+        self.game(tick=100.)
+        self.assertEqual([True] * 4 + [False], [self.rpc.Admit(peer) for _ in range(5)])
+        self.game(tick=101.)
+        self.assertTrue(self.rpc.Admit(peer))
+        self.assertEqual('', self.rpc.Refusal())
+        self.assertEqual([True] * 3 + [False], [self.rpc.Admit(peer) for _ in range(4)])
+        self.assertEqual(['[HC Events] opt-in transport refused reason=rate_limited'] * 2, self.logs)
+
+    def test_start_success_clears_an_earlier_refusal(self):
+        self.rpc.m_Started = False
+        self.game(server=False)
+        self.assertFalse(self.rpc.Start(N()))
+        self.assertEqual('not_server', self.rpc.Refusal())
+        self.game()
+        self.t.e['DayZGame'] = N(Event_OnRPC=N(Insert=lambda handler: None))
+        self.assertTrue(self.rpc.Start(N()))
+        self.assertEqual('', self.rpc.Refusal())
+
 
 class RuntimeRefusals(unittest.TestCase):
     def test_start_refusals_carry_a_reason(self):
@@ -115,6 +146,50 @@ class RuntimeRefusals(unittest.TestCase):
         helper.ctx.Session = 'session-a'
         self.assertFalse(runtime.Start(helper.cfg, helper.ctx, None, helper.observer, helper.ai))
         self.assertEqual('dependency_missing_or_clock_range', runtime.m_Refusal)
+
+    def started(self):
+        helper = er.EventRuntimeTests()
+        helper.setUp()
+        runtime = helper.runtime()
+        logs = []
+        helper.e['Print'] = logs.append
+        return helper, runtime, logs
+
+    def test_persistence_admission_failure_logs_one_line(self):
+        helper, runtime, logs = self.started()
+        helper.store.invalid = True
+        self.assertFalse(runtime.Start(helper.cfg, helper.ctx, helper.store, helper.observer, helper.ai))
+        self.assertEqual('persistence_admission_failed', runtime.m_Refusal)
+        self.assertEqual(['[HC Events] runtime start refused reason=persistence_admission_failed'], logs)
+
+    def test_restored_live_session_logs_one_line(self):
+        helper, runtime, logs = self.started()
+        self.assertEqual(0, runtime.Announce(helper.mission, helper.ctx))
+        self.assertFalse(runtime.Start(helper.cfg, helper.ctx, helper.store, helper.observer, helper.ai))
+        self.assertEqual('restored_live_session', runtime.m_Refusal)
+        self.assertEqual(['[HC Events] runtime start refused reason=restored_live_session'], logs)
+
+    def test_restart_state_not_persisted_names_its_reason(self):
+        helper, runtime, logs = self.started()
+        self.assertEqual(0, runtime.Announce(helper.mission, helper.ctx))
+        helper.ctx.Session = 'session-b'
+        helper.store.fail_at = helper.store.calls + 1
+        self.assertFalse(runtime.Start(helper.cfg, helper.ctx, helper.store, helper.observer, helper.ai))
+        self.assertEqual('restart_state_not_persisted', runtime.m_Refusal)
+        self.assertEqual(['[HC Events] runtime start refused reason=restart_state_not_persisted'],
+                         [line for line in logs if 'runtime start refused' in line])
+
+    def test_startup_cleanup_unconfirmed_names_its_reason(self):
+        helper, runtime, logs = self.started()
+        helper.ai.ready = True
+        helper.mission.Family = 5
+        helper.mission.ActorBudget = 2
+        self.assertEqual(0, runtime.Announce(helper.mission, helper.ctx))
+        helper.ctx.Session = 'session-b'
+        runtime.Cleanup = lambda eventId: False
+        self.assertFalse(runtime.Start(helper.cfg, helper.ctx, helper.store, helper.observer, helper.ai))
+        self.assertEqual('startup_cleanup_unconfirmed', runtime.m_Refusal)
+        self.assertEqual(['[HC Events] runtime start refused reason=startup_cleanup_unconfirmed'], logs)
 
 
 class RewardRefusals(es.Fixture):
@@ -179,6 +254,16 @@ class GroupRefusals(unittest.TestCase):
         service.m_StaticInstance = None
         self.server = False
         self.assertEqual('not_server', service.HCStartBlock(good))
+
+    def test_recovered_admission_is_logged_again_when_it_refuses_again(self):
+        service = self.service()
+        peer = N(RateWindow=100., RateCount=0)
+        self.assertEqual([True, True, False], [service.Admit(peer) for _ in range(3)])
+        self.tick = 101.
+        self.assertTrue(service.Admit(peer))
+        self.assertEqual('', service.Refusal())
+        self.assertEqual([True, False], [service.Admit(peer) for _ in range(2)])
+        self.assertEqual(['[HC Groups] refused reason=rate_limited'] * 2, self.logs)
 
 
 class CampRespawnRefusals(unittest.TestCase):
@@ -251,13 +336,15 @@ class RadioRefusals(unittest.TestCase):
                    HCV2Gates=N(Qualified=lambda gate: False),
                    FactionArray=lambda: EArray(['locals']),
                    HCEventHCRadioChannel=lambda: N(Faction='', Frequency=0.),
+                   HCWorldClock=N(UTC=lambda: 0),
                    Frequency=lambda faction: 87.8)
         store = N(Healthy=lambda: True, Data=N(Channels=channels), Save=lambda: save)
-        radio = authored(source, 'HCRadioChatter', env, ('OnStart', 'BeginChannel', 'HCRefuse', 'HCRefuseAs', 'Frequency'))()
+        radio = authored(source, 'HCRadioChatter', env, ('OnStart', 'BeginChannel', 'HCRefuse', 'HCRefuseAs', 'Refusal', 'Frequency'))()
         radio.m_StaticInstance = None
         radio.m_AdmissionPrinted = True
         radio.m_Store = store
         radio.m_Refusal = ''
+        radio.m_ChannelCursor = 0
         radio.m_Reports = 0
         radio.m_Ready = False
         radio.m_Channel = radio.m_Report = None
@@ -274,6 +361,17 @@ class RadioRefusals(unittest.TestCase):
             radio.BeginChannel()
         self.assertEqual([('degraded', 'channel_roster_invalid')] * 3, status)
         self.assertEqual(['[HC Plan] HC-20 radio=degraded morse=folded reports=0 reason=channel_roster_invalid runtime=PENDING'],
+                         logs)
+
+    def test_recovered_roster_is_logged_again_when_it_breaks_again(self):
+        radio, logs, status = self.radio(EArray([N(Faction='locals')]))
+        radio.BeginChannel()
+        radio.m_Store.Data.Channels = EArray([N(Faction='f%d' % i, LastSent=0, Sequence=0) for i in range(5)])
+        radio.BeginChannel()
+        self.assertEqual('', radio.Refusal())
+        radio.m_Store.Data.Channels = EArray([N(Faction='locals')])
+        radio.BeginChannel()
+        self.assertEqual(['[HC Plan] HC-20 radio=degraded morse=folded reports=0 reason=channel_roster_invalid runtime=PENDING'] * 2,
                          logs)
 
     def test_channel_store_save_failure_refuses_start_with_its_own_reason(self):

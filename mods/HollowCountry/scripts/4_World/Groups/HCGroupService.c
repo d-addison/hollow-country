@@ -230,6 +230,7 @@ class HCGroupService
             PlayerBase player = PlayerBase.Cast(man);
             if (player && player.GetIdentity()) Connected(player.GetIdentity(), player);
         }
+        m_Refusal = "";
         return true;
     }
 
@@ -326,6 +327,7 @@ class HCGroupService
         if (peer.RateCount >= m_Config.MaxRequestsPerSecond || m_GlobalCount >= m_Config.MaxRequestsPerSecond * 2) { return HCRefuse("rate_limited"); }
         peer.RateCount++;
         m_GlobalCount++;
+        m_Refusal = "";
         return true;
     }
 

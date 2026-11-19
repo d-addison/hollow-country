@@ -5,6 +5,8 @@ class HCEventJournalIO
 {
     protected string m_Root = "$profile:HollowCountry/Events/state";
     protected string m_Refusal;
+    // Names the directory in the refusal line; subclasses set their own (reward ledger).
+    protected string m_Label = "journal directory";
     // Last directory refusal; the log line prints once per reason change (Names/Start are boot-time).
     string Refusal() { return m_Refusal; }
     bool HCRefuse(string reason)
@@ -12,7 +14,7 @@ class HCEventJournalIO
         if (m_Refusal != reason)
         {
             m_Refusal = reason;
-            Print("[HC Events] journal directory refused reason=" + reason);
+            Print("[HC Events] " + m_Label + " refused reason=" + reason);
         }
         return false;
     }

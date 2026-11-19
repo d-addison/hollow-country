@@ -212,6 +212,7 @@ class HCRadioChatter : HCModule
             HCRefuseAs("degraded", "channel_roster_invalid");
             return;
         }
+        m_Refusal = "";
         m_Channel = m_Store.Data.Channels[m_ChannelCursor];
         m_ChannelCursor = (m_ChannelCursor + 1) % 5;
         int now = HCWorldClock.UTC();
