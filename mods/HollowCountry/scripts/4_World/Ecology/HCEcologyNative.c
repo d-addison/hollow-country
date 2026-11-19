@@ -72,28 +72,91 @@ class HCEcologyNative
 	// static guard keeps a restart or repeated owner observation from re-printing.
 	// It emits counts and refusal reasons only: it neither claims CE loaded the
 	// JSON/XML nor adds a tick, status controller or any admission. The counts are
-	// the manifest's validated effective native content (Counts, Species and
-	// Habitats Disposition tallies), pinned by tests/unit/test_hc48_habitat_boot.py.
-	// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print.
+	// tallied once per boot from the shipped manifest text (#193): Disposition values
+	// inside the Species and Habitats sections. Plain bounded text scan, no typed JSON
+	// mapping, so it never depends on how JsonFileLoader treats the manifest's other
+	// keys. An unreadable or inconsistent manifest claims no counts and refuses.
+	// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
+	// 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :271 IndexOfFrom.
+	static const string HC_HABITAT_MANIFEST = "$mission:hollow-country/ecology/habitat-overrides.json";
+	static const int HC_HABITAT_MAX_BYTES = 32768; // the manifest's own ManifestMaxBytes
 	protected static string s_HabitatState;
+	protected static bool s_HabitatLoaded;
+	protected static bool s_HabitatValid;
+	protected static int s_HabitatSpeciesNative;
+	protected static int s_HabitatSpeciesPending;
+	protected static int s_HabitatSpeciesAddon;
+	protected static int s_HabitatNative;
+	protected static int s_HabitatLegacy;
+
+	// Occurrences of token that start inside [first, last). Bounded by the text length.
+	static int HCHabitatCount(string text, string token, int first, int last)
+	{
+		int count = 0;
+		int cursor = text.IndexOfFrom(first, token);
+		while (cursor >= 0 && cursor < last)
+		{
+			count++;
+			int next = cursor + token.Length();
+			if (next >= text.Length()) { return count; }
+			cursor = text.IndexOfFrom(next, token);
+		}
+		return count;
+	}
+
+	static void HCHabitatLoad()
+	{
+		if (s_HabitatLoaded) { return; }
+		s_HabitatLoaded = true;
+		string text = HCEcologyRuntimeIO.Read(HC_HABITAT_MANIFEST, HC_HABITAT_MAX_BYTES);
+		if (text == "") { return; }
+		int speciesAt = text.IndexOf("\"Species\":");
+		int habitatsAt = text.IndexOf("\"Habitats\":");
+		int pairsAt = text.IndexOf("\"TargetPairs\":");
+		if (speciesAt < 0 || habitatsAt <= speciesAt || pairsAt <= habitatsAt) { return; }
+		int speciesNative = HCHabitatCount(text, "\"retain_native\"", speciesAt, habitatsAt);
+		int speciesPending = HCHabitatCount(text, "\"pending_suitability\"", speciesAt, habitatsAt);
+		int speciesAddon = HCHabitatCount(text, "\"selected_pending_addon_and_native\"", speciesAt, habitatsAt);
+		int speciesRows = HCHabitatCount(text, "\"Disposition\"", speciesAt, habitatsAt);
+		int habitatNative = HCHabitatCount(text, "\"retain_native\"", habitatsAt, pairsAt);
+		int habitatLegacy = HCHabitatCount(text, "\"legacy_unreferenced_pending_survey\"", habitatsAt, pairsAt);
+		int habitatRows = HCHabitatCount(text, "\"Disposition\"", habitatsAt, pairsAt);
+		// Every row must carry exactly one disposition this receipt names.
+		if (speciesRows < 1 || speciesRows != speciesNative + speciesPending + speciesAddon) { return; }
+		if (habitatRows < 1 || habitatRows != habitatNative + habitatLegacy) { return; }
+		s_HabitatSpeciesNative = speciesNative;
+		s_HabitatSpeciesPending = speciesPending;
+		s_HabitatSpeciesAddon = speciesAddon;
+		s_HabitatNative = habitatNative;
+		s_HabitatLegacy = habitatLegacy;
+		s_HabitatValid = true;
+	}
 
 	static void HCHabitatRefusals(string state)
 	{
+		HCHabitatLoad();
 		if (state != "ready" && state != "off") { state = "refused"; }
+		if (state == "ready" && !s_HabitatValid) { state = "refused"; }
 		if (s_HabitatState == state) { return; }
 		s_HabitatState = state;
 		int species = 0;
 		int habitats = 0;
 		if (state == "ready")
 		{
-			species = 27;
-			habitats = 11;
+			species = s_HabitatSpeciesNative;
+			habitats = s_HabitatNative;
 		}
+		int authoredSpecies = s_HabitatSpeciesNative + s_HabitatSpeciesPending + s_HabitatSpeciesAddon;
+		int authoredHabitats = s_HabitatNative + s_HabitatLegacy;
 		string counts = "species=" + species.ToString() + " habitats=" + habitats.ToString();
 		counts = counts + " target_pairs_supported=0 state=" + state;
-		counts = counts + " authored_species=42 authored_habitats=12 admitted_overlay_species=0 observed_reactions=unobserved";
-		string kinds = "species_dispositions=retain_native:27,pending_suitability:14,selected_pending_addon_and_native:1";
-		kinds = kinds + " habitat_dispositions=retain_native:11,legacy_unreferenced_pending_survey:1";
+		counts = counts + " authored_species=" + authoredSpecies.ToString() + " authored_habitats=" + authoredHabitats.ToString();
+		counts = counts + " admitted_overlay_species=0 observed_reactions=unobserved";
+		string kinds = "species_dispositions=retain_native:" + s_HabitatSpeciesNative.ToString();
+		kinds = kinds + ",pending_suitability:" + s_HabitatSpeciesPending.ToString();
+		kinds = kinds + ",selected_pending_addon_and_native:" + s_HabitatSpeciesAddon.ToString();
+		kinds = kinds + " habitat_dispositions=retain_native:" + s_HabitatNative.ToString();
+		kinds = kinds + ",legacy_unreferenced_pending_survey:" + s_HabitatLegacy.ToString();
 		string refusals = "refusals=animal_destination:no_inspected_animal_destination_api";
 		refusals = refusals + ",animal_migration:native_brains_retained_no_destination_provider";
 		refusals = refusals + ",animal_target_pairs:no_inspected_animal_target_accessor";

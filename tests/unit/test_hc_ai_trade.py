@@ -28,6 +28,10 @@ Loss/quantity uncertainty extension RED: ('quarantined', 'lost') != ('quarantine
 GREEN: same command, Ran 1 test, OK. Extends this one behavioral test with
 synthetic lifecycle/status/store/native-handle ports, never DayZ evidence.
 
+Wave 12 (#193 idle-save failure), actual RED 2026-11-19 (same focused command):
+AssertionError: {'Version': 1, 'Id': 'hc35-first-barter', 'Phase': 'cancelled', ...} != {'Version': 1, 'Id': '', 'Phase': 'quarantined', ...} : a failed idle save must not touch the in-memory journal
+GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_trade, Ran 1 test, OK.
+
 Wave 11 (#145 slot release), actual RED 2026-11-19 (same focused command):
 AssertionError: False is not true : terminal rolled_back journal must release the exchange slot
 GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_trade, Ran 1 test, OK.
@@ -112,7 +116,10 @@ class TradeBehavior(unittest.TestCase):
                       m_Ready=True, m_Enabled=True, m_Busy=False, m_Reports=0, m_Released=0,
                       m_Recipe=N(RecipeId='bandage-for-drink', TimeoutSeconds=120),
                       m_Status=N(HCPublish=lambda *args: None))
-            env = dict(Print=logs.append, str=str, float=N(MAX=3.402823466e38),
+            # Synthetic port: a fresh HCTradeState carries the authored defaults (Version 1, idle, none).
+            blank = lambda: N(Version=1, Id='', Phase='idle', Transfer='none', Refusal=EStr(''), LeftLease='',
+                              RightLease='', StartedAt=0, EndsAt=0)
+            env = dict(Print=logs.append, str=str, float=N(MAX=3.402823466e38), HCTradeState=blank,
                        HCWorldLimits=N(Token=lambda value: 0 < len(value) <= 96),
                        HCAIPartyIdentity=N(HCValid=lambda i: i in (left, right)),
                        HCWorldMaterializer=N(HCIdentity=lambda lease: {'left-lease': left, 'right-lease': right}.get(lease)))
@@ -283,11 +290,25 @@ class TradeBehavior(unittest.TestCase):
         self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 300))
         self.assertEqual((saves, 'cancelled'), (len(c.saved), c.state.Phase),
                          'a refusing provider must not release or rewrite the journal')
+        # #193 (wave 12): a failed idle save leaves memory equal to the disk copy, i.e. the
+        # terminal journal with its evidence; the module fails closed instead of quarantining
+        # over (and so erasing) that evidence, and no idle row is ever written.
         c = fixture(fail_write=3)
         self.assertTrue(start(c))
         c.trade.HCStep(220)
+        self.assertEqual('cancelled', c.state.Phase)
+        before = deepcopy(c.state)
+        published = []
+        c.trade.m_Status = N(HCPublish=lambda *args: published.append(args))
+        saves = len(c.saved)
         self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 300))
-        self.assertEqual(('quarantined', 'TRADE_JOURNAL_UNCERTAIN'), (c.state.Phase, c.state.Refusal))
+        self.assertEqual(vars(before), vars(c.state), 'a failed idle save must not touch the in-memory journal')
+        self.assertEqual(saves, len(c.saved), 'the failed save wrote nothing')
+        self.assertFalse(c.trade.m_Ready, 'uncertain persistence fails closed')
+        self.assertEqual([('refused', 'TRADE_JOURNAL_UNCERTAIN')], published)
+        self.assertEqual(0, len([line for line in c.logs if 'slot released' in line]))
+        self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 400), 'no retry until restart')
+        self.assertEqual('cancelled', c.state.Phase)
         c = fixture()
         self.assertTrue(start(c))
         c.trade.HCQuarantine(EStr('TRADE_TEST_UNCERTAIN'))
