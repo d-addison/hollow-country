@@ -183,6 +183,8 @@ class HCXAISitePolicy
     float LineOfSightRange = 1000;
     float MaxLegLength = 400;
     float CacheClearRadius = 300;
+    int RaidCooldownFloorSeconds = 0; // absent/zero retains the six-hour/seven-day floors
+    float ActivationRadiusScale = 0; // absent/zero means 1.0
     ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
 }
 // Gathered natively at startup; never read from profile or RPC data.

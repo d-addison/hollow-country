@@ -58,6 +58,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
     bool m_HCTransient;
     bool m_HCFinished;
     int m_HCSurvivors;
+    int m_HCPendingMembers;
     string m_HCRefusal;
     protected int m_HCNextBudgetLogMs;
 
@@ -99,8 +100,11 @@ class HCXAISitePatrol : eAIDynamicPatrol
         string budgetId = "site:" + m_HCSiteId;
         if (m_HCTransient) { budgetId = m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10); }
         if (!HCAIBudget.TryReserve(budgetId, m_HCGroupMax)) { this.HCRefuseBudget(); return; }
+        m_HCPendingMembers = 0;
         super.Spawn();
         if (!m_Group) { if (!m_HCTransient) { HCAIBudget.Release(budgetId); } return; }
+        m_HCPendingMembers = m_NumberOfAI - m_Group.Count();
+        if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
         m_HCLive = true;
         director.Spawned(this);
     }
@@ -109,6 +113,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
     // member ends the group at the members that already passed.
     override void SpawnAI_Deferred(int i)
     {
+        m_HCPendingMembers = 0;
         if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }
         if (!m_Group || !m_Formation) { return; }
         vector raw = m_Formation.ToWorld(m_Formation.GetPosition(i));
@@ -122,12 +127,15 @@ class HCXAISitePatrol : eAIDynamicPatrol
         }
         if (problem != "")
         {
+            m_HCPendingMembers = 0;
             m_NumberOfAI = m_Group.Count();
             m_Group.SetWaypointBehaviour(m_WaypointBehaviour);
             Print("[HC Expansion AI] site " + m_HCSiteId + " member " + i.ToString() + " refused: " + problem + "; group stays at " + m_NumberOfAI.ToString());
             if (director) { director.SaveOwned(); }
             return;
         }
+        m_HCPendingMembers = m_NumberOfAI - i - 1;
+        if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
         super.SpawnAI_Deferred(i);
     }
     override void Despawn(bool deferDespawnUntilLoosingAggro = false)
@@ -158,6 +166,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
         bool raided = wasLive && !intact;
         if (raided && director) { director.RecordCleared(this); }
         super.Despawn(false);
+        m_HCPendingMembers = 0;
         m_HCLive = false;
         if (!m_HCTransient && !m_Group) { HCAIBudget.Release("site:" + m_HCSiteId); }
         if (intact) { m_TimeSinceLastSpawn = m_RespawnTime; }
@@ -258,6 +267,7 @@ class HCXAISiteDirector : Managed
     protected int m_LastActiveAI = -1;
     protected bool m_Diagnostic;
     protected bool m_WaitLogged;
+    protected bool m_RadiusClampLogged;
     protected bool m_OwnedSaved = true;
     protected bool m_GroupScaling;
     protected float m_GroupFactor = 1.0;
@@ -288,7 +298,16 @@ class HCXAISiteDirector : Managed
         {
             if (reservation.Completed) { continue; }
             if (exceptPatrol && reservation.Patrol == exceptPatrol) { continue; }
-            if (!reservation.Transient && (!reservation.Patrol || !reservation.Patrol.m_Group)) { continue; }
+            // Empty native groups can outlive every member. Only an uncreated
+            // transient, a living member or a queued deferred member owns a slot.
+            if (!(reservation.Transient && !reservation.Materialized))
+            {
+                if (!reservation.Patrol || !reservation.Patrol.m_Group || (reservation.Patrol.m_Group.Count() == 0 && reservation.Patrol.m_HCPendingMembers <= 0))
+                {
+                    if (!reservation.Transient) { HCAIBudget.Release("site:" + reservation.Site.Id); }
+                    continue;
+                }
+            }
             reservedSites++;
             reservedActors += reservation.Site.NumberOfAIMax;
         }
@@ -458,6 +477,7 @@ class HCXAISiteDirector : Managed
         }
         int count = m_Policy.Sites.Count();
         Print("[HC Expansion AI] sites policy accepted: " + count.ToString() + " sites; waiting for Expansion AI settings");
+        if (m_Policy.RaidCooldownFloorSeconds > 0) { Print("[HC Expansion AI] raid cooldown floor " + m_Policy.RaidCooldownFloorSeconds.ToString() + "s (operator)"); }
         bool shippedPolicy = HCXAIDefaults.MatchesShipped();
         int shippedCount = count;
         if (!shippedPolicy) { shippedCount = HCXAIDefaults.ShippedSiteCount(); }
@@ -797,7 +817,10 @@ class HCXAISiteDirector : Managed
             if (state.Closed) { legs++; }
             string sampling = "navmesh";
             if (state.OutdoorPass) { sampling = "outdoor"; }
-            Print("[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v4 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString() + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute) + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " skipped-points=" + state.SkippedPoints);
+            string qualifiedLine = "[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v4 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString();
+            qualifiedLine = qualifiedLine + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute);
+            qualifiedLine = qualifiedLine + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " skipped-points=" + state.SkippedPoints;
+            Print("" + qualifiedLine);
             return;
         }
         if (state.PathCalls >= 96)
@@ -860,7 +883,8 @@ class HCXAISiteDirector : Managed
         if (closing && problem == "snap") { problem = "closing path ends short of the waypoint"; }
         if (problem != "" && problem != "snap")
         {
-            state.Reason = "leg " + state.Leg.ToString() + ": " + problem + "; from=" + HCXAISiteRules.PointText(legFrom) + "; to=" + HCXAISiteRules.PointText(legTo) + "; closest=" + HCXAISiteRules.PointText(state.ClosestEnd) + "; gap=" + state.ClosestGap.ToString() + "; steps=" + state.ChainSteps.ToString();
+            state.Reason = "leg " + state.Leg.ToString() + ": " + problem + "; from=" + HCXAISiteRules.PointText(legFrom) + "; to=" + HCXAISiteRules.PointText(legTo);
+            state.Reason = state.Reason + "; closest=" + HCXAISiteRules.PointText(state.ClosestEnd) + "; gap=" + state.ClosestGap.ToString() + "; steps=" + state.ChainSteps.ToString();
             state.AttemptPoints.Clear();
             state.ChainSteps = 0;
             if (closing)
@@ -1089,14 +1113,12 @@ class HCXAISiteDirector : Managed
         config.CanBeTriggeredByAI = false;
         config.CanSpawnInContaminatedArea = false;
         config.MinDistRadius = m_Policy.MinPlayerDistance;
-        config.MaxDistRadius = site.ActivationRadius;
-        // Event bindings use this same trigger radius (EncounterRadius); the
-        // provider trigger must reach the bound anchor. This only widens
-        // activation, never awareness or perception.
-        if (!state.Transient) { config.MaxDistRadius = HCXAISiteRules.EncounterRadius(site.ActivationRadius); }
+        // Start with the event-binding radius (EncounterRadius), then apply
+        // operator activation tuning. Perception and event bindings stay native.
+        config.MaxDistRadius = this.HCActivationRadius(site, state.Transient);
         config.DespawnRadius = config.MaxDistRadius + 100;
         config.DespawnTime = site.DespawnSeconds;
-        config.RespawnTime = HCXAISiteDirector.RaidCooldown(site);
+        config.RespawnTime = HCXAISiteDirector.RaidCooldown(site, m_Policy.RaidCooldownFloorSeconds);
         if (state.Transient) { config.RespawnTime = -1; }
         config.MinSpreadRadius = 0;
         config.MaxSpreadRadius = 0;
@@ -1144,6 +1166,23 @@ class HCXAISiteDirector : Managed
         patrol.m_HCTransient = state.Transient;
         state.Patrol = patrol;
         if (!state.Transient) { Print("[HC Expansion AI] site " + site.Id + " configured respawn=" + config.RespawnTime.ToString() + "s; raid timestamps persist in expansion-ai-owned.json"); }
+    }
+    protected float HCActivationRadius(HCXAISite site, bool transient)
+    {
+        float radius = site.ActivationRadius;
+        if (!transient) { radius = HCXAISiteRules.EncounterRadius(site.ActivationRadius); }
+        float scale = m_Policy.ActivationRadiusScale;
+        if (scale == 0) { scale = 1.0; }
+        radius = radius * scale;
+        float clamped = radius;
+        if (clamped < m_Policy.MinPlayerDistance + 50) { clamped = m_Policy.MinPlayerDistance + 50; }
+        if (clamped > 1200) { clamped = 1200; }
+        if (clamped != radius && !m_RadiusClampLogged)
+        {
+            m_RadiusClampLogged = true;
+            Print("[HC Expansion AI] activation radius clamped " + radius.ToString() + "m to " + clamped.ToString() + "m; limits MinPlayerDistance+50..1200 runtime=PENDING");
+        }
+        return clamped;
     }
     protected void StepRun()
     {
@@ -1202,7 +1241,8 @@ class HCXAISiteDirector : Managed
         int activeAI = 0;
         foreach (HCXAISiteState state : m_States)
         {
-            if (!state.Patrol || state.Patrol == patrol || !state.Patrol.m_Group) { continue; }
+            if (state.Completed || !state.Patrol || state.Patrol == patrol || !state.Patrol.m_Group) { continue; }
+            if (state.Patrol.m_Group.Count() == 0 && state.Patrol.m_HCPendingMembers <= 0) { continue; }
             activeSites++;
             activeAI = activeAI + state.Patrol.m_NumberOfAI;
         }
@@ -1282,7 +1322,9 @@ class HCXAISiteDirector : Managed
             spawnedState.Materialized = true;
             HCXMaterializerBridge.SiteSpawned();
         }
-        Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " spawned " + patrol.m_NumberOfAI.ToString() + " actors (" + patrol.m_HCKind + ", finite loadout, no unlimited reload)");
+        int spawnX = Math.Round(patrol.m_Position[0]);
+        int spawnZ = Math.Round(patrol.m_Position[2]);
+        Print("[HC Expansion AI] Spawning " + patrol.m_NumberOfAI.ToString() + " AI HC:" + patrol.m_HCSiteId + " at " + spawnX.ToString() + " " + spawnZ.ToString());
         this.SaveOwned();
     }
     void Despawned(HCXAISitePatrol patrol, bool intact)
@@ -1294,14 +1336,15 @@ class HCXAISiteDirector : Managed
         Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " despawned (intact=" + intact.ToString() + ")");
         this.SaveOwned();
     }
-    static int RaidCooldown(HCXAISite site)
+    static int RaidCooldown(HCXAISite site, int operatorFloor = 0)
     {
-        // Legacy policy validation caps RespawnSeconds at one day. Enforce the
-        // six-hour/seven-day floors here, both for the provider and raid store,
-        // so old profiles cannot reintroduce short geared-body cooldowns.
+        // Shared by provider timing and the raid journal. Legacy/zero policy
+        // keeps six-hour/seven-day floors; an explicit operator floor replaces
+        // both. The site's longer RespawnSeconds always wins.
         int minimum = 21600;
         bool military = site.Id.Length() >= 4 && site.Id.Substring(0, 4) == "mil-";
         if (site.Kind == "holdout" || military) { minimum = 604800; }
+        if (operatorFloor > 0) { minimum = operatorFloor; }
         if (site.RespawnSeconds > minimum) { return site.RespawnSeconds; }
         return minimum;
     }
@@ -1312,7 +1355,7 @@ class HCXAISiteDirector : Managed
         {
             if (raidRow.SiteId != site.Id || raidRow.ClearedAt == 0) { continue; }
             if (now < raidRow.ClearedAt) { return true; }
-            return now - raidRow.ClearedAt < HCXAISiteDirector.RaidCooldown(site);
+            return now - raidRow.ClearedAt < HCXAISiteDirector.RaidCooldown(site, m_Policy.RaidCooldownFloorSeconds);
         }
         return false;
     }
@@ -1579,13 +1622,18 @@ class HCXAISiteDirector : Managed
 // Installed vanilla structures_military.pbo/config.bin CfgVehicles Land_Roadblock_Table;
 // native scripts-1.30.164289/3_Game/Global/Game.c:703 CreateObjectEx, :945 GetPlayers,
 // :923 GetObjectsAtPosition, :1176 SurfaceY; existing director NearestPlayer/SeenByPlayer supplies observer
-// checks using 3_Game/Global/DayZPhysics.c:199 RaycastRV. No road barriers/doors.
+// checks using 3_Game/Global/DayZPhysics.c:199 RaycastRV.
+// Installed structures_military.pbo!config.bin CfgVehicles:
+// Land_Roadblock_Table scope=1; Land_Roadblock_Table_DE inherits it, scope=2.
+// Static config evidence only: factory/collision/path acceptance remains pending.
 // Source review is a candidate placement; native path and client checks pending.
 class HCXCheckpointProp
 {
     ref HCXAISite Site;
     Object Table;
     int QuietSince = -1;
+    int Attempts;
+    int LastAttempt = -1;
     bool Finished;
 }
 class HCXCheckpointProps
@@ -1605,6 +1653,13 @@ class HCXCheckpointProps
             m_Props.Insert(row);
         }
     }
+    protected void HCRetry(HCXCheckpointProp row, string reason)
+    {
+        row.QuietSince = -1;
+        if (row.Attempts < 3) { return; }
+        row.Finished = true;
+        Print("[HollowCountry] Checkpoints prop refused: " + row.Site.Id + "; attempts=3; " + reason + "; runtime=PENDING");
+    }
     void Step()
     {
         if (!HCXAIQualification.EncountersEnabled() || m_Props.Count() == 0) { return; }
@@ -1617,36 +1672,48 @@ class HCXCheckpointProps
         vector at = Vector(wanted[0], GetGame().SurfaceY(wanted[0], wanted[2]), wanted[2]);
         int nowMs = GetGame().GetTime();
         if (nowMs < 0 || director.NearestPlayer(at) < 200 || director.SeenByPlayer(at)) { row.QuietSince = -1; return; }
+        if (row.LastAttempt >= 0)
+        {
+            if (nowMs < row.LastAttempt) { row.LastAttempt = nowMs; row.QuietSince = -1; return; }
+            if (nowMs - row.LastAttempt < 600000) { return; }
+        }
         if (row.QuietSince < 0 || nowMs < row.QuietSince) { row.QuietSince = nowMs; return; }
         if (nowMs - row.QuietSince < 5000) { return; }
+        row.Attempts++;
+        row.LastAttempt = nowMs;
         array<Object> objects = new array<Object>();
         array<CargoBase> cargos = new array<CargoBase>();
-        GetGame().GetObjectsAtPosition(at, 25, objects, cargos);
+        // House includes walls and wrecks. Keep a conservative near-field veto
+        // at 8 m rather than rejecting every roadside structure within 25 m.
+        GetGame().GetObjectsAtPosition(at, 8, objects, cargos);
         if (objects.Count() > 128)
         {
-            row.Finished = true;
-            Print("[HollowCountry] Checkpoints prop refused: " + row.Site.Id + "; nearby objects=" + objects.Count().ToString() + " cap=128 radius=25m");
+            this.HCRetry(row, "nearby objects exceed cap=128 radius=8m");
             return;
         }
         foreach (Object candidate : objects)
         {
-            // Adopt an existing table; never duplicate scenery on a restart.
-            if (candidate.GetType() == "Land_Roadblock_Table" && vector.Distance(candidate.GetPosition(), at) < 2)
+            // Adopt either generation before the House veto, regardless of
+            // query order; never duplicate scenery on a restart.
+            if (!candidate) { continue; }
+            if ((candidate.GetType() == "Land_Roadblock_Table_DE" || candidate.GetType() == "Land_Roadblock_Table") && vector.Distance(candidate.GetPosition(), at) < 2)
             {
                 row.Table = candidate;
                 row.Finished = true;
                 return;
             }
-            if (House.Cast(candidate))
+        }
+        foreach (Object nearbyHouse : objects)
+        {
+            if (nearbyHouse && House.Cast(nearbyHouse))
             {
-                row.Finished = true;
-                Print("[HollowCountry] Checkpoints prop refused: " + row.Site.Id + "; building within 25m");
+                this.HCRetry(row, "House within 8m");
                 return;
             }
         }
-        row.Finished = true; // a native creation is attempted once, never replayed
-        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table", at, ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
-        if (!row.Table) { Print("[HollowCountry] Checkpoints prop refused: " + row.Site.Id + "; native factory"); return; }
+        row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
+        if (!row.Table) { this.HCRetry(row, "native factory"); return; }
+        row.Finished = true;
         Print("[HollowCountry] Checkpoints props present: " + row.Site.Id + "; empty roadside table remains if guards unavailable");
     }
 }
