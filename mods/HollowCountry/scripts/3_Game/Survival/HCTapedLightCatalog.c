@@ -34,6 +34,39 @@ class HCTapedLightCatalog
         rows.Insert(row);
     }
 
+    // #58 cross-slot weapon pairs: the same host carrying the other light class
+    // (TLRLight on the rail rifles, UniversalLight on the pistols). The rule reads
+    // the compiled rows below, so there is no second hand-kept weapon list; each
+    // derived pair is only a receipt id and is never admitted by this catalogue.
+    static string CrossLightClass(HCTapedLightHostRow row)
+    {
+        if (!row) { return ""; }
+        if (row.LightClass == "UniversalLight" && row.SlotName == "weaponFlashlight") { return "TLRLight"; }
+        if (row.LightClass == "TLRLight" && row.SlotName == "pistolFlashlight") { return "UniversalLight"; }
+        return "";
+    }
+
+    // "" when the row has no approved cross-slot light, else the stable pair id.
+    static string CrossPairId(HCTapedLightHostRow row)
+    {
+        string crossLight = CrossLightClass(row);
+        if (crossLight == "") { return ""; }
+        return "cross_" + row.HostClass + "_" + crossLight;
+    }
+
+    // Every derived pair id, unique, in catalogue row order (startup only).
+    static TStringArray CrossPairIds()
+    {
+        TStringArray ids = new TStringArray;
+        array<ref HCTapedLightHostRow> rows = Rows();
+        foreach (HCTapedLightHostRow row : rows)
+        {
+            string pairId = CrossPairId(row);
+            if (pairId != "" && ids.Find(pairId) < 0) { ids.Insert(pairId); }
+        }
+        return ids;
+    }
+
     static array<ref HCTapedLightHostRow> Rows()
     {
         if (s_Rows) { return s_Rows; }

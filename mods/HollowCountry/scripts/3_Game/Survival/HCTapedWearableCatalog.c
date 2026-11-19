@@ -84,6 +84,18 @@ class HCTapedPackCatalog
         return ids;
     }
 
+    // Every id a client-check receipt may name (startup only): the pack pairs
+    // above, then one cross-slot weapon pair per catalogue host, derived from the
+    // HCTapedLightCatalog rows. Naming a pair here only lets an operator record a
+    // check; Qualified() below still admits nothing.
+    static TStringArray ReceiptPairIds()
+    {
+        TStringArray ids = PairIds();
+        TStringArray weaponIds = HCTapedLightCatalog.CrossPairIds();
+        foreach (string weaponId : weaponIds) { ids.Insert(weaponId); }
+        return ids;
+    }
+
     static string SlotName(string pairId)
     {
         if (pairId == "tortilla_universal_mount") { return "helmetFlashlight"; }

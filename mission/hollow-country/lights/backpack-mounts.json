@@ -75,7 +75,7 @@
     "DefaultCrossSlotLights": false,
     "DefaultPermittedPairIds": [],
     "MaxPermittedPairIds": 2,
-    "MaxReceiptBytes": 8192,
+    "MaxReceiptBytes": 32768,
     "MaxReceiptBytesCeiling": 65536,
     "Validation": "Exact compiled IDs only; duplicate/unknown/oversize/null lists reset closed. Copy accepted IDs; no client setter or operator transform/qualification input.",
     "Lifecycle": "OnStop clears preferences and cached module start state; server owner must configure again before the next start."

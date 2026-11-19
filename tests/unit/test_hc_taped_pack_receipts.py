@@ -75,8 +75,9 @@ class ShippedFilesTests(unittest.TestCase):
     def test_shipped_receipts_list_only_known_pairs_all_unchecked(self):
         data = json.loads(RECEIPTS.read_text())
         self.assertEqual(1, data["SchemaVersion"])
+        known = build(MANIFEST.read_text()).env["HCTapedPackCatalog"].ReceiptPairIds()
         for row in data["Receipts"]:
-            self.assertIn(row["PairId"], (MOUNT, CROSS))
+            self.assertIn(row["PairId"], known)
             self.assertIs(False, row["Checked"])
         self.assertIn("runtime", RECEIPTS.read_text().lower())
 
@@ -388,6 +389,23 @@ class ReceiptValidationTests(unittest.TestCase):
         gate.Reset()
         self.assertEqual([], gate.mHCChecked)
         self.assertFalse(gate.mHCSettingOn)
+
+class CheckDateCalendarTests(unittest.TestCase):
+    """P3 (#196): the check date must be a real Gregorian calendar day."""
+
+    def valid(self, date):
+        return build(MANIFEST.read_text()).ValidCheckDate(date)
+
+    def test_impossible_calendar_days_are_refused(self):
+        for date in ("2026-02-29", "2026-02-31", "2026-04-31", "2026-06-31", "2026-09-31",
+                     "2026-11-31", "2100-02-29", "1900-02-29", "2026-02-30", "2026-13-01",
+                     "2026-00-10", "2026-01-00", "2026-01-32", "2026-1-011", "20261119xx"):
+            self.assertFalse(self.valid(date), date)
+
+    def test_real_calendar_days_are_accepted(self):
+        for date in ("2028-02-29", "2000-02-29", "2026-12-31", "2026-02-28", "2026-04-30",
+                     "2026-01-31", "2026-11-19", "2400-02-29"):
+            self.assertTrue(self.valid(date), date)
 
 
 if __name__ == "__main__":

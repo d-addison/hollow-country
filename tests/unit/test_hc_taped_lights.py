@@ -44,6 +44,7 @@ import unittest
 from tests.unit import test_taped_light_service as policy
 from tests.unit.test_group_server import EArray, body
 from tests.unit.test_group_ui import ui_member
+from tests.unit.test_hc_taped_pack_loader import light_catalogue
 from tests.unit.test_taped_light_v1 import NATIVE, CATALOG, native_member
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,7 +64,7 @@ def helmet_member(path, cls, method, state, env, *args):
     source = re.sub(r'\b(?:HCTapedLightHostRow|TStringArray)\s+(?=\w+\s*[=;])',
                     'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
-    source = re.sub(r'\bTStringArray (?=PairIds\()', 'int ', source)
+    source = re.sub(r'\bTStringArray (?=(?:PairIds|ReceiptPairIds)\()', 'int ', source)
     source = re.sub(r'\b(?:HCTapedLightBinding|HCOperationalStatus) '
                     r'(?=(?:Resolve|HCGetOperationalStatus)\()', 'int ', source)
     source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
@@ -88,9 +89,12 @@ class TapedLightConservationTests(unittest.TestCase):
         self.assertEqual(vars(original), vars(self.port.sample))
 
         catalog = NS()
-        for method in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal", "PairIds"):
+        lights = light_catalogue()
+        for method in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal", "PairIds",
+                       "ReceiptPairIds"):
             setattr(catalog, method, lambda *args, method=method: helmet_member(
-                WEARABLE, "HCTapedPackCatalog", method, catalog, {"NewSlots": EArray}, *args))
+                WEARABLE, "HCTapedPackCatalog", method, catalog,
+                {"NewSlots": EArray, "HCTapedLightCatalog": lights}, *args))
         gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False,
                   mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0)
         server = True
