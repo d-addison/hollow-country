@@ -159,6 +159,13 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         roster_names = []
     item_rows = datamined_items.load_rows() if include_datamined else []
     _refuse_collisions(profile['add_usage'], roster_names, [r['class'] for r in item_rows])
+    # The existing named pilot opts into HC-22; keep the public profile schema and
+    # legacy/synthetic profiles intact. This is a content policy, not a module flag.
+    supply = profile['name'] == 'contextual-pilot'
+    supply_refused = []
+    if supply and include_datamined:
+        item_rows, supply_refused = datamined_items.supply_rows(
+            item_rows, datamined_items.load_supply_dispositions())
     data = snapshot(source)
     core = ce_extensions.checked_core(data['cfgeconomycore.xml'])
     registered = ce_extensions.registered_types(source, core)
@@ -211,7 +218,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
             'deferred_datamined': roster['deferred_datamined']}
     datamined_report = None
     if include_datamined:
-        datamined = datamined_items.type_rows(types, vocabulary, rows=item_rows)
+        datamined = datamined_items.type_rows(types, vocabulary, rows=item_rows, include_new=supply)
         emitted = {n.get('name') for n in datamined}
         absent = sorted(r['class'] for r in item_rows if r['class'] not in emitted)
         out.extend(datamined)
@@ -222,7 +229,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
                                       'nominal': by_class[n]['nominal'], 'min': by_class[n]['min'],
                                       'lifetime': by_class[n]['lifetime'], 'restock': by_class[n]['restock'],
                                       'usage': sorted(by_class[n]['usage']), 'value': sorted(by_class[n]['value']),
-                                      'stock_nominal': int(types[n].findtext('nominal'))}
+                                      'stock_nominal': int(types[n].findtext('nominal')) if n in types else None}
                                      for n in sorted(emitted)],
                             'note': 'budgets are proposals; CE spawn of unused vanilla rows is unobserved'}
     ce_extensions.refuse_collisions((n.get('name') for n in out), registered)
@@ -250,6 +257,15 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
               'pending': ['DayZDiag eligibility/geometry', 'normal PBO/server load',
                           'CE spawn/error trials', '3-6-player budget measurement',
                           'two-client multiplayer', 'destination rollback']}
+    if supply:
+        report['supply'] = {
+            'wp': 'HC-22', 'state': 'authored' if include_datamined else 'off',
+            'authored': len(datamined_items.load_rows()),
+            'admitted': len(datamined_report['classes']) if datamined_report else 0,
+            'unresolved': len(supply_refused), 'refusals': supply_refused,
+            'observed': 0, 'extra_cold': 0, 'runtime_acceptance': 'pending',
+            'dispositions_sha256': sha(datamined_items.SUPPLY_DATA.read_bytes()),
+            'note': 'admitted counts candidate XML rows, never native spawns; off leaves native stock intact'}
     patches = {n: {'before': defaults[n].get('value'), 'after': 'true'} for n in profile['diagnostics']}
     files = {'ce/types.xml': xml_text.document(out) + b'\n',
              'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
@@ -259,7 +275,10 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         'files': {n: sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending',
         'datamined_classes': datamined_report['classes'] if datamined_report else [],
         'firearms_classes': firearms_classes or [],
-        'new_type_classes': sorted(n.get('name') for n in out if n.get('name') not in types)})
+        'new_type_classes': sorted(n.get('name') for n in out if n.get('name') not in types
+                                  and n.get('name') in datamined_items.NEW_TYPE_PARENTS),
+        'supply_new_type_classes': sorted(n.get('name') for n in out if n.get('name') not in types
+                                         and n.get('name') in datamined_items.SUPPLY_NEW_TYPES)})
     return files
 
 
@@ -758,7 +777,7 @@ def _retained(item, allowed, skip_category=False):
 
 
 def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamined=frozenset(),
-            new_types=frozenset()):
+            new_types=frozenset(), supply_new_types=frozenset()):
     """Install a staged delta.
 
     ``mutable`` is the field set every row may change (default usage only). ``widened`` names the classes
@@ -768,13 +787,18 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     reviewed stock-parent clone with authored family shares, including all flags, tags and placement fields.
     Reviewed variants already in stock (including case aliases) use that same strict parent comparison
     when widened by the roster; unrelated stock classes retain the original per-field rules.
+    ``supply_new_types`` separately admits only the exact HC-22 bandana rows.
     """
     mutable = frozenset(mutable)
     widened = frozenset(widened) | frozenset(datamined)
     datamined = frozenset(datamined)
     new_types = frozenset(new_types)
+    supply_new_types = frozenset(supply_new_types)
     if not new_types <= set(datamined_items.NEW_TYPE_PARENTS):
         raise ValueError('new class is not on the reviewed allowlist')
+    if (not supply_new_types <= datamined_items.SUPPLY_NEW_TYPES
+            or not supply_new_types <= datamined):
+        raise ValueError('HC22_NEW_TYPE_NOT_REVIEWED')
     if 'usage' not in mutable or not mutable <= MUTABLE_ALLOWED:
         raise ValueError('unsupported mutable field set')
     target = _target(target)
@@ -800,6 +824,16 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
         name = item.get('name')
         if item.tag != 'type':
             raise ValueError('candidate must retain every stock field except the mutable set')
+        if name in supply_new_types:
+            if any(n.lower() == name.lower() for n in stock):
+                raise ValueError('HC22_NEW_TYPE_ALREADY_IN_STOCK: ' + name)
+            expected_supply = datamined_items.reviewed_supply_type(name)
+            if _full(item) != _full(expected_supply):
+                raise ValueError('HC22_NEW_TYPE_DRIFT: ' + name)
+            if any(n.get('name') not in vocabulary for n in item.findall('usage')):
+                raise ValueError('HC22_NEW_TYPE_USAGE: ' + name)
+            _validate_budget(item)
+            continue
         reviewed_name = next((policy_name for policy_name in datamined_items.NEW_TYPE_PARENTS
                               if policy_name.lower() == name.lower()), None)
         if reviewed_name is not None and (name in new_types or name in widened):
@@ -868,10 +902,11 @@ def install_delta(stage, target):
     datamined_classes must be shipped datamined rows (they may also add the declared category);
     firearms_classes are roster rows (budget fields only); every other row is usage-only.
     new_type_classes must be both rostered and in the separate reviewed parent allowlist.
+    supply_new_type_classes must be fixed HC-22 bandanas also named by datamined_classes.
     """
     _files, manifest = _load_delta(stage)
     lists = {}
-    for key in ('datamined_classes', 'firearms_classes', 'new_type_classes'):
+    for key in ('datamined_classes', 'firearms_classes', 'new_type_classes', 'supply_new_type_classes'):
         listed = manifest.get(key, [])
         if (not isinstance(listed, list) or any(not isinstance(n, str) or not re.fullmatch(r'[A-Za-z0-9_]{1,80}', n)
                                                 for n in listed) or len(set(listed)) != len(listed)):
@@ -890,6 +925,9 @@ def install_delta(stage, target):
     shipped = {r['class'] for r in datamined_items.load_rows()}
     if not lists['datamined_classes'] <= shipped:
         raise ValueError('delta manifest names a class that is not a shipped datamined row')
+    if (not lists['supply_new_type_classes'] <= datamined_items.SUPPLY_NEW_TYPES
+            or not lists['supply_new_type_classes'] <= lists['datamined_classes']):
+        raise ValueError('HC22_NEW_TYPE_NOT_REVIEWED')
     if {n.lower() for n in lists['firearms_classes']} & {n.lower() for n in lists['datamined_classes']}:
         raise ValueError('delta manifest lists a firearms class that is also a datamined class')
     if lists['firearms_classes']:
@@ -897,7 +935,7 @@ def install_delta(stage, target):
         candidates = xml(_files['ce/types.xml'], 'types')
         firearms.check_effective_support(target, stock, roster['entries'], candidates)
     return install(stage, target, widened=lists['firearms_classes'], datamined=lists['datamined_classes'],
-                   new_types=lists['new_type_classes'])
+                   new_types=lists['new_type_classes'], supply_new_types=lists['supply_new_type_classes'])
 
 
 def rollback(target):
