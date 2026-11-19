@@ -14,7 +14,8 @@
 // EnSystem.c:397 FileExist; EnDebug.c:96 Print.
 // 3_Game/Global/Game.c:923 GetObjectsAtPosition (horizontal circle);
 // 3_Game/Entities/Object.c:370 GetCollisionBox, :642 IsBuilding, :874 WorldToModel;
-// Entities/Building.c:267 IsBuilding override. No geometry/world mutation.
+// Entities/Building.c:267 IsBuilding override;
+// 3_Game/Systems/Inventory/Cargo.c:12 GetCargoOwner. No geometry/world mutation.
 // JSON and core budgets reuse their owners' native citations. No Expansion API.
 // MaxDestinations <=256 and PageSize <=64 are wire/schema ceilings. Configurable
 // work uses HCTickWork plus HCPerfSlices; no new module or budget consumer slot.
@@ -329,11 +330,22 @@ class HCAdminTeleport
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
         GetGame().GetObjectsAtPosition(placed, m_Config.BuildingQueryRadiusM, nearby, proxies);
-        if (nearby.Count() > m_Config.MaxBuildingObjects || proxies.Count() > 0) { return false; }
+        int ordinaryCount = nearby.Count();
+        if (ordinaryCount + proxies.Count() > m_Config.MaxBuildingObjects) { return false; }
+        // Cargo proxies are not Objects; test their owners spatially instead of
+        // refusing unrelated cargo anywhere in the broad building query circle.
+        for (int proxyIndex = 0; proxyIndex < proxies.Count(); proxyIndex++)
+        {
+            if (!proxies[proxyIndex]) { return false; }
+            Object cargoOwner = proxies[proxyIndex].GetCargoOwner();
+            if (!cargoOwner) { return false; }
+            nearby.Insert(cargoOwner);
+        }
         for (int obstacleIndex = 0; obstacleIndex < nearby.Count(); obstacleIndex++)
         {
             Object obstacle = nearby[obstacleIndex];
-            if (!obstacle || !obstacle.IsBuilding()) { continue; }
+            if (!obstacle) { continue; }
+            if (obstacleIndex < ordinaryCount && !obstacle.IsBuilding()) { continue; }
             vector bounds[2];
             if (!obstacle.GetCollisionBox(bounds)) { return false; }
             vector localPoint = obstacle.WorldToModel(placed);
