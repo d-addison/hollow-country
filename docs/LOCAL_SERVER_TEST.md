@@ -36,6 +36,29 @@ to vanilla only; signed addon loading and each gameplay feature require their
 own tests. The prepared baseline runtime shuts down after its scheduled
 30-minute session.
 
+## Hollow Country local server = the friend install
+
+The local Hollow Country test server is installed exactly as FRIEND_SERVER.md tells the
+friend. There are no hand-copied mod folders or mission files and no per-tool installs.
+This keeps local boots valid evidence for the friend server.
+
+1. Start from a stock DayZServer folder (a copy of the Steam DayZServer install).
+2. Build the friend bundle with `tools/setup/friend_bundle.py build` from the clean
+   bundle source plus the signed `@HollowCountry` and `@HollowCountryExpansionAI`.
+3. With the server stopped, run the bundle's installer against that folder:
+   `py -3 -m tools.setup.friend_install --server-root <server> --plan-only`, then
+   `--apply`, then `--check`. That is `install-hollow-country.bat` for the friend.
+4. Start the server with the bundle's `start-server.bat` and read the RPT in
+   `<server>\profiles`.
+
+Every new build goes through the same bundle and installer. Mission JSON and profile
+defaults then reach the local server the same way they reach the friend. When an installer
+step refuses on the local server, treat it as a friend-install bug and fix the tool. Do not
+patch the local folder by hand.
+
+The older `local-v1-test-1` folder, which had runtime binaries and was patched by hand, is
+kept only as rollback history.
+
 ## Loot boost on the local test session
 
 `tools/setup/local_test_session.py apply` installs the loot boost by default as the last CE
