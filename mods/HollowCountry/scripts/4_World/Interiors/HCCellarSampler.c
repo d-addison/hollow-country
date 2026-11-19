@@ -73,10 +73,10 @@ class HCCellarSampler : HCModule
     protected void HCReceipt(string state, string reason)
     {
         m_Status.HCPublish(state, reason);
-        int pending = 28;
+        int pending = 0;
         if (m_Data && m_Data.Classes) { pending = m_Data.Classes.Count(); }
         string counts = " cellar_measured=" + m_MeasuredClasses.ToString() + " admitted=0 pending=" + pending.ToString();
-        Print("[HC Plan] HC-31" + counts + " state=" + state + " refused=" + reason + " runtime=PENDING");
+        Print("[HC Cellars] HC-31 sampler" + counts + " state=" + state + " refused=" + reason + " runtime=PENDING");
     }
 
     override bool IsEnabled(HCSettings settings)

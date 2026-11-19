@@ -15,12 +15,17 @@ class OptionalOverlaysSmoke(unittest.TestCase):
         row = {'BuildingClass': 'Land_SyntheticCellar', 'Confidence': 0.95,
                'SampleCount': 25, 'BoxMin': [-3, -3, -2], 'BoxMax': [3, -1, 2],
                'StairsMeasured': True, 'StairTop': [0, 0, 1], 'StairBottom': [0, -2, 1],
-               'Instances': [{'Position': [100, 10, 200], 'Yaw': 90}]}
+               'Instances': [{'Position': [100, 10, 200], 'Yaw': 90,
+                              'Eligible': True, 'GeometryMeasured': True,
+                              'StairAnchorsValid': True, 'SliceSelected': True}]}
+        # Explicit synthetic authoring values, not measured DayZ distances.
+        trigger_defaults = {'StairEnvelopePaddingMeters': 0.75, 'BreadcrumbRadiusMeters': 3}
         with tempfile.TemporaryDirectory(prefix='hc-synthetic-cellars-') as directory:
             root = Path(directory)
             measured = root / 'measured.json'
             measured.write_text(json.dumps({'SchemaVersion': 1, 'WorldName': 'chernarusplus',
-                                           'Complete': True, 'Classes': [row, dict(row,
+                                           'Complete': True, 'SkippedTiles': 0,
+                                           'TriggerDefaults': trigger_defaults, 'Classes': [row, dict(row,
                                                BuildingClass='Land_SyntheticUncertain', Confidence=0.1)]}))
             out, mission = root / 'generated', root / 'mission'
             mission.mkdir()

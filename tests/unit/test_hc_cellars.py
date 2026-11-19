@@ -16,10 +16,144 @@ from tests.unit.test_infected_admission import Array, translate
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLER = ROOT / 'mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c'
+MODULE = ROOT / 'mods/HollowCountry/scripts/4_World/Atmosphere/HCCellarsModule.c'
+CLIENT = ROOT / 'mods/HollowCountry/scripts/5_Mission/Atmosphere/HCCellarsClient.c'
+ADMISSION = ROOT / 'mods/HollowCountry/scripts/3_Game/Atmosphere/HCCellarAdmission.c'
 
 
 class MeasuredCellarSlice(unittest.TestCase):
     def test_failed_stairs_never_accept_and_first_slice_stays_bounded(self):
+        # Explicit synthetic startup counters: a three-class survey, one with
+        # measured geometry. Neither geometry nor V2 preferences qualify it.
+        from tests.unit.test_hc_operational_status import authored_status
+        logs = []
+        make_status, cache = authored_status(logs)
+        module = N(m_HC31Status=make_status(), m_HC31Started=False,
+                   m_MeasuredClasses=1, m_PendingClasses=3,
+                   m_Survey=None, m_Measurement=None,
+                   HCReadCounts=lambda: True)
+        reads = []
+        module.HCReadCounts = lambda: reads.append('startup') or True
+        # Startup test ports supply IO/counts; the real counter is exercised below.
+        if 'protected void HCReceipt(' in MODULE.read_text():
+            module.HCReceipt = MethodType(translate(str(MODULE), 'protected void HCReceipt(', (),
+                                                     Print=logs.append), module)
+        gate = N(HCAdmitted=lambda: False, HCReason=lambda: 'native_cellar_qualification_pending')
+        start = translate(str(MODULE), 'override void OnStart(', ('HCReadCounts', 'HCReceipt'),
+                          Print=logs.append, HCCellarAdmission=gate,
+                          HCV2Admission=N(Line=lambda *args: 'synthetic V2 preference diagnostic'),
+                          HCV2Gates=N(Qualified=lambda *args: False))
+        start(module, N(EnableAmbientLife=True))
+        start(module, N(EnableAmbientLife=True))
+        receipts = [line for line in logs if line.startswith('[HC Plan] HC-31 cellar_measured=')]
+        self.assertEqual(len(receipts), 1, 'cellar startup must publish one measured-count receipt')
+        self.assertIn('cellar_measured=1 admitted=0 pending=3 state=refused', receipts[0])
+        self.assertEqual(reads, ['startup'])
+        self.assertIs(translate(str(MODULE), 'override HCOperationalStatus HCGetOperationalStatus(', ())(module),
+                      module.m_HC31Status)
+        self.assertIn('runtime=PENDING', receipts[0])
+        start(module, N(EnableAmbientLife=True))
+        self.assertEqual(receipts, [line for line in logs if line.startswith('[HC Plan] HC-31 cellar_measured=')])
+        getter = translate(str(MODULE), 'override HCOperationalStatus HCGetOperationalStatus(', ())
+        self.assertIs(getter(module), module.m_HC31Status)
+        cache.HCCapture('Cellars', True, getter(module))
+        self.assertIn('module=Cellars state=refused', cache.HCLine(0))
+        self.assertIn('reason=native_cellar_qualification_pending', cache.HCLine(0))
+        enabled = translate(str(MODULE), 'override bool IsEnabled(', ())
+        for settings in (None, N(EnableAmbientLife=False)):
+            self.assertFalse(enabled(module, settings))
+            self.assertEqual(module.m_HC31Status.HCState(), 'off')
+        translate(str(MODULE), 'override void OnStop(', ())(module)
+        self.assertFalse(module.m_HC31Started)
+        self.assertEqual(module.m_HC31Status.HCState(), 'off')
+        module.HCReadCounts = lambda: False
+        start(module, N(EnableAmbientLife=True))
+        self.assertEqual(module.m_HC31Status.HCReason(), 'measurement_counts_unavailable')
+
+        survey = N(SchemaVersion=1, WorldName='chernarusplus', Classes=Array([
+            N(BuildingClass='Land_SyntheticA'), N(BuildingClass='Land_SyntheticB'),
+            N(BuildingClass='Land_SyntheticC')]))
+        measurement = N(SchemaVersion=1, WorldName='chernarusplus', Complete=True,
+                        SkippedTiles=0, Classes=Array([
+                            N(BuildingClass='Land_SyntheticA', Instances=Array([
+                                N(GeometryMeasured=True), N(GeometryMeasured=True)])),
+                            # High class scores/selection must not imply measured geometry.
+                            N(BuildingClass='Land_SyntheticB', SampleCount=99,
+                              Eligible=True, SliceSelected=True,
+                              Instances=Array([N(GeometryMeasured=False)]))]))
+        counter = translate(str(MODULE), 'protected bool HCCountEvidence(', ())
+        module.m_Survey, module.m_Measurement = survey, measurement
+        self.assertTrue(counter(module))
+        self.assertEqual((module.m_MeasuredClasses, module.m_PendingClasses), (1, 3))
+        for field, value in (('Complete', False), ('SkippedTiles', 1), ('WorldName', 'synthetic-other')):
+            invalid = copy.deepcopy(measurement)
+            setattr(invalid, field, value)
+            module.m_Measurement = invalid
+            self.assertFalse(counter(module), field)
+            self.assertEqual(module.m_MeasuredClasses, 0)
+        for invalid_rows in (
+            Array([measurement.Classes[0], measurement.Classes[0]]),
+            Array([N(BuildingClass='Land_SyntheticUnknown', Instances=Array())]),
+            Array([N(BuildingClass='Land_SyntheticA', Instances=Array([N(GeometryMeasured=True)] * 8193))]),
+        ):
+            module.m_Measurement = N(**dict(vars(measurement), Classes=invalid_rows))
+            self.assertFalse(counter(module))
+        module.m_Measurement = None
+        self.assertTrue(counter(module))
+        self.assertEqual((module.m_MeasuredClasses, module.m_PendingClasses), (0, 3))
+        # Count the actual authored queue too, without a hard-coded startup 28.
+        authored = json.loads((ROOT / 'mission/hollow-country/cellars/classes.json').read_text())
+        module.m_Survey = N(**dict(authored, Classes=Array([N(**row) for row in authored['Classes']])))
+        self.assertTrue(counter(module))
+        self.assertEqual(module.m_PendingClasses, len(authored['Classes']))
+
+        # IO is an explicit synthetic out-parameter port: the DTOs above are
+        # preloaded; authored loader code still selects paths and byte bounds.
+        files, loaded = set(), []
+        module.m_Survey, module.m_Measurement = survey, None
+        module.HCCountEvidence = lambda: counter(module)
+        reader = translate(str(MODULE), 'protected bool HCReadCounts(', ('HCCountEvidence',),
+                           FileExist=lambda path: path in files,
+                           HCGroupJson=N(Load=lambda path, limit, target: loaded.append((path, limit)) or True))
+        self.assertTrue(reader(module))
+        self.assertEqual(loaded, [('$mission:hollow-country/cellars/classes.json', 32768)])
+        files.add('$profile:HollowCountry/cellars-measured.json.tmp')
+        self.assertFalse(reader(module))
+        files.clear()
+        files.add('$profile:HollowCountry/cellars-measured.json.bak')
+        self.assertFalse(reader(module))
+        files.add('$profile:HollowCountry/cellars-measured.json')
+        files.add('$profile:HollowCountry/cellar-classes.json')
+        module.m_Measurement = measurement
+        self.assertTrue(reader(module))
+        self.assertEqual(loaded[-2:], [('$profile:HollowCountry/cellar-classes.json', 32768),
+                                      ('$profile:HollowCountry/cellars-measured.json', 1048576)])
+
+        sampler_logs = []
+        sampler_receipt = translate(str(SAMPLER), 'protected void HCReceipt(', (), Print=sampler_logs.append)
+        sampler_receipt(N(m_Status=make_status(), m_Data=survey, m_MeasuredClasses=1), 'ready',
+                        'measurement_only_native_stair_route_unobserved')
+        self.assertTrue(sampler_logs[0].startswith('[HC Cellars] HC-31 sampler '),
+                        'sampler must not duplicate the module startup receipt')
+
+        gate.HCAdmitted = lambda: translate(str(ADMISSION), 'static bool HCAdmitted(', ())(None)
+        gate.HCReason = lambda: translate(str(ADMISSION), 'static string HCReason(', ())(None)
+        self.assertFalse(gate.HCAdmitted())
+        # Execute real mission startup with no world/player/render ports: closed
+        # admission must return before helper allocation or any heuristic sample.
+        events = []
+        mission = N(m_HCCellars=None)
+        init = translate(str(CLIENT), 'override void OnInit(', (), Print=logs.append,
+                         super=N(OnInit=lambda: events.append('super')),
+                         GetGame=lambda: N(IsDedicatedServer=lambda: False),
+                         HCCellarAdmission=gate,
+                         HCCellarsClient=N(HCPreferenceEnabled=lambda: True))
+        init(mission)
+        self.assertEqual(events, ['super'])
+        self.assertIsNone(mission.m_HCCellars)
+        self.assertTrue(any('client state=refused refused=' + gate.HCReason() in line for line in logs))
+        translate(str(CLIENT), 'void HCSample(', ('HCClear',), HCCellarAdmission=gate)(N(), 1.)
+
         # Explicit synthetic nine-point success, followed by a failed bottom anchor.
         row = N(StairsMeasured=True, StairTop=[0, 0, 1], StairBottom=[0, -2, 1],
                 BoxMin=[0, 0, 0], BoxMax=[0, 0, 0], AcceptedInstances=0,

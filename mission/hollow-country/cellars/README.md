@@ -35,9 +35,24 @@ follow `docs/RUNTIME_IMPLEMENTATION_CONTRACT.md`.
   its schema-2 leaf interface/schema-3 paged index remain owned by HC-24.
   No player query, furniture, inventory, door, RPC or live trigger mutation occurs.
 - HCGetOperationalStatus returns cached HC-1 status. `ready` means only that
-  the diagnostic sampler started; every HC-31 receipt keeps `admitted=0` and
+  the diagnostic sampler started; the Cellars module itself stays `refused`.
+  Every HC-31 receipt keeps `admitted=0` and
   `runtime=PENDING`. Off ticks perform no query or IO. Stop clears buffers and
   resets cursors. Interrupted outputs remain incomplete and require recovery.
+- HCCellarsModule emits one HC-31 count receipt per start, alongside its retained
+  V2 preference diagnostic. Pending is the validated authored class-list count;
+  measured counts distinct known classes with explicit instance `GeometryMeasured`
+  in completed, zero-skipped-tile output. Scores, anchors and selection do not
+  imply measured geometry or qualification. Missing output means zero measured;
+  malformed, interrupted, duplicate/unknown classes or oversized input report
+  `measurement_counts_unavailable`. Counts remain zero where unavailable; a
+  validated authored pending count is retained. HC-1 caches the same refusal.
+  The sampler uses `[HC Cellars] HC-31 sampler` for its separate lifecycle counts.
+- Shared 3_Game HCCellarAdmission stays closed with
+  `native_cellar_qualification_pending`. The retained client depth heuristic
+  checks it before allocation and before sampling. Local preference and server
+  EnableAmbientLife cannot open it; HCVisualActive stays false and the native
+  underground lighting/audio path remains owner. No new settings RPC is added.
 - Generation requires explicit `Eligible`, `GeometryMeasured`,
   `StairAnchorsValid` and `SliceSelected` booleans on each selected instance.
   Missing evidence fails closed. At most **two spaces / four native triggers**
@@ -76,9 +91,14 @@ Installed read-only source root:
    the authored mission overlay at `hollow-country/cellars/classes.json`.
    Default installation has no marker and no additional underground triggers.
 2. With server stopped, create `<profiles>/HollowCountry/measure-cellars`.
-   Boot and observe `[HC Plan] HC-31 cellar_measured=0 admitted=0 pending=28`
-   with `state=ready`, `refused=measurement_only_native_stair_route_unobserved`
-   and `runtime=PENDING`. This is a proposed diagnostic, not an observed log.
+   On a fresh profile with the shipped class list, expect exactly one
+   `[HC Plan] HC-31 cellar_measured=0 admitted=0 pending=28 state=refused refused=native_cellar_qualification_pending runtime=PENDING`.
+   HC-1 must report `module=Cellars state=refused` with that refusal reason.
+   The independent sampler should report `[HC Cellars] HC-31 sampler` with
+   `state=ready` and `refused=measurement_only_native_stair_route_unobserved`.
+   A client with its local preference on should report
+   `[HC Plan] HC-31 client state=refused refused=native_cellar_qualification_pending runtime=PENDING`.
+   These are expected diagnostics, not observed logs.
 3. Wait for `[HC Cellars] sampler done`. A retained 128m tile scan queries a
    91m radius and owns origins using half-open tile bounds. Results over 4,096
    objects/cargos skip the tile and increment SkippedTiles; no full-coverage claim
@@ -147,74 +167,64 @@ recovery, overlay removal and byte-exact rollback. No production enablement unti
 DayZDiag AND normal PBO/server AND both clients pass. The other 26 remain native
 survey/access tasks; absence of a probe result is pending coverage, not exclusion.
 
-## TDD receipt and lead integration
+## TDD receipt and remaining integration
 
-Focused command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars -v
-```
-
-Actual RED: `AssertionError: 1 != 0 : failed stair sample was counted accepted`;
-`Ran 1 test`, `FAILED (failures=1)`. After extending the same behavior to the
-first-slice generator, RED: `KeyError: 'admitted'`, `FAILED (errors=1)`.
-GREEN: same command, `Ran 1 test`, `OK`. The one synthetic behavioral test executes
-authored sampler handlers and shared budgets through existing restricted ports,
-then checks strict selection, all 28 dispositions, native DTO transforms, cap,
-stock preservation, drift, rollback and off/stop cleanup. Offline evidence only.
-
-Lead edits outside worker ownership:
-
-- In HCCellarsModule.c keep the existing registration and V2 diagnostic. Add
-  `protected ref HCOperationalStatus m_HC31Status = new HCOperationalStatus;`
-  and `override HCOperationalStatus HCGetOperationalStatus() { return m_HC31Status; }`.
-  In IsEnabled retain the settings/EnableAmbientLife predicate, publishing
-  `m_HC31Status.HCPublish("off", "operator_preference_or_settings_off");` when
-  false. Replace the stale `mode=client_below_terrain` Print with these exact
-  startup statements for this currently unqualified handoff:
-
-  ```c
-  m_HC31Status.HCPublish("refused", "native_cellar_qualification_pending");
-  Print("[HC Plan] HC-31 cellar_measured=0 admitted=0 pending=28 state=refused refused=native_cellar_qualification_pending runtime=PENDING");
-  ```
-
-  Add `override void OnStop() { m_HC31Status.HCStop(); }`. The sampler separately
-  reports geometric counts once actually measured. A future bounded native
-  qualification receipt may replace these initial zeros; it must identify
-  individual measured entries, never promote an entire class. Do not let
-  HCV2Admission.Admitted(preference), ancestry, SampleCount, Eligible or
-  SliceSelected authorize production triggers. No config.cpp hook is needed.
-- Module admission alone cannot gate the existing separate client depth
-  heuristic. In `scripts/5_Mission/Atmosphere/HCCellarsClient.c`, replace the
-  `m_HCCellars = new HCCellarsClient;` statement in MissionGameplay.OnInit with:
-
-  ```c
-  Print("[HC Plan] HC-31 client state=refused refused=unmeasured_depth_heuristic runtime=PENDING");
-  ```
-
-  Keep super.OnInit, the preference/authority checks and stop cleanup. This
-  removes automatic terrain-depth darkness admission, leaves HCVisualActive
-  false and preserves the native UndergroundHandlerClient fallback. This file
-  is read-only for this worker; the required lead edit is **not implemented**.
-- HC-11 records source implementation complete and native acceptance pending
-  for HC-31, linking this guide, the six owned paths and both RED/GREEN receipts;
-  keeps two representative qualifications and the remaining 26 tasks open.
-- The read-only legacy test_v2_optional_overlays.py cellar fixture must add
-  `TriggerDefaults` from the authored classes.json to its root measurement,
-  and `Eligible=True, GeometryMeasured=True, StairAnchorsValid=True,
-  SliceSelected=True` to its synthetic instance. Its old implicit-acceptance
-  fixture now intentionally refuses. Keep its existing overlay/rollback assertions.
-
-Guard command (actual result: `Ran 85 tests`, `OK`):
+Round 2 focused command (run RED, then GREEN):
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_enforce_lint test_enforce_formula_complexity -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_v2_optional_overlays -v
 ```
 
-Legacy fixture check (actual result: `Ran 87 tests`, `FAILED (failures=1)`;
-`authored TriggerDefaults required; no guessed distances`, followed by
-`AssertionError: 2 != 0` in the cellar overlay smoke):
+Actual RED: `Ran 4 tests`, `FAILED (failures=2)`:
+`AssertionError: 0 != 1 : cellar startup must publish one measured-count receipt`;
+legacy smoke printed `authored TriggerDefaults required; no guessed distances`
+and failed with `AssertionError: 2 != 0`.
+Actual GREEN: same command, `Ran 4 tests`, `OK`.
+A further focused RED (`test_hc_cellars -v` with the same environment) recorded
+`AssertionError: False is not true : sampler must not duplicate the module startup receipt`;
+the combined focused command then returned `Ran 4 tests`, `OK` again.
+
+Final guard commands:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_enforce_lint test_enforce_formula_complexity test_v2_optional_overlays -v
+rg -l -i cellar tests/unit
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_enforce_lint test_v2_optional_overlays test_package test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
+python3 -B -m tools.validate.enforce_lint --no-native
 ```
+
+The search returned test_hc_cellars, test_enforce_lint and
+test_v2_optional_overlays. Actual GREEN: `Ran 120 tests`, `OK (skipped=1)`;
+the existing Windows PowerShell execution check belongs to Windows CI.
+Actual lint GREEN: `enforce_lint: pass findings=124 new=0 stale=0 native=no`.
+No lint baseline additions or removals were necessary.
+
+The existing single HC-31 behavioral test now also executes authored startup,
+counting, cached HC-1 status, off/stop handling, repeat-start suppression,
+interrupted/invalid/duplicate/unknown measurement refusal and closed client
+initialization/sampling using explicit synthetic DTO/native IO ports. It retains
+the stair failure, work budgets and generator/rollback checks from round 1.
+The legacy overlay smoke supplies all four evidence booleans and synthetic
+TriggerDefaults explicitly, retaining native DTO/overlay/rollback assertions.
+No evidence requirement was relaxed. Offline evidence only.
+
+Completed integration: HCCellarsModule status/receipt and retained registration;
+shared admission and client allocation/sample guards; legacy synthetic fixture.
+No edits to HCModule.c, config.cpp or furnishing readers are needed.
+
+Remaining lead integration: HC-11 retains consolidated spec → plan → task
+integration. No worker source edits remain deferred to the lead. Native survey,
+qualification protocol/receipts, DayZDiag, normal PBO/server and two-client
+acceptance remain pending as listed above. A future qualification protocol must
+identify individual spaces; class ancestry, SampleCount, Eligible, selection and
+HCV2Admission.Admitted(preference) must never promote an entire class.
+
+Startup inputs reuse HCGroupJson/HCGroupIO with a 32 KiB authored-list limit and
+its existing 1 MiB shared measurement-read cap, 64 classes and 8,192 instances.
+Larger measurement JSON is refused for startup counts; no automatic fallback to
+backup or partial file occurs. The sampler's configured serialization ceiling
+remains 4 MiB, but shared HCGroupIO currently caps actual reads/writes at 1 MiB;
+this shared framework limit is outside HC-31 ownership and is not native-tested.
+Framework reused: HCOperationalStatus/HC-1, HCGroupJson/HCGroupIO,
+HCV2Admission diagnostic, HCUnitBudget/HCWorkBudget, verified store and reversible
+overlay protocol. HCCellarAdmission is the only new admission policy; it adds no
+scheduler, RPC, geometry controller or distances. Nothing observed in DayZ yet.
