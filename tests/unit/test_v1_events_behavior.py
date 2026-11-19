@@ -10,7 +10,6 @@ import unittest
 from tests.unit.test_event_runtime import ROOT, environment, translate, Handle
 from tests.unit import test_event_runtime as event_fixtures
 from tests.unit import test_event_integration as integration_fixtures
-from tests.unit import test_event_ui as ui_fixtures
 from tests.unit import test_event_transport as transport_fixtures
 from tests.unit.test_group_server import EArray
 from tests.unit import test_event_sites as sites_tests
@@ -359,21 +358,13 @@ class V1LifecycleAndPresentation(unittest.TestCase):
         runtime.InfectedKilled(infected, helper.player, helper.ctx)
         self.assertEqual([], receipts)
 
-    def test_menu_displays_server_briefing_and_rejects_unbounded_details(self):
-        fixture = ui_fixtures.EventMenuTests(); fixture.setUp()
-        fixture.client.m_View.Rows[0].Briefing = 'Put the existing supply inside the green barrel.'
-        fixture.menu.Render(fixture.client.GetView()); fixture.menu.m_List.selected = 0
-        fixture.menu.Controls()
-        self.assertIn('inside the green barrel', fixture.menu.m_Detail.text)
-        frame = fixture.client.GetView(); frame.Rows[0].Briefing = 'x' * 769
-        self.assertFalse(fixture.client.ViewValid(frame))
-
-    def test_projection_carries_site_and_objective_instructions_without_identity(self):
+    def test_retired_projection_carries_no_briefing_or_identity(self):
+        # HC-38 retired the quest UI: the transport answers disabled and empty, so no
+        # site/objective briefing (or player identity) reaches a client.
         fixture = transport_fixtures.EventTransportTests(); fixture.setUp()
-        row = fixture.handshake().Rows[0]
-        self.assertIn('synthetic-site', row.Briefing)
-        self.assertIn('SyntheticSupply', row.Briefing)
-        self.assertNotIn('alice', row.Briefing)
+        view = fixture.handshake()
+        self.assertFalse(view.Enabled)
+        self.assertEqual([], view.Rows)
 
 
 def load_hooks(owner, env):
@@ -534,10 +525,7 @@ class V1EventsReviewFixes(unittest.TestCase):
         for count, valid in ((6, True), (7, False)):
             helper.mission.MaxParticipants = count
             self.assertEqual(valid, helper.p.MissionValid(helper.mission, helper.ctx.WorldName), count)
-        client = ui_fixtures.EventClientTests(); client.setUp(); client.ready()
-        for count, valid in ((6, True), (7, False)):
-            frame = client.frame(seq=2); frame.Rows[0].MaxParticipants = count
-            self.assertEqual(valid, client.client.ViewValid(frame), count)
+        # The retired client view no longer validates rows (HC-38); the server cap is the gate.
         source = (ROOT / '4_World/Events/HCEventDirector.c').read_text()
         self.assertNotRegex(source, r'MaxParticipants > 90|Count\(\) > 90')
 
