@@ -193,6 +193,7 @@ modded class ChernarusPlusData
         m_HCAtmosphereStarted = true;
         if (!m_HCVisualSeasons) { m_HCVisualSeasons = new HCVisualSeasons; }
         m_HCVisualSeasons.HCStart(true);
+        HCWinterTerrainAdmission.HCReport(m_HCVisualSeasons); // HC-50: one fail-closed receipt per start
         m_HCWeatherDay = -1;
         m_HCWeatherSlot = -1;
         m_HCWeatherProfile = "";

@@ -75,13 +75,6 @@ class HCServer
             }
         }
         m_Started = true;
-        // HC-50: one fail-closed white-terrain receipt (no clock is started for it).
-        Mission hcWinterMission = GetGame().GetMission();
-        ChernarusPlusData hcWinterWorld = null;
-        HCVisualSeasons hcWinterSeasons = null;
-        if (hcWinterMission) { hcWinterWorld = ChernarusPlusData.Cast(hcWinterMission.GetWorldData()); }
-        if (hcWinterWorld) { hcWinterSeasons = hcWinterWorld.HCWinterTerrainSeasons(); }
-        HCWinterTerrainAdmission.HCReport(hcWinterSeasons);
         m_LastTick = GetGame().GetTickTime();
         m_OperationalRefreshAt = m_LastTick + 15;
         m_Perf.Start(60);
