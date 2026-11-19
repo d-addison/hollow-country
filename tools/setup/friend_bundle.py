@@ -47,7 +47,7 @@ SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'wor
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
                 'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'firearms_roster.json',
-                'map_overlay.py', 'infected_variety.py')
+                'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'
 
@@ -455,6 +455,11 @@ def build(args):
             overlays.read(lts.ROOT / 'tools/setup' / name)
     except (OSError, ValueError) as error:
         raise Refused('optional overlay source missing or invalid: %s' % error) from error
+    habitat_event = 'ecology/events.append.xml'
+    try:
+        habitat_event_data = overlays.read(SOURCE / habitat_event)
+    except FileNotFoundError as error:
+        raise Refused('HC149_HABITAT_SOURCE_MISSING: ' + habitat_event) from error
     m_keep, m_drop = mission_files(mission)
     # Remove dependency-derived bytes before selecting our authored overlay.
     prefix = 'mpmissions/' + mission.name + '/'
@@ -486,6 +491,9 @@ def build(args):
     for path in sorted(SOURCE.rglob('*.json')):
         rel = path.relative_to(SOURCE).as_posix()
         authored['hollow-country/' + rel] = overlays.read(path)
+    # The selective habitat XML is authored input too; never inherit a stale
+    # local mission copy or omit it when the local server has not installed it.
+    authored['hollow-country/' + habitat_event] = habitat_event_data
     plan += [('mission-overlay/' + rel, data) for rel, data in sorted(authored.items())]
     m_drop += len(m_keep) - len(authored.keys() & clean.keys())
     core = overlays.xml(clean['cfgeconomycore.xml'], 'economycore')

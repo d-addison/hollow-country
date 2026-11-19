@@ -546,6 +546,12 @@ def bundle_candidate(bundle, mission):
     No stock mission is transported. Unknown edits to patched values refuse.
     """
     bundle, mission = safe(bundle), mission_target(mission)
+    habitat_stock = {}
+    for name in ('cfgenvironment.xml', 'db/events.xml'):
+        try:
+            habitat_stock[name] = read(mission / name)
+        except FileNotFoundError as error:
+            raise ValueError('HC149_HABITAT_STOCK_MISSING: ' + name) from error
     patch = json.loads(read(bundle / 'mission-patches.json'))
     candidate = {'mission': str(mission), 'files': {}, 'before': {}, 'sources': {}}
 
@@ -607,7 +613,7 @@ def bundle_candidate(bundle, mission):
     habitat = json.loads(read(habitat_root / 'habitat-overrides.json'))
     habitat_files = HCWildlife_habitats.build(
         habitat, read(habitat_root / 'events.append.xml'),
-        read(mission / 'cfgenvironment.xml'), read(mission / 'db/events.xml'),
+        habitat_stock['cfgenvironment.xml'], habitat_stock['db/events.xml'],
         HCWildlife_habitats.REQUIRED_CLASSES)
     for relative, data in habitat_files.items():
         put_file(relative, data)

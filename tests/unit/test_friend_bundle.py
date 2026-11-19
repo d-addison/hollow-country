@@ -26,6 +26,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import unittest.mock
+import xml.etree.ElementTree as ET
 
 from tools.setup import friend_bundle as fb
 
@@ -163,6 +164,21 @@ else:
         from tools.package import optional_overlays as overlays
         source = self.tmp / 'authored'
         shutil.copytree(fb.lts.ROOT / 'mission/hollow-country', source)
+        # Synthetic stock mirrors only the selective delta's required sheep fields.
+        events = ET.fromstring((source / 'ecology/events.append.xml').read_bytes())
+        children = events.find('event/children')
+        children.remove(children.find("child[@type='Animal_OvisGmelini']"))
+        ET.SubElement(events, 'event', {'name': 'SyntheticUnrelated'})
+        stock = {
+            'cfgenvironment.xml': b'<env><territories><file path="env/hare_territories.xml"/>'
+                b'<file path="env/hare_territories.xml"/></territories></env>\n',
+            'db/events.xml': ET.tostring(events) + b'\n',
+        }
+        manifest_path = source / 'ecology/habitat-overrides.json'
+        manifest = json.loads(manifest_path.read_bytes())
+        manifest['Sources'] = [{'Path': name, 'Sha256': hashlib.sha256(data).hexdigest()}
+                               for name, data in stock.items()]
+        manifest_path.write_text(json.dumps(manifest))
         missing = source / 'ce/events.xml'
         data = missing.read_bytes()
         missing.unlink()
@@ -183,22 +199,57 @@ else:
             policy.write_bytes(policy_data)
             code, text = self.run_cli()
         self.assertEqual(code, 0, text)
+        self.assertIn('tools/package/HCWildlife_habitats.py', self.files())
         self.assertFalse(any(name.startswith('mpmissions/') for name in self.files()))
         self.assertFalse(any(name.endswith('db/globals.xml') for name in self.files()))
         target = self.tmp / 'friend-mission'
         put(target, 'cfgeconomycore.xml', '<economycore/>')
-        original = (target / 'cfgeconomycore.xml').read_bytes()
+        for name, data in stock.items():
+            put(target, name, data)
+        original = {p.relative_to(target).as_posix(): p.read_bytes()
+                    for p in target.rglob('*') if p.is_file()}
+        self.assertEqual((self.out / 'mission-overlay/hollow-country/ecology/events.append.xml').read_bytes(),
+                         (source / 'ecology/events.append.xml').read_bytes())
         candidate = overlays.bundle_candidate(self.out, target)
         overlays.install(candidate, target, managed_name=overlays.BUNDLE_MANAGED)
         self.assertTrue((target / overlays.BUNDLE_MANAGED / 'receipt.json').is_file())
         self.assertIn(b'hollow-country/ce', (target / 'cfgeconomycore.xml').read_bytes())
+        installed_events = ET.fromstring((target / 'db/events.xml').read_bytes())
+        self.assertEqual(len(installed_events.findall("event[@name='AnimalSheep']")), 1)
+        self.assertIsNotNone(installed_events.find("event/children/child[@type='Animal_OvisGmelini']"))
+        self.assertEqual(len(ET.fromstring((target / 'cfgenvironment.xml').read_bytes()).findall(
+            "territories/file[@path='env/hare_territories.xml']")), 1)
         for path in source.rglob('*.json'):
             relative = path.relative_to(source)
             if relative.parts[0] in ('events',):
                 self.assertEqual((target / 'hollow-country' / relative).read_bytes(), path.read_bytes())
         overlays.rollback(target, managed_name=overlays.BUNDLE_MANAGED)
-        self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), original)
+        self.assertEqual({p.relative_to(target).as_posix(): p.read_bytes()
+                          for p in target.rglob('*') if p.is_file()}, original)
         self.assertFalse((target / 'hollow-country/events/scene-chains.json').exists())
+
+    def test_missing_authored_habitat_event_refuses_even_if_local_mission_has_it(self):
+        import shutil
+        source = self.tmp / 'authored'
+        shutil.copytree(fb.SOURCE, source)
+        (source / 'ecology/events.append.xml').unlink()
+        put(self.mission, 'hollow-country/ecology/events.append.xml', '<events/>')
+        with unittest.mock.patch.object(fb, 'SOURCE', source):
+            with self.assertRaisesRegex(fb.Refused, 'HC149_HABITAT_SOURCE_MISSING.*ecology/events.append.xml'):
+                fb.build(__import__('argparse').Namespace(out=self.out, mission=self.mission,
+                    profiles=self.profiles, mod=self.mod, addon=self.addon,
+                    server_cfg=self.cfg, ce_coverage_result=None))
+            code, text = self.run_cli()
+        self.assertEqual(code, 2, text)
+        self.assertIn('HC149_HABITAT_SOURCE_MISSING', text)
+        self.assertFalse(self.out.exists())
+
+    def test_authored_habitat_event_replaces_stale_local_copy_in_bundle(self):
+        put(self.mission, 'hollow-country/ecology/events.append.xml', '<events><!--synthetic stale--></events>')
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        self.assertEqual((self.out / 'mission-overlay/hollow-country/ecology/events.append.xml').read_bytes(),
+                         (fb.SOURCE / 'ecology/events.append.xml').read_bytes())
 
     def test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools(self):
         """SYNTHETIC exported tools must import without the private checkout on sys.path."""
@@ -209,7 +260,7 @@ else:
         self.assertIn('tools/package/ce_extensions.py', self.files())
         result = subprocess.run([sys.executable, '-B', '-I', '-c',
             "import sys; sys.path.insert(0, sys.argv[1]); "
-            "from tools.package import ce_extensions; "
+            "from tools.package import ce_extensions, HCWildlife_habitats; "
             "ce_extensions.checked_core(b'<economycore><ce folder=\"hollow-country/ce\">"
             "<file name=\"types.xml\" type=\"types\"/></ce></economycore>')", str(self.out)],
             cwd=self.out, capture_output=True, text=True)

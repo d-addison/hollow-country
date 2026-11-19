@@ -30,6 +30,8 @@ class WildlifeHabitats(unittest.TestCase):
 
     def test_enabled_default_replaces_one_existing_event_and_deduplicates_hare(self):
         result = self.build()
+        for data in result.values():
+            self.assertTrue(data.startswith(b'<?xml version="1.0" encoding="UTF-8"?>\n'))
         events = ET.fromstring(result['db/events.xml'])
         self.assertEqual(1, len(events.findall("event[@name='AnimalSheep']")))
         self.assertEqual(1, len(events.findall("event[@name='SyntheticUnrelated']")))

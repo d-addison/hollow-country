@@ -35,6 +35,7 @@ from tools.setup import friend_bundle as fb
 from tools.setup import friend_install as fi
 from tools.setup import workshop_sync as ws
 
+REAL_OVERLAY_MAIN = fi.overlays.main
 ROOT = Path(__file__).resolve().parents[2]
 MISSION = 'dayzOffline.chernarusplus'
 SERVER_CFG = '''hostname = "Local";
@@ -263,6 +264,31 @@ def status_of(text, step):
 
 
 class DryRunTests(InstallerCase):
+    def test_missing_habitat_stock_surfaces_as_overlay_refusal_without_writes(self):
+        # Real bundle planner; only stock and dependency presence are synthetic.
+        fi.overlays.main.side_effect = REAL_OVERLAY_MAIN
+        put(self.bundle, 'mission-overlay/hollow-country/ecology/habitat-overrides.json', '{"Enabled": false}')
+        put(self.bundle, 'mission-overlay/hollow-country/ecology/events.append.xml', '<events/>')
+        write_manifest(self.bundle)
+        stock = {'cfgenvironment.xml': b'<env><territories/></env>', 'db/events.xml': b'<events/>'}
+        for missing in stock:
+            with self.subTest(missing=missing):
+                for name, data in stock.items():
+                    put(self.mission, name, data)
+                (self.mission / missing).unlink()
+                before = live_snapshot(self.server)
+                dry_before = snapshot(self.server)
+                code, out, err = self.run_cli()
+                self.assertEqual(code, 0, out + err)
+                self.assertEqual(status_of(out, 5), 'blocked')
+                self.assertIn('bundle-plan refused: refused: HC149_HABITAT_STOCK_MISSING: ' + missing, out)
+                self.assertEqual(snapshot(self.server), dry_before)
+                code, out, err = self.apply()
+                self.assertEqual(code, 2, out + err)
+                self.assertIn('HC149_HABITAT_STOCK_MISSING: ' + missing, out + err)
+                # Apply retains its rollback audit, while restoring every live byte.
+                self.assertEqual(live_snapshot(self.server), before)
+
     def test_default_is_a_dry_run_that_lists_ten_steps_in_order_and_changes_nothing(self):
         before = snapshot(self.tmp)
         code, out, err = self.run_cli()
