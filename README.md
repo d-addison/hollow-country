@@ -10,7 +10,7 @@ Hollow Country adds finite scavenging, salvage, infected behaviour, shared navig
 
 ## Features
 
-Every feature is on by default. Each one can be switched off with the settings and opt-out markers listed with it. Gap: installed loot, inventory and vehicle overlays require a stopped-server rollback to remove. [#203](https://github.com/d-addison/hollow-country/issues/203)
+Every feature is on by default. Each one can be switched off with the settings and opt-out markers listed with it. Installed loot and vehicle overlays use stopped-server receipt rollback. Gap: inventory sizing has no receipt rollback; removing it requires a rebuilt addon. [#203](https://github.com/d-addison/hollow-country/issues/203)
 
 A setting of `false` disables its feature; switches shared by several features disable that whole area. Setting names below refer to the tables in [Server settings](#server-settings-reference). An opt-out such as `fuel_siphon.disable` means an empty file under `HollowCountry/acceptance/` in the server profile, absent by default. Remove it and restart to restore the preference. Missing routes or actors are described beside the affected feature.
 
@@ -21,11 +21,11 @@ Each feature has one small test mark. **Tested locally** means recorded working 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
 | **Finite searching** | Searching takes time and draws from finite supplies; searched places retain depletion history. | `EnableSearch=true`; `MaxBoundSearchSites=256`; `interior_search.disable`. | *In-game test pending* |
-| **House and cabinet search** | House search reports a refusal rather than silently granting loot when supply is unavailable. Gap: the pilot cabinet prompt has no server-known site list. [#152](https://github.com/d-addison/hollow-country/issues/152) | `EnableSearch=true`; `interior_search.disable`. | *In-game test pending* |
-| **Furnished interiors** | Compatible houses receive contextual furniture and clutter with bounded props. Gap: unmeasured building placements retain vanilla interiors instead of added furnishings. [#199](https://github.com/d-addison/hollow-country/issues/199) | `EnableInteriors=true`; `MaxActiveInteriors=12`, `MaxPropsPerInterior=5`, `MaxFurnishedProps=1500`; `interior_placement.disable`. | *Needs a two-player test* |
+| **House and cabinet search** | House search names unavailable supply. Bound cabinets offer a six-second search after a server-confirmed site check, including refresh sites; decorative cabinets do not offer it. | `EnableSearch=true`; `interior_search.disable`. | *In-game test pending* |
+| **Furnished interiors** | Compatible houses receive contextual furniture and clutter with bounded props. Gap: missing measured prop boxes and building placements leave unqualified interiors vanilla. [#199](https://github.com/d-addison/hollow-country/issues/199) | `EnableInteriors=true`; `MaxActiveInteriors=12`, `MaxPropsPerInterior=5`, `MaxFurnishedProps=1500`; `interior_placement.disable`. | *Needs a two-player test* |
 | **Floor spots and scarcity** | The installed economy adds contextual floor spots across 149 building types and scales ordinary loot by 2 while keeping weapons and ammunition separately budgeted. Gap: the 1,222 extra floor points have no keep-or-quarantine disposition. [#179](https://github.com/d-addison/hollow-country/issues/179) | Loot-point `Multiplier=2.0`; `SearchDensityScale=0` keeps density scale 1; installed overlays require rollback. | *In-game test pending* |
 | **Firearms and ammunition** | Native weapons, SNAFU Weapons and Tactical Flava use selected classes and family budgets, so recolours share scarcity. The authored native roster has 78 weapon classes in 53 families, 50 magazine classes and 47 ammunition sources; see the [firearms reference](docs/FIREARMS.md). | Package selections and family budgets are install-time controls; `--no-datamined` omits the datamined additions. | *In-game test pending* |
-| **Useful equipment and storage** | Clothing, packs, tools, food and medical ingredients gain contextual supply routes. Backpack rows scale by 1.5; eligible small items occupy less space. Native water contamination and medicine rules remain intact; see [equipment coverage](docs/EQUIPMENT_COVERAGE.md). Gap: 17 proposed equipment floor-supply routes are withheld. [#199](https://github.com/d-addison/hollow-country/issues/199) | `inventory-sizes.json` controls package-time size rules; `--no-datamined` omits additional supply entries. | *In-game test pending* |
+| **Useful equipment and storage** | Clothing, packs, tools, food and medical ingredients use contextual finite supply routes, including all 17 equipment floor-supply additions. Backpack rows scale by 1.5; eligible small items occupy less space. Native water contamination and medicine rules remain intact; see [equipment coverage](docs/EQUIPMENT_COVERAGE.md). | `inventory-sizes.json` controls package-time size rules; `--no-datamined` omits additional supply entries. | *In-game test pending* |
 | **Revisit supplies** | World history schedules later searches against finite stock rather than refilling every restart. | `EnableWorld=true`, `EnableSearch=true`; `SearchDensityScale=0`. | *In-game test pending* |
 
 ### Crafting, recovery and lights
@@ -49,16 +49,16 @@ Each feature has one small test mark. **Tested locally** means recorded working 
 | **Horde migration** | World history assigns movement along authored patrol waypoints. | `EnableWorld=true`; `EnableHordes=true`. | *In-game test pending* |
 | **Doors and door pressure** | Door policies let eligible infected open or pressure doors without blocking player routes. | `EnableInfected=true`. | *Needs a two-player test* |
 | **Reach and vulnerable positions** | Reach policies use attacks and steering against accessible low roofs, ladders and vehicles. There is no teleport correction. | `EnableInfected=true`. | *In-game test pending* |
-| **Postures and visual variety** | Appearance substitutions, role policies and the native crawler idle hold provide variety. Gap: sitting rest/wake, prone sleepers and riser modes are refused. [#121](https://github.com/d-addison/hollow-country/issues/121) | `EnableInfectedVariety=true`; `EnableGroupScaling=true` controls group-size scaling. | *Needs a two-player test* |
+| **Postures and visual variety** | Appearance substitutions and role policies use native stance, idle and crawler wake modes. Calm crawlers can rest in catalogued rooms or near tracked corpses; gunfire and native wake logic interrupt rest. Gap: wreck/roadside clusters, fresh bodies, risers and custom animation transitions remain missing. [#121](https://github.com/d-addison/hollow-country/issues/121) | `EnableInfectedVariety=true`; `EnableGroupScaling=true` controls group-size scaling; LOD `VarietyNonCalmHoldSeconds=600`. | *Needs a two-player test* |
 | **Sitters** | An original sitting-infected animation supplies the sitter pose. | `EnableInfectedVariety=true`; admin `sitter` uses normal admission. | *Needs a two-player test* |
 | **Death reactions** | Death selection changes the native default to an impulse reaction while preserving corpse access. The engine exposes no infected ragdoll API. | `infected_deaths.disable` turns it off. | *Needs a two-player test* |
-| **Distance-based infected work** | Infected LOD reduces distant processing with bounded observation and population accounting. Virtual herds keep a distant herd as data and bring it back as bodies when players come near. Gap: no herd seeds are authored yet, so no virtual herd forms. [#135](https://github.com/d-addison/hollow-country/issues/135) | `EnableInfected=true`; the infected LOD profile (`$profile:HollowCountry/Infected/lod.json`) uses `EnableLOD=true` and `EnableVirtualHerds=true` (set `false` to opt out) and controls distance bands; see the [module reference](docs/MODULE_STATUS.md). | *Needs a two-player test* |
+| **Distance-based infected work** | Infected LOD reduces distant work. Eight inland ChernarusPlus seeds support virtual herds that materialise near players under observer checks. Older settings migrate to schema 3 and add seeds to empty lists; non-empty custom lists and schema-2 opt-outs are preserved. | `EnableInfected=true`; profile `HollowCountry/Infected/lod.json`: `EnableLOD=true`, `EnableVirtualHerds=true`; distance and population defaults are listed below. | *Needs a two-player test* |
 
 ### Stamina, groups and navigation
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Stamina and weight** | Continuous movement uses one quarter of normal drain, recovery is 2.5 times normal and the weight penalty is halved. Separate stamina and weight bars show effort and burden; jumping and melee retain native costs. | Stamina `Settings.Enabled=true`, `ContinuousExertionScale=0.25`, `RecoveryScale=2.5`, `WeightPenaltyScale=0.5`. | *Tested locally* |
+| **Stamina and weight** | Continuous movement uses one quarter of normal drain, recovery is 2.5 times normal and the weight penalty is halved. Separate stamina and weight bars show effort and burden; jumping and melee retain native costs. | Stamina `Settings.Enabled=true`, `ContinuousExertionScale=0.25`, `RecoveryScale=2.5`, `WeightPenaltyScale=0.5`. | *In-game test pending* |
 | **Groups and shared map** | Invite teammates, manage membership and use world/map teammate icons. Press M, the rebindable DayZ map key, to pan, zoom and share editable markers and notes. | `EnableGroups=true`. | *Needs a two-player test* |
 | **Team pings and death pins** | Group pings and death-pin permissions restrict information to eligible teammates. | `EnableTeamPing=true`; `EnableGroups=true`. | *Needs a two-player test* |
 | **Discovery and received leads** | Shelter discoveries and received leads add appropriate group pins without exposing unreceived information. | `EnableTravel=true`, `EnableLeads=true`; `EnableGroups=true` for shared pins; group members share visited places when `ShareDiscovery=true` in `$profile:HollowCountry/Groups/settings.json` (default). | *Needs a two-player test* |
@@ -69,7 +69,7 @@ Each feature has one small test mark. **Tested locally** means recorded working 
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Trail shelters** | Shared shelters offer places to stop and record discoveries on the group map. Gap: five additional shelter candidates are excluded from placement until their access surveys are complete. [#200](https://github.com/d-addison/hollow-country/issues/200) | `EnableTravel=true`. | *In-game test pending* |
+| **Trail shelters** | Shared shelters offer places to stop and record discoveries. Gap: all five additional candidates stay excluded; stock roof anchors are checked, but native path samples and usable room/prop data are missing. [#200](https://github.com/d-addison/hollow-country/issues/200) | `EnableTravel=true`. | *In-game test pending* |
 | **Wreck salvage** | Eligible wrecks hold finite parts rather than an unlimited salvage source. The server records claims and refuses unsupported wrecks. | `EnableTravel=true`. | *In-game test pending* |
 | **Repairable transport** | The installed travel content includes common cars needing real parts, a few boats and many bicycles. RaG vehicle repairs and bicycle animations come from the published dependencies. | `EnableTravel=true` controls travel services; installed vehicle/bicycle overlays need rollback to remove. | *Needs a two-player test* |
 | **Vehicle recovery** | The vehicle-flip action checks nearby helpers or a crowbar, then applies at most three bounded torque/lift impulses with safety checks and a cooldown. | `EnableVehicleFlip=true`. | *In-game test pending* |
@@ -79,42 +79,45 @@ Each feature has one small test mark. **Tested locally** means recorded working 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
 | **AI sites and patrols** | The Expansion AI addon supplies armed patrols and checkpoints at configured sites. Actor counts share the server AI limits; the provider has ordinary damage and finite ammunition. | Addon provider `Enabled=true`; `pve_patrols.disable`; `AILimits.MaxActiveSites=15`, `AILimits.MaxActiveAI=72`. | *In-game test pending* |
-| **AI self-defence and gestures** | Survivors react to threats, observed gestures and remembered betrayal through the addon. | `EnableEncounters=true`; addon limits bound signal work and memory. | *In-game test pending* |
-| **Scavengers and pickers** | Picker records load surveyed routes and journal real-item custody for scavenging runs. Gap: the group walk and return receipt are not wired, so no scavenging trip walks yet. [#144](https://github.com/d-addison/hollow-country/issues/144) | `EnableEncounters=true`; `AILimits.PartyMin=2`, `AILimits.PartyMax=6`. | *In-game test pending* |
-| **AI trade and caravans** | Trade exchanges real items between nearby AI parties using reciprocal, journalled transfers. Gap: no funded trade pair is offered, and the caravan walking provider refuses trips. [#145](https://github.com/d-addison/hollow-country/issues/145) | `EnableEncounters=true`; `AILimits.MaxParties=24`. | *In-game test pending* |
-| **Faction conflict** | Faction conflict records outcomes from observed actors and preserves finite faction strength. Gap: no opposed pair is offered, so conflict and territory shifts do not occur. [#146](https://github.com/d-addison/hollow-country/issues/146) | `EnableEncounters=true`; `AILimits.FactionStrengthMax=24`. | *In-game test pending* |
+| **AI self-defence and gestures** | Survivors react to raised weapons, surrender and perceived greetings. A greeting needs fresh mutual sight and a greeting-specific acknowledgement. Neutral hits and kills feed bounded faction betrayal memory. Gap: attack, rescue-shot, near-miss and grudge-expiry responses need play checks. [#139](https://github.com/d-addison/hollow-country/issues/139) | `EnableEncounters=true`; `ai/sites.json`: `MaxSignalWorkPerSecond=8`, `MaxBetrayalRows=128`, `BetrayalRetentionSeconds=172800`; `ai_trade_emote_ack.disable` opts out of trade acknowledgement. | *Needs a two-player test* |
+| **Scavengers and pickers** | One ledger party seeds per surveyed scavenger site. Existing Expansion groups walk outbound and return routes with real-item custody and restored patrols. Surveyed endpoint crates use finite authored stock and player-clear refill checks. Gap: an invalid cache survey silently prevents cache work. [#205](https://github.com/d-addison/hollow-country/issues/205) | `EnableEncounters=true`; `pve_patrols.disable`; source defaults `MaxConcurrentTrips=1`, `PartyCooldownSeconds=900`; `ai/picker-routes.json` controls routes, stock and cache limits below. | *In-game test pending* |
+| **AI trade and caravans** | Friendly funded camps barter real carried surplus. Existing groups walk bounded installed-road routes, greet in mutual sight, exchange items and return. Confirmed cargo loss debits both camp allocations once; uncertain restart receipts are quarantined. | `EnableEncounters=true`; `ai_caravans.disable`, `ai_trade_emote_ack.disable`; `ai/trade-recipes.json` and `ai/caravans.json` tune pairing, stock and journeys below. | *In-game test pending* |
+| **Faction conflict** | Opposed live parties fight under native combat observation. Distant conflicts update territory within a durable daily quota without inventing actor deaths or loot. Territory outcomes persist; existing infected can pressure camps. | `EnableEncounters=true`, `EnableWorld=true`; profile `faction-conflict.json`: `Enabled=true`, `FarMeters=1500`, `CooldownSeconds=604800`, `MaxDailyOutcomes=2`; further limits below. | *In-game test pending* |
 | **Holdouts** | Killable, lootable survivor groups occupy places with real caches and a seven-day return lockout, including downtime. | `EnableEncounters=true`; `AILimits.HoldoutMin=3`, `AILimits.HoldoutMax=6`, `AILimits.MaxHoldouts=48`. | *In-game test pending* |
-| **Camps and neighbours** | Fire, shelter and storage support camp recognition, three tiers, visitors and mailboxes. Warned probes can pressure mature camps from day 14. Gap: AI theft from unattended camp crates is refused until a travelling party can carry the items. [#201](https://github.com/d-addison/hollow-country/issues/201) | `EnableCamps=true`; `AILimits.CampMin=2`, `AILimits.CampMax=6`, `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *Needs a two-player test* |
-| **Camp respawn and claims** | Eligible groups use camp respawn and a single building claim with construction restrictions. | `EnableCampRespawn=true`, `EnableCamps=true`, `EnableGroups=true`. | *Needs a two-player test* |
+| **Camps and neighbours** | Fire, shelter and storage support recognition, three tiers, visitor eligibility and mailboxes. Warned probes can pressure mature camps from day 14. Gap: physical visitor/raid request hooks remain unavailable. [#203](https://github.com/d-addison/hollow-country/issues/203) | `EnableCamps=true`; `camp_probes.disable`; `AILimits.CampMin=2`, `AILimits.CampMax=6`, `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *Needs a two-player test* |
+| **Camp respawn and claims** | Eligible groups use camp respawn. One building claim per group restricts construction and setting native door locks to group members; native unlocking, lockpick wear and raids retain their rules. Member visits renew the claim. Gap: physical player-base raid dispatch is missing (`PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE`). [#151](https://github.com/d-addison/hollow-country/issues/151) | `EnableCampRespawn=true`, `EnableCamps=true`, `EnableGroups=true`; `building_claims.disable`; `building-claims-config.json`: `ExpiryDays=30`, `VisitRadiusMeters=25`, `ActionReachMeters=2`. | *Needs a two-player test* |
 | **Settlements and world materialisation** | Persistent settlement records select occasional occupation, parties or traces. Materialisation and its addon bridge bind world proposals to actors; settlement decay records changes over time. | `EnableWorld=true`, `EnableEncounters=true`; `AILimits.MaxOccupiedPlaces=15`, `AILimits.MaxMaterialized=15`, `AILimits.OccupationMin=3`, `AILimits.OccupationMax=8`. | *In-game test pending* |
+| **Base containers** | Native tents, barrels, chests and crates count as storage wherever they are placed. Storage-only camps start at tier one and gain hearth recognition when a real burning fire arrives. Native inventory owns every item. | `EnableCamps=true`, `EnableGroups=true`; `base_containers.disable`; `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *In-game test pending* |
+| **Unattended camp theft** | An outbound picker already in pickup range can carry one eligible real item from an unattended camp crate through its existing custody chain. Attendance and observer checks guard pickup and deposit; carrier loss retains physical cargo. Gap: a destination observer veto ends the return trip, and the first empty/ineligible crate stops the scan. [#208](https://github.com/d-addison/hollow-country/issues/208), [#209](https://github.com/d-addison/hollow-country/issues/209) | `EnableCamps=true`, `EnableEncounters=true`; `camp_theft.disable`; `camp-theft-config.json` has `MaxAttemptsPerDay=1`, `MaxAttendancePlayers=32`, `AttendanceRangeMeters=500`, `ObserverRangeMeters=500`. | *Needs a two-player test* |
 
 ### Events and situations
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Situation director** | Durable situations expose incidents players can observe, exploit or ignore. Gap: moving convoys, rescue/evacuation branches and raid providers are unavailable. [#147](https://github.com/d-addison/hollow-country/issues/147) | `events.disable`, `events_sites.disable`; `EnableEncounters=true`; `AILimits.MaxEncounters=15`. | *In-game test pending* |
-| **Scenes and police incidents** | Last stands, quarantine, evacuation and police scenes leave contextual props and clues. Stages expire rather than forcing a quest. Gap: nonzero event rewards are blocked. [#147](https://github.com/d-addison/hollow-country/issues/147) | `EnableEncounters=true`; `events_sites.disable` for event-site admission. | *Needs a two-player test* |
+| **Situation director** | Durable incidents let players observe, exploit or ignore nearby trouble. Leased parties walk to hostile funded camps; capped infected use eligible hidden points. Original routes and actual actor outcomes are retained. Gap: vehicle convoys and crash-loot attribution remain missing. [#147](https://github.com/d-addison/hollow-country/issues/147) | `EnableEncounters=true`; `events.disable`, `events_sites.disable`, `w38_situations.disable`, `w38_raids.disable`, `w38_transit.disable`; `W38Situations.*` controls below. | *In-game test pending* |
+| **Scenes and police incidents** | Last stands, quarantine, evacuation and police scenes leave contextual props and clues. Stages expire without requiring a quest. | `EnableEncounters=true`; `events_sites.disable`. | *Needs a two-player test* |
 | **Radio reports and Morse** | A powered PersonalRadio receives faction reports and Morse clues on the correct channel; received leads can be shared with the group. | `EnableLeads=true`. | *Needs a two-player test* |
 | **Dead drops** | A finite dead-drop cache gives a place to investigate; another survivor may already have taken its contents. | `EnableEncounters=true`. | *Needs a two-player test* |
 | **Body stories and notes** | Bodies and rare paper notes carry contextual leads. Notes are capped at one per scene and ten across the world. | `EnableLeads=true`. | *Needs a two-player test* |
-| **Burn events and story chains** | Story kits and burn-event admission connect incidents to finite evidence and stock. Gap: the CE incident source refuses, preventing funded burn chains. [#147](https://github.com/d-addison/hollow-country/issues/147) | `EnableEncounters=true`; `EnableStories=true`, `ArrivalSeconds=21600`, `Window=4`. | *In-game test pending* |
+| **Burn events and story chains** | Story kits and burn incidents lease existing physical stock. Native crash observations and direct cargo ancestry bind eligible spoils without creating, cloning or refilling them. Gap: crash-loot attribution remains incomplete. [#147](https://github.com/d-addison/hollow-country/issues/147) | `EnableEncounters=true`; `w38_incidents.disable`, `w38_rewards.disable`; `EnableStories=true`, `ArrivalSeconds=21600`, `Window=4`. | *In-game test pending* |
 | **Persistent stories and escalation** | New stories arrive on a persistent six-hour schedule; completed stories do not replay. Capped escalation changes world pressure over time. | `EnableWorld=true`; `EnableStories=true`, `ArrivalSeconds=21600`, `Window=4`. | *In-game test pending* |
+| **Event spoils** | Physical reward caches expose existing incident items. Empty receipts do not consume stock history; claimed supplies remain finite. | `EnableEncounters=true`; `w38_rewards.disable`, `w38_incidents.disable`; `W38Situations.MaxIncidents=64`, `W38Situations.MaxIncidentItems=16`. | *In-game test pending* |
 
 ### Ecology, wildlife and foraging
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Wildlife and habitats** | Native wildlife and Ambient Animals supply animal presence around suitable places; observation records separate animals from infected. Gap: feeding, resource seeking and animal-target interactions have no provider, and habitat events remain inert. [#149](https://github.com/d-addison/hollow-country/issues/149) | `EnableAmbientLife=true`; `ecology_migration.disable`; installed animal overlays need rollback. | *In-game test pending* |
-| **Carcasses** | Observed carcasses support world traces such as flies. Gap: authored carcass spawning refuses without economy admission. [#149](https://github.com/d-addison/hollow-country/issues/149) | `EnableAmbientLife=true`; `EnableSignsOfLife=true` for visual traces. | *In-game test pending* |
-| **Forage and herbs** | Forage nodes retain finite claims and refill delays; berries and herbs use the same table throughout the visual year. Native herb behaviour remains intact. Gap: four flora supply routes are refused. [#202](https://github.com/d-addison/hollow-country/issues/202) | `EnableForage=true`; `EnableProgression=true` controls familiarity. | *In-game test pending* |
+| **Wildlife and habitats** | Native brains retain animal behaviour. The habitat overlay mixes sheep and mouflon in the existing sheep event and retains hare territory declarations. Bounded eligibility checks cover animals against infected and wolves against server AI. Gap: resource seeking/consumption, seasonal territory routes, blood trails and carcass attraction remain missing. [#149](https://github.com/d-addison/hollow-country/issues/149) | `EnableAmbientLife=true`; `ecology_migration.disable`, `wildlife_providers.disable`; provider `Enabled=true`, `TargetPairsEnabled=true`; habitat `Enabled=true` is an install-time preference, removed by rollback. | *In-game test pending* |
+| **Carcasses** | Two authored red-deer sites use permanent economy allocations to create finite carcasses out of player sight. Spent sites do not refill after restart; native corpse handling supplies the body. | `EnableAmbientLife=true`; provider `CarcassesEnabled=true`, `MaxCarcasses=2`, `CarcassClass="Animal_CervusElaphus"`; `wildlife_providers.disable`; `EnableSignsOfLife=true` for flies. | *In-game test pending* |
+| **Forage and herbs** | Forage nodes retain finite claims and refill delays. Seven supplements include four native mushroom classes; all use the same finite reservation and custody path throughout the visual year. Native food and herb semantics remain intact. | `EnableForage=true`; `EnableProgression=true` controls familiarity. | *In-game test pending* |
 
 ### Atmosphere
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **Lighting and weather** | Lighting and weather-day profiles alter dusk, overcast and storm conditions while keeping nights readable. Gap: the delegated weather profile requires manual generation and installation. [#202](https://github.com/d-addison/hollow-country/issues/202) | `EnableAtmosphere=true`, `EnableGrade=true`; `atmosphere.disable`. | *In-game test pending* |
+| **Lighting and weather** | Lighting and weather-day profiles alter dusk, overcast and storms while keeping nights readable. The installer automatically generates delegated weather from pinned stock XML and retains backups. Gap: weather staging can fail across drives. [#204](https://github.com/d-addison/hollow-country/issues/204) | `EnableAtmosphere=true`, `EnableGrade=true`; `atmosphere.disable`; installer `--no-weather` omits weather delegation. | *In-game test pending* |
 | **Colour grade** | A rebindable grade control cycles personal colour-grade intensity from 0 to 100% in 10% steps; zero restores the vanilla presentation. | `EnableGrade=true`; `ClientPresentationMask=15`, grade bit 2. | *In-game test pending* |
-| **Visual seasons** | A running-server clock changes visual seasons without new cold penalties; the client receives seasonal presentation and forecasts. Gap: white winter terrain has no admitted source. [#150](https://github.com/d-addison/hollow-country/issues/150) | `EnableVisualSeasons=true`; `PhaseSeconds=604800`, `CheckpointSeconds=60`. | *Needs a two-player test* |
+| **Visual seasons** | A running-server clock changes visual seasons, presentation and forecasts without new cold penalties. Native snowfall remains available. Gap: white winter ground has no supported live terrain/surface provider. [#150](https://github.com/d-addison/hollow-country/issues/150) | `EnableVisualSeasons=true`; `PhaseSeconds=604800`, `CheckpointSeconds=60`. | *Needs a two-player test* |
 | **Cellars and darkness** | Cellar survey and presentation code identify interiors needing darker presentation; the operator-only sampler records geometry when the server profile contains `HollowCountry/measure-cellars`. Darker cellars are admitted without a measured room qualification yet. | `EnableAmbientLife=true`; `ClientPresentationMask=15` governs the available client layers; players can turn darker cellars off with the `HollowCountryDarkCellars` client preference; remove `HollowCountry/measure-cellars` to stop the sampler. | *Needs a two-player test* |
 | **Signs of life** | Lit windows, chimney smoke and carcass flies provide environmental clues. | `EnableSignsOfLife=true`; `ClientPresentationMask=15`, signs bit 4. | *Needs a two-player test* |
 | **Environmental hints and sound** | Local hints and environmental sound add presentation around world activity. | `EnableAmbientLife=true` controls server admission; `ClientPresentationMask=15`, hints bit 1 and ambient bit 8 control clients. | *Needs a two-player test* |
@@ -123,11 +126,11 @@ Each feature has one small test mark. **Tested locally** means recorded working 
 
 | Feature | Player experience and operation | Switches and tuning | Test |
 | :--- | :--- | :--- | :--- |
-| **World persistence** | World, settlement, camp, lead and item-transfer journals retain history across restarts. A shared save scheduler stages work and handles recoverable files. Gap: the shared save service has no independent operator off-switch. [#203](https://github.com/d-addison/hollow-country/issues/203) | `EnableWorld=true` enables world simulation, escalation, settlement decay, memory, migration and search refresh; `false` disables these consumers. | *In-game test pending* |
-| **Admin test kit** | Authorised admins use Pause to inspect status and exercise normal infected, world, camp and event commands. Actions keep normal caps and report refusal reasons. Gap: COT roles cannot authorise HC access, and fresh dormant spawns and forced camp tiers/visits/raids are unavailable. [#203](https://github.com/d-addison/hollow-country/issues/203) | `EnableAdminMap=true`; the server admin allowlist controls access. | *In-game test pending* |
-| **Debug snapshot and map** | Read-only world snapshots feed a local browser map and the admin Map tab, with counts and selectable world/AI layers. Snapshot replacement is not atomic because the engine has no rename operation. | `EnableDebugSnapshot=true`, `EnableAdminMap=true`. | *Needs a two-player test* |
+| **World persistence** | World, settlement, camp, lead and item-transfer journals retain history. Shared saves stage work; debug snapshot encoding and verified file promotion spread across eight ticks. Turning shared saves off refuses dependent owners at startup, including camps/claims and weather/seasons; owner barrier and shutdown saves remain. | `EnableWorld=true`; profile `performance.json`: `EnableSharedSaves=true` (registry `Performance.EnableSharedSaves`); set `false` and restart to disable shared saves. | *In-game test pending* |
+| **Admin test kit** | Allowlisted admins use Pause for status and normal commands. `camptier` persists a tier from 0 to 3 until normal reclassification. `campvisit`, `campraid` and `dormant` report their missing physical hooks. Gap: COT-role access and physical dormant/visit/raid hooks remain missing. [#203](https://github.com/d-addison/hollow-country/issues/203) Gap: camp kit availability can still appear enabled with controls off. [#207](https://github.com/d-addison/hollow-country/issues/207) | `EnableAdminMap=true`; `AdminControls.disable` disables world controls; server admin allowlist controls access. | *In-game test pending* |
+| **Debug snapshot and map** | Read-only snapshots feed a browser map and the admin Map tab with counts and world/AI layers. Group pins use a rolling anonymous sweep, rather than a simultaneous world sample. Verified staged replacement cannot provide native atomic rename. | `EnableDebugSnapshot=true`, `EnableAdminMap=true`. | *Needs a two-player test* |
 | **Loot map** | The admin Map tab runs a bounded loot query, acknowledges it and retains the latest successful marks. | `EnableAdminMap=true`; see [debug map controls](docs/DEBUG_MAP.md). | *In-game test pending* |
-| **Shared tick budget** | Infected sampling, interior lock expiry and search work draw from one per-tick work allowance; each consumer retains a starvation-prevention unit. | `TickIntervalMs=1000`, `MaxTickWorkItems=32` tune shared work; disable individual consumers with their area switches. | *In-game test pending* |
+| **Shared tick budget** | Twelve consumer IDs share one work allowance, including infected LOD, bases, conflict, trade and situations. Each consumer retains a first-work starvation allowance; retained cursors resume later. | `TickIntervalMs=1000`, `MaxTickWorkItems=32`; `Performance.SliceMs=4`, `Performance.EcologyRowsPerTick=4`, `Performance.InteriorStepsPerTick=1`, `Performance.HoldoutRowsPerTick=1`; area switches disable consumers. | *In-game test pending* |
 
 ## Required mod stack
 
@@ -168,7 +171,7 @@ Server owners:
 3. Install the mission/economy overlays, both Hollow Country addons and their public signing keys. Use the load order above on the server and clients; configure signature checking and review the settings below.
 4. Start the server, inspect admission/refusal logs and join with a matching client. Keep runtime acceptance pending until the relevant feature is played; use two clients for the marked features.
 
-Follow the [friend-server AI runbook](docs/FRIEND_SERVER_AI_RUNBOOK.md), [installation and rollback guide](docs/INSTALL_ROLLBACK.md) and [friend-server configuration](docs/FRIEND_SERVER.md) for exact commands, backups and recovery. Runtime flags do not remove installed mission content; use the installer receipt and rollback procedure for those changes.
+Follow the [friend-server AI runbook](docs/FRIEND_SERVER_AI_RUNBOOK.md), [installation and rollback guide](docs/INSTALL_ROLLBACK.md) and [friend-server configuration](docs/FRIEND_SERVER.md) for exact commands, backups and recovery. Runtime flags do not remove installed mission content. The bundled `tools/package/overlay_remove.py --mission <mission> --overlays loot vehicles --server-stopped` rehearses receipt rollback before applying it; stop the server and retain recovery data. Inventory removal requires a rebuilt addon and is refused by this helper. [#203](https://github.com/d-addison/hollow-country/issues/203) Gap: the portable handoff omits helper dependencies. [#206](https://github.com/d-addison/hollow-country/issues/206)
 
 ## Server settings reference
 
@@ -215,7 +218,7 @@ All switches in this table default to `true`. Set a switch to `false` to turn of
 | `SchemaVersion` | `1` | Shared settings format; only 1 is accepted. |
 | `ClientPresentationMask` | `15` | Client layers: hints=1, grade=2, signs=4, ambient=8. Add allowed bits; 0 disables all four. Range 0–15. |
 | `TickIntervalMs` | `1000` | Core tick interval in milliseconds; 500–10000. |
-| `MaxTickWorkItems` | `32` | Shared tick work allowance; 1–256. Starvation prevention can add up to five items. |
+| `MaxTickWorkItems` | `32` | Shared tick work allowance; 1–256. Starvation prevention can add up to eleven cost-one items. |
 | `MaxActiveHordes` | `2` | Active horde cap; 1–8. |
 | `MaxActiveHordeMembers` | `24` | Active member cap; 1–64. |
 | `MaxActiveInteriors` | `12` | Concurrent active interior cap; 1–32. |
@@ -257,6 +260,128 @@ All switches in this table default to `true`. Set a switch to `false` to turn of
 | `AILimits.MaxCampItems` | `64` | Item cap per camp. |
 | `AILimits.WorldSeed` | `18473` | Deterministic world-selection seed. |
 | `AILimits.MaxObservedAI` | `1024` | Observed AI record cap. |
+
+### Performance, situations and camp theft profiles
+
+These registry prefixes identify separate owners, not nested objects in `HollowCountry/settings.json`. Under the server profile's `HollowCountry/`, `performance.json` uses unprefixed `Performance.*` fields, `w38-situations.json` uses unprefixed `W38Situations.*` fields, and generated `camp-theft-config.json` uses unprefixed `CampTheft.*` fields. For example, write `"EnableSharedSaves": false` in `performance.json`. Situation overrides must contain every policy field; omitted performance keys retain defaults. Restart after editing.
+
+| Registry key | Default | Effect |
+| :--- | :--- | :--- |
+| `W38Situations.Version` | `1` | Configuration format. |
+| `W38Situations.ScanRows` | `8` | Situation candidates examined per slice. |
+| `W38Situations.MaxConcurrent` | `1` | Concurrent situation cap. |
+| `W38Situations.MaxThreats` | `3` | Placed threat cap. |
+| `W38Situations.MaxMembers` | `6` | Borrowed party member cap. |
+| `W38Situations.MaxRouteNodes` | `32` | Situation route-node cap. |
+| `W38Situations.MaxIncidents` | `64` | Physical incident history cap. |
+| `W38Situations.MaxIncidentItems` | `16` | Existing items exposed per incident. |
+| `W38Situations.PhysicalScanObjects` | `64` | Native object scan cap. |
+| `W38Situations.PhysicalScanCargo` | `16` | Native cargo scan cap. |
+| `W38Situations.MaxRaidMeters` | `600` | Maximum raid approach in metres. |
+| `W38Situations.ShelterMeters` | `20` | Shelter proximity in metres. |
+| `Performance.EnableSharedSaves` | `true` | Shared save scheduler preference; false refuses dependent owners before startup. |
+| `Performance.SliceMs` | `4` | Cooperative per-slice time guard in milliseconds; native calls cannot be interrupted. |
+| `Performance.SaveStageTargetMs` | `10` | Cooperative save-stage target in milliseconds; new peaks are logged. |
+| `Performance.EcologyRowsPerTick` | `4` | Maximum ecology rows per tick. |
+| `Performance.InteriorStepsPerTick` | `1` | Maximum interior steps per tick. |
+| `Performance.HoldoutRowsPerTick` | `1` | Maximum holdout rows per tick. |
+| `CampTheft.Version` | `1` | Configuration format. |
+| `CampTheft.MaxAttemptsPerDay` | `1` | Global daily theft attempt cap; debit persists in picker receipts. |
+| `CampTheft.MaxAttendancePlayers` | `32` | Owning-group attendance scan cap. |
+| `CampTheft.AttendanceRangeMeters` | `500` | Attendance radius in metres. |
+| `CampTheft.ObserverRangeMeters` | `500` | Observer radius in metres. |
+
+Situation policy also retains `InfectedClass="ZmbM_CitizenASkinny_Brown"` and `RoadSurface="cp_asphalt1"`. The legacy `Enabled=false` in `events/raids.json` is a decoding field; the default-on runtime uses `w38_raids.disable` to opt out. `w38_situations.disable` disables the situation provider; `w38_transit.disable`, `w38_incidents.disable` and `w38_rewards.disable` disable their respective paths.
+
+### Picker, trade and conflict controls
+
+Mission inputs are under `mission/hollow-country/ai/`. `EnableEncounters=false` disables these services. `pve_patrols.disable` opts out of the Expansion site provider. `ai_caravans.disable` opts out of caravan movement; `ai_trade_emote_ack.disable` opts out of AI trade. These exchanges are between AI parties; players can watch or raid them.
+
+| File / key | Default | Effect |
+| :--- | :--- | :--- |
+| picker-routes.json: `MaxLegMeters` | `400.0` | Maximum surveyed leg length in metres. |
+| picker-routes.json: `ArrivalRangeMeters` | `2.5` | Observed arrival range in metres. |
+| picker-routes.json: `MapExtentMeters` | `16000` | Survey coordinate bound. |
+| picker-routes.json: `MaxRoutes` | `8` | Survey route cap. |
+| picker-routes.json: `MaxWaypoints` | `8` | Survey waypoints per route. |
+| picker-routes.json: `MaxScannedObjects` | `128` | Endpoint native object scan cap. |
+| picker-routes.json: `MaxCargoScan` | `16` | Endpoint cargo inspection cap. |
+| picker-routes.json: `CacheClass` | `"WoodenCrate"` | Native endpoint crate class. |
+| picker-routes.json: `CacheCooldownSeconds` | `604800` | Player-clear refill delay in seconds. |
+| picker-routes.json: `CacheMaxItems` | `16` | Items per source crate cap. |
+| picker-routes.json: `CacheMaxLootRows` | `8` | Authored stock row cap. |
+| trade-recipes.json: `TimeoutSeconds` | `300` | Exchange timeout in seconds. |
+| trade-recipes.json: `TransferRangeMeters` | `2.5` | Native transfer range in metres. |
+| trade-recipes.json: `GestureRequests` | `3` | Bound on greeting requests. |
+| trade-recipes.json: `InventoryScanLimit` | `64` | Bound on native inventory inspection. |
+| trade-recipes.json: `OfferIntervalSeconds` | `900` | Interval between offers in seconds. |
+| trade-recipes.json: `MinimumCampReserve` | `4` | Minimum retained camp supply. |
+| trade-recipes.json: `LossSupplyDebit` | `1` | Allocation loss per camp on confirmed journey loss. |
+| trade-recipes.json: `MaxLossReceipts` | `128` | Retained loss receipt cap. |
+| trade-recipes.json: `PairCandidatesPerTick` | `1` | Camp pair candidates per tick. |
+| trade-recipes.json: `MinimumCampMembers` | `2` | Minimum eligible party members. |
+| caravans.json: `ArrivalRangeMeters` | `2.5` | Observed arrival range in metres. |
+| caravans.json: `CooldownSeconds` | `900` | Delay between journeys in seconds. |
+| caravans.json: `MaxTripHistory` | `16` | Retained journey history cap. |
+| caravans.json: `RoadDataPath` | `"DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads"` | Installed Expansion road graph input. |
+| caravans.json: `RoadMapWidth` | `14200` | Road graph map width. |
+| caravans.json: `RoadMapHeight` | `15500` | Road graph map height. |
+| caravans.json: `MaxRoadNodes` | `40000` | Road graph node cap. |
+| caravans.json: `MaxRoadDegree` | `8` | Road junction degree cap. |
+| caravans.json: `RoadWorkPerTick` | `256` | Road search work per tick. |
+| caravans.json: `MaxRouteNodes` | `128` | Road route-node cap. |
+| caravans.json: `MaxApproachMeters` | `100` | Maximum approach to road in metres. |
+| caravans.json: `MaxJourneyMeters` | `250` | Maximum journey length in metres. |
+| caravans.json: `ReturnTimeoutSeconds` | `600` | Return timeout in seconds. |
+| caravans.json: `RoadNodesPerWorkUnit` | `8` | Road search nodes charged per shared work unit. |
+
+Picker `CacheLoot` contains `TunaCan` ×2, `Rag` ×2, `WaterBottle` ×1 and `Mag_IJ70_8Rnd` ×1. Homes start empty; sources receive this capped stock. The five routes use `HomeIndex=0`, `SourceIndex=2`. Existing crates are adopted without replaying stock. Source defaults `MaxConcurrentTrips=1`, `PartyCooldownSeconds=900` and `TransferRangeMeters=2.5` are compiled defaults, not JSON operator keys; the single journal remains the structural trip limit.
+
+Trade recipe `RecipeId="bandage-for-food"` exchanges `LeftClass="BandageDressing"` for `RightClass="TunaCan"`. Caravan identity fields retain `CorridorId="hc36-first-corridor"`, `FromCamp="funded-source"`, `ToCamp="friendly-destination"` and `SurveySha256=""`; the live provider uses bounded installed-road search, not that empty survey receipt as proof.
+
+`HollowCountry/faction-conflict.json` under the server profile contains `Version=1`, `Enabled=true`, `FarMeters=1500`, `CooldownSeconds=604800`, `MaxDailyOutcomes=2`, `MaxPlayers=64`, `PressureMeters=120` and `ResolveEqualStrength=true`. Set `Enabled=false` to stop conflict production. Far outcomes affect territory only; nearby resolutions require observed combat or new casualties.
+
+`HollowCountry/building-claims-config.json` contains `Version=1`, `ExpiryDays=30`, `VisitRadiusMeters=25` and native `ActionReachMeters=2`. Claim expiry counts running-server absence; member presence renews it. `building_claims.disable` disables claims; `base_containers.disable` disables native storage recognition; `camp_probes.disable` disables probes. These use the existing camps/groups owners and caps.
+
+### Infected distance and herd profile
+
+`HollowCountry/Infected/lod.json` under the server profile uses `SchemaVersion=3`. Set `EnableLOD=false` to stop distance classification or `EnableVirtualHerds=false` to stop virtual herds. Migration from settings schema 2 to 3 adds eight seeds to an empty list while preserving explicit false preferences and custom non-empty seeds. Partial or invalid profiles are refused without overwriting them.
+
+| Key | Default | Effect |
+| :--- | :--- | :--- |
+| `FullRange` / `IdleRange` | `300` / `1000` | Full and idle distance bands in metres. |
+| `MinSpawnDistance` / `MaterializeRange` / `FoldRange` | `120` / `900` / `1000` | Materialisation and folding distances in metres. |
+| `VisibilityRange` | `1500` | Provisional observer margin in metres. |
+| `ClassifyPerTick` | `12` | Classification row cap. |
+| `MaxMaterialized` / `MaxPerHerd` / `MaxObservers` | `12` / `6` / `6` | Materialised member, per-herd member and observer caps. |
+| `RegrowSeconds` | `1800` | Herd recovery interval in seconds. |
+| `PosedBudget` / `PosedFullBudget` / `PosedIdleBudget` | `12` / `12` / `12` | Posed infected caps. |
+| `VarietyNonCalmHoldSeconds` | `600` | Delay before reconsidering a non-calm crawler for rest. |
+| `HerdWorld` | `"chernarusplus"` | World for default herd seeds. |
+| `MemberTypes` | `[]` | Empty selects five native civilian infected classes. |
+| `Herds` | Eight inland seeds | Bor, Sosnovka, Pulkovo, Dolina, Polana, Sinystok, Kamensk and northeast woods; each seed defaults to `Radius=60`, `HeadCount=12`. |
+
+### Wildlife provider and habitat controls
+
+Mission `ecology/HCWildlife-providers.json` contains the unprefixed fields below. `EnableAmbientLife=false`, provider `Enabled=false` or `wildlife_providers.disable` disables the provider. `CarcassesEnabled=false` and `TargetPairsEnabled=false` disable the respective paths independently.
+
+| Registry key | Default | Effect |
+| :--- | :--- | :--- |
+| `WildlifeProviders.Version` | `1` | Configuration format. |
+| `WildlifeProviders.TickMs` | `5000` | Provider interval in milliseconds. |
+| `WildlifeProviders.WorkUnits` | `16` | Per-slice work allowance. |
+| `WildlifeProviders.MaxCarcasses` | `2` | Permanent carcass allocation cap. |
+| `WildlifeProviders.MaxPairs` | `8` | Retained target-pair cap. |
+| `WildlifeProviders.MaxPairChecksPerTick` | `32` | Pair checks per provider tick. |
+| `WildlifeProviders.PairLifetimeMs` | `10000` | Target-pair lifetime in milliseconds. |
+| `WildlifeProviders.PairCooldownMs` | `30000` | Target-pair retry cooldown in milliseconds. |
+| `WildlifeProviders.MaxPlayerChecks` | `16` | Observer cap; overflow refuses placement. |
+| `WildlifeProviders.MinPlayerDistanceM` | `200.0` | Minimum player exclusion distance in metres. |
+| `WildlifeProviders.Enabled` | `true` | Provider preference; false disables this provider. |
+| `WildlifeProviders.CarcassesEnabled` | `true` | False disables authored carcasses. |
+| `WildlifeProviders.TargetPairsEnabled` | `true` | False disables native target-pair eligibility filtering. |
+
+`CarcassClass="Animal_CervusElaphus"`, `WorldName="chernarusplus"` and the two authored `Sites` bind carcass allocations. Back up `hc149-wildlife-allocations.json` with world storage; restart does not reset spent sites. Native animal brains and original population/timing/range fields remain in control. `ecology/habitat-overrides.json` uses `Enabled=true`; set it to `false` before generating/installing overlays to omit the habitat change. Existing installs need receipt rollback. Missing stock environment/events inputs refuse the install rather than producing a partial habitat overlay.
 
 ### Stamina profile
 
@@ -338,13 +463,32 @@ The [loot dispositions](config/loot-dispositions.json) catalogue contains per-cl
 
 The [admin test kit](docs/ADMIN_TEST_KIT.md) uses the HC admin allowlist independently of COT permissions. Enable `EnableAdminMap`, add authorised operators to the server's `admins.json`, restart and use the rebindable Pause key. Status, kit availability and nearby lists are read-only. World commands exercise normal module logic and return named refusal reasons; they do not bypass caps or grant loot.
 
+`AdminControls.disable` under the acceptance directory disables world controls after restart. `camptier` accepts 0–3; normal camp scans can reclassify the result. `campvisit`, `campraid` and `dormant` return named missing-hook refusals without fabricating bodies or consuming cooldowns. COT roles do not grant HC access. [#203](https://github.com/d-addison/hollow-country/issues/203)
+
 The Map tab displays snapshot layers, routes and per-layer counts. The loot map runs a bounded query and retains the last successful marks. `EnableDebugSnapshot` controls export; `EnableAdminMap` controls authorised in-game access. The [debug map guide](docs/DEBUG_MAP.md) covers the local browser map, snapshot freshness, layer caps and query controls. Keep exported maps and profiles private. Configure COT separately using the [COT permissions guide](docs/COT_PERMISSIONS.md).
 
 ## Performance
 
 The intended test load is **3–6 players**. Recorded boots do not establish a tested player capacity. Performance budgets remain provisional until measurements with that load; larger-server capacity is unproven.
 
-`TickIntervalMs=1000` sets the core cadence. `MaxTickWorkItems=32` is shared by infected sampling, interior lock expiry, search binding, maintenance, refresh and detached recycling. Starvation prevention gives each consumer one unit, so six consumers can use up to 37 items in a tick. This is a work-item limit, not a millisecond frame-time guarantee. `[HC TickWork]` reports shared usage and starvation; `[HC CostTotal]` and `[HC Cost]` report aggregate and module costs. Building-class first resolves, event preflight, ecology and world saves still need target-load measurement in [#138](https://github.com/d-addison/hollow-country/issues/138).
+`TickIntervalMs=1000` sets the core cadence. `MaxTickWorkItems=32` is shared across twelve consumers. For cost-one requests, starvation prevention permits up to 43 items in a tick; heavier requests and measured charges can exceed that unit total. This is a work allowance, not a millisecond frame-time guarantee. `[HC TickWork]` reports shared usage and starvation; `[HC CostTotal]` and `[HC Cost]` report aggregate and module costs. Building-class first resolves, event preflight, ecology and world saves still need target-load measurement in [#138](https://github.com/d-addison/hollow-country/issues/138).
+
+| Consumer ID | Constant | Work |
+| :--- | :--- | :--- |
+| 0 | `HC_WORK_INFECTED` | Infected sampling. |
+| 1 | `HC_WORK_INTERIORS` | Interior lock expiry. |
+| 2 | `HC_WORK_SEARCH_BIND` | Search binding. |
+| 3 | `HC_WORK_SEARCH_MAINT` | Search maintenance and coverage reporting. |
+| 4 | `HC_WORK_SEARCH_REFRESH` | Revisit refresh. |
+| 5 | `HC_WORK_SEARCH_DETACHED` | Detached search-slot recycling. |
+| 6 | `HC_WORK_LOD_CLASSIFY` | Infected distance classification. |
+| 7 | `HC_WORK_LOD_HERD` | Virtual herd work. |
+| 8 | `HC_WORK_BASES` | Native base storage recognition. |
+| 9 | `HC_WORK_CONFLICT` | Faction conflict. |
+| 10 | `HC_WORK_TRADE` | Caravan pairing, cargo and road search. |
+| 11 | `HC_WORK_SITUATIONS` | Situation scans, threat placement and physical spoils. |
+
+`Performance.*` controls bound retained ecology/interior/holdout slices and shared save work. The save target is cooperative: native probes, file reads and owner barrier/shutdown flushes cannot be preempted.
 
 ## Documentation and contributing
 
@@ -360,4 +504,4 @@ Report bugs through [GitHub issues](https://github.com/d-addison/hollow-country/
 
 Copyright © 2026 David Addison. **All rights reserved.** No open-source or public reuse license is granted. Third-party materials retain their owners' terms; see the [provenance inventory](docs/PROVENANCE_AND_LICENSES.md).
 
-Game files, full vanilla dumps, purchased assets, Workshop packages, signing private keys, credentials and runtime profiles do not belong in this repository. Source is public to read and is not licensed for reuse. Published third-party Workshop dependencies are never repacked.
+Game files, full vanilla dumps, purchased assets, Workshop packages, signing private keys, credentials and runtime profiles do not belong in this repository. Source stays private and is not licensed for reuse. Published third-party Workshop dependencies are never repacked.
