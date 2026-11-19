@@ -182,18 +182,36 @@ class HCCampTheft
         // The camp scan bounds real crates; each candidate consumes shared work. A party
         // is never dispatched to camp coordinates or told that stock exists.
         if (scan.Crates.Count() < 1) { HCRefuse("THEFT_CAMP_CRATE_ABSENT"); return; }
+        // #209: a refusal specific to one crate moves on to the next bounded
+        // candidate; success and global faults still stop the scan at once.
+        string lastRefusal = "THEFT_NO_PARTY_NEAR_CAMP";
         for (int crateIndex = 0; crateIndex < scan.Crates.Count(); crateIndex++)
         {
             if (!HCServer.HCTickWork().HCTake(1)) { HCRefuse("THEFT_WORK_BUDGET"); return; }
             ItemBase crate = scan.Crates[crateIndex];
             if (!trip.m_IO.HCTheftNear(crate)) { continue; }
             bool clear = HCAllowed(module, camp, crate);
-            if (!Candidate(crate, camp, now, clear, clear)) { HCRefuse("THEFT_CAMP_INELIGIBLE"); return; }
+            if (!Candidate(crate, camp, now, clear, clear))
+            {
+                lastRefusal = "THEFT_CAMP_INELIGIBLE";
+                continue;
+            }
             string refusal = trip.HCTheftPickup(module, camp, crate, now, s_Config.MaxAttemptsPerDay);
-            HCRefuse(refusal);
-            return;
+            if (!HCCandidateRefusal(refusal))
+            {
+                HCRefuse(refusal);
+                return;
+            }
+            lastRefusal = refusal;
         }
-        HCRefuse("THEFT_NO_PARTY_NEAR_CAMP");
+        HCRefuse(lastRefusal);
+    }
+
+    // Pickup refusals that depend only on the crate being examined.
+    static bool HCCandidateRefusal(string reason)
+    {
+        if (reason == "THEFT_ATTENDED_OR_OBSERVED" || reason == "THEFT_SOURCE_IS_HOME") { return true; }
+        return reason == "THEFT_SAFE_STOCK_ABSENT" || reason == "THEFT_PERSISTENT_ID_ABSENT";
     }
 }
 
