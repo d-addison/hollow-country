@@ -72,43 +72,73 @@ class HCFuelSiphon
         return HCCraftingGate.CanPreviewOrCraft() && HCFuelSiphonQualification.Admitted();
     }
 
-    static bool Allowed(PlayerBase player, ActionTarget target, ItemBase item)
+    // A normal end is distinct from failed eligibility. Only the current native
+    // endpoints are read; invalid/NaN/negative quantities do not mean exhaustion.
+    static bool Exhausted(ActionData action_data)
     {
-        if (!HCActionSiphonFuel.ProductionRecipientReady(player, target, item))
+        if (!action_data || !action_data.m_Target || !action_data.m_MainItem)
             return false;
+        CarScript car = CarScript.Cast(action_data.m_Target.GetObject());
+        if (!car)
+            return false;
+        ItemBase vessel = action_data.m_MainItem;
+        float quantity = vessel.GetQuantity();
+        float maximum = vessel.GetQuantityMax();
+        return TankLiters(car) == 0 || (HCFuelTransferPolicy.FiniteNonNegative(quantity) && maximum > 0 && maximum <= 1048576.0 && quantity == maximum);
+    }
+
+    static bool Allowed(PlayerBase player, ActionTarget target, ItemBase item, HCRefusalResult refusal = null)
+    {
+        if (!refusal)
+            refusal = new HCRefusalResult;
+        refusal.Refuse(HCRefusal.SIPHON);
+        if (GetGame() && GetGame().IsServer() && !ServerEnabled())
+            return refusal.Refuse(HCRefusal.SIPHON_OFF);
         if (!player || !target || !item || player.IsInVehicle())
             return false;
+        if (target.GetParent() || target.GetComponentIndex() < 0)
+            return false;
+        if (player.IsRestrained())
+            return refusal.Refuse(HCRefusal.SIPHON_RESTRAINED);
         if (player.GetItemInHands() != item)
             return false;
         CarScript car = CarScript.Cast(target.GetObject());
-        if (!car || car.IsDamageDestroyed() || car.EngineIsOn() || car.IsMoving())
+        if (!car || car.IsDamageDestroyed())
             return false;
+        if (car.EngineIsOn() || car.IsMoving())
+            return refusal.Refuse(HCRefusal.SIPHON_MOVING);
         float capacity = car.GetFluidCapacity(CarFluid.FUEL);
         float fraction = car.GetFluidFraction(CarFluid.FUEL);
         if (!HCFuelTransferPolicy.SiphonDonorValid(capacity, fraction))
             return false;
         if (!item.IsLiquidContainer() || item.IsDamageDestroyed())
             return false;
+        if (!item.IsOpen())
+            return refusal.Refuse(HCRefusal.SIPHON_CLOSED);
         if (item.GetQuantity() >= item.GetQuantityMax())
-            return false;
+            return refusal.Refuse(HCRefusal.SIPHON_FULL);
         if (item.GetQuantity() > 0 && item.GetLiquidType() != LIQUID_GASOLINE)
-            return false;
+            return refusal.Refuse(HCRefusal.SIPHON_LIQUID);
         if (!Liquid.CanFillContainer(item, LIQUID_GASOLINE))
-            return false;
+            return refusal.Refuse(HCRefusal.SIPHON_LIQUID);
         float reach = car.GetActionDistanceFuel();
         if (vector.DistanceSq(car.GetRefillPointPosWS(), player.GetPosition()) >= reach * reach)
-            return false;
+            return refusal.Refuse(HCRefusal.SIPHON_RANGE);
         TStringArray selections = new TStringArray();
         car.GetActionComponentNameList(target.GetComponentIndex(), selections);
         int count = selections.Count();
         if (count > 32)
             return false;
+        bool fuelSelection = false;
         for (int i = 0; i < count; i++)
         {
             if (selections.Get(i) == car.GetActionCompNameFuel())
-                return true;
+                fuelSelection = true;
         }
-        return false;
+        if (!fuelSelection)
+            return false;
+        // All donor, vessel, custody and selection checks precede physics work.
+        return HCActionSiphonFuel.ProductionRecipientReady(player, target, item, refusal);
     }
 }
 
@@ -174,11 +204,12 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
             HCRefuse(action_data);
             return UA_FINISHED;
         }
+        if (HCFinishIfExhausted(action_data))
+            return UA_FINISHED;
         if (m_MovedMl + m_PendingMl >= m_SessionMl)
         {
             CalcAndSetQuantity(action_data);
-            HCStop(action_data);
-            OnCompletePogress(action_data);
+            HCComplete(action_data);
             return UA_FINISHED;
         }
         float delta = action_data.m_Player.GetDeltaT();
@@ -211,10 +242,42 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         return UA_CANCEL;
     }
 
-    void HCRefuse(ActionData action_data)
+    void HCRefuse(ActionData action_data, HCRefusalResult refusal = null)
     {
+        if (!refusal)
+        {
+            refusal = new HCRefusalResult;
+            if (!HCFuelSiphon.ServerEnabled())
+                refusal.Refuse(HCRefusal.SIPHON_OFF);
+            else
+                HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, action_data.m_MainItem, refusal);
+        }
+        if (refusal.Reason == "")
+            refusal.Refuse(HCRefusal.SIPHON);
         HCStop(action_data);
-        HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+        HCRefusalReport.ActionRefusalMessage(action_data, refusal.Reason, HCRefusal.SiphonMessage(refusal.Reason));
+    }
+
+    void HCComplete(ActionData action_data)
+    {
+        if (m_Stopped)
+            return;
+        HCStop(action_data);
+        if (GetGame().IsServer())
+            HCActionSiphonFuel.ProductionComplete(action_data);
+        OnCompletePogress(action_data);
+    }
+
+    bool HCFinishIfExhausted(ActionData action_data)
+    {
+        if (m_Stopped)
+            return false;
+        if ((m_SessionMl > 0 && m_SessionMl - m_MovedMl <= 1.0) || HCFuelSiphon.Exhausted(action_data))
+        {
+            HCComplete(action_data);
+            return true;
+        }
+        return false;
     }
 
     void HCStop(ActionData action_data)
@@ -248,11 +311,14 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
             m_MovedMl += requestMl;
             return;
         }
+        if (HCFinishIfExhausted(action_data))
+            return;
         // Revalidate on every debit, including the Cancel flush after an
         // interruption: an invalid state drops the pending step, never debits.
         ItemBase vessel = action_data.m_MainItem;
         if (!HCFuelSiphon.ServerEnabled() || !HCActionSiphonFuel.ProductionOwns(action_data) || !HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, vessel))
         {
+            // The shared refusal check obtains the live cause on this failure path.
             HCRefuse(action_data);
             return;
         }
@@ -277,15 +343,22 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
             return;
         }
         float afterLiters = HCFuelSiphon.TankLiters(car);
-        if (car.GetFluidCapacity(CarFluid.FUEL) != capacity || vessel.GetQuantity() != vesselBeforeMl || !HCActionSiphonFuel.ProductionRecipientReady(action_data.m_Player, action_data.m_Target, vessel))
+        HCRefusalResult refusal = new HCRefusalResult;
+        if (car.GetFluidCapacity(CarFluid.FUEL) != capacity || vessel.GetQuantity() != vesselBeforeMl || !HCActionSiphonFuel.ProductionRecipientReady(action_data.m_Player, action_data.m_Target, vessel, refusal))
         {
             Print("[HollowCountry] Fuel siphon recipient changed after debit; no credit/replay/refund; runtime=PENDING");
-            HCRefuse(action_data);
+            HCRefuse(action_data, refusal);
             return;
         }
         float creditMl = HCFuelTransferPolicy.SiphonCreditMl(stepMl, beforeLiters, afterLiters, vesselBeforeMl, vessel.GetQuantityMax());
         if (creditMl <= 0)
         {
+            if (afterLiters < beforeLiters && afterLiters == 0)
+            {
+                m_Stopped = false;
+                HCComplete(action_data);
+                return;
+            }
             Print("[HollowCountry] Fuel siphon debit readback refused; no credit/replay/refund; runtime=PENDING");
             HCRefuse(action_data);
             return;
@@ -306,6 +379,7 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         }
         m_MovedMl += creditMl;
         m_Stopped = false;
+        HCFinishIfExhausted(action_data);
     }
 }
 
@@ -351,12 +425,12 @@ class HCActionSiphonFuelFromCar extends ActionContinuousBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        bool allowed = false;
-        if (!GetGame().IsServer() || HCFuelSiphon.ServerEnabled())
-            allowed = HCFuelSiphon.Allowed(player, target, item);
+        HCRefusalResult refusal = new HCRefusalResult;
+        refusal.Refuse(HCRefusal.SIPHON);
+        bool allowed = HCFuelSiphon.Allowed(player, target, item, refusal);
         if (!GetGame().IsServer()) return allowed;
         if (allowed && HCFuelSiphon.ServerEnabled()) return true;
-        HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.SIPHON, "Cannot siphon fuel now; check the car, container and server availability.");
+        HCRefusalReport.TargetRefusalMessage(player, target, item, refusal.Reason, HCRefusal.SiphonMessage(refusal.Reason));
         return false;
     }
 
@@ -364,20 +438,30 @@ class HCActionSiphonFuelFromCar extends ActionContinuousBase
     {
         super.OnStartServer(action_data);
         if (!action_data) return;
-        if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
+        HCRefusalResult refusal = new HCRefusalResult;
+        refusal.Refuse(HCRefusal.SIPHON);
+        if (!HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, action_data.m_MainItem, refusal) || !HCFuelSiphon.ServerEnabled())
         {
-            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Cannot siphon fuel now; check the car, container and server availability.");
+            if (refusal.Reason == "")
+                refusal.Refuse(HCRefusal.SIPHON_OFF);
+            HCRefusalReport.ActionRefusalMessage(action_data, refusal.Reason, HCRefusal.SiphonMessage(refusal.Reason));
         }
     }
 
     override bool ActionConditionContinue(ActionData action_data)
     {
         if (!action_data) return false;
+        HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
+        if (data && data.ProductionStarted && (data.ProductionFinished || (data.LockHeld && HCFuelSiphon.Exhausted(action_data))))
+        {
+            HCActionSiphonFuel.ProductionComplete(action_data);
+            return false;
+        }
         if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
             return false;
         if (!GetGame().IsServer() || HCActionSiphonFuel.ProductionOwns(action_data))
             return true;
-        HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+        HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, HCRefusal.SiphonMessage(HCRefusal.SIPHON));
         return false;
     }
 }
