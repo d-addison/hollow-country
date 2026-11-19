@@ -203,6 +203,29 @@ class RolePlan(unittest.TestCase):
         self.assertEqual(2, len(offers))
         self.assertEqual(1, len(due), 'without an incident the normal role cadence runs')
 
+    def test_patrol_requires_running_native_route_without_changing_halt(self):
+        changes = []
+        behavior = ['HALT']
+        route = EArray([[5, 0, 5]])
+        group = N(GetWaypointBehaviour=lambda: behavior[0], GetWaypoints=lambda: route,
+                  SetWaypointBehaviour=lambda value: changes.append(value))
+        state = N(PatrolPoints=EArray([[5, 0, 5]]))
+        env = dict(eAIWaypointBehavior=N(HALT='HALT'))
+        start = translate(self._tick_text(), 'HCStart', env, 'HCXAIRoleActivities', member=True)
+        job = N()
+        self.assertEqual('PATROL_HALTED', start(job, None, state, None, group, 'patrol', [], 100))
+        self.assertEqual([], changes, 'patrol must not release another controller halt')
+        behavior[0] = 'LOOP'
+        self.assertEqual('', start(job, None, state, None, group, 'patrol', [], 100))
+        route.clear()
+        self.assertEqual('PATROL_ROUTE_ABSENT', start(job, None, state, None, group, 'patrol', [], 100))
+        route.append([5, 0, 5])
+        state.PatrolPoints.clear()
+        self.assertEqual('PATROL_ROUTE_ABSENT', start(job, None, state, None, group, 'patrol', [], 100))
+        state.PatrolPoints.append([5, 0, 5])
+        self.assertEqual('', start(job, None, state, None, group, 'hold', [], 100))
+        self.assertEqual(['HALT'], changes)
+
     def test_repair_activity_reaches_the_landed_car_repair_owner(self):
         calls = []
         env = dict(HCXAICarRepair=N(HCOffer=lambda group, home: calls.append(home) or True))

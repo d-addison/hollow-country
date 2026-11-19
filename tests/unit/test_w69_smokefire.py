@@ -74,6 +74,8 @@ class NativeMap(dict):
     def Count(self): return len(self)
     def Get(self, key): return self.get(key, 0)
     def Set(self, key, value): self[key] = value
+    def GetKey(self, index): return list(self)[index]
+    def Remove(self, key): del self[key]
 
 
 class FundedIgnitionTests(unittest.TestCase):
@@ -83,7 +85,7 @@ class FundedIgnitionTests(unittest.TestCase):
         source = re.sub(r'\b(?:HCHearthConfig|FireplaceIndoor|FireplaceBase)\s+(?=\w+\s*[=;])', 'Object ', source)
         now, created, refusals, seen, hidden = [1000], [], [], [], [True]
         cfg = N(MaxHearths=4, AttemptSeconds=60, ActorRange=3, QueryRadius=30,
-                MaxInventory=8, ObserverRadius=500)
+                MaxInventory=8, ObserverRadius=500, HearthsPerTick=2)
         class Item:
             def __init__(self, kind): self.kind, self.parent, self.used = kind, None, 0
             def GetType(self): return self.kind
@@ -123,7 +125,7 @@ class FundedIgnitionTests(unittest.TestCase):
             GetOrientation = staticmethod(house.GetOrientation)
         house = House()
         actor = N(IsAlive=lambda: True, GetPosition=lambda: [1, 0, 1])
-        policy = N(s_Running=True, s_Attempts=NativeMap(), s_Lit=EArray(), s_Spending=None,
+        policy = N(s_Running=True, s_AttemptCursor=0, s_Attempts=NativeMap(), s_Lit=EArray(), s_Spending=None,
                    s_Budget=N(HCReset=lambda n: None, HCContinue=lambda: True),
                    HCRefuse=lambda reason: refusals.append(reason) or False,
                    HCObserve=lambda fire, house: seen.append((fire, house)),
@@ -138,11 +140,60 @@ class FundedIgnitionTests(unittest.TestCase):
                    vector=N(Zero=[0, 0, 0], DistanceSq=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))),
                    ECE_KEEPHEIGHT=1, Print=lambda receipt: None)
         env["HCFindIndoor"] = policy.HCFindIndoor
+        tick_source = source.replace('HCHoldouts holdouts', 'Object holdouts').replace('HCHearthRecord row', 'Object row')
+        env['HCHoldouts'] = N(Get=lambda: None)
+        # Static storage binding only; execute the authored tick control flow.
+        tick_source = re.sub(r'(?<![\w.])(s_\w+)', r'HCHearthFires.\1', tick_source)
+        for method in ('HCReclaimAttempts', 'HCTick'):
+            if 'static void ' + method + '(' in tick_source:
+                setattr(policy, method, translate(tick_source, method, env, 'HCHearthFires'))
         policy.HCFuelReady = translate(source, 'HCFuelReady', env, 'HCHearthFires')
         light = translate(source, 'HCLight', env, 'HCHearthFires')
-        return N(light=lambda: light(house, actor, stash, 'holdout', 'synthetic-home'),
+        return N(light=lambda target=house: light(target, actor, stash, 'holdout', 'synthetic-home'),
                  cargo=cargo, created=created, refusals=refusals, paper=paper, wood=wood,
-                 matches=matches, policy=policy, now=now, hidden=hidden, stash=stash)
+                 matches=matches, policy=policy, now=now, hidden=hidden, stash=stash, cfg=cfg, env=env, house=house)
+
+    def test_expired_attempts_allow_new_houses_past_lifetime_cap(self):
+        f = self.fixture()
+        old_houses = [type(f.house)() for _ in range(f.cfg.MaxHearths)]
+        f.hidden[0] = False
+        for house in old_houses:
+            self.assertFalse(f.light(house))
+            self.assertEqual('HC_HEARTH_OBSERVED', f.refusals[-1])
+        f.hidden[0] = True
+        self.assertFalse(f.light())
+        self.assertEqual('HC_HEARTH_ATTEMPT_CAP', f.refusals[-1])
+        f.now[0] += f.cfg.AttemptSeconds
+        f.policy.HCTick()
+        self.assertTrue(f.light(), 'expired attempt slots must admit a new funded house')
+        self.assertLessEqual(len(f.policy.s_Attempts), f.cfg.MaxHearths)
+
+    def test_attempt_sweep_is_bounded_budgeted_and_keeps_live_cooldowns(self):
+        f = self.fixture()
+        keys = [object() for _ in range(4)]
+        for index, house in enumerate(keys):
+            f.policy.s_Attempts.Set(house, f.now[0] + (60 if index < 2 else 0))
+        calls, allowed = [], [False]
+        def take(consumer, count):
+            calls.append((consumer, count))
+            return allowed[0]
+        f.env['HCServer'].HCTickWork = lambda: N(HCTakeFor=take)
+        f.policy.HCTick()
+        self.assertEqual(0, f.policy.s_AttemptCursor)
+        self.assertEqual(4, len(f.policy.s_Attempts))
+        allowed[0] = True
+        calls.clear()
+        f.policy.HCTick()
+        self.assertEqual([(16, 1)] * 2, calls)
+        self.assertEqual(4, len(f.policy.s_Attempts), 'unexpired entries survive')
+        calls.clear()
+        f.policy.HCTick()
+        self.assertEqual([(16, 1)] * 2, calls)
+        self.assertEqual(set(keys[:2]), set(f.policy.s_Attempts))
+        f.policy.s_Running = False
+        calls.clear()
+        f.policy.HCTick()
+        self.assertEqual([], calls)
 
     def test_no_fuel_actual_ignition_path_preserves_inventory(self):
         f = self.fixture(fuel=False)

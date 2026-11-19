@@ -21,6 +21,7 @@
 // 1_Core/proto/EnMath.c:553 Min; EnConvert.c:210 vector.DistanceSq;
 // EnScript.c:380/385/407/470 Count/Clear/Insert/RemoveOrdered, :866/902/917
 // map Get/Set/Contains; 3_Game/CE/CentralEconomy.c:28 ECE_KEEPHEIGHT.
+// EnScript.c:897 GetKey (O(n), bounded by MaxHearths), :906 Remove.
 // No Expansion calls or copied code.
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnSystem.c:397 FileExist;
 // EnDebug.c:96 Print. HCGroupIO bounds IO; HCJsonFields preserves missing defaults.
@@ -95,6 +96,7 @@ class HCHearthFires
     protected static string s_Refusal;
     protected static int s_Cursor;
     protected static int s_HoldoutCursor;
+    protected static int s_AttemptCursor;
     protected static EntityAI s_Spending;
     protected static bool s_Running;
     protected static ref HCOperationalStatus s_Status = new HCOperationalStatus;
@@ -117,7 +119,7 @@ class HCHearthFires
         HCOperationalStatus status = HCGetOperationalStatus();
         Print(line + " state=" + status.HCState() + " native_visuals=1 runtime=PENDING");
     }
-    static void HCStop() { s_Running = false; s_Lit.Clear(); s_Attempts.Clear(); s_Cursor = 0; s_HoldoutCursor = 0; s_Spending = null; s_Refusal = ""; }
+    static void HCStop() { s_Running = false; s_Lit.Clear(); s_Attempts.Clear(); s_Cursor = 0; s_HoldoutCursor = 0; s_AttemptCursor = 0; s_Spending = null; s_Refusal = ""; }
     static bool HCRefuse(string reason)
     {
         if (s_Refusal != reason) { Print("[HC Hearth] refusal=" + reason + " runtime=PENDING"); }
@@ -193,9 +195,31 @@ class HCHearthFires
         s_Lit.Insert(row);
         if (house && row.LitByKind == "") { HCRefuse("HC_HEARTH_NATIVE_PROVENANCE_UNKNOWN"); }
     }
+    // Rotate without copying the map. Each inspected entry spends shared work;
+    // removing the current key retains the cursor for its replacement. Fresh
+    // cooldowns survive, including when the UTC clock is unavailable.
+    static void HCReclaimAttempts()
+    {
+        int now = HCWorldClock.UTC();
+        if (now < 1) { return; }
+        int limit = HCHearthConfig.HCGet().HearthsPerTick;
+        int examined = 0;
+        s_Budget.HCReset(limit);
+        while (s_Attempts.Count() > 0 && examined < limit)
+        {
+            if (!s_Budget.HCContinue() || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_HEARTH, 1)) { return; }
+            if (s_AttemptCursor >= s_Attempts.Count()) { s_AttemptCursor = 0; }
+            Object house = s_Attempts.GetKey(s_AttemptCursor);
+            if (now >= s_Attempts.Get(house)) { s_Attempts.Remove(house); }
+            else { s_AttemptCursor = s_AttemptCursor + 1; }
+            examined = examined + 1;
+        }
+    }
+
     static void HCTick()
     {
         if (!s_Running) { return; }
+        HCReclaimAttempts();
         s_Budget.HCReset(HCHearthConfig.HCGet().HearthsPerTick);
         int examined = 0;
         while (s_Lit.Count() > 0 && examined < HCHearthConfig.HCGet().HearthsPerTick)
