@@ -63,7 +63,8 @@ class HCUnitBudget
     static const int HC_WORK_INCIDENT_RESPONSE = 18;
     static const int HC_WORK_AI_RESPAWN = 19;
     static const int HC_WORK_SEARCH_COMPACT = 20;
-    static const int HC_WORK_CONSUMERS = 21;
+    static const int HC_WORK_SHELTER = 21;
+    static const int HC_WORK_CONSUMERS = 22;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;

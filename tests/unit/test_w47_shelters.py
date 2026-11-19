@@ -25,15 +25,15 @@ class RegionalSurvey(unittest.TestCase):
             with self.subTest(candidate=row['id']):
                 survey = row.get('offline_survey')
                 self.assertIsNotNone(survey, 'candidate needs stock identity and a specific access evidence gap')
-                self.assertEqual('excluded-missing-site-access-clearance', survey['result'])
+                self.assertEqual('authored-exterior-scene-native-access-pending', survey['result'])
                 self.assertEqual(row['building_class'], survey['stock_row']['name'])
                 self.assertEqual(row['position'], list(map(float, survey['stock_row']['pos'].split())))
                 self.assertEqual('path_pending', survey['class_geometry']['tool_result'])
                 self.assertEqual(0, survey['class_geometry']['path_tests'])
                 self.assertFalse(survey['class_geometry']['sample_is_candidate'])
-                self.assertEqual(['site-terrain-clearance', 'outside-to-roof-path', 'scene-prop-slots'], survey['missing'])
+                self.assertEqual(['native-site-access-and-clearance-verdict'], survey['missing'])
                 self.assertIn(row['reason'], CATALOG.read_text())
-                self.assertEqual(0, row['authored_props'])
+                self.assertEqual(3, row['authored_props'])
         self.assertEqual(0, manifest['authored_counts']['safe_additions'])
 
     def test_no_door_geometry_cannot_be_promoted_to_access_evidence(self):
@@ -46,11 +46,11 @@ class RegionalSurvey(unittest.TestCase):
         self.assertEqual('path_pending', reason)
 
     def test_startup_reports_each_missing_part_once_without_publishing_discovery(self):
-        source = MODULE.read_text().replace('HCShelterSurvey', 'HCEventSurvey')
+        source = MODULE.read_text().replace('HCShelterSurvey', 'HCEventSurvey').replace('HCShelterRegionalConfig ', 'HCEventConfig ')
         rows = NativeArray([N(Id='synthetic-a', Refusal='site_access_missing'),
                             N(Id='synthetic-b', Refusal='scene_slots_missing')])
         logs = []
-        env = dict(HCShelterCatalog=N(CandidateCount=rows.Count, GetCandidate=lambda i: rows[i]),
+        env = dict(HCShelterCatalog=N(HCRegionalConfig=lambda: N(Enabled=True, Scenes=[N(Enabled=True), N(Enabled=True)]), CandidateCount=rows.Count, GetCandidate=lambda i: rows[i]),
                    Print=logs.append)
         owner = type('SyntheticShelter', (), {})
         owner.HCReportCandidateSurveys = translate(source, 'HCReportCandidateSurveys', env, 'HCShelterModule', True)
@@ -60,8 +60,8 @@ class RegionalSurvey(unittest.TestCase):
         state.HCReportCandidateSurveys()
         self.assertEqual(2, len(logs))
         self.assertTrue(all('runtime=PENDING' in line for line in logs))
-        self.assertIn('candidate=synthetic-a excluded=site_access_missing', logs[0])
-        self.assertIn('candidate=synthetic-b excluded=scene_slots_missing', logs[1])
+        self.assertIn('candidate=synthetic-a admission=authored_exterior_scene access=site_access_missing', logs[0])
+        self.assertIn('candidate=synthetic-b admission=authored_exterior_scene access=scene_slots_missing', logs[1])
         self.assertIn('if (index == 0) { HCReportCandidateSurveys(); }', source)
         report = source.split('protected void HCReportCandidateSurveys()', 1)[1].split('protected void PlaceShelter', 1)[0]
         self.assertNotIn('.Placed = true', report)

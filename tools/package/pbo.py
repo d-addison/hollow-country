@@ -77,7 +77,7 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'lights/backpack-mounts.json',
                  'lights/pair-receipts.json',
                  # HC-59 shelter survey backlog and finite wreck part dispositions.
-                 'travel/route-surveys.json', 'travel/wreck-dispositions.json'}
+                 'travel/route-surveys.json', 'travel/auditshelter_scenes.json', 'travel/wreck-dispositions.json'}
 
 
 def safe_name(name):

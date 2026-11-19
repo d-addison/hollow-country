@@ -282,9 +282,15 @@ MODULES = [
         ('degraded', 'persistence_clock_or_schema_fault', {'m_Started': True, 'm_Fault': True}, False, {}),
         ('off', OFF, {'m_Started': False, 'm_Initialized': False, 'm_Fault': False}, False, {})]),
     (S / 'Travel/HCShelterModule.c', 'HCShelterModule', 'Shelters', None, [
-        ('ready', None, {'m_Started': True, 'm_Placed': 3}, False, {}),
-        ('degraded', 'no_shelter_placed', {'m_Started': True, 'm_Placed': 0}, False, {}),
-        ('off', OFF, {'m_Started': False, 'm_Placed': 0}, False, {})]),
+        ('ready', None, {'m_Started': True, 'm_Placed': 3, 'm_RegionalFailed': 0}, False,
+         {'HCShelterCatalog': N(HCRegionalFault=lambda: '')}),
+        ('degraded', 'no_shelter_placed', {'m_Started': True, 'm_Placed': 0, 'm_RegionalFailed': 0}, False,
+         {'HCShelterCatalog': N(HCRegionalFault=lambda: '')}),
+        ('degraded', 'regional_scene_placement_failed', {'m_Started': True, 'm_Placed': 3, 'm_RegionalFailed': 1}, False,
+         {'HCShelterCatalog': N(HCRegionalFault=lambda: '')}),
+        ('degraded', 'regional_scene_data_missing_or_invalid', {'m_Started': True, 'm_Placed': 3, 'm_RegionalFailed': 0}, False,
+         {'HCShelterCatalog': N(HCRegionalFault=lambda: 'regional_scene_data_missing_or_invalid')}),
+        ('off', OFF, {'m_Started': False, 'm_Placed': 0, 'm_RegionalFailed': 0}, False, {})]),
     (S / 'Atmosphere/HCSignsOfLife.c', 'HCSignsOfLife', 'SignsOfLife', 'm_Started', [
         ('ready', None, {'m_Started': True}, False, {}), ('off', OFF, {'m_Started': False}, False, {})]),
     (S / 'Survival/HCMealBuffs.c', 'HCSurvivalAlignmentModule', 'SurvivalAlignment', 'm_Started', [

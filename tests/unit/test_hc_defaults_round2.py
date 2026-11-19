@@ -355,7 +355,7 @@ class LODWorkBudget(unittest.TestCase):
         self.assertEqual(16, getattr(klass, 'HC_WORK_HEARTH', None))
         self.assertEqual(17, getattr(klass, 'HC_WORK_INCIDENTS', None))
         self.assertEqual(18, getattr(klass, 'HC_WORK_INCIDENT_RESPONSE', None))
-        self.assertEqual(21, klass.HC_WORK_CONSUMERS)
+        self.assertEqual(22, klass.HC_WORK_CONSUMERS)
         hearth = (ROOT / 'mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c').read_text(encoding='utf-8')
         # Observation, holdout dispatch, ignition and attempt reclamation.
         self.assertEqual(4, hearth.count('HCTakeFor(HCUnitBudget.HC_WORK_HEARTH, 1)'))
