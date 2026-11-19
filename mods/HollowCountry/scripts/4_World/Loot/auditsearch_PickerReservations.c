@@ -132,6 +132,7 @@ modded class HCSearchHouses
         session.Actor = actor;
         session.ActorId = actorId;
         session.InstanceId = hit.InstanceId;
+        session.Row = -1; // Provisional: no journal row selected until Prepare returns.
         session.PickerAuthority = authority;
         m_Sessions.Insert(session);
         int rowIndex = Prepare(slot, hit, actor);
