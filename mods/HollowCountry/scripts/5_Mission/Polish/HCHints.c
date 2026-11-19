@@ -37,6 +37,10 @@ class HCHintState
 
 class HCHints
 {
+    static const int HINT_COUNT = 14;
+
+    static int HCAllShownMask() { return (1 << HINT_COUNT) - 1; }
+
     protected ref HCHintState m_State;
     protected string m_Path;
     protected bool m_Fault;
@@ -50,7 +54,7 @@ class HCHints
         bool matching = state && state.SchemaVersion == 1;
         if (!matching) { return false; }
         bool characterValid = state.CharacterId == characterId;
-        bool bitsValid = state.ShownBits >= 0 && state.ShownBits <= 16383;
+        bool bitsValid = state.ShownBits >= 0 && state.ShownBits <= HCAllShownMask();
         bool playedValid = state.PlayedSeconds >= 0 && state.PlayedSeconds < 2147480000;
         bool nextValid = state.NextHintSecond >= 0 && state.NextHintSecond <= state.PlayedSeconds + 180;
         return characterValid && bitsValid && playedValid && nextValid;
@@ -183,7 +187,7 @@ class HCHints
             if (!Open(characterId)) { m_Fault = true; return; }
             m_SinceSave = 0;
         }
-        if (m_State.ShownBits == 2047) return;
+        if (m_State.ShownBits == HCAllShownMask()) return;
         m_State.PlayedSeconds = m_State.PlayedSeconds + timeslice;
         m_SinceSave = m_SinceSave + timeslice;
         if (m_SinceSave >= 60)

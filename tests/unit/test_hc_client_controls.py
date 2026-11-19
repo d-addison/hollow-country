@@ -1,4 +1,4 @@
-"""HC-27 / effective presentation controls: one synthetic Given/When/Then scenario.
+"""HC-27 / effective presentation controls: synthetic Given/When/Then checks.
 
 Executes authored Enforce lifecycle/settings bodies through existing restricted
 ports; DTO/native handles, profile IO, notifications and RPC context are explicit
@@ -15,14 +15,49 @@ opposite masks; join/off/on/death/reconnect/stop-restart, radio/cellar separatio
 no stuck handles/errors; capture exact source/PBO/mission/config/dependency hashes.
 Grep [HC Plan] HC-27 presentation=off handles=0 off_callbacks=0 and runtime=PENDING;
 observe unknown_setting/unknown_or_conflicting_settings/hint_cancel_unsupported.
-Lead owns spec/plan/tasks trace, settings distribution and mission wiring. No
-new distances. HCUnitBudget/HCWorkBudget bound four lanes; native scans and
+Round 1 left settings distribution and mission wiring to the lead. No
+new distances. HCUnitBudget/HCWorkBudget bound the deferred lanes; native scans and
 synchronous existing hint saves cannot be preempted or claimed measured here.
+
+Round 2 trace (2026-11-18): active HC-27 integration/review brief supersedes
+the round-1 lead handoff. Spec input: .banso-writer/inputs/task-r2.md, shared
+brief, RUNTIME_IMPLEMENTATION_CONTRACT.md; central spec/plan/tasks paths absent.
+Plan/tasks: optional mask admission -> static cached sender -> mission lifecycle
+-> effective GRADE lighting owner -> native-safe counts/offline/grade/hint fixes.
+Given explicit settings, identities, frame clocks and presentation handles,
+When join/ready/reconnect, flags change, the core owner restarts, grade is vetoed,
+the lane budget expires or eleven hints have been shown,
+Then serialize VERSION/revision/mask to the intended identity, cap broadcasts
+at 90, keep revisions monotonic, stop/recreate lighting, sample grade every live
+frame and continue hints until the derived fourteen-hint mask is complete.
+The final revision 2e9 is reserved for a permanent off snapshot, never a wrap.
+
+Actual RED/GREEN, same exact command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_client_controls test_runtime_settings -v
+RED: Ran 20 tests; FAILED (failures=25), including 16 mask subtests:
+  Unknown field ClientPresentationMask; shipped default 15 != None;
+  missing presentation mission lifecycle / missing presentation server sender;
+  GRADE off still created lighting at mission init;
+  offline DayZDiag was mistaken for a dedicated server;
+  foreach matched member m_Lit; grade ['grade'] != [] at exhausted budget;
+  11 shown hints incorrectly suppress the remaining 3.
+GREEN: Ran 20 tests; OK. Syntax/locals/identifiers/formula/hygiene: 56 tests OK;
+enforce_lint --no-native: pass findings=126 new=0 stale=0.
+Additional boundary RED: same command restricted to
+test_hc_client_controls.ClientControls.test_server_gates_each_bit_and_serializes_targeted_version_revision_mask
+failed 1 != 2: lazy first send must restart the five-second poll interval.
+GREEN with the full 20-test command after resetting elapsed on the lazy read.
+Reuse: HCPerfPlayers snapshot + HCUnitBudget/HCWorkBudget + operational status
+and HCV2Admission. No core/config.cpp edits or distances needed.
+Remaining tasks: central trace reconciliation by lead; exact-source DayZDiag,
+normal PBO/server and two clients; target-load timing and native notification
+expiry. Production/runtime acceptance PENDING, never inferred from these ports.
 """
 from pathlib import Path
 from types import SimpleNamespace as N
 import unittest
 import re
+import itertools
 
 from tests.unit.test_event_runtime import translate
 from tests.unit.test_group_server import EArray
@@ -33,10 +68,17 @@ COORD = ROOT / '5_Mission/Operations/HCClientPresentation.c'
 SETTINGS = ROOT / '3_Game/HCClientPresentationSettings.c'
 SOUND = ROOT / '5_Mission/Atmosphere/HCEnvSound.c'
 HINTS = ROOT / '5_Mission/Polish/HCHints.c'
+MISSION = ROOT / '5_Mission/Operations/HCClientPresentationMission.c'
+SERVER = ROOT / '4_World/Operations/HCClientPresentationServer.c'
+LIGHTING = ROOT / '5_Mission/Atmosphere/HCLightingClient.c'
 
 
 def install(path, env, owner, methods):
     source = path.read_text().replace('float milliseconds = 4', 'float milliseconds')
+    # Explicit constructor seam for the synthetic native WorldLighting handle.
+    source = source.replace('new HCLightingClient(GetWorldLighting())', 'make_lighting(GetWorldLighting())')
+    # Inherited native method, absent from this modded link's member list.
+    source = source.replace('!IsControlDisabled()', '!this.IsControlDisabled()')
     source = re.sub(r'([\w.]+)\.Length\(\)', r'len(\1)', source)
     source = source.replace('Remove(HCReceiveHoldouts)', 'Remove(this.HCReceiveHoldouts)')
     # Native out-parameter binding only; acceptance decisions stay authored.
@@ -50,13 +92,219 @@ def install(path, env, owner, methods):
 
 
 class ClientControls(unittest.TestCase):
+    def server(self):
+        self.assertTrue(SERVER.is_file(), 'missing presentation server sender')
+        packets, reads, logs = [], [], []
+        settings = N(ClientPresentationMask=15, EnableGrade=True,
+                     EnableSignsOfLife=True, EnableAmbientLife=True)
+        owner = [N(GetSettings=lambda: reads.append('settings') or settings)]
+        players = EArray(N(GetIdentity=lambda i=i: 'synthetic-' + str(i)) for i in range(95))
+        class RPC:
+            def __init__(self): self.values = []
+            def Write(self, value): self.values.append(value)
+            def Send(self, *args): packets.append((tuple(self.values), args))
+        env = dict(EArray=EArray, ScriptRPC=RPC, Print=logs.append, tostr=str,
+                   GetGame=lambda: N(IsServer=lambda: True),
+                   HCServer=N(Get=lambda: owner[0]),
+                   HCPerfPlayers=N(HCGet=lambda: players),
+                   PlayerBase=N(Cast=lambda player: player), Math=N(Min=min))
+        install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask',))
+        sender = install(SERVER, env, 'HCClientPresentationServer',
+                         ('HCComputeMask', 'HCRefresh', 'SendTo', 'HCTick', 'HCBroadcast'))
+        return sender, settings, owner, reads, packets, logs
+
+    def test_server_gates_each_bit_and_serializes_targeted_version_revision_mask(self):
+        sender, settings, owner, reads, packets, logs = self.server()
+        for mask, grade, signs, ambient in itertools.product(range(16), (False, True), (False, True), (False, True)):
+            settings.ClientPresentationMask = mask
+            settings.EnableGrade, settings.EnableSignsOfLife, settings.EnableAmbientLife = grade, signs, ambient
+            expected = mask & (1 | (2 if grade else 0) | (4 if signs else 0) | (8 if ambient else 0))
+            self.assertEqual(expected, sender.HCComputeMask(settings))
+        self.assertEqual(0, sender.HCComputeMask(None))
+        settings.ClientPresentationMask = 16
+        self.assertEqual(0, sender.HCComputeMask(settings))
+        settings.ClientPresentationMask = 15
+        sender.HCTick(4)  # First join can occur after several mission frames.
+        sender.SendTo(None)
+        self.assertEqual([], packets)
+        sender.SendTo('synthetic identity')
+        sender.SendTo('other identity')
+        self.assertEqual(1, len(reads), 'join resend must reuse the cached snapshot')
+        self.assertEqual(((1, 1, 15), (None, 4854001, True, 'synthetic identity')), packets[0])
+        sender.HCTick(1)
+        self.assertEqual(1, len(reads), 'lazy first send must restart the five-second poll interval')
+
+    def test_server_polls_at_five_seconds_broadcasts_90_and_never_resets_revision_with_core(self):
+        sender, settings, owner, reads, packets, logs = self.server()
+        sender.SendTo('synthetic identity')
+        packets.clear()
+        settings.EnableGrade = False
+        for _ in range(49): sender.HCTick(.1)
+        self.assertEqual(1, len(reads))
+        self.assertEqual([], packets)
+        sender.HCTick(.11)
+        self.assertEqual(90, len(packets))
+        self.assertTrue(all(p[0] == (1, 2, 13) for p in packets))
+        self.assertEqual(['synthetic-' + str(i) for i in range(90)], [p[1][-1] for p in packets])
+        packets.clear()
+        # Explicit HCServer Stop/Start boundary: replace its settings owner,
+        # retaining the sender class exactly as a script VM does.
+        owner[0] = N(GetSettings=lambda: None)
+        sender.HCTick(5)
+        owner[0] = N(GetSettings=lambda: settings)
+        sender.HCTick(5)
+        self.assertEqual([(1, 3, 0), (1, 4, 13)], [packets[i][0] for i in (0, 90)])
+        packets.clear()
+        sender.HCTick(5)
+        self.assertEqual([], packets, 'unchanged settings must not broadcast')
+        sender.s_Revision = 1999999999
+        settings.EnableGrade = True
+        sender.HCTick(5)
+        self.assertEqual((1, 2000000000, 0), packets[-1][0])
+        settings.EnableGrade = False
+        sender.HCTick(5)
+        self.assertEqual(2000000000, sender.s_Revision)
+        self.assertTrue(any('revision_exhausted' in line for line in logs))
+
+    def test_mission_starts_only_clients_and_resends_after_each_server_connection_hook(self):
+        self.assertTrue(MISSION.is_file(), 'missing presentation mission lifecycle')
+        calls, dedicated, blocked, menu = [], [False], [False], [None]
+        class Base:
+            def OnInit(self): calls.append('super init')
+            def OnUpdate(self, dt): calls.append(('super update', dt))
+            def OnMissionFinish(self): calls.append('super finish')
+            def IsControlDisabled(self): return blocked[0]
+            def OnClientNewEvent(self, identity, pos, ctx): calls.append('super new'); return 'player'
+            def OnClientReadyEvent(self, identity, player): calls.append('super ready')
+            def OnClientReconnectEvent(self, identity, player): calls.append('super reconnect')
+        def coordinator():
+            return N(HCStart=lambda: calls.append('start'), HCStop=lambda: calls.append('stop'),
+                     HCUpdate=lambda *args: calls.append(('update', *args)))
+        env = dict(_Base_MissionGameplay=Base, _Base_MissionServer=Base,
+                   HCClientPresentation=coordinator,
+                   HCClientPresentationServer=N(SendTo=lambda identity: calls.append(('send', identity)),
+                                                HCTick=lambda dt: calls.append(('tick', dt))),
+                   GetGame=lambda: N(IsDedicatedServer=lambda: dedicated[0],
+                       GetUIManager=lambda: N(GetMenu=lambda: menu[0])))
+        gameplay = install(MISSION, env, 'MissionGameplay', ('OnInit', 'OnUpdate', 'OnMissionFinish'))()
+        dedicated[0] = True
+        gameplay.OnInit()
+        self.assertIsNone(gameplay.m_HCClientPresentation)
+        dedicated[0] = False
+        gameplay.OnInit()
+        self.assertEqual(['super init', 'super init', 'start'], calls)
+        for value, in_menu, allowed in ((False, None, True), (True, None, False), (False, object(), False)):
+            blocked[0], menu[0] = value, in_menu
+            gameplay.OnUpdate(.1)
+            self.assertEqual([('super update', .1), ('update', .1, allowed)], calls[-2:])
+        gameplay.OnMissionFinish()
+        self.assertEqual(['stop', 'super finish'], calls[-2:])
+        self.assertIsNone(gameplay.m_HCClientPresentation)
+        server = install(MISSION, env, 'MissionServer',
+                         ('OnUpdate', 'OnClientNewEvent', 'OnClientReadyEvent', 'OnClientReconnectEvent'))()
+        self.assertEqual('player', server.OnClientNewEvent('identity', None, None))
+        server.OnClientReadyEvent('identity', 'player')
+        server.OnClientReconnectEvent('identity', 'player')
+        self.assertEqual(['super new', ('send', 'identity'), 'super ready', ('send', 'identity'),
+                          'super reconnect', ('send', 'identity')], calls[-6:])
+        server.OnUpdate(.2)
+        self.assertEqual([('super update', .2), ('tick', .2)], calls[-2:])
+
+    def test_lighting_is_allocated_only_for_effective_grade_and_recreated_after_off(self):
+        calls, mask, coordinator = [], [0], [True]
+        class Base:
+            def OnInit(self): pass
+            def OnUpdate(self, dt): pass
+            def OnMissionFinish(self): calls.append('finish')
+        def lighting(handle):
+            self.assertEqual('native lighting', handle)
+            return N(Start=lambda: calls.append('start'), Stop=lambda: calls.append('stop'))
+        current = N(HCGetEffectiveMask=lambda: mask[0])
+        env = dict(_Base_MissionGameplay=Base, make_lighting=lighting,
+                   GetWorldLighting=lambda: 'native lighting',
+                   HCClientPresentation=N(HCGet=lambda: current if coordinator[0] else None),
+                   GetGame=lambda: N(IsDedicatedServer=lambda: False))
+        install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask',))
+        mission = install(LIGHTING, env, 'MissionGameplay', ('OnInit', 'OnUpdate', 'OnMissionFinish'))()
+        mission.OnInit()
+        self.assertIsNone(mission.m_HCLightingClient, 'GRADE off still created lighting at mission init')
+        mask[0] = 2
+        mission.OnUpdate(.1)
+        first = mission.m_HCLightingClient
+        self.assertIsNotNone(first)
+        mission.OnUpdate(.1)
+        self.assertEqual(['start'], calls)
+        mask[0] = 0
+        mission.OnUpdate(.1)
+        self.assertIsNone(mission.m_HCLightingClient)
+        mask[0] = 2
+        mission.OnUpdate(.1)
+        self.assertIsNot(first, mission.m_HCLightingClient)
+        coordinator[0] = False
+        mission.OnUpdate(.1)
+        self.assertIsNone(mission.m_HCLightingClient)
+        mission.OnMissionFinish()
+        self.assertEqual(['start', 'stop', 'start', 'stop', 'finish'], calls)
+
+    def test_offline_diag_applies_full_mask_but_dedicated_never_starts(self):
+        dedicated, multiplayer = [True], [False]
+        starts, stops, callbacks = [], [], []
+        def producer():
+            return N(Start=lambda: starts.append('start'), Stop=lambda: stops.append('stop'), HCHandleCount=lambda: 0)
+        game = N(IsServer=lambda: True, IsDedicatedServer=lambda: dedicated[0],
+                 IsMultiplayer=lambda: multiplayer[0], GetProfileString=lambda key, saved: False)
+        env = dict(GetGame=lambda: game, Print=lambda line: None, tostr=str,
+                   HCOperationalStatus=lambda: N(HCPublish=lambda *args: None),
+                   HCUnitBudget=lambda: N(), HCWorkBudget=lambda: N(),
+                   HCSignsOfLifeSnapshotClient=producer, HCHints=producer, HCEnvSound=producer,
+                   HCGradeSettingsClient=producer, HCSignsOfLifeClient=producer,
+                   HCV2Admission=N(Line=lambda *args: 'runtime=PENDING'), profile_read=lambda key: (False, ''),
+                   DayZGame=N(Event_OnRPC=N(Insert=callbacks.append, Remove=callbacks.remove)))
+        install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask', 'HCAccept', 'HCEffective'))
+        c = install(COORD, env, 'HCClientPresentation',
+                    ('HCStart', 'HCApplyServer', 'HCReconcile', 'HCReport', 'HCHandleCount', 'HCRefuse', 'HCReceive'))()
+        c.HCStart()
+        self.assertTrue(c.m_Stopped)
+        dedicated[0] = False
+        c.HCStart()
+        self.assertFalse(c.m_Stopped, 'offline DayZDiag was mistaken for a dedicated server')
+        self.assertEqual(15, c.m_EffectiveMask)
+        self.assertEqual(1, len(callbacks))
+
+    def test_owned_effect_counts_use_named_local_arrays_for_native_foreach(self):
+        source = (ROOT / '5_Mission/Atmosphere/HCSignsOfLifeClient.c').read_text()
+        method = source.split('int HCHandleCount()')[-1].split('void Clear()')[0]
+        for member in ('m_Lit', 'm_Smoke', 'm_Flies'):
+            self.assertNotRegex(method, r'foreach\s*\([^)]*:\s*' + member + r'\s*\)')
+            self.assertRegex(method, r'array<ref HCSignsOfLifeEffect>\s+\w+\s*=\s*' + member)
+
+    def test_hints_keep_running_after_old_eleven_hint_mask_until_all_fourteen_are_shown(self):
+        checks, saves = [], []
+        player = N(IsAlive=lambda: True, IsUnconscious=lambda: False)
+        env = dict(GetGame=lambda: N(GetPlayer=lambda: player, GetUIManager=lambda: N(GetMenu=lambda: None)),
+                   GetDayZGame=lambda: N(GetDatabaseID=lambda: 'synthetic-character'),
+                   PlayerBase=N(Cast=lambda value: value), NotificationSystem=N(GetInstance=lambda: object()),
+                   Check=checks.append, Save=lambda: saves.append('save') or True)
+        hints = install(HINTS, env, 'HCHints', ('Update', 'HCAllShownMask'))()
+        hints.m_State = N(CharacterId='synthetic-character', ShownBits=2047, PlayedSeconds=30, NextHintSecond=30)
+        hints.Update(5)
+        self.assertEqual([player], checks, '11 shown hints incorrectly suppress the remaining 3')
+        count = len(set(re.findall(r'Offer\((\d+),', HINTS.read_text())))
+        self.assertEqual(14, count)
+        self.assertEqual((1 << count) - 1, hints.HCAllShownMask())
+        hints.m_State.ShownBits = hints.HCAllShownMask()
+        hints.Update(60)
+        self.assertEqual([], saves)
+        self.assertEqual([player], checks)
+
     def test_effective_off_cleans_scheduled_work_refuses_unknown_and_resumes_only_allowed(self):
         logs, destroyed, saves, updates, profile = [], [], [], [], {}
         alive = [True]
         subscriptions = []
         viewer = N(IsAlive=lambda: alive[0], IsUnconscious=lambda: False)
         game = N(GetTickTime=lambda: 100., GetPlayer=lambda: viewer,
-                 IsServer=lambda: False, SetProfileString=profile.__setitem__,
+                 IsServer=lambda: False, IsDedicatedServer=lambda: False,
+                 IsMultiplayer=lambda: True, SetProfileString=profile.__setitem__,
                  SaveProfile=lambda: saves.append('profile'))
         env = dict(GetGame=lambda: game, Print=logs.append, tostr=str,
                    PlayerBase=N(Cast=lambda p: p),
@@ -156,7 +404,7 @@ class ClientControls(unittest.TestCase):
         clock = iter([100., 100.005])
         game.GetTickTime = lambda: next(clock)
         c.HCUpdate(.2, True)
-        self.assertEqual([], updates)
+        self.assertEqual(['grade'], updates, 'grade LocalPress sampling must survive an exhausted lane budget')
         self.assertEqual(0, c.m_Next)
         self.assertAlmostEqual(.2, c.m_HintElapsed)
         game.GetTickTime = lambda: 100.

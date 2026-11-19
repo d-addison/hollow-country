@@ -1,33 +1,17 @@
-// HC-27: sole owner of the four HC presentation clients. Lead mission lifecycle
-// calls HCStart / HCUpdate / HCStop; no parallel scheduler or gameplay RPC.
+// HC-27: sole owner of the four HC presentation clients. Mission lifecycle
+// is wired in HCClientPresentationMission.c; no parallel scheduler/gameplay RPC.
 // Native evidence, scripts-1.30.164289 (relative paths):
 // 3_Game/Global/Game.c:287,301,306 Get/SetProfileString, SaveProfile;
-// :944,1120 GetPlayer, IsServer; 3_Game/DayZGame.c:991,3144 Event_OnRPC;
+// :944,1118,1125 GetPlayer, IsMultiplayer, IsDedicatedServer; 3_Game/DayZGame.c:991,3144 Event_OnRPC;
 // 2_GameLib/tools.c:120,122 ScriptInvoker.Insert/Remove;
 // 1_Core/proto/Serializer.c:58 Read; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnConvert.c:30 int.ToString;
 // 3_Game/Entities/Object.c:517 IsAlive; PlayerBase.c:3925 IsUnconscious
 // (under 4_World/Entities/ManBase). Cleanup APIs remain with their existing owners.
-// Integration contract (lead-owned shared files, intentionally not edited here):
-// * Existing MissionGameplay: keep one ref HCClientPresentation; construct and
-//   HCStart after super.OnInit on clients; HCUpdate(timeslice, inputAllowed) on
-//   update; HCStop then null before super.OnMissionFinish. inputAllowed uses
-//   !IsControlDisabled() and !GetGame().GetUIManager().GetMenu() as before.
-// * HCServer after HC-1 admission: compute effective supported mask once from
-//   cached owner admission plus operator ClientPresentationMask (default ALL,
-//   reject unknown bits). Never rerun IsEnabled/config IO from a send/getter.
-//   Send ScriptRPC.Write(VERSION), Write(revision), Write(mask), then
-//   Send(null, RPC_SETTINGS, true, identity) on new/ready/reconnect and changes;
-//   each change, including stop/off, advances revision within this mission.
-// * Shared HCSettings owner adds int ClientPresentationMask = 15; validation
-//   rejects !HCClientPresentationSettings.HCValidMask(ClientPresentationMask).
-//   Existing EnableGrade/EnableSignsOfLife/EnableAmbientLife remain vetoes.
-// * HCLightingClient is outside this package. Its separate mission/CallLater
-//   owner must consume HCGetEffectiveMask's GRADE bit and Stop/release while
-//   clear (including before first settings), if lighting is included in the
-//   integrated grade-off promise. Do not reset native underground/cellar slots.
-//   Radio/cellar presentation remains under its respective owner, never purged.
-// No new distances. Fixed four-slot retained cursor uses HCUnitBudget and
+// HCClientPresentationServer caches/replicates operator settings; mission owns
+// this coordinator. HCLightingClient consumes the same effective GRADE bit.
+// Radio/cellar presentation remains under its respective owner, never purged.
+// No new distances. Fixed three-slot retained cursor uses HCUnitBudget and
 // HCWorkBudget. Mandatory off/death cleanup never waits for a budget slice.
 // No peer/player enumeration: one local viewer guard per active frame; existing
 // bounded signs-of-life query remains its owner's responsibility. Runtime=PENDING.
@@ -50,7 +34,6 @@ class HCClientPresentation
     protected int m_EffectiveMask;
     protected int m_Next;
     protected float m_HintElapsed;
-    protected float m_GradeElapsed;
     protected float m_SignsElapsed;
     protected float m_SoundElapsed;
     protected bool m_Stopped = true;
@@ -65,7 +48,7 @@ class HCClientPresentation
 
     void HCStart()
     {
-        if (!m_Stopped || !GetGame() || GetGame().IsServer()) { return; }
+        if (!m_Stopped || !GetGame() || GetGame().IsDedicatedServer()) { return; }
         m_Stopped = false;
         s_Current = this;
         m_Settings = new HCClientPresentationSettings;
@@ -88,11 +71,16 @@ class HCClientPresentation
         DayZGame.Event_OnRPC.Insert(HCReceive);
         Print(HCV2Admission.Line("ClientPresentation", true, "HC-27", false));
         HCReport("off", "awaiting_server_settings");
+        // Offline DayZDiag is a server process with a local presentation client.
+        if (!GetGame().IsMultiplayer())
+        {
+            HCApplyServer(HCClientPresentationSettings.VERSION, 1, HCClientPresentationSettings.ALL);
+        }
     }
 
     void HCReceive(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
-        if (m_Stopped || GetGame().IsServer() || sender || target) { return; }
+        if (m_Stopped || GetGame().IsDedicatedServer() || sender || target) { return; }
         if (rpcType != HCClientPresentationSettings.RPC_SETTINGS) { return; }
         int version;
         int revision;
@@ -138,7 +126,7 @@ class HCClientPresentation
     {
         int desired = m_Settings.HCEffective(m_LocalMask);
         if (m_Stopped) { desired = 0; }
-        // Four fixed lanes, no world scan. Stop before releasing every owner.
+        // Four fixed owners, no world scan. Stop before releasing every owner.
         if ((desired & HCClientPresentationSettings.HINTS) == 0)
         {
             if (m_Hints) { m_Hints.Stop(); m_Hints = null; }
@@ -162,7 +150,6 @@ class HCClientPresentation
         m_EffectiveMask = desired;
         m_Next = 0;
         m_HintElapsed = 0;
-        m_GradeElapsed = 0;
         m_SignsElapsed = 0;
         m_SoundElapsed = 0;
         string state = "off";
@@ -185,7 +172,6 @@ class HCClientPresentation
             }
             m_Alive = false;
             m_HintElapsed = 0;
-            m_GradeElapsed = 0;
             m_SignsElapsed = 0;
             m_SoundElapsed = 0;
             return;
@@ -193,22 +179,23 @@ class HCClientPresentation
         m_Alive = true;
         // Preserve each active owner's elapsed time when its lane yields.
         if (m_Hints) { m_HintElapsed = m_HintElapsed + timeslice; }
-        if (m_Grade) { m_GradeElapsed = m_GradeElapsed + timeslice; }
         if (m_Signs) { m_SignsElapsed = m_SignsElapsed + timeslice; }
         if (m_Sound) { m_SoundElapsed = m_SoundElapsed + timeslice; }
-        m_Units.HCReset(4);
-        m_Work.HCReset(4, 4);
+        // LocalPress is an edge: sample grade every live frame before any lane
+        // can yield on the cooperative 4 ms budget.
+        if (m_Grade) { m_Grade.Update(timeslice, allowInput); }
+        m_Units.HCReset(3);
+        m_Work.HCReset(3, 4);
         int examined = 0;
-        while (examined < 4 && m_Units.HCTake(1) && m_Work.HCContinue())
+        while (examined < 3 && m_Units.HCTake(1) && m_Work.HCContinue())
         {
             int lane = m_Next;
             m_Next = m_Next + 1;
-            if (m_Next >= 4) { m_Next = 0; }
+            if (m_Next >= 3) { m_Next = 0; }
             examined = examined + 1;
             if (lane == 0 && m_Hints) { m_Hints.Update(m_HintElapsed); m_HintElapsed = 0; }
-            if (lane == 1 && m_Grade) { m_Grade.Update(m_GradeElapsed, allowInput); m_GradeElapsed = 0; }
-            if (lane == 2 && m_Signs) { m_Signs.HCTickEffects(m_SignsElapsed); m_SignsElapsed = 0; }
-            if (lane == 3 && m_Sound) { m_Sound.Update(m_SoundElapsed); m_SoundElapsed = 0; }
+            if (lane == 1 && m_Signs) { m_Signs.HCTickEffects(m_SignsElapsed); m_SignsElapsed = 0; }
+            if (lane == 2 && m_Sound) { m_Sound.Update(m_SoundElapsed); m_SoundElapsed = 0; }
         }
     }
 

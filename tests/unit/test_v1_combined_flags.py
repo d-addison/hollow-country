@@ -63,6 +63,9 @@ class Profile:
         self.env = dict(Print=self.logs.append, FileExist=lambda p: True,
                         MakeDirectory=lambda p: True, load_settings=self.decode,
                         save_settings=lambda *a: self.writes.append(a) or True)
+        # HCSettings now delegates mask admission to the authored 3_Game DTO.
+        from tests.unit.test_hc_client_controls import install as install_controls, SETTINGS as presentation
+        install_controls(presentation, self.env, 'HCClientPresentationSettings', ('HCValidMask',))
         from tests.unit.ai_limits_fixture import install
         install(self.env)
         self.env['HCAILimits'].Use = lambda limits: None

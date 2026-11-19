@@ -264,9 +264,12 @@ class HCSignsOfLifeClient
     int HCHandleCount()
     {
         int count = 0;
-        foreach (HCSignsOfLifeEffect lit : m_Lit) { count = count + lit.HCHandleCount(); }
-        foreach (HCSignsOfLifeEffect smoke : m_Smoke) { count = count + smoke.HCHandleCount(); }
-        foreach (HCSignsOfLifeEffect flies : m_Flies) { count = count + flies.HCHandleCount(); }
+        array<ref HCSignsOfLifeEffect> litHandles = m_Lit;
+        array<ref HCSignsOfLifeEffect> smokeHandles = m_Smoke;
+        array<ref HCSignsOfLifeEffect> flyHandles = m_Flies;
+        foreach (HCSignsOfLifeEffect lit : litHandles) { count = count + lit.HCHandleCount(); }
+        foreach (HCSignsOfLifeEffect smoke : smokeHandles) { count = count + smoke.HCHandleCount(); }
+        foreach (HCSignsOfLifeEffect flies : flyHandles) { count = count + flies.HCHandleCount(); }
         return count;
     }
 

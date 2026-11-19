@@ -23,7 +23,11 @@ def validate_settings(value):
         return ['Settings must be a JSON object']
     expected = FLAGS | LIMITS.keys() | {'SchemaVersion'}
     errors = [f'Missing field {key}' for key in sorted(expected - value.keys())]
-    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS - {'AILimits'} - OPTIONAL_LIMITS.keys())]
+    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS - {'AILimits', 'ClientPresentationMask'} - OPTIONAL_LIMITS.keys())]
+    if 'ClientPresentationMask' in value:
+        mask = value['ClientPresentationMask']
+        if type(mask) is not int or not 0 <= mask <= 15:
+            errors.append('ClientPresentationMask must be an integer within 0..15')
     if type(value.get('SchemaVersion')) is not int or value.get('SchemaVersion') != 1:
         errors.append('Unsupported SchemaVersion')
     for key in sorted(FLAGS):

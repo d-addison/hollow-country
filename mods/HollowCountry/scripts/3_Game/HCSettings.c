@@ -38,6 +38,7 @@ class HCSettings
     // V2 feature preferences (LC-T001). Additive: a V1 settings.json without them keeps these defaults, because
     // LoadBounded fills a default-constructed object. Each feature is still gated by its own qualification.
     bool EnableGrade = true;
+    int ClientPresentationMask = 15;
     bool EnableAmbientLife = true;
     bool EnableSignsOfLife = true;
     bool EnableTravel = true;
@@ -81,6 +82,7 @@ class HCSettings
         error = "";
         if (SchemaVersion != 1) error = "Unsupported settings schema";
         else if (MaxFamiliarityRows < 0 || MaxFamiliarityRows > 128) error = "Familiarity row budget outside 0..128";
+        else if (!HCClientPresentationSettings.HCValidMask(ClientPresentationMask)) error = "ClientPresentationMask outside 0..15";
         else if (TickIntervalMs < 500 || TickIntervalMs > 10000) error = "Tick interval outside 500..10000 ms";
         else if (MaxTickWorkItems < 1 || MaxTickWorkItems > 256) error = "Work budget outside 1..256";
         else if (MaxActiveHordes < 1 || MaxActiveHordes > 8) error = "Horde budget outside 1..8";
