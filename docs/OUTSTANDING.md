@@ -38,12 +38,13 @@ Landed on main since the 2026-11-18 snapshot, so no longer in flight:
 - wave 11: the #192 review P3 fixes (Expansion AI, events, crafting, loot and infected), the #160 HC-S005 burn-down, the HC-52 backpack mount manifest loader (#58), the HC-48 habitat boot line (#149), the HC-35 trade slot release and module registration (#145), and the debug map Camps layer with per-layer counts;
 - wave 12: the #193 wave 11 review follow-ups (journal and event labels, wreck enroll reasons with their own player text, the trade slot released only after the idle save, the HC-48 counts read from the habitat manifest, a configurable infected non-calm hold, a restored `HerdWorld` default, the pack `not_started` reason), the admin loot map tick budget and kept marks, Wine noise ignored in signature checks with a PBO hash cache, the debug map lead-ledger and Scenes layers (registry cap 20, fair admin wire), and the last #160 HC-S001/HC-S005 entries;
 - wave 13: the #194 wave 12 review follow-ups (the trade log refusal, the HC-48 manifest tally with `manifest_bytes`/`manifest_cap` and a 64 KB read cap, one `lod.json` restore line, the site `spawn skipped` line, the loot map running tick budget, `min_rows_per_tick` and kept-mark filter labels, an LRU PBO hash cache with unique temp files, strict Wine `err:` lines in signature checks), the shared per-tick work budget (#138), the `EnableTapedPackMounts` setting with per-pair receipts (#58), and the debug map pickers, group-pins and materializer-proposals layers.
+- wave 14: the #195 wave 13 review follow-ups (a separate detached-recycle consumer id, Interiors expired locks freed on start, behavioural refresh-resume and recycle budget harnesses, typed `Checked` and ISO `CheckDate` receipt checks with a 64 KB receipt ceiling, debug picker getters gated on a ready journal, test-only lead debug getters removed, a rounded-up loot map cadence, the kept-mark label tied to the last ok run, a hash cache keyed on inode and ctime with an orphan temp sweep).
 
 Now:
 
 | Item | State |
 | --- | --- |
-| Next wave | The #195 follow-ups; republish the Workshop items and friend bundle once a batch is stable |
+| Next wave | The wave 14 follow-ups; republish the Workshop items and friend bundle once a batch is stable |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -76,7 +77,7 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
 - **#192** wave 10 review follow-ups: landed in wave 11 except the kept-on-purpose notes (the `HCSearchHouses.Commit` BUSY reason, the module-wide wreck start reason).
 - **#193** wave 11 review follow-ups: landed in wave 12; the light-mount setting and per-pair receipt landed in wave 13. Still open: the trade provider is unbound (refusal-only), and the native checks (unmapped manifest keys, `static const` DTO members, the 0-byte pending file).
 - **#194** wave 12 review follow-ups: landed in wave 13. Still open: a file rewritten with the same size and mtime outside the 2 s racy window keeps its cached hash (inherent to the size+mtime key), and the native checks.
-- **#195** wave 13 review follow-ups: the tick budget P2s (a shared maintenance consumer id, Interiors expired-lock BUSY, no refresh-resume harness test), pack receipt tests, debug layer and loot map P3s, and the carried native checks.
+- **#195** wave 13 review follow-ups: landed in wave 14. The remaining P3s and native checks moved to the wave 14 follow-up issue.
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
@@ -85,7 +86,7 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
   - raising the posed budget (still 12/12/12) only after measurement;
   - the distance bands are not confirmed against gunshot and network ranges (about 1 km);
   - nothing is measured with 3 to 6 players.
-- **Tick-budget design (done in wave 13):** HCServer owns one shared `HCUnitBudget` per tick (`MaxTickWorkItems`), drawn by Infected sampling, Interiors lock expiry and the search bind, maintenance and refresh loops; each consumer gets one forced unit per tick so none starves. `[HC TickWork]` prints `shared_used_max` and `shared_starved` once per 60 s window. `test_all_modules_tick_within_shared_work_budget` is a normal test now. Unmeasured natively.
+- **Tick-budget design (done in wave 13):** HCServer owns one shared `HCUnitBudget` per tick (`MaxTickWorkItems`), drawn by Infected sampling, Interiors lock expiry and the search bind, maintenance and refresh loops; each consumer gets one forced unit per tick so none starves (six consumers since wave 14, so a tick does at most `MaxTickWorkItems + 5` items). `[HC TickWork]` prints `shared_used_max` and `shared_starved` once per 60 s window. `test_all_modules_tick_within_shared_work_budget` is a normal test now. Unmeasured natively.
 - **Unfiled review P2s** (carried, not re-checked): the event preflight can hitch at start; (the admin map wire squeeze on `ai-units` is addressed in wave 12 by the fair per-layer split). Review notes also left HC-45/47/59/35 P2/P3s in commit bodies (for example a cancelled trade journal keeps the single slot).
 - **Unresolved engine findings** (docs/MODULE_STATUS.md, docs/INFECTED_DEATHS.md):
   - the native crash when creating an infected with `ECE_INITAI` (run 065);
