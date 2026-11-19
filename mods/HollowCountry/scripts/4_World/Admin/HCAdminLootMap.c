@@ -193,6 +193,8 @@ class HCAdminLootMap
 
     // Bounded running cadence for HCBudgetMs (#194): an exponentially weighted value, so one
     // slow or fast tick moves it by 1/ObservedTickDivisor of the gap and never sets it.
+    // The step is rounded away from the previous value (at least 1 ms, never past the
+    // sample), so a steady cadence is reached exactly from below and from above (#195).
     // previousMs <= 0 means no sample yet: the first sample seeds the value.
     static int HCSmoothTickMs(int previousMs, int sampleMs)
     {
@@ -200,7 +202,9 @@ class HCAdminLootMap
         int sample = Math.Min(Math.Max(sampleMs, 0), limits.ObservedTickMaxMs);
         if (previousMs < 1) { return sample; }
         int divisor = Math.Max(limits.ObservedTickDivisor, 1);
-        return (previousMs * (divisor - 1) + sample) / divisor;
+        int gap = sample - previousMs;
+        if (gap > 0) { return previousMs + (gap + divisor - 1) / divisor; }
+        return previousMs - (previousMs - sample + divisor - 1) / divisor;
     }
 
     // Server-side expected job deadline in ms for the ack: the job's tick cap times the

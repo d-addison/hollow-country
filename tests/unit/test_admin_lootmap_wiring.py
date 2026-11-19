@@ -143,6 +143,27 @@ class ObservedCadence(unittest.TestCase):
         self.assertLessEqual(loot.HCSmoothTickMs(limits.ObservedTickMaxMs, 10 ** 9), limits.ObservedTickMaxMs)
         self.assertEqual(0, loot.HCSmoothTickMs(0, -5))
 
+    def test_a_steady_non_round_cadence_is_reached_exactly_from_below_and_above(self):
+        # Wave 14 (#195): integer division used to floor, so the value settled up to
+        # divisor-1 ms below a rising cadence. Each step now moves at least 1 ms toward the
+        # sample (rounded away from the previous value) and never past it.
+        limits = authored_limits()
+        loot = statics(('HCSmoothTickMs',), limits)
+        for start in (200, 1000, 5000, 1336, 1338):
+            value = start
+            for _ in range(2000):
+                value = loot.HCSmoothTickMs(value, 1337)
+            self.assertEqual(1337, value, 'from %d' % start)
+        # It never overshoots the sample on the way.
+        value = 1000
+        for _ in range(500):
+            value = loot.HCSmoothTickMs(value, 1337)
+            self.assertLessEqual(value, 1337)
+        value = 2000
+        for _ in range(500):
+            value = loot.HCSmoothTickMs(value, 1337)
+            self.assertGreaterEqual(value, 1337)
+
 
 class ClientWiring(unittest.TestCase):
     def build(self):
@@ -179,17 +200,18 @@ class ClientWiring(unittest.TestCase):
                             m_LootUntil=0.0, m_LootViewUntil=0.0, m_OpenRequested=False,
                             m_Checks=Arr(), Revision=0, Notice='', View=None, Hidden=Arr(),
                             Changed=N(Invoke=lambda: None), m_LootRunFilter='', m_LootShownFilter='',
-                            m_LootStale=False)
+                            m_LootStale=False, m_LootMarksShown=False)
         self.members = ('HCValid', 'HCSend', 'HCFeedback', 'HCMergeLootMap', 'HCCarryLootMarks',
                         'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop', 'HCLootMarkCount',
-                        'HCLootFilterOf', 'HCLootLayerStatus')
+                        'HCLootFilterOf', 'HCLootLayerStatus', 'HCLootFilterLabel')
         self.fields = ('m_Ticket', 'm_Expected', 'm_Pending', 'm_RequestUntil', 'm_Command', 'm_NextSend',
                        'm_LootTicket', 'm_LootUntil', 'm_LootViewUntil', 'm_SnapshotTicket', 'm_Player',
                        'm_Authorized', 'm_SnapshotUntil', 'm_Listening', 'm_OpenRequested', 'm_LastReply',
                        'Revision', 'Notice', 'View', 'Changed', 'Hidden', 'm_LootRunFilter', 'm_LootShownFilter',
-                       'm_LootStale')
+                       'm_LootStale', 'm_LootMarksShown')
         for name in ('HCValid', 'HCSend', 'HCLootMap', 'HCMergeLootMap', 'HCLootMarkCount', 'HCCarryLootMarks',
-                     'HCExpireMarks', 'HCExpireLoot', 'HCStop', 'HCLootFilterOf', 'HCLootLayerStatus'):
+                     'HCExpireMarks', 'HCExpireLoot', 'HCStop', 'HCLootFilterOf', 'HCLootLayerStatus',
+                     'HCLootFilterLabel'):
             fn = compile_authored(CLIENT, 'HCAdminClient', name, self.env, self.members, modded=False,
                                   native_strings=EStr, fields=self.fields)
             setattr(c, name, lambda *args, fn=fn: fn(c, *args))
@@ -410,6 +432,35 @@ class ClientWiring(unittest.TestCase):
         fourth = self.sent[-1].Ticket
         self.receive(c, self.reply(fourth, notice='started ticket=4 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
         self.receive(c, self.reply(fourth, snapshot=True, marks=0, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual('', c.HCLootLayerStatus())
+
+    def test_kept_marks_of_an_unfiltered_run_are_still_labelled(self):
+        # Wave 14 (#195): the label follows its own "marks are shown" flag, not a non-empty
+        # filter, so a run with no filter is labelled `filter=all`, also after a refusal.
+        c = self.build()
+        # The menu refuses an empty filter today; the state machine must still be right
+        # for a future unfiltered run, so the bare `lootmap` command is sent directly.
+        self.assertTrue(c.HCSend(EStr('lootmap')))
+        first = self.sent[-1].Ticket
+        self.now = 101.0
+        self.receive(c, self.reply(first, notice='started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(first, snapshot=True, marks=2, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual('lootmap marks: filter=all', c.HCLootLayerStatus())
+        c.m_NextSend = 0.0
+        self.now = 200.0
+        c.m_LastReply = 200.0
+        c.HCLootMap(EStr('Rag*'))
+        second = self.sent[-1].Ticket
+        self.receive(c, self.reply(second, notice='started ticket=2 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(second, snapshot=True, marks=0,
+                                   notice='[HC Admin] cmd=lootmap result=refused reason=job_tick_cap'))
+        self.assertIn('previous run filter=all', c.Notice)
+        self.assertEqual('lootmap marks: filter=all (previous run)', c.HCLootLayerStatus())
+        # Expiry of the lootmap layer clears the flag: no marks, no label.
+        c.m_LootViewUntil = 250.0
+        c.m_SnapshotUntil = 0.0
+        c.HCExpireMarks(251.0)
+        self.assertFalse(c.m_LootMarksShown)
         self.assertEqual('', c.HCLootLayerStatus())
 
     def test_ok_final_reply_with_no_matches_still_clears_the_previous_layer(self):

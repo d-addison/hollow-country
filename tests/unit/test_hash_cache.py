@@ -5,11 +5,13 @@ Synthetic files in temp directories only; offline tests never establish DayZ beh
 RED (before the change): PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hash_cache -v
 see the commit body for the recorded failing lines.
 """
+import hashlib
 import itertools
 import os
 from pathlib import Path
 import re
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -17,12 +19,36 @@ from tools.package import hash_cache
 
 ROOT = Path(__file__).resolve().parents[2]
 UNIT = ROOT / 'tests' / 'unit'
-# Test modules whose code paths reach hash_cache.cached_sha256 through snafu_optional's
-# whole-PBO hashing (found by spying cached_sha256 with HC_HASH_CACHE_DIR unset, #194).
-REACHING = ('test_hc_optional_gear', 'test_local_test_session', 'test_optional_ce_composition',
-            'test_optional_gun_scale', 'test_optional_subset_pins', 'test_snafu_optional',
-            'test_tactical_flava_optional')
+# #195: the modules that must isolate the cache are discovered, not listed. A unit test module
+# reaches hash_cache.cached_sha256 (through snafu_optional's whole-PBO hashing) when its source
+# names one of these entry points: verify_install runs the whole-PBO hash of every addon,
+# subset_pins and _pbo_sha256 hash a PBO directly, _load_addons hashes while listing addons.
+HASHING_HELPERS = ('verify_install', 'subset_pins', '_pbo_sha256', '_load_addons', 'cached_sha256')
+HELPER_PATTERN = re.compile(r'\b(?:%s)\b' % '|'.join(HASHING_HELPERS))
 ISOLATION_HELPER = 'hash_cache_isolation'
+# Sources that name the helpers without being callers: this file and the helper itself.
+NOT_CALLERS = ('test_hash_cache', 'hash_cache_isolation')
+
+
+def hashing_modules(unit_dir):
+    """Names of the test modules under unit_dir whose source names a whole-PBO hashing helper."""
+    found = []
+    for path in sorted(Path(unit_dir).glob('*.py')):
+        if path.stem in NOT_CALLERS:
+            continue
+        if HELPER_PATTERN.search(path.read_text(encoding='utf-8')):
+            found.append(path.stem)
+    return found
+
+
+def unisolated(unit_dir):
+    """The discovered hashing modules that neither use the shared helper nor set their own cache dir."""
+    bad = []
+    for name in hashing_modules(unit_dir):
+        text = (Path(unit_dir) / (name + '.py')).read_text(encoding='utf-8')
+        if ISOLATION_HELPER not in text and 'HC_HASH_CACHE_DIR' not in text:
+            bad.append(name)
+    return bad
 
 
 class FakeHome:
@@ -99,6 +125,113 @@ class LeastRecentlyUsedEviction(CacheCase):
         self.assertIn(str(files[3].absolute()), kept)  # the fresh use survives; legacy rows go first
 
 
+class FutureUseStamp(CacheCase):
+    def test_a_future_use_stamp_is_clamped_to_now_so_the_row_can_age_out(self):
+        path = self.old_file('a.pbo', b'a')
+        digest = hashlib.sha256(b'a').hexdigest()
+        st = path.stat()
+        row = {'size': st.st_size, 'mtime_ns': st.st_mtime_ns, 'sha256': digest, 'used': 10 ** 21}
+        hash_cache._store(self.cache, {str(path.absolute()): row})
+        loaded = self.entries()[str(path.absolute())]
+        self.assertLessEqual(loaded['used'], 10 ** 16)  # clamped on read; the synthetic clock is ~1e15
+        with mock.patch.object(hash_cache, 'USE_REFRESH_NS', 1):
+            self.assertEqual(digest, hash_cache.cached_sha256(path))
+        self.assertLessEqual(self.entries()[str(path.absolute())]['used'], 10 ** 16)
+
+    def test_a_future_stamp_does_not_outlive_fresh_rows_at_the_cap(self):
+        files = [self.old_file('g%d.pbo' % i, bytes([i])) for i in range(3)]
+        legacy = {str(files[0].absolute()): {'size': 1, 'mtime_ns': 1, 'sha256': '0' * 64, 'used': 10 ** 21}}
+        hash_cache._store(self.cache, legacy)
+        with mock.patch.object(hash_cache, 'MAX_ENTRIES', 2):
+            hash_cache.cached_sha256(files[1])
+            hash_cache.cached_sha256(files[2])
+        self.assertNotIn(str(files[0].absolute()), set(self.entries()))
+
+
+class OrphanTempSweep(CacheCase):
+    def temp(self, name, mtime_ns):
+        self.cache.mkdir(parents=True, exist_ok=True)
+        path = self.cache / name
+        path.write_text('{}')
+        os.utime(path, ns=(mtime_ns, mtime_ns))
+        return path
+
+    def test_a_write_removes_old_orphan_temp_files_and_keeps_young_ones(self):
+        now = 10 ** 15
+        old = self.temp('%s.4242.%s.tmp' % (hash_cache.CACHE_FILE, 'a' * 16), now - hash_cache.ORPHAN_TEMP_AGE_NS - 10 ** 12)
+        young = self.temp('%s.4243.%s.tmp' % (hash_cache.CACHE_FILE, 'b' * 16), now - 10 ** 9)
+        other = self.temp('notes.tmp', 1)  # not a cache temp name: never touched
+        cache_like = self.temp('other-cache.json.1.%s.tmp' % ('c' * 16), 1)
+        hash_cache._store(self.cache, {})
+        names = sorted(p.name for p in self.cache.iterdir())
+        self.assertNotIn(old.name, names)
+        self.assertIn(young.name, names)
+        self.assertIn(other.name, names)
+        self.assertIn(cache_like.name, names)
+        self.assertIn(hash_cache.CACHE_FILE, names)
+
+    def test_the_age_is_a_named_one_hour_constant(self):
+        self.assertEqual(3600 * 10 ** 9, hash_cache.ORPHAN_TEMP_AGE_NS)
+
+    def test_a_directory_with_a_temp_name_does_not_break_the_write(self):
+        self.cache.mkdir(parents=True, exist_ok=True)
+        (self.cache / ('%s.1.%s.tmp' % (hash_cache.CACHE_FILE, 'd' * 16))).mkdir()
+        hash_cache._store(self.cache, {})
+        self.assertTrue((self.cache / hash_cache.CACHE_FILE).is_file())
+
+
+class LastWriterWins(CacheCase):
+    def test_interleaved_writers_leave_one_valid_file_and_the_last_write_wins(self):
+        self.assertIn('last writer wins', hash_cache.__doc__.lower())
+        row = lambda ch: {'size': 1, 'mtime_ns': 1, 'sha256': ch * 64, 'used': 1}
+        first = self.entries()  # both writers loaded the same (empty) state
+        second = self.entries()
+        first['/a'] = row('a')
+        second['/b'] = row('b')
+        hash_cache._store(self.cache, first)
+        hash_cache._store(self.cache, second)
+        self.assertEqual({'/b'}, set(self.entries()))  # the first writer's row is lost, never corrupted
+        self.assertEqual([hash_cache.CACHE_FILE], sorted(p.name for p in self.cache.iterdir()))
+
+
+class RewrittenFileKeepsItsStamp(CacheCase):
+    def test_a_rewrite_with_the_same_size_and_restored_mtime_is_not_served_from_cache(self):
+        path = self.old_file('a.pbo', b'aaaa')
+        first = hash_cache.cached_sha256(path)
+        self.assertEqual(hashlib.sha256(b'aaaa').hexdigest(), first)
+        self.assertIn(str(path.absolute()), self.entries())  # it was cached (outside the racy window)
+        time.sleep(0.05)  # ctime ticks are coarse; the rewrite must land in a later one
+        path.write_bytes(b'bbbb')
+        os.utime(path, ns=(10 ** 9, 10 ** 9))  # same size, same mtime_ns as before
+        self.assertEqual(hashlib.sha256(b'bbbb').hexdigest(), hash_cache.cached_sha256(path))
+
+    def test_a_replaced_file_with_the_same_size_and_mtime_is_rehashed(self):
+        path = self.old_file('a.pbo', b'aaaa')
+        hash_cache.cached_sha256(path)
+        time.sleep(0.05)
+        other = self.root / 'new.pbo'
+        other.write_bytes(b'cccc')
+        os.utime(other, ns=(10 ** 9, 10 ** 9))
+        os.replace(other, path)  # a new inode behind the same path
+        self.assertEqual(hashlib.sha256(b'cccc').hexdigest(), hash_cache.cached_sha256(path))
+
+    def test_the_row_records_inode_and_ctime_where_the_platform_gives_them(self):
+        path = self.old_file('a.pbo', b'aaaa')
+        hash_cache.cached_sha256(path)
+        row = self.entries()[str(path.absolute())]
+        st = path.stat()
+        self.assertEqual(st.st_ino, row['ino'])
+        self.assertEqual(st.st_ctime_ns, row['ctime_ns'])
+
+    def test_a_row_without_the_new_fields_is_rehashed_once_then_cached_with_them(self):
+        path = self.old_file('a.pbo', b'aaaa')
+        st = path.stat()
+        old = {'size': st.st_size, 'mtime_ns': st.st_mtime_ns, 'sha256': 'f' * 64, 'used': 1}
+        hash_cache._store(self.cache, {str(path.absolute()): old})
+        self.assertEqual(hashlib.sha256(b'aaaa').hexdigest(), hash_cache.cached_sha256(path))
+        self.assertIn('ino', self.entries()[str(path.absolute())])
+
+
 class UniqueTempFile(CacheCase):
     def test_every_write_uses_its_own_temp_name_and_leaves_none_behind(self):
         names = []
@@ -158,11 +291,25 @@ class UserCacheIsolation(unittest.TestCase):
         self.assertEqual([], fake.touched())
 
     def test_every_module_that_reaches_the_cache_isolates_it(self):
-        # Each of these runs snafu_optional's whole-PBO hashing; without the shared helper
-        # (or its own HC_HASH_CACHE_DIR) they would read and write the user's cache.
-        for name in REACHING:
-            text = (UNIT / (name + '.py')).read_text()
-            self.assertTrue(ISOLATION_HELPER in text or 'HC_HASH_CACHE_DIR' in text, name)
+        # Discovered (#195): every module that names a whole-PBO hashing helper must use the shared
+        # helper (or its own HC_HASH_CACHE_DIR), else it reads and writes the user's cache.
+        found = hashing_modules(UNIT)
+        # The scan is not vacuous: the modules found by spying cached_sha256 in #194 are still found.
+        for known in ('test_snafu_optional', 'test_tactical_flava_optional', 'test_local_test_session',
+                      'test_optional_subset_pins'):
+            self.assertIn(known, found)
+        self.assertEqual([], unisolated(UNIT))
+
+    def test_a_new_unisolated_caller_is_found_and_fails_the_check(self):
+        with tempfile.TemporaryDirectory() as t:
+            unit = Path(t)
+            (unit / 'test_new_caller.py').write_text('from tools.package import snafu_optional\n'
+                                                     'snafu_optional.verify_install(1, 2)\n')
+            (unit / 'test_isolated_caller.py').write_text('import hash_cache_isolation\nverify_install()\n')
+            (unit / 'test_own_dir.py').write_text("os.environ['HC_HASH_CACHE_DIR'] = 'x'\n_pbo_sha256(p)\n")
+            (unit / 'test_unrelated.py').write_text('import unittest\n')
+            self.assertEqual(['test_isolated_caller', 'test_new_caller', 'test_own_dir'], hashing_modules(unit))
+            self.assertEqual(['test_new_caller'], unisolated(unit))
 
     def test_the_isolation_helper_redirects_the_cache_and_restores_the_environment(self):
         from tests.unit import hash_cache_isolation
