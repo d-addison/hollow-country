@@ -153,6 +153,7 @@ def render_native_registry(rows):
 
 # Owner -> (source, registry key prefix, DTO accessor used in validation bindings).
 EXTERNAL_OWNERS = {
+    'HCGCCampGroupConfig': ('mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c', 'CampGroup', ''),
     'HCBodyStoryConfig': ('mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c', 'BodyStories', ''),
     'HCXAISitePolicy': ('mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c', 'AISites', 'p.'),
     'HCAICampPolicy': ('mods/HollowCountry/scripts/4_World/World/HCAICampLifecycle.c', 'AICamps', ''),
@@ -177,6 +178,16 @@ def check_external_owner(rules, owner, path, prefix, var):
     for key, row in owned.items():
         if defaults.get(key) != (row['type'], row['default']):
             errors.append(f'{prefix} default/type differs for {key}')
+        if owner == 'HCGCCampGroupConfig':
+            binding = (f'{key} = HCValue(text, "{key}", {key}, '
+                       f'{row["default"]}, {row["min"]}, {row["max"]});')
+            restore = f'if (!HCJsonFields.Has(text, "{key}")) {{ {key} = {row["default"]}; }}'
+            guards = ('string registryKey = "CampGroup." + key;',
+                      'HCOperatorSettingsRegistry.HCValid(registryKey, value)',
+                      'value >= low && value <= high')
+            if binding not in source or restore not in source or any(g not in source for g in guards):
+                errors.append(f'{prefix} normalization/registry binding differs for {key}')
+            continue
         binding = f'HCOperatorSettingsRegistry.HCValid("{prefix}.{key}", {var}{key})'
         if binding not in source:
             errors.append(f'{prefix} validation binding differs for {key}')

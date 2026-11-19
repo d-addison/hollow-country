@@ -343,6 +343,29 @@ class HCOperatorSettingsRegistry
         HCAdd("BodyStories.MaxActiveTraces", "int", 10, 1, 10, "HCBodyStoryConfig");
         HCAdd("BodyStories.MaxSceneTraces", "int", 3, 1, 3, "HCBodyStoryConfig");
         HCAdd("BodyStories.MaintenanceSeconds", "float", 20, 1, 300, "HCBodyStoryConfig");
+        HCAdd("CampGroup.CampFireCandidates", "int", 128, 1, 128, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.CampPlayers", "int", 32, 1, 32, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.CampTickSeconds", "int", 5, 1, 60, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.CampScanSeconds", "int", 600, 30, 3600, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.CampProbeScanSeconds", "int", 30, 5, 600, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.CampSaveSeconds", "int", 600, 60, 3600, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.CampBindDistanceSq", "int", 145, 1, 145, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.PinLimit", "int", 64, 1, 64, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.LeadPins", "int", 5, 1, 5, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TrailPins", "int", 48, 1, 48, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.ShelterQueries", "int", 20, 1, 20, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TrailRadiusMeters", "int", 40, 1, 40, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.PinRefreshSeconds", "int", 60, 5, 600, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.PinLogSeconds", "int", 600, 60, 3600, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.PinLogGroups", "int", 1, 1, 4, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TeamPingRows", "int", 90, 1, 90, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TeamPingSeconds", "int", 60, 10, 60, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TeamPingCooldownSeconds", "int", 10, 1, 60, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TeamPingPruneRows", "int", 32, 1, 32, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TeamPingLogSeconds", "int", 60, 10, 600, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.TeamPingRadiusMeters", "int", 5, 1, 5, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.DebugGroups", "int", 1, 1, 4, "HCGCCampGroupConfig");
+        HCAdd("CampGroup.DebugPins", "int", 32, 1, 32, "HCGCCampGroupConfig");
         // END GENERATED SETTINGS REGISTRY
     }
 

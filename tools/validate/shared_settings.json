@@ -2068,5 +2068,189 @@
     "min": 1,
     "max": 300,
     "owner": "HCBodyStoryConfig"
+  },
+  {
+    "key": "CampGroup.CampFireCandidates",
+    "type": "int",
+    "default": 128,
+    "min": 1,
+    "max": 128,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.CampPlayers",
+    "type": "int",
+    "default": 32,
+    "min": 1,
+    "max": 32,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.CampTickSeconds",
+    "type": "int",
+    "default": 5,
+    "min": 1,
+    "max": 60,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.CampScanSeconds",
+    "type": "int",
+    "default": 600,
+    "min": 30,
+    "max": 3600,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.CampProbeScanSeconds",
+    "type": "int",
+    "default": 30,
+    "min": 5,
+    "max": 600,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.CampSaveSeconds",
+    "type": "int",
+    "default": 600,
+    "min": 60,
+    "max": 3600,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.CampBindDistanceSq",
+    "type": "int",
+    "default": 145,
+    "min": 1,
+    "max": 145,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.PinLimit",
+    "type": "int",
+    "default": 64,
+    "min": 1,
+    "max": 64,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.LeadPins",
+    "type": "int",
+    "default": 5,
+    "min": 1,
+    "max": 5,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TrailPins",
+    "type": "int",
+    "default": 48,
+    "min": 1,
+    "max": 48,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.ShelterQueries",
+    "type": "int",
+    "default": 20,
+    "min": 1,
+    "max": 20,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TrailRadiusMeters",
+    "type": "int",
+    "default": 40,
+    "min": 1,
+    "max": 40,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.PinRefreshSeconds",
+    "type": "int",
+    "default": 60,
+    "min": 5,
+    "max": 600,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.PinLogSeconds",
+    "type": "int",
+    "default": 600,
+    "min": 60,
+    "max": 3600,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.PinLogGroups",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 4,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TeamPingRows",
+    "type": "int",
+    "default": 90,
+    "min": 1,
+    "max": 90,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TeamPingSeconds",
+    "type": "int",
+    "default": 60,
+    "min": 10,
+    "max": 60,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TeamPingCooldownSeconds",
+    "type": "int",
+    "default": 10,
+    "min": 1,
+    "max": 60,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TeamPingPruneRows",
+    "type": "int",
+    "default": 32,
+    "min": 1,
+    "max": 32,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TeamPingLogSeconds",
+    "type": "int",
+    "default": 60,
+    "min": 10,
+    "max": 600,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.TeamPingRadiusMeters",
+    "type": "int",
+    "default": 5,
+    "min": 1,
+    "max": 5,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.DebugGroups",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 4,
+    "owner": "HCGCCampGroupConfig"
+  },
+  {
+    "key": "CampGroup.DebugPins",
+    "type": "int",
+    "default": 32,
+    "min": 1,
+    "max": 32,
+    "owner": "HCGCCampGroupConfig"
   }
 ]
