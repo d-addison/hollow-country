@@ -89,8 +89,14 @@ class HCFuelSiphon
 
     static bool Allowed(PlayerBase player, ActionTarget target, ItemBase item, HCRefusalResult refusal = null)
     {
+        // Parameters are weak refs (boot 047 native compile error); a strong
+        // local owns the fallback result for the whole call.
+        HCRefusalResult ownedRefusal = null;
         if (!refusal)
-            refusal = new HCRefusalResult;
+        {
+            ownedRefusal = new HCRefusalResult;
+            refusal = ownedRefusal;
+        }
         refusal.Refuse(HCRefusal.SIPHON);
         if (GetGame() && GetGame().IsServer() && !ServerEnabled())
             return refusal.Refuse(HCRefusal.SIPHON_OFF);
@@ -244,9 +250,13 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
 
     void HCRefuse(ActionData action_data, HCRefusalResult refusal = null)
     {
+        // Parameters are weak refs (boot 047 native compile error); a strong
+        // local owns the fallback result for the whole call.
+        HCRefusalResult ownedRefusal = null;
         if (!refusal)
         {
-            refusal = new HCRefusalResult;
+            ownedRefusal = new HCRefusalResult;
+            refusal = ownedRefusal;
             if (!HCFuelSiphon.ServerEnabled())
                 refusal.Refuse(HCRefusal.SIPHON_OFF);
             else
