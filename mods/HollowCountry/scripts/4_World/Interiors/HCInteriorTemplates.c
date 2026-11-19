@@ -951,14 +951,31 @@ modded class HCInteriorsModule
 
     override HCOperationalStatus HCGetOperationalStatus()
     {
-        // Cached load state only: no provider, config, file or world queries.
-        m_PackStatus.HCPublish("off", "template_owner_not_running");
-        if (m_PackLoading) { m_PackStatus.HCPublish("requested", "template_pack_loading"); }
+        // Select once from cached owner/load state; never publish transient
+        // off/refused revisions before the final ready state in the same read.
+        string state = "off";
+        string reason = "template_owner_not_running";
+        if (m_PackLoading)
+        {
+            state = "requested";
+            reason = "template_pack_loading";
+        }
         if (HCInteriorTemplates.HCLoadFinished())
         {
-            m_PackStatus.HCPublish("refused", "template_pack_refused");
-            if (HCInteriorTemplates.Loaded()) { m_PackStatus.HCPublish("ready", "template_pack_admitted_runtime_pending"); }
+            state = "refused";
+            reason = "template_pack_refused";
+            if (HCInteriorTemplates.Loaded())
+            {
+                state = "ready";
+                reason = "template_pack_admitted_runtime_pending";
+            }
         }
+        if (m_Ready && s_Instance == this && !HCInteriorTemplates.Loaded())
+        {
+            state = "ready";
+            reason = "legacy_pilot_admitted_runtime_pending";
+        }
+        m_PackStatus.HCPublish(state, reason);
         return m_PackStatus;
     }
     protected ref HCWorkBudget m_PackBudget = new HCWorkBudget;

@@ -253,8 +253,8 @@ class HCInteriorTemplatePlacement
     static bool HCPlaceRowSlice(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed, int firstSlot, int slotCount, int resume, int placedBefore)
 
     {
-        int limit = Math.Min(settings.MaxFurnishedProps, 1500);
-        int houseLimit = Math.Min(settings.MaxPropsPerInterior, 5);
+        int limit = Math.Min(settings.HCSearchCap("MaxFurnishedProps", settings.MaxFurnishedProps), 1500);
+        int houseLimit = Math.Min(settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior), 5);
         s_LastType = row.BuildingClass;
         if (placed.Count() >= limit)
 

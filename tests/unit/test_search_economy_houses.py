@@ -295,9 +295,10 @@ class FakeAction:
 
 def settings(**override):
     base = dict(EnableInteriors=True, EnableSearch=True, MaxBoundSearchSites=256, MaxActiveInteriors=12,
-                MaxBindQueriesPerTick=2, MaxTickWorkItems=32, MaxPropsPerInterior=5)
+                MaxBindQueriesPerTick=2, MaxTickWorkItems=32, MaxPropsPerInterior=5, SearchDensityScale=0)
     base.update(override)
-    return N(**base)
+    from tests.unit.settings_registry_fixture import attach_density
+    return attach_density(N(**base))
 
 
 PACK_PIN = 'c' * 64

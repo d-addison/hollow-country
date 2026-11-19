@@ -14,6 +14,7 @@ from types import SimpleNamespace as NS
 import unittest
 
 from tests.unit.test_group_server import EArray, body
+from tests.unit.settings_registry_fixture import attach_density
 from tests.unit.test_interior_measured_catalog import EMap as BaseMap, statements
 from tests.unit.build_identity_support import translate as build_identity
 from tests.unit.test_tilt_rule import tilt_rules
@@ -281,6 +282,29 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         self.assertFalse(env['FindGroup']('missing'))
         self.assertEqual([], visits, 'group lookup scanned 32768 groups')
 
+    def test_status_publishes_one_selected_state_and_recognizes_legacy_owner(self):
+        from tests.unit.test_group_server import execute_member
+        source = (SRC / 'HCInteriorTemplates.c').read_text()
+        source = source.replace('override HCOperationalStatus HCGetOperationalStatus()',
+                                'override int HCGetOperationalStatus()')
+        source = source.replace('s_Instance', 'self.s_Instance').replace('this', 'self')
+        for loading, finished, loaded, legacy, expected in (
+                (False, False, False, False, ('off', 'template_owner_not_running')),
+                (True, False, False, False, ('requested', 'template_pack_loading')),
+                (False, True, False, False, ('refused', 'template_pack_refused')),
+                (False, True, True, False, ('ready', 'template_pack_admitted_runtime_pending')),
+                (False, False, False, True, ('ready', 'legacy_pilot_admitted_runtime_pending')),
+                (True, False, False, True, ('ready', 'legacy_pilot_admitted_runtime_pending')),
+                (False, True, False, True, ('ready', 'legacy_pilot_admitted_runtime_pending'))):
+            with self.subTest(loading=loading, finished=finished, loaded=loaded, legacy=legacy):
+                rows = []
+                status = NS(HCPublish=lambda state,reason:rows.append((state,reason)))
+                module = NS(m_PackLoading=loading, m_PackStatus=status, m_Ready=legacy, s_Instance=None)
+                if legacy: module.s_Instance = module
+                ports = dict(HCInteriorTemplates=NS(HCLoadFinished=lambda:finished, Loaded=lambda:loaded))
+                self.assertIs(status, execute_member(source, 'HCGetOperationalStatus', ports, module))
+                self.assertEqual([expected], rows)
+
     def test_module_tick_finishes_admission_and_stop_cancels_pending_load(self):
         from tests.unit.test_group_server import execute_member
         from tests.unit.test_hc_template_pack import SyntheticBudget
@@ -305,7 +329,7 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         events = []
         budget = SyntheticBudget(True)
         budget.HCReset = lambda limit: None
-        module = NS(m_PackLoading=True, m_PackBudget=budget, m_Config=None, m_Objects=EArray(),
+        module = NS(m_PackLoading=True, m_Ready=False, m_PackBudget=budget, m_Config=None, m_Objects=EArray(),
                     s_Instance=None, LegacyTick=lambda delta:None, IsEnabled=lambda cfg:cfg.EnableInteriors,
                     LegacyStart=lambda cfg:None, LegacyStop=lambda:events.append('stop'))
         ports = dict(GetGame=lambda:NS(IsServer=lambda:True),
@@ -494,7 +518,7 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
                 queries.append(tuple(position)); found.extend(world)
             env['GetGame'] = lambda:NS(GetObjectsAtPosition3D=query)
             row = env['FurnishRows']()[0]
-            settings = NS(MaxFurnishedProps=1500, MaxPropsPerInterior=5)
+            settings = attach_density(NS(MaxFurnishedProps=1500, MaxPropsPerInterior=5, SearchDensityScale=0))
             for _ in range(3):
                 if uncached:
                     env['s_ResolveCache'].Clear()
@@ -530,7 +554,7 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
                 found.extend(world)
             env['GetGame'] = lambda: NS(GetObjectsAtPosition3D=query)
             row = env['FurnishRows']()[0]
-            settings = NS(MaxFurnishedProps=1500, MaxPropsPerInterior=5)
+            settings = attach_density(NS(MaxFurnishedProps=1500, MaxPropsPerInterior=5, SearchDensityScale=0))
             for index in range(3):
                 if uncached:
                     env['s_ResolveCache'].Clear()
@@ -745,7 +769,7 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
 
     def place(self, result, overall=1500, per_house=5):
         e,raw,reads,logs,objects,created=result
-        settings=NS(MaxFurnishedProps=overall,MaxPropsPerInterior=per_house)
+        settings=attach_density(NS(MaxFurnishedProps=overall,MaxPropsPerInterior=per_house,SearchDensityScale=0))
         module=NS()
         module.PlaceCandidate=lambda row,cfg:e['PlaceRow'](module,row,cfg,created)
         e['Place'](module,settings,created)
@@ -903,7 +927,7 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         return execute_member(source,name,e,module,index)
 
     def test_template_startup_runs_without_legacy_config_and_preserves_pilot_entry(self):
-        events=[]; settings=NS(MaxFurnishedProps=1500,MaxPropsPerInterior=5)
+        events=[]; settings=attach_density(NS(MaxFurnishedProps=1500,MaxPropsPerInterior=5,SearchDensityScale=0))
         module=NS(s_Instance=None,m_Config=None,m_Objects=EArray(),IsEnabled=lambda cfg:True,
                   LegacyStart=lambda cfg:events.append(('legacy',)))
         self.invoke_extension('OnStart',module,settings,events=events)

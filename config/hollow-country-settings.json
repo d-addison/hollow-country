@@ -62,5 +62,7 @@
     "MaxCampItems": 64,
     "WorldSeed": 18473,
     "MaxObservedAI": 1024
-  }
+  },
+  "MaxFamiliarityRows": 0,
+  "SearchDensityScale": 0
 }

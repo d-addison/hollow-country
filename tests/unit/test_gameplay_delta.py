@@ -739,7 +739,9 @@ class CeGlobalsStaySubordinate(unittest.TestCase):
     def test_hc_horde_budget_is_below_the_native_zombie_cap(self):
         settings = json.loads((MISSION / 'operator/settings.json').read_text())
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
-        cap = int(re.search(r'MaxActiveHordeMembers > (\d+)', source).group(1))
+        from tests.unit.settings_registry_fixture import install_registry
+        cap = install_registry({}).HCMaximum('MaxActiveHordeMembers')
+        self.assertIn('HCOperatorSettingsRegistry.HCValid("MaxActiveHordeMembers", MaxActiveHordeMembers)', source)
         self.assertLessEqual(settings['MaxActiveHordeMembers'], cap)
         self.assertLess(cap, self.VANILLA_ZOMBIE_MAX)  # HC can never request more than the CE cap
 

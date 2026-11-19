@@ -223,6 +223,47 @@ AI group sizes and counts come from the `AILimits` settings section (3–8 per
 occupation group, 10–15 groups by default). See the
 [AI README](../mission/hollow-country/ai/README.md) for every key.
 
+**Searchable-location density** (`$profile:HollowCountry/settings.json`). Stop
+and restart the server after changing `SearchDensityScale`. Missing or `0` means
+1.0; other values must be 0.5–2.0. Invalid numeric values restore only this key
+to `0` and log `[HC Settings] invalid SearchDensityScale`; the profile file is
+preserved. Offline validation rejects invalid values before staging.
+
+The scale multiplies the four configured budgets, rounds down to whole counts,
+and clamps each result to its validated range. Explicit `MaxFurnishedProps: 0`
+stays zero. With the shipped base budgets, the effective caps are:
+
+| Budget | Scale 0.5 | Scale 1 (or 0) | Scale 2 | Validated maximum |
+| :--- | ---: | ---: | ---: | ---: |
+| `MaxBoundSearchSites` | 128 | 256 | 512 | 1024 |
+| `MaxActiveInteriors` | 6 | 12 | 24 | 32 |
+| `MaxPropsPerInterior` | 2 | 5 | 10 | 20 |
+| `MaxFurnishedProps` | 750 | 1500 | 2000 | 2000 |
+
+These are admission budgets, not promised observed locations. Existing authored
+catalog and pilot bounds still apply (currently five props per furnished house,
+1500 template props, and twelve legacy pilot candidates). The setting changes
+neither search yield nor CE inventory, and never creates replacement loot.
+Feature preferences and native clearance/provider gates remain authoritative.
+Runtime acceptance and performance at 3–6 players remain pending.
+
+Both shipped settings files include every registry key, including optional
+zero-valued settings, because native JSON loading zero-fills absent scalars.
+Existing profiles may omit `SearchDensityScale` safely. The shared registry
+`tools/validate/shared_settings.json` records key, type, default, minimum,
+maximum and owner; `HCSettings` uses its checked compiled mirror. Before
+packaging, validate registry/default/range agreement and operator input from the
+private source checkout with:
+
+```sh
+python3 -B -m tools.validate.runtime /path/to/profile/HollowCountry/settings.json
+```
+
+Startup prints one `[HC Settings] effective <key>=<value>` per scalar setting;
+the four density budgets show their scaled caps and `SearchDensityScale` shows
+its resolved multiplier. The Interiors readiness reason distinguishes admitted
+templates from an admitted legacy pilot; admission still requires native testing.
+
 **Gunfire and AI caution.** This is deliberate: any audible shot within 80 m of
 an AI widens its caution range to 80 m for 10 s. A firefight nearby makes groups
 wary; a distant shot does not.

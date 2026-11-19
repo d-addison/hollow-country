@@ -70,9 +70,9 @@ class HCInteriorsModule : HCModule
         string world = GetGame().GetWorldName();
         world.ToLower();
         if (world != m_Config.MapName) return Reject("running map differs from manifest");
-        if (!m_Config.Candidates || m_Config.Candidates.Count() < 1 || m_Config.Candidates.Count() > 12 || m_Config.Candidates.Count() > settings.MaxActiveInteriors) return Reject("candidate count exceeds manifest/core bounds or is empty");
-        if (settings.MaxTickWorkItems < m_Config.Candidates.Count() * 2 || settings.MaxPropsPerInterior < 2) return Reject("startup/prop work exceeds core budgets");
-        m_PropLimit = Math.Min(settings.MaxPropsPerInterior, 5);
+        if (!m_Config.Candidates || m_Config.Candidates.Count() < 1 || m_Config.Candidates.Count() > 12 || m_Config.Candidates.Count() > settings.HCSearchCap("MaxActiveInteriors", settings.MaxActiveInteriors)) return Reject("candidate count exceeds manifest/core bounds or is empty");
+        if (settings.MaxTickWorkItems < m_Config.Candidates.Count() * 2 || settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior) < 2) return Reject("startup/prop work exceeds core budgets");
+        m_PropLimit = Math.Min(settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior), 5);
         ref array<ref HCInteriorCandidate> sorted = new array<ref HCInteriorCandidate>;
         for (int slot = 0; slot < 12; slot++)
         {

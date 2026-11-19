@@ -22,11 +22,11 @@ modded class HCInteriorsModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || s_Instance) { return; }
-        m_FurnishedLimit = Math.Min(settings.MaxFurnishedProps, 1500);
+        m_FurnishedLimit = Math.Min(settings.HCSearchCap("MaxFurnishedProps", settings.MaxFurnishedProps), 1500);
         super.OnStart(settings);
         // Even a missing pilot file must not prevent additive pack admission.
         HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
-        HCInteriorTemplates.EnsureLoaded(m_Config, settings.MaxPropsPerInterior);
+        HCInteriorTemplates.EnsureLoaded(m_Config, settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior));
         // HC-24: the staged pack tick places and reports search readiness once the load finishes
         // (loaded or refused); reporting here would latch templates_loaded=0 before the load.
     }
