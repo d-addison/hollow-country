@@ -24,7 +24,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.'))]
 
 
 def check_performance(rows, source, registry):
@@ -103,6 +103,32 @@ def check_season_leaves(rows):
     return errors
 
 
+def check_actor_settings(rows):
+    """Optional actor profiles: defaults, missing-field guards and bounded bindings."""
+    owners = {
+        'GCActorsReachConfig': ('ActorReach', 'mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c'),
+        'GCActorsDefenceConfig': ('ActorDefence', 'mods/HollowCountryExpansionAI/scripts/4_World/HCXDefencePolicy.c'),
+    }
+    errors = []
+    for owner, (prefix, path) in owners.items():
+        source = (ROOT / path).read_text().split('class ' + owner + '\n', 1)[1].split('\n}\n', 1)[0]
+        fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+            r'^    (bool|int|float) (\w+) = ([\w.]+);', source, re.M)}
+        owned = {r['key'].removeprefix(prefix + '.'): r for r in rows if r['owner'] == owner}
+        if fields.keys() != owned.keys(): errors.append(prefix + ' registry/native key set differs')
+        for key, row in owned.items():
+            if fields.get(key) != (row['type'], row['default']):
+                errors.append(prefix + ' default/type differs for ' + key)
+            guard = f'HCJsonFields.Has(text, "{key}")'
+            if row['type'] != 'bool':
+                guard += f' && HCValid("{key}", decoded.{key}, {row["min"]}, {row["max"]})'
+            if f'if ({guard}) {{ {key} = decoded.{key}; }}' not in source:
+                errors.append(prefix + ' apply/range binding differs for ' + key)
+        if f'string fullKey = "{prefix}." + key;' not in source or 'HCOperatorSettingsRegistry.HCValid(fullKey, value)' not in source:
+            errors.append(prefix + ' registry validation binding differs')
+    return errors
+
+
 def flatten(value, prefix=''):
     result = {}
     for key, item in value.items():
@@ -127,6 +153,7 @@ def render_native_registry(rows):
 
 # Owner -> (source, registry key prefix, DTO accessor used in validation bindings).
 EXTERNAL_OWNERS = {
+    'HCBodyStoryConfig': ('mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c', 'BodyStories', ''),
     'HCXAISitePolicy': ('mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c', 'AISites', 'p.'),
     'HCAICampPolicy': ('mods/HollowCountry/scripts/4_World/World/HCAICampLifecycle.c', 'AICamps', ''),
     'HCW38SituationPolicy': ('mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c', 'W38Situations', 'policy.'),
@@ -194,13 +221,14 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_performance(perf_rows,
         PERF_NATIVE.read_text() if perf_native is None else perf_native,
         PERF_REGISTRY.read_text() if perf_registry is None else perf_registry))
+    errors.extend(check_actor_settings(rows))
     rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
     shipped_rules = {k: row for k, row in rules.items()
                      if row['owner'] not in EXTERNAL_OWNERS and row['owner'] != 'HCRadioDefaults'
-                     and not k.startswith('WildlifeProviders.')}
+                     and not k.startswith(('WildlifeProviders.', 'ActorReach.', 'ActorDefence.'))}
     for label, image in images:
         values = flatten(image)
         for key in sorted(values.keys() - shipped_rules.keys()): errors.append(f'{label}: unregistered key {key}')

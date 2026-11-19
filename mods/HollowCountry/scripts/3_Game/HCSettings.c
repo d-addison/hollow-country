@@ -304,6 +304,45 @@ class HCOperatorSettingsRegistry
         HCAdd("AICamps.RoleSeconds", "int", 120, 60, 3600, "HCAICampPolicy");
         HCAdd("AICamps.RoutineRangeMeters", "int", 30, 1, 30, "HCAICampPolicy");
         HCAdd("AICamps.ArrivalToleranceMeters", "int", 1, 1, 1, "HCAICampPolicy");
+        HCAdd("ActorReach.Enabled", "bool", 1, 0, 1, "GCActorsReachConfig");
+        HCAdd("ActorReach.Slots", "int", 16, 1, 16, "GCActorsReachConfig");
+        HCAdd("ActorReach.EvaluationsPerTick", "int", 6, 1, 6, "GCActorsReachConfig");
+        HCAdd("ActorReach.Vehicles", "int", 8, 1, 8, "GCActorsReachConfig");
+        HCAdd("ActorReach.ContextSeconds", "float", 10, 1, 180, "GCActorsReachConfig");
+        HCAdd("ActorReach.MaxLifetimeSeconds", "float", 180, 1, 180, "GCActorsReachConfig");
+        HCAdd("ActorReach.InitialVaultDelaySeconds", "float", 2, 0.1, 15, "GCActorsReachConfig");
+        HCAdd("ActorReach.VehicleContactMetres", "float", 1.9, 0.1, 1.9, "GCActorsReachConfig");
+        HCAdd("ActorReach.VaultContactMetres", "float", 1.2, 0.1, 1.2, "GCActorsReachConfig");
+        HCAdd("ActorReach.NavmeshSampleMetres", "float", 0.5, 0.05, 0.5, "GCActorsReachConfig");
+        HCAdd("ActorReach.NavmeshHeightToleranceMetres", "float", 0.7, 0.05, 0.7, "GCActorsReachConfig");
+        HCAdd("ActorReach.VaultOutcomeSeconds", "float", 3, 1, 10, "GCActorsReachConfig");
+        HCAdd("ActorReach.VehicleHitSeconds", "float", 2, 2, 60, "GCActorsReachConfig");
+        HCAdd("ActorReach.VehicleMemorySeconds", "float", 60, 2, 60, "GCActorsReachConfig");
+        HCAdd("ActorReach.SummarySeconds", "float", 60, 1, 600, "GCActorsReachConfig");
+        HCAdd("ActorDefence.Enabled", "bool", 1, 0, 1, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.GRUDGE_CAP", "int", 64, 1, 64, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.SHOT_WINDOW_CAP", "int", 6, 1, 6, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.SHOT_SPACING_MS", "int", 750, 750, 60000, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.LOS_MEMORY_MS", "int", 15000, 1, 15000, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.SEED_WINDOW_MS", "int", 20000, 1, 20000, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.RESCUE_WINDOW_MS", "int", 30000, 1, 30000, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.RAYCASTS_PER_SHOT", "int", 4, 1, 4, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.INFECTED_RADIUS", "float", 25.0, 1, 25, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.PASS_RADIUS", "float", 4.0, 0.1, 4, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.PASS_REACH", "float", 200.0, 1, 200, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.PASS_MARGIN", "float", 2.0, 0.1, 2, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.CLOSE_RADIUS", "float", 12.0, 0.1, 12, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.FIGHT_THREAT", "float", 0.6, 0.1, 0.6, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.ORIGIN_REACH", "float", 150.0, 1, 150, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.HitHoldMs", "int", 240000, 1, 240000, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.KillHoldMs", "int", 300000, 1, 300000, "GCActorsDefenceConfig");
+        HCAdd("ActorDefence.MissHoldMs", "int", 90000, 1, 90000, "GCActorsDefenceConfig");
+        HCAdd("ActorReach.WorkSliceMilliseconds", "float", 4, 0.1, 4, "GCActorsReachConfig");
+        HCAdd("ActorReach.DoorNavmeshCost", "float", 1000, 1, 1000, "GCActorsReachConfig");
+        HCAdd("BodyStories.MaxBodies", "int", 3, 1, 3, "HCBodyStoryConfig");
+        HCAdd("BodyStories.MaxActiveTraces", "int", 10, 1, 10, "HCBodyStoryConfig");
+        HCAdd("BodyStories.MaxSceneTraces", "int", 3, 1, 3, "HCBodyStoryConfig");
+        HCAdd("BodyStories.MaintenanceSeconds", "float", 20, 1, 300, "HCBodyStoryConfig");
         // END GENERATED SETTINGS REGISTRY
     }
 

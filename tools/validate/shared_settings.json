@@ -1756,5 +1756,317 @@
     "min": 0.25,
     "max": 1,
     "owner": "auditleaves_Config"
+  },
+  {
+    "key": "ActorReach.Enabled",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.Slots",
+    "type": "int",
+    "default": 16,
+    "min": 1,
+    "max": 16,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.EvaluationsPerTick",
+    "type": "int",
+    "default": 6,
+    "min": 1,
+    "max": 6,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.Vehicles",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 8,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.ContextSeconds",
+    "type": "float",
+    "default": 10,
+    "min": 1,
+    "max": 180,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.MaxLifetimeSeconds",
+    "type": "float",
+    "default": 180,
+    "min": 1,
+    "max": 180,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.InitialVaultDelaySeconds",
+    "type": "float",
+    "default": 2,
+    "min": 0.1,
+    "max": 15,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.VehicleContactMetres",
+    "type": "float",
+    "default": 1.9,
+    "min": 0.1,
+    "max": 1.9,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.VaultContactMetres",
+    "type": "float",
+    "default": 1.2,
+    "min": 0.1,
+    "max": 1.2,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.NavmeshSampleMetres",
+    "type": "float",
+    "default": 0.5,
+    "min": 0.05,
+    "max": 0.5,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.NavmeshHeightToleranceMetres",
+    "type": "float",
+    "default": 0.7,
+    "min": 0.05,
+    "max": 0.7,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.VaultOutcomeSeconds",
+    "type": "float",
+    "default": 3,
+    "min": 1,
+    "max": 10,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.VehicleHitSeconds",
+    "type": "float",
+    "default": 2,
+    "min": 2,
+    "max": 60,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.VehicleMemorySeconds",
+    "type": "float",
+    "default": 60,
+    "min": 2,
+    "max": 60,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.SummarySeconds",
+    "type": "float",
+    "default": 60,
+    "min": 1,
+    "max": 600,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorDefence.Enabled",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.GRUDGE_CAP",
+    "type": "int",
+    "default": 64,
+    "min": 1,
+    "max": 64,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.SHOT_WINDOW_CAP",
+    "type": "int",
+    "default": 6,
+    "min": 1,
+    "max": 6,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.SHOT_SPACING_MS",
+    "type": "int",
+    "default": 750,
+    "min": 750,
+    "max": 60000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.LOS_MEMORY_MS",
+    "type": "int",
+    "default": 15000,
+    "min": 1,
+    "max": 15000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.SEED_WINDOW_MS",
+    "type": "int",
+    "default": 20000,
+    "min": 1,
+    "max": 20000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.RESCUE_WINDOW_MS",
+    "type": "int",
+    "default": 30000,
+    "min": 1,
+    "max": 30000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.RAYCASTS_PER_SHOT",
+    "type": "int",
+    "default": 4,
+    "min": 1,
+    "max": 4,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.INFECTED_RADIUS",
+    "type": "float",
+    "default": 25.0,
+    "min": 1,
+    "max": 25,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.PASS_RADIUS",
+    "type": "float",
+    "default": 4.0,
+    "min": 0.1,
+    "max": 4,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.PASS_REACH",
+    "type": "float",
+    "default": 200.0,
+    "min": 1,
+    "max": 200,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.PASS_MARGIN",
+    "type": "float",
+    "default": 2.0,
+    "min": 0.1,
+    "max": 2,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.CLOSE_RADIUS",
+    "type": "float",
+    "default": 12.0,
+    "min": 0.1,
+    "max": 12,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.FIGHT_THREAT",
+    "type": "float",
+    "default": 0.6,
+    "min": 0.1,
+    "max": 0.6,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.ORIGIN_REACH",
+    "type": "float",
+    "default": 150.0,
+    "min": 1,
+    "max": 150,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.HitHoldMs",
+    "type": "int",
+    "default": 240000,
+    "min": 1,
+    "max": 240000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.KillHoldMs",
+    "type": "int",
+    "default": 300000,
+    "min": 1,
+    "max": 300000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorDefence.MissHoldMs",
+    "type": "int",
+    "default": 90000,
+    "min": 1,
+    "max": 90000,
+    "owner": "GCActorsDefenceConfig"
+  },
+  {
+    "key": "ActorReach.WorkSliceMilliseconds",
+    "type": "float",
+    "default": 4,
+    "min": 0.1,
+    "max": 4,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "ActorReach.DoorNavmeshCost",
+    "type": "float",
+    "default": 1000,
+    "min": 1,
+    "max": 1000,
+    "owner": "GCActorsReachConfig"
+  },
+  {
+    "key": "BodyStories.MaxBodies",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 3,
+    "owner": "HCBodyStoryConfig"
+  },
+  {
+    "key": "BodyStories.MaxActiveTraces",
+    "type": "int",
+    "default": 10,
+    "min": 1,
+    "max": 10,
+    "owner": "HCBodyStoryConfig"
+  },
+  {
+    "key": "BodyStories.MaxSceneTraces",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 3,
+    "owner": "HCBodyStoryConfig"
+  },
+  {
+    "key": "BodyStories.MaintenanceSeconds",
+    "type": "float",
+    "default": 20,
+    "min": 1,
+    "max": 300,
+    "owner": "HCBodyStoryConfig"
   }
 ]

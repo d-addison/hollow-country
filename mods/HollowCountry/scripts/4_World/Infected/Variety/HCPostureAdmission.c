@@ -39,7 +39,7 @@ class HCPostureAdmission
         if (mode == "native_crawler_idle" || mode == "native_crawler_wake") { return true; }
         // Tier C: only the sit pair has authored clips and a graph entry state.
         // prone_sleep, riser and feed_kneel flip here, with their clips and AGF states.
-        return mode == "sit_wall";
+        return mode == "sit_wall" || mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel";
     }
 
     static string HCPostureRefusal(string mode)
@@ -47,8 +47,7 @@ class HCPostureAdmission
         if (mode == "native_crawler_idle") { return "none_native_idle_only"; }
         if (mode == "native_crawler_wake") { return "none_native_resume_crawl_unverified"; }
         if (mode == "native_stance_idle" || mode == "native_mind_idle") { return "none_native_move_api_unverified"; }
-        if (mode == "sit_wall") { return "none_graph_admitted_unverified"; }
-        if (mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel") { return "ASSET_NOT_AUTHORED_" + mode; }
+        if (mode == "sit_wall" || mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel") { return "none_graph_admitted_unverified"; }
         return "POSTURE_MODE_UNSUPPORTED";
     }
 
@@ -96,7 +95,7 @@ class HCPostureAdmission
             support = "native_move_api_only";
             wake = "native_mind_state_unverified";
         }
-        if (mode == "sit_wall")
+        if (mode == "sit_wall" || mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel")
         {
             support = "own_graph_command_unverified";
             wake = "native_mind_state_unverified";
