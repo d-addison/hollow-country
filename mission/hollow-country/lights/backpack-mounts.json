@@ -68,9 +68,10 @@
     "Conclusion": "No safe flashlight backpack pair is established. The ordinary candidate lacks a backpack flashlight slot; the cross-slot candidate lacks a matching UniversalLight inventorySlot. Neither a config-only slot addition nor a client light offset establishes mounted geometry."
   },
   "SettingsContract": {
-    "DefaultsFile": "config/hollow-country-light-mounts.json",
+    "RuntimeInput": "This mission manifest is the runtime input: HCTapedPackMounts.ReadManifest/ApplyManifest read it at module start and call Configure() with the three Default/Max fields below. No HCSettings switch exists yet, so there is no server-side override. Qualified() stays false, so no pair attaches; runtime acceptance pending.",
+    "OfflineMirror": "config/hollow-country-light-mounts.json is an offline mirror of the closed defaults. No runtime code reads it; only a unit test pins that it matches these defaults.",
     "DTO": "HCTapedLightMountSettings",
-    "ServerOwnerCall": "HCTapedPackMounts.Configure(settings.LightMounts) before module startup, after bounded settings validation; lead-owned integration pending.",
+    "ConfigureOwner": "HCTapedPackMounts.ApplyManifest(text) calls Configure(preferences) from the module start; there is no HCSettings.LightMounts field and no HCServer call to Configure.",
     "DefaultCrossSlotLights": false,
     "DefaultPermittedPairIds": [],
     "MaxPermittedPairIds": 2,
@@ -78,9 +79,9 @@
     "Lifecycle": "OnStop clears preferences and cached module start state; server owner must configure again before the next start."
   },
   "LeadIntegration": {
-    "Registry": "In mods/HollowCountry/scripts/4_World/Core/HCModule.c HCModuleRegistry.RegisterModules(), add Register(new HCTapedPackMounts()); once, subject to the shared 64-module cap. Worker left all existing registration blocks unchanged.",
-    "Settings": "In mods/HollowCountry/scripts/3_Game/HCSettings.c add ref HCTapedLightMountSettings LightMounts = new HCTapedLightMountSettings; defaults mirror config/hollow-country-light-mounts.json, which this worker does not load separately.",
-    "ServerStart": "In mods/HollowCountry/scripts/4_World/Core/HCServer.c Start(), after m_Settings = loaded and before RegisterModules/OnStart, call HCTapedPackMounts.Configure(m_Settings.LightMounts); if false, log pack_mount_settings_refused. Configure already resets malformed server settings closed.",
+    "Registry": "HCTapedPackMounts is registered once in HCModuleRegistry.RegisterModules() (pinned by the loader unit test); it reads this manifest at start and publishes its readiness line (off reason=cross_slot_disabled while cross-slot stays off).",
+    "Settings": "Not done: HCSettings has no LightMounts field, so there is no operator switch. If one is added later it must default to the values in SettingsContract and a unit test must pin the pairing.",
+    "ServerStart": "Not done: HCServer does not call Configure(); the manifest read at module start is the only configuration path. Configure resets malformed settings closed.",
     "AddonConfigRefusal": "pack_mount_geometry_pending: no justified config.cpp mount/slot stanza can be supplied from the inspected evidence. Wait for genuine exact TortillaBag model/proxy and slot-class evidence; keep production disabled. No broad clothing/Back slot or UniversalLight inventorySlot override.",
     "Actions": "Existing HC-7 weapon action registration and qualification remain unchanged. A held-backpack action/custody binding and native switching need separate observed model/slot support before activation; no backpack action is registered by this refusal-only slice."
   },
@@ -91,7 +92,7 @@
     "Add other packs/helmets only after exact model/config inspection in later bounded slices; this manifest establishes no broad compatibility count."
   ],
   "AcceptanceQueue": [
-    "Lead registers HCTapedPackMounts once and connects the existing server settings owner. Observe the proposed HC-52 plan and pair refusals, including feature off and stop/restart cleanup.",
+    "Observe the HCTapedPackMounts readiness line and pair refusals after a server boot, including feature off and stop/restart cleanup. An HCSettings switch is not built yet.",
     "Exact-source DayZDiag compile/boot with zero script/CE errors; retain exact source/PBO/mission/config/dependency hashes.",
     "Normal signed PBO/server with two clients per pair: native attachment hierarchy and slot permission, mounted origin/orientation, light cone, prone, aim, cargo and backpack swaps, obstruction, rain and shadows.",
     "Same light/battery persistent IDs, health and energy across mount/removal/destruction/full cargo/rejoin/restart; one tape debit per new mount; back up native inventory and HC journals together.",

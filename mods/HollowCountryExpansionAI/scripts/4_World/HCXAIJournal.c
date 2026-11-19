@@ -87,6 +87,7 @@ class HCXAIJournal
             if (!oldest) { return this.RefuseBegin(HCRefusal.CAPACITY); }
             if (!this.Prune(oldest.Id)) { return this.RefuseBegin("prune_failed"); }
         }
+        m_Refusal = "";
         return true;
     }
     string Refusal() { return m_Refusal; }

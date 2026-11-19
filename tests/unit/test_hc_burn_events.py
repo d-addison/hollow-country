@@ -67,6 +67,15 @@ class JournalDirectory(unittest.TestCase):
         self.assertFalse(io.Ensure())
         self.assertEqual(['[HC Events] reward directory refused reason=profile_directory_unavailable'], logs)
 
+    def test_configuration_io_logs_under_its_own_label(self):
+        io, logs = self.io('$profile:HollowCountry')
+        config = (ROOT / '4_World/Events/HCEventConfiguration.c').read_text()
+        translate(config, 'HCEventConfigurationIO', dict(), 'HCEventConfigurationIO', True)(io)
+        self.assertEqual('$profile:HollowCountry/Events', io.m_Root)
+        self.assertFalse(io.Ensure())
+        self.assertFalse(io.Ensure())
+        self.assertEqual(['[HC Events] configuration directory refused reason=profile_directory_unavailable'], logs)
+
 
 class TransportRefusals(unittest.TestCase):
     def setUp(self):
@@ -303,6 +312,52 @@ class CampRespawnRefusals(unittest.TestCase):
         self.assertIsNotNone(module.m_StaticInstance)
         self.assertEqual('ready', self.status[-1][0])
 
+    def choose(self, save_ok):
+        source = (ROOT / '4_World/Camps/HCCampRespawn.c').read_text()
+        source = source.replace('HCV2ThreatStore<HCCampRespawnState>', 'HCV2ThreatStore')
+        source = source.replace('s_Instance', 'm_StaticInstance')
+        # Syntax ports for the restricted translator: spell the DTO as an HCEvent type and skip the
+        # reverse expiry for-loop (the synthetic state starts empty, so nothing could expire).
+        source = source.replace('HCCampRespawnUse', 'HCEventCampRespawnUse')
+        source = source.replace('HCCampModule', 'HCEventCampModule')
+        source = source.replace('for (int index = m_State.Uses.Count() - 1; index >= 0; index--)', 'if (false)')
+        saves = []
+        self.logs, self.status = [], []
+        # Synthetic ports: one eligible camp, a store whose Save result the test chooses.
+        env = dict(EArray=EArray, len=len, str=str, Print=self.logs.append, PATH='synthetic-path',
+                   GetGame=lambda: N(IsServer=lambda: True, GetWorldName=lambda: 'synthetic'),
+                   HCGroupClock=N(Utc=lambda: 2000000000),
+                   HCGroupRules=N(TextValid=lambda text, limit, allow: True),
+                   HCEventCampModule=N(Get=lambda: N(HCRespawnPosition=lambda *args: True)),
+                   HCV2ThreatStore=N(Save=lambda path, state, limit: saves.append(path) or save_ok),
+                   HCEventCampRespawnUse=lambda: N(Account='', At=0))
+        module = authored(source, 'HCCampRespawnModule', env, ('HCChoose',))()
+        module.m_StaticInstance = module
+        module.m_State = N(Uses=EArray(), SavedUtc=0)
+        module.m_Status = N(HCPublish=lambda state, reason: self.status.append((state, reason)))
+        module.HCValid = lambda now: True
+        self.saves = saves
+        return module
+
+    def test_failed_reservation_save_refuses_with_storage_fault_and_falls_back_to_vanilla(self):
+        module = self.choose(False)
+        identity = N(GetId=lambda: 'synthetic-account')
+        self.assertFalse(module.HCChoose(identity, [0., 0., 0.]))
+        self.assertEqual(['synthetic-path'], self.saves)
+        self.assertEqual([('refused', 'storage_fault')], self.status)
+        self.assertIsNone(module.m_StaticInstance)
+        self.assertEqual(['[HollowCountry] W5 camp-respawn storage fault; vanilla fallback'], self.logs)
+        # The module is retired: a later fresh character does not reach the store again.
+        self.assertFalse(module.HCChoose(identity, [0., 0., 0.]))
+        self.assertEqual(['synthetic-path'], self.saves)
+
+    def test_good_reservation_save_logs_the_cooldown_and_publishes_no_fault(self):
+        module = self.choose(True)
+        self.assertTrue(module.HCChoose(N(GetId=lambda: 'synthetic-account'), [0., 0., 0.]))
+        self.assertEqual([], self.status)
+        self.assertIs(module, module.m_StaticInstance)
+        self.assertEqual(['[HollowCountry] W5 camp-respawn reserved cooldown=1800 fresh-character-only=1'], self.logs)
+
 
 class LeadRefusals(unittest.TestCase):
     def test_store_open_failure_is_published_and_logged(self):
@@ -325,6 +380,8 @@ class LeadRefusals(unittest.TestCase):
 
 
 class RadioRefusals(unittest.TestCase):
+    clock = 0  # synthetic UTC; 0 keeps BeginChannel on the cooldown/clock path
+
     def radio(self, channels, save=True):
         source = syntax_port((ROOT / '4_World/Leads/HCRadioChatter.c').read_text())
         logs, status = [], []
@@ -336,7 +393,8 @@ class RadioRefusals(unittest.TestCase):
                    HCV2Gates=N(Qualified=lambda gate: False),
                    FactionArray=lambda: EArray(['locals']),
                    HCEventHCRadioChannel=lambda: N(Faction='', Frequency=0.),
-                   HCWorldClock=N(UTC=lambda: 0),
+                   HCWorldClock=N(UTC=lambda: self.clock),
+                   HCPerfPlayers=N(HCGet=lambda: EArray()),
                    Frequency=lambda faction: 87.8)
         store = N(Healthy=lambda: True, Data=N(Channels=channels), Save=lambda: save)
         radio = authored(source, 'HCRadioChatter', env, ('OnStart', 'BeginChannel', 'HCRefuse', 'HCRefuseAs', 'Refusal', 'Frequency'))()
@@ -345,6 +403,8 @@ class RadioRefusals(unittest.TestCase):
         radio.m_Store = store
         radio.m_Refusal = ''
         radio.m_ChannelCursor = 0
+        radio.m_Defaults = N(MaxListeners=8)
+        radio.LatestInRange = lambda: None
         radio.m_Reports = 0
         radio.m_Ready = False
         radio.m_Channel = radio.m_Report = None
@@ -367,12 +427,24 @@ class RadioRefusals(unittest.TestCase):
         radio, logs, status = self.radio(EArray([N(Faction='locals')]))
         radio.BeginChannel()
         radio.m_Store.Data.Channels = EArray([N(Faction='f%d' % i, LastSent=0, Sequence=0) for i in range(5)])
+        self.clock = 2000000000  # a real clock: the channel attempt passes the cooldown check
         radio.BeginChannel()
         self.assertEqual('', radio.Refusal())
         radio.m_Store.Data.Channels = EArray([N(Faction='locals')])
         radio.BeginChannel()
         self.assertEqual(['[HC Plan] HC-20 radio=degraded morse=folded reports=0 reason=channel_roster_invalid runtime=PENDING'] * 2,
                          logs)
+
+    def test_cooldown_or_clock_does_not_clear_a_standing_roster_refusal(self):
+        radio, logs, status = self.radio(EArray([N(Faction='locals')]))
+        radio.BeginChannel()
+        self.assertEqual('channel_roster_invalid', radio.Refusal())
+        # Roster recovers but the synthetic clock is unset: still no real channel attempt.
+        radio.m_Store.Data.Channels = EArray([N(Faction='f%d' % i, LastSent=0, Sequence=0) for i in range(5)])
+        radio.BeginChannel()
+        self.assertEqual('channel_roster_invalid', radio.Refusal())
+        self.assertEqual(('ready', 'channel_cooldown_or_clock'), status[-1])
+        self.assertEqual(1, len(logs))
 
     def test_channel_store_save_failure_refuses_start_with_its_own_reason(self):
         radio, logs, status = self.radio(EArray(), save=False)

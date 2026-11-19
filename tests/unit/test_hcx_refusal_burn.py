@@ -176,6 +176,18 @@ class JournalBeginRefusals(unittest.TestCase):
         self.assertEqual('prune_failed', self.owner.Refusal())
         self.assertEqual(2, len(self.owner.m_Data.Rows))
 
+    def test_a_successful_prepare_begin_clears_the_standing_refusal_and_logs_once(self):
+        self.owner.m_Data.SchemaVersion = 9
+        self.assertFalse(self.owner.PrepareBegin('one', 'event', 'site'))
+        self.assertEqual('journal_invalid', self.owner.Refusal())
+        self.owner.m_Data.SchemaVersion = 1
+        self.assertTrue(self.owner.PrepareBegin('one', 'event', 'site'))
+        self.assertEqual('', self.owner.Refusal())
+        # The same reason after recovery is a change again and logs again.
+        self.owner.m_Data.SchemaVersion = 9
+        self.assertFalse(self.owner.PrepareBegin('one', 'event', 'site'))
+        self.assertEqual(2, len(lines(self.logs, 'reason=journal_invalid')))
+
 
 class EncounterStartRefusals(unittest.TestCase):
     def setUp(self):
