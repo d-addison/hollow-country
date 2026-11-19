@@ -1,0 +1,103 @@
+{
+  "SchemaVersion": 1,
+  "WorldName": "chernarusplus",
+  "Enabled": true,
+  "Defaults": {
+    "VanillaNetworkBubbleMetres": 1000,
+    "VanillaRifleHearingMetres": 1000,
+    "CueRangeMetres": 480,
+    "SurveyBindMetres": 80,
+    "CohesionMetres": 100,
+    "ArrivalMetres": 8,
+    "NativeSegmentMetres": 120,
+    "ProgressMetres": 1,
+    "MaxMembers": 6,
+    "MaxHops": 2,
+    "MaxNoiseSeconds": 60,
+    "CooldownSeconds": 180,
+    "StallSeconds": 90
+  },
+  "Routes": [
+    {
+      "Id": "vybor-industrial-road-pilot",
+      "Place": "Vybor industrial edge to settlement road",
+      "Surveyed": false,
+      "Evidence": "",
+      "Nodes": []
+    }
+  ],
+  "work_package": "HC-46",
+  "issue": 121,
+  "trace": {
+    "spec": "owner task HC-46/#121 2026-11-18; canonical requirement mapping pending HC-11",
+    "plan": "consolidated_coverage_Wave_3_HC-46",
+    "task": "finite_noise_surveyed_physical_cohort_route_consumer",
+    "shared_trace_owner": "HC-11; canonical spec/plan/task files absent in this worker checkout; do not recreate or mark accepted"
+  },
+  "runtime_acceptance": "PENDING",
+  "production_enabled": false,
+  "interpretation": "One representative corridor survey assignment, not a measured route or spawn site. Empty nodes deliberately prevent invented geometry. Enabled requests the source consumer; it neither qualifies perception nor admits unsurveyed routes. Profile DTO fields use PascalCase. Remaining metadata is an authoring handoff, not runtime evidence.",
+  "survey_contract": {
+    "profile_path": "$profile:HollowCountry/infected/route-surveys.json",
+    "max_bytes": 32768,
+    "max_routes": 8,
+    "nodes_per_route": "2..8 ordered measured WORLD positions, adjacent segments within NativeSegmentMetres; both directions checked at runtime",
+    "evidence": "External/private exact-source survey receipt identity (max 128 characters), Surveyed=true only after measured native navmesh/obstacle/door survey. No game dumps or raw coordinates invented from place centroids.",
+    "admission": "Existing healthy HC-14/18 physical pack, exact 1..6 native members, <=2 cohorts and <=24 tracked actors; existing hearing/stimulus opt-outs retained. No new CE admission, materialization or population reservation.",
+    "noise": "Frozen externally heard provenance=1, original IsLive TTL<=30 seconds and hops<=2; route deadline min(original Expires, Observed+MaxNoiseSeconds); monotone observation watermark plus cooldown prevents replay. No new sound, relay, live player fix or noise radius.",
+    "observer_gap": "Existing V2Quiet requires 60 seconds with a fresh clear-since value, longer than the <=30-second live-noise receipt. Consumer logs OBSERVER_QUIET_CONTRACT_REFUSED and releases through existing ledger. No distance/grace reduction or TTL extension is authorized here; #135 must supply a verified physical cohort/observer interface before useful noise traversal can be accepted.",
+    "recovery": "Routes are transient. Restart does not resume a JSON route or restore a pack. Exact native identity reconciliation remains unchanged; unresolved reservations never spawn replacements. A new lifecycle needs new observed evidence and an existing admitted physical pack."
+  },
+  "distance_inventory_metres": {
+    "VanillaNetworkBubbleMetres": "1000; vanilla baseline anchor, never a new network setting",
+    "VanillaRifleHearingMetres": "1000; vanilla baseline anchor, never a new hearing setting",
+    "CueRangeMetres": "480; retains former drift bound, 0.48 of vanilla baseline",
+    "SurveyBindMetres": "80; endpoint-to-physical-leader / endpoint-to-frozen-cue binding, 0.08 of vanilla baseline; same scale as existing real-shot adapter",
+    "CohesionMetres": "100; retains former cohort envelope, 0.10 of vanilla baseline",
+    "ArrivalMetres": "8; retains former arrival tolerance, now required for EVERY member, 0.008 of vanilla baseline",
+    "NativeSegmentMetres": "120; retains native pack path envelope, 0.12 of vanilla baseline",
+    "ProgressMetres": "1; retains former squared progress threshold, 0.001 of vanilla baseline",
+    "unchanged_external": "Existing native waypoint radius 4 m and observer veto 1200 m / 60 seconds remain unchanged. No LOD range, spawn point or CE range added."
+  },
+  "pending_regional_coverage": [
+    {
+      "region": "northwest",
+      "status": "pending surveyed settlement corridors"
+    },
+    {
+      "region": "north and northeast",
+      "status": "pending surveyed settlement corridors"
+    },
+    {
+      "region": "central and west",
+      "status": "pending surveyed settlement corridors beyond representative Vybor assignment"
+    },
+    {
+      "region": "east coast",
+      "status": "pending surveyed settlement corridors"
+    },
+    {
+      "region": "south coast",
+      "status": "pending surveyed settlement corridors"
+    },
+    {
+      "region": "every eligible island",
+      "status": "pending native access and measured corridors; geometric refusals remain pending coverage"
+    }
+  ],
+  "lead_integration": {
+    "package": "Add 'infected/route-surveys.json' to tools/package/pbo.py MISSION_FILES; run test_package. Do not auto-overwrite existing operator profile content. For a native trial install the reviewed manifest at the profile_path, preserving an existing file for operator review.",
+    "registration": "None. Existing HCHordeMigration registration preserved byte-for-byte; HCModule.c/config.cpp unchanged.",
+    "lod_owner": "#135 supplies verified PHYSICAL cohort observer/admission interface compatible with live <=30-second noise. No LOD/materialization policy change in HC-46. Current gate refuses rather than extending TTL, moving visible entities or issuing centroid hold commands.",
+    "trace": "HC-11 links this WP, its actual RED/GREEN record and pending native checklist into canonical Banso spec/plan/tasks. No experiment accepted by this manifest.",
+    "status": "Cached HC-1 off/refused/degraded reports observed source lifecycle. Survey source loaded is degraded while the physical observer contract remains pending; never a traversal or production receipt."
+  },
+  "native_acceptance": [
+    "Exact-source DayZDiag compile/boot, then normal signed PBO/server; capture exact source/PBO/mission/config/dependency hashes externally; no script/CE errors",
+    "Grep [HC Plan] HC-46 route=<id> cohort=<id> stimulus=<id> phase=<state>; expect ROUTE_SURVEY_PENDING for shipped profile, or ROUTE_SURVEY_MISSING_OR_INVALID when absent; FRESH_VISUAL_RECEIPT_UNEXPOSED remains refused",
+    "Survey Vybor corridor world nodes on native navmesh; compare both directions and all members; record actual path/door/obstacle/ownership evidence before replacing empty pilot nodes",
+    "After #135 verified interface integration, two clients walk/drive/shoot across route day/night/weather and compare hearing/visibility. Distinguish native waypoint REQUEST from all-member reached receipt. Current observer refusal is expected, not a traversal pass",
+    "Expired/relayed/repeated noise, changed roster, combat/injury, path/door failure and observer incursion must end without teleport, refill, synthetic alert or blocked door",
+    "Off path: Enabled=false and existing world/heard/route opt-outs; no route scans/IO per tick while survey owner off. Stop/restart keeps existing release/recovery ledger and never resumes a route from JSON or clones a cohort"
+  ]
+}

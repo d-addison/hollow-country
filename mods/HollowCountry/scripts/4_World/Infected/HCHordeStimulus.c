@@ -41,6 +41,16 @@ enum HCStimulusReason
 
 class HCHordeStimulus
 {
+    // HC-46: route memory never extends a heard receipt or propagates an alert.
+    // The original IsLive validation owns provenance/strength/future/NaN checks.
+    static bool HCRouteNoise(HCInfectedClue clue, float now, float lastObserved, float cooldown, HCHordeRouteDefaults cfg)
+    {
+        if (!cfg || !clue || !clue.IsLive(now) || clue.Provenance != 1) { return false; }
+        if (!(now >= cooldown) || !(clue.Observed > lastObserved)) { return false; }
+        if (clue.Hops < 0 || clue.Hops > cfg.MaxHops) { return false; }
+        return now - clue.Observed < cfg.MaxNoiseSeconds;
+    }
+
     static int Category(HCInfectedClue candidate, float now)
     {
         if (!candidate) return HCStimulusCategory.HC_STIMULUS_NONE;
