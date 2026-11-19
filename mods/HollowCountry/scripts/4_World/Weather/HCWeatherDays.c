@@ -1,11 +1,70 @@
 // #61 extends #35; EXP-A2 remains unverified. Pure, deterministic policy.
 // Installed native snapshot: ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // 1_Core/proto/EnMath.c:427 Math.Floor (via HCAtmospherePolicy.CyclePosition).
+// HC-51 receipt uses 1_Core/proto/EnConvert.c:30 int.ToString, :115 float.ToString.
 // No native weather writes here. HCWeatherDaysModule.c documents the sole owner.
 // Provisional tuning: 1/5 bad days, 2/5 fog mornings, three IN-GAME hours of calm.
 // Day is the UTC epoch day from HCGroupClock, independent of accelerated world date.
 class HCWeatherDays
 {
+    // HC-51: consume ONLY an active HC-6 phase; "unavailable" preserves the
+    // previous policy. No engine writes, persistence, clock or second owner.
+    static float HCSeasonCloud(string phase, string profile, float elapsed, float hour)
+    {
+        float baseline = HCWeatherDays.CloudTarget(profile, elapsed, hour);
+        bool calm = profile == "calm" || profile == "fog";
+        return HCSeasonVisualPolicy.HCCloud(phase, baseline, HCAtmospherePolicy.IsNight(hour), calm);
+    }
+
+    static float HCSeasonRain(string phase, string profile, float cloud, float hour)
+    {
+        float baseline = HCWeatherDays.RainTarget(profile, cloud, hour);
+        bool calm = profile == "calm" || profile == "fog";
+        return HCSeasonVisualPolicy.HCRain(phase, baseline, cloud, HCAtmospherePolicy.IsNight(hour), calm);
+    }
+
+    static float HCSeasonFog(string phase, int day, float hour, float calmHours)
+    {
+        float baseline = HCWeatherDays.FogTarget(day, hour, calmHours);
+        return HCSeasonVisualPolicy.HCFog(phase, baseline, HCAtmospherePolicy.IsNight(hour), calmHours > 0);
+    }
+
+    static float HCSeasonSnow(string phase, string profile, float cloud, float hour)
+    {
+        bool calm = profile == "calm" || profile == "fog";
+        return HCSeasonVisualPolicy.HCSnowfall(phase, cloud, HCAtmospherePolicy.IsNight(hour), calm);
+    }
+
+    // Lead calls only on observed owner/phase changes, supplying GetActual snow
+    // rather than claiming a target was rendered. count=1 is an admitted phase,
+    // not a native weather/terrain success receipt. HC-50 reports its own refusal.
+    static string HCSeasonLine(string phase, float observedSnowfall, bool writerAdmitted)
+    {
+        string state = "off";
+        string reason = "HC6_NOT_ADMITTED";
+        int admitted = 0;
+        if (!writerAdmitted)
+        {
+            state = "refused";
+            reason = "WEATHER_OWNER_NOT_ADMITTED";
+            phase = "unavailable";
+        }
+        else
+        {
+            if (HCSeasonVisualPolicy.HCValidPhase(phase))
+            {
+                state = "on";
+                reason = "phase_forecast";
+                admitted = 1;
+            }
+            else { phase = "unavailable"; }
+        }
+        float snowfall = HCSeasonVisualPolicy.HCUnit(observedSnowfall);
+        string line = "[HC Plan] HC-51 phase=" + phase + " snowfall=" + snowfall.ToString() + " extra_thermal=0 writer=weather_days";
+        line = line + " state=" + state + " reason=" + reason + " count=" + admitted.ToString();
+        return line + " native_survival=stock runtime=PENDING";
+    }
+
     static int Seed(int day)
     {
         if (day < 0 || day > 24855) return -1;

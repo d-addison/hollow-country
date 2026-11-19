@@ -10,6 +10,31 @@ Actual TDD receipts (2026-11-18):
   Follow-up RED: Ran 4 tests; FAILED (errors=1), AttributeError:
        'NoneType' object has no attribute 'ElapsedSeconds' after a refused open.
   GREEN: same command, Ran 4 tests, OK.
+
+HC-51 TDD receipts (2026-11-18), same focused command throughout:
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons -v
+  RED: Ran 6 tests; FAILED (failures=1):
+       AssertionError: False is not true : HC-51 seasonal forecast policy missing
+  Extended handler RED: Ran 6 tests; FAILED (failures=1):
+       AssertionError: 0.0 != 0.12 : HC-51 grade remains active after death
+  Extended receipt RED: Ran 6 tests; FAILED (failures=1):
+       'state=refused reason=WEATHER_OWNER_NOT_ADMITTED count=0' not found
+       (foreign owner was incorrectly attributed to HC-6 off).
+  GREEN: Ran 6 tests; OK. Synthetic callback references use syntax-only binding.
+  Regression GREEN: 118 tests, OK, using the focused modules below:
+    PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons test_v2_weather_days test_v2_lighting test_hc_client_controls test_admin_test_kit test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
+
+HC-51 plan/tasks: phase scalar forecasts, closed-table grades, single-slot fade,
+bounded version/revision/phase cache and death/off cleanup authored here. Lead
+must integrate forecasts/observed diagnostics in the sole weather writer and
+carry the three-int snapshot in existing mission control transport (30-second
+heartbeat, 90-second expiry). Neither transport nor weather activation is claimed
+implemented by this worker. HC-6 clock/store and HC-50 refusal remain unchanged.
+docs/SPECIFICATION.md, docs/specs/001-survival-overhaul/spec.md and central Banso
+spec/plan/tasks are absent in this checkout; the HC-51 brief is the design input,
+and the lead retains central trace reconciliation. New mission/ files: none.
+Distances added: none. DayZDiag, signed PBO/server, two clients, restart/downtime,
+native weather/survival controls and exact package hashes all remain PENDING.
 """
 import functools
 import json
@@ -33,6 +58,8 @@ CONFIG = ROOT / 'config/hollow-country-seasons.json'
 def bind(path, kind, instance, env):
     """Restrict translation to one class; rename unfamiliar Enforce types only."""
     text = path.read_text()
+    # Syntax-only binding of the native method callback used by lighting Stop.
+    text = text.replace('Remove(Tick)', 'Remove(this.Tick)')
     match = re.search(r'class ' + kind + r'(?:\s*:\s*\w+)?\s*\{', text)
     text = body(text, match.end())
     renamed = re.sub(r'\bHCVisualSeason\w*\b', lambda m: 'HCEvent' + m[0][2:], text)
@@ -222,3 +249,182 @@ class VisualSeasonOwnerWiring(unittest.TestCase):
         self.assertIn('m_HCVisualSeasons.HCTick()', self.method('HCTickWeatherDays'))
         self.assertIn('m_HCVisualSeasons.HCStop()', self.method('HCEndWeatherDays'))
         self.assertNotIn('HCVisualSeasons', (ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCModule.c').read_text())
+
+
+class VisualSeasonPresentationBehavior(unittest.TestCase):
+    """HC-51: explicit synthetic weather/client ports, authored decisions only.
+
+    Trace: #150 / HC-51 brief -> phase forecast + bounded snapshot/cache ->
+    existing weather/lighting owners. Central spec/plan/tasks files are absent.
+    No engine rendering, native interpolation, transport or survival proof.
+    """
+
+    def test_four_forecasts_grade_continuity_and_snapshot_off_cleanup(self):
+        scripts = ROOT / 'mods/HollowCountry/scripts'
+        policy_path = scripts / '3_Game/Atmosphere/HCSeasonVisualPolicy.c'
+        client_path = scripts / '5_Mission/Atmosphere/HCSeasonVisualClient.c'
+        self.assertTrue(policy_path.is_file(), 'HC-51 seasonal forecast policy missing')
+        self.assertTrue(client_path.is_file(), 'HC-51 bounded phase cache missing')
+        env = dict(str=str, Print=lambda line: None)
+        policy = N()
+        env['HCSeasonVisualPolicy'] = policy
+        source = policy_path.read_text()
+        for kind, name, value in re.findall(r'static const (int|float) (\w+) = ([\d.]+);', source):
+            setattr(policy, name, {'int': int, 'float': float}[kind](value))
+            env[name] = getattr(policy, name)  # Enforce class constant lookup
+        for name in re.findall(r'static (?:bool|int|float|string) (\w+)\(', source):
+            setattr(policy, name, translate(source, name, env, 'HCSeasonVisualPolicy'))
+        blend = N()
+        env['HCLightingBlend'] = blend
+        source = (scripts / '3_Game/Atmosphere/HCLightingBlend.c').read_text()
+        for name in re.findall(r'static (?:bool|int|float|string) (\w+)\(', source):
+            setattr(blend, name, translate(source, name, env, 'HCLightingBlend'))
+        weather = N()
+        from tests.unit.test_v1_weather import authored_policy
+        env.update(HCWeatherDays=weather, HCAtmospherePolicy=authored_policy(), Math=N(Floor=math.floor))
+        source = (WEATHER / 'HCWeatherDays.c').read_text()
+        for name in re.findall(r'static (?:bool|int|float|string) (\w+)\(', source):
+            setattr(weather, name, translate(source, name, env, 'HCWeatherDays'))
+
+        phases = ('spring', 'summer', 'autumn', 'winter')
+        self.assertEqual(phases, tuple(policy.HCPhaseName(i) for i in range(4)))
+        self.assertEqual('unavailable', policy.HCPhaseName(-1))
+        self.assertIn('extra_thermal=0 writer=weather_days state=on', weather.HCSeasonLine('winter', .2, True))
+        self.assertIn('state=off reason=HC6_NOT_ADMITTED count=0', weather.HCSeasonLine('unavailable', 0., True))
+        self.assertIn('state=refused reason=WEATHER_OWNER_NOT_ADMITTED count=0', weather.HCSeasonLine('winter', .2, False))
+        rain = [weather.HCSeasonRain(p, 'plain', .8, 12.) for p in phases]
+        fog = [weather.HCSeasonFog(p, 20701, 12., 0.) for p in phases]
+        snow = [weather.HCSeasonSnow(p, 'plain', .8, 12.) for p in phases]
+        self.assertLess(rain[1], rain[0])
+        self.assertGreater(rain[2], rain[0])
+        self.assertGreater(fog[2], fog[0])
+        self.assertEqual([0., 0., 0., policy.WINTER_SNOWFALL], snow)
+        self.assertEqual(0, rain[3])
+        self.assertGreaterEqual(weather.HCSeasonCloud('winter', 'plain', 0., 12.), .6)
+        for phase in phases + ('unavailable',):
+            self.assertEqual(0, weather.HCSeasonSnow(phase, 'calm', .95, 12.))
+            self.assertEqual(0, weather.HCSeasonSnow(phase, 'plain', .95, 23.))
+            self.assertEqual(0, blend.HCSeasonWeight(phase, 23.))
+            self.assertEqual('vanilla', blend.HCSeasonName(phase, 23.))
+        self.assertEqual(0, weather.HCSeasonSnow('winter', 'plain', .59, 12.))
+        self.assertEqual(weather.RainTarget('bad', .95, 12.),
+                         weather.HCSeasonRain('unavailable', 'bad', .95, 12.))
+        self.assertEqual(0, policy.HCSnowfall('winter', float('nan'), False, False))
+        self.assertEqual(0, policy.HCSnowfall('winter', float('inf'), False, False))
+        # Existing owner fades to zero before table swaps; all steps stay bounded.
+        current = 0.
+        for phase in phases:
+            target = blend.HCSeasonWeight(phase, 12.)
+            while current > 0:
+                previous = current
+                current = blend.Step(current, 0., 1.)
+                self.assertLessEqual(abs(current - previous), .100001)
+            self.assertNotEqual('vanilla', blend.HCSeasonName(phase, 12.))
+            for _ in range(3):
+                previous = current
+                current = blend.Step(current, target, 1.)
+                self.assertLessEqual(abs(current - previous), .100001)
+        self.assertEqual(0, blend.Step(current, .8, 0.))
+
+        # Synthetic DTO fields/native log sink. Every validation/TTL decision
+        # below executes the authored client body; no Python seasonal model.
+        receipts, states = [], []
+        env['Print'] = receipts.append
+        cache = N(m_Revision=0, m_Phase=-1, m_ReceivedAt=0., m_Conflict=False,
+                  m_LastReceipt='', m_Status=N(HCPublish=lambda *args: states.append(args)))
+        source = client_path.read_text()
+        start = re.search(r'class HCSeasonVisualClient\s*\{', source).end()
+        source = body(source, start)
+        for name in ('HCAccept', 'HCPhase', 'HCRefuse', 'HCReport', 'HCStop'):
+            function = translate(source, name, env, 'HCSeasonVisualClient', member=True)
+            setattr(cache, name, functools.partial(function, cache))
+        self.assertEqual('unavailable', cache.HCPhase(100.))
+        self.assertTrue(cache.HCAccept(1, 1, 2, 100.))
+        self.assertEqual('autumn', cache.HCPhase(101.))
+        self.assertFalse(cache.HCAccept(1, 0, 2, 101.))
+        self.assertEqual('unavailable', cache.HCPhase(102.))
+        self.assertTrue(cache.HCAccept(1, 2, 3, 102.))
+        self.assertFalse(cache.HCAccept(1, 1, 2, 103.))
+        self.assertEqual('winter', cache.HCPhase(103.))
+        self.assertFalse(cache.HCAccept(1, 2, 0, 103.))
+        self.assertFalse(cache.HCAccept(1, 2, 3, 104.))
+        self.assertEqual('unavailable', cache.HCPhase(104.))
+        self.assertTrue(cache.HCAccept(1, 3, 3, 105.))
+        self.assertTrue(cache.HCAccept(1, 3, 3, 130.))  # unchanged heartbeat
+        self.assertEqual('winter', cache.HCPhase(131.))
+        self.assertEqual('unavailable', cache.HCPhase(130. + policy.SNAPSHOT_TTL_SECONDS))
+        self.assertTrue(cache.HCAccept(1, 3, 3, 230.))
+        self.assertEqual('unavailable', cache.HCPhase(229.))  # clock rollback
+        self.assertTrue(cache.HCAccept(1, 4, -1, 231.))  # server off
+        self.assertEqual('unavailable', cache.HCPhase(232.))
+        self.assertTrue(cache.HCAccept(1, 5, 3, 233.))
+        cache.HCStop()
+        self.assertEqual('unavailable', cache.HCPhase(234.))
+        self.assertEqual(('off', 'mission_stop'), states[-1])
+        self.assertTrue(any('snapshot_conflict' in line for line in receipts))
+        self.assertTrue(any('snapshot_expired' in line for line in receipts))
+        self.assertTrue(all('runtime=PENDING' in line for line in receipts))
+
+        # Exercise the actual lighting handler through synthetic native handles.
+        # Its one slot, night/underground veto and cleanup remain authoritative.
+        lerps, loaded, removed = [], [], []
+        phase, alive, underground, cellars, night = ['autumn'], [True], [False], [False], [False]
+        world = N(SetUserLightingLerp=lerps.append, GetSunOrMoon=lambda: 1.,
+                  GetSunOrMoonDirection=lambda: [0., -1., 0.], IsNight=lambda: night[0])
+        phenomena = N(GetActual=lambda: .1)
+        native_weather = N(GetOvercast=lambda: phenomena, GetRain=lambda: N(GetActual=lambda: 0.),
+                           GetFog=lambda: N(GetActual=lambda: .04))
+        viewer = N(IsAlive=lambda: alive[0], IsUnconscious=lambda: False,
+                   GetUndergroundPresence=lambda: int(underground[0]))
+        env.update(GetGame=lambda: N(GetWorld=lambda: world, GetPlayer=lambda: viewer,
+                   GetWeather=lambda: native_weather, GetDayTime=lambda: 12.,
+                   GetCallQueue=lambda category: N(Remove=removed.append)),
+                   HCSeasonVisualClient=N(HCGetPhase=lambda: phase[0]),
+                   HCCellarsClient=N(HCVisualActive=lambda: cellars[0]),
+                   PlayerBase=N(Cast=lambda value: value),
+                   PPERequesterBank=N(REQ_UNDERGROUND=1, IsRequesterRunning=lambda key: underground[0]),
+                   EUndergroundPresence=N(NONE=0), CALL_CATEGORY_SYSTEM=0,
+                   Math=N(Clamp=lambda value, low, high: max(low, min(high, value))))
+        lighting = N(m_HCRunning=True, m_HCOwnsSlot=False, m_HCLoaded='', m_HCWeight=0.,
+                     m_HCLogSeconds=60., m_HCLoggedName='', m_HCLoggedWeight=-1.,
+                     m_HCLighting=N(HCLoadLightingTable=loaded.append),
+                     m_HCSeasonUnits=unit_budget(),
+                     m_HCSeasonWork=N(HCReset=lambda *args: None, HCContinue=lambda: True))
+        bind(scripts / '5_Mission/Atmosphere/HCLightingClient.c', 'HCLightingClient', lighting, env)
+        lighting.Tick()
+        self.assertEqual(['dusk_warm'], loaded)
+        self.assertAlmostEqual(.1, lerps[-1])
+        phase[0] = 'winter'
+        lighting.Tick()
+        self.assertEqual(['dusk_warm'], loaded)  # fade out before switching
+        self.assertEqual(0., lerps[-1])
+        lighting.Tick()
+        self.assertEqual(['dusk_warm', 'dusk_cold'], loaded)
+        alive[0] = False
+        lighting.Tick()
+        self.assertEqual(0., lerps[-1], 'HC-51 grade remains active after death')
+        alive[0] = True
+        lighting.Tick()
+        night[0] = True
+        lighting.Tick()
+        self.assertEqual(0., lerps[-1])
+        night[0] = False
+        underground[0] = True
+        previous = len(lerps)
+        lighting.Tick()
+        self.assertEqual(previous, len(lerps), 'HC grade wrote the native underground slot')
+        underground[0] = False
+        lighting.Tick()
+        lighting.Stop()
+        self.assertEqual(0., lerps[-1])
+        self.assertEqual([lighting.Tick], removed)
+        previous = len(lerps)
+        lighting.Tick()
+        self.assertEqual(previous, len(lerps), 'off lighting still writes native lerp')
+
+        # Survival hooks stay absent from this feature; HC-2 already retired
+        # meal warmth. Stock same-weather survival controls still need DayZ.
+        seasonal_sources = policy_path.read_text() + client_path.read_text()
+        for forbidden in ('modded class Environment', 'modded class PlayerBase',
+                          'AddToEnvironmentTemperature(', 'SetHeatComfort(', 'AddWet(', 'SetDate('):
+            self.assertNotIn(forbidden, seasonal_sources)
