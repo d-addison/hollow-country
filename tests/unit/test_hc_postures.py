@@ -25,10 +25,10 @@ NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedV
 ADMISSION = NATIVE.with_name('HCPostureAdmission.c')
 
 
-def bind(path, obj, names, env, statics=()):
+def bind(path, obj, names, env, statics=(), bound=()):
     for name in names:
         match = re.search(r'\b(?:bool|void|int|string) ' + name + r'\(', path.read_text())
-        fn = translate(str(path), match[0], names, statics=statics, **env)
+        fn = translate(str(path), match[0], names + bound, statics=statics, **env)
         setattr(obj, name, MethodType(fn, obj))
     return obj
 
@@ -115,7 +115,9 @@ class PostureAdmission(unittest.TestCase):
         owner_statuses = []
         owner_report = N(HCPublish=lambda *args: owner_statuses.append(args))
         owner = N(m_HCPostures=None, m_Running=False, m_Variety=True,
-                  m_HCVarietyStatus=owner_report, VarietyActive=lambda: True)
+                  m_HCVarietyStatus=owner_report, VarietyActive=lambda: False)
+        owner_report.HCState = lambda: owner_statuses[-1][0] if owner_statuses else 'unknown'
+        owner_report.HCReason = lambda: owner_statuses[-1][1] if owner_statuses else 'owner_state_unknown'
         owner_calls = []
         def inherited_start(settings):
             owner_calls.append('start')
@@ -127,9 +129,10 @@ class PostureAdmission(unittest.TestCase):
                       OnStart=inherited_start, OnTick=lambda dt: owner_calls.append('tick'),
                       OnStop=inherited_stop)
         lifecycle = dict(env, super=inherited, HCPostureAdmission=lambda: queue)
+        bind(NATIVE, owner, ('HCRefreshVarietyStatus',), lifecycle, bound=('VarietyActive',))
         for name in ('IsEnabled', 'OnStart', 'OnTick', 'OnStop'):
             fn_owner = translate(str(NATIVE), ('bool ' if name == 'IsEnabled' else 'void ') + name + '(',
-                                 ('VarietyActive',), **lifecycle)
+                                 ('VarietyActive', 'HCRefreshVarietyStatus'), **lifecycle)
             setattr(owner, name, MethodType(fn_owner, owner))
         status_source = NATIVE.read_text().split('modded class HCInfectedVarietyModule', 1)[1]
         status_source = status_source.replace('HCOperationalStatus HCGetOperationalStatus',
@@ -149,25 +152,39 @@ class PostureAdmission(unittest.TestCase):
         self.assertTrue(owner.IsEnabled(enabled_owner))
         owner.OnStart(enabled_owner)
         self.assertEqual(1, queue.m_Cursor)
+        self.assertEqual(('refused', 'infected_owner_unavailable_rest_wake_unverified'), owner_statuses[-1])
         owner.OnStart(enabled_owner)
         self.assertEqual(1, queue.m_Cursor)
+        # Synthetic dependency starts later in the same lifecycle; no restart
+        # or getter-side experiment may be needed to refresh the cached row.
+        before_late_start = len(owner_statuses)
+        owner.VarietyActive = lambda: True
         owner.OnTick(1.)
         self.assertEqual(2, queue.m_Cursor)
+        self.assertEqual(before_late_start + 1, len(owner_statuses),
+                         'late infected start left cached posture status stale')
+        self.assertEqual(('refused', 'rest_wake_native_proof_pending'), owner_statuses[-1])
+        for _ in range(10): owner.OnTick(1.)
+        self.assertEqual(before_late_start + 1, len(owner_statuses), 'unchanged status republished')
         self.assertEqual('degraded', statuses[-1][0])
-        self.assertEqual('ready', owner_statuses[-1][0])
         # The inherited module's scaling service may run while posture is off.
         owner.m_Variety = False
-        owner.OnStart(enabled_owner)
+        owner.OnTick(1.)
         self.assertEqual('ready', owner_statuses[-1][0])
         owner.m_Variety = True
         owner.VarietyActive = lambda: False
-        owner.OnStart(enabled_owner)
-        self.assertEqual('degraded', owner_statuses[-1][0])
+        owner.OnTick(1.)
+        self.assertEqual(('refused', 'infected_owner_unavailable_rest_wake_unverified'), owner_statuses[-1])
+        before_loss = len(owner_statuses)
+        owner.OnTick(1.)
+        self.assertEqual(before_loss, len(owner_statuses))
         owner.OnStop()
         self.assertEqual([], queue.m_Queue)
         self.assertEqual(('off', 'posture_queue_stopped'), statuses[-1])
         self.assertIs(owner_report, owner.HCGetOperationalStatus())
         self.assertEqual(('off', 'variety_owner_stopped'), owner_statuses[-1])
+        owner.OnTick(1.)
+        self.assertEqual(before_loss + 1, len(owner_statuses), 'stopped tick republished status')
 
         # Synthetic existing crawler + actual native hold/release bodies. A
         # successful idle latch is not animation, pathfinding or wake proof.
@@ -246,6 +263,34 @@ class PostureAdmission(unittest.TestCase):
         self.assertRegex(config, r'requiredAddons\[\]\s*=\s*\{[^}]*"HollowCountry"')
         self.assertIn('scope = 1;', config)
         self.assertNotIn('CallLater(', POSE.read_text())
+
+        # Explicit synthetic native ports. Repeated calls represent the
+        # existing four-actor retained-cursor sample, not a new retry loop.
+        latches = []
+        mind = [0]
+        actor = N(m_HCVarietyTriedDormant=False, m_HCVarietyDormant=False,
+                  m_HCVarietySleepUntil=0., IsAlive=lambda: True,
+                  IsCrawling=lambda: True, IsBeingBackstabbed=lambda: False,
+                  GetInputController=lambda: N(GetMindState=lambda: mind[0]),
+                  GetAIAgent=lambda: N(SetKeepInIdle=latches.append))
+        env = dict(GetGame=lambda: N(IsServer=lambda: True),
+                   HCInfectedVarietyModule=N(VarietyActive=lambda: True),
+                   HCPostureAdmission=N(HCCanEnter=lambda mode: True),
+                   DayZInfectedConstants=N(MINDSTATE_CALM=0))
+        bind(NATIVE, actor, ('HCVarietySleep',), env, bound=('IsAlive', 'IsCrawling',
+             'IsBeingBackstabbed', 'GetInputController', 'GetAIAgent'))
+        self.assertFalse(actor.HCVarietySleep(100., False))
+        self.assertFalse(actor.m_HCVarietyTriedDormant, 'failed roll consumed the only rest')
+        mind[0] = 4
+        self.assertFalse(actor.HCVarietySleep(101., True))
+        self.assertFalse(actor.m_HCVarietyTriedDormant, 'non-calm sample consumed the only rest')
+        self.assertEqual([], latches)
+        mind[0] = 0
+        self.assertTrue(actor.HCVarietySleep(102., True))
+        self.assertTrue(actor.m_HCVarietyTriedDormant)
+        self.assertFalse(actor.HCVarietySleep(103., True))
+        self.assertEqual([True], latches)
+        self.assertEqual(162., actor.m_HCVarietySleepUntil)
 
 
 if __name__ == '__main__':

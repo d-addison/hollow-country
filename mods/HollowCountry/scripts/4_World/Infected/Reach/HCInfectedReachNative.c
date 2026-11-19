@@ -178,13 +178,16 @@ modded class ZombieBase
         bool fresh = now - state.LineAt <= 2.5;
         bool facing = HCInfectedReachModule.FacingDegrees(this, dx, dz, horizontal) <= 35;
         bool vanillaCan = CanAttackToPosition(aim) && vector.Distance(aim, own) <= 1.7;
+        // Leg strikes remain explicitly refused by HC-47 qualification. Their
+        // disabled flag (or a ray miss) cannot negate native player reach.
         bool legs = HCInfectedReachPolicy.HCExtendedReachSupported() && HCInfectedReachPolicy.MayStrike(vertical, horizontal, 1.7, state.LineClear, fresh, true, vanillaCan);
+        bool reachPossible = vanillaCan || (legs && facing);
         DayZInfectedAttackType attack = null;
 
         if (state.Vehicle && now - state.VehicleAt <= 2.5)
         {
             bool seated = state.InVehicle && target.GetCommand_Vehicle() != null;
-            if (HCInfectedReachPolicy.MayBatter(seated, state.OnVehicle, legs && facing, state.VehicleContact, now, reach.VehicleNextHit(state.Vehicle)))
+            if (HCInfectedReachPolicy.MayBatter(seated, state.OnVehicle, reachPossible, state.VehicleContact, now, reach.VehicleNextHit(state.Vehicle)))
             {
                 attack = infectedType.ChooseAttack(DayZInfectedAttackGroupType.FIGHT, 1.0, 0);
                 if (attack && reach.ReserveVehicleHit(state.Vehicle, now))

@@ -28,6 +28,8 @@ def policy():
         raise AssertionError("missing authored #137 reach policy " + str(POLICY.relative_to(ROOT)))
     text = POLICY.read_text()
     owner = SimpleNamespace()
+    for name, value in re.findall(r'static const (?:bool|string) (\w+) = ("[^"]*"|true|false);', text):
+        setattr(owner, name, value == 'true' if value in ('true', 'false') else value[1:-1])
     env = dict(HCInfectedReachPolicy=owner, len=len, str=str,
                Math=SimpleNamespace(AbsFloat=abs, Min=min, Max=max))
     for name in re.findall(r"\bstatic (?:bool|int|float) (\w+)\(", text):

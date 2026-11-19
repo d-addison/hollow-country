@@ -84,6 +84,8 @@ class SyntheticContact:
         env = dict(this=self.z, PlayerBase=N(Cast=lambda value: value),
                    EntityAI=N(Cast=lambda value: value if hasattr(value, 'GetHierarchyRoot') else None),
                    DayZInfectedConstants=MINDS, HCInfectedReachPolicy=self.p,
+                   HCInfectedReachModule=N(FacingDegrees=lambda *a: 0.),
+                   DayZInfectedAttackGroupType=N(FIGHT=1),
                    DayZPhysics=N(RaycastRV=ray), SyntheticSet=SyntheticSet, ObjIntersectFire=0,
                    EMeleeTargetType=N(NONALIGNABLE=-1), GetGame=lambda: N(GetTickTime=lambda: 10.),
                    vector=N(Distance=lambda a, b: math.dist(a, b)),
@@ -108,6 +110,31 @@ class SyntheticContact:
 
 class ThreatMatrix(unittest.TestCase):
     def test_current_target_wall_native_refusal_and_off_matrix(self):
+        # Explicit synthetic roof target within the existing native 1.7 m
+        # reach. Disabled extra leg strikes must not turn that into battering.
+        roof = SyntheticContact()
+        vehicle = object()
+        batter_calls = []
+        roof.z.GetDayZInfectedType = lambda: N(ChooseAttack=lambda *a: batter_calls.append(a))
+        roof.reach.VehicleNextHit = lambda transport: 0.
+        roof_state = N(Target=roof.target, Phase=0,
+            VaultType=-1, NextStrike=0., LineAt=10., LineClear=True,
+            Vehicle=vehicle, VehicleAt=10., InVehicle=False, OnVehicle=True,
+            VehicleContact=1.)
+        roof.z.HCReachMove(roof.reach, roof_state)
+        self.assertEqual([], batter_calls, 'native-reachable roof player caused vehicle battering')
+        roof_state.LineClear = False  # unproven extra-leg ray cannot override native reach
+        roof.z.HCReachMove(roof.reach, roof_state)
+        self.assertEqual([], batter_calls)
+        roof.native_reach = False
+        roof.z.HCReachMove(roof.reach, roof_state)
+        self.assertEqual(1, len(batter_calls), 'native-unreachable roof must retain batter selection')
+        roof.native_reach = True
+        roof_state.InVehicle, roof_state.OnVehicle = True, False
+        roof.target.GetCommand_Vehicle = lambda: vehicle
+        roof.z.HCReachMove(roof.reach, roof_state)
+        self.assertEqual(2, len(batter_calls), 'occupied vehicle must retain batter selection')
+
         s = SyntheticContact()
         s.current = object()  # native retarget between start and WasHit
         s.z.HCReachHitLegs(s.reach)

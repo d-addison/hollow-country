@@ -61,6 +61,7 @@ class ThreatLifecycleWiring(unittest.TestCase):
                 gate.HCThreatReset(True)
                 gate.Admitted()  # explicit stale prior-session admission
                 summary = scalar(POLICY.read_text(), 'HCThreatSummary', dict(
+                    HCInfectedReachPolicy=policy(),
                     HCInfectedVisionQualification=gate,
                     HCInfectedRoomCatalog=N(HCThreatRoomReason=lambda: 'room_path_receipts_pending')),
                     'HCInfectedReachPolicy')
