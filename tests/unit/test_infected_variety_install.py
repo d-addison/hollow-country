@@ -118,6 +118,23 @@ class InfectedVarietyInstallTests(unittest.TestCase):
         self.assertEqual(data, self.events.read_bytes())
         self.assertTrue((self.mission / self.tool.MANAGED / 'receipt.json').exists())
 
+    def test_missing_receipt_with_substituted_target_refuses(self):
+        # Review P2-1: an operator-deleted receipt must not report success
+        # while events.xml still carries the authored destinations.
+        self.install()
+        installed = self.events.read_bytes()
+        (self.mission / self.tool.MANAGED / 'receipt.json').unlink()
+        with self.assertRaisesRegex(ValueError, 'receipt missing'):
+            self.tool.rollback(self.mission)
+        self.assertEqual(installed, self.events.read_bytes())
+        self.assertTrue((self.mission / self.tool.MANAGED).is_dir())
+
+    def test_missing_receipt_before_switch_clears_managed_dir(self):
+        (self.mission / self.tool.MANAGED).mkdir()
+        self.assertEqual([], self.tool.rollback(self.mission))
+        self.assertEqual(self.original, self.events.read_bytes())
+        self.assertFalse((self.mission / self.tool.MANAGED).exists())
+
     def test_interrupted_switch_is_recoverable(self):
         real_atomic = self.tool.atomic
         def fail_target(path, data, managed):
