@@ -353,6 +353,46 @@ class HCTapedPackMounts : HCModule
         return ReceiptBoolTyped(text, "Checked");
     }
 
+    // Reject Unicode escapes in keys rather than accepting a spelling the raw
+    // bool/presence guards cannot match. Escapes in prose values remain valid.
+    static bool ReceiptKeysUnescaped(string text)
+    {
+        int total = text.Length();
+        int cursor = 0;
+        while (cursor < total)
+        {
+            if (text.Get(cursor) != "\"") { cursor = cursor + 1; continue; }
+            cursor = cursor + 1;
+            bool unicodeKey = false;
+            while (cursor < total && text.Get(cursor) != "\"")
+            {
+                if (text.Get(cursor) == "\\")
+                {
+                    cursor = cursor + 1;
+                    if (cursor < total && text.Get(cursor) == "u") { unicodeKey = true; }
+                }
+                cursor = cursor + 1;
+            }
+            cursor = cursor + 1;
+            while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
+            if (unicodeKey && cursor < total && text.Get(cursor) == ":") { return false; }
+        }
+        return true;
+    }
+
+    // Same cohort as the admission summary: admitted ids plus explicit opt-outs.
+    // Receipts for slot-refused/unpermitted pairs stay in receipts_checked only.
+    static int ReceiptCoveredChecked()
+    {
+        int checked = 0;
+        TStringArray ids = mHCChecked;
+        foreach (string pairId : ids)
+        {
+            if (ReceiptDisabled(pairId) || PairAdmission(pairId) == "") { checked = checked + 1; }
+        }
+        return checked;
+    }
+
     // Decimal value of width digit characters of an already digit-checked date.
     static int DateNumber(string date, int first, int width)
     {
@@ -417,6 +457,7 @@ class HCTapedPackMounts : HCModule
         mHCChecked.Clear();
         mHCDisabled.Clear();
         if (text == "") { return "receipts_unreadable"; }
+        if (!ReceiptKeysUnescaped(text)) { return "receipt_key_unicode_escape"; }
         if (!HCJsonFields.Has(text, "SchemaVersion") || !HCJsonFields.Has(text, "Receipts")) { return "receipts_fields_missing"; }
         if (!HCJsonFields.Every(text, "PairId", 3) || !HCJsonFields.Every(text, "Checked", 3)) { return "receipts_fields_missing"; }
         if (!HCJsonFields.Every(text, "CheckDate", 3) || !HCJsonFields.Every(text, "Note", 3)) { return "receipts_fields_missing"; }
@@ -587,9 +628,10 @@ class HCTapedPackMounts : HCModule
             // One summary line, never one line per pair. Admitted unverified:
             // no native or two-client verdict is recorded for any pair.
             int covered = admitted + disabled;
-            int unchecked = covered - receiptsChecked;
+            int coveredChecked = ReceiptCoveredChecked();
+            int unchecked = covered - coveredChecked;
             line = "[HC TapedPackMounts] admission result=admitted unverified pairs=" + covered.ToString() + " unchecked=" + unchecked.ToString();
-            Print(line + " checked=" + receiptsChecked.ToString() + " disabled=" + disabled.ToString() + " runtime=PENDING");
+            Print(line + " checked=" + coveredChecked.ToString() + " disabled=" + disabled.ToString() + " runtime=PENDING");
             int packRefused = PackRefusedCount();
             if (packRefused > 0) { Print("[HC TapedPackMounts] pack_pairs_refused count=" + packRefused.ToString() + " reason=" + FirstAdmissionReason() + " runtime=PENDING"); }
             if (mHCWeaponRefused > 0) { Print("[HC TapedPackMounts] weapon_pairs_refused count=" + mHCWeaponRefused.ToString() + " reason=" + mHCWeaponFirstRefusal + " runtime=PENDING"); }

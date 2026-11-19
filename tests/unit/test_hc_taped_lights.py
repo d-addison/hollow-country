@@ -122,8 +122,8 @@ class TapedLightConservationTests(unittest.TestCase):
         self.e["HCTapedPackMounts"] = gate
         manifest = json.loads(PACK_MANIFEST.read_text())
         defaults = json.loads(MOUNT_DEFAULTS.read_text())
-        self.assertFalse(defaults["crossSlotLights"])
-        self.assertEqual([], defaults["permittedPairIds"])
+        self.assertTrue(defaults["crossSlotLights"])
+        self.assertEqual(["tortilla_universal_cross"], defaults["permittedPairIds"])
         self.assertTrue(gate.Configure(NS(crossSlotLights=False, permittedPairIds=EArray())))
         self.assertEqual("setting_off", gate.PairAdmission("tortilla_universal_mount"))
         gate.mHCSettingOn = True

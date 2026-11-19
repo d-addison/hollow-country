@@ -1,5 +1,5 @@
 {
   "Note": "Offline mirror of the closed defaults in mission/hollow-country/lights/backpack-mounts.json SettingsContract. No runtime code reads this file; the mission manifest is the runtime input. A unit test pins that the two agree.",
-  "crossSlotLights": false,
-  "permittedPairIds": []
+  "crossSlotLights": true,
+  "permittedPairIds": ["tortilla_universal_cross"]
 }

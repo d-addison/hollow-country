@@ -50,13 +50,44 @@ class LightProxySlotTableTests(unittest.TestCase):
         by_class = {r['class']: r for r in TABLE['light_rows']}
         self.assertEqual(['Scout'], [c for c, a in added if any(s in a for s in LIGHT_SLOTS)])
         for cls, _ in added:
-            self.assertTrue(by_class[cls]['proxy'], cls)
+            if cls in by_class:
+                self.assertTrue(by_class[cls]['proxy'], cls)
 
-    def test_cross_slot_pairs_are_candidates_not_enabled(self):
-        self.assertEqual('candidate-needs-client-check', TABLE['cross_slot']['status'])
-        self.assertFalse(TABLE['cross_slot']['enabled'])
-        self.assertNotIn('TLRLight', CONFIG)
-        self.assertNotIn('class UniversalLight', CONFIG)
+    def test_cross_slot_config_preserves_vanilla_arrays_and_inheritance(self):
+        from tools.audit.pbo_config import parse_text_config
+        classes = parse_text_config(CONFIG, ("CfgVehicles",))["CfgVehicles"]
+        expected = {
+            "TortillaBag": ("Clothing", "attachments", ["Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag", "helmetFlashlight"]),
+            "UniversalLight": ("Switchable_Base", "inventorySlot", ["weaponFlashlight", "helmetFlashlight", "pistolFlashlight", "Chemlight"]),
+            "TLRLight": ("Switchable_Base", "inventorySlot", ["pistolFlashlight", "weaponFlashlight"]),
+        }
+        for name, (parent, field, slots) in expected.items():
+            self.assertEqual(parent, classes[name]["parent"], name)
+            self.assertEqual(slots, classes[name][field], name)
+        self.assertIn('"DZ_Weapons_Lights"', CONFIG)
+        self.assertIn("~/", CONFIG)
+
+    def test_all_authored_pairs_have_slots_in_the_patched_static_table(self):
+        from tools.audit.pbo_config import parse_text_config
+        from tests.unit.test_hc_taped_pack_loader import light_catalogue
+        classes = parse_text_config(CONFIG, ("CfgVehicles", "CfgWeapons"))
+        lights = classes["CfgVehicles"]
+        hosts = {r["class"]: r["slots"] for r in TABLE["light_rows"]}
+        hosts["Scout"] = classes["CfgWeapons"]["Scout"]["attachments"]
+        hosts["Scout_Chernarus"] = hosts["Scout"]
+        hosts["Scout_Livonia"] = hosts["Scout"]
+        catalogue = light_catalogue()
+        refused = []
+        for pair in catalogue.CrossPairIds():
+            row = catalogue.CrossRow(pair)
+            if row.SlotName not in hosts[row.HostClass] or row.SlotName not in lights[row.LightClass]["inventorySlot"]:
+                refused.append(pair)
+        manifest = json.loads((ROOT / "mission/hollow-country/lights/backpack-mounts.json").read_text())
+        for row in manifest["AuthoredPairs"] + manifest["CrossSlotPairs"]:
+            if (row["SlotName"] not in lights[row["HostClass"]]["attachments"] or
+                    row["SlotName"] not in lights[row["LightClass"]]["inventorySlot"]):
+                refused.append(row["PairId"])
+        self.assertEqual([], refused)  # Static slots only; geometry/client acceptance PENDING.
 
 
 if __name__ == '__main__':

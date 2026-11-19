@@ -135,7 +135,7 @@ class WeaponPairReceiptTests(unittest.TestCase):
         line = boot_line(gate)
         for field in ("receipts_checked=2", "weapon_checked=2", "pack_checked=0", "receipts=ok"):
             self.assertIn(field, line)
-        self.assertEqual(1, gate.AdmittedCount())
+        self.assertEqual(2, gate.AdmittedCount())
         self.assertEqual(0, gate.VerifiedCount())
         for pair in ids:
             self.assertFalse(gate.PairQualified(pair), pair)
@@ -184,7 +184,7 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("return false;", match[1])
         native = (ROOT / "mods/HollowCountry/scripts/3_Game/HCSettings.c").read_text()
         self.assertIn("bool EnableTapedPackMounts = true;", native)
-        self.assertEqual([], json.loads(MANIFEST.read_text())["SettingsContract"]["DefaultPermittedPairIds"])
+        self.assertEqual(["tortilla_universal_cross"], json.loads(MANIFEST.read_text())["SettingsContract"]["DefaultPermittedPairIds"])
         self.assertIs(False, json.loads(MANIFEST.read_text())["Qualified"])
 
 

@@ -1,9 +1,9 @@
 """#58 / HC-52: backpack light-mount manifest loader wiring; runtime=PENDING.
 
 Spec: the mission manifest lights/backpack-mounts.json is the only settings
-source (it holds the closed defaults); the module loads it once at start behind
+source (cross-slot lights default on); the module loads it once at start behind
 HCJsonFields presence guards, calls Configure(), and publishes a readiness line.
-Qualified() stays false, so no pair attaches. Fixtures are SYNTHETIC: the JSON
+Qualified() stays false; admission is unverified and still needs native slots. Fixtures are SYNTHETIC: the JSON
 codec, file read and HCJsonFields scan are explicit fakes; native behaviour is
 not established here.
 """
@@ -117,7 +117,8 @@ def build(text, build_ok=True, files=None, receipts=""):
              "ApplyReceipts", "ReceiptCheckedTyped", "ReceiptBoolTyped", "ValidCheckDate", "DateNumber", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ParseOptOuts", "ReceiptChecked",
              "ReceiptDisabled", "PairAdmission", "PairQualified", "AdmittedCount", "VerifiedCount", "FirstAdmissionReason", "OnStart",
              "WeaponPairAdmission", "WeaponNativeSlotAvailable", "WeaponPairAdmitted", "WeaponBindingAllowed", "HCRefreshWeaponAdmission",
-             "ReceiptPackChecked", "ReceiptWeaponChecked", "PackRefusedCount")
+             "ReceiptPackChecked", "ReceiptWeaponChecked", "PackRefusedCount",
+             "ReceiptKeysUnescaped", "ReceiptCoveredChecked")
     for name in names:
         setattr(gate, name, lambda *a, name=name: member(PACKS, "HCTapedPackMounts", name, gate, env, *a))
     gate.ReadManifest = lambda: manifest_text["value"]
@@ -157,8 +158,8 @@ class TapedPackLoaderTests(unittest.TestCase):
     def test_manifest_defaults_exist_at_the_depths_the_guards_read(self):
         data = json.loads(self.real())
         contract = data["SettingsContract"]
-        self.assertIs(False, contract["DefaultCrossSlotLights"])
-        self.assertEqual([], contract["DefaultPermittedPairIds"])
+        self.assertIs(True, contract["DefaultCrossSlotLights"])
+        self.assertEqual(["tortilla_universal_cross"], contract["DefaultPermittedPairIds"])
         self.assertEqual(2, contract["MaxPermittedPairIds"])
         self.assertIs(False, data["Qualified"])
 
@@ -173,12 +174,12 @@ class TapedPackLoaderTests(unittest.TestCase):
         self.assertIn("offline mirror", contract["OfflineMirror"])
         self.assertIn("config/hollow-country-light-mounts.json", contract["OfflineMirror"])
 
-    def test_real_manifest_configures_closed_defaults_without_any_attach(self):
+    def test_real_manifest_configures_enabled_defaults_without_any_attach(self):
         gate = build(self.real())
         self.assertEqual("", gate.ApplyManifest(self.real()))
         self.assertTrue(gate.mHCConfigured)
-        self.assertFalse(gate.CrossSlotEnabled())
-        self.assertEqual([], gate.mHCPermitted)
+        self.assertTrue(gate.CrossSlotEnabled())
+        self.assertEqual(["tortilla_universal_cross"], gate.mHCPermitted)
 
     def test_missing_nested_field_refuses_and_stays_unconfigured(self):
         data = json.loads(self.real())
@@ -217,7 +218,7 @@ class TapedPackLoaderTests(unittest.TestCase):
         self.assertIn(("off", "setting_off"), published)
         plan = [x for x in gate.logs if isinstance(x, str) and "HC-52 pack_pairs=" in x]
         self.assertEqual(1, len(plan))
-        for field in ("config=loaded", "cross_slot=off", "qualified=0", "state=off",
+        for field in ("config=loaded", "cross_slot=on", "qualified=0", "state=off",
                       "reason=setting_off", "admitted=0", "runtime=PENDING"):
             self.assertIn(field, plan[0])
 

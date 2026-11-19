@@ -36,12 +36,12 @@ RIFLE_PAIR = "cross_AKM_TLRLight"
 PISTOL_PAIR = "cross_Glock19_UniversalLight"
 WEAPON_PAIRS = 29
 
-VANILLA = {"CfgVehicles TortillaBag attachments": ["Chemlight", "WalkieTalkie"],
+VANILLA = {"CfgVehicles TortillaBag attachments": ["Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag"],
            "CfgVehicles UniversalLight inventorySlot": ["weaponFlashlight", "helmetFlashlight"],
            "CfgVehicles TLRLight inventorySlot": ["pistolFlashlight"]}
-# SYNTHETIC: what the installed slot arrays would have to look like for every
-# authored pair to have a native slot. Not an observation of DayZ.
-PATCHED = {"CfgVehicles TortillaBag attachments": ["helmetFlashlight", "Chemlight"],
+# SYNTHETIC: authored slot overrides, also checked against config.cpp by the
+# slot-table tests. Not an observation of the running DayZ engine.
+PATCHED = {"CfgVehicles TortillaBag attachments": ["Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag", "helmetFlashlight"],
            "CfgVehicles UniversalLight inventorySlot": ["weaponFlashlight", "helmetFlashlight",
                                                         "pistolFlashlight", "Chemlight"],
            "CfgVehicles TLRLight inventorySlot": ["pistolFlashlight", "weaponFlashlight"]}
@@ -122,6 +122,22 @@ class ReceiptVerdictLogTests(unittest.TestCase):
         self.assertTrue(gate.ReceiptDisabled(MOUNT))
         self.assertFalse(gate.ReceiptDisabled(CROSS))
 
+    def test_unicode_escaped_receipt_keys_are_refused_with_a_named_reason(self):
+        for key in (r"Disab\u006ced", r"\u0044isabled", r"Check\u0065d"):
+            for value in ("null", '"yes"', "1", "true"):
+                text = receipts(with_row(MOUNT, Disabled=False))
+                original = "Checked" if key.startswith("Check") else "Disabled"
+                text = text.replace('"' + original + '": false', '"' + key + '": ' + value)
+                gate, reason = self.apply(text)
+                self.assertEqual("receipt_key_unicode_escape", reason, (key, value))
+                self.assertEqual([], gate.mHCDisabled)
+                self.assertEqual([], gate.mHCChecked)
+
+    def test_unicode_escapes_in_note_values_are_allowed(self):
+        text = receipts(with_row(MOUNT, Note="client café"))
+        self.assertIn(r"\u00e9", text)
+        self.assertEqual("", self.apply(text)[1])
+
     def test_disabled_must_be_a_json_bool_or_the_file_is_refused(self):
         for bad in ('"yes"', "1", "null", "0"):
             text = receipts(with_row(MOUNT)).replace(
@@ -155,6 +171,14 @@ class PackAdmissionTests(unittest.TestCase):
         self.assertTrue(gate.PairQualified(MOUNT))
         self.assertIn(("ready", "admitted_unverified"), published)
         self.assertEqual(0, gate.VerifiedCount())
+
+    def test_shipped_defaults_admit_the_pack_cross_pair_when_slots_exist(self):
+        gate, _ = booted()
+        self.assertEqual("", gate.PairAdmission(CROSS))
+        self.assertTrue(gate.CrossSlotEnabled())
+        self.assertEqual(2, gate.AdmittedCount())
+        data = (ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCTapedLightData.c").read_text()
+        self.assertIn("bool DefaultCrossSlotLights = true;", data)
 
     def test_receipt_disabled_opts_one_pack_pair_out(self):
         gate, _ = booted(rows=[with_row(MOUNT, Disabled=True)])
@@ -193,7 +217,7 @@ class WeaponAdmissionTests(unittest.TestCase):
         gate, _ = booted(rows=rows)
         line = boot_line(gate)
         for field in ("receipts_checked=3", "pack_checked=1", "weapon_checked=2",
-                      "pack_admitted=1", "weapon_admitted=29", "admitted=30",
+                      "pack_admitted=2", "weapon_admitted=29", "admitted=31",
                       "setting=on", "reason=admitted_unverified", "runtime=PENDING"):
             self.assertIn(field, line)
 
@@ -201,12 +225,30 @@ class WeaponAdmissionTests(unittest.TestCase):
         gate, _ = booted(rows=[with_row(PISTOL_PAIR, Disabled=True)])
         summary = lines(gate, "[HC TapedPackMounts] admission result=admitted unverified")
         self.assertEqual(1, len(summary))
-        for field in ("pairs=30", "unchecked=30", "checked=0", "disabled=1", "runtime=PENDING"):
+        for field in ("pairs=31", "unchecked=31", "checked=0", "disabled=1", "runtime=PENDING"):
             self.assertIn(field, summary[0])
         weapon_ids = [pair for pair in gate.mHCWeaponAdmitted] + [PISTOL_PAIR]
         self.assertEqual([], [x for x in gate.logs if isinstance(x, str) and any(pair in x for pair in weapon_ids)])
         self.assertEqual(WEAPON_PAIRS - 1, len(gate.mHCWeaponAdmitted))
         self.assertEqual("receipt_disabled", gate.PairAdmission(PISTOL_PAIR))
+
+    def test_summary_checked_and_unchecked_use_only_the_covered_cohort(self):
+        rows = [with_row(MOUNT, Checked=True, CheckDate="2026-11-19", Note="synthetic"),
+                with_row(RIFLE_PAIR, Checked=True, CheckDate="2026-11-19", Note="synthetic")]
+        gate, _ = booted(rows=rows, table=VANILLA)
+        summary = lines(gate, "[HC TapedPackMounts] admission result=")[0]
+        for field in ("pairs=0", "unchecked=0", "checked=0"):
+            self.assertIn(field, summary)
+        # Checked receipts remain reported independently of admission.
+        self.assertIn("receipts_checked=2", boot_line(gate))
+
+    def test_checked_disabled_pairs_are_covered_but_never_admitted(self):
+        gate, _ = booted(rows=[with_row(MOUNT, Disabled=True, Checked=True,
+                                      CheckDate="2026-11-19", Note="synthetic")])
+        self.assertEqual(1, gate.AdmittedCount())
+        summary = lines(gate, "[HC TapedPackMounts] admission result=")[0]
+        for field in ("pairs=31", "unchecked=30", "checked=1", "disabled=1"):
+            self.assertIn(field, summary)
 
     def test_missing_weapon_light_slot_is_one_named_line_and_the_module_stays_ready(self):
         gate, published = booted(table=VANILLA)
@@ -264,11 +306,12 @@ class CatalogueCrossRowTests(unittest.TestCase):
 class NativeAttachSiteTests(unittest.TestCase):
     """HCTapedLightV1Qualification.Row/Resolve use the admitted weapon pair, nothing else."""
 
-    def fixture(self, admitted):
+    def fixture(self, admitted, server=True, disabled=()):
         catalogue = light_catalogue()
-        gate = NS(WeaponPairAdmitted=lambda pair: pair in admitted)
+        gate = NS(WeaponPairAdmitted=lambda pair: server and pair in admitted,
+                  ReceiptDisabled=lambda pair: pair in disabled)
         state = NS()
-        env = {"HCTapedLightCatalog": NS(
+        env = {"GetGame": lambda: NS(IsServer=lambda: server), "HCTapedLightCatalog": NS(
                    Rows=catalogue.Rows, Matches=lambda *a: native_member(
                        ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCTapedLightCatalog.c",
                        "HCTapedLightCatalog", "Matches", NS(), {}, *a),
@@ -276,8 +319,8 @@ class NativeAttachSiteTests(unittest.TestCase):
                "HCTapedPackMounts": gate}
         return state, env
 
-    def row(self, admitted, host, light):
-        state, env = self.fixture(admitted)
+    def row(self, admitted, host, light, server=True, disabled=()):
+        state, env = self.fixture(admitted, server, disabled)
         source = NATIVE.read_text()
         match = re.search(r"class HCTapedLightV1Qualification\b[^\{]*\{", source)
         self.assertIn("static HCTapedLightHostRow CrossRow(", source[match.end():])
@@ -299,6 +342,60 @@ class NativeAttachSiteTests(unittest.TestCase):
     def test_an_unadmitted_cross_pair_resolves_nothing(self):
         self.assertIsNone(self.row(set(), "AKM", "TLRLight"))
         self.assertIsNone(self.row({PISTOL_PAIR}, "AKM", "TLRLight"))
+
+    def test_client_mount_and_remove_previews_show_an_unadmitted_cross_pair(self):
+        from tests.unit.test_client_frame_costs import runtime_member
+        from tests.unit.test_taped_light_v1 import native_member as selection
+        row = lambda h, l: self.row(set(), h.GetType(), l.GetType(), server=False)
+        light = NS(GetType=lambda: "TLRLight", IsDamageDestroyed=lambda: False,
+                   GetCompEM=lambda: NS(IsSwitchedOn=lambda: False))
+        host = NS(GetType=lambda: "AKM")
+        actor = NS()
+        light.GetHierarchyRootPlayer = lambda: actor
+        light.GetInventory = lambda: NS(GetCurrentInventoryLocation=lambda loc: True)
+        actor.GetInventory = lambda: NS(EnumerateInventory=lambda mode, out: out.append(light) or True,
+                                       FindFreeLocationFor=lambda *args: True)
+        class Location:
+            def GetType(self): return 3
+        env = dict(NewItems=EArray, ItemBase=NS(Cast=lambda x: x), HCGroupLocation=Location,
+                   InventoryTraversalType=NS(PREORDER=1), InventoryLocationType=NS(CARGO=3),
+                   FindInventoryLocationType=NS(CARGO=3),
+                   HCTapedLightV1Qualification=NS(Row=row, CrossRow=lambda h, l: self.row(set(), h, l, server=False)),
+                   HCTapedLightCatalog=NS(Rows=light_catalogue().Rows, Matches=lambda *args: False),
+                   GetGame=lambda: NS(IsServer=lambda: False, GetTime=lambda: 1000))
+        for mounting in (True, False):
+            host.FindAttachmentBySlotName = lambda slot: None if mounting else light
+            state = NS(Held=lambda *a: True, KnownHost=lambda h: True, Tape=lambda a: NS(),
+                       mHCHintHost=None, mHCHintTime=0, mHCHintMount=False, mHCHintRemove=False)
+            state.LooseLight = lambda a, h: selection("HCTapedLightRuntime", "LooseLight", state, env, a, h)
+            state.MountedLight = lambda h: runtime_member("HCTapedLightRuntime", "MountedLight", state, env, h)
+            state.Preview = lambda a, h, m: runtime_member("HCTapedLightRuntime", "Preview", state, env, a, h, m)
+            env.update(MountedLight=state.MountedLight, LooseLight=state.LooseLight,
+                       Tape=state.Tape, Preview=state.Preview)
+            self.assertTrue(runtime_member("HCTapedLightRuntime", "PreviewHint", state, env, actor, host, mounting), mounting)
+
+    def test_server_resolve_refuses_unadmitted_and_slot_missing_cross_pairs(self):
+        from tests.unit.test_client_frame_costs import class_body
+        from tests.unit.test_group_ui import ui_member
+        text = class_body(NATIVE.read_text(), "HCTapedLightV1Qualification")
+        text = text.replace("HCTapedLightBinding Resolve(", "int Resolve(")
+        text = text.replace("ref HCTapedLightJournal buildReader = new HCTapedLightJournal;",
+                            "HCGroupNative buildReader = NewJournal();")
+        text = re.sub(r"TStringArray (\w+) = new TStringArray;", r"HCGroupNative \1 = NewSlots();", text)
+        text = re.sub(r"\b(?:HCTapedLightHostRow|HCTapedLightBinding|EntityAI) (?=\w+ = )", "HCGroupNative ", text)
+        host, light = NS(GetType=lambda: "AKM"), NS(GetType=lambda: "TLRLight")
+        probes = []
+        env = dict(NewJournal=lambda: NS(Build=lambda: "synthetic"), NewSlots=EArray,
+                   HCBuildIdentity=NS(Matches=lambda b: True),
+                   GetGame=lambda: NS(IsServer=lambda: True,
+                                      ConfigGetTextArray=lambda p, out: probes.append(p)))
+        for admitted in (set(), {RIFLE_PAIR}):
+            env["Row"] = lambda h, l: self.row(admitted, h.GetType(), l.GetType())
+            self.assertIsNone(ui_member(text, "Resolve", NS(Ready=lambda: True), env.copy(), host, light))
+            self.assertEqual(2 if admitted else 0, len(probes))
+
+    def test_client_known_disabled_cross_pair_is_hidden(self):
+        self.assertIsNone(self.row(set(), "AKM", "TLRLight", server=False, disabled={RIFLE_PAIR}))
 
     def test_the_native_cohort_still_resolves_without_any_admission(self):
         row = self.row(set(), "AKM", "UniversalLight")
