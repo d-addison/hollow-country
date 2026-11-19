@@ -35,13 +35,14 @@ Landed on main since the 2026-11-18 snapshot, so no longer in flight:
 - the #168 operator requests, including the admin loot map and the search density scale;
 - the #135 and #138 review rounds (section 3 lists what remains);
 - wave 10: the #191 loot map, Stop cost, subset pin and infected variety fixes, the #183 subset pins (closed), #168 (closed), and the #160 baseline burn-down from 132 to 19 findings;
-- wave 11: the #192 review P3 fixes (Expansion AI, events, crafting, loot and infected), the #160 HC-S005 burn-down, the HC-52 backpack mount manifest loader (#58), the HC-48 habitat boot line (#149), the HC-35 trade slot release and module registration (#145), and the debug map Camps layer with per-layer counts.
+- wave 11: the #192 review P3 fixes (Expansion AI, events, crafting, loot and infected), the #160 HC-S005 burn-down, the HC-52 backpack mount manifest loader (#58), the HC-48 habitat boot line (#149), the HC-35 trade slot release and module registration (#145), and the debug map Camps layer with per-layer counts;
+- wave 12: the #193 wave 11 review follow-ups (journal and event labels, wreck enroll reasons with their own player text, the trade slot released only after the idle save, the HC-48 counts read from the habitat manifest, a configurable infected non-calm hold, a restored `HerdWorld` default, the pack `not_started` reason), the admin loot map tick budget and kept marks, Wine noise ignored in signature checks with a PBO hash cache, the debug map lead-ledger and Scenes layers (registry cap 20, fair admin wire), and the last #160 HC-S001/HC-S005 entries.
 
 Now:
 
 | Item | State |
 | --- | --- |
-| Wave 11 boot | Native boot of the wave 11 source through the friend bundle and installer, then push |
+| Wave 12 boot | Native boot of the wave 12 source through the friend bundle and installer, then push |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -72,7 +73,8 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
   - Interiors: regenerate the template pack. Blocked on a native door phase 2 census;
   - native loot map checks: the Map tab EditBox and Run button, the immediate ack, the `lootmap_job_running` refusal, the layer surviving a snapshot, query and render cost.
 - **#192** wave 10 review follow-ups: landed in wave 11 except the kept-on-purpose notes (the `HCSearchHouses.Commit` BUSY reason, the module-wide wreck start reason).
-- **Wave 11 review P3s** (filed as a new issue): a few labels and sticky reasons, the trade `complete` release order, the taped mount manifest text, debug map overlap and admin wire limits.
+- **#193** wave 11 review follow-ups: landed in wave 12. Still open: the trade provider is unbound (refusal-only), `HCSettings.LightMounts` and the per-pair client-check receipt, and the native checks (unmapped manifest keys, `static const` DTO members, the 0-byte pending file).
+- **Wave 12 review P3s** (filed as a new issue): the loot map tick sample and kept-mark labels, hash cache eviction order, the ecology manifest headroom, repeated `lod.json` missing-key lines, debug map clock calls and unused route allowance.
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
@@ -81,9 +83,8 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
   - raising the posed budget (still 12/12/12) only after measurement;
   - the distance bands are not confirmed against gunshot and network ranges (about 1 km);
   - nothing is measured with 3 to 6 players.
-- **#160** burn down the HC-S001/S002 silent-refusal baseline (section 8).
 - **Tick-budget design:** `test_all_modules_tick_within_shared_work_budget` is the one remaining expected-failure test in `tests/unit/test_v1_combined_flags.py`. It encodes the missing shared per-tick work allowance across modules.
-- **Unfiled review P2s** (carried, not re-checked): the event preflight can hitch at start; on the admin map wire cap, `ai-units` is the layer that gets squeezed. Review notes also left HC-45/47/59/35 P2/P3s in commit bodies (for example a cancelled trade journal keeps the single slot).
+- **Unfiled review P2s** (carried, not re-checked): the event preflight can hitch at start; (the admin map wire squeeze on `ai-units` is addressed in wave 12 by the fair per-layer split). Review notes also left HC-45/47/59/35 P2/P3s in commit bodies (for example a cancelled trade journal keeps the single slot).
 - **Unresolved engine findings** (docs/MODULE_STATUS.md, docs/INFECTED_DEATHS.md):
   - the native crash when creating an infected with `ECE_INITAI` (run 065);
   - stock CE timing out in `ce.InitOffline` under Wine;
@@ -115,7 +116,7 @@ Carried from the 2026-11-18 snapshot unless a commit changed them.
   - no COT role authorisation;
   - a fresh `dormant` spawn is refused;
   - forced tiers, visits and raids are skipped.
-- **Debug map** (docs/DEBUG_MAP.md): Camps is a layer now, and `snapshot.json` carries per-layer shown/total counts. Pickers, Scenes, group pins, all leads and materializer proposals have no layers yet; Scenes and leads need the read-only getters listed in docs/DEBUG_MAP.md. Snapshot writes are not atomic, because the engine has no rename. The loot map layer is built and unobserved.
+- **Debug map** (docs/DEBUG_MAP.md): Camps, lead-ledger and Scenes are layers now, and `snapshot.json` carries per-layer shown/total counts; the admin wire splits its caps fairly per layer and reports `layers_unsent`. Pickers, group pins and materializer proposals have no layers yet. Snapshot writes are not atomic, because the engine has no rename. The loot map layer is built and unobserved.
 - **Animations** (docs/ANIMATION_PIPELINE.md):
   - The sleep, get-up, kneel-feed and feed-to-stand clips wait on the sitter working natively.
   - An own `.ast` template is the fallback if the dead slot is used.
@@ -226,12 +227,7 @@ Every README feature row reads "Built · not played". Still to observe:
 
 ## 8. Checks, audits and tooling debt
 
-- **#160 WP-8:** burn down the lint baseline. After wave 11 the lint reports 10 findings, all baselined (`new=0 stale=0`), down from 132 at `cf10c1d`:
-  - HC-S001: 6 (infected memory, interiors, taped light and atmosphere starts, and two Expansion AI site spawns)
-  - HC-S002: 0
-  - HC-S005: 3 (the measured interior prop `Index`, refused before the parse by `MeasuredStrict`, plus the reviewed `HCGroupRequest.Color` and `HCSearchRetirementState.RecentCount` in `tools/validate/enforce_json.py`)
-  - HC-E006: 1 (reviewed safe)
-  - HC-S003 is at 0.
+- **#160 WP-8 (done in wave 12):** the lint baseline is down to 1 finding (`new=0 stale=0`) from 132 at `cf10c1d`: the reviewed-safe HC-E006 `HCSearchHouseJournal.Open` substring. HC-S001, HC-S002, HC-S003 and HC-S005 are all at 0, and `LEGACY_BASELINE` in `tools/validate/enforce_json.py` is empty. The lint accepts a bare positive `m_*Printed`/`m_*Finished` re-entry guard as idempotent.
 - **Settings registry (#158, done):** boot prints the effective shared settings; `settings_consistency` validates them.
 - **Readiness lines (#157, done):** every module prints `ready`, `degraded`, `off` or `started`, and HCServer prints per-module readiness on a settings failure.
 - **Pre-push hook:** suggested in audit/CHECKS.md, not installed.
@@ -241,9 +237,8 @@ Every README feature row reads "Built · not played". Still to observe:
 
 ## 9. Doc fixes
 
-- Done on 2026-11-18: the stamina wording, docs/DEBUG_MAP.md pointing at the implemented admin map (#123), docs/LOCAL_ACCEPTANCE_V1.md no longer calling the repo private, the README marking the Expansion-Animations conflict as unverified (EXP-D1), and the audit/CHECKS.md finding count.
+- Done on 2026-11-18: the stamina wording, docs/DEBUG_MAP.md pointing at the implemented admin map (#123), docs/LOCAL_ACCEPTANCE_V1.md no longer calling the repo private, the README marking the Expansion-Animations conflict as unverified (EXP-D1), and the audit/CHECKS.md finding count. Done in wave 12: audit/CHECKS.md finding count and the WP-5/WP-6 status.
 - Open:
-  - audit/CHECKS.md: the finding count and work-package status column still show the 2026-11-18 values (133 findings, WP-5 and WP-6 open);
   - docs/LOCAL_ACCEPTANCE_V1.md: no exact unchecked-row total exists; section 7 here uses a count by pattern.
 
 ## 10. Questions for the owner
