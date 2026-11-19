@@ -226,14 +226,23 @@ def profile_history(source):
     """Hash every authored revision, following renames. Git metadata is read-only.
 
     Fail closed if tracked history is unavailable rather than silently issuing an
-    incomplete upgrade catalogue. Never include git stderr (paths/identities).
+    incomplete upgrade catalogue: a shallow clone (missing older revisions), a missing
+    git binary and a failing git call all raise Refused. Never include git stderr
+    (paths/identities).
     """
     def git(*args):
-        result = subprocess.run(['git', *args], cwd=lts.ROOT, capture_output=True, check=False)
+        try:
+            result = subprocess.run(['git', *args], cwd=lts.ROOT, capture_output=True, check=False)
+        except OSError:
+            raise Refused('profile_history_unavailable: git binary not found or not runnable; '
+                          'install git or build from a full clone (' + source + ')') from None
         if result.returncode:
             raise Refused('profile_history_unavailable: cannot read tracked default history for ' + source)
         return result.stdout
 
+    if git('rev-parse', '--is-shallow-repository').strip() == b'true':
+        raise Refused('profile_history_unavailable: shallow clone has no full default history; '
+                      'run git fetch --unshallow (' + source + ')')
     history = git('log', '--follow', '--diff-filter=AMR', '--format=%H', '--name-only', 'HEAD', '--', source)
     revision = None
     hashes = set()
@@ -247,6 +256,28 @@ def profile_history(source):
     return hashes
 
 
+def _source_match(rel, data, sources):
+    """Compare the shipped profile bytes with the current repo source bytes.
+
+    Earlier hashes come from git (repo bytes) while the shipped bytes come from the
+    mod-written local profile. A line-ending-only difference means no history hash can
+    ever match the installed file, so the build refuses (fixable: normalise the profile).
+    Any other difference is a legitimately measured/edited local profile: history is then
+    labelled best-effort instead of refusing. Returns 'exact', 'none' or 'content'.
+    """
+    current = next(((lts.ROOT / source).read_bytes() for source in sources
+                    if (lts.ROOT / source).is_file()), None)
+    if current is None:
+        return 'none'
+    if current == data:
+        return 'exact'
+    if current.replace(b'\r\n', b'\n') == data.replace(b'\r\n', b'\n'):
+        raise Refused('profile_line_endings_differ: %s differs from its repo source only by line endings '
+                      '(CRLF vs LF), so earlier shipped hashes could never match; normalise it to the '
+                      'repo bytes and build again' % rel)
+    return 'content'
+
+
 def profile_defaults(rows):
     """Current bundle bytes plus known earlier authored defaults, per shipped file."""
     defaults = {}
@@ -257,13 +288,22 @@ def profile_defaults(rows):
             candidates = ('mods/HollowCountryExpansionAI/data/defaults/loadouts/' + name,
                           'mission/hollow-country/ai/loadouts/' + name)
             sources = tuple(source for source in candidates if (lts.ROOT / source).is_file())
-        current = hashlib.sha256(path.read_bytes()).hexdigest()
+        data = path.read_bytes()
+        current = hashlib.sha256(data).hexdigest()
         hashes = {current}
+        match = _source_match(rel, data, sources) if sources else 'none'
         for source in sources:
             hashes.update(profile_history(source))
+        history = 'receipt-only'
+        if sources:
+            history = 'git-log'
+            if match == 'content':
+                history = 'git-log-best-effort'
+                print('profile history for %s is best-effort: shipped bytes differ from repo source %s'
+                      % (rel, sources[0]))
         defaults['profiles/' + rel] = {
             'sha256': current, 'shipped_sha256': sorted(hashes),
-            'history': 'git-log' if sources else 'receipt-only', 'sources': list(sources)}
+            'history': history, 'sources': list(sources)}
     return defaults
 
 

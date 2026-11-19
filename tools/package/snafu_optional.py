@@ -164,6 +164,11 @@ def validate_allowlist(allowlist):
 # HC-61 uses HC-21's whole-family arithmetic through a narrow projection. Optics and
 # adapter items count as support items; no script/controller or engine API is added.
 def _pbo_sha256(path):
+    """Whole-file hash, used only for legacy whole-PBO pins.
+
+    Not cached: a (size, mtime) cache can return a stale digest when a file is rewritten within the
+    filesystem timestamp tick. Subset-pinned allowlists (hc61.class_pins) never hash whole PBOs.
+    """
     digest = hashlib.sha256()
     with path.open('rb') as handle:
         for block in iter(lambda: handle.read(1024 * 1024), b''):
@@ -171,12 +176,39 @@ def _pbo_sha256(path):
     return digest.hexdigest()
 
 
+def subset_pins(allowlist, merged):
+    """Per-class hash of the used subset's resolved config rows (class, parents inside the pack and,
+    for magazines/ammo, the bullet class). Independent of PBO bytes, so a Workshop update that leaves
+    these classes unchanged keeps the pins valid; classes absent from the merged config hash as None."""
+    pins = {}
+    for entry in allowlist['entries']:
+        root = {'weapon': 'CfgWeapons', 'magazine': 'CfgMagazines', 'ammo': 'CfgMagazines'}.get(
+            entry['kind'], 'CfgVehicles')
+        classes = merged.get(root, {})
+        name = entry['class']
+        if name not in classes:
+            pins[name] = None
+            continue
+        material = {root: [[n, classes[n]] for n in pbo_config.ancestry(classes, name)]}
+        if root == 'CfgMagazines':
+            bullet = pbo_config.resolve_field(classes, name, 'ammo')
+            material['CfgAmmo'] = [[n, merged['CfgAmmo'][n]]
+                                   for n in pbo_config.ancestry(merged.get('CfgAmmo', {}), bullet)]
+        pins[name] = hashlib.sha256(json.dumps(
+            material, sort_keys=True, default=repr, separators=(',', ':')).encode()).hexdigest()
+    return pins
+
+
+def _subset_pinned(allowlist):
+    return isinstance(allowlist.get('hc61'), dict) and allowlist['hc61'].get('class_pins') is not None
+
+
 def _family_policy(allowlist):
     policy = allowlist.get('hc61')
     if policy is None:
         return None  # legacy library callers/rollback; never qualified as HC-61 admission
-    if (not isinstance(policy, dict) or set(policy) != {
-            'schema', 'members', 'family_budgets', 'dependency_pins', 'aggregate_weapon_budget', 'refusals'}
+    required = {'schema', 'members', 'family_budgets', 'dependency_pins', 'aggregate_weapon_budget', 'refusals'}
+    if (not isinstance(policy, dict) or not required <= set(policy) <= required | {'class_pins'}
             or type(policy['schema']) is not int or policy['schema'] != 1):
         raise ValueError('HC61_POLICY_INVALID')
     members = policy['members']
@@ -190,8 +222,14 @@ def _family_policy(allowlist):
         by_name[member['class']] = member
     if set(by_name) != {entry['class'] for entry in allowlist['entries']}:
         raise ValueError('HC61_MEMBERSHIP_MISSING')
+    class_pins = policy.get('class_pins')
+    if class_pins is not None and (
+            not isinstance(class_pins, dict) or set(class_pins) != set(by_name)
+            or any(not re.fullmatch(r'[0-9a-f]{64}', str(digest)) for digest in class_pins.values())):
+        raise ValueError('HC61_SUBSET_PIN_INVALID')
     pins = policy['dependency_pins']
-    if (not isinstance(pins, list) or not 0 < len(pins) <= MAX_PBOS
+    # With subset pins the whole-PBO pins are optional and ignored (a Workshop update must not fail verify).
+    if (not isinstance(pins, list) or not (0 < len(pins) <= MAX_PBOS or (class_pins is not None and not pins))
             or any(not isinstance(pin, dict) or set(pin) != {'name', 'size', 'sha256'}
                    or not isinstance(pin['name'], str)
                    or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}\.pbo', pin['name'])
@@ -227,8 +265,16 @@ def _family_policy(allowlist):
     return roster
 
 
-def _check_pins(allowlist, listed, problems):
+def _check_pins(allowlist, listed, problems, class_hashes=None):
     if 'hc61' not in allowlist:
+        return
+    expected_classes = allowlist['hc61'].get('class_pins')
+    if expected_classes is not None:
+        # Subset pins: only the used classes matter. Drift names each changed class.
+        actual_classes = class_hashes if isinstance(class_hashes, dict) else {}
+        for name in sorted(expected_classes):
+            if actual_classes.get(name) != expected_classes[name]:
+                problems.append('HC61_SUBSET_PIN_DRIFT:' + name)
         return
     actual = [{key: row.get(key) for key in ('name', 'size', 'sha256')} for row in listed]
     expected = allowlist['hc61']['dependency_pins']
@@ -249,7 +295,7 @@ def _check_hc61_report(allowlist, report, for_install=False):
     if 'hc61' not in allowlist:
         return
     problems = []
-    _check_pins(allowlist, report['install'].get('pbos', []), problems)
+    _check_pins(allowlist, report['install'].get('pbos', []), problems, report.get('subset_pins'))
     _check_units(allowlist, report['classes'], problems)
     if problems:
         raise ValueError(';'.join(problems))
@@ -381,7 +427,7 @@ def _vendor_names(root, problems):
     return names
 
 
-def _load_addons(root, problems, max_pbos):
+def _load_addons(root, problems, max_pbos, whole_hash=True):
     folder = root / 'Addons'
     pbos = []
     if not folder.is_symlink() and folder.is_dir():
@@ -404,8 +450,10 @@ def _load_addons(root, problems, max_pbos):
         except Exception as e:  # corrupt/oversized input is reported, never trusted
             problems.append(f'{p.name}: {type(e).__name__}: {str(e)[:120]}')
             continue
-        listed.append({'name': p.name, 'size': index['size'], 'prefix': index['prefix'],
-                       'sha256': _pbo_sha256(p)})
+        row = {'name': p.name, 'size': index['size'], 'prefix': index['prefix']}
+        if whole_hash:
+            row['sha256'] = _pbo_sha256(p)
+        listed.append(row)
         models |= pbo_config.model_paths(index)
         for r in ROOTS:
             for cname, row in configs[r].items():
@@ -492,14 +540,16 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
         published = found.group(1).decode() if found else None
         if published != WORKSHOP_ID:
             problems.append('publishedid-mismatch')
-    merged, duplicates, models, listed = _load_addons(root, problems, max_pbos)
+    merged, duplicates, models, listed = _load_addons(root, problems, max_pbos,
+                                                      whole_hash=not _subset_pinned(allowlist))
     vendor = _vendor_names(root, problems)
     terms = _terms(root, allowlist['rights'])
     if not terms['present']:
         problems.append('terms-file-missing')
     elif not terms['matches_reviewed']:
         problems.append('terms-changed-since-review')
-    _check_pins(allowlist, listed, problems)
+    class_hashes = subset_pins(allowlist, merged)
+    _check_pins(allowlist, listed, problems, class_hashes)
     entries = allowlist['entries']
     state, classes = {}, {}
     for entry in sorted(entries, key=lambda e: e['kind'] == 'weapon'):  # items before the weapons using them
@@ -512,6 +562,7 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
     return {'schema': 1, 'kind': 'snafu-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
             'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
+            'subset_pins': class_hashes,
             'allowlist': allowlist, 'terms': terms, 'classes': dict(sorted(classes.items())), 'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers/config.bin, vendor types, terms hash',
             'subset': {'authored_weapons': sum(e['kind'] == 'weapon' for e in allowlist['entries']),
@@ -861,6 +912,9 @@ def main(argv=None):
                 print(f'  {row["status"]:10} {name} {" ".join(row["reasons"])}')
             for problem in report['install']['problems']:
                 print(f'  install problem: {problem}')
+            if report['status'] == 'verified' and not _subset_pinned(json.loads(args.allowlist.read_bytes())):
+                print('  hint: copy the report subset_pins object into allowlist hc61.class_pins to pin the '
+                      'used subset (then dependency_pins may be []); whole-PBO pins fail on every Workshop update.')
             return
         if args.command == 'generate':
             selected = json.loads(args.allowlist.read_bytes())
