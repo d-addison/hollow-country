@@ -56,6 +56,8 @@ class PartyOwnership(unittest.TestCase):
             eAIBase=NS(Cast=lambda actor: actor),
             HCThreaten=lambda party, binding: calls.append('threats') or True,
             HCHold=hold, HCSignals=lambda binding: calls.append('signals'),
+            HCRaid=lambda party, binding: calls.append('threats') or True,
+            HCXConvoyRuntime=NS(HCOffer=lambda binding: None),
             Print=lambda line: None)
         source = (WORLD / 'HCW38SituationRuntime.c').read_text()
         source = source.replace('array<vector> ', 'EArray ').replace(
