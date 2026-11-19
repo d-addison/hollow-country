@@ -150,7 +150,7 @@ class VarietyW56(unittest.TestCase):
                      'HCServer.HCTickWork()', 'HC_WORK_INFECTED',
                      'HCObserverTransitionGate.CanTransition', 'HCInfectedLOD.Observers',
                      'HCLODMaterialize', 'HCVarietyFreshCrawler', 'HCRefuse',
-                     'acceptance/infected-variety.disable', 'HCJsonFields.Has'):
+                     'acceptance/infected_variety.disable', 'HCJsonFields.Has'):
             self.assertIn(seam, text)
         data = json.loads((ROOT / 'mission/hollow-country/infected/variety-runtime.json').read_text())
         self.assertEqual({'wreck', 'church', 'gas_station', 'roadside', 'building'},

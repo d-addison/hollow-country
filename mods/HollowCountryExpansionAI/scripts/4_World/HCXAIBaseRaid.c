@@ -267,12 +267,12 @@ class HCXAIBaseRaid : HCBaseRaidPort
     void HCFindLoot()
     {
         if (m_Source) { return; }
-        array<Object> local = new array<Object>;
+        array<Object> nearby = new array<Object>;
         array<CargoBase> localCargo = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(m_Actor.GetPosition(), m_Config.SourceRangeMeters, local, localCargo);
-        if (local.Count() == 0 || local.Count() > m_Config.MaxObjects || localCargo.Count() > m_Config.MaxObjects) { return; }
-        m_ObjectCursor = m_ObjectCursor % local.Count();
-        ItemBase crate = ItemBase.Cast(local[m_ObjectCursor]);
+        GetGame().GetObjectsAtPosition3D(m_Actor.GetPosition(), m_Config.SourceRangeMeters, nearby, localCargo);
+        if (nearby.Count() == 0 || nearby.Count() > m_Config.MaxObjects || localCargo.Count() > m_Config.MaxObjects) { return; }
+        m_ObjectCursor = m_ObjectCursor % nearby.Count();
+        ItemBase crate = ItemBase.Cast(nearby[m_ObjectCursor]);
         m_ObjectCursor++;
         if (!crate || !HCLockTable.CampUnlocked(crate)) { return; }
         if (vector.DistanceSq(crate.GetPosition(), m_Camp.Position) > m_Config.SourceRangeMeters * m_Config.SourceRangeMeters) { return; }

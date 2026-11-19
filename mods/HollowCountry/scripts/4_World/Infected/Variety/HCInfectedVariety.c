@@ -73,7 +73,7 @@ class HCInfectedVariety
         s_Running = false;
         s_Pending = false;
         s_Fault = "";
-        bool enabled = preference && !FileExist("$profile:HollowCountry/acceptance/infected-variety.disable");
+        bool enabled = preference && !FileExist("$profile:HollowCountry/acceptance/infected_variety.disable");
         Print(HCV2Admission.Line("InfectedVarietyPlaces", enabled, "W56-native-crawler", false) + " runtime=PENDING");
         if (!enabled) { return; }
         string content = HCWorldStore.Read("$mission:hollow-country/infected/variety-runtime.json");
@@ -94,7 +94,7 @@ class HCInfectedVariety
         }
         s_Config = config;
         s_Running = true;
-        Print("[HC Variety] fresh_crawlers=admitted_unverified places=authored_CE native_rise=unexposed opt_out=acceptance/infected-variety.disable runtime=PENDING");
+        Print("[HC Variety] fresh_crawlers=admitted_unverified places=authored_CE native_rise=unexposed opt_out=acceptance/infected_variety.disable runtime=PENDING");
     }
 
     static string HCFault() { return s_Fault; }
