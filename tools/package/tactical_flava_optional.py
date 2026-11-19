@@ -39,7 +39,7 @@ except ImportError:  # run as a script
     from tools.package import xml_text
     from tools.package import xml_text
 
-from tools.package import ce_extensions
+from tools.package import ce_extensions, snafu_optional
 
 ALLOWLIST_PATH = Path(__file__).with_name('tactical_flava_allowlist.json')
 WORKSHOP_ID = '2646817942'
@@ -509,9 +509,10 @@ def _spawnable_types(entries):
     return root
 
 
-def generate(source, allowlist, report):
+def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
+    entries, totals, scale_policy = snafu_optional._scaled_entries(allowlist['entries'], nominal_scale, tier_scales)
     data = economy.snapshot(source)
     core = _checked_core(data['cfgeconomycore.xml'])
     stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
@@ -520,8 +521,8 @@ def generate(source, allowlist, report):
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
     out = ET.Element('types')
-    rows, totals = [], {'weapon_nominal': 0}
-    for entry in allowlist['entries']:
+    rows = []
+    for entry in entries:
         name = entry['class']
         ce_extensions.refuse_collisions([name], taken)
         if any(u not in usage_vocab for u in entry['usage']) or any(v not in value_vocab for v in entry['value']):
@@ -534,9 +535,7 @@ def generate(source, allowlist, report):
                     if k in entry})
         row['verification'] = report['classes'][name]['status']
         rows.append(row)
-        if entry['kind'] == 'weapon':
-            totals['weapon_nominal'] += entry['set']['nominal']
-    firearms.check_effective_support(source, stock, allowlist['entries'], out, (economy.MANAGED, SNAFU_MANAGED),
+    firearms.check_effective_support(source, stock, entries, out, (economy.MANAGED, SNAFU_MANAGED),
                                      ammo_fields=('vanilla_ammo',), verification=report['classes'])
     fragment = ET.Element('economycore')
     ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
@@ -547,14 +546,15 @@ def generate(source, allowlist, report):
             'workshop_id': WORKSHOP_ID, 'engine_merge_semantics': 'unobserved', 'loot_fix_claim': False,
             'dependency': 'optional; server and every client must load Tactical Flava; never bundled or repacked',
             'allowlist_sha256': allowlist_sha256(allowlist), 'entries': rows, 'totals': totals,
-            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING}
-    files = {SPAWNABLE: xml_text.document(_spawnable_types(allowlist['entries'])) + b'\n',
+            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING, **scale_policy}
+    files = {SPAWNABLE: xml_text.document(_spawnable_types(entries)) + b'\n',
              'ce/types.xml': xml_text.document(out) + b'\n',
              'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
              'core-defaults.patch.json': economy.encode({}), 'economy-report.json': economy.encode(meta)}
     files['delta-manifest.json'] = economy.encode({
         'schema': 1, 'kind': KIND, 'profile': allowlist['name'],
         'allowlist_sha256': allowlist_sha256(allowlist),
+        **scale_policy,
         'sources': {n: economy.sha(d) for n, d in data.items()},
         'files': {n: economy.sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending'})
     return files
@@ -669,6 +669,9 @@ def install(stage, target):
     managed.mkdir()
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
+               'nominal_scale': meta.get('nominal_scale', 1.0), 'tier_scales': meta.get('tier_scales', {}),
+               'scale_decimal': meta.get('scale_decimal', {'nominal_scale': '1', 'tier_scales': {}}),
+               'economy_report_sha256': economy.sha(files['economy-report.json']),
                'spawnable_sha256': economy.sha(files[SPAWNABLE]),
                'verification_sha256': economy.sha(economy.encode(verification))}
     try:
@@ -745,6 +748,7 @@ def main(argv=None):
     p.add_argument('--allowlist', type=Path, default=ALLOWLIST_PATH)
     p.add_argument('--report', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    snafu_optional._add_scale_arguments(p)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
     p.add_argument('--target', type=Path, required=True)
@@ -769,8 +773,11 @@ def main(argv=None):
                 print(f'  vanilla note: {problem}')
             return
         if args.command == 'generate':
-            write_delta(args.out, generate(args.source, json.loads(args.allowlist.read_bytes()),
-                                           json.loads(args.report.read_bytes())))
+            files = generate(args.source, json.loads(args.allowlist.read_bytes()),
+                             json.loads(args.report.read_bytes()), nominal_scale=args.nominal_scale,
+                             tier_scales=snafu_optional._cli_tier_scales(args.tier_scale))
+            write_delta(args.out, files)
+            snafu_optional._print_scale_totals(json.loads(files['economy-report.json']))
         elif args.command == 'install':
             install(args.delta, args.target)
         else:

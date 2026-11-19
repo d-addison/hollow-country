@@ -14,6 +14,7 @@ Offline static checks establish nothing about DayZ behaviour: weapon firing, amm
 loading, signature checks, CE spawning and the 3-6 player balance stay pending local acceptance.
 """
 import argparse
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 import hashlib
 import json
 import os
@@ -364,6 +365,85 @@ def _check_report(allowlist, report):
 _checked_core = ce_extensions.checked_core
 
 
+def _nominal_scale(value, label='nominal scale'):
+    try:
+        scale = Decimal(str(value))
+    except InvalidOperation:
+        raise ValueError(f'{label} must be a finite number in 0.25..4.0') from None
+    if not scale.is_finite() or not Decimal('0.25') <= scale <= Decimal('4.0'):
+        raise ValueError(f'{label} must be a finite number in 0.25..4.0')
+    return scale
+
+
+def _scaled_entries(entries, nominal_scale=1.0, tier_scales=None):
+    """Scale only authored gun/support budgets; leave source and verified policy intact."""
+    scale = _nominal_scale(nominal_scale)
+    if tier_scales is None:
+        tier_scales = {}
+    if not isinstance(tier_scales, dict) or not set(tier_scales) <= TIERS:
+        raise ValueError('tier scales must map common, uncommon or rare to multipliers')
+    tiers = {tier: _nominal_scale(value, f'{tier} tier scale') for tier, value in tier_scales.items()}
+    with localcontext() as context:
+        context.prec = max(28, len(scale.as_tuple().digits)
+                           + max((len(value.as_tuple().digits) for value in tiers.values()), default=1) + 4)
+        for tier, multiplier in tiers.items():
+            _nominal_scale(scale * multiplier, f'effective {tier} tier scale')
+    totals = {kind + '_nominal_' + phase: 0
+              for kind in ('weapon', 'magazine', 'ammo') for phase in ('before', 'after')}
+    result = []
+    for entry in entries:
+        row = dict(entry, set=dict(entry['set']))
+        if entry['kind'] in {'weapon', 'magazine', 'ammo'}:
+            multiplier = tiers.get(entry['tier'], Decimal(1))
+            # Preserve decimal half-up even for large integer budgets or precise CLI input.
+            with localcontext() as context:
+                context.prec = max(28, len(str(entry['set']['nominal']))
+                                   + len(scale.as_tuple().digits) + len(multiplier.as_tuple().digits) + 4)
+                effective = scale * multiplier
+                for field in ('nominal', 'min'):
+                    row['set'][field] = int((Decimal(entry['set'][field]) * effective).to_integral_value(
+                        rounding=ROUND_HALF_UP))
+            if entry['set']['nominal']:
+                row['set']['nominal'] = max(1, row['set']['nominal'])
+            row['set']['min'] = min(row['set']['min'], row['set']['nominal'])
+            totals[entry['kind'] + '_nominal_before'] += entry['set']['nominal']
+            totals[entry['kind'] + '_nominal_after'] += row['set']['nominal']
+        result.append(row)
+    totals['weapon_nominal'] = totals['weapon_nominal_after']  # existing report consumer field
+    policy = {'nominal_scale': float(scale),
+              'tier_scales': {tier: float(value) for tier, value in tiers.items()},
+              # JSON's float convenience fields alone can collapse distinct precise CLI scales.
+              'scale_decimal': {'nominal_scale': format(scale, 'f').rstrip('0').rstrip('.'),
+                                'tier_scales': {tier: format(value, 'f').rstrip('0').rstrip('.')
+                                                for tier, value in tiers.items()}}}
+    return result, totals, policy
+
+
+def _add_scale_arguments(parser):
+    parser.add_argument('--nominal-scale', default='1.0', metavar='X',
+                        help='gun, magazine and emitted ammo nominal/min multiplier (0.25..4.0; default 1.0)')
+    parser.add_argument('--tier-scale', action='append', default=[], metavar='TIER=X',
+                        help='optional common/uncommon/rare multiplier; effective scale must stay in 0.25..4.0')
+
+
+def _cli_tier_scales(values):
+    result = {}
+    for value in values:
+        tier, separator, multiplier = value.partition('=')
+        if not separator or tier not in TIERS or tier in result:
+            raise ValueError('tier scale must be a unique common/uncommon/rare=X')
+        result[tier] = multiplier
+    return result
+
+
+def _print_scale_totals(meta):
+    print(f'nominal_scale={meta["nominal_scale"]}; tier_scales={meta["tier_scales"]}')
+    print(f'scale_decimal={meta["scale_decimal"]}')
+    for kind in ('weapon', 'magazine', 'ammo'):
+        print(f'{kind}_nominal: {meta["totals"][kind + "_nominal_before"]}'
+              f' -> {meta["totals"][kind + "_nominal_after"]}')
+
+
 def _new_type(entry):
     s = entry['set']
     item = ET.Element('type', {'name': entry['class']})
@@ -382,9 +462,10 @@ def _new_type(entry):
     return item
 
 
-def generate(source, allowlist, report):
+def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
+    entries, totals, scale_policy = _scaled_entries(allowlist['entries'], nominal_scale, tier_scales)
     data = economy.snapshot(source)
     core = _checked_core(data['cfgeconomycore.xml'])
     stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
@@ -393,8 +474,8 @@ def generate(source, allowlist, report):
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
     out = ET.Element('types')
-    rows, totals = [], {'weapon_nominal': 0}
-    for entry in allowlist['entries']:
+    rows = []
+    for entry in entries:
         name = entry['class']
         ce_extensions.refuse_collisions([name], taken)
         if any(u not in usage_vocab for u in entry['usage']) or any(v not in value_vocab for v in entry['value']):
@@ -407,9 +488,7 @@ def generate(source, allowlist, report):
                      'justification': entry['justification'],
                      'verification': report['classes'][name]['status'],
                      **{k: entry[k] for k in WEAPON_EXTRA if k in entry}})
-        if entry['kind'] == 'weapon':
-            totals['weapon_nominal'] += entry['set']['nominal']
-    firearms.check_effective_support(source, stock, allowlist['entries'], out, (economy.MANAGED,),
+    firearms.check_effective_support(source, stock, entries, out, (economy.MANAGED,),
                                      ammo_fields=('vanilla_ammo', 'snafu_ammo'), verification=report['classes'])
     fragment = ET.Element('economycore')
     ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
@@ -419,13 +498,14 @@ def generate(source, allowlist, report):
             'workshop_id': WORKSHOP_ID, 'engine_merge_semantics': 'unobserved', 'loot_fix_claim': False,
             'dependency': 'optional; server and every client must load SNAFU Weapons; never bundled',
             'allowlist_sha256': allowlist_sha256(allowlist), 'entries': rows, 'totals': totals,
-            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING}
+            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING, **scale_policy}
     files = {'ce/types.xml': xml_text.document(out) + b'\n',
              'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
              'core-defaults.patch.json': economy.encode({}), 'economy-report.json': economy.encode(meta)}
     files['delta-manifest.json'] = economy.encode({
         'schema': 1, 'kind': 'snafu-optional', 'profile': allowlist['name'],
         'allowlist_sha256': allowlist_sha256(allowlist),
+        **scale_policy,
         'sources': {n: economy.sha(d) for n, d in data.items()},
         'files': {n: economy.sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending'})
     return files
@@ -501,6 +581,9 @@ def install(stage, target):
     managed.mkdir()
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
+               'nominal_scale': meta.get('nominal_scale', 1.0), 'tier_scales': meta.get('tier_scales', {}),
+               'scale_decimal': meta.get('scale_decimal', {'nominal_scale': '1', 'tier_scales': {}}),
+               'economy_report_sha256': economy.sha(files['economy-report.json']),
                'verification_sha256': economy.sha(economy.encode(verification))}
     try:
         os.replace(economy.fresh_write(managed, 'core.backup.next', original), managed / 'core.backup')  # never half-written
@@ -570,6 +653,7 @@ def main(argv=None):
     p.add_argument('--allowlist', type=Path, default=ALLOWLIST_PATH)
     p.add_argument('--report', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    _add_scale_arguments(p)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
     p.add_argument('--target', type=Path, required=True)
@@ -591,8 +675,11 @@ def main(argv=None):
                 print(f'  install problem: {problem}')
             return
         if args.command == 'generate':
-            write_delta(args.out, generate(args.source, json.loads(args.allowlist.read_bytes()),
-                                           json.loads(args.report.read_bytes())))
+            files = generate(args.source, json.loads(args.allowlist.read_bytes()),
+                             json.loads(args.report.read_bytes()), nominal_scale=args.nominal_scale,
+                             tier_scales=_cli_tier_scales(args.tier_scale))
+            write_delta(args.out, files)
+            _print_scale_totals(json.loads(files['economy-report.json']))
         elif args.command == 'install':
             install(args.delta, args.target)
         else:
