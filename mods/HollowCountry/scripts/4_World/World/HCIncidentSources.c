@@ -15,6 +15,8 @@
 // Wreck_Mi8 (cold wreck, no smoke particle) and Wreck_Mi8_Crashed are unrelated siblings, so
 // IsKindOf("Wreck_Mi8") separates the cold wreck. Airdrops: no native hook exists in 1.30.
 // Other danger areas (geyser, hot spring, volcanic) are not gas zones and are not published here.
+// The world-fact ledger (HCWorldModule.AddFact) is NOT a source: it carries a place id whose town anchor is
+// not where the event happened. Custom events publish through HCWorldIncidents.HCPublish with real coordinates.
 // Runtime acceptance PENDING.
 class HCIncidentSources
 {
@@ -71,25 +73,5 @@ modded class CrashBase
     {
         super.EEDelete(parent);
         HCWorldIncidents.HCRetire(this);
-    }
-}
-
-// Subscribes to the existing world-fact ledger without editing its publishers. Only the kinds the
-// incident policy names become incidents; the original verdict is returned unchanged.
-modded class HCWorldModule
-{
-    override bool AddFact(string kind, string place, int severity)
-    {
-        bool added = super.AddFact(kind, place, severity);
-        if (!added) { return false; }
-        HCWorldPlace anchor = m_Data.Place(place);
-        if (!anchor) { return true; }
-        string faction = "";
-        foreach (HCWorldHoldout holdout : m_Data.Holdouts)
-        {
-            if (holdout.PlaceId == anchor.Id) { faction = holdout.FactionId; }
-        }
-        HCWorldIncidents.HCPublishFact(kind, anchor.Position, severity, faction);
-        return true;
     }
 }

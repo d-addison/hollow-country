@@ -2,12 +2,15 @@
 // bounded registry of perceivable incidents; it decides nothing about movement.
 // A row is {kind, position, radius, start, expiry, sound range, visual range}.
 // Sources (HCIncidentSources.c): vanilla gas zones and helicopter wrecks through their
-// own server lifecycle, plus the existing world-fact ledger (scene_started, holdout_raided,
-// shots_heard, herd_moving). Group response lives in HCXAIIncidentResponse.c, which reads
+// own server lifecycle, plus explicit one-line HCWorldIncidents.HCPublish calls at event sources
+// that hold REAL coordinates (the world-fact ledger carries only a place id, so it is not a source).
+// Group response lives in HCXAIIncidentResponse.c, which reads
 // ONLY this registry and only through a member's own perception (HCPerceives).
 // Everything is data: kinds, ranges, caps and lifetimes come from the policy below
 // (source defaults, optional $profile:HollowCountry/incidents.json, validated, never uncapped).
 // ON by default; operator opt-out is $profile:HollowCountry/acceptance/world_incidents.disable.
+// Sight: DayZPhysics.c:199 RaycastRV (3_Game/Global), human.c:1417 Human.GetBoneIndexByName,
+// Object.c:238 GetBonePositionWS (same head-ray start as DayZPlayerImplementMeleeCombat.c:339).
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:1120 IsServer, :1535 GetTime (ms);
 // 3_Game/Entities/Object.c:215 IsPendingDeletion; 1_Core/proto/EnScript.c:380 Count,
 // :385 Clear, :407 Insert, :470 RemoveOrdered; 1_Core/proto/EnSystem.c:397 FileExist;
@@ -36,6 +39,7 @@ class HCWorldIncidentPolicy
     int SweepPerTick = 4;
     int MaxResponders = 1;
     float MergeMeters = 5;
+    float SightHeightMeters = 1;
     ref array<ref HCWorldIncidentKind> Kinds = new array<ref HCWorldIncidentKind>;
 
     protected static ref HCWorldIncidentPolicy s_Instance;
@@ -77,7 +81,8 @@ class HCWorldIncidentPolicy
 
     HCWorldIncidentKind HCFind(string kind)
     {
-        foreach (HCWorldIncidentKind row : Kinds)
+        array<ref HCWorldIncidentKind> rules = Kinds;
+        foreach (HCWorldIncidentKind row : rules)
         {
             if (row.Kind == kind) { return row; }
         }
@@ -87,7 +92,8 @@ class HCWorldIncidentPolicy
     HCWorldIncidentKind HCFindFact(string factKind)
     {
         if (factKind == "") { return null; }
-        foreach (HCWorldIncidentKind row : Kinds)
+        array<ref HCWorldIncidentKind> rules = Kinds;
+        foreach (HCWorldIncidentKind row : rules)
         {
             if (row.FactKind == factKind) { return row; }
         }
@@ -123,6 +129,7 @@ class HCWorldIncidentPolicy
         if (!policy || policy.Version != 1) { return false; }
         if (policy.MaxIncidents < 1 || policy.MaxIncidents > 64 || policy.SweepPerTick < 1 || policy.SweepPerTick > 16) { return false; }
         if (policy.MaxResponders < 1 || policy.MaxResponders > 8 || !HCRange(policy.MergeMeters, 0, 100)) { return false; }
+        if (!HCRange(policy.SightHeightMeters, 0, 5)) { return false; }
         if (!policy.Kinds || policy.Kinds.Count() < 1 || policy.Kinds.Count() > 24) { return false; }
         for (int rowIndex = 0; rowIndex < policy.Kinds.Count(); rowIndex++)
         {
@@ -135,7 +142,8 @@ class HCWorldIncidentPolicy
                 if (row.FactKind != "" && other.FactKind == row.FactKind) { return false; }
             }
         }
-        foreach (HCWorldIncidentKind relayed : policy.Kinds)
+        array<ref HCWorldIncidentKind> rules = policy.Kinds;
+        foreach (HCWorldIncidentKind relayed : rules)
         {
             if (relayed.RadioFact != "" && policy.HCFindFact(relayed.RadioFact)) { return false; }
         }
@@ -145,7 +153,7 @@ class HCWorldIncidentPolicy
     static bool HCFields(string encoded)
     {
         if (!HCJsonFields.Has(encoded, "Version") || !HCJsonFields.Has(encoded, "MaxIncidents") || !HCJsonFields.Has(encoded, "SweepPerTick")) { return false; }
-        if (!HCJsonFields.Has(encoded, "MaxResponders") || !HCJsonFields.Has(encoded, "MergeMeters") || !HCJsonFields.Has(encoded, "Kinds")) { return false; }
+        if (!HCJsonFields.Has(encoded, "MaxResponders") || !HCJsonFields.Has(encoded, "MergeMeters") || !HCJsonFields.Has(encoded, "SightHeightMeters") || !HCJsonFields.Has(encoded, "Kinds")) { return false; }
         if (!HCJsonFields.Every(encoded, "Kind", 3) || !HCJsonFields.Every(encoded, "FactKind", 3) || !HCJsonFields.Every(encoded, "Response", 3)) { return false; }
         if (!HCJsonFields.Every(encoded, "Radius", 3) || !HCJsonFields.Every(encoded, "SoundRange", 3) || !HCJsonFields.Every(encoded, "SoundSeconds", 3)) { return false; }
         return HCJsonFields.Every(encoded, "VisualRange", 3) && HCJsonFields.Every(encoded, "LifetimeSeconds", 3) && HCJsonFields.Every(encoded, "Severity", 3) && HCJsonFields.Every(encoded, "RadioFact", 3);
@@ -206,10 +214,6 @@ class HCWorldIncident
 
 class HCWorldIncidents : HCModule
 {
-    // Shared tick-budget consumer id (HCUnitBudget.HCTakeFor clamps 0..30). Registration of the
-    // id next to HC_WORK_* is a lead edit; the qualified constant keeps this file self-contained.
-    static const int WORK_ID = 28;
-
     protected static ref HCWorldIncidents s_Instance;
     protected ref HCWorldIncidentPolicy m_Policy;
     protected ref array<ref HCWorldIncident> m_Rows = new array<ref HCWorldIncident>;
@@ -234,7 +238,7 @@ class HCWorldIncidents : HCModule
 
     static int HCNowSeconds() { return GetGame().GetTime() / 1000; }
 
-    // Publication points. Server only; every caller is a super-first hook or a one-line call.
+    // Publication points. Server only; every caller is a super-first hook or a one-line call with real coordinates.
     static int HCPublish(string kind, vector position, float radius, int lifetime, Object anchor)
     {
         if (!GetGame() || !GetGame().IsServer()) { return 0; }
@@ -242,11 +246,12 @@ class HCWorldIncidents : HCModule
         return owner.HCAdd(kind, position, radius, lifetime, anchor, HCWorldIncidents.HCNowSeconds());
     }
 
-    static int HCPublishFact(string factKind, vector position, int severity, string faction)
+    // Same, for sources that know which faction the event belongs to (reinforcement by allies).
+    static int HCPublishAs(string kind, vector position, float radius, int lifetime, Object anchor, string faction)
     {
-        if (!GetGame() || !GetGame().IsServer()) { return 0; }
-        HCWorldIncidents owner = HCWorldIncidents.HCGet();
-        return owner.HCNoteFact(factKind, position, severity, faction);
+        int id = HCWorldIncidents.HCPublish(kind, position, radius, lifetime, anchor);
+        if (id > 0) { HCWorldIncidents.HCGet().HCTag(id, faction); }
+        return id;
     }
 
     static void HCRetire(Object anchor)
@@ -289,7 +294,7 @@ class HCWorldIncidents : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running) { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCWorldIncidents.WORK_ID, 1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { return; }
         HCSweep(HCWorldIncidents.HCNowSeconds());
     }
 
@@ -317,7 +322,8 @@ class HCWorldIncidents : HCModule
 
     HCWorldIncident HCById(int id)
     {
-        foreach (HCWorldIncident row : m_Rows)
+        array<ref HCWorldIncident> rows = m_Rows;
+        foreach (HCWorldIncident row : rows)
         {
             if (row.Id == id) { return row; }
         }
@@ -327,7 +333,8 @@ class HCWorldIncidents : HCModule
     HCWorldIncident HCFindSame(string kind, vector position, Object anchor)
     {
         float merge = m_Policy.MergeMeters * m_Policy.MergeMeters;
-        foreach (HCWorldIncident row : m_Rows)
+        array<ref HCWorldIncident> rows = m_Rows;
+        foreach (HCWorldIncident row : rows)
         {
             if (anchor && row.Anchored && row.Anchor == anchor) { return row; }
             if (anchor || row.Anchored || row.Kind != kind) { continue; }
@@ -455,20 +462,10 @@ class HCWorldIncidents : HCModule
         return row.Anchor.IsPendingDeletion();
     }
 
-    // Subscribes to the existing world ledger: only kinds the policy names are physical incidents.
-    int HCNoteFact(string factKind, vector position, int severity, string faction)
+    void HCTag(int id, string faction)
     {
-        if (m_Off) { return 0; }
-        if (!m_Policy) { m_Policy = HCWorldIncidentPolicy.HCGet(); }
-        if (!m_Policy) { return 0; }
-        HCWorldIncidentKind rule = m_Policy.HCFindFact(factKind);
-        if (!rule) { return 0; }
-        int id = HCAdd(rule.Kind, position, 0, 0, null, HCWorldIncidents.HCNowSeconds());
         HCWorldIncident row = HCById(id);
-        if (!row) { return 0; }
-        if (severity > row.Severity && severity <= 3) { row.Severity = severity; }
-        if (faction != "") { row.Faction = faction; }
-        return id;
+        if (row && faction != "") { row.Faction = faction; }
     }
 
     // One player-readable relay per incident through the existing lead ledger. Never AI knowledge.
@@ -485,15 +482,47 @@ class HCWorldIncidents : HCModule
         world.AddFact(row.RadioFact, place, row.Severity);
     }
 
-    // A member perceives an incident only inside its sight (measured from the edge) or inside the
-    // sound range while the sound window is open. Nothing else makes a group aware.
-    bool HCPerceives(HCWorldIncident row, vector observer, int now)
+    vector HCEye(Human looker)
     {
-        if (!row) { return false; }
-        float distSq = vector.DistanceSq(row.Position, observer);
-        float seen = row.Radius + row.VisualRange;
-        if (row.VisualRange > 0 && distSq <= seen * seen) { return true; }
+        int head = looker.GetBoneIndexByName("Head");
+        if (head < 0)
+        {
+            vector feet = looker.GetPosition();
+            return Vector(feet[0], feet[1] + 1.6, feet[2]);
+        }
+        return looker.GetBonePositionWS(head);
+    }
+
+    // One bounded raycast from the looker's head to the incident edge (aimed SightHeightMeters up). Any
+    // terrain or object before it blocks sight; the anchor's own hull never hides itself. No budget, no sight.
+    bool HCClear(HCWorldIncident row, Human looker)
+    {
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { return false; }
+        vector eye = HCEye(looker);
+        float dx = row.Position[0] - eye[0];
+        float dz = row.Position[2] - eye[2];
+        float flat = Math.Sqrt(dx * dx + dz * dz);
+        float keep = 1;
+        if (flat > row.Radius && flat > 0.01) { keep = (flat - row.Radius) / flat; }
+        else { keep = 0; }
+        vector aim = Vector(eye[0] + dx * keep, row.Position[1] + m_Policy.SightHeightMeters, eye[2] + dz * keep);
+        vector contact;
+        vector normal;
+        int component;
+        Object hull = row.Anchor;
+        return !DayZPhysics.RaycastRV(eye, aim, contact, normal, component, null, hull, looker, false, false, ObjIntersectView, 0.0);
+    }
+
+    // A member perceives an incident only inside the sound range while the sound window is open (sound
+    // carries around corners), or inside the sight range (measured from the edge) WITH a clear line
+    // from its head. Nothing else makes a group aware.
+    bool HCPerceives(HCWorldIncident row, Human looker, int now)
+    {
+        if (!row || !looker) { return false; }
+        float distSq = vector.DistanceSq(row.Position, looker.GetPosition());
         if (row.SoundRange > 0 && now - row.StartAt <= row.SoundSeconds && distSq <= row.SoundRange * row.SoundRange) { return true; }
+        float seen = row.Radius + row.VisualRange;
+        if (row.VisualRange > 0 && distSq <= seen * seen) { return HCClear(row, looker); }
         return false;
     }
 

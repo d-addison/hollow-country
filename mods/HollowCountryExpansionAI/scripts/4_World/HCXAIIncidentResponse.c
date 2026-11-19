@@ -80,7 +80,8 @@ class HCXAIIncidentPolicy
 
     HCXAIIncidentRow HCFindRow(string response)
     {
-        foreach (HCXAIIncidentRow row : Rows)
+        array<ref HCXAIIncidentRow> rules = Rows;
+        foreach (HCXAIIncidentRow row : rules)
         {
             if (row.Response == response) { return row; }
         }
@@ -171,6 +172,9 @@ class HCXAIIncidentLease
     int Deadline;
     ref array<vector> Saved = new array<vector>;
     eAIWaypointBehavior Behavior;
+    // The exact route and behaviour this lease installed; a different live state means another controller owns the group.
+    ref array<vector> Route = new array<vector>;
+    eAIWaypointBehavior Installed;
 }
 
 class HCXAIIncidentCooldown
@@ -181,9 +185,6 @@ class HCXAIIncidentCooldown
 
 class HCXAIIncidentResponse : HCModule
 {
-    // Shared tick-budget consumer id (HCUnitBudget.HCTakeFor clamps 0..30); registration next to HC_WORK_* is a lead edit.
-    static const int WORK_ID = 29;
-
     protected static ref HCXAIIncidentResponse s_Instance;
     protected ref HCXAIIncidentPolicy m_Policy;
     protected ref array<ref HCXAIIncidentLease> m_Leases = new array<ref HCXAIIncidentLease>;
@@ -285,7 +286,8 @@ class HCXAIIncidentResponse : HCModule
 
     HCXAIIncidentLease HCLeaseFor(eAIGroup group)
     {
-        foreach (HCXAIIncidentLease lease : m_Leases)
+        array<ref HCXAIIncidentLease> leases = m_Leases;
+        foreach (HCXAIIncidentLease lease : leases)
         {
             if (lease.Group == group) { return lease; }
         }
@@ -333,7 +335,7 @@ class HCXAIIncidentResponse : HCModule
         int total = registry.HCCount();
         for (int index = 0; index < total; index++)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCXAIIncidentResponse.WORK_ID, 1)) { return best; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE, 1)) { return best; }
             HCWorldIncident row = registry.HCRowAt(index);
             if (!row || row.Id == skipId) { continue; }
             if (!HCEligible(row, group, home, now)) { continue; }
@@ -372,7 +374,7 @@ class HCXAIIncidentResponse : HCModule
         {
             DayZPlayerImplement member = group.GetMember(index);
             if (!member || !member.IsAlive()) { continue; }
-            if (registry.HCPerceives(row, member.GetPosition(), now)) { return true; }
+            if (registry.HCPerceives(row, member, now)) { return true; }
         }
         return false;
     }
@@ -428,6 +430,7 @@ class HCXAIIncidentResponse : HCModule
             if (HCFlat(member.GetPosition(), row.Position) <= edge * edge) { return "exit"; }
         }
         array<vector> route = group.GetWaypoints();
+        if (!route || route.Count() > m_Policy.MaxRoutePoints) { return ""; }
         array<vector> kept = new array<vector>();
         HCKeep(row, HCLead(group), route, kept);
         if (kept.Count() != route.Count()) { return "vet"; }
@@ -534,6 +537,9 @@ class HCXAIIncidentResponse : HCModule
         lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
         lease.Target = target;
         lease.Placed = 1;
+        lease.Route.Clear();
+        lease.Route.Insert(target);
+        lease.Installed = eAIWaypointBehavior.ONCE;
     }
 
     // Route vet: only waypoints that stay clear remain; nothing clear means the group holds in place.
@@ -547,8 +553,14 @@ class HCXAIIncidentResponse : HCModule
             lease.Group.AddWaypoint(kept[index]);
         }
         lease.Placed = kept.Count();
+        lease.Route.Clear();
+        for (int copyIndex = 0; copyIndex < kept.Count(); copyIndex++)
+        {
+            lease.Route.Insert(kept[copyIndex]);
+        }
         if (kept.Count() > 0) { lease.Target = kept[0]; }
         else { lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT); }
+        lease.Installed = lease.Group.GetWaypointBehaviour();
     }
 
     float HCStandoff(HCWorldIncident row, HCXAIIncidentRow rule, eAIGroup group)
@@ -615,7 +627,7 @@ class HCXAIIncidentResponse : HCModule
         int steps = 0;
         while (steps < m_Policy.StepsPerTick && m_Leases.Count() > 0)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCXAIIncidentResponse.WORK_ID, 1)) { return; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE, 1)) { return; }
             if (m_Cursor >= m_Leases.Count()) { m_Cursor = 0; }
             HCXAIIncidentLease lease = m_Leases[m_Cursor];
             steps++;
@@ -648,7 +660,7 @@ class HCXAIIncidentResponse : HCModule
         }
         if (lease.Phase == "vet")
         {
-            if (now >= lease.Deadline) { HCFinish(lease, now); }
+            if (now >= lease.Deadline && !HCHolding(lease, row, rule, now)) { HCFinish(lease, now); }
             return;
         }
         if (lease.Phase == "hold" || lease.Phase == "linger")
@@ -662,7 +674,7 @@ class HCXAIIncidentResponse : HCModule
         {
             if (lease.Response == "avoid")
             {
-                HCFinish(lease, now);
+                if (!HCHolding(lease, row, rule, now)) { HCFinish(lease, now); }
                 return;
             }
             if (lease.Phase == "move")
@@ -703,13 +715,38 @@ class HCXAIIncidentResponse : HCModule
         return false;
     }
 
-    // The lease still owns the group's route: same waypoint count and same first waypoint as it placed.
+    // The lease still owns the group's route: every installed waypoint is still in place and the waypoint
+    // behaviour is the one the lease set. Any other state belongs to another controller and is left alone.
     bool HCMine(HCXAIIncidentLease lease)
     {
         array<vector> live = lease.Group.GetWaypoints();
-        if (!live || live.Count() != lease.Placed) { return false; }
-        if (lease.Placed < 1) { return true; }
-        return HCFlat(live[0], lease.Target) < 1.0;
+        if (!live || live.Count() != lease.Route.Count()) { return false; }
+        for (int index = 0; index < live.Count(); index++)
+        {
+            if (HCFlat(live[index], lease.Route[index]) >= 1.0) { return false; }
+        }
+        return lease.Group.GetWaypointBehaviour() == lease.Installed;
+    }
+
+    // Gas with nothing safe left on the route: the group holds with an empty route (no waypoint is ever put
+    // back inside a live zone) and the lease stays open until the zone retires or a safe waypoint exists.
+    bool HCHolding(HCXAIIncidentLease lease, HCWorldIncident row, HCXAIIncidentRow rule, int now)
+    {
+        if (lease.Response != "avoid" || !row || lease.Saved.Count() < 1) { return false; }
+        array<vector> safe = new array<vector>();
+        HCKeep(row, HCLead(lease.Group), lease.Saved, safe);
+        if (safe.Count() > 0) { return false; }
+        if (lease.Phase != "vet")
+        {
+            lease.Group.ClearWaypoints();
+            lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
+            lease.Installed = eAIWaypointBehavior.HALT;
+            lease.Placed = 0;
+            lease.Route.Clear();
+            lease.Phase = "vet";
+        }
+        lease.Deadline = now + rule.HoldSeconds + 1;
+        return true;
     }
 
     // Ends a lease: restores the route and behaviour when the lease still owned them, releases the
@@ -728,14 +765,15 @@ class HCXAIIncidentResponse : HCModule
         if (slot >= 0) { m_Leases.RemoveOrdered(slot); }
     }
 
-    // Gas leases restore the route minus any waypoint still inside a live zone; every other lease, and
-    // a retired zone, restores exactly the route the group had.
+    // Gas leases restore the route minus any waypoint still inside a live zone (nothing safe left means an empty
+    // route: hold); every other lease, and a retired zone, restores exactly the route the group had.
     void HCRestore(HCXAIIncidentLease lease, HCWorldIncidents registry)
     {
         array<vector> route = new array<vector>();
         HCWorldIncident row = registry.HCById(lease.IncidentId);
         if (row && lease.Response == "avoid") { HCKeep(row, HCLead(lease.Group), lease.Saved, route); }
-        if (route.Count() < 1)
+        bool zoneLive = row && lease.Response == "avoid";
+        if (route.Count() < 1 && !zoneLive)
         {
             for (int copyIndex = 0; copyIndex < lease.Saved.Count(); copyIndex++)
             {
@@ -776,6 +814,7 @@ modded class HCModuleRegistry
     override void RegisterModules()
     {
         super.RegisterModules();
-        Register(new HCXAIIncidentResponse);
+        HCXAIIncidentResponse responder = new HCXAIIncidentResponse;
+        Register(responder);
     }
 }
