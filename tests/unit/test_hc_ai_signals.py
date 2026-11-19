@@ -563,6 +563,33 @@ class Signals(unittest.TestCase):
             self.assertFalse(store.Configure(rows, ttl))
         self.assertEqual((16, 3600), (store.m_MaxRows, store.m_TtlSeconds))
 
+    def test_policy_written_before_hc5_uses_defaults_instead_of_refusing(self):
+        # Boot 044: a profile expansion-ai-sites.json without the three HC-5
+        # keys loaded them as 0 and quarantined the betrayal store
+        # ("HC-5 betrayal config refused"). Absent (0) means default; one
+        # line per defaulted key; an out-of-range non-zero value still refuses.
+        path = HCX / "HCXEmoteObservation.c"
+        text = re.sub(r"\bs_(\w+)", r"m_\1", path.read_text().split("class HCXEmoteObservation", 1)[1])
+        events = []
+        configured = []
+        owner = N(m_MaxWork=0, m_Store=N(Configure=lambda rows, ttl: configured.append((rows, ttl)) or True))
+        api = Authored(text, dict(A=A, Print=events.append, HCXEmoteObservation=owner))
+        owner.PolicyInt = lambda *a: api.call("PolicyInt", owner, *a)
+        old = N(MaxSignalWorkPerSecond=0, MaxBetrayalRows=0, BetrayalRetentionSeconds=0)
+        self.assertTrue(api.call("ApplyPolicy", owner, old))
+        self.assertEqual(configured, [(128, 172800)])
+        self.assertEqual(owner.m_MaxWork, 8)
+        self.assertEqual(len([e for e in events if "absent; default" in e]), 3)
+        events.clear(); configured.clear()
+        tuned = N(MaxSignalWorkPerSecond=4, MaxBetrayalRows=16, BetrayalRetentionSeconds=3600)
+        self.assertTrue(api.call("ApplyPolicy", owner, tuned))
+        self.assertEqual((configured, owner.m_MaxWork, events), ([(16, 3600)], 4, []))
+        configured.clear()
+        self.assertFalse(api.call("ApplyPolicy", owner, N(MaxSignalWorkPerSecond=33, MaxBetrayalRows=16,
+                                                          BetrayalRetentionSeconds=3600)))
+        self.assertEqual(configured, [])
+        self.assertFalse(api.call("ApplyPolicy", owner, None))
+
     def event_fixture(self):
         observer = self.observation()
         store = self.store(); self.assertTrue(store.Open(100))

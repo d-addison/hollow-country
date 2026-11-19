@@ -153,16 +153,30 @@ class HCXEmoteObservation
         s_Store = new HCXBetrayalStore();
         HCXAISitePolicy policy = HCXAISiteDirector.LoadPolicy();
         s_MaxWork = 8;
-        bool configured = false;
-        if (policy && policy.MaxSignalWorkPerSecond >= 1 && policy.MaxSignalWorkPerSecond <= 32)
-        {
-            s_MaxWork = policy.MaxSignalWorkPerSecond;
-            configured = s_Store.Configure(policy.MaxBetrayalRows, policy.BetrayalRetentionSeconds);
-        }
+        bool configured = HCXEmoteObservation.ApplyPolicy(policy);
         if (configured) { s_Store.Open(HCGroupClock.Utc()); }
         else { Print("[HC Plan] HC-5 betrayal config refused: check expansion-ai-sites.json retention/row/work limits; runtime=PENDING"); }
         Print(HCV2Admission.Line("HC-5", true, "EXP-L3", false));
         HCXEmoteObservation.LogState();
+    }
+    // Boot 044: a profile policy written before HC-5 has none of the three
+    // keys and they loaded as 0, which refused (quarantined) the store. A 0
+    // means absent: use the default and say so once per key per start.
+    static int PolicyInt(string key, int given, int fallback)
+    {
+        if (given != 0) { return given; }
+        Print("[HC Plan] HC-5 policy " + key + " absent; default " + fallback.ToString() + " runtime=PENDING");
+        return fallback;
+    }
+    static bool ApplyPolicy(HCXAISitePolicy policy)
+    {
+        if (!policy) { return false; }
+        int work = HCXEmoteObservation.PolicyInt("MaxSignalWorkPerSecond", policy.MaxSignalWorkPerSecond, 8);
+        int rows = HCXEmoteObservation.PolicyInt("MaxBetrayalRows", policy.MaxBetrayalRows, 128);
+        int ttl = HCXEmoteObservation.PolicyInt("BetrayalRetentionSeconds", policy.BetrayalRetentionSeconds, 172800);
+        if (work < 1 || work > 32) { return false; }
+        s_MaxWork = work;
+        return s_Store.Configure(rows, ttl);
     }
     static bool Install(HCXSignalProvider provider)
     {
