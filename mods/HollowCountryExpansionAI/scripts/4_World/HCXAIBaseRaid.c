@@ -543,3 +543,35 @@ modded class HCXAIRaidAdapter
         return super.HCBegin(opportunity);
     }
 }
+
+// Survivor and transit directors share the same party exclusion as raids.
+// Recheck at start because a visitor/warned raid can reserve after selection.
+modded class HCXAISituationAdapter
+{
+    override string HCSelect(HCSituationState opportunity)
+    {
+        string selected = super.HCSelect(opportunity);
+        if (HCBaseRaid.HCOwns(selected)) { return ""; }
+        return selected;
+    }
+    override bool HCBegin(HCSituationState opportunity)
+    {
+        if (opportunity && HCBaseRaid.HCOwns(opportunity.Lease)) { return false; }
+        return super.HCBegin(opportunity);
+    }
+}
+
+modded class HCXAITransitAdapter
+{
+    override string HCSelect(HCSituationState opportunity)
+    {
+        string selected = super.HCSelect(opportunity);
+        if (HCBaseRaid.HCOwns(selected)) { return ""; }
+        return selected;
+    }
+    override bool HCBegin(HCSituationState opportunity)
+    {
+        if (opportunity && HCBaseRaid.HCOwns(opportunity.Lease)) { return false; }
+        return super.HCBegin(opportunity);
+    }
+}
