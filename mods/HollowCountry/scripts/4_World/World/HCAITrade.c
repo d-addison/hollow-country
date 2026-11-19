@@ -211,6 +211,7 @@ class HCTradeTransaction
     bool m_Enabled;
     bool m_Busy;
     int m_Reports;
+    int m_Released;
 
     bool HCValidState(HCTradeState row)
     {
@@ -247,6 +248,54 @@ class HCTradeTransaction
         return phase == "meeting" || phase == "left_pending" || phase == "right_pending" || phase == "rollback_pending" || phase == "intent_left" || phase == "intent_right" || phase == "intent_rollback";
     }
 
+    // Finished exchange evidence: the single slot may be reused. Quarantined is
+    // NOT terminal here (uncertain native state keeps the slot until operator action).
+    bool HCTerminal()
+    {
+        if (!m_State) { return false; }
+        string phase = m_State.Phase;
+        return phase == "cancelled" || phase == "rolled_back" || phase == "complete";
+    }
+
+    // Persist an idle journal for a terminal one (HCCheckpoint quarantines on a
+    // failed write). Called only once admission is otherwise possible, so a
+    // refusing provider never rewrites the journal. Log line bounded at 16.
+    bool HCReleaseSlot()
+    {
+        if (!HCTerminal()) { return true; }
+        string prior = m_State.Phase;
+        string priorRefusal = m_State.Refusal;
+        m_State.Id = "";
+        m_State.Phase = "idle";
+        m_State.Transfer = "none";
+        m_State.Refusal = "";
+        m_State.LeftLease = "";
+        m_State.RightLease = "";
+        m_State.LeftParty = "";
+        m_State.RightParty = "";
+        m_State.LeftCargo = "";
+        m_State.RightCargo = "";
+        m_State.LeftGeneration = 0;
+        m_State.RightGeneration = 0;
+        m_State.LeftActor = "";
+        m_State.RightActor = "";
+        m_State.LeftItem = "";
+        m_State.RightItem = "";
+        m_State.LeftQuantity = 0;
+        m_State.RightQuantity = 0;
+        m_State.StartedAt = 0;
+        m_State.EndsAt = 0;
+        if (!HCCheckpoint()) { return false; }
+        if (m_Released < 16)
+        {
+            m_Released++;
+            string line = "[HC Plan] HC-35 trade slot released prior=" + prior;
+            line += " prior_refusal=" + priorRefusal + " persisted=1 release_cap=16 runtime=PENDING";
+            Print("" + line);
+        }
+        return true;
+    }
+
     bool HCCheckpoint()
     {
         if (!m_Ready || !m_Store || !HCValidState(m_State) || !m_Store.Save(m_State))
@@ -263,18 +312,21 @@ class HCTradeTransaction
         return true;
     }
 
-    // One first encounter identity for this content slice, never reset/evict.
+    // One exchange slot for this content slice. A terminal journal (cancelled,
+    // rolled_back, complete) releases it on the next admission; quarantine never does.
     // Existing HC-10 leases already own the finite HC-16 funded party budgets.
     // No independent actor reservation, abstract debit or cargo mint here.
     bool HCBegin(string leftLease, string rightLease, int now)
     {
-        if (!m_Enabled || !m_Ready || m_Busy || !m_State || m_State.Phase != "idle" || !m_IO) { return false; }
+        if (!m_Enabled || !m_Ready || m_Busy || !m_State || !m_IO) { return false; }
+        if (m_State.Phase != "idle" && !HCTerminal()) { return false; }
         if (now < 1 || now > 2146878847 || leftLease == rightLease) { return false; }
         if (!m_IO.HCReady()) { m_State.Refusal = m_IO.HCRefusal(); HCLog(); return false; }
         HCAIPartyIdentity left = HCWorldMaterializer.HCIdentity(leftLease);
         HCAIPartyIdentity right = HCWorldMaterializer.HCIdentity(rightLease);
         if (!HCAIPartyIdentity.HCValid(left) || !HCAIPartyIdentity.HCValid(right)) { return false; }
         if (left.HCPartyId() == right.HCPartyId() || left.HCCargoId() == right.HCCargoId()) { return false; }
+        if (!HCReleaseSlot()) { return false; }
         m_State.LeftLease = leftLease;
         m_State.RightLease = rightLease;
         m_State.LeftParty = left.HCPartyId();
