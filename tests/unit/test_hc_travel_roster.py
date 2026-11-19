@@ -135,3 +135,26 @@ class TravelRoster(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'HC-32.*vehicle.*owner'):
                 travel.install(source, mission)
             self.assertEqual(snapshot(mission), collision)
+
+
+class TravelRosterReviewFollowUp(unittest.TestCase):
+    def test_unreviewed_event_is_a_named_hc32_refusal(self):
+        import xml.etree.ElementTree as ET
+        from tools.package import travel
+        events = ET.fromstring('<events/>')
+        for name, family in travel.NATIVE_FAMILIES.items():
+            if name == 'VehicleTruck01':
+                continue
+            event = ET.SubElement(events, 'event', name=name)
+            children = ET.SubElement(event, 'children')
+            for child in family:
+                ET.SubElement(children, 'child', type=child)
+        # A stray (childless) HC event passes the ownership set but has no reviewed family.
+        ET.SubElement(ET.SubElement(events, 'event', name='HCStrayEvent'), 'children')
+        with self.assertRaisesRegex(ValueError, 'HC-32 .*unreviewed event'):
+            travel._roster(events, ET.fromstring('<spawnabletypes/>'))
+
+    def test_vehicle_owner_policy_reads_only_bicycle_events(self):
+        source = (Path(__file__).resolve().parents[2] / 'tools/package/optional_overlays.py').read_text()
+        self.assertIn('owners = travel.vehicle_owners(vehicle_events)', source)
+        self.assertNotIn('owners = travel.vehicle_owners(events)', source)

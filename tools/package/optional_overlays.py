@@ -234,7 +234,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         source(mission / 'mapgrouppos.xml')
     # Separate CE registration preserves stock db/types.xml and other installers' pins.
     events, types, spawnable = ET.Element('events'), ET.Element('types'), ET.Element('spawnabletypes')
-    bicycle_event_count = 0
+    vehicle_events = []  # HC-32 owns only the bicycle events, never ambient ones.
     eventspawns = ET.Element('eventposdef')
     if 'Bicycles' in packs or 'AmbientAnimals' in packs:
         eventspawns = xml(source(mission / 'cfgeventspawns.xml'), 'eventposdef')
@@ -250,7 +250,6 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         preferred = positions(mission, options['preferred_group_fragments'])
         budget = options['nominal_cap']
         for event in bike_events:
-            bicycle_event_count += 1
             nominal = event.find('nominal')
             nominal.text = str(min(budget, int(int(nominal.text) * multiplier)))
             budget -= int(nominal.text)
@@ -262,6 +261,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
                 for attribute in ('min', 'max'):
                     child.set(attribute, str(min(options['nominal_cap'], int(int(child.get(attribute)) * multiplier))))
             unique_append(events, event)
+            vehicle_events.append(event)
             points = bike_points.findall("event[@name='%s']" % event.get('name'))
             if len(points) != 1 or not list(points[0]):
                 raise ValueError('bicycle event has no unique installed placement list')
@@ -342,7 +342,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     # Refuse existing declarations of the same types/events across stock and CE
     # extensions. No duplicate loot or reliance on unobserved replacement order.
     core = xml(source(mission / 'cfgeconomycore.xml'), 'economycore')
-    owners = travel.vehicle_owners(events)
+    owners = travel.vehicle_owners(vehicle_events)
     travel.validate_vehicle_budgets(types, set(owners))
     # An optional event with a new name can still duplicate a native/managed
     # vehicle. Compare child classes against every effective source, too.
@@ -394,7 +394,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     native_count = len(set(effective_events) & {n.casefold() for n in travel.NATIVE_FAMILIES})
     candidate['diagnostics'].append(
         '[HC Plan] HC-32 vehicle_families=%d optional=%d refused=runtime_pending state=authored runtime=PENDING'
-        % (native_count, bicycle_event_count))
+        % (native_count, len(vehicle_events)))
     return candidate
 
 
