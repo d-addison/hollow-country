@@ -1,9 +1,33 @@
-// HC-25. No Expansion/native API calls: cached HC fields and trivial HC getters.
+// HC-25. No provider reads: cached HC fields and trivial HC getters.
+// N1 3_Game/Global/Game.c:914 GetTickTime only timestamps lifecycle receipts.
 // HCXAISites.c:281 Phase; HCXAIEncounters.c:50-52 Armed/Settled/State.
 // Do NOT call Ready(), QualifiedCount(), Prerequisites() or GlobalsProblem():
 // those inspect live patrols/settings and do not belong in an operator read.
 modded class HCXAIAdapter
 {
+    protected ref HCOperationalOwner m_CaravanOperationalOwner;
+
+    override void HCPublishCaravanStatus(bool boot)
+    {
+        if (!m_Caravan) { return; }
+        HCOperationalStatus caravanStatus = m_Caravan.HCGetOperationalStatus();
+        if (boot || !m_CaravanOperationalOwner)
+        {
+            m_CaravanOperationalOwner = HCOperationalContributors.HCRegisterOwner("hc36-caravan");
+        }
+        if (m_CaravanOperationalOwner)
+        {
+            m_CaravanOperationalOwner.HCObserve(m_CaravanRequested, caravanStatus, GetGame().GetTickTime());
+        }
+        if (!boot) { return; }
+        int active = 0;
+        if (m_Caravan.m_Ready && m_Caravan.HCActive()) { active = 1; }
+        string line = "[HC Plan] HC-36 state=" + caravanStatus.HCState();
+        line += " reason=" + caravanStatus.HCReason() + " authored=1";
+        line += " provider_refused=" + m_Caravan.m_ProviderRefusal;
+        Print(line + " count=" + active.ToString() + " count_cap=1 runtime=PENDING");
+    }
+
     override HCOperationalStatus HCGetOperationalStatus()
     {
         HCOperationalStatus status = new HCOperationalStatus;

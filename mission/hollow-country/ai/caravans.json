@@ -4,5 +4,7 @@
   "FromCamp": "",
   "ToCamp": "",
   "SurveySha256": "",
-  "ArrivalRangeMeters": 2.5
+  "ArrivalRangeMeters": 2.5,
+  "CooldownSeconds": 900,
+  "MaxTripHistory": 16
 }

@@ -63,6 +63,12 @@ class HCXAIAdapter extends HCModule
     // AI_ENCOUNTER on the director's own qualified patrols (HCXAIEncounters.c).
     protected ref HCXAIEncounters m_Encounters;
     protected ref HCXAICampRoutine m_CampRoutine;
+    protected ref HCAICaravan m_Caravan;
+    protected bool m_CaravanRequested;
+
+    // Declared here so the later operational modded link can publish cached
+    // adjunct status without an earlier link calling an undeclared method.
+    void HCPublishCaravanStatus(bool boot) {}
 
     override string GetName() { return "optional-expansion-human-ai"; }
     // Invoke startup to create/read the user's preference even without admission.
@@ -84,7 +90,13 @@ class HCXAIAdapter extends HCModule
         m_Encounters.Open();
         m_CampRoutine = new HCXAICampRoutine();
         m_CampRoutine.Open(settings);
-        if (!HCXAIService.Bind(this))
+        bool bound = HCXAIService.Bind(this);
+        HCXAICaravanAdapter caravanPort = new HCXAICaravanAdapter();
+        m_Caravan = new HCAICaravan();
+        m_CaravanRequested = settings && settings.EnableEncounters;
+        m_Caravan.Open(settings, caravanPort);
+        this.HCPublishCaravanStatus(true);
+        if (!bound)
         {
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
             return;
@@ -551,6 +563,8 @@ class HCXAIAdapter extends HCModule
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (m_Sites) { m_Sites.Step(); }
         if (m_CampRoutine) { m_CampRoutine.Step(); }
+        if (m_Caravan) { m_Caravan.Step(); }
+        this.HCPublishCaravanStatus(false);
         if (m_Encounters)
         {
             m_Encounters.Step();
@@ -578,6 +592,10 @@ class HCXAIAdapter extends HCModule
     }
     override void OnStop()
     {
+        if (m_Caravan) { m_Caravan.HCClose(); }
+        m_CaravanRequested = false;
+        this.HCPublishCaravanStatus(false);
+        m_Caravan = null;
         if (m_CampRoutine) { m_CampRoutine.Close(); }
         if (m_Encounters) { m_Encounters.Close(); }
         if (m_Sites) { m_Sites.Stop(); }

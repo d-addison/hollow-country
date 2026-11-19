@@ -16,6 +16,8 @@
 // IsUnconscious; Entities/ItemBase.c:3490 GetQuantity;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnString.c:199
 // Length; EnConvert.c:30 ToString; EnDebug.c:96 Print.
+// Wave 6: N1 3_Game/Global/Game.c:914 GetTickTime (seconds, monotonic
+// within a process); EnScript.c:380,407,470 Count/Insert/RemoveOrdered.
 // Pinned Expansion roots in the brief are absent. N17 is NOT an AI SDK.
 // Provider walking/arrival/flee callbacks and corridor survey remain refused.
 // All status lines below are proposed diagnostics; runtime acceptance PENDING.
@@ -30,13 +32,21 @@ class HCCaravanCorridor
     // 0.25% of the approximately 1000 m vanilla network bubble/rifle report
     // range, capped by the existing native pickup envelope. NOT perception.
     float ArrivalRangeMeters = 2.5;
+    int CooldownSeconds = 900;
+    // Includes the current trip; only oldest terminal receipts can be evicted.
+    int MaxTripHistory = 16;
 
     bool HCValid()
     {
         HCScavengeDefaults pickup = new HCScavengeDefaults;
+        // Native JSON zero-fills fields missing from legacy version-1 input.
+        if (CooldownSeconds == 0) { CooldownSeconds = 900; }
+        if (MaxTripHistory == 0) { MaxTripHistory = 16; }
         // Missing JSON int zero is explicitly rejected; no legacy upgrade.
         if (Version != 1 || CorridorId != "hc36-first-corridor") { return false; }
         if (FromCamp.Length() > 96 || ToCamp.Length() > 96 || SurveySha256.Length() > 64) { return false; }
+        if (CooldownSeconds < 1 || CooldownSeconds > 604800) { return false; }
+        if (MaxTripHistory < 1 || MaxTripHistory > 64) { return false; }
         return ArrivalRangeMeters > 0 && ArrivalRangeMeters <= pickup.TransferRangeMeters;
     }
 
@@ -48,6 +58,17 @@ class HCCaravanCorridor
         // A hash in JSON is an input, never provider/survey qualification.
         return "";
     }
+}
+
+// Small immutable terminal receipt, not a nested live trip or cargo grant.
+class HCCaravanReceipt
+{
+    string Id;
+    int TripSequence;
+    string Leg;
+    string CargoReceipt;
+    string ItemId;
+    float Quantity;
 }
 
 class HCCaravanState
@@ -66,6 +87,10 @@ class HCCaravanState
     string ItemId;
     string ItemClass;
     float Quantity;
+    // Missing legacy sequence 0 retains the old corridor-id tombstone. New
+    // identities always advance; evicting history never resets this counter.
+    int TripSequence;
+    ref array<ref HCCaravanReceipt> History = new array<ref HCCaravanReceipt>;
 }
 
 // Trusted server port: only the existing director can bind its current HC-10
@@ -108,6 +133,15 @@ class HCCaravanInventory : HCTradeInventory
         return "retained";
     }
 
+    float HCRemainingQuantity(HCCaravanState row)
+    {
+        // Read only the same observed native item. Unknown never grants stock;
+        // loss of custody/ruin consumes the remaining ceiling conservatively.
+        if (HCCargoReceipt(row) == "unknown") { return -1; }
+        if (LeftItem.GetHierarchyRootPlayer() != LeftActor || LeftItem.IsRuined()) { return 0; }
+        return LeftItem.GetQuantity();
+    }
+
     bool HCInventoryBoundCaravan(HCCaravanState row)
     {
         if (!row || !HCLive() || !LeftItem) { return false; }
@@ -133,21 +167,54 @@ class HCAICaravan
     bool m_Ready;
     bool m_Busy;
     int m_Reports;
+    string m_ProviderRefusal = "CARAVAN_PROVIDER_UNAVAILABLE";
+    // Conservative full cooldown after reopening a terminal journal. Process
+    // timestamps are never persisted/reused across restart or clock rollback.
+    float m_TerminalAt = -1;
 
     HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+
+    bool HCTerminal(string leg) { return leg == "returned" || leg == "lost"; }
+
+    bool HCValidTripId(string id, int sequence)
+    {
+        if (sequence < 0 || sequence > 1000000000) { return false; }
+        if (sequence == 0) { return id == "hc36-first-corridor"; }
+        return id == "hc36-first-corridor:trip:" + sequence.ToString();
+    }
+
+    bool HCValidHistory(HCCaravanState row)
+    {
+        // A missing legacy array is empty, never evidence of an old trip reset.
+        if (!row.History) { return row.TripSequence == 0; }
+        if (row.History.Count() >= m_Corridor.MaxTripHistory) { return false; }
+        int previous = -1;
+        foreach (HCCaravanReceipt receipt : row.History)
+        {
+            if (!receipt || !HCTerminal(receipt.Leg)) { return false; }
+            if (!HCValidTripId(receipt.Id, receipt.TripSequence)) { return false; }
+            if (receipt.TripSequence <= previous || receipt.TripSequence >= row.TripSequence) { return false; }
+            if (receipt.CargoReceipt != "retained" && receipt.CargoReceipt != "lost") { return false; }
+            if (receipt.Leg == "lost" && receipt.CargoReceipt != "lost") { return false; }
+            if (!HCWorldLimits.Token(receipt.ItemId) || !(receipt.Quantity >= 0) || !(receipt.Quantity <= float.MAX)) { return false; }
+            previous = receipt.TripSequence;
+        }
+        return true;
+    }
 
     bool HCValidState(HCCaravanState row)
     {
         if (!row || row.Version != 1 || row.Refusal.Length() > 96) { return false; }
+        if (!HCValidHistory(row)) { return false; }
         if (row.Leg == "idle")
         {
-            return row.Id == "" && row.CargoReceipt == "none" && row.LeaseId == "" && row.ItemId == "" && row.Generation == 0;
+            return row.Id == "" && row.CargoReceipt == "none" && row.LeaseId == "" && row.ItemId == "" && row.Generation == 0 && row.TripSequence == 0;
         }
-        if (row.Id != "hc36-first-corridor" || !HCWorldLimits.Token(row.RouteId)) { return false; }
+        if (!HCValidTripId(row.Id, row.TripSequence) || !HCWorldLimits.Token(row.RouteId)) { return false; }
         if (!HCWorldLimits.Token(row.LeaseId) || !HCWorldLimits.Token(row.PartyId) || !HCWorldLimits.Token(row.CargoId)) { return false; }
         if (!HCWorldLimits.Token(row.ActorId) || !HCWorldLimits.Token(row.ItemId) || !HCWorldLimits.Token(row.ItemClass)) { return false; }
         if (row.Generation < 1 || !(row.Quantity >= 0) || !(row.Quantity <= float.MAX)) { return false; }
-        if (row.Leg == "quarantined") { return row.CargoReceipt == "unknown"; }
+        if (row.Leg == "quarantined") { return row.CargoReceipt == "unknown" || row.CargoReceipt == "lost"; }
         if (row.Leg == "lost") { return row.CargoReceipt == "lost"; }
         if (row.CargoReceipt != "retained" && row.CargoReceipt != "lost") { return false; }
         if (row.Leg == "outbound" || row.Leg == "fleeing_outbound" || row.Leg == "return_pending" || row.Leg == "fleeing_return_pending") { return true; }
@@ -167,12 +234,13 @@ class HCAICaravan
         {
             m_Ready = false;
             m_State.Leg = "quarantined";
-            m_State.CargoReceipt = "unknown";
+            if (m_State.CargoReceipt != "lost") { m_State.CargoReceipt = "unknown"; }
             m_State.Refusal = "CARAVAN_JOURNAL_UNCERTAIN";
             m_Status.HCPublish("refused", m_State.Refusal);
             HCLog();
             return false;
         }
+        if (HCTerminal(m_State.Leg) && m_TerminalAt < 0) { m_TerminalAt = GetGame().GetTickTime(); }
         HCLog();
         return true;
     }
@@ -183,6 +251,8 @@ class HCAICaravan
         m_Ready = false;
         m_Busy = false;
         m_Reports = 0;
+        m_TerminalAt = -1;
+        m_ProviderRefusal = "CARAVAN_PROVIDER_UNAVAILABLE";
         m_Enabled = settings && settings.EnableEncounters;
         m_State = new HCCaravanState;
         if (!m_Enabled) { m_Status.HCPublish("off", "operator_disabled"); HCLog(); return; }
@@ -207,17 +277,21 @@ class HCAICaravan
         if (!HCValidState(m_State))
         {
             m_Status.HCPublish("refused", "CARAVAN_JOURNAL_INVALID");
-            Print("[HC Plan] HC-36 caravan=none leg=refused cargo=unknown refused=CARAVAN_JOURNAL_INVALID state=refused count=0 runtime=PENDING");
+            Print("[HC Caravan] HC-36 leg=refused cargo=unknown reason=CARAVAN_JOURNAL_INVALID state=refused count=0 runtime=PENDING");
             return;
         }
         m_IO = provider;
-        if (m_IO) { m_IO.Corridor = m_Corridor; }
+        if (m_IO)
+        {
+            m_IO.Corridor = m_Corridor;
+            m_ProviderRefusal = m_IO.HCRefusal();
+        }
         m_Ready = true;
         HCRestore();
-        if (m_State.Leg == "idle")
+        if (m_State.Leg != "quarantined")
         {
             m_State.Refusal = m_Corridor.HCAdmissionRefusal();
-            if (m_State.Refusal == "" && m_IO) { m_State.Refusal = m_IO.HCRefusal(); }
+            if (m_State.Refusal == "" && m_IO) { m_State.Refusal = m_ProviderRefusal; }
             if (m_State.Refusal == "") { m_State.Refusal = "CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED"; }
         }
         m_Status.HCPublish("refused", m_State.Refusal);
@@ -226,27 +300,62 @@ class HCAICaravan
 
     bool HCBegin(string lease)
     {
-        if (!m_Enabled || !m_Ready || m_Busy || !m_State || m_State.Leg != "idle" || !m_IO) { return false; }
+        if (!m_Enabled || !m_Ready || m_Busy || !m_State || !m_IO) { return false; }
         if (!m_Corridor || m_Corridor.HCAdmissionRefusal() != "" || !m_IO.HCReady()) { return false; }
+        if (!HCValidState(m_State) || m_State.TripSequence >= 1000000000) { return false; }
+        bool repeated = m_State.Leg != "idle";
+        if (repeated)
+        {
+            // Quarantine is unresolved, never an evictable terminal receipt.
+            if (!HCTerminal(m_State.Leg)) { return false; }
+            float now = GetGame().GetTickTime();
+            if (m_TerminalAt < 0 || now < m_TerminalAt) { m_TerminalAt = now; return false; }
+            if (now - m_TerminalAt < m_Corridor.CooldownSeconds) { return false; }
+        }
         HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(lease);
         if (!HCAIPartyIdentity.HCValid(identity)) { return false; }
-        m_State.Id = m_Corridor.CorridorId;
-        m_State.LeaseId = lease;
-        m_State.PartyId = identity.HCPartyId();
-        m_State.CargoId = identity.HCCargoId();
+        HCCaravanState nextTrip = new HCCaravanState;
+        nextTrip.TripSequence = m_State.TripSequence + 1;
+        nextTrip.Id = m_Corridor.CorridorId + ":trip:" + nextTrip.TripSequence.ToString();
+        nextTrip.LeaseId = lease;
+        nextTrip.PartyId = identity.HCPartyId();
+        nextTrip.CargoId = identity.HCCargoId();
         // HC-10 route provenance is immutable (route:<party>), distinct from
         // this corridor content ID. Provider must qualify their connection.
-        m_State.RouteId = identity.HCRouteId();
-        m_State.Generation = identity.HCGeneration();
+        nextTrip.RouteId = identity.HCRouteId();
+        nextTrip.Generation = identity.HCGeneration();
         m_Busy = true;
-        bool bound = m_IO.HCBindCaravan(m_State);
+        bool bound = m_IO.HCBindCaravan(nextTrip);
         m_Busy = false;
-        if (!m_Enabled || !m_Ready || m_State.Leg != "idle" || !bound) { return false; }
-        if (!m_IO.HCCurrentCaravan(m_State) || !m_IO.HCLive()) { return false; }
-        if (m_IO.HCCargoReceipt(m_State) != "retained" || !m_IO.HCAtCamp(m_State, true)) { return false; }
-        m_State.Leg = "outbound";
-        m_State.CargoReceipt = "retained";
-        m_State.Refusal = "";
+        if (!m_Enabled || !m_Ready || !bound) { return false; }
+        if (!m_IO.HCCurrentCaravan(nextTrip) || !m_IO.HCLive()) { return false; }
+        if (m_IO.HCCargoReceipt(nextTrip) != "retained" || !m_IO.HCAtCamp(nextTrip, true)) { return false; }
+        if (repeated)
+        {
+            // Same finite native stock and HC-10 identity. The provider reads
+            // remaining quantity; this handler never replenishes or moves it.
+            if (nextTrip.LeaseId != m_State.LeaseId || nextTrip.PartyId != m_State.PartyId || nextTrip.CargoId != m_State.CargoId) { return false; }
+            if (nextTrip.Generation != m_State.Generation || nextTrip.ActorId != m_State.ActorId || nextTrip.RouteId != m_State.RouteId) { return false; }
+            if (nextTrip.ItemId != m_State.ItemId || nextTrip.ItemClass != m_State.ItemClass || !(nextTrip.Quantity > 0) || nextTrip.Quantity > m_State.Quantity) { return false; }
+            if (m_State.History)
+            {
+                foreach (HCCaravanReceipt prior : m_State.History) { nextTrip.History.Insert(prior); }
+            }
+            HCCaravanReceipt terminal = new HCCaravanReceipt;
+            terminal.Id = m_State.Id;
+            terminal.TripSequence = m_State.TripSequence;
+            terminal.Leg = m_State.Leg;
+            terminal.CargoReceipt = m_State.CargoReceipt;
+            terminal.ItemId = m_State.ItemId;
+            terminal.Quantity = m_State.Quantity;
+            nextTrip.History.Insert(terminal);
+            // HCValidHistory bounded the input to 63 terminal-only rows.
+            if (nextTrip.History.Count() >= m_Corridor.MaxTripHistory) { nextTrip.History.RemoveOrdered(0); }
+        }
+        nextTrip.Leg = "outbound";
+        nextTrip.CargoReceipt = "retained";
+        m_State = nextTrip;
+        m_TerminalAt = -1;
         if (!HCCheckpoint()) { return false; }
         return HCRequestWalk(false);
     }
@@ -265,7 +374,7 @@ class HCAICaravan
     void HCQuarantine(string reason)
     {
         m_State.Leg = "quarantined";
-        m_State.CargoReceipt = "unknown";
+        if (m_State.CargoReceipt != "lost") { m_State.CargoReceipt = "unknown"; }
         m_State.Refusal = reason;
         m_Status.HCPublish("refused", reason);
         HCCheckpoint();
@@ -273,9 +382,10 @@ class HCAICaravan
 
     void HCRestore()
     {
+        if (HCTerminal(m_State.Leg)) { m_TerminalAt = GetGame().GetTickTime(); }
         if (HCActive()) { HCQuarantine("CARAVAN_PAIRED_NATIVE_RESTORE_UNPROVEN"); }
-        // Returned/lost receipts remain tombstones. No actor/item rebind, reset,
-        // compensation or travel replay, near OR away from an observer.
+        // No actor/item rebind or travel replay on restore. Only a NEW trip can
+        // consume observed remaining stock after cooldown + fresh admission.
     }
 
     void HCStep()
@@ -291,11 +401,18 @@ class HCAICaravan
         string receipt = m_IO.HCCargoReceipt(m_State);
         if (receipt == "unknown") { HCQuarantine("CARAVAN_CARGO_UNRESOLVED"); return; }
         if (receipt != "retained" && receipt != "lost") { HCQuarantine("CARAVAN_RECEIPT_INVALID"); return; }
-        if (receipt == "lost" && m_State.CargoReceipt != "lost")
+        if (receipt == "lost")
         {
+            bool newLoss = m_State.CargoReceipt != "lost";
             m_State.CargoReceipt = "lost";
-            m_State.Refusal = "CARAVAN_CARGO_LOST";
-            if (!HCCheckpoint()) { return; }
+            float remaining = m_IO.HCRemainingQuantity(m_State);
+            if (!(remaining >= 0) || remaining > m_State.Quantity) { HCQuarantine("CARAVAN_REMAINING_STOCK_UNRESOLVED"); return; }
+            if (newLoss || remaining < m_State.Quantity)
+            {
+                m_State.Quantity = remaining;
+                m_State.Refusal = "CARAVAN_CARGO_LOST";
+                if (!HCCheckpoint()) { return; }
+            }
         }
         // Lost is sticky even if somebody gives the same item back. No restock.
         bool returning = m_State.Leg == "returning" || m_State.Leg == "fleeing_returning";
@@ -346,28 +463,26 @@ class HCAICaravan
     {
         if (!m_State || m_Reports >= 16) { return; }
         m_Reports++;
-        string effective = "refused";
-        if (!m_Enabled) { effective = "off"; }
-        else if (m_Ready && m_IO && m_IO.HCReady() && m_State.Leg != "quarantined") { effective = "ready"; }
-        string providerRefusal = "none";
-        if (!m_IO) { providerRefusal = "CARAVAN_PROVIDER_UNAVAILABLE"; }
-        else if (!m_IO.HCReady()) { providerRefusal = m_IO.HCRefusal(); }
+        string effective = m_Status.HCState();
         string id = "none";
         string count = "0";
         if (m_State.Id != "") { id = m_State.Id; count = "1"; }
-        string line = "[HC Plan] HC-36 caravan=" + id + " leg=" + m_State.Leg;
+        string line = "[HC Caravan] HC-36 caravan=" + id + " leg=" + m_State.Leg;
         line += " cargo=" + m_State.CargoReceipt + " refused=" + m_State.Refusal;
         line += " state=" + effective + " authored=1 count=" + count;
-        line += " provider_refused=" + providerRefusal;
+        line += " reason=" + m_Status.HCReason();
+        line += " provider_refused=" + m_ProviderRefusal;
         Print(line + " count_cap=1 runtime=PENDING");
     }
 
     void HCClose()
     {
-        if (!m_Enabled) { return; }
-        if (m_Ready && HCActive()) { HCQuarantine("CARAVAN_STOPPED_RECONCILIATION_REQUIRED"); }
+        if (m_Enabled && m_Ready && HCActive()) { HCQuarantine("CARAVAN_STOPPED_RECONCILIATION_REQUIRED"); }
         m_Enabled = false;
         if (m_IO) { m_IO.HCClear(); }
+        m_IO = null;
+        m_Store = null;
+        m_Ready = false;
         m_Status.HCPublish("off", "stopped");
     }
 }
