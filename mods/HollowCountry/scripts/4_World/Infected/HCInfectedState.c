@@ -575,7 +575,8 @@ class HCInfectedStore
         return total == snapshot.Reserved;
     }
 
-    // Native LoadData zero-fills absent scalars, including -1 sentinels.
+    // Native LoadData zero-fills absent int sentinels (-1 reads 0); only ints
+    // were observed natively.
     // Check every horde object at Groups[] depth, not just the first key in
     // the document; zero Living remains legitimate when explicitly stored.
     static bool HCFieldsPresent(string text)

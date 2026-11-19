@@ -3,7 +3,8 @@
 DTO keys are from 25a7dc2: HCSceneChains.c, HCEventData.c and
 HCEventRuntimeData.c. No profile or DayZ result is embedded here. The
 original initializer-preserving ports were corrected by #177 after boot 057
-observed missing scalar zero-fill. Both allocation shapes now zero scalars;
+observed missing int zero-fill (only ints; bool/float/string is an unobserved
+assumption). Both allocation shapes now zero absent fields in the port;
 authored Open restores the absent legacy Stories section explicitly. This is
 still not a reproduction of boot 050's unknown DTO.
 Spec/plan/task: HC-19 / #147; task.md in the dispatched writer inputs.
