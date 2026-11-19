@@ -387,41 +387,44 @@
     },
     {
       "purpose": "Wearable cargo/storage; native capacity and custody pending",
-      "route": "native-craft",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54"
+        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "DrysackBag_Green"
     },
     {
       "purpose": "Wearable cargo/storage; native capacity and custody pending",
-      "route": "native-craft",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54"
+        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "DrysackBag_Orange"
     },
     {
       "purpose": "Wearable cargo/storage; native capacity and custody pending",
-      "route": "native-craft",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54"
+        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "DrysackBag_Yellow"
     },
     {
@@ -669,98 +672,106 @@
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherHat_Beige"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherHat_Black"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherHat_Brown"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherHat_Natural"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherJacket_Beige"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherJacket_Black"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherJacket_Brown"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherJacket_Natural"
     },
     {
@@ -831,62 +842,67 @@
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherShirt_Natural"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherShoes_Beige"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherShoes_Black"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherShoes_Brown"
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
         "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
-        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "refusal": null,
       "class": "LeatherShoes_Natural"
     },
     {
@@ -1320,13 +1336,14 @@
     },
     {
       "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
-      "route": "native-carrier",
-      "floor_admitted": false,
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native deloot flag retained; no ordinary floor admission; event/carrier qualification pending."
+        "tools/package/datamined_items.json: Native deloot flag retained; no ordinary floor admission; event/carrier qualification pending.",
+        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
       ],
-      "refusal": "HC22_EVENT_CARRIER_UNQUALIFIED",
+      "refusal": null,
       "class": "TortillaBag_Desert"
     },
     {

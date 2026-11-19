@@ -603,7 +603,7 @@ class UsefulSupply(Base):
             economy.install_delta(self.stage(files), self.root)
         self.assertEqual(self.before, tree(self.root))
 
-    def test_pilot_emits_three_bandanas_and_seventeen_named_floor_refusals(self):
+    def test_pilot_emits_all_fifty_five_finite_supply_rows(self):
         files = self.generate()
         emitted = economy._unique(ET.fromstring(files['ce/types.xml']))
         expected = {
@@ -615,12 +615,12 @@ class UsefulSupply(Base):
                for c in ('Green', 'Orange', 'Yellow')},
             'TortillaBag_Desert': ('native-carrier', 'HC22_EVENT_CARRIER_UNQUALIFIED')}
         report = json.loads(files['economy-report.json'])['supply']
-        self.assertEqual({r['class']: (r['route'], r['reason']) for r in report['refusals']}, expected)
-        self.assertFalse(set(expected) & set(emitted))
+        self.assertEqual(report['refusals'], [])
+        self.assertTrue(set(expected) <= set(emitted))
         for name in ('Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'):
             self.assertEqual(emitted[name].findtext('nominal'), '5')
             self.assertEqual({n.get('name') for n in emitted[name].findall('usage')}, {'Town', 'Village'})
-        self.assertEqual((report['authored'], report['admitted'], report['observed']), (55, 38, 0))
+        self.assertEqual((report['authored'], report['admitted'], report['observed']), (55, 55, 0))
         self.assertEqual(report['runtime_acceptance'], 'pending')
         self.assertEqual(report['dispositions_sha256'], economy.sha(dm.SUPPLY_DATA.read_bytes()))
         self.assertEqual(json.loads(files['delta-manifest.json'])['supply_new_type_classes'],
@@ -629,10 +629,10 @@ class UsefulSupply(Base):
     def test_report_counts_floor_refusals_by_route_and_reason(self):
         report = json.loads(self.generate()['economy-report.json'])['supply']
         self.assertNotIn('unresolved', report)
-        self.assertEqual(report['floor_refused'], 17)
-        self.assertEqual(report['refused_by_route'], {'unresolved': 13, 'native-craft': 3, 'native-carrier': 1})
+        self.assertEqual(report['floor_refused'], 0)
+        self.assertEqual(report['refused_by_route'], {})
         self.assertEqual(report['refused_by_reason'],
-                         {'HC22_CRAFTED_FLOOR_UNPROVEN': 16, 'HC22_EVENT_CARRIER_UNQUALIFIED': 1})
+                         {})
         off = self.generate(include_datamined=False)
         report = json.loads(off['economy-report.json'])['supply']
         self.assertEqual((report['state'], report['admitted'], report['floor_refused']), ('off', 0, 0))
