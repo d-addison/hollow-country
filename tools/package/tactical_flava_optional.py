@@ -242,7 +242,7 @@ def _child_ci(base, name):
     return None
 
 
-def _load_addons(root, problems, max_pbos):
+def _load_addons(root, problems, max_pbos, whole_hash=True):
     folder = _child_ci(root, 'addons')
     pbos = []
     if folder is not None and not folder.is_symlink() and folder.is_dir():
@@ -264,8 +264,10 @@ def _load_addons(root, problems, max_pbos):
         except Exception as e:  # corrupt/oversized input is reported, never trusted
             problems.append(f'{p.name}: {type(e).__name__}: {str(e)[:120]}')
             continue
-        listed.append({'name': p.name, 'size': index['size'], 'prefix': index['prefix'],
-                       'sha256': snafu_optional._pbo_sha256(p)})
+        row = {'name': p.name, 'size': index['size'], 'prefix': index['prefix']}
+        if whole_hash:
+            row['sha256'] = snafu_optional._pbo_sha256(p)
+        listed.append(row)
         models |= pbo_config.model_paths(index)
         for member, configs in members:
             for r in ROOTS:
@@ -417,13 +419,15 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
         published = found.group(1).decode() if found else None
         if published != WORKSHOP_ID:
             problems.append('publishedid-mismatch')
-    merged, duplicates, models, listed = _load_addons(root, problems, max_pbos)
+    merged, duplicates, models, listed = _load_addons(root, problems, max_pbos,
+                                                      whole_hash=not snafu_optional._subset_pinned(allowlist))
     terms = _terms(root, allowlist['rights'])
     if not terms['present']:
         problems.append('terms-file-missing')
     elif not terms['matches_reviewed']:
         problems.append('terms-changed-since-review')
-    snafu_optional._check_pins(allowlist, listed, problems)
+    class_hashes = snafu_optional.subset_pins(allowlist, merged)
+    snafu_optional._check_pins(allowlist, listed, problems, class_hashes)
     if vanilla is None:
         problems.append('vanilla-not-provided')
         vanilla_report = {'checked': False, 'problems': [], 'magazines': 0, 'ammo': 0}
@@ -442,6 +446,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
     return {'schema': 1, 'kind': 'tactical-flava-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
             'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
+            'subset_pins': class_hashes,
             'allowlist': allowlist, 'terms': terms, 'vanilla': vanilla_report, 'classes': dict(sorted(classes.items())),
             'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers, config.bin/config.cpp members, vendor readme hash, '

@@ -483,6 +483,8 @@ class FriendBundleTests(unittest.TestCase):
         previous = 'mission/hollow-country/ai/sites.json'
 
         def git_result(argv, **kwargs):
+            if argv[1] == 'rev-parse':
+                return subprocess.CompletedProcess(argv, 0, stdout=b'false\n', stderr=b'')
             if argv[1] == 'log':
                 data = ('a' * 40 + '\n\n' + source + '\n' + 'b' * 40 + '\n\n' + previous + '\n').encode()
             else:
@@ -510,6 +512,80 @@ class FriendBundleTests(unittest.TestCase):
             with self.assertRaisesRegex(fb.Refused, '^profile_history_unavailable:') as error:
                 fb.profile_history(source)
         self.assertNotIn('private path or identity', str(error.exception))
+
+    def test_profile_history_refuses_shallow_clone_and_missing_git(self):
+        # Synthetic git answers only; no repository is read.
+        import subprocess
+        source = 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'
+
+        def shallow(argv, **kwargs):
+            self.assertEqual(argv[1:], ['rev-parse', '--is-shallow-repository'])
+            return subprocess.CompletedProcess(argv, 0, stdout=b'true\n', stderr=b'')
+
+        with unittest.mock.patch('subprocess.run', side_effect=shallow):
+            with self.assertRaisesRegex(fb.Refused, '^profile_history_unavailable: shallow clone'):
+                fb.profile_history(source)
+        with unittest.mock.patch('subprocess.run', side_effect=FileNotFoundError('git')):
+            with self.assertRaisesRegex(fb.Refused, '^profile_history_unavailable: git binary') as error:
+                fb.profile_history(source)
+        self.assertNotIn('FileNotFoundError', str(error.exception))
+
+    def test_missing_git_build_refuses_without_traceback(self):
+        put(self.profiles, 'HollowCountry/expansion-ai-sites.json', b'{"synthetic_release": 54}')
+        with unittest.mock.patch('subprocess.run', side_effect=FileNotFoundError('git')):
+            code, text = self.run_cli()
+        self.assertNotEqual(code, 0)
+        self.assertIn('profile_history_unavailable', text)
+        self.assertNotIn('Traceback', text)
+        self.assertFalse(self.out.exists())
+
+    def test_profile_bytes_vs_repo_source_refuse_line_endings_label_other_drift(self):
+        import subprocess
+        source = 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'
+        current = (fb.lts.ROOT / source).read_bytes()
+        rel = 'HollowCountry/expansion-ai-sites.json'
+
+        def git_result(argv, **kwargs):
+            if argv[1] == 'rev-parse':
+                return subprocess.CompletedProcess(argv, 0, stdout=b'false\n', stderr=b'')
+            data = ('a' * 40 + '\n\n' + source + '\n').encode() if argv[1] == 'log' else current
+            return subprocess.CompletedProcess(argv, 0, stdout=data, stderr=b'')
+
+        crlf = current.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+        put(self.profiles, rel, crlf)
+        with unittest.mock.patch('subprocess.run', side_effect=git_result):
+            code, text = self.run_cli()
+        self.assertNotEqual(code, 0)
+        self.assertIn('profile_line_endings_differ', text)
+        self.assertIn(rel, text)
+        self.assertFalse(self.out.exists())
+
+        put(self.profiles, rel, current)
+        with unittest.mock.patch('subprocess.run', side_effect=git_result):
+            code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
+        self.assertEqual(manifest['profile_defaults']['profiles/' + rel]['history'], 'git-log')
+
+    def test_profile_content_drift_labels_history_best_effort(self):
+        import subprocess
+        source = 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'
+        rel = 'HollowCountry/expansion-ai-sites.json'
+
+        def git_result(argv, **kwargs):
+            if argv[1] == 'rev-parse':
+                return subprocess.CompletedProcess(argv, 0, stdout=b'false\n', stderr=b'')
+            data = ('a' * 40 + '\n\n' + source + '\n').encode() if argv[1] == 'log' else b'{"x": 1}'
+            return subprocess.CompletedProcess(argv, 0, stdout=data, stderr=b'')
+
+        put(self.profiles, rel, b'{"synthetic_release": 54}')
+        with unittest.mock.patch('subprocess.run', side_effect=git_result):
+            code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
+        row = manifest['profile_defaults']['profiles/' + rel]
+        self.assertEqual(row['history'], 'git-log-best-effort')
+        self.assertIn('best-effort', text)
 
     def test_private_key_anywhere_refuses_and_writes_nothing(self):
         put(self.mod, 'keys/hollowcountry.biprivatekey', b'PRIVATE')
