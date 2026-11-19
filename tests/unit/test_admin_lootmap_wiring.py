@@ -76,8 +76,13 @@ class JobArithmetic(unittest.TestCase):
         self.assertLessEqual(cells, limits.MaxCells)
         cap = lootmap.HCJobTickCap(limits, cells)
         units = limits.MaxItemsScanned + (limits.MatchRowUnits - 1) * limits.MaxMatches
-        self.assertEqual(cells + math.ceil(units / limits.MaxRowsPerStep) + 1, cap)
-        self.assertEqual(1314, cap)
+        # Wave 12: the cap is sized from the GUARANTEED rows per tick (the wall-clock
+        # deadline cannot cut a tick below MinRowUnitsPerTick), plus percent headroom.
+        floor_units = min(limits.MinRowUnitsPerTick, limits.MaxRowsPerStep)
+        row_ticks = math.ceil(units / floor_units)
+        row_ticks += row_ticks * limits.TickCapHeadroomPercent // 100
+        self.assertEqual(cells + row_ticks + 1, cap)
+        self.assertEqual(1842, cap)
         # Every row mismatching (the prefilter case) and every row matching both fit.
         self.assertLessEqual(cells + math.ceil(limits.MaxItemsScanned / limits.MaxRowsPerStep), cap)
         # A per-cell object cap refusal needs 4096 rows in ONE 500 m cell; the former
@@ -89,6 +94,10 @@ class JobArithmetic(unittest.TestCase):
         limits = authored_limits()
         self.assertGreaterEqual(limits.MatchRowUnits, 2)
         self.assertGreater(limits.MaxRowsPerStep, 32)  # raised from the former 32 rows
+        # Count bounds on rows per tick: floor (progress guarantee) <= the unit ceiling.
+        self.assertGreaterEqual(limits.MinRowUnitsPerTick, 1)
+        self.assertLessEqual(limits.MinRowUnitsPerTick, limits.MaxRowsPerStep)
+        self.assertGreaterEqual(limits.TickCapHeadroomPercent, 0)
 
     def test_client_wait_is_derived_from_the_job_not_ten_seconds(self):
         limits = authored_limits()
@@ -98,7 +107,7 @@ class JobArithmetic(unittest.TestCase):
         self.assertEqual(expected, lootmap.HCClientWaitSeconds())
         self.assertGreater(lootmap.HCClientWaitSeconds(), 10)
         # The largest admitted job (961 cells) is covered by the wait.
-        self.assertGreaterEqual(lootmap.HCClientWaitSeconds(), 1314 * limits.MaxTickIntervalMs / 1000)
+        self.assertGreaterEqual(lootmap.HCClientWaitSeconds(), 1842 * limits.MaxTickIntervalMs / 1000)
 
     def test_reply_grace_and_no_seen_list_or_wall_clock_cap(self):
         text = LOOT.read_text()
@@ -124,7 +133,8 @@ class ClientWiring(unittest.TestCase):
         wire.HCIsLootMap = compile_authored(WIRE, 'HCAdminWire', 'HCIsLootMap',
                                             base_scope(), modded=False, native_strings=EStr)
         wire_static = N(REQUEST=1, REPLY=2, HCIsLootMap=lambda command: wire.HCIsLootMap(wire, command))
-        window = statics(('HCJobTickCap', 'HCClientWaitSeconds', 'HCClientWindowSeconds', 'HCAckInt'), limits)
+        window = statics(('HCJobTickCap', 'HCClientWaitSeconds', 'HCClientWindowSeconds', 'HCAckInt',
+                          'HCBudgetMs'), limits)
         loot = N(HCClientWaitSeconds=window.HCClientWaitSeconds,
                  HCClientWindowSeconds=window.HCClientWindowSeconds, HCAckInt=window.HCAckInt,
                  HCValidFilter=lambda name: bool(re.fullmatch(r'[A-Za-z0-9_]{1,96}', name)))
@@ -145,12 +155,12 @@ class ClientWiring(unittest.TestCase):
                             m_Checks=Arr(), Revision=0, Notice='', View=None, Hidden=Arr(),
                             Changed=N(Invoke=lambda: None))
         self.members = ('HCValid', 'HCSend', 'HCFeedback', 'HCMergeLootMap', 'HCCarryLootMarks',
-                        'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop')
+                        'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop', 'HCLootMarkCount')
         self.fields = ('m_Ticket', 'm_Expected', 'm_Pending', 'm_RequestUntil', 'm_Command', 'm_NextSend',
                        'm_LootTicket', 'm_LootUntil', 'm_LootViewUntil', 'm_SnapshotTicket', 'm_Player',
                        'm_Authorized', 'm_SnapshotUntil', 'm_Listening', 'm_OpenRequested', 'm_LastReply',
                        'Revision', 'Notice', 'View', 'Changed', 'Hidden')
-        for name in ('HCValid', 'HCSend', 'HCLootMap', 'HCMergeLootMap', 'HCCarryLootMarks',
+        for name in ('HCValid', 'HCSend', 'HCLootMap', 'HCMergeLootMap', 'HCLootMarkCount', 'HCCarryLootMarks',
                      'HCExpireMarks', 'HCExpireLoot', 'HCStop'):
             fn = compile_authored(CLIENT, 'HCAdminClient', name, self.env, self.members, modded=False,
                                   native_strings=EStr, fields=self.fields)
@@ -224,7 +234,9 @@ class ClientWiring(unittest.TestCase):
     def ceiling(limits):
         """Largest admitted job (MaxCells) at the budgeted tick plus the reply grace."""
         units = limits.MaxItemsScanned + (limits.MatchRowUnits - 1) * limits.MaxMatches
-        ticks = limits.MaxCells + math.ceil(units / limits.MaxRowsPerStep) + 1
+        row_ticks = math.ceil(units / min(limits.MinRowUnitsPerTick, limits.MaxRowsPerStep))
+        row_ticks += row_ticks * limits.TickCapHeadroomPercent // 100
+        ticks = limits.MaxCells + row_ticks + 1
         return math.ceil(ticks * limits.MaxTickIntervalMs / 1000) + limits.ReplyGraceSeconds
 
     def ack(self, c, notice):
@@ -233,35 +245,47 @@ class ClientWiring(unittest.TestCase):
         self.receive(c, self.reply(self.sent[-1].Ticket, notice=notice, marks=0))
         return self.sent[-1].Ticket
 
-    def test_client_window_is_sized_from_the_acks_est_ticks_and_tick_interval(self):
+    def test_client_window_is_sized_from_the_budget_the_server_sent(self):
         limits = authored_limits()
         ceiling = self.ceiling(limits)
         self.assertGreaterEqual(limits.MinClientWaitSeconds, limits.ReplyGraceSeconds)
         c = self.build()
-        ticket = self.ack(c, '[HC Admin] cmd=lootmap result=ok reason=started ticket=1 est_ticks=100 cells=4 tick_ms=1000')
+        ticket = self.ack(c, '[HC Admin] cmd=lootmap result=ok reason=started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000')
         self.assertEqual(ticket, c.m_LootTicket)
         self.assertEqual(101.0 + 100 + limits.ReplyGraceSeconds, c.m_LootUntil)  # not the largest-job ceiling
-        # A slower core tick scales the window: 100 ticks at 500 ms.
+        # The window follows the server's own deadline, NOT est_ticks x tick_ms: the
+        # server measured a 3 s real cadence (300 s budget) although tick_ms says 1000.
         c = self.build()
-        self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=500')
+        self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=300000')
+        self.assertEqual(101.0 + 300 + limits.ReplyGraceSeconds, c.m_LootUntil)
+        # A shorter server deadline gives a shorter window (100 ticks at 500 ms).
+        c = self.build()
+        self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=500 budget_ms=50000')
         self.assertEqual(101.0 + 50 + limits.ReplyGraceSeconds, c.m_LootUntil)
         # Floor: a tiny job still waits MinClientWaitSeconds.
         c = self.build()
-        self.ack(c, 'started ticket=1 est_ticks=2 cells=1 tick_ms=1000')
+        self.ack(c, 'started ticket=1 est_ticks=2 cells=1 tick_ms=1000 budget_ms=2000')
         self.assertEqual(101.0 + limits.MinClientWaitSeconds, c.m_LootUntil)
-        # Ceiling: an estimate above the largest admitted job is clamped to it.
+        # Ceiling: a deadline above the largest admitted job is clamped to it.
         c = self.build()
-        self.ack(c, 'started ticket=1 est_ticks=999999 cells=4 tick_ms=1000')
+        self.ack(c, 'started ticket=1 est_ticks=999999 cells=4 tick_ms=1000 budget_ms=999999999')
         self.assertEqual(101.0 + ceiling, c.m_LootUntil)
-        # Unreadable ack text falls back to the ceiling, never to a short wait.
+        # Unreadable ack text (no budget_ms) falls back to the ceiling, never to a short wait.
         c = self.build()
-        self.ack(c, '[HC Admin] cmd=lootmap result=ok reason=started')
+        self.ack(c, '[HC Admin] cmd=lootmap result=ok reason=started est_ticks=100 tick_ms=1000')
         self.assertEqual(101.0 + ceiling, c.m_LootUntil)
+
+    def test_server_budget_uses_the_slower_of_configured_and_observed_cadence(self):
+        lootmap = statics(('HCBudgetMs',), authored_limits())
+        self.assertEqual(100000, lootmap.HCBudgetMs(100, 1000, 0))      # no observation yet
+        self.assertEqual(100000, lootmap.HCBudgetMs(100, 1000, 400))    # faster than configured
+        self.assertEqual(300000, lootmap.HCBudgetMs(100, 1000, 3000))   # slower real cadence
+        self.assertEqual(100000, lootmap.HCBudgetMs(100, 1000, -5))     # nonsense observation
 
     def test_session_and_ticket_expire_with_the_sized_window(self):
         limits = authored_limits()
         c = self.build()
-        self.ack(c, 'started ticket=1 est_ticks=10 cells=1 tick_ms=1000')
+        self.ack(c, 'started ticket=1 est_ticks=10 cells=1 tick_ms=1000 budget_ms=10000')
         window = limits.MinClientWaitSeconds  # 10 + 30 s is below the floor
         self.now = 101.0 + window - 1
         self.assertTrue(c.HCValid())
@@ -271,7 +295,7 @@ class ClientWiring(unittest.TestCase):
 
     def test_export_failure_after_the_ack_is_a_final_reply_the_client_consumes(self):
         c = self.build()
-        ticket = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000')
+        ticket = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000')
         self.assertEqual(ticket, c.m_LootTicket)
         self.now = 130.0
         failure = '[HC Admin] cmd=lootmap result=refused reason=lootmap_export_failed'
@@ -281,7 +305,7 @@ class ClientWiring(unittest.TestCase):
         self.assertFalse(any('late reply' in line for line in self.printed))
         # Old behaviour (Snapshot=false after the ack) is dropped by the client: kept for contrast.
         c = self.build()
-        ticket = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000')
+        ticket = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000')
         self.receive(c, self.reply(ticket, snapshot=False, notice=failure, marks=0))
         self.assertEqual(ticket, c.m_LootTicket)
 
@@ -291,6 +315,44 @@ class ClientWiring(unittest.TestCase):
         self.receive(c, self.reply(self.sent[0].Ticket, notice='[HC Admin] cmd=lootmap result=refused reason=lootmap_job_running', marks=0))
         self.assertEqual(0, c.m_LootTicket)
         self.assertFalse(c.m_Pending)
+
+    def test_refused_final_reply_keeps_the_previous_lootmap_marks_and_shows_the_reason(self):
+        for reason, marks in (('lootmap_export_failed', 0), ('job_tick_cap', 2)):  # 2 = partial refused marks
+            c = self.build()
+            first = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000')
+            self.now = 120.0
+            c.m_LastReply = 120.0
+            self.receive(c, self.reply(first, snapshot=True, marks=3, notice='[HC Admin] cmd=lootmap result=ok reason='))
+            self.assertEqual(['a0', 'a1', 'a2'], [m.Label for m in c.View.Marks])
+            view_until = c.m_LootViewUntil
+            self.now = 200.0
+            c.m_NextSend = 0.0
+            c.m_LastReply = 200.0
+            c.HCLootMap(EStr('Bandage'))
+            second = self.sent[-1].Ticket
+            self.receive(c, self.reply(second, notice='started ticket=2 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+            self.now = 260.0
+            failure = '[HC Admin] cmd=lootmap result=refused reason=' + reason
+            self.receive(c, self.reply(second, snapshot=True, marks=marks, notice=failure))
+            self.assertEqual(0, c.m_LootTicket)  # the job is over either way
+            self.assertEqual(['a0', 'a1', 'a2'], [m.Label for m in c.View.Marks], reason)  # owner-safe default
+            self.assertEqual(view_until, c.m_LootViewUntil)  # the old view timer is not extended
+            self.assertIn('reason=' + reason, c.Notice)
+            self.assertIn('previous lootmap marks kept', c.Notice)
+
+    def test_ok_final_reply_with_no_matches_still_clears_the_previous_layer(self):
+        c = self.build()
+        first = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000')
+        self.receive(c, self.reply(first, snapshot=True, marks=3, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        c.m_NextSend = 0.0
+        self.now = 200.0
+        c.m_LastReply = 200.0
+        c.HCLootMap(EStr('Bandage'))
+        second = self.sent[-1].Ticket
+        self.receive(c, self.reply(second, notice='started ticket=2 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(second, snapshot=True, marks=0, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual([], list(c.View.Marks))
+        self.assertNotIn('previous lootmap marks kept', c.Notice)
 
     def test_session_stays_valid_through_the_derived_job_window_then_stops_cleanly(self):
         c = self.build()
