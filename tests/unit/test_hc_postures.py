@@ -286,6 +286,7 @@ class PostureAdmission(unittest.TestCase):
                   GetInputController=lambda: N(GetMindState=lambda: 0,
                      OverrideMovementSpeed=lambda *args: speed.append(args)))
         native_env = dict(env, DayZInfectedConstants=N(MINDSTATE_CALM=0),
+                          HCInfectedLOD=N(HCVarietyNonCalmHoldSeconds=lambda: retry_seconds),
                           HCInfectedVarietyModule=N(VarietyActive=lambda: enabled[0]),
                           super=N(EEDelete=lambda parent: native_calls.append(parent)))
         names = ('HCVarietyCanTry', 'HCVarietySleep', 'HCVarietyWake', 'HCVarietyRelease', 'EEDelete')
@@ -363,6 +364,7 @@ class PostureAdmission(unittest.TestCase):
                    HCInfectedVarietyModule=N(VarietyActive=lambda: True),
                    HCPostureAdmission=N(HCCanEnter=lambda mode: True),
                    DayZInfectedConstants=N(MINDSTATE_CALM=0),
+                   HCInfectedLOD=N(HCVarietyNonCalmHoldSeconds=lambda: retry_seconds),
                    STATICS=N(HC_VARIETY_RETRY_SECONDS=retry_seconds))
         bind(NATIVE, actor, ('HCVarietyCanTry', 'HCVarietySleep'), env, statics=('HC_VARIETY_RETRY_SECONDS',), bound=('IsAlive', 'IsCrawling',
              'IsBeingBackstabbed', 'GetInputController', 'GetAIAgent'))
