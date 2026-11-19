@@ -9,6 +9,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_debug
 """
 import io
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace as N
 import tempfile
@@ -22,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEBUG_DIR = ROOT / 'mods/HollowCountry/scripts/4_World/Debug'
 SNAPSHOT = DEBUG_DIR / 'HCDebugSnapshot.c'
 MODULE = DEBUG_DIR / 'HCDebugSnapshotModule.c'
+STORE = DEBUG_DIR / 'HCDebugJsonStore.c'
 CONSTANTS = dict(MAX_POINTS=1024, MAX_CONTRIBUTOR_POINTS=64, DEBUG_LAYER_POINTS=88,
                  CAMP_LAYER_CAP=24, MAX_LAYER_STATS=16)
 
@@ -137,6 +139,60 @@ class LayerShare(unittest.TestCase):
         before = len(snap.m_Document.layerStats)
         snap.HCNoteLayer('outside', 1, 1)
         self.assertEqual(before, len(snap.m_Document.layerStats))
+
+
+def strip_generics(text, name):
+    """Language scaffolding only: drop <...> after a template class name."""
+    out, index = [], 0
+    while True:
+        found = text.find(name + '<', index)
+        if found < 0:
+            out.append(text[index:])
+            return ''.join(out)
+        out.append(text[index:found + len(name)])
+        depth, cursor = 0, found + len(name)
+        while True:
+            depth += (text[cursor] == '<') - (text[cursor] == '>')
+            cursor += 1
+            if depth == 0:
+                break
+        index = cursor
+
+
+class SaveSerializesStats(unittest.TestCase):
+    def authored_save(self, tmp, saved):
+        source = strip_generics(STORE.read_text(), 'JsonFileLoader')
+        # MakeData(value, outText, error, false) writes an out string: model it as a
+        # returned string, keeping the authored failure check as `if (!text)`.
+        source = re.sub(r'if \(!JsonFileLoader\.MakeData\((\S+), (\w+), error, false\)\) \{ return false; \}',
+                        r'\2 = JsonFileLoader.Make(\1); if (!\2) { return false; }', source)
+        path = Path(tmp) / 'HCDebugJsonStore.c'
+        path.write_text(source)
+        scope = base_scope(JsonFileLoader=N(Make=lambda value: json.dumps(value) if value is not None else ''))
+        out = N(value=0)
+        fn = compile_authored(path, 'HCDebugJsonStore', 'HCSave', scope, ('HCSaveText',), modded=False)
+        holder = N(HCSaveText=lambda p, text, limit, bytes: (saved.append(text), True)[1])
+        return lambda document: fn(holder, 'x', document, 1048576, out)
+
+    def test_saved_snapshot_text_carries_layer_stats(self):
+        saved = []
+        document = N(time=5, layers={}, routes=[], operational=[], contributors=3, truncated=0,
+                     operationalTruncated=0,
+                     layerStats=[{'layer': 'camps', 'total': 30, 'shown': 24, 'truncated': 1}])
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(self.authored_save(tmp, saved)(document))
+        envelope = json.loads(saved[0])
+        self.assertEqual(document.layerStats, envelope['layerStats'])
+        self.assertEqual(1, envelope['version'])
+        self.assertEqual(3, envelope['contributors'])
+
+    def test_failed_stats_encoding_refuses_the_save(self):
+        saved = []
+        document = N(time=5, layers={}, routes=[], operational=[], contributors=0, truncated=0,
+                     operationalTruncated=0, layerStats=None)
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertFalse(self.authored_save(tmp, saved)(document))
+        self.assertEqual([], saved)
 
 
 class WebmapLegend(unittest.TestCase):

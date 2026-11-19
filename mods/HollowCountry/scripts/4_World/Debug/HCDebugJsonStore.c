@@ -14,11 +14,14 @@ class HCDebugJsonStore
         string layerJson;
         string routeJson;
         string operationalJson;
+        string statsJson;
         string error;
         if (!JsonFileLoader<map<string, ref array<ref HCDebugPoint>>>.MakeData(data.layers, layerJson, error, false)) { return false; }
         if (!JsonFileLoader<array<ref HCDebugRoute>>.MakeData(data.routes, routeJson, error, false)) { return false; }
         if (!JsonFileLoader<array<string>>.MakeData(data.operational, operationalJson, error, false)) { return false; }
+        if (!JsonFileLoader<array<ref HCDebugLayerStat>>.MakeData(data.layerStats, statsJson, error, false)) { return false; }
         string text = "{\"version\":1,\"time\":" + data.time.ToString() + ",\"map\":\"chernarusplus\",\"layers\":" + layerJson + ",\"routes\":" + routeJson;
+        text += ",\"layerStats\":" + statsJson;
         text += ",\"operational\":" + operationalJson + ",\"contributors\":" + data.contributors.ToString();
         text += ",\"truncated\":" + data.truncated.ToString() + ",\"operationalTruncated\":" + data.operationalTruncated.ToString() + "}";
         return HCSaveText(path, text, limit, bytes);
