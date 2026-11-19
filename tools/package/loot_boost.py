@@ -593,17 +593,35 @@ def _target(mission):
     return mission
 
 
-def plan(mission, multiplier=None, points=None):
+SHIPPED = object()  # floor_policy default: the committed floor-policy.json of this tree (None disables the policy)
+
+
+def _floor_policy(floor_policy):
+    """(parsed policy or None, digest or None). Enabled by default; ``enabled=false`` is the operator opt-out."""
+    from tools.package import loot_floor_policy
+    raw = loot_floor_policy.shipped_policy() if floor_policy is SHIPPED else floor_policy
+    if raw is None:
+        return None, None
+    parsed = loot_floor_policy.parse_policy(raw)
+    return (parsed if parsed['enabled'] else None), _sha(raw)
+
+
+def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     """All edits computed in memory from the mission's current bytes; nothing written."""
+    from tools.package import loot_floor_policy
     mission = _target(mission)
     multiplier = default_multiplier() if multiplier is None else _multiplier(multiplier)
     overlay = parse_overlay(points) if points is not None else None
     roster = _roster_names()
-    outputs, counts = [], {'types': {}}
+    policy, policy_sha = _floor_policy(floor_policy)
+    outputs, counts, tag_rows = [], {'types': {}}, []
     for name in types_files(mission):
         before = economy.read_plain(mission, name)
         after, count = scale_types(before, multiplier, roster)
         counts['types'][name] = count
+        if policy is not None:
+            after, rows = loot_floor_policy.retag_types(after, policy, roster)
+            tag_rows.append(rows)
         outputs.append((name, before, after))
     before = economy.read_plain(mission, GLOBALS)
     after, knobs = scale_globals(before, multiplier)
@@ -612,10 +630,17 @@ def plan(mission, multiplier=None, points=None):
     proto_before = economy.read_plain(mission, PROTO)
     proto_after, report = scale_proto(proto_before, multiplier, overlay, _limits(mission) if overlay else None)
     counts['mapgroupproto'] = report
+    if policy is not None:
+        proto_after, floor = loot_floor_policy.rebalance_proto(proto_after, tag_rows, policy)
+        floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if sorted(r[2]) != sorted(r[3]))
+        floor['policy_sha256'] = policy_sha
+    else:
+        floor = {'enabled': False}
+    counts['floor_policy'] = floor
     outputs.append((PROTO, proto_before, proto_after))
     files = [(n, b, a) for n, b, a in outputs if a != b]
     return {'multiplier': multiplier, 'points_sha256': _sha(points) if points is not None else None,
-            'files': files, 'counts': counts, 'proto_before': _sha(proto_before)}
+            'floor_policy_sha256': policy_sha, 'files': files, 'counts': counts, 'proto_before': _sha(proto_before)}
 
 
 def _check_coverage_above(mission, proto_after_sha, proto_before_sha):
@@ -631,17 +656,18 @@ def _check_coverage_above(mission, proto_after_sha, proto_before_sha):
         raise ValueError('CE coverage was installed on top of the loot boost; roll coverage back first')
 
 
-def install(mission, multiplier=None, points=None):
+def install(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     mission = _target(mission)
     managed = economy.child(mission, MANAGED)
     if os.path.lexists(managed):
         raise ValueError('loot boost already installed or interrupted; rollback first (never applied twice)')
-    result = plan(mission, multiplier, points)
+    result = plan(mission, multiplier, points, floor_policy)
     rows = []
     for index, (name, before, after) in enumerate(result['files']):
         rows.append({'name': name, 'before': _sha(before), 'after': _sha(after), 'backup': '%02d.backup' % index})
     receipt = {'schema': 1, 'kind': 'hollow-country-loot-boost', 'multiplier': result['multiplier'],
-               'points_sha256': result['points_sha256'], 'files': rows, 'counts': result['counts'],
+               'points_sha256': result['points_sha256'],
+               'floor_policy_sha256': result['floor_policy_sha256'], 'files': rows, 'counts': result['counts'],
                'sources': {PROTO: result['proto_before']}, 'runtime_acceptance': PENDING}
     managed.mkdir()
     started = set()  # rows whose swap began; only these can hold this run's bytes
@@ -849,6 +875,8 @@ def describe(result):
                     len(proto['stale'])))
     for family, row in sorted(proto['families'].items()):
         lines.append('    family %s groups=%d points=%d' % (family, row['groups'], row['points']))
+    from tools.package import loot_floor_policy
+    lines.append('  ' + loot_floor_policy.describe(counts.get('floor_policy', {'enabled': False})))
     lines.append('  runtime acceptance pending: ' + ADVISORY)
     return lines
 
