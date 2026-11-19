@@ -108,7 +108,13 @@ class HCSaveScheduler : HCModule
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "WorldSaves"; }
-    override bool IsEnabled(HCSettings settings) { return settings != null; }
+    // This switch stops routine dispatch only. Owners retain dirty state and their
+    // existing synchronous HCFlush/SaveChanged shutdown and durability barriers.
+    // It is read once per process; change it with the server stopped.
+    override bool IsEnabled(HCSettings settings)
+    {
+        return settings != null && HCPerfConfig.HCGet().EnableSharedSaves;
+    }
 
     // Wave 16: ready = the scheduler is started and ticking; a writer that faulted and was dropped from the
     // scheduler (see HCRunStep) is a real degradation, reported until the process restarts.
@@ -122,6 +128,7 @@ class HCSaveScheduler : HCModule
     {
         m_Fault = "";
         m_Started = true;
+        Print("[HC PerfControl] WorldSaves stages=1 target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " cooperative_only=1 runtime=PENDING");
     }
 
     override void OnStop() { m_Started = false; }

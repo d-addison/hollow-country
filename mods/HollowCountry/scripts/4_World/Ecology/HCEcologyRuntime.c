@@ -62,7 +62,7 @@ class HCEcologyRuntime
 	protected int m_CycleQueries;
 	protected bool m_ProbeDone;
 	protected ref HCUnitBudget m_Units = new HCUnitBudget;
-	protected ref HCWorkBudget m_Work = new HCWorkBudget;
+	protected ref HCWorkBudget m_Work = new HCPerfSlices("Ecology");
 	protected ref HCEcologySaveJob m_SaveJob;
 	protected int m_PruneKind;
 	protected int m_PruneCursor = -1;
