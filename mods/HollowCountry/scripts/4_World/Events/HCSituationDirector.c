@@ -236,7 +236,8 @@ class HCSituationDirector
     // after this module's OnStart (registry order). The module resolves the source
     // once on its first tick, so at start the director is started and waiting by
     // design, not refused. A missing source on that first tick is then refused by
-    // name through HCOpen. Operator-off and non-server stay off.
+    // name through HCOpen. Requested is the HC-1 pending state; it never claims
+    // a loaded/running director. Operator-off and non-server stay off.
     void HCDeferSource(bool enabled)
     {
         if (m_Enabled || m_Fault) { return; }
@@ -244,8 +245,8 @@ class HCSituationDirector
         m_Effective = "off";
         m_Reason = "operator_off";
         if (!HCV2Admission.Admitted(enabled) || !GetGame() || !GetGame().IsServer()) { HCReport(); return; }
-        m_Effective = "ready";
-        m_Reason = "situation_source_binds_on_first_tick";
+        m_Effective = "requested";
+        m_Reason = "situation_source_pending";
         HCReport();
     }
 
