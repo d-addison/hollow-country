@@ -256,7 +256,14 @@ stays zero. With the shipped base budgets, the effective caps are:
 
 These are admission budgets, not promised observed locations. Existing authored
 catalog and pilot bounds still apply (currently five props per furnished house,
-1500 template props, and twelve legacy pilot candidates). The setting changes
+1500 template props, and twelve legacy pilot candidates). Callers hard-cap the
+interior budgets at 5 props per house, 1500 template props and 12 pilot
+candidates, so a scale above 1 barely changes interiors; it mainly raises
+`MaxBoundSearchSites` and the active-house cap. A scale below 1 can lower
+`MaxActiveInteriors` under the pilot candidate count: the server then trims the
+legacy pilot to the lowest stable slots (deterministic order) and logs
+`[HC Interiors] density trimmed legacy pilot candidates kept=N dropped=M cap=C`
+instead of refusing the whole pilot. The setting changes
 neither search yield nor CE inventory, and never creates replacement loot.
 Feature preferences and native clearance/provider gates remain authoritative.
 Runtime acceptance and performance at 3–6 players remain pending.

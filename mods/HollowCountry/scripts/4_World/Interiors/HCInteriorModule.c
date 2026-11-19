@@ -70,8 +70,8 @@ class HCInteriorsModule : HCModule
         string world = GetGame().GetWorldName();
         world.ToLower();
         if (world != m_Config.MapName) return Reject("running map differs from manifest");
-        if (!m_Config.Candidates || m_Config.Candidates.Count() < 1 || m_Config.Candidates.Count() > 12 || m_Config.Candidates.Count() > settings.HCSearchCap("MaxActiveInteriors", settings.MaxActiveInteriors)) return Reject("candidate count exceeds manifest/core bounds or is empty");
-        if (settings.MaxTickWorkItems < m_Config.Candidates.Count() * 2 || settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior) < 2) return Reject("startup/prop work exceeds core budgets");
+        if (!m_Config.Candidates || m_Config.Candidates.Count() < 1 || m_Config.Candidates.Count() > 12) return Reject("candidate count exceeds manifest bound or is empty");
+        if (settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior) < 2) return Reject("prop budget below the two-prop minimum");
         m_PropLimit = Math.Min(settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior), 5);
         ref array<ref HCInteriorCandidate> sorted = new array<ref HCInteriorCandidate>;
         for (int slot = 0; slot < 12; slot++)
@@ -90,8 +90,31 @@ class HCInteriorsModule : HCModule
                 sorted.Insert(candidate);
             }
         }
+        // SearchDensityScale < 1 can scale MaxActiveInteriors below the candidate count:
+        // trim the stable-slot-ordered list (lowest slots stay) instead of rejecting the pilot.
+        HCTrimCandidatesToCap(sorted, settings.HCSearchCap("MaxActiveInteriors", settings.MaxActiveInteriors));
+        if (sorted.Count() < 1) return Reject("no candidates remain after validation");
+        if (settings.MaxTickWorkItems < sorted.Count() * 2) return Reject("startup work exceeds core budgets");
         m_Config.Candidates = sorted;
-        return sorted.Count() > 0;
+        return true;
+    }
+
+    // Returns how many trailing candidates were dropped. Order is stable-slot order, so the
+    // result is deterministic. Native EnScript.c:470 array.RemoveOrdered keeps the remaining order.
+    int HCTrimCandidatesToCap(array<ref HCInteriorCandidate> sorted, int cap)
+    {
+        int before = sorted.Count();
+        while (sorted.Count() > cap && sorted.Count() > 0)
+        {
+            sorted.RemoveOrdered(sorted.Count() - 1);
+        }
+        int kept = sorted.Count();
+        int dropped = before - kept;
+        if (dropped > 0)
+        {
+            Print("[HC Interiors] density trimmed legacy pilot candidates kept=" + kept.ToString() + " dropped=" + dropped.ToString() + " cap=" + cap.ToString() + " runtime=PENDING");
+        }
+        return dropped;
     }
 
     HCInteriorManifest AllocateManifest()
