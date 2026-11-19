@@ -46,6 +46,7 @@ RULES = {
     'HC-E006': 'Substring on a receiver whose Length() the method never consults (Wrong parameter value)',
     'HC-E007': 'method named like a visible type (unqualified calls resolve to the type)',
     'HC-E008': 'unbalanced method attribute (the source model cannot inspect the declaration)',
+    'HC-E010': 'integer assigned to a FileHandle (native compile: Incompatible parameter); track open state in a bool',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -197,6 +198,14 @@ def rule_parse_issues(project, source):
 def rule_ternary(project, source):
     for match in re.finditer(r'\?', source.code):
         yield _finding('HC-E001', source, match.start(), '<file>', RULES['HC-E001'])
+
+
+def rule_file_handle_int(project, source):
+    # Native boot 074: FileHandle is typedef int[]; comparing with 0 compiles, assigning 0 does not.
+    names = set(re.findall(r'\bFileHandle\s+(\w+)', source.code))
+    for name in sorted(names):
+        for match in re.finditer(r'(?<![\w.])' + name + r'\s*=\s*\d+\s*;', source.code):
+            yield _finding('HC-E010', source, match.start(), name, RULES['HC-E010'])
 
 
 def rule_layers(project, source):
@@ -599,7 +608,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_parse_issues, rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)

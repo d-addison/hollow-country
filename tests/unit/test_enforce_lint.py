@@ -83,6 +83,16 @@ class CompileTraps(unittest.TestCase):
                                 '    string B() { return "?"; } // ?\n}\n'}, 'HC-E001')
         self.assertEqual([('T.c', 5, '<file>')], where(found))
 
+    def test_integer_assigned_to_a_file_handle_is_flagged(self):
+        # Native boot 074 (38133ab): hcxaicaravanadapter.c,70 "Incompatible parameter 'm_File'".
+        files = {W + 'HCRoads.c': 'class HCRoads\n{\n    FileHandle m_File;\n    void A()\n    {\n'
+                                  '        m_File = OpenFile("$profile:x", FileMode.READ);\n'
+                                  '        if (m_File != 0) { CloseFile(m_File); m_File = 0; }\n'
+                                  '        FileHandle local = OpenFile("$profile:y", FileMode.READ);\n'
+                                  '        local = 0;\n    }\n}\n'}
+        found = run(files, 'HC-E010')
+        self.assertEqual([('HCRoads.c', 7, 'm_File'), ('HCRoads.c', 9, 'local')], where(found))
+
     def test_3_game_cannot_see_a_4_world_class(self):
         files = {W + 'HCWorldThing.c': 'class HCWorldThing\n{\n}\n',
                  G + 'HCGameThing.c': 'class HCGameThing\n{\n    ref HCWorldThing m_T;\n    PlayerBase m_P;\n}\n',

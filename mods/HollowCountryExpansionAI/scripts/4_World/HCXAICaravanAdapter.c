@@ -29,6 +29,8 @@ class HCXAICaravanRoads
     string Phase = "cold";
     string Reason;
     FileHandle m_File;
+    // FileHandle is typedef int[]: it compares with 0 but cannot be assigned 0.
+    bool m_FileOpen;
     int m_Count;
     int m_Scan;
     int m_Head;
@@ -51,13 +53,13 @@ class HCXAICaravanRoads
     }
     static void HCClose()
     {
-        if (s_Instance && s_Instance.m_File) { CloseFile(s_Instance.m_File); }
+        if (s_Instance && s_Instance.m_FileOpen) { CloseFile(s_Instance.m_File); s_Instance.m_FileOpen = false; }
         s_Instance = null;
     }
     string HCLine()
     {
         string line;
-        if (!m_File || FGets(m_File, line) <= 0 || line.Length() > 96)
+        if (!m_FileOpen || FGets(m_File, line) <= 0 || line.Length() > 96)
         {
             HCRefuse("CARAVAN_ROAD_DATA_TRUNCATED");
             return "";
@@ -67,7 +69,7 @@ class HCXAICaravanRoads
     void HCRefuse(string reason)
     {
         Phase = "failed";
-        if (m_File) { CloseFile(m_File); m_File = 0; }
+        if (m_FileOpen) { CloseFile(m_File); m_FileOpen = false; }
         if (Reason == reason) { return; }
         Reason = reason;
         Print("[HC Caravan] roads=unavailable reason=" + reason + " runtime=PENDING");
@@ -75,7 +77,8 @@ class HCXAICaravanRoads
     void HCLoad()
     {
         m_File = OpenFile(Config.RoadDataPath, FileMode.READ);
-        if (!m_File) { HCRefuse("CARAVAN_INSTALLED_ROAD_DATA_MISSING"); return; }
+        if (m_File == 0) { HCRefuse("CARAVAN_INSTALLED_ROAD_DATA_MISSING"); return; }
+        m_FileOpen = true;
         string version = HCLine();
         string width = HCLine();
         string height = HCLine();
@@ -111,7 +114,7 @@ class HCXAICaravanRoads
         Nodes.Insert(node);
         if (Nodes.Count() == m_Count)
         {
-            CloseFile(m_File); m_File = 0;
+            CloseFile(m_File); m_FileOpen = false;
             Phase = "idle";
             Print("[HC Caravan] roads=loaded source=installed_expansion route_acceptance=unverified runtime=PENDING");
         }
