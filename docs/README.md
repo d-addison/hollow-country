@@ -1,6 +1,6 @@
 # Hollow Country handbook
 
-Use the [field guide](../README.md) for the component overview and roadmap.
+Use the [field guide](../README.md) for the features, dependency stack and milestones.
 
 | Purpose | Guide |
 | :--- | :--- |
@@ -26,12 +26,16 @@ multiplayer, persistence or production capacity.
 
 ## Living Country — V2 operations
 
-V2 is **being built / runtime acceptance pending**. Its systems are in the
-development build and on by default; dedicated-server compilation and startup
-do not establish gameplay acceptance. Multiplayer behaviour awaits group sessions.
+Living Country supplies persistent world history, finite supplies, camps, situations,
+AI activity and client presentation in the test build. Features default on with
+operator opt-outs. *In-game test pending*; sound, visibility and replication
+*Needs a two-player test*. No gameplay verdict is recorded for the current build.
+Compilation, startup and offline checks do not establish one.
 
 The server reads these booleans from `$profile:HollowCountry/settings.json`.
-All default to `true`, including when absent from an older settings file.
+All default to `true`. Preserve explicit operator choices; module-owned profile
+fields have their own defaulting and validation rules. The complete [settings
+reference](../README.md#server-settings-reference) lists shared and module tuning.
 
 | Preference | Default | Server scope |
 | :--- | :--- | :--- |
@@ -46,7 +50,7 @@ All default to `true`, including when absent from an older settings file.
 
 Stop the server, back up the profile, change the existing flag to a JSON boolean
 such as `"EnableCamps": false`, then restart. Preserve the other settings and state
-files. Check `[HollowCountry] V2 preferences ` for the resulting value. Each V2 module must print exactly one `HCV2Admission` line, including disabled modules; verify this in the native server log. Map pins share a
+files. Check `[HollowCountry] V2 preferences ` for the resulting value. Inspect `HCV2Admission` and operational status lines for requested, off and degraded owners. `HCGetOperationalStatus` / `HCOperationalStatus.HCPublish` derive readiness from current dependencies; `ready` is not a gameplay verdict. Map pins share a
 module that starts if either Travel or Leads is on; each pin kind follows its flag.
 
 Client grade, lighting, signs of life, hints and environmental sound run locally
@@ -90,7 +94,7 @@ run and save, rather than all being created at every startup.
 | `camps.json` | Camps, tiers, visitors, mailbox receipts, theft journal and probes |
 | `scene-chains.json` | Scene stage and expiry state |
 | `wreck-salvage.json`, `search-refresh.json` | Finite wreck supplies and search revisit history |
-| `ask-for-news.json`, `ask-for-news.pending.json` | Talk rate-limit state and pending intent |
+| `ask-for-news.json`, `ask-for-news.pending.json` | Physical-signal cooldown state and pending intent; no dialogue or quest flow |
 | `expansion-ai.json`, `expansion-ai-sites.json` | Optional AI provider and reviewed-site configuration |
 | `expansion-ai-leases.json`, `expansion-ai-leases.pending.json`, `expansion-ai-routes.json`, `expansion-ai-caches.json`, `expansion-ai-owned.json` | Optional AI leases, routes, caches and ownership state |
 
@@ -101,13 +105,63 @@ images), while grade intensity uses the native profile key
 `HollowCountryGradeIntensity` rather than a separate JSON file. Friend bundles
 omit runtime state and local acceptance markers.
 
-The default subscribed stack loads CF, Dabs Framework, Expansion-Core, Expansion-AI,
-the weapons packs, Ambient Animals Pack, Survivor Animations, DayZ-Bicycle,
-`@HollowCountry`, then `@HollowCountryExpansionAI` on server and every client.
-The [friend server guide](INSTALL_ROLLBACK.md#friend-server-installation) lists the IDs and exact installed folders.
+Server and clients use the [required stack](../README.md#required-mod-stack),
+ordered by [the dependency manifest](../tools/setup/workshop_mods.json): CF, COT,
+Dabs Framework, Expansion-Core, Expansion-Licensed, Expansion-Vehicles,
+Expansion-AI, Expansion-Navigation, the weapons packs, RaG_Core, RaG Immersive
+Vehicles, Ambient Animals Pack, Survivor Animations, DayZ-Bicycle,
+`@HollowCountry`, then `@HollowCountryExpansionAI`. Licensed and Vehicles are
+active dependencies, not pending options.
 
-Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+Expansion-Animations is intentionally not loaded. Its reported conflict with
+Survivor Animations remains unverified locally. DayZ-Bicycle requires Survivor
+Animations; Expansion-AI supplies its own AI animations.
 
 Bicycle and Ambient Animals overlays apply by default during friend-bundle install.
 The original Workshop items remain separate subscriptions; no third-party file is
 repacked or distributed. Install-time CE changes do not establish gameplay acceptance.
+
+## Current operator controls
+
+The [settings tables](../README.md#server-settings-reference) include the landed
+convoy, perception-ring, helicopter, hearth, AI timer, leaf, performance and
+module tuning fields. Separate profiles use unprefixed fields; shared
+`PerceptionRing` is a nested object in `settings.json`. Existing operator-edited
+AI defaults are retained; unchanged mod-written profiles can migrate with backups.
+
+- Grant COT permission `HollowCountry.Admin` or configure the private HC allowlist.
+  Connected-player permissions are checked on each request, including revocation.
+  `COTAuthorization.disable` disables COT-based grants; `AdminControls.disable`
+  disables world controls. `campvisit` and `campraid` include eligible claim-only
+  bases; `camptier` remains hearth-only. Older admin/COT guides may predate this binding.
+- Picker groups contain 2–6 members and carry up to three house goods through
+  finite player/AI reservations. Full crates retain goods on carriers; death and
+  restart never replay transfers. Keep the custody journal with world/Hive backups.
+- Variety mission `MaxPosed=12` caps server-wide poses; 0 stops new posed holds.
+  `PosedFreshEvery=3` selects the authored sitter when its addon exists. Unauthored
+  sleeper, lying-riser and kneeling-feed assets remain refused.
+- Taped helmet/pack receipt `Disabled=true` applies to the actual mounted pair.
+  `taped_light.disable` also disables their shared adapter; missing native slots
+  refuse only the affected pair. Beam geometry and replication need two players.
+- Client `auditleaves_settings.json` enables bounded autumn canopy leaves by
+  default; `Enabled=false`, `season_leaves.disable` or native profile key
+  `HollowCountrySeasonLeaves=0` opts out. A zero grade also stops the effect.
+- Wildlife observation and requested animal goals publish separate status.
+  `world_incidents.disable` makes clues unavailable while independent
+  carcass/contact work continues. Animal goals are admitted unverified; the
+  inspected native APIs supply no safe animal destination/target/feeding port.
+
+Inventory rollback now generates an unsigned replacement addon with a config
+diff and receipt from `--addon-source` or `--addon-pbo` plus `--pbo-out`. Review,
+sign and install it separately; runtime flags cannot undo installed overlays.
+Package hash-cache merges use OS-held locks; stop older lock-file builds before
+switching protocols. Windows contention and crash recovery remain unverified.
+
+After boot inspect `feature=NativeIncidents`, `[HC Plan] HC-41`,
+`W2_OBSERVATION_AVAILABLE`, `AUDITWILD_MEMORY`, `AUDITWILD_GOALS_PENDING` and
+`feature=WildlifeGoals`. Loose CE crash loot reports
+`CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING` with
+`reason=CE_INSTANCE_MEMBERSHIP_API_UNEXPOSED`; direct live-crash cargo ancestry
+is available. An operator-disabled incident registry reports `W2_CLUE_DEPENDENCY`.
+`[HC Pickers] run goods=` is an activity log, not a boot log. All remain
+`runtime=PENDING` until observed on DayZDiag and a normal packaged server.
