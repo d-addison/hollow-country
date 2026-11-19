@@ -777,7 +777,8 @@ class ProviderUnavailableTests(SupplyCase):
         self.assertIsNone(self.prepare([volume('site_a')]))  # nothing native to bind
         t = N(m_Ready=True, m_SearchProof=True, m_Store=N(Healthy=lambda: True), m_Economy=None)
         env = {'HCServer': N(Get=lambda: N(GetSettings=lambda: N(EnableInteriors=True, EnableSearch=True))),
-               'HCInteriorRules': N(MaySearch=lambda *args: all(args)), 'GetGame': lambda: N(IsServer=lambda: True)}
+               'HCInteriorRules': N(MaySearch=lambda *args: all(args)), 'GetGame': lambda: N(IsServer=lambda: True),
+               'HCRefusal': N(SERVICE='service', SUPPLY='supply_changed')}
         site = N(Id='site_a', Phase=0)
         self.assertFalse(module_invoke('SearchGate', env, t, self.actor, site))
 
