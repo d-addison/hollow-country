@@ -21,6 +21,17 @@ from a self-declared row. Ran 6 tests; FAILED (failures=1).
 GREEN: Ran 6 tests; OK. Native compile/boot/PBO/two-client acceptance PENDING.
 Required specification files are absent from this worker snapshot; the supplied
 HC-23 task/brief and runtime contract are the scoped design inputs.
+
+HC-52 spec -> plan -> task, 2026-11-18: exact pack/cross-slot identity and
+server preference guards before HC-7 custody; no supported backpack proxy or
+transform is fabricated. Authored candidate/evidence queue: backpack-mounts.json.
+RED command: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_taped_lights.TapedLightConservationTests.test_pack_pairs_refuse_before_custody_without_native_qualification -v
+Actual RED: Ran 1 test; FAILED (failures=1).
+AssertionError: 3 != 0 : unenabled cross-slot pair attached
+GREEN command: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_taped_lights -v
+GREEN: Ran 7 tests; OK. Native compile/boot/PBO/two-client acceptance PENDING.
+The supplied HC-52 task/brief and runtime contract are the scoped design inputs;
+the two required specification files remain absent. No distance added.
 """
 import copy
 import hashlib
@@ -39,6 +50,9 @@ ROOT = Path(__file__).resolve().parents[2]
 WEARABLE = ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCTapedWearableCatalog.c"
 HELMETS = ROOT / "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c"
 MANIFEST = ROOT / "mission/hollow-country/lights/helmet-mounts.json"
+PACKS = ROOT / "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c"
+PACK_MANIFEST = ROOT / "mission/hollow-country/lights/backpack-mounts.json"
+MOUNT_DEFAULTS = ROOT / "config/hollow-country-light-mounts.json"
 
 
 def helmet_member(path, cls, method, state, env, *args):
@@ -58,6 +72,166 @@ def helmet_member(path, cls, method, state, env, *args):
 class TapedLightConservationTests(unittest.TestCase):
     setUp = policy.TapedLightTests.setUp
     run_op = policy.TapedLightTests.run_op
+
+    def test_pack_pairs_refuse_before_custody_without_native_qualification(self):
+        # Explicit SYNTHETIC binding/port: a forged qualification must not
+        # turn a cross-slot request into a tape debit or inventory move.
+        original = copy.deepcopy(self.port.sample)
+        self.port.binding.CrossSlot = True
+        self.port.binding.PairId = ""
+        self.assertEqual(self.code.BLOCKED, self.run_op(),
+                         "unenabled cross-slot pair attached")
+        self.assertEqual([], self.port.moves)
+        self.assertEqual([], self.port.consumptions)
+        self.assertEqual([], self.port.writes)
+        self.assertEqual(vars(original), vars(self.port.sample))
+
+        catalog = NS()
+        for method in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal"):
+            setattr(catalog, method, lambda *args, method=method: helmet_member(
+                WEARABLE, "HCTapedPackCatalog", method, catalog, {}, *args))
+        gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False)
+        server = True
+        slots = {"CfgVehicles TortillaBag attachments": EArray([
+                    "Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag"]),
+                 "CfgVehicles UniversalLight inventorySlot": EArray([
+                    "weaponFlashlight", "helmetFlashlight"])}
+        probes = []
+        def config(path, out):
+            probes.append(path)
+            out.extend(slots[path])
+        env = dict(GetGame=lambda: NS(IsServer=lambda: server, ConfigGetTextArray=config),
+                   HCBuildIdentity=NS(Matches=lambda build: True, SeenBuild=lambda: "synthetic"),
+                   HCTapedPackCatalog=catalog, NewSlots=EArray,
+                   HCV2Admission=NS(OnOff=lambda value: "on" if value else "off",
+                                     Line=lambda *args: "synthetic admission"))
+        for method in ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable",
+                       "PairRefusal", "BindingAllowed"):
+            setattr(gate, method, lambda *args, method=method: helmet_member(
+                PACKS, "HCTapedPackMounts", method, gate, env, *args))
+        self.e["HCTapedPackMounts"] = gate
+        manifest = json.loads(PACK_MANIFEST.read_text())
+        defaults = json.loads(MOUNT_DEFAULTS.read_text())
+        self.assertFalse(defaults["crossSlotLights"])
+        self.assertEqual([], defaults["permittedPairIds"])
+        self.assertTrue(gate.Configure(NS(crossSlotLights=False, permittedPairIds=EArray())))
+        self.assertEqual("cross_slot_disabled", gate.PairRefusal("tortilla_universal_cross"))
+        self.assertEqual("pack_native_slot_unavailable", gate.PairRefusal("tortilla_universal_mount"))
+        self.assertEqual("unsupported_pack_pair", gate.PairRefusal("unknown"))
+        self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=EArray())))
+        self.assertEqual("cross_slot_pair_not_permitted", gate.PairRefusal("tortilla_universal_cross"))
+        pairs = manifest["AuthoredPairs"] + manifest["CrossSlotPairs"]
+        for pair in pairs:
+            self.assertTrue(catalog.Matches(pair["PairId"], pair["HostClass"],
+                                           pair["LightClass"], pair["SlotName"], pair["CrossSlot"]))
+            self.assertFalse(catalog.Qualified(pair["PairId"]))
+            self.assertIsNone(pair["LocalPosition"])
+            self.assertIsNone(pair["LocalOrientation"])
+            for field, value in (("HostClass", "TortillaBag_Winter"),
+                                 ("LightClass", "Flashlight"),
+                                 ("SlotName", "Back"),
+                                 ("PairId", "unknown"),
+                                 ("CrossSlot", not pair["CrossSlot"])):
+                forged = dict(pair)
+                forged[field] = value
+                self.assertFalse(catalog.Matches(forged["PairId"], forged["HostClass"],
+                                                forged["LightClass"], forged["SlotName"],
+                                                forged["CrossSlot"]))
+            for enabled in (False, True):
+                settings = NS(crossSlotLights=enabled, permittedPairIds=EArray([pair["PairId"]]))
+                self.assertTrue(gate.Configure(settings))
+                binding = self.port.binding
+                for field in ("PairId", "HostClass", "LightClass", "SlotName", "CrossSlot"):
+                    setattr(binding, field, pair[field])
+                self.assertEqual(self.code.BLOCKED, self.run_op())
+                self.assertFalse(gate.BindingAllowed(binding))
+                copied = self.e["CopyBinding"](binding)
+                self.assertTrue(self.e["SameBinding"](copied, binding))
+                copied.CrossSlot = not binding.CrossSlot
+                self.assertFalse(self.e["SameBinding"](copied, binding))
+                copied = self.e["CopyBinding"](binding)
+                copied.PairId = "other-pair"
+                self.assertFalse(self.e["SameBinding"](copied, binding))
+                self.assertEqual([], self.port.moves)
+                self.assertEqual([], self.port.consumptions)
+                self.assertEqual([], self.port.writes)
+                self.assertEqual(vars(original), vars(self.port.sample))
+        # A permissive live config or operator file is never geometry evidence.
+        slots["CfgVehicles TortillaBag attachments"].append("helmetFlashlight")
+        self.assertTrue(gate.NativeSlotAvailable("tortilla_universal_mount"))
+        self.assertFalse(catalog.Qualified("tortilla_universal_mount"))
+        self.assertEqual("pack_mount_geometry_pending", gate.PairRefusal("tortilla_universal_mount"))
+        self.assertEqual("pack_native_slot_unavailable", gate.PairRefusal("tortilla_universal_cross"))
+        # Explicit SYNTHETIC future qualification isolates preference/identity
+        # checks, then executes the same HC-7 transaction and conservation code.
+        # The shipped catalogue's Qualified method above remains hard false.
+        catalog.Qualified = lambda pair_id: True
+        slots["CfgVehicles UniversalLight inventorySlot"].append("Chemlight")
+        for enabled, ids in ((False, ["tortilla_universal_cross"]), (True, [])):
+            self.assertTrue(gate.Configure(NS(crossSlotLights=enabled, permittedPairIds=EArray(ids))))
+            self.assertFalse(gate.BindingAllowed(self.port.binding))
+        permitted = EArray(["tortilla_universal_cross"])
+        self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=permitted)))
+        permitted.clear()
+        self.assertTrue(gate.BindingAllowed(self.port.binding), "settings ID list was not copied")
+        before = copy.deepcopy(self.port.sample)
+        self.assertEqual(self.code.OK, self.run_op())
+        self.assertTrue(self.e["Preserved"](before, self.port.sample))
+        self.assertEqual([1], self.port.consumptions)
+        self.assertEqual([True], self.port.moves)
+        self.assertEqual(self.code.OK, self.run_op("pack-remove", False))
+        self.assertTrue(self.e["Preserved"](before, self.port.sample))
+        self.assertEqual([1], self.port.consumptions)
+        self.assertEqual([True, False], self.port.moves)
+        self.assertTrue(self.e["StateValid"](self.state))
+        catalog.Qualified = lambda pair_id: helmet_member(
+            WEARABLE, "HCTapedPackCatalog", "Qualified", catalog, {}, pair_id)
+        for settings in (None, NS(crossSlotLights=True, permittedPairIds=None),
+                         NS(crossSlotLights=True, permittedPairIds=EArray(["unknown"])),
+                         NS(crossSlotLights=True, permittedPairIds=EArray([
+                             "tortilla_universal_cross", "tortilla_universal_cross"])),
+                         NS(crossSlotLights=True, permittedPairIds=EArray(["unknown"] * 3))):
+            self.assertFalse(gate.Configure(settings))
+            self.assertFalse(gate.CrossSlotEnabled())
+            self.assertEqual([], gate.mHCPermitted)
+        self.assertTrue(self.e["StateValid"](self.state),
+                        "disabled preference invalidated historical custody")
+        server = False
+        probes.clear()
+        self.assertFalse(gate.Configure(NS(**defaults)))
+        self.assertFalse(gate.BindingAllowed(self.port.binding))
+        self.assertFalse(gate.NativeSlotAvailable("tortilla_universal_mount"))
+        self.assertEqual([], probes)
+        server = True
+        # Startup/off receipt is bounded and idempotent; status is cached, and
+        # stop closes preferences without an inventory, scheduler or light port.
+        logs = []
+        status = NS(HCPublish=lambda *args: logs.append(args), HCStop=lambda: logs.append("stop"))
+        module = NS(mHCStarted=False, mHCStatus=status, PairRefusal=gate.PairRefusal,
+                    CrossSlotEnabled=gate.CrossSlotEnabled, Reset=gate.Reset,
+                    mHCPermitted=gate.mHCPermitted)
+        env["Print"] = logs.append
+        self.assertIs(status, helmet_member(PACKS, "HCTapedPackMounts", "HCGetOperationalStatus", module, env))
+        for _ in range(2):
+            helmet_member(PACKS, "HCTapedPackMounts", "OnStart", module, env, NS())
+        plan = [line for line in logs if isinstance(line, str) and "HC-52 pack_pairs=" in line]
+        self.assertEqual(1, len(plan))
+        for field in ("pack_pairs=1", "cross_slot=off", "qualified=0", "state=off",
+                      "authored=1 admitted=0 observed=0", "runtime=PENDING"):
+            self.assertIn(field, plan[0])
+        pair_lines = [line for line in logs if isinstance(line, str) and "HC-52 pair=" in line]
+        self.assertEqual(2, len(pair_lines))
+        self.assertIn(("off", "pack_mount_geometry_pending"), logs)
+        self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=EArray([
+            "tortilla_universal_cross"]))))
+        helmet_member(PACKS, "HCTapedPackMounts", "OnStop", module, env)
+        self.assertFalse(gate.CrossSlotEnabled())
+        self.assertFalse(module.mHCStarted)
+        self.assertEqual([], gate.mHCPermitted)
+        self.assertIn("stop", logs)
+        self.assertEqual("PENDING", manifest["RuntimeAcceptance"])
+        self.assertEqual([], manifest["DistancesAdded"])
+        self.assertFalse(manifest["Qualified"])
 
     def test_spent_last_tape_replay_acknowledges_without_a_new_debit_or_move(self):
         self.port.sample.TapeQuantity = 1

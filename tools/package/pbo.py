@@ -55,7 +55,15 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  # HC-33 authored forage route dispositions (native generator stays in charge).
                  'forage/habitats.json',
                  # HC-45 posture site research record (not read at runtime yet).
-                 'infected/variety-sites.json'}
+                 'infected/variety-sites.json',
+                 # HC-46 surveyed herd routes (HCHordeMigration reads $mission:; unsurveyed routes stay inert).
+                 'infected/route-surveys.json',
+                 # HC-48 habitat dispositions; events.append.xml is inert (no cfgeconomycore registration).
+                 'ecology/habitat-overrides.json', 'ecology/events.append.xml',
+                 # HC-52 backpack light pairs (fail-closed; qualification stays false).
+                 'lights/backpack-mounts.json',
+                 # HC-59 shelter survey backlog and finite wreck part dispositions.
+                 'travel/route-surveys.json', 'travel/wreck-dispositions.json'}
 
 
 def safe_name(name):

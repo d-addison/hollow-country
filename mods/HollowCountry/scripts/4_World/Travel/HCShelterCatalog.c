@@ -1,3 +1,7 @@
+// HC-59: active legacy barns plus a separate bounded regional survey queue.
+// No new roof is admitted from class ancestry, a stock point or a route label.
+// CandidateCount/GetCandidate are lead integration inputs, never placed scenes.
+// Native stock roofs need no new stock, lights, inventory, props or tick loop.
 // LC-T206 / LC-TRV-06. Six shared, unowned rural barns; no loot or lead grants.
 // Positions verified against stock ChernarusPlus mapgrouppos.xml, read-only:
 // /mnt/d/HollowCountryLocal/interior-sampler-120/mpmissions/dayzOffline.chernarusplus/mapgrouppos.xml
@@ -20,10 +24,65 @@ class HCShelterEntry
     string LeadSlot = "";
 }
 
+// HC-59 source-only survey record. A candidate cannot enter Count()/Get(),
+// which the existing barn-specific materializer consumes. Native access, rain
+// cover, geometry, doors and two-client presentation remain unobserved.
+class HCShelterSurvey
+{
+    string Id;
+    string Name;
+    string BuildingClass;
+    vector Position;
+    string LocalityId;
+    string Region;
+    string RouteClass;
+    string Refusal = "hc59_regional_shelter_access_unobserved";
+}
+
 class HCShelterCatalog
 {
     static const string BUILDING_CLASS = "Land_Barn_Wood2";
     protected static ref array<ref HCShelterEntry> s_Entries = new array<ref HCShelterEntry>;
+    protected static ref array<ref HCShelterSurvey> s_Candidates = new array<ref HCShelterSurvey>;
+
+    protected static void HCCandidate(string id, string name, string buildingClass, vector position, string locality, string region, string routeClass)
+    {
+        HCShelterSurvey row = new HCShelterSurvey;
+        row.Id = id;
+        row.Name = name;
+        row.BuildingClass = buildingClass;
+        row.Position = position;
+        row.LocalityId = locality;
+        row.Region = region;
+        row.RouteClass = routeClass;
+        s_Candidates.Insert(row);
+    }
+
+    protected static void HCEnsureCandidates()
+    {
+        if (s_Candidates.Count() != 0) return;
+        // Exact stock-map anchors, not measured access or interior locations.
+        // Residential config exposes these models as HouseNoDestruct scope=1;
+        // this is insufficient to assert enterability, roof cover or road access.
+        HCCandidate("nw-feed-roof", "Northwest woodland roof", "Land_Misc_FeedShack", "1987.282837 289.981445 12965.870117", "sinystok", "NW", "forest-trail");
+        HCCandidate("nc-feed-roof", "Northern woodland roof", "Land_Misc_FeedShack", "7428.081543 131.084442 12732.728516", "kamensk", "NC", "forest-trail");
+        HCCandidate("ne-feed-roof", "Northeast woodland roof", "Land_Misc_FeedShack", "12818.673828 126.932716 13117.182617", "novodmitrovsk", "NE", "remote-road");
+        HCCandidate("sc-bus-roof", "Central coast road roof", "Land_BusStop_City", "6826.631836 50.728073 3549.387207", "prigorodki", "SC", "coastal-road");
+        HCCandidate("se-bus-roof", "Southeast coast road roof", "Land_BusStop_City", "10897.795898 7.027513 2815.425293", "elektrozavodsk", "SE", "coastal-road");
+    }
+
+    static int CandidateCount()
+    {
+        HCEnsureCandidates();
+        return s_Candidates.Count();
+    }
+
+    static HCShelterSurvey GetCandidate(int index)
+    {
+        HCEnsureCandidates();
+        if (index < 0 || index >= s_Candidates.Count()) return null;
+        return s_Candidates[index];
+    }
 
     protected static void Add(string shelterName, vector position, string history)
     {

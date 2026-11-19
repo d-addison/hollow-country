@@ -1,3 +1,10 @@
+// HC-59 / HC-4/32: compatible finite car parts; all native acceptance pending.
+// New API evidence: 3_Game/Global/Game.c:558 ConfigGetTextArray;
+// 1_Core/proto/EnString.c:240 IndexOf; wheel inventorySlot intersects the
+// inspected vehicle attachments in vehicles_wheeled.pbo/config.bin. The family
+// mapping is authored salvage policy, not extraction of a native wreck slot.
+// Static wreck configs expose models, not a supported detachable-part inventory.
+// No native wreck repair, fuel, deletion or aircraft/truck fallback is invented.
 // LC-T203 / LC-TRV-03, EXP-T2. Source implementation; native acceptance pending.
 // Installed scripts-1.30.164289 API evidence (paths relative to that cache):
 // 1_Core/proto/EnSystem.c:397,417,425,443,462,525-531 file IO/exists/mkdir/copy/delete;
@@ -60,6 +67,8 @@ class HCWreckSalvageImage
 
 class HCWreckSalvage
 {
+    static const int HC_MAX_WHEEL_SLOTS = 16;
+    static const int HC_MAX_VEHICLE_ATTACHMENTS = 64;
     static bool Reviewed(string name)
     {
         // Array lookup: a single 24-term || chain fails natively with "Formula too complex".
@@ -105,6 +114,42 @@ class HCWreckSalvage
         return "MetalPlate";
     }
 
+    // Exact admission first: no class is authorized merely by its prefix.
+    static string HCWheel(string name)
+    {
+        if (!Reviewed(name)) return "";
+        if (name.IndexOf("Land_Wreck_hb01_") == 0) return "HatchbackWheel";
+        if (name.IndexOf("Land_Wreck_hb02_") == 0) return "Hatchback_02_Wheel";
+        if (name.IndexOf("Land_Wreck_sed01_") == 0) return "CivSedanWheel";
+        if (name.IndexOf("Land_Wreck_sed02_") == 0) return "Sedan_02_Wheel";
+        return "";
+    }
+
+    static string HCPartForWreck(string name, string key, int left)
+    {
+        string wheel = HCWheel(name);
+        if (wheel == "" || left < 1) return "";
+        // Retain the allocation, remaining ordinal and original hash weighting.
+        // Updating the output table never increases an enrolled source budget.
+        string part = Part(key, left);
+        if (part == "HatchbackWheel") return wheel;
+        return part;
+    }
+
+    static bool HCWheelFits(string wheel, string vehicle)
+    {
+        array<string> slots = new array<string>;
+        array<string> attachments = new array<string>;
+        GetGame().ConfigGetTextArray("CfgVehicles " + wheel + " inventorySlot", slots);
+        GetGame().ConfigGetTextArray("CfgVehicles " + vehicle + " attachments", attachments);
+        if (slots.Count() > HC_MAX_WHEEL_SLOTS || attachments.Count() > HC_MAX_VEHICLE_ATTACHMENTS) return false;
+        foreach (string slotName : slots)
+        {
+            if (attachments.Find(slotName) >= 0) return true;
+        }
+        return false;
+    }
+
     static bool Tool(ItemBase item)
     {
         if (!item || item.IsDamageDestroyed()) return false;
@@ -148,17 +193,47 @@ class HCWreckSalvageModule : HCModule
     protected static HCWreckSalvageModule s_Instance;
     protected bool m_Active;
     protected bool m_Busy;
+    protected bool m_HCReported;
+    protected int m_HCPurgeCursor = -1;
+    protected ref HCUnitBudget m_HCUnits = new HCUnitBudget;
+    protected ref HCWorkBudget m_HCWork = new HCWorkBudget;
+    protected ref HCOperationalStatus m_HCStatus = new HCOperationalStatus;
     protected ref HCWreckSalvageState m_State;
     protected ref map<string, int> m_Index = new map<string, int>;
     protected ref array<ref HCWreckSalvageActionData> m_Sessions = new array<ref HCWreckSalvageActionData>;
 
     static HCWreckSalvageModule Get() { return s_Instance; }
     override string GetName() { return "WreckSalvage"; }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableTravel; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_HCStatus; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool enabled = settings && settings.EnableTravel;
+        if (!enabled)
+        {
+            m_HCStatus.HCPublish("off", "travel_disabled");
+            if (!m_HCReported) HCReport("off", "travel_disabled");
+        }
+        return enabled;
+    }
+
+    protected void HCReport(string state, string reason)
+    {
+        int receipts = 0;
+        int classes = 0;
+        if (m_State && m_State.Rows) receipts = m_State.Rows.Count();
+        if (m_Active) classes = 24;
+        string counts = " shelters=" + HCShelterCatalog.Count().ToString();
+        counts += " wreck_classes=" + classes.ToString() + " salvage_receipts=" + receipts.ToString();
+        string admission = " state=" + state + " reason=" + reason;
+        Print("[HC Plan] HC-59" + counts + admission + " shelters_kind=authored observed_shelters=0 runtime=PENDING");
+        m_HCReported = true;
+    }
 
     bool Fault()
     {
         m_Active = false;
+        m_HCStatus.HCPublish("refused", "wreck_journal_or_config_fault");
+        HCReport("refused", "wreck_journal_or_config_fault");
         Print("[HollowCountry] V2 wreck salvage inactive: journal/config fault; preserve journal, tmp and backup for recovery");
         return false;
     }
@@ -255,21 +330,42 @@ class HCWreckSalvageModule : HCModule
 
     override void OnStart(HCSettings settings)
     {
-        Print(HCV2Admission.Line("WreckSalvage", true, "EXP-T2", HCV2Gates.Qualified("EXP-T2")));
+        // Admission observes only server/config/store readiness, not EXP-T2 acceptance.
         s_Instance = this;
         m_Active = false;
         m_Index.Clear();
         m_Sessions.Clear();
         m_Busy = false;
-        if (!GetGame() || !GetGame().IsServer() || !IsEnabled(settings)) return;
+        m_HCPurgeCursor = -1;
+        m_State = null;
+        if (!IsEnabled(settings)) return;
+        m_HCReported = false;
+        if (!GetGame() || !GetGame().IsServer())
+        {
+            m_HCStatus.HCPublish("off", "server_authority_required");
+            HCReport("off", "server_authority_required");
+            return;
+        }
+        Print(HCV2Admission.Line("WreckSalvage", true, "EXP-T2", HCV2Gates.Qualified("EXP-T2")));
         if (!HCBuildIdentity.SameWorld(GetGame().GetWorldName(), "chernarusplus")) { Fault(); return; }
-        array<string> parts = {"SparkPlug", "CarBattery", "CarRadiator", "HeadlightH7", "HatchbackWheel", "MetalPlate", "Wrench", "Screwdriver", "Pliers"};
+        array<string> parts = {"SparkPlug", "CarBattery", "CarRadiator", "HeadlightH7", "HatchbackWheel", "Hatchback_02_Wheel", "CivSedanWheel", "Sedan_02_Wheel", "MetalPlate", "Wrench", "Screwdriver", "Pliers"};
         foreach (string part : parts)
         {
             if (!GetGame().ConfigIsExisting("CfgVehicles " + part) || GetGame().ConfigGetInt("CfgVehicles " + part + " scope") != 2) { Fault(); return; }
         }
+        bool wheelsFit = HCWreckSalvage.HCWheelFits("HatchbackWheel", "OffroadHatchback");
+        wheelsFit = wheelsFit && HCWreckSalvage.HCWheelFits("Hatchback_02_Wheel", "Hatchback_02");
+        wheelsFit = wheelsFit && HCWreckSalvage.HCWheelFits("CivSedanWheel", "CivilianSedan");
+        wheelsFit = wheelsFit && HCWreckSalvage.HCWheelFits("Sedan_02_Wheel", "Sedan_02");
+        if (!wheelsFit) { Fault(); return; }
         if (!Load()) return;
         m_Active = true;
+        m_HCStatus.HCPublish("ready", "finite_journal_and_part_config_loaded");
+        HCReport("ready", "finite_journal_and_part_config_loaded");
+        Print("[HC Plan] HC-59 state=refused reason=hc59_native_wreck_component_extraction_unexposed component_extraction=0 runtime=PENDING");
+        Print("[HC Plan] HC-59 state=refused reason=hc59_wreck_contracts_unverified wreck_classes=16 runtime=PENDING");
+        string pendingShelters = HCShelterCatalog.CandidateCount().ToString();
+        Print("[HC Plan] HC-59 state=refused reason=hc59_regional_shelter_access_unobserved candidates=" + pendingShelters + " admitted_additions=0 runtime=PENDING");
         int remaining = 0;
         foreach (HCWreckSalvageRow row : m_State.Rows) remaining += row.Left;
         // Counts are enrolled wrecks, discovered lazily at an attempted salvage;
@@ -280,6 +376,7 @@ class HCWreckSalvageModule : HCModule
     int Enroll(Object wreck)
     {
         if (!m_Active || !wreck) return -1;
+        if (!HCWreckSalvage.Reviewed(wreck.GetType()) || !HCWreckSalvage.PositionValid(wreck.GetPosition())) return -1;
         string key = HCWreckSalvage.Key(wreck.GetType(), wreck.GetPosition());
         int existing;
         if (m_Index.Find(key, existing)) return existing;
@@ -303,7 +400,12 @@ class HCWreckSalvageModule : HCModule
         if (!m_Active || index < 0 || index >= m_State.Rows.Count()) return false;
         if (m_State.Rows[index].Left <= 0) return false;
         m_State.Rows[index].Left = m_State.Rows[index].Left - 1;
-        if (!Save()) { m_Active = false; return false; }
+        if (!Save())
+        {
+            m_Active = false;
+            m_HCStatus.HCPublish("refused", "wreck_debit_persistence_uncertain");
+            return false;
+        }
         return true;
     }
 
@@ -318,11 +420,15 @@ class HCWreckSalvageModule : HCModule
     void Purge()
     {
         int now = GetGame().GetTime();
-        for (int index = m_Sessions.Count() - 1; index >= 0; index--)
+        m_HCUnits.HCReset(16);
+        m_HCWork.HCReset(16);
+        if (m_HCPurgeCursor < 0 || m_HCPurgeCursor >= m_Sessions.Count()) m_HCPurgeCursor = m_Sessions.Count() - 1;
+        while (m_HCPurgeCursor >= 0 && m_HCUnits.HCTake(1) && m_HCWork.HCContinue())
         {
-            HCWreckSalvageActionData data = m_Sessions[index];
+            HCWreckSalvageActionData data = m_Sessions[m_HCPurgeCursor];
             if (!data || data.Completed || !data.m_Player || !data.Wreck || now < data.StartedMs || now - data.StartedMs > 30000)
-                m_Sessions.Remove(index);
+                m_Sessions.Remove(m_HCPurgeCursor);
+            m_HCPurgeCursor = m_HCPurgeCursor - 1;
         }
     }
 
@@ -361,7 +467,8 @@ class HCWreckSalvageModule : HCModule
         data.Completed = true;
         m_Busy = true;
         HCWreckSalvageRow row = m_State.Rows[data.Index];
-        string partType = HCWreckSalvage.Part(row.Key, row.Left);
+        string partType = HCWreckSalvage.HCPartForWreck(row.WreckClass, row.Key, row.Left);
+        if (partType == "") { m_Busy = false; return; }
         if (!Debit(data.Index)) { m_Busy = false; return; }
         // Server only, native ground inventory creation exactly at actor's feet.
         // Tool stays in hands; no client inventory state or retry/fallback spawn.
@@ -397,9 +504,15 @@ class HCWreckSalvageModule : HCModule
     {
         // Every mutation already saved synchronously before a reward; do not
         // overwrite a faulted journal during shutdown.
-        if (m_Active) Save();
+        // No routine dirty state exists: enrollment/debit are synchronous barriers.
+        // Do not schedule another checkpoint or overwrite a quarantined journal.
         m_Active = false;
+        m_HCStatus.HCPublish("off", "stopped");
         m_Sessions.Clear();
+        m_Index.Clear();
+        m_State = null;
+        m_HCPurgeCursor = -1;
+        m_HCReported = false;
         s_Instance = null;
     }
 }

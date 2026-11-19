@@ -42,8 +42,21 @@ class HCTapedLightService
         if (b.HostConfigRoot != "CfgVehicles" && b.HostConfigRoot != "CfgWeapons") { return false; }
         if (!TextValid(b.HostClass, 128) || !TextValid(b.LightClass, 128)) { return false; }
         if (!TextValid(b.SlotName, 96)) { return false; }
+        if (b.CrossSlot && b.PairId == "") { return false; }
+        if (b.PairId != "" && !TokenValid(b.PairId)) { return false; }
         if (!(b.TapeUnits >= 1 && b.TapeUnits <= 1000000)) { return false; }
         return b.MaxDistance > 0 && b.MaxDistance <= 5;
+    }
+    // Runtime permission is separate from historical journal validity. Turning
+    // cross-slot preferences off must not corrupt an otherwise valid journal.
+    static bool PairAllowed(HCTapedLightBinding b)
+    {
+        if (!b) { return false; }
+        if (b.PairId != "" || b.CrossSlot || b.HostClass == "TortillaBag")
+        {
+            return HCTapedPackMounts.BindingAllowed(b);
+        }
+        return true;
     }
     // Exact qualified operation identity; digests alone are not eligibility.
     static bool SameBinding(HCTapedLightBinding a, HCTapedLightBinding b)
@@ -53,6 +66,7 @@ class HCTapedLightService
         if (HCBuildIdentity.Normalize(a.GameBuild) != HCBuildIdentity.Normalize(b.GameBuild) || a.HostConfigRoot != b.HostConfigRoot) { return false; }
         if (a.HostClass != b.HostClass || a.LightClass != b.LightClass) { return false; }
         if (a.SlotName != b.SlotName || a.BatterySlotName != b.BatterySlotName) { return false; }
+        if (a.PairId != b.PairId || a.CrossSlot != b.CrossSlot) { return false; }
         return a.TapeUnits == b.TapeUnits && a.MaxDistance == b.MaxDistance && a.ReturnToCargo == b.ReturnToCargo;
     }
     static HCTapedLightBinding CopyBinding(HCTapedLightBinding b)
@@ -67,6 +81,8 @@ class HCTapedLightService
         n.LightClass = b.LightClass;
         n.SlotName = b.SlotName;
         n.BatterySlotName = b.BatterySlotName;
+        n.PairId = b.PairId;
+        n.CrossSlot = b.CrossSlot;
         n.TapeUnits = b.TapeUnits;
         n.MaxDistance = b.MaxDistance;
         n.ReturnToCargo = b.ReturnToCargo;
@@ -219,6 +235,7 @@ class HCTapedLightService
         if (!p.CustodyAvailable()) { return HCTapedLightCode.BLOCKED; }
         HCTapedLightBinding b = p.Resolve();
         if (!BindingValid(b, p.CurrentBuild())) { return HCTapedLightCode.BLOCKED; }
+        if (!PairAllowed(b)) { return HCTapedLightCode.BLOCKED; }
         b = CopyBinding(b);
         if (!p.InRange(b) || !p.HasLOS(b)) { return HCTapedLightCode.DENIED; }
         HCTapedLightSnapshot before = p.Observe(b);
@@ -634,6 +651,9 @@ class HCTapedLightPort
     bool CanTransfer(HCTapedLightBinding b, bool mounting)
     {
         if (!ActorAllowed() || !mHCHost || !mHCLight) { return false; }
+        // HC-52 repeats the selected pack gate at the native boundary. The
+        // shared Run gate already rejects unknown/non-pack named pair IDs.
+        if (b.HostClass == "TortillaBag" && !HCTapedLightService.PairAllowed(b)) { return false; }
         if (mHCHost.GetType() != b.HostClass || mHCLight.GetType() != b.LightClass) { return false; }
         if (mHCHost.GetHierarchyRootPlayer() != mHCActor) { return false; }
         if (mHCLight.GetHierarchyRootPlayer() != mHCActor) { return false; }

@@ -34,6 +34,13 @@ class HCHordeMemberId
 
 class HCHordeRecovery
 {
+    // HC-46 consumes only an existing physical pack's exact roster. JSON
+    // survey points never authorize a replacement, extra member or reactivation.
+    static bool HCRouteRoster(int members, int cap, int expected, bool conflicted)
+    {
+        return !conflicted && cap >= 1 && cap <= 6 && members >= 1 && members <= cap && members == expected;
+    }
+
     // Persist the complete roster or none of it. Partial IDs cannot authorize
     // inferred replacement. The source remains compatible with legacy no-ID
     // records, which stay unresolved on restart.

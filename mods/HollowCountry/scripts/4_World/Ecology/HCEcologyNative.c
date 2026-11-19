@@ -2,6 +2,20 @@
 // Object.GetWaterSourceObjectType, EntityAI.GetHierarchyParent,
 // ItemBase.HasQuantity/GetQuantity/GetLiquidType, AIWorld.FindPath and
 // SampleNavmeshPosition, PGFilter.SetFlags. Path results are geometry only.
+// HC-48 / #149: spec FR-008/011 -> Wave 3 habitat/target dispositions in
+// mission/hollow-country/ecology/habitat-overrides.json. The manifest is an
+// install-time delta contract, NOT an engine-readable territory overlay.
+// CE still owns native herds, territories, grazing, travel and fleeing.
+// Reuse HCWildlifeObservation.HCSnapshot for bounded, deduplicated facts;
+// never take a second animal cohort or infer prey from HUNTING/proximity.
+// N9 evidence in scripts-1.30.164289: 3_Game/Entities/DayZAnimal.c:193/664
+// GetAIAgent/GetInputController; 3_Game/AI/AIAgent.c:7 GetGroup (identity);
+// 3_Game/Entities/DayZCreatureAIInputController.c:27 GetBehaviourSlot;
+// 3_Game/Entities/DayZAnimalInputController.c:55 GetBehaviourAction.
+// Neither these nor 4_World/Entities/DayZAnimalImplement.c:1-8 exposes an
+// animal destination or target accessor. N17 is a human lifecycle, not an AI
+// SDK. The supplied optional provider source path was unavailable at authoring;
+// no faction/target hook is admitted from that absence or a dependency name.
 class HCEcologyNative
 {
 	static bool Authority()
@@ -51,6 +65,20 @@ class HCEcologyNative
 		capabilities.SupportsAnimalNavigation = false;
 		capabilities.SupportsInfectedNavigation = false;
 		return capabilities;
+	}
+
+	// HC-62 lead calls ONCE through the existing bounded content receipt path
+	// when ecology is admitted. This emits capability refusals only: it neither
+	// claims CE loaded the JSON/XML nor supplies another tick/status controller.
+	// Off path: do not call. Core owns effective/authored/admitted counts and
+	// the [HC Plan] HC-48 species=... habitats=... target_pairs_supported=0 line.
+	// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print.
+	static void HCHabitatRefusals()
+	{
+		Print("[HC Plan] HC-48 state=refused capability=animal_destination reason=no_inspected_animal_destination_api runtime=PENDING");
+		Print("[HC Plan] HC-48 state=refused capability=animal_migration reason=native_brains_retained_no_destination_provider runtime=PENDING");
+		Print("[HC Plan] HC-48 state=refused capability=animal_target_pairs reason=no_inspected_animal_target_accessor target_pairs_supported=0 runtime=PENDING");
+		Print("[HC Plan] HC-48 state=refused capability=provider_target_pairs reason=provider_source_unavailable_at_supplied_path target_pairs_supported=0 runtime=PENDING");
 	}
 
 	static HCEcologyRouteIntent ProbePath(EntityAI actor, EntityAI resource, string actorId, string resourceId, int kind, HCEcologyRuntimeSettings settings, string worldName, string session, int nowMs)

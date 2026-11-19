@@ -3,6 +3,12 @@
 // entities pay the registry walk on EEKilled/EEDelete. Native evidence
 // (scripts-1.30.164289): 3_Game/Entities/EntityAI.c:905 EEInit, :946 EEDelete,
 // :1104 EEKilled; the flag is script state only, never replicated.
+// HC-48 consumes HC-15 snapshots through the existing Ecology owner. These
+// callbacks already include native variants by AnimalBase inheritance; do not
+// add per-species registrations, a second herd owner or a target/death hook.
+// EEKilled retires the ecology actor while HC-15 retains a finite carcass fact
+// until EEDelete. A predator kill is not evidence of its selected target or of
+// a supported animal/AI/infected pair. Native qualification remains PENDING.
 modded class AnimalBase
 {
 	protected bool m_HCEcoRegistered;

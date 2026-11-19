@@ -58,3 +58,49 @@ class HCTapedWearableCatalog
         return false;
     }
 }
+
+// HC-52 spec -> plan -> task: one exact backpack candidate and one separately
+// configured cross-slot candidate. Neither is a qualified/native-safe pair.
+// Evidence and the geometry queue live in lights/backpack-mounts.json.
+// No descendants, 80-pack/228-helmet claims, or operator-provided transforms.
+class HCTapedPackCatalog
+{
+    static bool IsPackHost(string host)
+    {
+        return host == "TortillaBag";
+    }
+
+    static bool KnownPair(string pairId)
+    {
+        return pairId == "tortilla_universal_mount" || pairId == "tortilla_universal_cross";
+    }
+
+    static string SlotName(string pairId)
+    {
+        if (pairId == "tortilla_universal_mount") { return "helmetFlashlight"; }
+        if (pairId == "tortilla_universal_cross") { return "Chemlight"; }
+        return "";
+    }
+
+    static bool Matches(string pairId, string host, string light, string slotName, bool crossSlot)
+    {
+        if (host != "TortillaBag" || light != "UniversalLight") { return false; }
+        if (pairId == "tortilla_universal_mount") { return slotName == "helmetFlashlight" && !crossSlot; }
+        if (pairId == "tortilla_universal_cross") { return slotName == "Chemlight" && crossSlot; }
+        return false;
+    }
+
+    static bool Qualified(string pairId)
+    {
+        // Neither native model/proxy geometry nor two-client receipts exist.
+        // A settings flag, live slot array or HC-7 opt-in cannot qualify these.
+        return false;
+    }
+
+    static string Refusal(string pairId)
+    {
+        if (pairId == "tortilla_universal_mount") { return "pack_mount_geometry_pending"; }
+        if (pairId == "tortilla_universal_cross") { return "cross_slot_geometry_pending"; }
+        return "unsupported_pack_pair";
+    }
+}

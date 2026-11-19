@@ -1,0 +1,309 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-route-surveys",
+  "wp": "HC-59",
+  "trace": {
+    "spec": "HC-59 supplied Wave 3 task: regional travel support and finite compatible wreck supply",
+    "plan": "Retain finite source journals; map four reviewed car families to native wheel slots; refuse unverified cohorts; queue regional stock roofs separately from admitted barns",
+    "task": "HC-59 assigned five files; exact lead integration remains external to worker scope",
+    "dependencies": [
+      "HC-4/32 integrity and repair policy",
+      "HC-18 mission/hollow-country/ai/localities.json"
+    ],
+    "missing_required_specs": [
+      "docs/SPECIFICATION.md",
+      "docs/specs/001-survival-overhaul/spec.md"
+    ]
+  },
+  "manifest_role": "Authored survey backlog; candidates stay outside active Count/Get and create no stock or props",
+  "stock_input": {
+    "name": "stock dayzOffline.chernarusplus/mapgrouppos.xml",
+    "sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+    "role": "Placement/class identity input only; no access, clearance, extraction or repair acceptance"
+  },
+  "runtime_acceptance": "pending",
+  "production_enablement": "pending-native-qualification",
+  "authored_counts": {
+    "existing_shelters": 6,
+    "regional_candidates": 5,
+    "safe_additions": 0,
+    "route_surveys": 7
+  },
+  "observed_shelters": 0,
+  "accepted_routes": 0,
+  "distances_added": [],
+  "proxy_caveat": "56/59 travel-cell proxy and 931 reviewed-wreck placements do not establish any route, roof, salvage, parking or coastal depth acceptance",
+  "coverage_policy": "All eligible localities/islands remain in scope; temporary geometric/access refusals are pending coverage, never quiet-by-design exclusions",
+  "active_catalogue": "HCShelterCatalog.Count/Get: existing six only; no safety/presentation acceptance implied",
+  "candidate_catalogue": "HCShelterCatalog.CandidateCount/GetCandidate: read-only survey inputs; never pass to barn yard materializer",
+  "lead_integration": "Consume candidate class/anchor/refusal without creating stock, props, new lights or a tick loop. Keep admission closed until exact native access/clearance evidence is recorded.",
+  "existing_shelters": [
+    {
+      "name": "Drozhino Hay Refuge",
+      "building_class": "Land_Barn_Wood2",
+      "position": [
+        2585.119873,
+        202.433472,
+        5360.409668
+      ],
+      "disposition": "existing-authored-barn",
+      "runtime_acceptance": "pending",
+      "stock_grants": 0
+    },
+    {
+      "name": "Bor South Rest",
+      "building_class": "Land_Barn_Wood2",
+      "position": [
+        3100.955811,
+        249.415558,
+        4238.387207
+      ],
+      "disposition": "existing-authored-barn",
+      "runtime_acceptance": "pending",
+      "stock_grants": 0
+    },
+    {
+      "name": "Sosnovka Track Barn",
+      "building_class": "Land_Barn_Wood2",
+      "position": [
+        3560.896484,
+        337.081543,
+        7004.783203
+      ],
+      "disposition": "existing-authored-barn",
+      "runtime_acceptance": "pending",
+      "stock_grants": 0
+    },
+    {
+      "name": "Pulkovo Ridge Rest",
+      "building_class": "Land_Barn_Wood2",
+      "position": [
+        5271.449219,
+        308.912933,
+        5515.677246
+      ],
+      "disposition": "existing-authored-barn",
+      "runtime_acceptance": "pending",
+      "stock_grants": 0
+    },
+    {
+      "name": "Dolina Upper Refuge",
+      "building_class": "Land_Barn_Wood2",
+      "position": [
+        9710.349609,
+        216.305511,
+        6487.099121
+      ],
+      "disposition": "existing-authored-barn",
+      "runtime_acceptance": "pending",
+      "stock_grants": 0
+    },
+    {
+      "name": "Polana South Wayhouse",
+      "building_class": "Land_Barn_Wood2",
+      "position": [
+        10677.808594,
+        214.414337,
+        7923.848633
+      ],
+      "disposition": "existing-authored-barn",
+      "runtime_acceptance": "pending",
+      "stock_grants": 0
+    }
+  ],
+  "regional_candidates": [
+    {
+      "id": "nw-feed-roof",
+      "name": "Northwest woodland roof",
+      "building_class": "Land_Misc_FeedShack",
+      "position": [
+        1987.282837,
+        289.981445,
+        12965.870117
+      ],
+      "locality_id": "sinystok",
+      "region": "NW",
+      "route_class": "forest-trail",
+      "disposition": "pending-refused",
+      "reason": "hc59_regional_shelter_access_unobserved",
+      "stock_grants": 0,
+      "authored_props": 0,
+      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+    },
+    {
+      "id": "nc-feed-roof",
+      "name": "Northern woodland roof",
+      "building_class": "Land_Misc_FeedShack",
+      "position": [
+        7428.081543,
+        131.084442,
+        12732.728516
+      ],
+      "locality_id": "kamensk",
+      "region": "NC",
+      "route_class": "forest-trail",
+      "disposition": "pending-refused",
+      "reason": "hc59_regional_shelter_access_unobserved",
+      "stock_grants": 0,
+      "authored_props": 0,
+      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+    },
+    {
+      "id": "ne-feed-roof",
+      "name": "Northeast woodland roof",
+      "building_class": "Land_Misc_FeedShack",
+      "position": [
+        12818.673828,
+        126.932716,
+        13117.182617
+      ],
+      "locality_id": "novodmitrovsk",
+      "region": "NE",
+      "route_class": "remote-road",
+      "disposition": "pending-refused",
+      "reason": "hc59_regional_shelter_access_unobserved",
+      "stock_grants": 0,
+      "authored_props": 0,
+      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+    },
+    {
+      "id": "sc-bus-roof",
+      "name": "Central coast road roof",
+      "building_class": "Land_BusStop_City",
+      "position": [
+        6826.631836,
+        50.728073,
+        3549.387207
+      ],
+      "locality_id": "prigorodki",
+      "region": "SC",
+      "route_class": "coastal-road",
+      "disposition": "pending-refused",
+      "reason": "hc59_regional_shelter_access_unobserved",
+      "stock_grants": 0,
+      "authored_props": 0,
+      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+    },
+    {
+      "id": "se-bus-roof",
+      "name": "Southeast coast road roof",
+      "building_class": "Land_BusStop_City",
+      "position": [
+        10897.795898,
+        7.027513,
+        2815.425293
+      ],
+      "locality_id": "elektrozavodsk",
+      "region": "SE",
+      "route_class": "coastal-road",
+      "disposition": "pending-refused",
+      "reason": "hc59_regional_shelter_access_unobserved",
+      "stock_grants": 0,
+      "authored_props": 0,
+      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+    }
+  ],
+  "routes": [
+    {
+      "id": "hc59-route-1",
+      "route_class": "coastal-road",
+      "from_locality": "kamenka",
+      "to_locality": "berezino",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "pending",
+      "boat_depth": "not-applicable",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    },
+    {
+      "id": "hc59-route-2",
+      "route_class": "inland-village-road",
+      "from_locality": "zelenogorsk",
+      "to_locality": "polana",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "pending",
+      "boat_depth": "not-applicable",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    },
+    {
+      "id": "hc59-route-3",
+      "route_class": "forest-trail",
+      "from_locality": "sinystok",
+      "to_locality": "kamensk",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "pending",
+      "boat_depth": "not-applicable",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    },
+    {
+      "id": "hc59-route-4",
+      "route_class": "remote-road",
+      "from_locality": "kamensk",
+      "to_locality": "novodmitrovsk",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "pending",
+      "boat_depth": "not-applicable",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    },
+    {
+      "id": "hc59-route-5",
+      "route_class": "rural-trail",
+      "from_locality": "pogorevka",
+      "to_locality": "dolina",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "pending",
+      "boat_depth": "not-applicable",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    },
+    {
+      "id": "hc59-route-6",
+      "route_class": "coastal-water",
+      "from_locality": "elektrozavodsk",
+      "to_locality": "skalisty",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "not-applicable",
+      "boat_depth": "pending",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    },
+    {
+      "id": "hc59-route-7",
+      "route_class": "coastal-water",
+      "from_locality": "kamenka",
+      "to_locality": "prison-island",
+      "status": "pending-survey",
+      "reason": "hc59_route_access_unobserved",
+      "walking": "pending",
+      "driving": "not-applicable",
+      "boat_depth": "pending",
+      "shelter_access": "pending",
+      "evidence": "Authored itinerary only; locality ids are HC-18 inputs, not pathfinding or landing evidence"
+    }
+  ],
+  "native_checks": [
+    "Walk and drive each approach and departure, weather roof coverage, entry/exit and door access; record exact source/config hashes and refusal positions",
+    "Coastal water: native boat draft/depth, grounding and landing/access to islands; no inferred depth from surface height or class ancestry",
+    "DayZDiag then normal signed PBO/server, two-client visibility and cleanup, off-path and restart check, no script/CE errors"
+  ]
+}
