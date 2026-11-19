@@ -6,7 +6,7 @@
   "trace": {
     "spec": "FR-008; FR-011; AC-007; owner_task_2026-11-18",
     "plan": "consolidated_coverage_Wave_2_HC-45",
-    "task": "W56 issue-121 audit; deterministic place roles, native perception wake, bounded fresh crawler queue",
+    "task": "W60 issue-213: standing living variant; shared fresh cap; opt-out startup isolation; road survey gap retained",
     "shared_trace_owner": "HC-11; canonical_spec_plan_tasks_are_not_in_this_worktree; read_existing_lead_copies_without_modifying_them"
   },
   "runtime_acceptance": "PENDING",
@@ -103,7 +103,8 @@
     "VisibilityRange",
     "MaxObservers",
     "GroupSpacing",
-    "AutomaticIntervalSeconds"
+    "AutomaticIntervalSeconds",
+    "StandingRiserEvery"
   ],
   "issue_121_audit_base_d68a2ed": [
     {
@@ -163,6 +164,32 @@
       "MinSpawnDistance",
       "VisibilityRange",
       "GroupSpacing"
-    ]
+    ],
+    "StandingRiserEvery": 2
+  },
+  "standing_riser": {
+    "admission": "native standing idle on fresh living bodies; admitted unverified",
+    "cadence": "StandingRiserEvery=2; 0 opts out; same MaxFreshBodies including corpses",
+    "wake": "existing native perception, proximity, real shot and damage release the owned idle latch once",
+    "animation_limit": "No prone-to-standing/reverse-crawl or resurrection is claimed",
+    "native_evidence": [
+      "3_Game/Global/Game.c:703 CreateObjectEx via HCLODMaterialize",
+      "3_Game/CE/CentralEconomy.c:18,38 spawn flags",
+      "3_Game/AI/AIAgent.c:6 SetKeepInIdle"
+    ],
+    "runtime": "PENDING"
+  },
+  "migration_survey_213": {
+    "status": "authored routes retained; no new surveyed routes",
+    "inspected_inputs": [
+      "mission/hollow-country/infected/route-surveys.json",
+      "mission/hollow-country/ai/sites.json",
+      "variety-runtime.json CE anchors",
+      "installed scripts-1.30.164289"
+    ],
+    "missing": "No road centerline/connectivity, terrain elevation grid or native path/door survey is present in those inputs. CE objects and authored patrol waypoints cannot establish road traversal.",
+    "fallback": "Existing <=8 authored routes, <=8 nodes/route and <=120m segments remain with native Reachable checks; no teleports or new route controller.",
+    "required": "Lead supplies extracted vanilla road/terrain topology or a native survey; then derive bounded corridors and validate each native segment.",
+    "runtime": "PENDING"
   }
 }

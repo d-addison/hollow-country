@@ -1,13 +1,20 @@
-// #121: preserve the existing observed posture/dependency row; a bad required
-// place catalog is real missing data, never ready through an admission verdict.
+// #213: publish operator/data/dependency observations through the shared hook.
+// Native pending verdicts alone do not refuse the admitted source lifecycle.
 modded class HCInfectedVarietyModule
 {
     override HCOperationalStatus HCGetOperationalStatus()
     {
         HCOperationalStatus observed = super.HCGetOperationalStatus();
-        if (m_Running && m_Variety && HCInfectedVariety.HCFault() != "")
+        if (!m_Running) { return observed; }
+        string fault = HCInfectedVariety.HCFault();
+        if (fault == "infected_variety_disabled" || fault == "operator_preference")
         {
-            observed.HCPublish("refused", HCInfectedVariety.HCFault());
+            observed.HCPublish("off", fault);
+        }
+        else if (m_Variety && fault != "") { observed.HCPublish("degraded", fault); }
+        else if (m_Variety && !HCInfectedModule.Instance)
+        {
+            observed.HCPublish("degraded", "infected_owner_unavailable");
         }
         return observed;
     }

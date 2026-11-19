@@ -118,6 +118,25 @@ modded class ZombieBase
         return true;
     }
 
+    // #213: freshly spawned living standing variant. Native creation is owned
+    // by HCLODMaterialize (Game.c:703); this latch uses AIAgent.c:6 only.
+    // Existing native perception/proximity/damage wakes it through HCVarietyWake.
+    // This is standing idle -> native movement, never a reverse crawl animation.
+    bool HCVarietyFreshStanding(float now, string place, int role)
+    {
+        if (!GetGame().IsServer() || !HCInfectedVarietyModule.VarietyActive()) { return false; }
+        if (!IsAlive() || IsCrawling() || IsBeingBackstabbed() || m_HCVarietyTriedDormant) { return false; }
+        DayZInfectedInputController standingInput = GetInputController();
+        AIAgent standingAgent = GetAIAgent();
+        if (!standingInput || !standingAgent || standingInput.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM) { return false; }
+        HCVarietyAssign(role, place);
+        standingAgent.SetKeepInIdle(true);
+        m_HCVarietyTriedDormant = true;
+        m_HCVarietyDormant = true;
+        m_HCVarietySleepUntil = 0;
+        return true;
+    }
+
     bool HCVarietyWake()
     {
         if (!m_HCVarietyDormant) { return false; }

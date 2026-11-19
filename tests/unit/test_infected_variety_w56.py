@@ -1,6 +1,6 @@
 """#121 spec/plan/tasks: native crawler clusters; explicit synthetic ports only.
 Plan: reuse tracked bodies, LOD caps/sight, shared infected work, authored CE
-anchors, one candidate/body per tick; standing risers remain unexposed.
+anchors, one candidate/body per tick; #213 adds native standing idle bodies.
 No offline result establishes DayZ animation, perception or placement behavior.
 """
 import json
@@ -70,7 +70,7 @@ class VarietyW56(unittest.TestCase):
         site = N(Id='synthetic-wreck', Context='wreck', Position=[1000., 0., 1000.])
         state = N(s_Running=True, s_Pending=True, s_Admin=True,
                   s_NextAutomatic=0., s_Config=N(MaxFreshBodies=3, GroupMembers=3,
-                    Sites=Array([site]), ContextRange=40., GroupSpacing=4., InterestRange=1000.),
+                    Sites=Array([site]), ContextRange=40., GroupSpacing=4., InterestRange=1000., StandingRiserEvery=0),
                   s_Bodies=bodies, s_Selected=0, s_Made=0, s_Tried=Array(),
                   s_Used=Array(), s_LastRefusal='')
         visible = [False]
@@ -88,7 +88,8 @@ class VarietyW56(unittest.TestCase):
             GetGame=lambda: N(SurfaceY=lambda *args: 0.),
             HCInfectedLOD=N(NearestDistance=lambda *args: 500.),
             HCAdminPlacement=N(HCClear=lambda pos: True),
-            HCInfectedVarietyPolicy=N(HCContextRole=lambda *args: 0), Print=lambda *args: None)
+            HCInfectedVarietyPolicy=N(HCContextRole=lambda *args: 0,
+                HCStandingFresh=lambda *args: False), Print=lambda *args: None)
         owner = N(HCHidden=lambda *args: not visible[0], HCRefuse=refusals.append)
         method(owner, 1., 1.)
         self.assertEqual(1, len(created))
@@ -134,13 +135,14 @@ class VarietyW56(unittest.TestCase):
         fn = native(str(AREA / 'HCInfectedVarietyStatus.c'),
                     'HCOperationalStatus HCGetOperationalStatus(', (),
                     super=N(HCGetOperationalStatus=lambda: observed),
-                    HCInfectedVariety=N(HCFault=lambda: fault[0]))
+                    HCInfectedVariety=N(HCFault=lambda: fault[0]),
+                    HCInfectedModule=N(Instance=N()))
         owner = N(m_Running=True, m_Variety=True)
         self.assertIs(observed, fn(owner))
         self.assertEqual([], publications, 'getter invented a ready result')
         fault[0] = 'variety_data_invalid'
         self.assertIs(observed, fn(owner))
-        self.assertEqual([('refused', 'variety_data_invalid')], publications)
+        self.assertEqual([('degraded', 'variety_data_invalid')], publications)
 
     def test_runtime_catalog_is_consumed_and_admin_uses_same_queue(self):
         path = AREA / 'HCInfectedVariety.c'
