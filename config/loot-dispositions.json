@@ -627,47 +627,51 @@
       "class": "LeatherCourierBag"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "purpose": "Leather gloves; reviewed finite floor-supply proposal, same route as the reviewed leather jackets, shoes and hats",
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_gloves.pbo config.bin: scope=2, lootCategory unset (not Crafted); stock db/types.xml row is nominal 0 with the crafted flag set, which the reviewed floor override clears like the 13 reviewed leather rows",
+        "Native 4_World/Entities/ItemBase/Clothing/LeatherGloves_ColorBase.c:1: plain Gloves_Base clothing; runtime wear, supply and finite stock pending (runtime=PENDING)"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": null,
       "class": "LeatherGloves_Beige"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "purpose": "Leather gloves; reviewed finite floor-supply proposal, same route as the reviewed leather jackets, shoes and hats",
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_gloves.pbo config.bin: scope=2, lootCategory unset (not Crafted); stock db/types.xml row is nominal 0 with the crafted flag set, which the reviewed floor override clears like the 13 reviewed leather rows",
+        "Native 4_World/Entities/ItemBase/Clothing/LeatherGloves_ColorBase.c:1: plain Gloves_Base clothing; runtime wear, supply and finite stock pending (runtime=PENDING)"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": null,
       "class": "LeatherGloves_Black"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "purpose": "Leather gloves; reviewed finite floor-supply proposal, same route as the reviewed leather jackets, shoes and hats",
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_gloves.pbo config.bin: scope=2, lootCategory unset (not Crafted); stock db/types.xml row is nominal 0 with the crafted flag set, which the reviewed floor override clears like the 13 reviewed leather rows",
+        "Native 4_World/Entities/ItemBase/Clothing/LeatherGloves_ColorBase.c:1: plain Gloves_Base clothing; runtime wear, supply and finite stock pending (runtime=PENDING)"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": null,
       "class": "LeatherGloves_Brown"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
-      "floor_admitted": false,
+      "purpose": "Leather gloves; reviewed finite floor-supply proposal, same route as the reviewed leather jackets, shoes and hats",
+      "route": "native-floor",
+      "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_gloves.pbo config.bin: scope=2, lootCategory unset (not Crafted); stock db/types.xml row is nominal 0 with the crafted flag set, which the reviewed floor override clears like the 13 reviewed leather rows",
+        "Native 4_World/Entities/ItemBase/Clothing/LeatherGloves_ColorBase.c:1: plain Gloves_Base clothing; runtime wear, supply and finite stock pending (runtime=PENDING)"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": null,
       "class": "LeatherGloves_Natural"
     },
     {
@@ -775,47 +779,55 @@
       "class": "LeatherJacket_Natural"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherPants_Beige"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherPants_Black"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherPants_Brown"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherPants_Natural"
     },
     {
@@ -906,47 +918,55 @@
       "class": "LeatherShoes_Natural"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherStorageVest_Beige"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherStorageVest_Black"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherStorageVest_Brown"
     },
     {
-      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
-      "route": "unresolved",
+      "purpose": "Leather wearable that vanilla marks craft-output only; kept out of floor loot and decided, not parked",
+      "route": "excluded",
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Installed public definition/crafted cohort; active native clothing recipe not established"
+        "Installed characters_pants.pbo / characters_vests.pbo config.bin: scope=2, lootCategory=Crafted; tools/package/datamined_items.py refuses craft-output names and Crafted config as spawns",
+        "Native 4_World/Classes/Recipes/Recipes: no native recipe produces this class (the CraftLeather* recipes make sacks, belts, bags and sheaths); a new tailoring recipe is script work for the craft owner, not floor loot",
+        "Held as salvage sources only: mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c:146-156"
       ],
-      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "refusal": "HC22_CRAFTED_CATEGORY_NO_RECIPE",
       "class": "LeatherStorageVest_Natural"
     },
     {
@@ -1385,9 +1405,10 @@
       "floor_admitted": false,
       "eligibility": "pending-native",
       "evidence": [
-        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+        "Installed vanilla stock db/types.xml: WaterBottle nominal=100 min=85 quantmin=20 quantmax=70, no category, count_in_map=1; the CE fills a spawned bottle inside that percentage range, so a vessel count is not a drinkable-water count",
+        "Native 4_World/Entities/ItemBase/Edible_Base/Bottle_Base/WaterBottle.c:60-79: EEOnCECreate may insert cholera by the world agent spawn chance; liquid type and potability pending native observation (runtime=PENDING)"
       ],
-      "refusal": "HC22_WATER_CONTENTS_UNOBSERVED",
+      "refusal": null,
       "class": "WaterBottle"
     },
     {

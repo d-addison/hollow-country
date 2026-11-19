@@ -373,7 +373,7 @@ class CommittedPolicy(unittest.TestCase):
         from tools.package import datamined_items as items
         ledger = json.loads((REPO / 'config/loot-dispositions.json').read_bytes())
         admitted = {e['class'] for e in ledger['entries'] if e['floor_admitted']}
-        self.assertEqual(len(admitted), 55)
+        self.assertEqual(len(admitted), 59)  # 55 datamined floor rows + 4 LeatherGloves admitted by audit #199
         self.assertEqual(len(items.SUPPLY_UNVERIFIED_FLOOR), 17)
         self.assertLessEqual(set(items.SUPPLY_UNVERIFIED_FLOOR), admitted, '#199: none of the 17 is withheld')
         for name in sorted(items.SUPPLY_UNVERIFIED_FLOOR):
