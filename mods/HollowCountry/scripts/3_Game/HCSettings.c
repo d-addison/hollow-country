@@ -268,6 +268,11 @@ class HCOperatorSettingsRegistry
         HCAdd("PerceptionRing.HearingRangeMeters", "float", 1000, 100, 5000, "HCPerceptionRing");
         HCAdd("PerceptionRing.SpawnMarginMeters", "float", 100, 1, 500, "HCPerceptionRing");
         HCAdd("PerceptionRing.SpawnBandMeters", "float", 400, 1, 2000, "HCPerceptionRing");
+        HCAdd("Helicopters.Version", "int", 1, 1, 1, "HCHeliPolicyConfig");
+        HCAdd("Helicopters.MaxTracked", "int", 16, 1, 64, "HCHeliPolicyConfig");
+        HCAdd("Helicopters.WorldCap", "int", 4, 0, 64, "HCHeliPolicyConfig");
+        HCAdd("Helicopters.MaxTypeCache", "int", 128, 1, 512, "HCHeliPolicyConfig");
+        HCAdd("Helicopters.SpawnFuelMaxFraction", "float", 0.1, 0, 0.35, "HCHeliPolicyConfig");
         // END GENERATED SETTINGS REGISTRY
     }
 

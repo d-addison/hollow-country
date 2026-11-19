@@ -1364,5 +1364,45 @@
     "min": 1,
     "max": 2000,
     "owner": "HCPerceptionRing"
+  },
+  {
+    "key": "Helicopters.Version",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCHeliPolicyConfig"
+  },
+  {
+    "key": "Helicopters.MaxTracked",
+    "type": "int",
+    "default": 16,
+    "min": 1,
+    "max": 64,
+    "owner": "HCHeliPolicyConfig"
+  },
+  {
+    "key": "Helicopters.WorldCap",
+    "type": "int",
+    "default": 4,
+    "min": 0,
+    "max": 64,
+    "owner": "HCHeliPolicyConfig"
+  },
+  {
+    "key": "Helicopters.MaxTypeCache",
+    "type": "int",
+    "default": 128,
+    "min": 1,
+    "max": 512,
+    "owner": "HCHeliPolicyConfig"
+  },
+  {
+    "key": "Helicopters.SpawnFuelMaxFraction",
+    "type": "float",
+    "default": 0.1,
+    "min": 0,
+    "max": 0.35,
+    "owner": "HCHeliPolicyConfig"
   }
 ]

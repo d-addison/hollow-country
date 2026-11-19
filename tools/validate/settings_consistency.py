@@ -107,6 +107,7 @@ EXTERNAL_OWNERS = {
     'HCTheftConfig': ('mods/HollowCountry/scripts/4_World/Camps/HCCampTheft.c', 'CampTheft', 'config.'),
     'HCBaseRaidConfig': ('mods/HollowCountry/scripts/4_World/Camps/HCBaseRaid.c', 'BaseRaid', 'config.'),
     'HCConvoyPolicy': ('mods/HollowCountry/scripts/4_World/Events/HCConvoyPolicy.c', 'Convoys', 'policy.'),
+    'HCHeliPolicyConfig': ('mods/HollowCountry/scripts/4_World/Vehicles/HCHeliPolicy.c', 'Helicopters', ''),
 }
 
 
