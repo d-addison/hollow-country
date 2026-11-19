@@ -2,8 +2,9 @@
 // opportunities, NOT runtime HCEventSite approvals. The ten layouts below and
 // their verified class/model provenance are unchanged. A locality label is not
 // a placement transform; source-reviewed anchors are not native kit surveys.
-// Reserved Scenes/#138 integration must resolve an indexed, qualified pair,
-// pin its plan through HC-19 BEFORE materialization and keep the existing lease,
+// gapcode_story_Index resolves finite source-admitted pairs, with native survey
+// verdicts admitted unverified (runtime=PENDING), then rechecks Preflight and
+// pins the site/kit through HC-19 BEFORE materialization. It keeps the existing lease,
 // observer, work/save budgets and cleanup ownership. Never mint identities from
 // candidate IDs or rotate/rewrite the pinned plans of already issued stories.
 // Receipt/refusals are HC-62's bounded status integration, not a content tick.

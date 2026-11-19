@@ -23,6 +23,9 @@ class HCSceneChainDefinition
 {
     string Id;
     string SiteId;
+    // HC-42: immutable source pair and full anchor, saved before materialization.
+    string IndexedCandidate;
+    ref HCEventSite IndexedSite;
     ref array<ref HCSceneStageDefinition> Stages = new array<ref HCSceneStageDefinition>();
 }
 
@@ -122,6 +125,18 @@ class HCSceneChains
         return null;
     }
 
+    static HCEventSite HCPlanSite(HCSceneChainDefinition plan)
+    {
+        if (!plan) { return null; }
+        if (plan.IndexedCandidate != "")
+        {
+            if (!HCGapcodeStoryIndex.HCPinnedSite(plan.IndexedSite) || plan.IndexedSite.Id != plan.SiteId) { return null; }
+            return plan.IndexedSite;
+        }
+        if (plan.IndexedSite) { return null; }
+        return Site(plan.SiteId);
+    }
+
     static HCEventContext Context(HCSceneChain chain, int now)
     {
         HCEventContext context = new HCEventContext;
@@ -176,8 +191,10 @@ class HCSceneChains
         foreach (HCSceneChainDefinition plan : catalog.Chains)
         {
             if (!plan || !HCEventDirector.TextValid(plan.Id, 32) || ids.Find(plan.Id) >= 0) { return false; }
-            HCEventSite site = Site(plan.SiteId);
-            if (!HCSceneKits.Reviewed(site) || !plan.Stages || plan.Stages.Count() < 2 || plan.Stages.Count() > 3) { return false; }
+            HCEventSite site = HCPlanSite(plan);
+            if (!HCSceneKits.Reviewed(site) || !plan.Stages || plan.Stages.Count() < 1 || plan.Stages.Count() > 3) { return false; }
+            if (plan.IndexedCandidate == "" && plan.Stages.Count() < 2) { return false; }
+            if (plan.IndexedCandidate != "" && plan.Stages.Count() != 1) { return false; }
             ids.Insert(plan.Id);
             array<string> missions = new array<string>();
             foreach (HCSceneStageDefinition stage : plan.Stages)
