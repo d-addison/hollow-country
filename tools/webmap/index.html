@@ -22,6 +22,11 @@
     <p id="status" role="status">Waiting for snapshot…</p>
     <p class="muted">Refreshes every 15 seconds. Hover a point or route for details. Grid coordinates are metres.</p>
     <div id="layers" aria-label="Visible layers"></div>
+    <label for="loot-filter">Loot class or prefix (viewer filter)</label>
+    <input id="loot-filter" type="text" maxlength="96" placeholder="Bandage">
+    <label><input id="loot-exact" type="checkbox"> Exact class</label>
+    <p id="loot-status" role="status" class="muted">Loot map: no export read.</p>
+    <p class="muted">Ground observations across ticks; cargo/hoarder CE census unavailable. Nominal is the native type target, not a guaranteed ground count.</p>
     <p id="background" class="muted">Grid background · approximate authored town centres</p>
     <p class="muted">Captures span several server ticks. Catalog sites and eligible candidates are labelled separately from live state.</p>
     <div id="hover" aria-live="polite">Hover a marker or route.</div>
@@ -33,6 +38,8 @@
 const canvas = document.getElementById('map'), ctx = canvas.getContext('2d');
 const status = document.getElementById('status'), hover = document.getElementById('hover');
 const layerBox = document.getElementById('layers'), worldSize = 15360;
+const lootFilter = document.getElementById('loot-filter'), lootExact = document.getElementById('loot-exact');
+const lootStatus = document.getElementById('loot-status');
 const palette = ['#ffc16e','#75d9d0','#ff8989','#c7b1ff','#bde775','#8ac7ff','#ffaedc','#f2e3a2'];
 // Existing authored approximate town centres: 3_Game/World/HCWorldData.c Fresh().
 const towns = [['Chernogorsk',6700,2600],['Elektrozavodsk',10400,2200],['Berezino',12100,9600],
@@ -42,6 +49,7 @@ const towns = [['Chernogorsk',6700,2600],['Elektrozavodsk',10400,2200],['Berezin
  ['Zelenogorsk',2800,5300],['Pavlovo',1700,3800],['Balota',4500,2500],
  ['Green Mountain',3700,6000],['Devils Castle',6900,11400],['Tisy',1700,14200]];
 let snapshot = null, received = 0, busy = false, imageReady = false;
+let lootmap = null;
 let pointsOnCanvas = [], routesOnCanvas = [];
 const enabled = new Map(), colors = new Map(), image = new Image();
 image.onload = () => { imageReady = true; document.getElementById('background').textContent = 'Operator map image · full world extent'; draw(); };
@@ -49,7 +57,8 @@ image.onerror = () => { imageReady = false; draw(); };
 image.src = '/map-image';
 function xy(x,z) { return [x/worldSize*canvas.width,(1-z/worldSize)*canvas.height]; }
 function syncLayers() {
-  const names = new Set([...Object.keys(snapshot.layers), ...snapshot.routes.map(route => route.layer)]);
+  const names = new Set([...Object.keys(snapshot ? snapshot.layers : {}), ...(snapshot ? snapshot.routes.map(route => route.layer) : [])]);
+  if (lootmap) names.add('lootmap');
   layerBox.replaceChildren();
   for (const name of [...names].sort()) {
     if (!enabled.has(name)) enabled.set(name,true);
@@ -65,6 +74,7 @@ function draw() {
   const size = Math.max(320,Math.round(canvas.getBoundingClientRect().width * Math.min(devicePixelRatio || 1,2)));
   if (canvas.width !== size) { canvas.width = size; canvas.height = size; }
   const w = canvas.width;
+  if (lootmap) describeLoot();
   ctx.clearRect(0,0,w,w); pointsOnCanvas = []; routesOnCanvas = [];
   if (imageReady) { ctx.globalAlpha = 0.8; ctx.drawImage(image,0,0,w,w); ctx.globalAlpha = 1; }
   ctx.strokeStyle = imageReady ? '#c3cdb64a' : '#5f777752'; ctx.lineWidth = 1;
@@ -76,24 +86,56 @@ function draw() {
   }
   ctx.fillStyle = '#c0cec1';
   for (const [name,x,z] of towns) { const [px,py] = xy(x,z); ctx.fillText(name,px+3,py-4); }
-  if (!snapshot) return;
-  for (const route of snapshot.routes) {
+  if (!snapshot && !lootmap) return;
+  for (const route of (snapshot ? snapshot.routes : [])) {
     if (!enabled.get(route.layer)) continue;
     const vertices = route.points.map(p => xy(p[0],p[1]));
     ctx.strokeStyle = colors.get(route.layer); ctx.lineWidth = Math.max(2,w/600); ctx.beginPath();
     vertices.forEach((p,i) => { if(i===0) ctx.moveTo(...p); else ctx.lineTo(...p); }); ctx.stroke();
     routesOnCanvas.push({route,vertices});
   }
-  for (const [layer,points] of Object.entries(snapshot.layers)) {
+  const layers = {...(snapshot ? snapshot.layers : {})};
+  if (lootmap) {
+    const counts = new Map(lootmap.types.map(row => [row.className,row]));
+    layers.lootmap = lootmap.points.map((point,index) => {
+      const row = counts.get(point.className);
+      return {...point,id:'loot-'+index,label:point.className,
+        detail:`${lootmap.state} · ground observed ${row.count} / nominal ${row.nominal}\n${lootmap.reason} · captured ${new Date(lootmap.time*1000).toLocaleString()}`};
+    });
+  }
+  for (const [layer,points] of Object.entries(layers)) {
     if (!enabled.get(layer)) continue;
     ctx.fillStyle = colors.get(layer);
     for (const point of points) {
+      if (layer === 'lootmap' && !lootMatches(point.className)) continue;
       const [px,py] = xy(point.x,point.z);
       ctx.beginPath(); ctx.arc(px,py,Math.max(4,w/210),0,2*Math.PI); ctx.fill();
       ctx.strokeStyle = '#0d171a'; ctx.lineWidth = 1.5; ctx.stroke();
       pointsOnCanvas.push({point,layer,px,py});
     }
   }
+}
+function lootMatches(name) {
+  const filter = lootFilter.value.trim();
+  return !filter || (lootExact.checked ? name === filter : name.startsWith(filter));
+}
+function describeLoot() {
+  const rows = lootmap.types.filter(row => lootMatches(row.className));
+  const counts = rows.map(row => `${row.className}: ${row.count} / nominal ${row.nominal}`).join('; ');
+  lootStatus.textContent = `Loot map ${lootmap.state}: ${lootmap.reason}. ${lootmap.points.length} positions; ${lootmap.truncated} omitted. Captured ${new Date(lootmap.time*1000).toLocaleString()}. ${counts}`;
+}
+async function refreshLoot() {
+  try {
+    const response = await fetch('/lootmap.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if (!response.ok) throw new Error('export unavailable or recovery pending');
+    const incoming = await response.json();
+    if (incoming.version !== 1 || incoming.scope !== 'ground_world_observations') throw new Error('unsupported export');
+    lootmap = incoming;
+  } catch (error) {
+    lootmap = null;
+    lootStatus.textContent = `Loot map unavailable: ${error.message}.`;
+  }
+  syncLayers(); draw();
 }
 function segmentDistance(x,y,a,b) {
   const dx=b[0]-a[0], dy=b[1]-a[1], square=dx*dx+dy*dy;
@@ -116,6 +158,7 @@ canvas.addEventListener('mouseleave',() => { hover.textContent = 'Hover a marker
 async function refresh() {
   if (busy) return;
   busy = true;
+  const lootRead = refreshLoot();
   try {
     const response = await fetch('/snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});
     if (!response.ok) throw new Error('export unavailable or write/recovery pending');
@@ -127,8 +170,10 @@ async function refresh() {
   } catch (error) {
     const previous = received ? ` Last valid read ${new Date(received).toLocaleTimeString()}.` : '';
     status.textContent = `Waiting: ${error.message}.${previous}`;
-  } finally { busy = false; }
+  } finally { await lootRead; busy = false; }
 }
+lootFilter.addEventListener('input',draw);
+lootExact.addEventListener('change',draw);
 document.getElementById('refresh').addEventListener('click',refresh);
 window.addEventListener('resize',draw);
 draw(); refresh(); setInterval(refresh,15000);
