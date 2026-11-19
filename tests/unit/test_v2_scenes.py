@@ -55,7 +55,8 @@ class SceneSmoke(unittest.TestCase):
                 work = translate(adapted, 'Work', env, 'HCEventScenesModule', member=True)
                 owner = N(m_State=N(Chains=EArray([chain]), Catalog=N(Chains=EArray([plan]))),
                           m_Cursor=0, m_Leases=EArray(), m_Placed=0, m_Refused=0,
-                          m_PreflightReasons=reasons, SiteAvailable=lambda anchor: True,
+                          m_PreflightReasons=reasons, m_Stories=N(HCReady=lambda: True),
+                          SiteAvailable=lambda anchor: True,
                           PublishSceneStory=publish)
                 owner.Lease = lambda key: next(iter(owner.m_Leases), None)
                 work(owner, 100)
