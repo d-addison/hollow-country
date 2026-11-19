@@ -33,8 +33,119 @@
   "Source": "Installed chernarusplus/env/red_deer_territories.xml:4-5 Graze zone centers; height sampled from native terrain. Source-derived, geometry/runtime acceptance PENDING.",
   "Economy": "HCEventRewardLedger allowance plus permanent HCEncounterStore spent-site barrier. Two lifetime site grants; no restart refill, replay, extra inventory or loot. Back up hc149-wildlife-allocations.json with Hive.",
   "RangeBasis": "200 m minimum exclusion reuses native herd safe radius. Every cached player must additionally pass existing multi-height PointHidden ray checks. 16-player bound fails closed on overflow.",
-  "InteractionCapStatus": "UNIMPLEMENTED: legacy TargetPairsEnabled, MaxPairs, MaxPairChecksPerTick, PairLifetimeMs and PairCooldownMs do not change native eligibility. Follow-up: inspect and qualify a safe actual-target lifecycle for infected and wolves. Eligibility queries never reserve pairs or consume budgets.",
+  "InteractionCapStatus": "Actual damage-contact observation leases bounded by MaxPairs, MaxPairChecksPerTick, PairLifetimeMs and PairCooldownMs; repeated damage never extends a lease. Native target choice/eligibility and native combat counts remain untouched. Actual combat enforcement unavailable: no inspected animal target lifecycle port.",
   "RuntimeAcceptance": "PENDING",
   "MaxPairChecksPerTick": 32,
-  "WorldName": "chernarusplus"
+  "WorldName": "chernarusplus",
+  "SeasonalRoutesEnabled": true,
+  "CluesEnabled": true,
+  "InteractionObservationEnabled": true,
+  "ClueLifetimeSeconds": 300,
+  "Routes": [
+    {
+      "Id": "animal_cervuselaphus-phase-0",
+      "Species": "Animal_CervusElaphus",
+      "Phase": 0,
+      "Position": [
+        1034.5,
+        0.0,
+        11280.0
+      ],
+      "RadiusM": 67.5,
+      "Role": "Graze",
+      "Source": "env/red_deer_territories.xml:4"
+    },
+    {
+      "Id": "animal_cervuselaphus-phase-1",
+      "Species": "Animal_CervusElaphus",
+      "Phase": 1,
+      "Position": [
+        1665.5,
+        0.0,
+        10723.5
+      ],
+      "RadiusM": 75.0,
+      "Role": "Water",
+      "Source": "env/red_deer_territories.xml:7"
+    },
+    {
+      "Id": "animal_cervuselaphus-phase-2",
+      "Species": "Animal_CervusElaphus",
+      "Phase": 2,
+      "Position": [
+        1034.5,
+        0.0,
+        11280.0
+      ],
+      "RadiusM": 67.5,
+      "Role": "Graze",
+      "Source": "env/red_deer_territories.xml:4"
+    },
+    {
+      "Id": "animal_cervuselaphus-phase-3",
+      "Species": "Animal_CervusElaphus",
+      "Phase": 3,
+      "Position": [
+        1052.5,
+        0.0,
+        10886.5
+      ],
+      "RadiusM": 100.0,
+      "Role": "Rest",
+      "Source": "env/red_deer_territories.xml:9"
+    },
+    {
+      "Id": "animal_canislupus-phase-0",
+      "Species": "Animal_CanisLupus",
+      "Phase": 0,
+      "Position": [
+        10837.5,
+        0.0,
+        13942.5
+      ],
+      "RadiusM": 247.5,
+      "Role": "Rest",
+      "Source": "env/wolf_territories.xml:5"
+    },
+    {
+      "Id": "animal_canislupus-phase-1",
+      "Species": "Animal_CanisLupus",
+      "Phase": 1,
+      "Position": [
+        10597.5,
+        0.0,
+        13432.5
+      ],
+      "RadiusM": 60.0,
+      "Role": "Water",
+      "Source": "env/wolf_territories.xml:4"
+    },
+    {
+      "Id": "animal_canislupus-phase-2",
+      "Species": "Animal_CanisLupus",
+      "Phase": 2,
+      "Position": [
+        11137.5,
+        0.0,
+        13597.5
+      ],
+      "RadiusM": 300.0,
+      "Role": "HuntingGround",
+      "Source": "env/wolf_territories.xml:9"
+    },
+    {
+      "Id": "animal_canislupus-phase-3",
+      "Species": "Animal_CanisLupus",
+      "Phase": 3,
+      "Position": [
+        11137.5,
+        0.0,
+        13597.5
+      ],
+      "RadiusM": 300.0,
+      "Role": "HuntingGround",
+      "Source": "env/wolf_territories.xml:9"
+    }
+  ],
+  "EcosystemStatus": "Season phase selects native-derived route/resource intent data only. Blood damage and observed carcass snapshots use HCWorldIncidents; Response=none and no senses invented. Destination, resource consumption, animal perception, crow attraction and combat enforcement remain unavailable. Native scatter/fear and two-client results PENDING."
 }
