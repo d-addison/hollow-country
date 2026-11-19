@@ -96,11 +96,16 @@ class StartPrintTests(unittest.TestCase):
         game = N(IsServer=lambda: True, GetTickTime=lambda: 12, GetCallQueue=lambda category: queue)
         loaded = settings(EnableWorld=False)
         loaded.TickIntervalMs = 1000
+        loaded.EnableInfected = False
         registry = N(RegisterModules=lambda: None, GetModules=lambda: [])
         context = {'GetGame': lambda: game, 'HCNativeSelfTests': N(Run=lambda: True),
                    'HCSettings': N(LoadFromProfile=lambda: loaded), 'HCModuleRegistry': lambda: registry,
                    'Print': logs.append, 'CALL_CATEGORY_SYSTEM': 0, 'TickCount': lambda prior: 0,
-                   'HCV2Admission': admission()}
+                   'HCV2Admission': admission(),
+                   'HCOperationalContributors': N(HCReset=lambda: None, HCRegisterOwner=lambda name: None,
+                                                  HCReport=lambda: None),
+                   'HCInfectedVisionQualification': N(HCThreatReset=lambda enabled: None),
+                   'HCInfectedReachPolicy': N(HCThreatSummary=lambda requested: '[HC Plan] HC-47 synthetic')}
         # HC-1: Start also prints the cached module status receipts.
         context['HCV2Admission'].OperationalSummary = lambda cache: '[HC Plan] HC-1 status rows=0'
         context['HCV2Admission'].NonModuleSummary = lambda: '[HC Plan] HC-1 non-module'
