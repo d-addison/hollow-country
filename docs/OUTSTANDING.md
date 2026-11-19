@@ -1,6 +1,6 @@
 # Outstanding work
 
-Snapshot 2026-11-19, at `cf10c1d`. This is a working list, not a status claim. Nothing in Hollow Country has been accepted in play yet. "Built" means the source compiles and the local server boots it with 0 script errors.
+Snapshot 2026-11-19, at the wave 10 landing (after `cf10c1d`). This is a working list, not a status claim. Nothing in Hollow Country has been accepted in play yet. "Built" means the source compiles and the local server boots it with 0 script errors.
 
 The only native evidence behind this list is local boot 065: the friend bundle at `cf10c1d`, installed through the friend installer. It had 0 script errors, one `[HC CostTotal]` line plus 8 `[HC Cost]` lines per window, `[HC Infected] degraded reason=posture_owner_start_pending` at start, and the Interiors template pack loading `files=182`. Everything else below is source, unit tests and review. Landed features that read "refused", "off" or "inert" ship that way on purpose: each stays closed until a provider or a survey is observed.
 
@@ -33,13 +33,14 @@ Landed on main since the 2026-11-18 snapshot, so no longer in flight:
 - the #163 installer rollback, #164 clock skew, #167 admin refusals, #169 to #178 persistence, camp, ecology and zero-fill follow-ups;
 - audit waves 2 to 4: HC-12 to HC-53 (HC-32 as a roster validation), HC-56, HC-57, HC-59, HC-60 and HC-61 (section 6 lists what each one actually gates);
 - the #168 operator requests, including the admin loot map and the search density scale;
-- the #135 and #138 review rounds (section 3 lists what remains).
+- the #135 and #138 review rounds (section 3 lists what remains);
+- wave 10: the #191 loot map, Stop cost, subset pin and infected variety fixes, the #183 subset pins (closed), #168 (closed), and the #160 baseline burn-down from 132 to 19 findings.
 
 Now:
 
 | Item | State |
 | --- | --- |
-| Wave 10 | Workers are fixing named review findings from open issues (for example #191) |
+| Wave 10 boot | Native boot of the wave 10 source through the friend bundle and installer, then push |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -54,9 +55,8 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
 - **Search spinning then doing nothing.**
   - Fixed in `64b22ab`: cabinets no longer offer it, and house search names its refusal reason.
   - Still to confirm in play. If it recurs, collect the `[HC Search Houses] refused reason=...` lines.
-- **#168 remainder** (friend server v1-test-9 report). The code fixes are on main and none has been seen on the friend server:
-  - the cleared-site slot release, the spawn diagnostic line, the double-quoted XML headers, `ActivationRadiusScale`, `RaidCooldownFloorSeconds`, `--nominal-scale`, the loot map and the density scale;
-  - **Checkpoint props.** Two checkpoints failed to place their roadside table (`native factory` returned null at komarovo-east, `building within 25m` at novaya-south). The retry change is in `530eaa9`. Which class the factory accepts, and whether the novaya-south point needs moving, are not confirmed;
+- **#168 follow-ups** (issue closed; none of the fixes has been seen on the friend server):
+  - **Checkpoint props.** Two checkpoints failed to place their roadside table (`native factory` at komarovo-east, `building within 25m` at novaya-south). The retry change is in `530eaa9`. Which class the factory accepts, and whether the novaya-south point needs moving, are not confirmed;
   - the gunfire caution (80 m for 10 s) is documented as deliberate in docs/FRIEND_SERVER.md. Whether it should be limited to targeted fire is an owner decision (section 10).
 - **#162 leftovers:**
   - The Expansion AI crash with a raw vanilla M249 given through COT is only contained by `HCXWeaponGuard`. The exact class, versions and stack still need capturing. An upstream Expansion report was drafted but not filed (section 10).
@@ -65,16 +65,12 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
 
 ## 3. Known defects and review follow-ups
 
-- **#191** wave 9 review follow-ups. Nothing blocked landing:
-  - Admin loot map:
-    - the tick cap ignores the wall-clock budget. A cell whose native query exceeds 4 ms spends two ticks, so the job can end in a safe `job_tick_cap` refusal and the README's cell-boundary claim is wrong in that case;
-    - `lootmap_export_failed` is sent with `Snapshot=false` after the ack, so the client keeps showing "lootmap job running" for about 23 minutes;
-    - P3: the client wait is sized from `MaxCells`, not the ack's `est_ticks`; a server tick interval above 1000 ms refuses every lootmap (documented).
-  - Stop costs (`HCPerfSampler.EmitCosts`): Ecology can fall outside the top 8; the `*_sum_*` totals add per-window maxima and are not additive; per-module detail beyond the top 8 is not printed.
-  - Subset pins: copy `subset_pins` from a real verify report into `hc61.class_pins`; document that pins hash only the parsed fields; add a parent-class drift test.
-  - Carried over: infected variety rerolls a non-calm mind state without the retry hold; the 0-byte pending-file path assumes `ReadFile` returns 0 for an empty file (native check); `HCJsonFields.Check` scanning of `HCWreckSalvage` (up to 2 MB, twice) is unmeasured.
-  - Interiors: regenerate the template pack. Blocked on a native door phase 2 census.
-- **#183** HC-61 subset follow-ups. Pin the class list and config hashes of the used subset so a Workshop dependency update does not fail `verify` (or report named-class drift as a warning). Cache or narrow the full PBO hashing, about 22 s locally.
+- **#191** wave 9 review follow-ups. Landed in wave 10: the loot map tick cap (row deadline reset after the query), the post-ack export failure, the ack-sized client window, the AdminMap start refusals, Ecology pinned in the Stop cost lines with `*_maxsum_*` naming, the subset pins copied into `hc61.class_pins` with the parsed-field scope documented and a parent-class drift test, and the infected variety retry hold on a non-calm mind state. Still open:
+  - the 0-byte pending-file path assumes `ReadFile` returns 0 for an empty file (native check);
+  - `HCJsonFields.Check` scanning of `HCWreckSalvage` (up to 2 MB, twice) is unmeasured;
+  - Interiors: regenerate the template pack. Blocked on a native door phase 2 census;
+  - native loot map checks: the Map tab EditBox and Run button, the immediate ack, the `lootmap_job_running` refusal, the layer surviving a snapshot, query and render cost.
+- **Wave 10 review P3s** (filed as a new issue): small labelling, double-log and sticky-reason notes from the six wave 10 reviews.
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
@@ -175,7 +171,7 @@ Built means landed on main, compiled and booted locally. Gate shows the default 
   - HC-15 wildlife baseline, HC-48 habitats (inert events), HC-49 carcasses (authored refused), HC-59 shelters and finite wreck parts (shelter survey backlog of 5);
   - HC-34 custody journal and HC-35 trade (provider refused), HC-36 caravan (corridor refused), HC-37 faction outcomes (provider unverified), HC-38 to HC-42 situations (see section 5), HC-43 loadouts, HC-44 trace receipts;
   - HC-50 white terrain (pending), HC-51 seasonal presentation (wired, off when seasons are off);
-  - HC-21 firearm family budgets, HC-61 subset pins (subset pins not yet copied in, #191);
+  - HC-21 firearm family budgets, HC-61 subset pins (class pins copied in from a local verify; SNAFU verify stays unverified locally for missing vendor files);
   - HC-23 helmet catalogue and HC-52 backpack pairs (closed gates);
   - HC-24 staged interior pack index, HC-31 cellar slice (stair samples stay pending), HC-53 disposition ledger (offline only), HC-56 furnishing, HC-57 tenement inputs;
   - HC-32 travel roster validation and optional repair composition;
@@ -228,9 +224,9 @@ Every README feature row reads "Built · not played". Still to observe:
 
 ## 8. Checks, audits and tooling debt
 
-- **#160 WP-8:** burn down the lint baseline. At `cf10c1d` the lint reports 132 findings, all baselined (`new=0 stale=0`):
-  - HC-S001: 47
-  - HC-S002: 72
+- **#160 WP-8:** burn down the lint baseline. After wave 10 the lint reports 19 findings, all baselined (`new=0 stale=0`), down from 132 at `cf10c1d`:
+  - HC-S001: 6 (infected memory, interiors, taped light and atmosphere starts, and two Expansion AI site spawns)
+  - HC-S002: 0
   - HC-S005: 12 (JSON scalars with a nonzero initializer and no zero guard)
   - HC-E006: 1 (reviewed safe)
   - HC-S003 is at 0.
@@ -245,7 +241,6 @@ Every README feature row reads "Built · not played". Still to observe:
 
 - Done on 2026-11-18: the stamina wording, docs/DEBUG_MAP.md pointing at the implemented admin map (#123), docs/LOCAL_ACCEPTANCE_V1.md no longer calling the repo private, the README marking the Expansion-Animations conflict as unverified (EXP-D1), and the audit/CHECKS.md finding count.
 - Open:
-  - README: the loot map cell-boundary claim (#191);
   - audit/CHECKS.md: the finding count and work-package status column still show the 2026-11-18 values (133 findings, WP-5 and WP-6 open);
   - docs/LOCAL_ACCEPTANCE_V1.md: no exact unchecked-row total exists; section 7 here uses a count by pattern.
 
