@@ -3,8 +3,8 @@
 // :769 EOnPostSimulate(IEntity,float), :1113 IsLanded(). The provider calls
 // IsLanded during simulation; its own cached contact result is used unchanged.
 // 0_vehicles_preload.pbo/Common/DayZExpansion_Vehicles_Defines.c:13 defines
-// EXPANSIONMODVEHICLE. Integration must order DayZExpansion_Vehicles_Scripts
-// before HollowCountry (requiredAddons). No extra physics or actor controller.
+// EXPANSIONMODVEHICLE. This addon orders DayZExpansion_Vehicles_Scripts
+// before it (requiredAddons); the base addon stays Expansion-free. No extra physics or actor controller.
 // Native 3_Game/Entities/Object.c:517 IsAlive; Game.c:1120 IsServer (via HCEnabled).
 #ifdef EXPANSIONMODVEHICLE
 modded class ExpansionHelicopterScript

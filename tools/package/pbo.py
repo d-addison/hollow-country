@@ -81,6 +81,9 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
 
 
 # cov-buildings: strict schema-2 mission template pack, native acceptance pending.
+# Expansion vehicle variety: event positions, roster and the reviewed types merge record.
+MISSION_FILES.update({'vehicles/vehexp-eventspawns.xml', 'vehicles/vehexp-types.append.xml',
+                      'vehicles/vehexp-roster.json', 'vehicles/vehexp-integration.md'})
 MISSION_FILES.update({
     'interiors/templates/classes-000.json',
     'interiors/templates/classes-001.json',
