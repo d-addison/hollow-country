@@ -148,6 +148,17 @@ class HCInfectedVariety
         if (s_Config) { posedEvery = s_Config.PosedFreshEvery; }
         string posedLine = "[HC Variety] posed_fresh_every=" + posedEvery.ToString() + " class=" + HCInfectedVarietyPolicy.HCPoseClass();
         Print(posedLine + " opt_out=PosedFreshEvery=0|acceptance/infected_poses.disable runtime=PENDING");
+        string authored = "[HC Variety] anim_poses=source_authored prone_sleep=" + HCPostureAdmission.HCTierCState("prone_sleep");
+        authored = authored + " riser=" + HCPostureAdmission.HCTierCState("riser") + " feed_kneel=" + HCPostureAdmission.HCTierCState("feed_kneel");
+        Print(authored + " acceptance=native_two_client_pending runtime=PENDING");
+        if (posedEvery > 0 && s_Config.MaxPosed > 0)
+        {
+            if (!HCPostureAdmission.HCCanEnter("prone_sleep") || !HCPostureAdmission.HCCanEnter("riser") || !HCPostureAdmission.HCCanEnter("feed_kneel"))
+            {
+                s_Fault = "anim_poses_shared_admission_pending";
+                HCRefuse(s_Fault);
+            }
+        }
     }
 
     static bool HCPosesOptedOut()

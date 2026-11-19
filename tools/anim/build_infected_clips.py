@@ -190,12 +190,98 @@ def build_sit_wall_getup(stand, seconds=1.6):
     return poses
 
 
+
+def prone_sleep_pose(stand, breath=0.0):
+    """Side sleeper: hips low, bent legs, one cheek above the supporting forearm."""
+    p = stand.copy()
+    p.rotate_world('Pelvis', rig.qaxis((0, 0, 1), 87))
+    seat_on_hips(p, (0.0, 0.19, 0.0))
+    p.rotate_world('Spine3', rig.qaxis(X, 9 + 0.6 * breath))
+    p.rotate_world('Neck', rig.qaxis(X, 14))
+    for side, sx in (('Left', -1.0), ('Right', 1.0)):
+        hip = p.pos(side + 'UpLeg')
+        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot',
+                 (hip[0] + 0.62, 0.09 + (sx + 1) * 0.07, 0.25), (0, 0.3, 1))
+        shoulder = p.pos(side + 'Arm')
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand',
+                 (shoulder[0] - 0.14, 0.09 + (sx + 1) * 0.08, 0.21), (0, 0, -1))
+    return p
+
+
+def lie_rise_pose(stand, breath=0.0, face_down=False):
+    """Loose supine or prone body. Variant is authored here, never sampled from a clip."""
+    p = stand.copy()
+    p.rotate_world('Pelvis', rig.qaxis(X, 89 if face_down else -89))
+    seat_on_hips(p, (0.0, 0.17, 0.0))
+    p.rotate_world('Head', rig.qaxis(Y, 18))
+    p.rotate_world('Spine3', rig.qaxis(X, 0.4 * breath))
+    direction = 1.0 if face_down else -1.0
+    for side, sx in (('Left', -1.0), ('Right', 1.0)):
+        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot',
+                 (sx * 0.22, 0.10, -direction * 0.70), (sx, 0.4, 0))
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand',
+                 (sx * 0.43, 0.08, direction * 0.17), (sx, 0.2, -direction))
+    return p
+
+
+def kneel_pose(stand, dip=0.0, all_fours=False):
+    """Knees down, toes behind; hands support the roll or work at ground level."""
+    p = stand.copy()
+    p.rotate_world('Pelvis', rig.qaxis(X, 65 if all_fours else 36 + 12 * dip))
+    seat_on_hips(p, (0.0, 0.42, -0.10))
+    p.rotate_world('Spine3', rig.qaxis(X, 12 + 8 * dip))
+    p.rotate_world('Neck', rig.qaxis(X, 8))
+    for side, sx in (('Left', -1.0), ('Right', 1.0)):
+        hip = p.pos(side + 'UpLeg')
+        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot',
+                 (hip[0] + sx * 0.06, 0.10, -0.49), (sx * 0.15, -1, 0.8))
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand',
+                 (sx * (0.28 if all_fours else 0.16), 0.07, 0.40 + sx * 0.035 * dip),
+                 (sx, 0.2, -0.3))
+    return p
+
+
+def authored_idle(stand, pose_fn, seconds):
+    count = int(round(seconds * FPS))
+    return [pose_fn(stand, math.sin(2 * math.pi * f / count)) for f in range(count + 1)]
+
+
+def authored_getup(keyposes, seconds, knots):
+    """Smooth authored stages, including the exact idle seam and our standing endpoint."""
+    count = int(round(seconds * FPS))
+    poses = []
+    for frame in range(count + 1):
+        t = frame / count
+        segment = next((i for i in range(len(knots) - 1) if t <= knots[i + 1]), len(knots) - 2)
+        amount = (t - knots[segment]) / (knots[segment + 1] - knots[segment])
+        poses.append(blend(keyposes[segment], keyposes[segment + 1], _smooth(amount)))
+    return poses
+
 def build_all(parents, rest, bones):
     """Our clips from the mesh skeleton (``rig.load_skeleton``); no vanilla clip is read."""
     stand = stand_pose(rig.rest_pose(parents, rest, bones))
+    crouch = crouch_forward_pose(stand)
+    fours = kneel_pose(stand, all_fours=True)
+    sleep = prone_sleep_pose(stand)
+    lying = lie_rise_pose(stand)
+    feed = kneel_pose(stand)
     return {
         'hc_sit_wall_idle': to_anim(bones, build_sit_wall_idle(stand)),
         'hc_sit_wall_getup': to_anim(bones, build_sit_wall_getup(stand)),
+        'hc_prone_sleep_idle': to_anim(bones, authored_idle(stand, prone_sleep_pose, 4.0)),
+        'hc_prone_sleep_getup': to_anim(bones, authored_getup(
+            [sleep, fours, crouch, stand], 2.6, (0, 0.35, 0.65, 1))),
+        'hc_lie_rise_idle': to_anim(bones, authored_idle(stand, lie_rise_pose, 4.0)),
+        'hc_lie_rise_getup': to_anim(bones, authored_getup(
+            [lying, sit_wall_pose(stand), crouch, stand], 2.8, (0, 0.40, 0.72, 1))),
+        # Alternate face-down pair is authored and packaged for inspection; default pose 3 is supine.
+        'hc_lie_face_down_idle': to_anim(bones, authored_idle(
+            stand, lambda p, b: lie_rise_pose(p, b, face_down=True), 4.0)),
+        'hc_lie_face_down_getup': to_anim(bones, authored_getup(
+            [lie_rise_pose(stand, face_down=True), fours, crouch, stand], 2.8, (0, 0.38, 0.72, 1))),
+        'hc_feed_kneel_idle': to_anim(bones, authored_idle(stand, kneel_pose, 1.2)),
+        'hc_feed_kneel_getup': to_anim(bones, authored_getup(
+            [feed, crouch, stand], 2.0, (0, 0.45, 1))),
     }
 
 

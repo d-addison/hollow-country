@@ -9,10 +9,10 @@ The PBO carries no vanilla graph content: no copied sheet, template, instance or
                    HCMasterControl. The vanilla Debug panel is not carried.
 * hc_infected.asi  a child instance: ParentTemplates names the vanilla infected_main.asi
                    (the engine's own inheritance, as player_main_1h_bandage.asi does with
-                   player_main_1h.asi) and our file only adds the lines for our two slots.
-* hc_poses.agf, config.cpp, scripts/ and our two clips.
+                   player_main_1h.asi) and our file only adds the lines for our eight slots.
+* hc_poses.agf, config.cpp, scripts/ and our authored clips.
 
-There is no .ast: our clips use two DEAD slots of the vanilla template (filled by the vanilla
+There is no .ast: our clips use eight DEAD slots of the vanilla template (filled by the vanilla
 instance, referenced by no vanilla sheet; checked at build time), so the vanilla template is used
 as is. The vanilla files are read only at build time (from the installed game) to check that and
 to take the ControlTemplate declarations and resource references.
@@ -39,7 +39,15 @@ VANILLA = 'infected\\infected_main\\'
 VANILLA_SHEETS = ('Locomotion.agf', 'Combat.agf', 'Interaction.agf')
 # (vanilla dead slot we fill, our clip). The slot names are the vanilla template's; the clips are ours.
 CLIPS = (('Default.Normal.z_erc_idle_fight01', 'hc_sit_wall_idle'),
-         ('Default.Normal.z_erc_attack_up_combo03', 'hc_sit_wall_getup'))
+         ('Default.Normal.z_erc_attack_up_combo03', 'hc_sit_wall_getup'),
+         ('Idles.VarA.Idle02', 'hc_prone_sleep_idle'),
+         ('Idles.VarA.Idle03', 'hc_prone_sleep_getup'),
+         ('Idles.VarA.Idle04', 'hc_lie_rise_idle'),
+         ('Idles.VarB.Idle02', 'hc_lie_rise_getup'),
+         ('Idles.VarB.Idle03', 'hc_feed_kneel_idle'),
+         ('Idles.VarB.Idle04', 'hc_feed_kneel_getup'))
+# Optional authored variant; not selected by CMD_HC_POSE, so it needs no template slot.
+EXTRA_CLIPS = ('hc_lie_face_down_idle', 'hc_lie_face_down_getup')
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods' / PREFIX
 
@@ -117,7 +125,7 @@ def build_graph(agr, aw):
     variables, commands = _interface_blocks(agr)
     # ours go after the vanilla declarations, so every vanilla variable/command keeps its order
     interface = (variables[:variables.rindex('}')]
-                 + ' AnimSrcGCTVarInt HCPose {\n    DefaultValue 0\n    MinValue 0\n    MaxValue 3\n   }\n  }\n'
+                 + ' AnimSrcGCTVarInt HCPose {\n    DefaultValue 0\n    MinValue 0\n    MaxValue 4\n   }\n   AnimSrcGCTVarInt HCPoseFrom {\n    DefaultValue 0\n    MinValue 0\n    MaxValue 4\n   }\n  }\n'
                  + commands[:commands.rindex('}')]
                  + ' AnimSrcGCTCmd CMD_HC_POSE {\n    Synchronized 1\n   }\n  }')
     gct = guid(BASE + 'hc_infected.agr#gct')
@@ -191,7 +199,7 @@ def collect(addons_dir, clip_dir):
             files[p.relative_to(SOURCE).as_posix()] = p.read_bytes()
     for member, text in build_graph(*read_vanilla(addons_dir)).items():
         files[member] = text.replace('\n', '\r\n').encode('utf-8')
-    for _, clip in CLIPS:
+    for clip in tuple(clip for _, clip in CLIPS) + EXTRA_CLIPS:
         path = os.path.join(clip_dir, clip + '.anm')
         with open(path, 'rb') as h:
             files['anims/infected/clips/%s.anm' % clip] = h.read()

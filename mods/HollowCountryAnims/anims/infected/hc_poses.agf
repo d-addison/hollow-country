@@ -12,6 +12,30 @@ AnimSrcGraphFile {
      Source "Default.Normal.z_erc_attack_up_combo03"
      Looptype "No Loop"
     }
+    AnimSrcNodeSource HCProneSleepIdleSource {
+     Source "Idles.VarA.Idle02"
+     Looptype Loop
+    }
+    AnimSrcNodeSource HCProneSleepGetUpSource {
+     Source "Idles.VarA.Idle03"
+     Looptype "No Loop"
+    }
+    AnimSrcNodeSource HCLieRiseIdleSource {
+     Source "Idles.VarA.Idle04"
+     Looptype Loop
+    }
+    AnimSrcNodeSource HCLieRiseGetUpSource {
+     Source "Idles.VarB.Idle02"
+     Looptype "No Loop"
+    }
+    AnimSrcNodeSource HCFeedKneelIdleSource {
+     Source "Idles.VarB.Idle03"
+     Looptype Loop
+    }
+    AnimSrcNodeSource HCFeedKneelGetUpSource {
+     Source "Idles.VarB.Idle04"
+     Looptype "No Loop"
+    }
     AnimSrcNodeStateMachine HCMasterControl {
      EditorPos 2 -8
      states {
@@ -29,6 +53,42 @@ AnimSrcGraphFile {
        TimeStorage "Real Time"
        IsExit 0
       }
+      AnimSrcNodeState ProneSleep {
+       Child "HCProneSleepIdleSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState ProneSleepGetUp {
+       Child "HCProneSleepGetUpSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState LieRise {
+       Child "HCLieRiseIdleSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState LieRiseGetUp {
+       Child "HCLieRiseGetUpSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState FeedKneel {
+       Child "HCFeedKneelIdleSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState FeedKneelGetUp {
+       Child "HCFeedKneelGetUpSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
       AnimSrcNodeState Vanilla {
        EditorPos -2 -5
        Child "MasterControl"
@@ -38,6 +98,145 @@ AnimSrcGraphFile {
       }
      }
      transitions {
+      AnimSrcNodeTransition "{48435053495402A1}" {
+       FromState "Vanilla"
+       ToState "ProneSleep"
+       Duration "0.6"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 2"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495402A2}" {
+       FromState "ProneSleep"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495402A3}" {
+       FromState "ProneSleep"
+       ToState "ProneSleepGetUp"
+       Duration "0.2"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 2"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495402A4}" {
+       FromState "ProneSleepGetUp"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495402A5}" {
+       FromState "ProneSleepGetUp"
+       ToState "Vanilla"
+       Duration "0.25"
+       StartTime ""
+       Condition "RemainingTimeLess(0.25)"
+       BlendFn S
+       PostEval 1
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495403A1}" {
+       FromState "Vanilla"
+       ToState "LieRise"
+       Duration "0.6"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 3"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495403A2}" {
+       FromState "LieRise"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495403A3}" {
+       FromState "LieRise"
+       ToState "LieRiseGetUp"
+       Duration "0.2"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 3"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495403A4}" {
+       FromState "LieRiseGetUp"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495403A5}" {
+       FromState "LieRiseGetUp"
+       ToState "Vanilla"
+       Duration "0.25"
+       StartTime ""
+       Condition "RemainingTimeLess(0.25)"
+       BlendFn S
+       PostEval 1
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495404A1}" {
+       FromState "Vanilla"
+       ToState "FeedKneel"
+       Duration "0.6"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 4"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495404A2}" {
+       FromState "FeedKneel"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495404A3}" {
+       FromState "FeedKneel"
+       ToState "FeedKneelGetUp"
+       Duration "0.2"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 4"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495404A4}" {
+       FromState "FeedKneelGetUp"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495404A5}" {
+       FromState "FeedKneelGetUp"
+       ToState "Vanilla"
+       Duration "0.25"
+       StartTime ""
+       Condition "RemainingTimeLess(0.25)"
+       BlendFn S
+       PostEval 1
+       MotionVecBlend 0x33 0
+      }
+
       AnimSrcNodeTransition "{48435053495401A1}" {
        FromState "Vanilla"
        ToState "SitWall"
@@ -61,7 +260,7 @@ AnimSrcGraphFile {
        ToState "SitWallGetUp"
        Duration "0.2"
        StartTime ""
-       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0"
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0 && GetVariableInt(HCPoseFrom) == 1"
        BlendFn S
        MotionVecBlend 0x33 0
       }
