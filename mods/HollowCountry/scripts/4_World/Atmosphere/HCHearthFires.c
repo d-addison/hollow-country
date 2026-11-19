@@ -197,12 +197,13 @@ class HCHearthFires
     }
     // Rotate without copying the map. Each inspected entry spends shared work;
     // removing the current key retains the cursor for its replacement. Fresh
-    // cooldowns survive, including when the UTC clock is unavailable.
+    // cooldowns survive, including when the UTC clock is unavailable. Snapshot
+    // the count so wrapping after removals cannot revisit a fresh entry.
     static void HCReclaimAttempts()
     {
         int now = HCWorldClock.UTC();
         if (now < 1) { return; }
-        int limit = HCHearthConfig.HCGet().HearthsPerTick;
+        int limit = Math.Min(HCHearthConfig.HCGet().HearthsPerTick, s_Attempts.Count());
         int examined = 0;
         s_Budget.HCReset(limit);
         while (s_Attempts.Count() > 0 && examined < limit)
@@ -219,7 +220,14 @@ class HCHearthFires
     static void HCTick()
     {
         if (!s_Running) { return; }
+        // Ignition gets first use of the shared allowance. Work-path returns
+        // still reach reclamation, which takes only the remaining allowance.
+        HCWorkTick();
         HCReclaimAttempts();
+    }
+
+    static void HCWorkTick()
+    {
         s_Budget.HCReset(HCHearthConfig.HCGet().HearthsPerTick);
         int examined = 0;
         while (s_Lit.Count() > 0 && examined < HCHearthConfig.HCGet().HearthsPerTick)
