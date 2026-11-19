@@ -297,6 +297,8 @@ class HCInteriorStore
             m_Pool.Reconcile(site, 3);
             return Fail("grant attempt write/readback failed; never issue output");
         }
+        // A success ends the refusal run, so the next refusal reason is logged again.
+        m_LastRefusal = "";
         return true;
     }
 

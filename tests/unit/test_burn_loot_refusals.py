@@ -229,6 +229,25 @@ class StoreGrantReasonTests(unittest.TestCase):
         for line in self.events:
             self.assertNotIn('actor', str(line))
 
+    def success_ports(self):
+        """Synthetic ports for a clean BeginGrant: exact claim on disk, no attempt/result yet."""
+        claim = N(SchemaVersion=2, Phase=1, PlayerId='actor')
+        self.env.update(ClaimPath=lambda slot: 'claim', AttemptPath=lambda slot: 'attempt',
+                        ResultPath=lambda slot: 'result', FileExist=lambda path: False,
+                        MatchesClaim=lambda row, site: True,
+                        load_json=lambda path: claim, write_new=lambda path, data: True)
+        self.store.m_Pool = N(Reserved=lambda site: True)
+
+    def test_refusal_after_a_successful_grant_is_logged_again(self):
+        self.assertFalse(self.grant())
+        self.assertEqual(1, len(self.events))
+        self.success_ports()
+        self.assertTrue(self.grant())
+        self.assertEqual('', self.store.m_LastRefusal)
+        self.store.m_Pool = None
+        self.assertFalse(self.grant())
+        self.assertEqual(2, len(self.events), self.events)
+
 
 if __name__ == '__main__':
     unittest.main()

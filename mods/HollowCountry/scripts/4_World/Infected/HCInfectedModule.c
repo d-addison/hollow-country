@@ -44,6 +44,8 @@ class HCInfectedModule : HCModule
     // Only a failed transfer seen by this process may leave other slots open.
     protected ref array<int> m_FailedCohorts = new array<int>;
     protected ref HCAlertChain m_AlertChain = new HCAlertChain;
+    // Last pack route refusal this module logged (site:reason); "" after a success.
+    protected string m_LastRouteRefusal;
     protected bool m_Healthy;
     protected bool m_Hordes;
     protected bool m_Chains;
@@ -857,7 +859,10 @@ class HCInfectedModule : HCModule
             return;
         if (record.AdoptionStage != 2)
         {
-            Print("[HollowCountry] infected cohort quarantined id=" + record.Id.ToString() + " reason=adoption_transfer_failed_or_ambiguous reservation=retained");
+            string packReason = "none";
+            if (pack && pack.HCRefusalReason() != "")
+                packReason = pack.HCRefusalReason();
+            Print("[HollowCountry] infected cohort quarantined id=" + record.Id.ToString() + " reason=adoption_transfer_failed_or_ambiguous pack_reason=" + packReason + " reservation=retained");
         }
         // Native entities are never spawned, deleted or moved by script.
     }
@@ -866,6 +871,22 @@ class HCInfectedModule : HCModule
     protected bool HeardAdmitted()
     {
         return m_Chains && m_Admission.SupplementaryChains;
+    }
+
+    // Pack-route refusal reason from HCNativeInfectedPack.HCRefusalReason(): logged
+    // once per change (site + reason); an empty reason (a success) re-arms the log.
+    protected void HCNoteRouteRefusal(string site, string reason)
+    {
+        if (reason == "")
+        {
+            m_LastRouteRefusal = "";
+            return;
+        }
+        string key = site + ":" + reason;
+        if (m_LastRouteRefusal == key)
+            return;
+        m_LastRouteRefusal = key;
+        Print("[HC Infected] " + site + " pack route refused reason=" + reason + " runtime=PENDING");
     }
 
     protected void TryInvestigate(HCInfectedActor actor)
@@ -896,8 +917,13 @@ class HCInfectedModule : HCModule
         float expires = Math.Min(clue.Expires, m_Now + 15);
         if (pack.Start(single, clue.Origin, true, m_Now, expires))
         {
+            HCNoteRouteRefusal("investigate", "");
             actor.SearchPack = pack;
             m_Investigators.Insert(actor);
+        }
+        else
+        {
+            HCNoteRouteRefusal("investigate", pack.HCRefusalReason());
         }
     }
 

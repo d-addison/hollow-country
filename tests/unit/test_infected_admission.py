@@ -119,7 +119,7 @@ def translate(filename, signature, bound, fields=(), statics=(), **namespace):
 
 MODULE_METHODS = ("FindActor", "CanRecycleActor", "ResetSweep", "SampleActor", "SampleMembership",
     "FinishSweep", "SnapshotRoute", "RetargetCohorts", "SaveAdoptionBoundary", "TryAdopt",
-    "TryInvestigate", "ReleasePacks", "Quarantine", "HeardAdmitted", "RefundRetired")
+    "TryInvestigate", "ReleasePacks", "Quarantine", "HeardAdmitted", "RefundRetired", "HCNoteRouteRefusal")
 
 
 def bind_heard_admitted(context):
@@ -345,6 +345,7 @@ def pack_factory(recorder):
             recorder.events.append("pack_created")
         def Start(self, *a): recorder.events.append("pack_start"); return True
         def IsReleasing(self): return False
+        def HCRefusalReason(self): return ""
         def Release(self): recorder.events.append("pack_release")
         def Retarget(self, *a): recorder.events.append("retarget"); return 2
     return Pack
@@ -426,7 +427,8 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
         actor = self.candidate(0)
         actor.Visual = self.clue(provenance=2)
         ctx = NS(m_Chains=True, m_Config=requested_config(MaxInvestigators=2), m_Admission=admission(**admitted),
-            m_Now=10, m_RoutesRemaining=1, m_Investigators=Array())
+            m_Now=10, m_RoutesRemaining=1, m_Investigators=Array(),
+            HCNoteRouteRefusal=lambda site, reason: None)
         return ctx, actor
 
     def run_investigate(self, ctx, actor, rec):
