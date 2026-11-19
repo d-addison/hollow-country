@@ -35,6 +35,7 @@ class HCVisualSeasonConfig : HCc2SeasonTuning
 
 class HCVisualSeasons
 {
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCVisualSeasonConfig m_Config;
     protected ref HCVisualSeasonStore m_Store;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
@@ -93,6 +94,7 @@ class HCVisualSeasons
         m_Paused = false;
         m_HitchReported = false;
         HCReport("on", "start");
+        Print("[HC Plan] HC-150 leaves=unavailable reason=emitter_asset_contract_uninspected runtime=PENDING");
         return true;
     }
 
@@ -122,7 +124,47 @@ class HCVisualSeasons
         return "spring";
     }
 
-    bool HCActive() { return m_Running && !m_Paused; }
+    // Consumer contract: no phase cache, clock advance, config IO or weather writes.
+    // -1 means unavailable; callers retain their non-seasonal policy. In particular,
+    // do not turn the legacy HCPhase() fallback 0 into a spring gameplay signal.
+    // Native scripts-1.30.164289: 3_Game/Global/Game.c:1093 GetMission,
+    // :1120 IsServer; 3_Game/gameplay.c:742 Mission.GetWorldData;
+    // 1_Core/proto/EnScript.c:94 inherited Class.Cast.
+    static int HCReadPhase()
+    {
+        return auditseason_Phase.HCReadOwnerPhase();
+    }
+
+    int HCReadActivePhase()
+    {
+        if (!HCActive()) { return -1; }
+        return HCPhase();
+    }
+
+    bool HCActive()
+    {
+        if (!m_Running || m_Paused || !m_Config || !m_Store) { return false; }
+        return m_Config.EnableVisualSeasons && m_Store.HCHealthy();
+    }
+
+    HCOperationalStatus HCGetOperationalStatus()
+    {
+        // Publish only already observed owner/store state; runtime remains pending.
+        m_Status.HCPublish("off", "clock_inactive");
+        if (!m_Running) { return m_Status; }
+        if (m_Paused)
+        {
+            m_Status.HCPublish("refused", "clock_paused");
+            return m_Status;
+        }
+        if (!m_Store || !m_Store.HCHealthy())
+        {
+            m_Status.HCPublish("refused", "store_unhealthy");
+            return m_Status;
+        }
+        if (HCActive()) { m_Status.HCPublish("ready", "active_clock"); }
+        return m_Status;
+    }
 
     protected void HCReport(string status, string reason)
     {
@@ -196,5 +238,21 @@ class HCVisualSeasons
         m_Store.HCStop();
         m_Running = false;
         HCReport("stopped", "stop");
+    }
+}
+
+// Native owner resolution is separate from scalar clock decisions. No retained state.
+class auditseason_Phase
+{
+    static int HCReadOwnerPhase()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return -1; }
+        Mission seasonMission = GetGame().GetMission();
+        if (!seasonMission) { return -1; }
+        ChernarusPlusData seasonData = ChernarusPlusData.Cast(seasonMission.GetWorldData());
+        if (!seasonData) { return -1; }
+        HCVisualSeasons seasons = seasonData.HCWinterTerrainSeasons();
+        if (!seasons) { return -1; }
+        return seasons.HCReadActivePhase();
     }
 }
