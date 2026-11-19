@@ -49,7 +49,10 @@ class HCCampScan
 
     static bool StorageItem(ItemBase item)
     {
-        return item && (item.IsKindOf("WoodenCrate") || item.IsKindOf("SeaChest") || item.IsKindOf("Barrel_ColorBase"));
+        if (!item || item.GetHierarchyParent()) { return false; }
+        TentBase storageTent = TentBase.Cast(item);
+        if (storageTent) { return storageTent.GetState() == TentBase.PITCHED; }
+        return item.IsKindOf("WoodenCrate") || item.IsKindOf("SeaChest") || item.IsKindOf("Barrel_ColorBase");
     }
 
     static HCCampScan Read(vector position, bool burning)

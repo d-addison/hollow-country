@@ -60,6 +60,7 @@ class HCBuildingClaim
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Healthy;
+    protected bool m_OperatorDisabled;
     protected int m_LastUtc;
     protected int m_OnlineSeconds;
     protected ref map<string, int> m_LastSteps = new map<string, int>;
@@ -77,7 +78,14 @@ class HCBuildingClaim
     }
     static HCOperationalStatus HCObservedStatus()
     {
-        if (s_Instance) { return s_Instance.m_Status; }
+        if (s_Instance)
+        {
+            if (s_Instance.m_Healthy)
+            {
+                HCModuleReadiness.HCDerive(s_Instance.m_Status, s_Instance.m_Healthy, "", "", "claim_journal_loaded_native_acceptance_pending");
+            }
+            return s_Instance.m_Status;
+        }
         HCOperationalStatus status = new HCOperationalStatus;
         status.HCPublish("off", "claim_owner_not_running");
         return status;
@@ -93,6 +101,13 @@ class HCBuildingClaim
         s_Instance = service;
         service.m_Owner = owner;
         service.m_Data = data;
+        if (FileExist("$profile:HollowCountry/acceptance/building_claims.disable"))
+        {
+            service.m_OperatorDisabled = true;
+            service.m_Status.HCPublish("off", "building_claims_operator_disabled");
+            Print("[HC Plan] HC-17 claims=off reason=building_claims_operator_disabled runtime=PENDING");
+            return true;
+        }
         // Groups starts before Camps in the existing registry. An unavailable
         // provider is an observed off state, never a false ready admission or
         // a background retry/expiry loop. Restart may admit it after repair.
@@ -112,11 +127,11 @@ class HCBuildingClaim
         service.m_Save.Owner = service;
         service.m_Healthy = true;
         HCSaveScheduler.HCRegister(service.m_Save);
-        service.m_Status.HCPublish("ready", "claim_journal_loaded_native_acceptance_pending");
-        Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false));
-        Print("[HC Plan] HC-17 claims=per-group state=ready expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=off count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
+        HCModuleReadiness.HCDerive(service.m_Status, service.m_Healthy, "", "", "claim_journal_loaded_native_acceptance_pending");
+        Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false) + " runtime=PENDING");
+        Print("[HC Plan] HC-17 claims=per-group state=" + service.m_Status.HCState() + " expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=off count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 expiry=online_absence window_days=" + service.m_Config.ExpiryDays.ToString() + " runtime=PENDING");
-        Print("[HC Plan] HC-17 state=refused reason=door_restart_and_heavy_infected_unobserved count=2 runtime=PENDING");
+        Print("[HC Plan] HC-17 locks=group_native_lockpick unlock=vanilla raiding=vanilla restart=native runtime=PENDING");
         return true;
     }
 
@@ -248,6 +263,37 @@ class HCBuildingClaim
         return false;
     }
 
+    // #151: ownership controls who may SET a native lock. Unlock/forced entry
+    // remain entirely native, including tool damage and broken-door state.
+    // No periodic lock replay: a breached door stays breached until relocked
+    // physically by a member with a vanilla tool. No collision/door override.
+    bool HCCanLock(int groupId, string buildingId)
+    {
+        if (!m_Healthy) { return false; }
+        array<ref HCBuildingClaimRecord> lockClaims = m_Data.Claims;
+        foreach (HCBuildingClaimRecord lockClaim : lockClaims)
+        {
+            if (lockClaim.BuildingId == buildingId) { return groupId > 0 && lockClaim.GroupId == groupId; }
+        }
+        return true;
+    }
+
+    static bool HCLockAllowed(PlayerBase player, ActionTarget target)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return true; } // Client preview is vanilla.
+        if (!s_Instance || s_Instance.m_OperatorDisabled) { return true; }
+        if (!s_Instance.m_Healthy || !HCActor(player) || !target) { return false; }
+        Building lockBuilding = Building.Cast(target.GetObject());
+        if (!lockBuilding) { return false; }
+        // Nonclaimable native targets retain their own action restrictions.
+        int lockDoor = lockBuilding.GetDoorIndex(target.GetComponentIndex());
+        if (!HCDoor(lockBuilding, lockDoor)) { return true; }
+        HCGroupService lockGroups = HCGroupService.Get();
+        if (!lockGroups || !lockGroups.HCClaimHealthy()) { return false; }
+        int lockGroupId = lockGroups.HCClaimActorGroup(player, false);
+        return s_Instance.HCCanLock(lockGroupId, HCIdentity(lockBuilding));
+    }
+
     string HCRequest(PlayerBase player, ActionTarget target, bool release)
     {
         if (!m_Healthy || !GetGame() || !GetGame().IsServer()) { return "Claim service unavailable."; }
@@ -377,5 +423,33 @@ modded class HCGroupService
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
         if (!group || (manager && HCGroupRules.Role(group, peer.Id) < 1)) { return 0; }
         return group.Id;
+    }
+}
+
+// Native evidence scripts-1.30.164289:
+// 4_World/Classes/UserActionsComponent/Actions/Continuous/ActionLockDoors.c:
+// 31-63 ActionCondition checks native reach/tool/door compatibility;
+// 62-74 LockDoor, 76-81 OnFinishProgressServer locks and damages the tool.
+// ActionUnlockDoors.c:31-63/76-85 stays unmodified (vanilla raiding).
+// ActionTargets.c:142/159 GetObject/GetComponentIndex;
+// 3_Game/Global/Game.c:1120 IsServer; gameplay.c:636 GetGame.
+modded class ActionLockDoors
+{
+    override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
+    {
+        return super.ActionCondition(player, target, item) && HCBuildingClaim.HCLockAllowed(player, target);
+    }
+
+    override void OnFinishProgressServer(ActionData action_data)
+    {
+        if (!action_data) { return; }
+        // Recheck the native condition as well as the current live group ACL.
+        // A membership change during the animation must not acquire a lock.
+        if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
+        {
+            if (action_data.m_Player) { action_data.m_Player.MessageStatus("Door locking refused: group access or native door/tool condition changed."); }
+            return;
+        }
+        super.OnFinishProgressServer(action_data);
     }
 }

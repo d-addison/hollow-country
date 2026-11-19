@@ -1,8 +1,36 @@
 // HC-16 / #143 supersedes LC-T416's abstract raider combat and casualties.
 // Eligibility remains a scheduling policy, not evidence of physical attackers.
-// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print.
+// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
+// EnSystem.c:397 FileExist. No engine/Expansion actor request is invented.
 class HCCampProbes
 {
+    protected static string s_Refusal;
+    protected static bool s_AdmissionPrinted;
+    protected static bool s_Enabled;
+
+    static bool HCEnabled()
+    {
+        if (!s_AdmissionPrinted)
+        {
+            s_Enabled = !FileExist("$profile:HollowCountry/acceptance/camp_probes.disable");
+            Print(HCV2Admission.Line("CampProbes", s_Enabled, "HC-16-PROBE", false) + " runtime=PENDING");
+            s_AdmissionPrinted = true;
+        }
+        return s_Enabled;
+    }
+
+    static void HCStart()
+    {
+        if (HCEnabled()) { HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); }
+    }
+
+    static void HCRefuse(string reason)
+    {
+        if (s_Refusal == reason) { return; }
+        s_Refusal = reason;
+        Print("[HC Plan] HC-16 probes=dispatch_pending reason=" + reason + " runtime=PENDING");
+    }
+
     static bool Eligible(int tier, int day, int now, int last, bool hidden)
     {
         if (tier != 3 || day < 14 || hidden || now < 1 || now < last) { return false; }
@@ -12,6 +40,7 @@ class HCCampProbes
 
     static void Step(HCCampModule module, HCCampRecord camp, HCCampScan scan, bool burning, int now)
     {
+        if (!HCEnabled()) { return; }
         if (camp.ProbePhase > 0)
         {
             // Clear old abstract leases once; never turn them into casualties.
@@ -20,8 +49,12 @@ class HCCampProbes
             if (!module.Commit(now)) { return; }
         }
         if (!Eligible(camp.Tier, HCEscalationClock.Day(), now, camp.LastProbe, scan.Hidden(burning))) { return; }
-        camp.LastProbe = now;
-        if (!module.Commit(now)) { return; }
-        Print("[HC Plan] HC-16 camp=" + camp.Id + " level=" + camp.Tier.ToString() + " supply=0 roles=0 state=refused refusal=PROBE_PARTY_NOT_OBSERVED runtime=PENDING");
+        // Eligibility is not perception, a warning, a funded party lease or
+        // actual departure. Never debit cooldown for a dispatch that did not
+        // occur, broadcast a phantom warning, or raid by camp coordinates.
+        // HC-39's existing actor port cannot dispatch player-base targets; its
+        // validation requires a funded AI holdout lease. Keep this real gap
+        // explicit, separately from the admitted native-verdict gate.
+        HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE");
     }
 }
