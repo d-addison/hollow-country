@@ -931,7 +931,7 @@ class HCInteriorTemplates
             }
             s_Loaded = true;
             HCInteriorPackIndex.HCReceipt(s_Job, s_Classes.Count(), true);
-            Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending");
+            Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Job.Files.ToString());
             return 0;
         }
         s_LoadChunk = s_LoadChunk + 1;
