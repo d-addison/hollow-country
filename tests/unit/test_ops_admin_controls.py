@@ -15,7 +15,7 @@ class CampControls(unittest.TestCase):
     def run_tier(self, tier, commit=True, running=True):
         camp = NS(Tier=1)
         calls = []
-        owner = NS(m_Running=running, HCAdminSelectCamp=lambda pos, reason: camp,
+        owner = NS(m_Running=running, HCAdminSelectCamp=lambda pos, reason, claims=False: camp,
                    Commit=lambda now: calls.append(now) or commit)
         scope = base_scope(HCWorldClock=NS(UTC=lambda: 100))
         fn = compile_authored(DIRECTORS, 'HCCampModule', 'HCAdminTier', scope,
@@ -53,7 +53,7 @@ class CampControls(unittest.TestCase):
                 calls.append((selected, requested_raid))
                 reason.value = refusal
                 return False
-            owner = NS(HCAdminSelectCamp=lambda pos, reason: camp,
+            owner = NS(HCAdminSelectCamp=lambda pos, reason, claims=False: camp,
                        HCAdminRequestArrival=request)
             fn = compile_authored(DIRECTORS, 'HCCampModule', 'HCAdminArrival',
                                   base_scope(), ('HCAdminSelectCamp', 'HCAdminRequestArrival'))
@@ -79,7 +79,7 @@ class CampControls(unittest.TestCase):
 
 class CampSelection(unittest.TestCase):
     def test_nearest_scan_is_bounded_by_config_and_shared_work(self):
-        camps = EArray([NS(Position=9), NS(Position=2)])
+        camps = EArray([NS(Position=9, AnchorKind=''), NS(Position=2, AnchorKind='')])
         for limit, credit, now, expected in ((2, 2, 100, camps[1]),
                                              (1, 2, 100, None),
                                              (2, 1, 100, None),
@@ -95,7 +95,7 @@ class CampSelection(unittest.TestCase):
             fn = compile_authored(DIRECTORS, 'HCCampModule', 'HCAdminSelectCamp', scope)
             reason = Cell()
             owner = NS(m_Running=True, m_Data=NS(Camps=camps), m_LastUtc=50)
-            self.assertIs(fn(owner, 0, reason), expected)
+            self.assertIs(fn(owner, 0, reason, False), expected)
 
 
 class CommandRouting(unittest.TestCase):

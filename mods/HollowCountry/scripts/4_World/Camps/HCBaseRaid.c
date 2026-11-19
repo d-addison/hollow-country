@@ -143,6 +143,14 @@ class HCBaseRaid
     {
         if (!owner || owner != HCCampModule.Get() || !camp || !HCEnabled()) { return false; }
         if (!GetGame() || !GetGame().IsServer()) { return false; }
+        // #212: a retained claim target stays eligible only while its group still holds the claim.
+        if (camp.AnchorKind == "claim")
+        {
+            if (!HCBuildingClaim.HCGet() || !HCGroupService.Get()) { return false; }
+            int claimedGroup = camp.GroupId.ToInt();
+            if (HCGroupService.Get().HCClaimGroupState(claimedGroup) != 1) { return false; }
+            if (!HCBuildingClaim.HCGet().HCHoldsClaim(claimedGroup, camp.ClaimBuildingId)) { return false; }
+        }
         array<Man> people = new array<Man>;
         GetGame().GetPlayers(people);
         if (people.Count() > s_Config.MaxPlayers) { return false; }

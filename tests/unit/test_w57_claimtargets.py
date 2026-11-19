@@ -205,7 +205,7 @@ class ClaimTargets(unittest.TestCase):
         original = existing.compile_authored
         def compile_fixture(*args, **kwargs):
             fn = original(*args, **kwargs)
-            def invoke(owner, pos, reason):
+            def invoke(owner, pos, reason, *ignored):
                 for camp in owner.m_Data.Camps:
                     camp.AnchorKind = ''
                 return fn(owner, pos, reason, False)
@@ -219,3 +219,37 @@ class ClaimTargets(unittest.TestCase):
         for args in ((2, 14, NOW, 0, False), (3, 13, NOW, 0, False),
                      (3, 14, NOW, NOW-1, False), (3, 14, NOW, 0, True)):
             self.assertFalse(fn(None, *args))
+
+
+class GroupIdText(str):
+    def ToInt(self):
+        return int(self)
+
+
+class RetainedClaimAttendance(unittest.TestCase):
+    """Lead review fix: a claim target stays raidable only while its group holds the claim."""
+    def test_claim_target_rechecks_live_group_and_claim_before_attendance(self):
+        from tests.unit.test_bases_raid import invoke
+        state = NS(group=1, holds=True, asked=[])
+        def holds(group, building):
+            state.asked.append((group, building))
+            return state.holds
+        camp = NS(GroupId=GroupIdText('7'), Position=(0, 0, 0), AnchorKind='claim', ClaimBuildingId='b-1')
+        owner = NS(GroupId=lambda actor: 'other')
+        env = dict(HCCampModule=NS(Get=lambda: owner), HCEnabled=lambda: True,
+                   GetGame=lambda: NS(IsServer=lambda: True, GetPlayers=lambda out: None),
+                   HCGroupPeople=EArray, PlayerBase=NS(Cast=lambda value: value),
+                   s_Config=NS(MaxPlayers=2, AttendanceRangeMeters=500, ObserverRangeMeters=500),
+                   vector=NS(DistanceSq=lambda *args: 0),
+                   HCObserverTransitionGate=NS(CanTransition=lambda *args: True),
+                   HCBuildingClaim=NS(HCGet=lambda: NS(HCHoldsClaim=holds)),
+                   HCGroupService=NS(Get=lambda: NS(HCClaimGroupState=lambda group: state.group)))
+        check = lambda: invoke('HCUnattended', NS(), env, owner, camp, (0, 0, 0))
+        self.assertTrue(check())
+        self.assertEqual([(7, 'b-1')], state.asked)
+        state.holds = False
+        self.assertFalse(check())
+        state.holds, state.group = True, 2
+        self.assertFalse(check())
+        env['HCGroupService'] = NS(Get=lambda: None)
+        self.assertFalse(check())
