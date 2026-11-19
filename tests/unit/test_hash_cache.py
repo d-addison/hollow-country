@@ -5,6 +5,7 @@ Synthetic files in temp directories only; offline tests never establish DayZ beh
 RED (before the change): PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hash_cache -v
 see the commit body for the recorded failing lines.
 """
+import ast
 import hashlib
 import itertools
 import os
@@ -24,31 +25,61 @@ UNIT = ROOT / 'tests' / 'unit'
 # names one of these entry points: verify_install runs the whole-PBO hash of every addon,
 # subset_pins and _pbo_sha256 hash a PBO directly, _load_addons hashes while listing addons.
 HASHING_HELPERS = ('verify_install', 'subset_pins', '_pbo_sha256', '_load_addons', 'cached_sha256')
-HELPER_PATTERN = re.compile(r'\b(?:%s)\b' % '|'.join(HASHING_HELPERS))
 ISOLATION_HELPER = 'hash_cache_isolation'
 # Sources that name the helpers without being callers: this file and the helper itself.
 NOT_CALLERS = ('test_hash_cache', 'hash_cache_isolation')
 
 
+def _calls_helper(tree):
+    """True when the module calls a hashing helper by name, attribute or import alias, or defines a stand-in
+    of one that the code under test calls (test_local_test_session's stub installers) (#197)."""
+    aliases = set(HASHING_HELPERS)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            aliases.update(a.asname for a in node.names if a.name in HASHING_HELPERS and a.asname)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in HASHING_HELPERS:
+            return True
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+            if name in aliases:
+                return True
+    return False
+
+
+def _isolates(tree):
+    """Imports the shared helper, or names HC_HASH_CACHE_DIR in code (not in a comment)."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import) and any(a.name.split('.')[-1] == ISOLATION_HELPER for a in node.names):
+            return True
+        if isinstance(node, ast.ImportFrom) and (
+                (node.module or '').split('.')[-1] == ISOLATION_HELPER
+                or any(a.name == ISOLATION_HELPER for a in node.names)):
+            return True
+        if isinstance(node, ast.Constant) and node.value == 'HC_HASH_CACHE_DIR':
+            return True
+    return False
+
+
+def _tree(path):
+    return ast.parse(Path(path).read_text(encoding='utf-8'))
+
+
 def hashing_modules(unit_dir):
-    """Names of the test modules under unit_dir whose source names a whole-PBO hashing helper."""
+    """Names of the test modules under unit_dir that call a whole-PBO hashing helper (AST, #197)."""
     found = []
     for path in sorted(Path(unit_dir).glob('*.py')):
         if path.stem in NOT_CALLERS:
             continue
-        if HELPER_PATTERN.search(path.read_text(encoding='utf-8')):
+        if _calls_helper(_tree(path)):
             found.append(path.stem)
     return found
 
 
 def unisolated(unit_dir):
     """The discovered hashing modules that neither use the shared helper nor set their own cache dir."""
-    bad = []
-    for name in hashing_modules(unit_dir):
-        text = (Path(unit_dir) / (name + '.py')).read_text(encoding='utf-8')
-        if ISOLATION_HELPER not in text and 'HC_HASH_CACHE_DIR' not in text:
-            bad.append(name)
-    return bad
+    return [name for name in hashing_modules(unit_dir) if not _isolates(_tree(Path(unit_dir) / (name + '.py')))]
 
 
 class FakeHome:
@@ -409,6 +440,76 @@ class UserCacheIsolation(unittest.TestCase):
             hash_cache_isolation.leave()
         self.assertEqual(before, os.environ.get('HC_HASH_CACHE_DIR'))
         self.assertFalse(Path(override).exists())
+
+
+# #197: a child process that widens the gap between the merge re-read and the replace, so an unserialized
+# write would almost always drop another writer's rows.
+CHILD = """
+import sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from tools.package import hash_cache
+real = hash_cache._merge
+def slow(directory, entries):
+    merged = real(directory, entries)
+    time.sleep(0.03)
+    return merged
+hash_cache._merge = slow
+for i in range(int(sys.argv[4])):
+    key = '/synthetic/%s/%d.pbo' % (sys.argv[3], i)
+    row = {'size': 1, 'mtime_ns': 1, 'ino': 0, 'ctime_ns': 0, 'sha256': '0' * 64, 'used': 10 ** 9 + i}
+    hash_cache._store(Path(sys.argv[2]), {key: row})
+"""
+
+
+class SerializedMerge(unittest.TestCase):
+    def test_concurrent_writers_keep_every_row(self):
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as t:
+            cache = Path(t) / 'cache'
+            procs = [subprocess.Popen([sys.executable, '-B', '-c', CHILD, str(ROOT), str(cache), 'w%d' % n, '5'])
+                     for n in range(4)]
+            for proc in procs:
+                self.assertEqual(0, proc.wait(timeout=60))
+            rows = hash_cache._load(cache)
+            self.assertEqual(20, len(rows), 'every writer keeps its rows under contention')
+            self.assertFalse((cache / hash_cache.LOCK_FILE).exists(), 'the lock is released')
+
+    def test_a_fresh_foreign_lock_skips_the_store_without_failing(self):
+        with tempfile.TemporaryDirectory() as t:
+            cache = Path(t)
+            (cache / hash_cache.LOCK_FILE).write_text('other')
+            with mock.patch.object(hash_cache, 'LOCK_WAIT_NS', 50 * 10 ** 6):
+                hash_cache._store(cache, {'k': {'sha256': '0' * 64, 'used': 1}})
+            self.assertEqual({}, hash_cache._load(cache), 'no write while another build holds the lock')
+            self.assertTrue((cache / hash_cache.LOCK_FILE).exists(), 'a foreign fresh lock is left alone')
+
+    def test_a_stale_lock_from_a_killed_build_is_broken(self):
+        with tempfile.TemporaryDirectory() as t:
+            cache = Path(t)
+            lock = cache / hash_cache.LOCK_FILE
+            lock.write_text('dead')
+            old = time.time_ns() - hash_cache.LOCK_STALE_NS - 10 ** 9
+            os.utime(lock, ns=(old, old))
+            hash_cache._store(cache, {'k': {'sha256': '0' * 64, 'used': 1}})
+            self.assertIn('k', hash_cache._load(cache))
+            self.assertFalse(lock.exists())
+
+
+class CallerDiscovery(unittest.TestCase):
+    def test_aliased_and_attribute_calls_are_callers_but_mentions_are_not(self):
+        with tempfile.TemporaryDirectory() as t:
+            unit = Path(t)
+            (unit / 'test_alias.py').write_text('from tools.package.snafu_optional import verify_install as vi\nvi(1)\n')
+            (unit / 'test_module_alias.py').write_text('import tools.package.hash_cache as hc\nhc.cached_sha256(p)\n')
+            (unit / 'test_string_only.py').write_text("NAME = 'verify_install'\n# _pbo_sha256 is not called here\n")
+            (unit / 'test_patch_only.py').write_text("mock.patch.object(x, 'subset_pins')\n")
+            (unit / 'test_stub.py').write_text('class Fake:\n    def verify_install(self, install):\n        pass\n')
+            self.assertEqual(['test_alias', 'test_module_alias', 'test_stub'], hashing_modules(unit))
+            self.assertEqual(['test_alias', 'test_module_alias', 'test_stub'], unisolated(unit))
+            (unit / 'test_comment_isolation.py').write_text('# hash_cache_isolation\nverify_install()\n')
+            self.assertIn('test_comment_isolation', unisolated(unit), 'a comment is not isolation')
 
 
 if __name__ == '__main__':

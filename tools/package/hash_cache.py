@@ -16,9 +16,10 @@ replace, so two concurrent builds never share a temp path.
 
 Concurrent builds merge (#196): just before the atomic replace a write re-reads the file on disk and
 keeps both writers' rows, preferring the newer `used` stamp per key (a tie goes to the writer holding the
-row), then applies the LRU cap to the merged rows. Only the short gap between that re-read and the
-replace is unprotected, so a row can still be lost there (never corrupted); it is simply re-hashed next
-time. A `used` stamp in the future (clock change) is clamped to now when a file is read and again in the
+row), then applies the LRU cap to the merged rows. The re-read, merge and replace run under a lock file
+(#197, `sha256-cache.json.lock`, created with O_EXCL), so concurrent writers serialize and keep every row.
+A writer waits at most LOCK_WAIT_NS for the lock and then skips its write (the row is re-hashed next time);
+a lock older than LOCK_STALE_NS is a killed build's leftover and is broken. A `used` stamp in the future (clock change) is clamped to now when a file is read and again in the
 merge, so the next write persists the clamp and the row can age out and be evicted. A write first removes `sha256-cache.json.*.tmp` files older than ORPHAN_TEMP_AGE_NS, the
 leftovers of a build that was killed between writing and replacing.
 """
@@ -40,6 +41,11 @@ USE_REFRESH_NS = 3600 * 10 ** 9
 # A leftover temp file older than this (one hour) is removed by the next write.
 ORPHAN_TEMP_AGE_NS = 3600 * 10 ** 9
 BLOCK_BYTES = 1024 * 1024
+LOCK_FILE = CACHE_FILE + '.lock'
+# A writer waits this long (5 s) for another build's merge, then skips its own write.
+LOCK_WAIT_NS = 5 * 10 ** 9
+# A lock older than this (60 s) belongs to a killed build; any merge finishes far sooner.
+LOCK_STALE_NS = 60 * 10 ** 9
 _DIGEST = re.compile(r'[0-9a-f]{64}')
 
 
@@ -122,10 +128,47 @@ def _merge(directory, entries):
     return merged
 
 
+def _acquire(directory):
+    """Create the lock file exclusively; True when held. Breaks a stale lock; gives up after LOCK_WAIT_NS."""
+    lock = directory / LOCK_FILE
+    deadline = time.monotonic_ns() + LOCK_WAIT_NS
+    while True:
+        try:
+            os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+            return True
+        except FileExistsError:
+            try:
+                if _now_ns() - lock.stat().st_mtime_ns > LOCK_STALE_NS:
+                    lock.unlink()
+                    continue
+            except OSError:
+                continue  # released (or broken) meanwhile: try again
+        except OSError:
+            return False
+        if time.monotonic_ns() >= deadline:
+            return False
+        time.sleep(0.005)
+
+
 def _store(directory, entries):
-    temp = None
     try:
         directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    if not _acquire(directory):
+        return  # another build is merging: this row is simply re-hashed next time
+    try:
+        _store_locked(directory, entries)
+    finally:
+        try:
+            (directory / LOCK_FILE).unlink()
+        except OSError:
+            pass
+
+
+def _store_locked(directory, entries):
+    temp = None
+    try:
         _sweep_orphans(directory)
         entries = _merge(directory, entries)
         if len(entries) > MAX_ENTRIES:
