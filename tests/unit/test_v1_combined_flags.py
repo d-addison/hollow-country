@@ -181,7 +181,7 @@ class CoreFixture:
             base = lambda fn=fn: fn(self.registry)
         self.registry.RegisterModules = base
         self.state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None,
-                       m_LastTick=0, m_Registry=None,
+                       m_LastTick=0, m_Registry=None, m_SettingsRefusalLogged=False,
                        m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
                                        HCCapture=lambda name, requested, reported: None),
                        m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,

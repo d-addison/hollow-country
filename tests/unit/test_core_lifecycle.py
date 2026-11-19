@@ -43,7 +43,7 @@ def tokens(source):
 
 def expression(text):
     text = re.sub(r"\bnew (HCModuleRegistry)\(\)", r"\1()", text)
-    text = re.sub(r"\b(?:int|float|bool|string|HCSettings|HCModule|HCOperationalStatus|HCOperationalOwner|array<ref HCModule>) (\w+) =", r"\1 =", text)
+    text = re.sub(r"\b(?:int|float|bool|string|HCSettings|HCModule|HCModuleRegistry|HCOperationalStatus|HCOperationalOwner|array<ref HCModule>) (\w+) =", r"\1 =", text)
     text = re.sub(r"\bm_(\w+)\b", r"self.m_\1", text)
     text = re.sub(r"(?<!\.)\b(Stop|Tick)\b", r"self.\1", text)
     text = text.replace("&&", " and ").replace("||", " or ")
@@ -141,7 +141,7 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                                                 NonModuleSummary=lambda: "[HC Plan] HC-1 non_modules")}
     context.update(ports or {})
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
-                            m_Registry=None, m_LastTick=0, m_OperationalRefreshAt=0, Tick=lambda: None,
+                            m_Registry=None, m_SettingsRefusalLogged=False, m_LastTick=0, m_OperationalRefreshAt=0, Tick=lambda: None,
                             # HC-1 receipts are passive; their own tests live in test_hc_operational_status.
                             m_Operational=SimpleNamespace(HCReset=lambda: None, HCStopAll=lambda: None,
                                                           HCCapture=lambda name, requested, reported: None),

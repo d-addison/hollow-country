@@ -19,6 +19,8 @@
 // the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
 const int HC_PERF_MAX_MODULES = 64;
+// Per-module [HC Cost] lines per emission; a single [HC CostTotal] line covers all modules.
+const int HC_PERF_COST_TOP = 8;
 const int HC_PERF_MAX_WINDOW_SECONDS = 120;
 const float HC_PERF_MIN_TICKS_PER_MS = 0.01;
 const float HC_PERF_MAX_TICKS_PER_MS = 100000.0;
@@ -49,6 +51,8 @@ class HCPerfSampler
     // admission. Attribution can overlap module work; these are not additive.
     // Fixed 64*4 integers, no new registry, clock, player scan or profiler.
     protected ref array<int> m_CostMaxTicks = new array<int>();
+    // Scratch flags for the top-N selection; one per module slot, refilled at each emission.
+    protected ref array<int> m_CostPicked = new array<int>();
     protected float m_TicksPerMs;
     protected int m_EcologyIndex = -1;
     protected ref array<Man> m_Players = new array<Man>();
@@ -56,6 +60,7 @@ class HCPerfSampler
     void HCPerfSampler()
     {
         m_CostMaxTicks.Reserve(HC_PERF_MAX_MODULES * 4);
+        m_CostPicked.Reserve(HC_PERF_MAX_MODULES);
         m_ModuleNames.Reserve(HC_PERF_MAX_MODULES);
         m_ModuleMaxTicks.Reserve(HC_PERF_MAX_MODULES);
         m_SortedModuleNames.Reserve(HC_PERF_MAX_MODULES);
@@ -149,37 +154,117 @@ class HCPerfSampler
         return FormatMs(ticks / ticksPerMs);
     }
 
+    // Largest observed cost across the four kinds; -1 when nothing was observed.
+    protected int CostPeak(int moduleIndex)
+    {
+        int slot = moduleIndex * 4;
+        int peak = m_CostMaxTicks.Get(slot);
+        int kind = 1;
+        while (kind < 4)
+        {
+            int value = m_CostMaxTicks.Get(slot + kind);
+            if (value > peak) peak = value;
+            kind++;
+        }
+        return peak;
+    }
+
+    // One totals line, then the HC_PERF_COST_TOP costliest modules by peak
+    // (descending; ties and unobserved modules keep registration order).
     protected void EmitCosts(float ticksPerMs)
     {
-        int costIndex = 0;
-        while (costIndex < m_ModuleNames.Count())
+        int moduleCount = m_ModuleNames.Count();
+        int shown = moduleCount;
+        if (shown > HC_PERF_COST_TOP) shown = HC_PERF_COST_TOP;
+        int observed = 0;
+        int sumStartup = 0;
+        int sumCallback = 0;
+        int sumSave = 0;
+        int sumAdmission = 0;
+        m_CostPicked.Clear();
+        int scan = 0;
+        while (scan < moduleCount)
         {
-            string cost = "[HC Cost] module=" + m_ModuleNames.Get(costIndex);
-            int slot = costIndex * 4;
-            if (ticksPerMs > 0)
-            {
-                cost = cost + " startup_ms=" + FormatCost(m_CostMaxTicks.Get(slot), ticksPerMs);
-                cost = cost + " callback_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 1), ticksPerMs);
-                cost = cost + " save_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 2), ticksPerMs);
-                cost = cost + " admission_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 3), ticksPerMs);
-            }
-            else
-            {
-                // -1 means unobserved, as in SampleCost. Preserve once-only
-                // startup/admission evidence even if this window cannot convert.
-                int startupTicks = m_CostMaxTicks.Get(slot);
-                int callbackTicks = m_CostMaxTicks.Get(slot + 1);
-                int saveTicks = m_CostMaxTicks.Get(slot + 2);
-                int admissionTicks = m_CostMaxTicks.Get(slot + 3);
-                cost = cost + " startup_ticks=" + startupTicks.ToString();
-                cost = cost + " callback_ticks=" + callbackTicks.ToString();
-                cost = cost + " save_ticks=" + saveTicks.ToString();
-                cost = cost + " admission_ticks=" + admissionTicks.ToString();
-                cost = cost + " calibration=invalid reason=invalid_calibration";
-            }
-            Print("" + cost + "; runtime=PENDING");
-            costIndex++;
+            m_CostPicked.Insert(0);
+            int scanSlot = scan * 4;
+            if (CostPeak(scan) >= 0) observed++;
+            if (m_CostMaxTicks.Get(scanSlot) > 0) sumStartup += m_CostMaxTicks.Get(scanSlot);
+            if (m_CostMaxTicks.Get(scanSlot + 1) > 0) sumCallback += m_CostMaxTicks.Get(scanSlot + 1);
+            if (m_CostMaxTicks.Get(scanSlot + 2) > 0) sumSave += m_CostMaxTicks.Get(scanSlot + 2);
+            if (m_CostMaxTicks.Get(scanSlot + 3) > 0) sumAdmission += m_CostMaxTicks.Get(scanSlot + 3);
+            scan++;
         }
+        int omitted = moduleCount - shown;
+        string total = "[HC CostTotal] modules=" + moduleCount.ToString() + " observed=" + observed.ToString();
+        total = total + " shown=" + shown.ToString() + " omitted=" + omitted.ToString();
+        if (ticksPerMs > 0)
+        {
+            total = total + " startup_sum_ms=" + FormatMs(sumStartup / ticksPerMs);
+            total = total + " callback_sum_ms=" + FormatMs(sumCallback / ticksPerMs);
+            total = total + " save_sum_ms=" + FormatMs(sumSave / ticksPerMs);
+            total = total + " admission_sum_ms=" + FormatMs(sumAdmission / ticksPerMs);
+        }
+        else
+        {
+            total = total + " startup_sum_ticks=" + sumStartup.ToString();
+            total = total + " callback_sum_ticks=" + sumCallback.ToString();
+            total = total + " save_sum_ticks=" + sumSave.ToString();
+            total = total + " admission_sum_ticks=" + sumAdmission.ToString();
+            total = total + " calibration=invalid reason=invalid_calibration";
+        }
+        Print("" + total + "; runtime=PENDING");
+        int rank = 0;
+        while (rank < shown)
+        {
+            int best = -1;
+            int bestPeak = -2;
+            int pick = 0;
+            while (pick < moduleCount)
+            {
+                if (m_CostPicked.Get(pick) == 0)
+                {
+                    int pickPeak = CostPeak(pick);
+                    if (pickPeak > bestPeak)
+                    {
+                        best = pick;
+                        bestPeak = pickPeak;
+                    }
+                }
+                pick++;
+            }
+            if (best < 0) break;
+            m_CostPicked.Set(best, 1);
+            EmitCostLine(best, ticksPerMs);
+            rank++;
+        }
+    }
+
+    protected void EmitCostLine(int costIndex, float ticksPerMs)
+    {
+        string cost = "[HC Cost] module=" + m_ModuleNames.Get(costIndex);
+        int slot = costIndex * 4;
+        if (ticksPerMs > 0)
+        {
+            cost = cost + " startup_ms=" + FormatCost(m_CostMaxTicks.Get(slot), ticksPerMs);
+            cost = cost + " callback_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 1), ticksPerMs);
+            cost = cost + " save_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 2), ticksPerMs);
+            cost = cost + " admission_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 3), ticksPerMs);
+        }
+        else
+        {
+            // -1 means unobserved, as in SampleCost. Preserve once-only
+            // startup/admission evidence even if this window cannot convert.
+            int startupTicks = m_CostMaxTicks.Get(slot);
+            int callbackTicks = m_CostMaxTicks.Get(slot + 1);
+            int saveTicks = m_CostMaxTicks.Get(slot + 2);
+            int admissionTicks = m_CostMaxTicks.Get(slot + 3);
+            cost = cost + " startup_ticks=" + startupTicks.ToString();
+            cost = cost + " callback_ticks=" + callbackTicks.ToString();
+            cost = cost + " save_ticks=" + saveTicks.ToString();
+            cost = cost + " admission_ticks=" + admissionTicks.ToString();
+            cost = cost + " calibration=invalid reason=invalid_calibration";
+        }
+        Print("" + cost + "; runtime=PENDING");
     }
 
     // elapsedSeconds: wall time since the previous HC tick. workTicks: TickCount(start) around the module loop.

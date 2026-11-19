@@ -11,6 +11,7 @@ class HCServer
     protected ref array<ref HCModule> m_Active = new array<ref HCModule>();
     protected ref HCOperationalStatusCache m_Operational = new HCOperationalStatusCache();
     protected bool m_Started;
+    protected bool m_SettingsRefusalLogged;
     protected float m_LastTick;
     protected float m_OperationalRefreshAt;
     protected ref HCPerfSampler m_Perf = new HCPerfSampler();
@@ -44,7 +45,24 @@ class HCServer
             return;
         }
         HCSettings loaded = HCSettings.LoadFromProfile();
-        if (!loaded) return;
+        if (!loaded)
+        {
+            // Settings refusal already printed its own reason. Give every registered
+            // module its readiness line once, without IsEnabled, status or OnStart.
+            if (!m_SettingsRefusalLogged)
+            {
+                m_SettingsRefusalLogged = true;
+                HCModuleRegistry refusedRegistry = new HCModuleRegistry();
+                refusedRegistry.RegisterModules();
+                array<ref HCModule> refusedModules = refusedRegistry.GetModules();
+                foreach (HCModule refusedModule : refusedModules)
+                {
+                    Print("[HC " + refusedModule.GetName() + "] off reason=settings_unavailable");
+                }
+            }
+            return;
+        }
+        m_SettingsRefusalLogged = false;
         m_Settings = loaded;
         m_Registry = new HCModuleRegistry();
         m_Registry.RegisterModules();
