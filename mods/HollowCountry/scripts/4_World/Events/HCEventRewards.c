@@ -13,6 +13,7 @@ class HCEventRewardIO : HCEventJournalIO
     void HCEventRewardIO()
     {
         m_Root = "$profile:HollowCountry/Events/rewards";
+        m_Label = "reward directory";
     }
 }
 class HCEventRewardPools

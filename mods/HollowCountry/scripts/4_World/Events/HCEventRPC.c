@@ -61,6 +61,7 @@ class HCEventRPC
         m_GlobalCount = 0;
         m_ProjectionState = null;
         m_Started = true;
+        m_Refusal = "";
         DayZGame.Event_OnRPC.Insert(OnRPC);
         return true;
     }
@@ -158,6 +159,7 @@ class HCEventRPC
         }
         m_GlobalCount = m_GlobalCount + 1;
         peer.RateCount = peer.RateCount + 1;
+        m_Refusal = "";
         return true;
     }
     // HC-38: the old wire IDs remain reserved; no client quest/reward operation.
