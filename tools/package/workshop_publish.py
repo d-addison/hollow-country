@@ -56,7 +56,7 @@ TITLE = 'Hollow Country'
 ADDON_TITLE = 'Hollow Country Expansion AI (server)'
 DEPENDENCY_DESCRIPTION = (
     'Default dependencies, loaded on server and every client in order: Community Framework / CF, '
-    'Community Online Tools / COT, Dabs Framework, Expansion-Core, Expansion-AI, Expansion Navigation (GPS), '
+    'Community Online Tools / COT, Dabs Framework, Expansion-Core, Expansion-Licensed, Expansion-Vehicles, Expansion-AI, Expansion Navigation (GPS), '
     'the two weapons packs, RaG_Core, RaG Immersive Vehicles, Ambient Animals Pack, '
     'Survivor Animations, DayZ-Bicycle, @HollowCountry, @HollowCountryExpansionAI. '
     'Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations. '
@@ -65,8 +65,8 @@ DESCRIPTION = (
     'Hollow Country is a private ChernarusPlus survival overhaul for three to six players. '
     'Features being built: contextual house searches and interiors, native crafting and salvage, '
     'perceptual infected alerts and persistent hordes, survivor groups and map pins, weather and lighting, '
-    'ambient life, repairable travel, taped weapon lights, scene chains, leads, camps and persistent world stories. '
-    'V2 preferences are on by default; native compile, normal PBO/server and two-client runtime acceptance remain pending. '
+    'ambient life, repairable travel with Expansion vehicles and rare helicopters, taped weapon lights, scene chains, leads, camps and persistent world stories. '
+    'V2 preferences are on by default. Scripts compile on a local server; gameplay acceptance on a live server remains pending. '
     + DEPENDENCY_DESCRIPTION)
 ADDON_DESCRIPTION = (
     'Hollow Country Expansion AI connects the survival overhaul to Expansion AI on server and clients. '
