@@ -16,8 +16,7 @@
 // Native evidence: scripts-1.30.164289/3_Game/Global/Game.c:1120 IsServer;
 // 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnSystem.c:397 FileExist;
 // 1_Core/proto/EnDebug.c:96 Print. No COT/Expansion engine call is guessed here.
-// The installed public COT names lack documented signatures: binding is a named
-// missing part, never a successful COT check. See docs/COT_PERMISSIONS.md.
+// Optional COT binding lives in HCXCotPermissions.c; the base has no vendor types.
 class HCAdminPermissionPort
 {
     bool HCReady() { return false; }
@@ -39,12 +38,17 @@ class HCAdminPermissionAdapter
         return m_Status;
     }
 
+    // Declared on the earliest link: optional addons supply a server-owned port.
+    HCAdminPermissionPort HCDefaultPort() { return null; }
+
     void HCStart()
     {
         if (m_Running) { return; }
         m_Port = null;
         m_Running = GetGame() && GetGame().IsServer();
         m_Enabled = m_Running && !FileExist("$profile:HollowCountry/acceptance/COTAuthorization.disable");
+        // Keep an unavailable default provider attached so live readiness can recover.
+        if (m_Enabled) { m_Port = HCDefaultPort(); }
         if (m_Running) { Print(HCV2Admission.Line("COTAuthorization", m_Enabled, "203", false) + " runtime=PENDING"); }
         HCRefresh();
     }
