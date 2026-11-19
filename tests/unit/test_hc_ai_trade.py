@@ -393,7 +393,7 @@ class TradeBehavior(unittest.TestCase):
             adjunct = N(Open=lambda settings, port: calls.append(('open', port)),
                         Step=lambda: calls.append(('step',)),
                         HCClose=lambda: calls.append(('close',)),
-                        HCGetOperationalStatus=lambda: cached, m_Ready=False,
+                        HCGetOperationalStatus=lambda: cached, m_Ready=False, m_IO=None,
                         m_ProviderRefusal='CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED',
                         HCActive=lambda: self.fail('refused status should not inspect active state'))
             ports = []
@@ -420,6 +420,8 @@ class TradeBehavior(unittest.TestCase):
             lifecycle_source = owner_source.replace('this', 'self').replace('array<ref HCXAILease>', 'EArray')
             bind(lifecycle_source, 'HCXAIAdapter', owner,
                  ('OnStart', 'OnTick', 'OnStop'), scope)
+            # Own namespace: the shared translator keys string literals by index.
+            bind(lifecycle_source, 'HCXAIAdapter', owner, ('HCDropCaravanHandles',), dict(scope))
             # Syntax-only field inheritance expansion for the modded link.
             status_source = operational.replace('    protected ref HCOperationalOwner',
                 '    ref HCAICaravan m_Caravan;\n    bool m_CaravanRequested;\n    protected ref HCOperationalOwner', 1)

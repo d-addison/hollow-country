@@ -229,7 +229,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.env["HCXAICaravanAdapter"] = lambda: N()
         self.env["HCAICaravan"] = lambda: N(
             Open=lambda settings, port: self.calls.append(("caravan", "open")),
-            Step=lambda: None,
+            Step=lambda: None, m_IO=None,
             HCClose=lambda: self.calls.append(("caravan", "close")))
         # Synthetic registry boundaries; readiness/refusals execute shipping C bodies.
         self.situation_bindings = N(survivor=None, raid=None, camp_raid=None, transit=None)

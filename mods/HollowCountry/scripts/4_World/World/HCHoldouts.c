@@ -190,6 +190,10 @@ class HCHoldouts : HCModule
     protected ref HCUnitBudget m_CampUnits = new HCUnitBudget;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected ref map<string, string> m_CampRefusals = new map<string, string>;
+    // #190: one detached JSON snapshot per row for the routine view, rebuilt only
+    // when the row's exposed ledger fields change. Bounded by the row count.
+    protected ref array<ref HCWorldHoldout> m_ViewHomes = new array<ref HCWorldHoldout>;
+    protected ref array<string> m_ViewKeys = new array<string>;
     protected int m_Next;
     protected float m_Elapsed;
     protected bool m_Ready;
@@ -553,6 +557,31 @@ class HCHoldouts : HCModule
         return false;
     }
 
+    protected string HCHomeKey(HCWorldHoldout ledger)
+    {
+        string key = ledger.Id + "|" + ledger.PlaceId + "|" + ledger.FactionId + "|" + ledger.HouseClass + "|" + ledger.CacheRef;
+        key += "|" + ledger.State + "|" + ledger.Routine + "|" + ledger.Occupants.ToString() + "|" + ledger.Since.ToString();
+        key += "|" + ledger.ReoccupyAfter.ToString() + "|" + ledger.HousePos.ToString();
+        return key;
+    }
+
+    // Row-change keyed cache over Snapshot(). A failed snapshot is not cached.
+    protected HCWorldHoldout HCCachedHome(int index)
+    {
+        string key = HCHomeKey(m_State.Rows[index].Ledger);
+        while (m_ViewHomes.Count() <= index)
+        {
+            m_ViewHomes.Insert(null);
+            m_ViewKeys.Insert("");
+        }
+        if (m_ViewHomes[index] && m_ViewKeys[index] == key) { return m_ViewHomes[index]; }
+        HCWorldHoldout built = Snapshot(index);
+        m_ViewHomes.Set(index, built);
+        if (built) { m_ViewKeys.Set(index, key); }
+        else { m_ViewKeys.Set(index, ""); }
+        return built;
+    }
+
     // Detached view bound to HC-10's current immutable materializer identity.
     // Does not allocate a second party, move a house or create a provider lease.
     HCAICampRoutineView HCRoutineView(HCAIPartyIdentity identity)
@@ -567,7 +596,8 @@ class HCHoldouts : HCModule
             if (identity.HCPartyId() != row.Camp.Party || identity.HCCampId() != "camp:" + row.Ledger.Id) { continue; }
             if (identity.HCHomeId() != row.Ledger.PlaceId || identity.HCRouteId() != "stationary:" + row.Ledger.Id || identity.HCCargoId() != "cargo:" + row.Ledger.Id) { return null; }
             HCAICampRoutineView view = new HCAICampRoutineView;
-            view.Home = Snapshot(viewIndex);
+            // Shared detached copy: callers read it and never write through it.
+            view.Home = HCCachedHome(viewIndex);
             if (!view.Home) { return null; }
             view.Level = row.Camp.Level;
             view.Supply = row.Camp.Supply;
@@ -959,6 +989,8 @@ class HCHoldouts : HCModule
         HCSyncLights();
         m_Bodies.Clear();
         m_CampRefusals.Clear();
+        m_ViewHomes.Clear();
+        m_ViewKeys.Clear();
         if (s_Instance == this) s_Instance = null;
     }
 }
