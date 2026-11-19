@@ -237,7 +237,7 @@ class HCEcologyRuntime
 		if (!HCEcologyRuntimeRules.SettingsValid(settings))
 		{
 			Print("[HC Ecology] invalid or unreadable settings; admission rejected");
-			Print("[HC Plan] HC-29 state=refused reason=invalid_settings visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING");
+			// Start() prints the one HC-29 refusal line from m_StartRefusal (#192).
 			m_StartRefusal = "invalid_settings";
 			return false;
 		}

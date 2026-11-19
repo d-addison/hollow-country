@@ -67,18 +67,38 @@ class HCEcologyNative
 		return capabilities;
 	}
 
-	// HC-62 lead calls ONCE through the existing bounded content receipt path
-	// when ecology is admitted. This emits capability refusals only: it neither
-	// claims CE loaded the JSON/XML nor supplies another tick/status controller.
-	// Off path: do not call. Core owns effective/authored/admitted counts and
-	// the [HC Plan] HC-48 species=... habitats=... target_pairs_supported=0 line.
+	// HC-48 / #149 boot receipt. HCEcologyRuntimeModule calls this once per state
+	// change (ready after admission, off for operator-off, refused otherwise); the
+	// static guard keeps a restart or repeated owner observation from re-printing.
+	// It emits counts and refusal reasons only: it neither claims CE loaded the
+	// JSON/XML nor adds a tick, status controller or any admission. The counts are
+	// the manifest's validated effective native content (Counts, Species and
+	// Habitats Disposition tallies), pinned by tests/unit/test_hc48_habitat_boot.py.
 	// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print.
-	static void HCHabitatRefusals()
+	protected static string s_HabitatState;
+
+	static void HCHabitatRefusals(string state)
 	{
-		Print("[HC Plan] HC-48 state=refused capability=animal_destination reason=no_inspected_animal_destination_api runtime=PENDING");
-		Print("[HC Plan] HC-48 state=refused capability=animal_migration reason=native_brains_retained_no_destination_provider runtime=PENDING");
-		Print("[HC Plan] HC-48 state=refused capability=animal_target_pairs reason=no_inspected_animal_target_accessor target_pairs_supported=0 runtime=PENDING");
-		Print("[HC Plan] HC-48 state=refused capability=provider_target_pairs reason=provider_source_unavailable_at_supplied_path target_pairs_supported=0 runtime=PENDING");
+		if (state != "ready" && state != "off") { state = "refused"; }
+		if (s_HabitatState == state) { return; }
+		s_HabitatState = state;
+		int species = 0;
+		int habitats = 0;
+		if (state == "ready")
+		{
+			species = 27;
+			habitats = 11;
+		}
+		string counts = "species=" + species.ToString() + " habitats=" + habitats.ToString();
+		counts = counts + " target_pairs_supported=0 state=" + state;
+		counts = counts + " authored_species=42 authored_habitats=12 admitted_overlay_species=0 observed_reactions=unobserved";
+		string kinds = "species_dispositions=retain_native:27,pending_suitability:14,selected_pending_addon_and_native:1";
+		kinds = kinds + " habitat_dispositions=retain_native:11,legacy_unreferenced_pending_survey:1";
+		string refusals = "refusals=animal_destination:no_inspected_animal_destination_api";
+		refusals = refusals + ",animal_migration:native_brains_retained_no_destination_provider";
+		refusals = refusals + ",animal_target_pairs:no_inspected_animal_target_accessor";
+		refusals = refusals + ",provider_target_pairs:provider_source_unavailable_at_supplied_path";
+		Print("[HC Plan] HC-48 " + counts + " " + kinds + " " + refusals + " runtime=PENDING");
 	}
 
 	static HCEcologyRouteIntent ProbePath(EntityAI actor, EntityAI resource, string actorId, string resourceId, int kind, HCEcologyRuntimeSettings settings, string worldName, string session, int nowMs)
