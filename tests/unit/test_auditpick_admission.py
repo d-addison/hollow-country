@@ -136,10 +136,10 @@ class PartySizeAndRecheck(unittest.TestCase):
         module.HCRecheckSeconds = lambda: recheck(module)
         return module
 
-    def test_two_to_four_members_and_the_recheck_interval_come_from_the_survey(self):
+    def test_member_bounds_and_the_recheck_interval_come_from_the_survey(self):
         module = self.module()
-        self.assertEqual(['PICKER_PARTY_TOO_SMALL', '', '', '', 'PICKER_PARTY_TOO_LARGE'],
-                         [str(module.HCPartyRefusal(count)) for count in (1, 2, 3, 4, 5)])
+        self.assertEqual(['PICKER_PARTY_TOO_SMALL'] + [''] * 5 + ['PICKER_PARTY_TOO_LARGE'],
+                         [str(module.HCPartyRefusal(count)) for count in range(1, 8)])
         self.assertEqual(module.m_Survey.RunNeedRecheckSeconds, module.HCRecheckSeconds())
         self.assertEqual('', self.module(False).HCPartyRefusal(1), 'opt-out leaves party size alone')
 

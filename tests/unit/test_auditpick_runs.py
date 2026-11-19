@@ -58,6 +58,11 @@ class FakePort:
         self.members, self.combat, self.walk_ok = 3, False, True
         self.walks = []
 
+    # Synthetic carry adapter; dedicated test_auditcarry_goods executes the real service.
+    def HCCarryPrepare(self, goods, row): return True
+    def HCCarryResult(self, committed, row): return True
+    def HCCarryUnload(self, row): return EStr('')
+
     def HCAtSource(self):
         return self.at_source and sum(v * v for v in self.pos) <= 9.0
     def HCLive(self): return self.live

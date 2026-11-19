@@ -175,6 +175,7 @@ class HCScavengeState
     string ItemId;
     string CargoOwner;
     string Refusal;
+    ref array<ref HCPickCarryReceipt> HouseGoods;
 }
 
 // Survey point, copied verbatim from a scavenger site waypoint of ai/sites.json.
@@ -241,6 +242,7 @@ class HCPickerSurvey
     int RunMinMembers;
     int RunMaxMembers;
     int RunMaxHousesPerRun;
+    int RunMaxCarriedHouseGoods;
     int RunMaxHouseAttempts;
     int RunMaxHouseCandidates;
     float RunHouseSearchRadiusMeters;
@@ -311,6 +313,7 @@ class HCPickerSurvey
         if (!HCJsonFields.Has(text, "Version") || !HCJsonFields.Has(text, "WorldName") || !HCJsonFields.Has(text, "MaxLegMeters") || !HCJsonFields.Has(text, "ArrivalRangeMeters")) { return false; }
         if (!HCJsonFields.Has(text, "MapExtentMeters") || !HCJsonFields.Has(text, "MaxRoutes") || !HCJsonFields.Has(text, "MaxWaypoints")) { return false; }
         if (!HCJsonFields.Has(text, "MaxScannedObjects") || !HCJsonFields.Has(text, "MaxCargoScan")) { return false; }
+        if (!HCJsonFields.Has(text, "RunMaxCarriedHouseGoods")) { return false; }
         if (!HCPickerSurvey.HCRunFieldsPresent(text)) { return false; }
         // Route objects are the depth-3 objects with Waypoints; CacheLoot rows share that depth.
         if (!HCJsonFields.Every(text, "RouteId", 3, "Waypoints") || !HCJsonFields.Every(text, "SiteId", 3, "Waypoints")) { return false; }
@@ -392,6 +395,8 @@ class HCScavengeInventory
 
     // #144 run seams. Danger and Houses are owned by HCPickers and shared at bind.
     ref HCPickRunner Runner;
+    ref HCPickCarry Carry = new HCPickCarry;
+    HCScavengeTrip CustodyTrip;
     HCPickDanger Danger;
     HCPickHousePort Houses;
 
@@ -442,6 +447,21 @@ class HCScavengeInventory
         if (!Survey || !row || !Houses) { return ""; }
         if (!Runner) { Runner = new HCPickRunner; }
         return Runner.HCRun(this, returning, row);
+    }
+
+    bool HCCarryPrepare(EntityAI goods, HCScavengeState row)
+    {
+        return Carry.HCPrepare(this, CustodyTrip, goods, row);
+    }
+
+    bool HCCarryResult(bool committed, HCScavengeState row)
+    {
+        return Carry.HCResult(this, CustodyTrip, committed, row);
+    }
+
+    string HCCarryUnload(HCScavengeState row)
+    {
+        return Carry.HCUnload(this, CustodyTrip, row);
     }
 
     // Existing vanilla crate at a surveyed anchor, found with one bounded native scan.
@@ -597,6 +617,7 @@ class HCScavengeInventory
         Item = null;
         LeaseId = "";
         if (Runner) { Runner.HCReset(this); }
+        Carry.HCClear();
     }
 }
 
@@ -614,6 +635,7 @@ class HCScavengeTrip
         m_Store = new HCEncounterStore<HCScavengeState>("hc34-scavenge");
         m_State = m_Store.Load(new HCScavengeState, "Phase");
         m_IO = new HCScavengeInventory;
+        m_IO.CustodyTrip = this;
         if (!m_State || m_State.Version != 1) { return; }
         string phase = m_State.Phase;
         if (phase != "idle" && phase != "leaving" && phase != "acquiring" && phase != "returning" && phase != "depositing" && phase != "returned" && phase != "lost" && phase != "quarantined") { return; }
@@ -680,6 +702,7 @@ class HCScavengeTrip
         // The provider must bind real handles, the current lease and the exact
         // surveyed route before this durable departure barrier.
         if (!m_IO.HCRouteReady(identity, lease)) { return false; }
+        m_State.HouseGoods = null;
         m_State.PartyId = identity.HCPartyId();
         m_State.RouteId = identity.HCRouteId();
         m_State.CargoId = identity.HCCargoId();
@@ -862,6 +885,7 @@ class HCPickers : HCModule
         if (m_Survey) { line += " members=" + m_Survey.RunMinMembers.ToString() + "-" + m_Survey.RunMaxMembers.ToString() + " houses_per_run=" + m_Survey.RunMaxHousesPerRun.ToString(); }
         string housePort = m_Houses.HCRefusal();
         if (housePort == "") { housePort = "bound"; }
+        if (m_Survey) { line += " carry_cap=" + m_Survey.RunMaxCarriedHouseGoods.ToString(); }
         Print(line + " house_port=" + housePort + " runtime=PENDING");
     }
 
@@ -904,6 +928,7 @@ class HCPickers : HCModule
         port.Survey = m_Survey;
         port.Danger = m_Danger;
         port.Houses = m_Houses;
+        port.CustodyTrip = m_Trip;
         m_Trip.m_IO = port;
         m_ProviderLogged = false;
         HCLogProvider();

@@ -105,6 +105,7 @@ class HCPickPolicy
     {
         if (!survey) { return "PICKER_SURVEY_RUN_LIMITS"; }
         if (survey.RunMinMembers < 1 || survey.RunMaxMembers < survey.RunMinMembers) { return "PICKER_SURVEY_RUN_MEMBERS"; }
+        if (survey.RunMaxCarriedHouseGoods < 1 || survey.RunMaxCarriedHouseGoods > survey.MaxCargoScan) { return "PICKER_SURVEY_RUN_CARRY"; }
         if (survey.RunMaxHousesPerRun < 0 || survey.RunMaxHouseAttempts < survey.RunMaxHousesPerRun) { return "PICKER_SURVEY_RUN_HOUSES"; }
         if (survey.RunMaxHouseCandidates < 1 || survey.RunMaxHouseCandidates > survey.MaxScannedObjects) { return "PICKER_SURVEY_RUN_HOUSES"; }
         if (survey.RunHouseSearchRadiusMeters <= 0 || survey.RunHouseSearchRadiusMeters > survey.MaxLegMeters) { return "PICKER_SURVEY_RUN_HOUSES"; }
