@@ -5,7 +5,7 @@
   "trace": {
     "spec": "HC-59 supplied Wave 3 task: regional travel support and finite compatible wreck supply",
     "plan": "Retain finite source journals; map four reviewed car families to native wheel slots; refuse unverified cohorts; queue regional stock roofs separately from admitted barns",
-    "task": "HC-59 assigned five files; exact lead integration remains external to worker scope",
+    "task": "Issue 200 / w47-shelters: audit all five stock roof candidates against installed sampler receipts and template clearance tools; preserve explicit missing-data exclusions",
     "dependencies": [
       "HC-4/32 integrity and repair policy",
       "HC-18 mission/hollow-country/ai/localities.json"
@@ -15,7 +15,7 @@
       "docs/specs/001-survival-overhaul/spec.md"
     ]
   },
-  "manifest_role": "Authored survey backlog; candidates stay outside active Count/Get and create no stock or props",
+  "manifest_role": "Audited offline survey backlog: zero qualified additions; missing site access/clearance data is distinct from pending runtime acceptance",
   "stock_input": {
     "name": "stock dayzOffline.chernarusplus/mapgrouppos.xml",
     "sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
@@ -36,7 +36,7 @@
   "coverage_policy": "All eligible localities/islands remain in scope; temporary geometric/access refusals are pending coverage, never quiet-by-design exclusions",
   "active_catalogue": "HCShelterCatalog.Count/Get: existing six only; no safety/presentation acceptance implied",
   "candidate_catalogue": "HCShelterCatalog.CandidateCount/GetCandidate: read-only survey inputs; never pass to barn yard materializer",
-  "lead_integration": "Consume candidate class/anchor/refusal without creating stock, props, new lights or a tick loop. Keep admission closed until exact native access/clearance evidence is recorded.",
+  "lead_integration": "No shared edit required. Candidates remain excluded for missing site survey/scene slots, not a missing acceptance verdict. Shelters logs each exclusion once; existing six barn scenes keep their admission and operational status.",
   "existing_shelters": [
     {
       "name": "Drozhino Hay Refuge",
@@ -125,11 +125,35 @@
       "region": "NW",
       "route_class": "forest-trail",
       "disposition": "pending-refused",
-      "reason": "hc59_regional_shelter_access_unobserved",
+      "reason": "hc200_feed_roof_site_path_clearance_missing",
       "stock_grants": 0,
       "authored_props": 0,
-      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
-      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+      "access": "offline-reviewed-missing-site-path-and-clearance",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only",
+      "offline_survey": {
+        "result": "excluded-missing-site-access-clearance",
+        "review_date": "2026-11-19",
+        "stock_row_index": 1007,
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "1987.282837 289.981445 12965.870117",
+          "rpy": "-0.000000 0.000000 -26.417740",
+          "a": "116.417747"
+        },
+        "class_geometry": {
+          "sample_is_candidate": false,
+          "tool_result": "path_pending",
+          "path_tests": 0,
+          "source_ref": "offline_review.geometry_sources.Land_Misc_FeedShack"
+        },
+        "missing": [
+          "site-terrain-clearance",
+          "outside-to-roof-path",
+          "scene-prop-slots"
+        ],
+        "door_stair_policy": "No scene placed: every door, stair and stock walkway remains untouched",
+        "completion": "Acquire a site-specific exterior-to-roof path and terrain/clearance receipt, then author all-or-nothing scene slots through the existing keepout/collision tools; do not apply the barn yard to this class"
+      }
     },
     {
       "id": "nc-feed-roof",
@@ -144,11 +168,35 @@
       "region": "NC",
       "route_class": "forest-trail",
       "disposition": "pending-refused",
-      "reason": "hc59_regional_shelter_access_unobserved",
+      "reason": "hc200_feed_roof_site_path_clearance_missing",
       "stock_grants": 0,
       "authored_props": 0,
-      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
-      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+      "access": "offline-reviewed-missing-site-path-and-clearance",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only",
+      "offline_survey": {
+        "result": "excluded-missing-site-access-clearance",
+        "review_date": "2026-11-19",
+        "stock_row_index": 5742,
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "7428.081543 131.084442 12732.728516",
+          "rpy": "-0.000000 0.000000 -170.587646",
+          "a": "-99.412331"
+        },
+        "class_geometry": {
+          "sample_is_candidate": false,
+          "tool_result": "path_pending",
+          "path_tests": 0,
+          "source_ref": "offline_review.geometry_sources.Land_Misc_FeedShack"
+        },
+        "missing": [
+          "site-terrain-clearance",
+          "outside-to-roof-path",
+          "scene-prop-slots"
+        ],
+        "door_stair_policy": "No scene placed: every door, stair and stock walkway remains untouched",
+        "completion": "Acquire a site-specific exterior-to-roof path and terrain/clearance receipt, then author all-or-nothing scene slots through the existing keepout/collision tools; do not apply the barn yard to this class"
+      }
     },
     {
       "id": "ne-feed-roof",
@@ -163,11 +211,35 @@
       "region": "NE",
       "route_class": "remote-road",
       "disposition": "pending-refused",
-      "reason": "hc59_regional_shelter_access_unobserved",
+      "reason": "hc200_feed_roof_site_path_clearance_missing",
       "stock_grants": 0,
       "authored_props": 0,
-      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
-      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+      "access": "offline-reviewed-missing-site-path-and-clearance",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only",
+      "offline_survey": {
+        "result": "excluded-missing-site-access-clearance",
+        "review_date": "2026-11-19",
+        "stock_row_index": 10525,
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "12818.673828 126.932716 13117.182617",
+          "rpy": "-0.000000 0.000000 134.179001",
+          "a": "-44.178997"
+        },
+        "class_geometry": {
+          "sample_is_candidate": false,
+          "tool_result": "path_pending",
+          "path_tests": 0,
+          "source_ref": "offline_review.geometry_sources.Land_Misc_FeedShack"
+        },
+        "missing": [
+          "site-terrain-clearance",
+          "outside-to-roof-path",
+          "scene-prop-slots"
+        ],
+        "door_stair_policy": "No scene placed: every door, stair and stock walkway remains untouched",
+        "completion": "Acquire a site-specific exterior-to-roof path and terrain/clearance receipt, then author all-or-nothing scene slots through the existing keepout/collision tools; do not apply the barn yard to this class"
+      }
     },
     {
       "id": "sc-bus-roof",
@@ -182,11 +254,35 @@
       "region": "SC",
       "route_class": "coastal-road",
       "disposition": "pending-refused",
-      "reason": "hc59_regional_shelter_access_unobserved",
+      "reason": "hc200_bus_roof_site_path_clearance_missing",
       "stock_grants": 0,
       "authored_props": 0,
-      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
-      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+      "access": "offline-reviewed-missing-site-path-and-clearance",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only",
+      "offline_survey": {
+        "result": "excluded-missing-site-access-clearance",
+        "review_date": "2026-11-19",
+        "stock_row_index": 5398,
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "6826.631836 50.728073 3549.387207",
+          "rpy": "-0.000000 0.000000 -61.823994",
+          "a": "151.823990"
+        },
+        "class_geometry": {
+          "sample_is_candidate": false,
+          "tool_result": "path_pending",
+          "path_tests": 0,
+          "source_ref": "offline_review.geometry_sources.Land_BusStop_City"
+        },
+        "missing": [
+          "site-terrain-clearance",
+          "outside-to-roof-path",
+          "scene-prop-slots"
+        ],
+        "door_stair_policy": "No scene placed: every door, stair and stock walkway remains untouched",
+        "completion": "Acquire a site-specific exterior-to-roof path and terrain/clearance receipt, then author all-or-nothing scene slots through the existing keepout/collision tools; do not apply the barn yard to this class"
+      }
     },
     {
       "id": "se-bus-roof",
@@ -201,11 +297,35 @@
       "region": "SE",
       "route_class": "coastal-road",
       "disposition": "pending-refused",
-      "reason": "hc59_regional_shelter_access_unobserved",
+      "reason": "hc200_bus_roof_site_path_clearance_missing",
       "stock_grants": 0,
       "authored_props": 0,
-      "access": "pending-walking-driving-rain-cover-door-and-clearance-observation",
-      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only"
+      "access": "offline-reviewed-missing-site-path-and-clearance",
+      "native_evidence": "structures_residential.pbo/config.bin exact HouseNoDestruct scope=1 model; stock anchor only",
+      "offline_survey": {
+        "result": "excluded-missing-site-access-clearance",
+        "review_date": "2026-11-19",
+        "stock_row_index": 8456,
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "10897.795898 7.027513 2815.425293",
+          "rpy": "-0.000000 0.000000 -70.262314",
+          "a": "160.262314"
+        },
+        "class_geometry": {
+          "sample_is_candidate": false,
+          "tool_result": "path_pending",
+          "path_tests": 0,
+          "source_ref": "offline_review.geometry_sources.Land_BusStop_City"
+        },
+        "missing": [
+          "site-terrain-clearance",
+          "outside-to-roof-path",
+          "scene-prop-slots"
+        ],
+        "door_stair_policy": "No scene placed: every door, stair and stock walkway remains untouched",
+        "completion": "Acquire a site-specific exterior-to-roof path and terrain/clearance receipt, then author all-or-nothing scene slots through the existing keepout/collision tools; do not apply the barn yard to this class"
+      }
     }
   ],
   "routes": [
@@ -305,5 +425,99 @@
     "Walk and drive each approach and departure, weather roof coverage, entry/exit and door access; record exact source/config hashes and refusal positions",
     "Coastal water: native boat draft/depth, grounding and landing/access to islands; no inferred depth from surface height or class ancestry",
     "DayZDiag then normal signed PBO/server, two-client visibility and cleanup, off-path and restart check, no script/CE errors"
-  ]
+  ],
+  "offline_review": {
+    "date": "2026-11-19",
+    "stock_identity_matches": 5,
+    "qualified_additions": 0,
+    "excluded_missing_data": 5,
+    "geometry_sources": {
+      "Land_Misc_FeedShack": {
+        "source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "native_run_id": "24e0a12d1f0bd7b529c776c37a88369b",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "box_min": [
+          -3.89135,
+          -3.28937,
+          -2.25146
+        ],
+        "box_max": [
+          3.89135,
+          3.28937,
+          2.25146
+        ],
+        "door_count": 0,
+        "path_tests": 0,
+        "reach_state": "no-door",
+        "entered": {
+          "strict": {
+            "closed": "untested",
+            "open": "untested"
+          },
+          "player": {
+            "closed": "untested",
+            "open": "untested"
+          }
+        },
+        "tool": "tools/package/interior_templates.py:_measure; frame=rot90 reach_source=strict min_agreement=0.6",
+        "tool_result": "path_pending",
+        "template_file": "t-0078.json",
+        "template_sha256": "bbb3140f8a72752eafa78e2d1836eb9a16f2931280f6a89fcba68833650e3c9e",
+        "template_rooms": 0,
+        "template_keepouts": 0,
+        "template_prop_slots": 0,
+        "scope": "Class geometry sample at another site; search points are not access paths or prop slots"
+      },
+      "Land_BusStop_City": {
+        "source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "native_run_id": "e379bbcb8d9807f4db8e5506906b9ed6",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "box_min": [
+          -5.58416,
+          -1.84628,
+          -2.61728
+        ],
+        "box_max": [
+          5.58416,
+          1.84628,
+          2.61728
+        ],
+        "door_count": 0,
+        "path_tests": 0,
+        "reach_state": "no-door",
+        "entered": {
+          "strict": {
+            "closed": "untested",
+            "open": "untested"
+          },
+          "player": {
+            "closed": "untested",
+            "open": "untested"
+          }
+        },
+        "tool": "tools/package/interior_templates.py:_measure; frame=rot90 reach_source=strict min_agreement=0.6",
+        "tool_result": "path_pending",
+        "template_file": "t-0011.json",
+        "template_sha256": "3b6961acaca7bb7a31dfc467ac3d9f7591f5962cdbda974f52769b865f4a4215",
+        "template_rooms": 0,
+        "template_keepouts": 0,
+        "template_prop_slots": 0,
+        "scope": "Class geometry sample at another site; search points are not access paths or prop slots"
+      }
+    },
+    "tool_outcome": "Both classes return path_pending; both class samples recorded zero paths, and neither generated template contains rooms, keepouts or prop slots. No site terrain mesh, candidate clearance receipt or exterior approach path is provided by stock mapgroup anchors.",
+    "runtime_verdict_policy": "EXP-T5 remains admitted unverified; source-data exclusions do not block the six existing barns. No new DayZ observation was performed."
+  }
 }
