@@ -16,7 +16,7 @@
 // Gas and crash lifecycle sources already live in HCIncidentSources.c.
 // No airdrop observer exists here; faction_clash data outcomes are not physical
 // observations. Neither is converted into a fabricated incident. Runtime PENDING.
-class E1IncidentSources
+class HCIncidentEmissions
 {
     protected static bool s_Logged;
 
@@ -24,9 +24,13 @@ class E1IncidentSources
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         int incidentId = HCWorldIncidents.HCPublish(kind, position, 0, 0, anchor);
-        if (incidentId > 0 && !E1IncidentSources.s_Logged)
+        if (incidentId > 0 && kind == "gunfire")
         {
-            E1IncidentSources.s_Logged = true;
+            HCWorldIncidents.HCGet().HCRefreshSound(incidentId, HCWorldIncidents.HCNowSeconds());
+        }
+        if (incidentId > 0 && !HCIncidentEmissions.s_Logged)
+        {
+            HCIncidentEmissions.s_Logged = true;
             Print("[HC Incidents] E1_SOURCES admitted_unverified policy=shared runtime=PENDING");
             Print("[HC Incidents] E1_AIRDROP_OBSERVER_PENDING reason=no_existing_observer runtime=PENDING");
         }
@@ -42,7 +46,7 @@ modded class SmokeGrenadeBase
     {
         super.OnWorkStart();
         if (!GetGame() || !GetGame().IsServer()) { return; }
-        E1IncidentSources.HCPublish("signal_smoke", GetPosition(), null);
+        HCIncidentEmissions.HCPublish("signal_smoke", GetPosition(), null);
     }
 }
 
@@ -55,7 +59,7 @@ modded class Weapon_Base
     {
         super.EEFired(muzzleType, mode, ammoType);
         if (!GetGame() || !GetGame().IsServer() || IsKindOf("Archery_Base")) { return; }
-        E1IncidentSources.HCPublish("gunfire", GetPosition(), null);
+        HCIncidentEmissions.HCPublish("gunfire", GetPosition(), null);
     }
 }
 
@@ -68,7 +72,7 @@ modded class HCEventRuntime
         int result = super.Announce(mission, context);
         if (result == HCEventCode.OK && mission)
         {
-            E1IncidentSources.HCPublish("scene", mission.Source, null);
+            HCIncidentEmissions.HCPublish("scene", mission.Source, null);
         }
         return result;
     }
@@ -87,7 +91,7 @@ modded class HCNativeInfectedPack
             HCInfectedActor first = actors[0];
             if (first && first.InfectedEntity)
             {
-                E1IncidentSources.HCPublish("horde", first.InfectedEntity.GetPosition(), null);
+                HCIncidentEmissions.HCPublish("horde", first.InfectedEntity.GetPosition(), null);
             }
         }
         return started;
