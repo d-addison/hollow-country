@@ -44,15 +44,24 @@ class CampControls(unittest.TestCase):
         self.assertEqual(camp.Tier, 1)
         self.assertEqual(reason, 'camp-tier-persistence-refused')
 
-    def test_arrivals_refuse_specific_missing_body_hook_without_world_mutation(self):
-        for raid, expected in ((False, 'HCRequestVisitorParty'), (True, 'HCRequestRaidParty')):
-            owner = NS(HCAdminSelectCamp=lambda pos, reason: NS())
+    def test_arrivals_delegate_and_propagate_refusal_without_mutating_cooldowns(self):
+        for raid, refusal in ((False, 'CAMP_VISITOR_DIRECTOR_off'),
+                              (True, 'BASE_RAID_PARTY_NOT_OBSERVED')):
+            camp = NS(LastVisit=17, LastProbe=19)
+            calls = []
+            def request(selected, requested_raid, reason):
+                calls.append((selected, requested_raid))
+                reason.value = refusal
+                return False
+            owner = NS(HCAdminSelectCamp=lambda pos, reason: camp,
+                       HCAdminRequestArrival=request)
             fn = compile_authored(DIRECTORS, 'HCCampModule', 'HCAdminArrival',
-                                  base_scope(), ('HCAdminSelectCamp',))
+                                  base_scope(), ('HCAdminSelectCamp', 'HCAdminRequestArrival'))
             reason = Cell()
             self.assertFalse(fn(owner, None, raid, reason))
-            self.assertIn(expected, reason.value)
-            self.assertIn('runtime=PENDING', reason.value)
+            self.assertEqual([(camp, raid)], calls)
+            self.assertEqual(refusal, reason.value)
+            self.assertEqual((17, 19), (camp.LastVisit, camp.LastProbe))
 
     def test_dormant_delegates_to_the_variety_queue_and_propagates_its_refusal(self):
         calls = []

@@ -398,15 +398,32 @@ class HCXAIBaseRaid : HCBaseRaidPort
 // native EnConvert.c:210 DistanceSq. No spawn or coordinate-driven perception.
 class HCAdminVisitorParty : HCXAIBaseRaid
 {
-    void HCOpenVisitor()
+    protected HCXAIAdapter m_HCAdapter;
+    protected HCXAISiteDirector m_HCDirector;
+
+    void HCOpenVisitor(HCXAIAdapter adapter)
     {
         if (!HCCampProbes.HCVisitorsEnabled() || !HCBaseRaid.HCEnabled()) { return; }
         m_Config = HCBaseRaid.HCConfig();
         m_Healthy = m_Config != null;
+        m_HCAdapter = adapter;
+        m_HCDirector = HCXAISiteDirector.Active();
     }
 
-    override bool HCReady() { return m_Healthy && m_Config != null; }
-    override string HCRefusal() { return "CAMP_VISITOR_CONFIG_UNAVAILABLE"; }
+    // Provider readiness is independent of a currently available traveller or
+    // native acceptance. Bind to this startup's adapter/director, then follow
+    // the director's actual policy/settings lifecycle (HCXAISites.c:864-1006).
+    override bool HCReady() { return HCRefusal() == ""; }
+    override string HCRefusal()
+    {
+        if (!m_Healthy || !m_Config) { return "CAMP_VISITOR_CONFIG_UNAVAILABLE"; }
+        if (!m_HCAdapter || HCXAIService.Adapter() != m_HCAdapter) { return "CAMP_VISITOR_ADAPTER_UNAVAILABLE"; }
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (!director || director != m_HCDirector) { return "CAMP_VISITOR_DIRECTOR_UNAVAILABLE"; }
+        string phase = director.Phase();
+        if (phase != "run") { return "CAMP_VISITOR_DIRECTOR_" + phase; }
+        return "";
+    }
     override bool HCPartyAllowed() { return m_Site && m_Site.ProviderFaction == "HCTravellers"; }
     override bool HCCustodyAllowed(PlayerBase actor, EntityAI source) { return false; }
 
@@ -482,7 +499,7 @@ modded class HCXAIAdapter
         m_HCBaseRaid.HCOpen();
         HCBaseRaid.HCBind(m_HCBaseRaid);
         m_HCVisitorParty = new HCAdminVisitorParty;
-        m_HCVisitorParty.HCOpenVisitor();
+        m_HCVisitorParty.HCOpenVisitor(this);
         HCCampProbes.HCBindVisitor(m_HCVisitorParty);
     }
     override void OnTick(float deltaTime)

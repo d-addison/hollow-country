@@ -116,4 +116,64 @@ class VisitorSafety(unittest.TestCase):
             if not (ready and eligible and seen and unattended):
                 self.assertNotIn('visit', calls)
 
+
+class VisitorReadiness(unittest.TestCase):
+    """Synthetic lifecycle phases; no party or native acceptance is supplied."""
+    def test_director_startup_failure_stop_and_adapter_binding_publish_live_status(self):
+        from tests.unit.test_admin_test_kit import ROOT
+        path = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIBaseRaid.c'
+        adapter = NS()
+        lifecycle = NS(adapter=adapter, director=None, phase='wait')
+        config = NS()
+        director = NS(Phase=lambda: lifecycle.phase)
+        scope = base_scope(HCXAIService=NS(Adapter=lambda: lifecycle.adapter),
+                           HCXAISiteDirector=NS(Active=lambda: lifecycle.director),
+                           HCCampProbes=NS(HCVisitorsEnabled=lambda: True),
+                           HCBaseRaid=NS(HCEnabled=lambda: True, HCConfig=lambda: config))
+        refusal = compile_authored(path, 'HCAdminVisitorParty', 'HCRefusal', scope, modded=False)
+        ready = compile_authored(path, 'HCAdminVisitorParty', 'HCReady', scope,
+                                 ('HCRefusal',), modded=False)
+        open_visitor = compile_authored(path, 'HCAdminVisitorParty', 'HCOpenVisitor',
+                                        scope, modded=False)
+        lifecycle.director = director
+        visitor = NS(m_Healthy=False, m_Config=None, m_HCAdapter=None, m_HCDirector=None)
+        open_visitor(visitor, adapter)
+        self.assertIs(adapter, visitor.m_HCAdapter)
+        self.assertIs(director, visitor.m_HCDirector)
+        visitor.HCRefusal = lambda: refusal(visitor)
+        visitor.HCReady = lambda: ready(visitor)
+        published = NS(state='', reason='')
+        def publish(state, reason):
+            published.state, published.reason = state, reason
+        status = NS(HCPublish=publish)
+        probe_scope = base_scope(s_Visitor=visitor, s_VisitorStatus=status,
+            HCCampProbes=NS(HCVisitorsEnabled=lambda: True, HCEnabled=lambda: True),
+            HCBaseRaid=NS(HCEnabled=lambda: True))
+        operational = compile_authored(PROBES, 'HCCampProbes', 'HCGetOperationalStatus',
+                                       probe_scope, modded=False)
+        for phase in ('missing', 'wait', 'bind', 'qualify', 'create', 'off', 'refused',
+                      'run', 'stopped', 'missing', 'run', 'adapter-stopped',
+                      'adapter-replaced', 'director-replaced'):
+            with self.subTest(phase=phase):
+                lifecycle.phase = phase
+                lifecycle.director = None if phase == 'missing' else director
+                lifecycle.adapter = None if phase == 'adapter-stopped' else adapter
+                if phase == 'adapter-replaced':
+                    lifecycle.adapter = NS(replacement=True)
+                if phase == 'director-replaced':
+                    lifecycle.director = NS(Phase=lambda: 'run')
+                self.assertIs(status, operational(None))
+                self.assertEqual('ready' if phase == 'run' else 'degraded', published.state)
+                if phase != 'run':
+                    expected = ('CAMP_VISITOR_ADAPTER_UNAVAILABLE' if phase in ('adapter-stopped', 'adapter-replaced')
+                                else 'CAMP_VISITOR_DIRECTOR_UNAVAILABLE' if phase in ('missing', 'director-replaced')
+                                else 'CAMP_VISITOR_DIRECTOR_' + phase)
+                    self.assertEqual(expected, published.reason)
+        lifecycle.adapter, lifecycle.director, lifecycle.phase = adapter, director, 'run'
+        visitor.m_Config = None
+        operational(None)
+        self.assertEqual(('degraded', 'CAMP_VISITOR_CONFIG_UNAVAILABLE'),
+                         (published.state, published.reason))
+
+
 if __name__ == '__main__': unittest.main()
