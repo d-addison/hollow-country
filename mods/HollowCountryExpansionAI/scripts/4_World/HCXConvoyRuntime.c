@@ -49,8 +49,10 @@ class HCXConvoyRun
     int mHCScanAt;
     int mHCScans;
     int mHCProgressAt;
+    int mHCExitTries;
     bool mHCDrove;
     bool mHCReleased;
+    bool mHCForeign;
 
     bool HCOpen(string id, eAIGroup group, HCConvoyPolicy policy, int now)
     {
@@ -72,6 +74,11 @@ class HCXConvoyRun
 
     void HCStep(int now)
     {
+        if (HCHolding() && HCForeignDriver())
+        {
+            HCYield(now);
+            return;
+        }
         if (mHCPhase == "seek") { HCSeek(now); }
         else if (mHCPhase == "approach") { HCApproach(now); }
         else if (mHCPhase == "board") { HCBoard(now); }
@@ -99,10 +106,61 @@ class HCXConvoyRun
         return mHCLeader.IsAlive();
     }
 
-    bool HCSeated()
+    // Phases in which this run may write car inputs.
+    bool HCHolding()
     {
-        if (!HCAlive()) { return false; }
-        return mHCLeader.IsInTransport();
+        if (mHCForeign || !mHCCar) { return false; }
+        return mHCPhase == "board" || mHCPhase == "drive" || mHCPhase == "stop" || mHCPhase == "exit";
+    }
+
+    // Seat 0 holding anyone but our bound AI leader (a player or any other
+    // human) means the car is theirs: stop writing to it at once.
+    bool HCForeignDriver()
+    {
+        Human driver = mHCCar.CrewMember(0);
+        if (!driver) { return false; }
+        return driver != mHCLeader;
+    }
+
+    // Release the car without a brake, handbrake or engine write; only our own
+    // seated members are asked to leave through the native get-out command.
+    void HCYield(int now)
+    {
+        mHCForeign = true;
+        mHCReason = "CONVOY_FOREIGN_DRIVER";
+        Print("[HC Convoy] CONVOY_FOREIGN_DRIVER id=" + mHCId + " car_released road_branch=walking_caravan runtime=PENDING");
+        HCExitCrew();
+        mHCExitTries = 0;
+        HCPhase("exit", now);
+    }
+
+    // Every living member still parented to the bound car.
+    int HCSeatedCrew()
+    {
+        int seated = 0;
+        int count = mHCGroup.Count();
+        for (int index = 0; index < count; index++)
+        {
+            DayZPlayerImplement member = mHCGroup.GetMember(index);
+            if (!member) { continue; }
+            if (!member.IsAlive()) { continue; }
+            if (member.GetParent() == mHCCar) { seated++; }
+        }
+        return seated;
+    }
+
+    void HCExitCrew()
+    {
+        int count = mHCGroup.Count();
+        for (int index = 0; index < count; index++)
+        {
+            DayZPlayerImplement member = mHCGroup.GetMember(index);
+            if (!member) { continue; }
+            if (!member.IsAlive()) { continue; }
+            if (member.GetParent() != mHCCar) { continue; }
+            HumanCommandVehicle seat = member.GetCommand_Vehicle();
+            if (seat) { seat.GetOutVehicle(); }
+        }
     }
 
     vector HCDestination()
@@ -312,6 +370,7 @@ class HCXConvoyRun
         if (mHCCar && mHCCar.GetSpeedometerAbsolute() > mHCPolicy.StopKmh) { slow = false; }
         if (!slow && now - mHCPhaseAt < mHCPolicy.StopSeconds * 1000) { return; }
         HCDismount();
+        mHCExitTries = 0;
         HCPhase("exit", now);
     }
 
@@ -319,26 +378,36 @@ class HCXConvoyRun
     // native get-out command only. Never SetPosition, never delete the car.
     void HCDismount()
     {
-        if (mHCCar)
+        if (mHCCar && !mHCForeign)
         {
             mHCCar.SetThrottle(0);
             mHCCar.SetBrake(1);
             mHCCar.SetHandbrake(1);
             if (mHCCar.EngineIsOn()) { mHCCar.EngineStop(); }
         }
-        if (!HCSeated()) { return; }
-        HumanCommandVehicle seat = mHCLeader.GetCommand_Vehicle();
-        if (seat) { seat.GetOutVehicle(); }
+        if (mHCCar) { HCExitCrew(); }
     }
 
+    // The run and its one slot stay held while any member is seated. Each
+    // ExitSeconds window re-asks the still-seated members; after ExitAttempts
+    // windows the run gives up with a named reason (never a teleport).
     void HCExit(int now)
     {
-        if (HCSeated())
+        if (mHCCar && HCSeatedCrew() > 0)
         {
-            if (now - mHCPhaseAt < mHCPolicy.ExitSeconds * 1000) { return; }
-            // Still seated: keep holding the car and ask again; never release
-            // control of a seated AI driver to another controller.
-            HCNote("CONVOY_DISMOUNT_TIMEOUT");
+            if (now - mHCPhaseAt <= mHCPolicy.ExitSeconds * 1000) { return; }
+            mHCExitTries++;
+            if (mHCExitTries >= mHCPolicy.ExitAttempts)
+            {
+                HCNote("CONVOY_DISMOUNT_TIMEOUT");
+                if (mHCReleased)
+                {
+                    mHCPhase = "done";
+                    return;
+                }
+                HCWalk("CONVOY_DISMOUNT_TIMEOUT");
+                return;
+            }
             HCDismount();
             mHCPhaseAt = now;
             return;
@@ -373,8 +442,9 @@ class HCXConvoyRun
         mHCReleased = true;
         if (mHCPhase == "board" || mHCPhase == "drive" || mHCPhase == "stop" || mHCPhase == "exit")
         {
-            mHCReason = "CONVOY_SITUATION_ENDED";
+            if (!mHCForeign) { mHCReason = "CONVOY_SITUATION_ENDED"; }
             HCDismount();
+            mHCExitTries = 0;
             HCPhase("exit", now);
             return;
         }
@@ -394,7 +464,13 @@ class HCXConvoyRun
     // one car only: O(1), no allocation, no scan.
     void HCInput()
     {
-        if (!mHCCar) { return; }
+        if (!HCHolding()) { return; }
+        // Checked before every write: a player in the driver seat owns the car.
+        if (HCForeignDriver())
+        {
+            HCYield(GetGame().GetTime());
+            return;
+        }
         if (mHCPhase == "board" || mHCPhase == "stop" || mHCPhase == "exit")
         {
             HCHoldBrake();

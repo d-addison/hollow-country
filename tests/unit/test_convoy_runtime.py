@@ -5,6 +5,7 @@ Authored Enforce bodies run through the restricted translator against explicit
 synthetic cars, members, groups, roads and budgets. Nothing here establishes
 DayZ physics, seating, AI driving or replication: runtime stays PENDING.
 """
+import json
 import math
 import re
 import unittest
@@ -13,6 +14,7 @@ from types import MethodType, SimpleNamespace as N
 
 from tests.unit.test_group_server import EArray
 from tests.unit.test_map_layers import EStr, methods, translate
+from tools.setup import friend_bundle
 
 ROOT = Path(__file__).resolve().parents[2]
 AI = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World'
@@ -186,7 +188,8 @@ class RunWorld:
                      mHCGroup=None, mHCLeader=None, mHCCar=None, mHCPolicy=None, mHCWalk=Arr(),
                      mHCRoute=self.route, mHCControl=N(Steering=0.0, Throttle=0.0, Brake=0.0),
                      mHCBehaviour=0, mHCIndex=0, mHCPhaseAt=0, mHCScanAt=0, mHCScans=0, mHCProgressAt=0,
-                     mHCProgressPos=[0.0, 0.0, 0.0], mHCDoor=[0.0, 0.0, 0.0], mHCDrove=False, mHCReleased=False)
+                     mHCProgressPos=[0.0, 0.0, 0.0], mHCDoor=[0.0, 0.0, 0.0], mHCDrove=False, mHCReleased=False,
+                     mHCForeign=False, mHCExitTries=0)
         bind(RUNTIME, 'HCXConvoyRun', env, self.run, skip=('HCDoor',))
         # CrewEntryWS has native out parameters; the door port is synthetic.
         self.run.HCDoor = lambda car: [car.pos[0] - 1.0, 0.0, car.pos[2]]
@@ -209,10 +212,24 @@ class RunWorld:
 
 class ConvoyPolicyAndRules(unittest.TestCase):
     def test_policy_defaults_validate_and_unbounded_overrides_are_refused(self):
-        env = dict(HCOperatorSettingsRegistry=N(HCFind=lambda key: None))
-        translate(POLICY.read_text(), 'HCConvoyPolicy', env, only=('HCValid', 'HCNumbers'))
+        rows = {r['key']: r for r in json.loads((ROOT / 'tools/validate/shared_settings.json').read_text())
+                if r['key'].startswith('Convoys.')}
+        checked = []
+
+        def registry_valid(key, value):
+            checked.append(key)
+            row = rows.get(key)
+            return row is not None and row['min'] <= value <= row['max']
+
+        env = dict(HCOperatorSettingsRegistry=N(HCValid=registry_valid))
+        translate(POLICY.read_text(), 'HCConvoyPolicy', env, only=('HCValid', 'HCNumbers', 'HCRegistryValid'))
         policy = defaults()
+        self.assertEqual({'Convoys.' + key for key in vars(policy)}, set(rows))
         self.assertTrue(env['HCValid'](policy))
+        self.assertEqual(set(rows), set(checked), 'every policy field is bound to its registry row')
+        for key, row in rows.items():
+            self.assertEqual(row['default'], getattr(policy, key.split('.', 1)[1]), key)
+        self.assertIn(('ExitAttempts', 3), vars(policy).items())
         for field, value in [('Version', 2), ('MaxConvoys', 2), ('MaxConvoys', 0), ('SeekObjects', 0),
                              ('MaxRouteNodes', 1), ('MaxPlanNodes', 100001), ('RoadNodesPerTick', 0),
                              ('RoadNodesPerWorkUnit', 0), ('SeekMeters', float('nan')), ('CruiseKmh', 61.0),
@@ -403,6 +420,7 @@ class ConvoyRun(unittest.TestCase):
         self.assertEqual('exit', world.run.mHCPhase)
         self.assertIn('stop', car.calls)
         self.assertEqual(['out'], leader.exits)
+        self.assertEqual(['out'], world.group.members[1].exits, 'every seated member is asked to leave')
         world.step(5000)
         self.assertEqual('exit', world.run.mHCPhase, 'waits while still seated')
         for member in world.group.members:
@@ -476,6 +494,89 @@ class ConvoyRun(unittest.TestCase):
         world.step(3000)
         self.assertEqual('done', world.run.mHCPhase)
         self.assertEqual([], world.group.calls)
+
+    def assert_released_to_player(self, world, car, player):
+        self.assertEqual([], car.calls, 'no brake, handbrake or engine write once a player drives')
+        self.assertEqual('CONVOY_FOREIGN_DRIVER', world.run.mHCReason)
+        self.assertEqual(1, sum('CONVOY_FOREIGN_DRIVER' in line for line in world.printed))
+        self.assertTrue(car.engine, 'the player keeps the running engine')
+
+    def test_player_taking_the_driver_seat_while_boarding_gets_the_car_at_once(self):
+        for detect in ('input', 'step'):
+            car = Car(30.0)
+            world = RunWorld(cars=[car])
+            world.open()
+            world.step(0)
+            leader = world.group.members[0]
+            leader.pos = [29.0, 0.0, 0.0]
+            world.step(1000)
+            self.assertEqual('board', world.run.mHCPhase, detect)
+            player = Member(29.0)
+            car.crew[0] = player; car.engine = True; car.calls.clear()
+            if detect == 'input':
+                world.run.HCInput()
+            else:
+                world.step(1500)
+            world.run.HCInput()
+            world.run.HCInput()
+            self.assert_released_to_player(world, car, player)
+            world.step(2000)
+            self.assertEqual(('walk', 'CONVOY_FOREIGN_DRIVER'), (world.run.mHCPhase, world.run.mHCReason), detect)
+            self.assertEqual([[0.0, 0.0, 0.0], [600.0, 0.0, 0.0]], list(world.group.points), detect)
+            world.run.HCRelease(2500)
+            self.assert_released_to_player(world, car, player)
+
+    def test_player_taking_the_driver_seat_while_driving_gets_the_car_and_the_crew_leaves(self):
+        for detect in ('input', 'step'):
+            car = Car(30.0)
+            world = RunWorld(cars=[car])
+            leader = self.drive(world, car)
+            world.run.HCInput()
+            follower = world.group.members[1]
+            player = Member(30.0)
+            leader.parent = None; car.crew[0] = player; car.calls.clear()
+            if detect == 'input':
+                world.run.HCInput()
+            else:
+                world.step(3000)
+            world.run.HCInput()
+            self.assert_released_to_player(world, car, player)
+            self.assertEqual('exit', world.run.mHCPhase, detect)
+            self.assertEqual(['out'], follower.exits, detect)
+            self.assertEqual([], leader.exits, detect)
+            world.step(4000)
+            self.assertEqual('exit', world.run.mHCPhase, 'held while our follower is still seated')
+            follower.parent = None
+            world.step(5000)
+            self.assertEqual(('walk', 'CONVOY_FOREIGN_DRIVER'), (world.run.mHCPhase, world.run.mHCReason), detect)
+            self.assertEqual([[600.0, 0.0, 0.0]], list(world.group.points), detect)
+            self.assert_released_to_player(world, car, player)
+
+    def test_dismount_holds_for_every_member_then_gives_up_after_the_bounded_window(self):
+        car = Car(30.0)
+        world = RunWorld(cars=[car])
+        leader = self.drive(world, car)
+        follower = world.group.members[1]
+        world.group.combat = True
+        world.step(3000)
+        world.step(3001)
+        self.assertEqual('exit', world.run.mHCPhase)
+        self.assertEqual((['out'], ['out']), (leader.exits, follower.exits))
+        leader.parent = None; car.crew[0] = None
+        window = int(world.policy.ExitSeconds * 1000)
+        world.step(3001 + window - 1)
+        self.assertEqual('exit', world.run.mHCPhase, 'a seated follower holds the run')
+        at = 3001
+        for attempt in range(1, world.policy.ExitAttempts):
+            at += window + 1
+            world.step(at)
+            self.assertEqual('exit', world.run.mHCPhase, attempt)
+            self.assertEqual(['out'] * (attempt + 1), follower.exits, attempt)
+        self.assertEqual(['out'], leader.exits, 'only still-seated members are asked again')
+        at += window + 1
+        world.step(at)
+        self.assertEqual(('walk', 'CONVOY_DISMOUNT_TIMEOUT'), (world.run.mHCPhase, world.run.mHCReason))
+        self.assertTrue(any('CONVOY_DISMOUNT_TIMEOUT' in line for line in world.printed))
 
     def test_input_only_drives_in_drive_and_holds_brake_otherwise(self):
         car = Car(30.0)
@@ -581,3 +682,15 @@ class ConvoySourceGuards(unittest.TestCase):
         hook = text[text.index('modded class CarScript'):]
         self.assertLess(hook.index('super.OnInput(dt);'), hook.index('HCXConvoyRuntime.HCInput(this);'))
         self.assertIn('acceptance/convoys.disable', text)
+
+    def test_policy_has_no_pending_registry_print_and_ships_in_the_friend_bundle(self):
+        self.assertNotIn('CONVOY_SETTINGS_REGISTRY_PENDING', POLICY.read_text())
+        self.assertIn('HollowCountry/convoys.json', friend_bundle.PROFILE_INCLUDE)
+
+    def test_situations_offer_on_begin_release_before_restore_and_drop_the_missing_port_line(self):
+        text = (AI / 'HCW38SituationRuntime.c').read_text()
+        self.assertNotIn('SITUATION_VEHICLE_DRIVING_PORT_MISSING', text)
+        begin = text[text.index('static bool HCBegin('):text.index('static string HCObserve(')]
+        self.assertLess(begin.index('s_Active = binding;'), begin.index('HCXConvoyRuntime.HCOffer(binding);'))
+        end = text[text.index('static void HCEnd('):]
+        self.assertLess(end.index('HCXConvoyRuntime.HCRelease(s_Active.Id);'), end.index('HCRestore(s_Active);'))

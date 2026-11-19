@@ -77,6 +77,7 @@ class PinnedSituations(unittest.TestCase):
             eAIBase=N(Cast=lambda actor: actor),
             HCThreaten=lambda party,binding: calls.append('threats') or runtime.started,
             HCHold=lambda binding: calls.append('hold'), HCSignals=lambda binding: calls.append('signals'),
+            HCXConvoyRuntime=N(HCOffer=lambda binding: calls.append('convoy')),
             Print=lambda line: calls.append('log'))
         translate(source, 'HCW38SituationRuntime', env, only=('HCBegin',))
         row = N(Profile='survivor', Phase='intent', Lease='funded', Id='saved-intent')
@@ -85,7 +86,7 @@ class PinnedSituations(unittest.TestCase):
         self.assertIsNone(runtime.active)
         calls.clear(); runtime.started = True
         self.assertTrue(env['HCBegin'](row))
-        self.assertEqual(['threats', 'hold', 'signals', 'log'], calls)
+        self.assertEqual(['threats', 'hold', 'convoy', 'signals', 'log'], calls)
         self.assertEqual([10, 20], runtime.active.Original)
         calls.clear()
         self.assertFalse(env['HCBegin'](row), 'one concurrent shared lease across profiles')

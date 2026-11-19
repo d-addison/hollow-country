@@ -77,6 +77,7 @@ PROFILE_INCLUDE = (
     'HollowCountry/Infected/measured-rooms.json',
     'HollowCountry/camp-theft-config.json',
     'HollowCountry/base-raid-config.json',
+    'HollowCountry/convoys.json',
     'ExpansionMod/Settings/AISettings.json',
     'ExpansionMod/Loadouts/HollowCountry_*.json',
 )

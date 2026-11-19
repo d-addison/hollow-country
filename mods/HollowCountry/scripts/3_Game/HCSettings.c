@@ -228,6 +228,41 @@ class HCOperatorSettingsRegistry
         HCAdd("WildlifeProviders.Enabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.CarcassesEnabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.TargetPairsEnabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
+        HCAdd("Convoys.Version", "int", 1, 1, 1, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxConvoys", "int", 1, 1, 1, "HCConvoyPolicy");
+        HCAdd("Convoys.SeekObjects", "int", 256, 1, 1024, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxSeekScans", "int", 8, 1, 32, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxRouteNodes", "int", 128, 2, 256, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxPlanNodes", "int", 4000, 2, 40000, "HCConvoyPolicy");
+        HCAdd("Convoys.RoadNodesPerTick", "int", 256, 1, 1024, "HCConvoyPolicy");
+        HCAdd("Convoys.RoadNodesPerWorkUnit", "int", 8, 1, 64, "HCConvoyPolicy");
+        HCAdd("Convoys.ExitAttempts", "int", 3, 1, 10, "HCConvoyPolicy");
+        HCAdd("Convoys.SeekMeters", "float", 60.0, 5, 200, "HCConvoyPolicy");
+        HCAdd("Convoys.SeekSeconds", "float", 15.0, 1, 300, "HCConvoyPolicy");
+        HCAdd("Convoys.PlayerClaimMeters", "float", 150.0, 50, 1000, "HCConvoyPolicy");
+        HCAdd("Convoys.BoardMeters", "float", 4.0, 1, 10, "HCConvoyPolicy");
+        HCAdd("Convoys.ApproachSeconds", "float", 120.0, 10, 600, "HCConvoyPolicy");
+        HCAdd("Convoys.BoardSeconds", "float", 60.0, 5, 300, "HCConvoyPolicy");
+        HCAdd("Convoys.ExitSeconds", "float", 10.0, 1, 120, "HCConvoyPolicy");
+        HCAdd("Convoys.NodeReachMeters", "float", 8.0, 1, 50, "HCConvoyPolicy");
+        HCAdd("Convoys.ArriveMeters", "float", 20.0, 1, 100, "HCConvoyPolicy");
+        HCAdd("Convoys.DismountMeters", "float", 120.0, 0, 500, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxApproachMeters", "float", 60.0, 5, 200, "HCConvoyPolicy");
+        HCAdd("Convoys.MinDriveMeters", "float", 150.0, 50, 2000, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxDriveMeters", "float", 1500.0, 150, 5000, "HCConvoyPolicy");
+        HCAdd("Convoys.DetourMeters", "float", 400.0, 0, 2000, "HCConvoyPolicy");
+        HCAdd("Convoys.CruiseKmh", "float", 25.0, 5, 60, "HCConvoyPolicy");
+        HCAdd("Convoys.TurnKmh", "float", 10.0, 3, 60, "HCConvoyPolicy");
+        HCAdd("Convoys.SpeedBandKmh", "float", 3.0, 1, 20, "HCConvoyPolicy");
+        HCAdd("Convoys.TurnRadians", "float", 0.5, 0.05, 1.6, "HCConvoyPolicy");
+        HCAdd("Convoys.SteerGain", "float", 2.0, 0.1, 8, "HCConvoyPolicy");
+        HCAdd("Convoys.Throttle", "float", 0.6, 0.05, 1, "HCConvoyPolicy");
+        HCAdd("Convoys.BrakeStrength", "float", 0.6, 0.05, 1, "HCConvoyPolicy");
+        HCAdd("Convoys.StopKmh", "float", 2.0, 0.5, 10, "HCConvoyPolicy");
+        HCAdd("Convoys.StopSeconds", "float", 8.0, 1, 60, "HCConvoyPolicy");
+        HCAdd("Convoys.StallMeters", "float", 3.0, 0.5, 50, "HCConvoyPolicy");
+        HCAdd("Convoys.StallSeconds", "float", 15.0, 3, 120, "HCConvoyPolicy");
+        HCAdd("Convoys.MaxDriveSeconds", "float", 600.0, 30, 1800, "HCConvoyPolicy");
         // END GENERATED SETTINGS REGISTRY
     }
 

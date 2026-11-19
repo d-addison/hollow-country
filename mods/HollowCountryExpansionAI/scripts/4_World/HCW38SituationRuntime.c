@@ -80,7 +80,6 @@ class HCW38SituationRuntime
         {
             s_Logged = true;
             Print(HCV2Admission.Line("Situations", true, "w38_situations", false) + " runtime=PENDING");
-            Print("[HC Situations] SITUATION_VEHICLE_DRIVING_PORT_MISSING provider=passenger_only road_branch=walking_caravan runtime=PENDING");
         }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!HCPolicy()) { return false; }
@@ -438,6 +437,7 @@ class HCW38SituationRuntime
         if (!started) { return false; }
         HCHold(binding);
         s_Active = binding;
+        HCXConvoyRuntime.HCOffer(binding);
         HCSignals(binding);
         Print("[HC Situations] started profile=" + binding.Profile + " lease=" + binding.Lease + " runtime=PENDING");
         return true;
@@ -461,6 +461,7 @@ class HCW38SituationRuntime
     static void HCEnd(HCSituationState opportunity)
     {
         if (!opportunity || !s_Active || s_Active.Id != opportunity.Id) { return; }
+        HCXConvoyRuntime.HCRelease(s_Active.Id);
         HCRestore(s_Active);
         // Real infected/loot remain under native lifetime and combat ownership;
         // never delete a visible actor or recreate a spent threat on restart.

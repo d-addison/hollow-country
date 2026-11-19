@@ -935,5 +935,285 @@
     "min": 0,
     "max": 1,
     "owner": "HCWildlifeProviderConfig"
+  },
+  {
+    "key": "Convoys.Version",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxConvoys",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.SeekObjects",
+    "type": "int",
+    "default": 256,
+    "min": 1,
+    "max": 1024,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxSeekScans",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 32,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxRouteNodes",
+    "type": "int",
+    "default": 128,
+    "min": 2,
+    "max": 256,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxPlanNodes",
+    "type": "int",
+    "default": 4000,
+    "min": 2,
+    "max": 40000,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.RoadNodesPerTick",
+    "type": "int",
+    "default": 256,
+    "min": 1,
+    "max": 1024,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.RoadNodesPerWorkUnit",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 64,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.ExitAttempts",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 10,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.SeekMeters",
+    "type": "float",
+    "default": 60.0,
+    "min": 5,
+    "max": 200,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.SeekSeconds",
+    "type": "float",
+    "default": 15.0,
+    "min": 1,
+    "max": 300,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.PlayerClaimMeters",
+    "type": "float",
+    "default": 150.0,
+    "min": 50,
+    "max": 1000,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.BoardMeters",
+    "type": "float",
+    "default": 4.0,
+    "min": 1,
+    "max": 10,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.ApproachSeconds",
+    "type": "float",
+    "default": 120.0,
+    "min": 10,
+    "max": 600,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.BoardSeconds",
+    "type": "float",
+    "default": 60.0,
+    "min": 5,
+    "max": 300,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.ExitSeconds",
+    "type": "float",
+    "default": 10.0,
+    "min": 1,
+    "max": 120,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.NodeReachMeters",
+    "type": "float",
+    "default": 8.0,
+    "min": 1,
+    "max": 50,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.ArriveMeters",
+    "type": "float",
+    "default": 20.0,
+    "min": 1,
+    "max": 100,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.DismountMeters",
+    "type": "float",
+    "default": 120.0,
+    "min": 0,
+    "max": 500,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxApproachMeters",
+    "type": "float",
+    "default": 60.0,
+    "min": 5,
+    "max": 200,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MinDriveMeters",
+    "type": "float",
+    "default": 150.0,
+    "min": 50,
+    "max": 2000,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxDriveMeters",
+    "type": "float",
+    "default": 1500.0,
+    "min": 150,
+    "max": 5000,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.DetourMeters",
+    "type": "float",
+    "default": 400.0,
+    "min": 0,
+    "max": 2000,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.CruiseKmh",
+    "type": "float",
+    "default": 25.0,
+    "min": 5,
+    "max": 60,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.TurnKmh",
+    "type": "float",
+    "default": 10.0,
+    "min": 3,
+    "max": 60,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.SpeedBandKmh",
+    "type": "float",
+    "default": 3.0,
+    "min": 1,
+    "max": 20,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.TurnRadians",
+    "type": "float",
+    "default": 0.5,
+    "min": 0.05,
+    "max": 1.6,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.SteerGain",
+    "type": "float",
+    "default": 2.0,
+    "min": 0.1,
+    "max": 8,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.Throttle",
+    "type": "float",
+    "default": 0.6,
+    "min": 0.05,
+    "max": 1,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.BrakeStrength",
+    "type": "float",
+    "default": 0.6,
+    "min": 0.05,
+    "max": 1,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.StopKmh",
+    "type": "float",
+    "default": 2.0,
+    "min": 0.5,
+    "max": 10,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.StopSeconds",
+    "type": "float",
+    "default": 8.0,
+    "min": 1,
+    "max": 60,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.StallMeters",
+    "type": "float",
+    "default": 3.0,
+    "min": 0.5,
+    "max": 50,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.StallSeconds",
+    "type": "float",
+    "default": 15.0,
+    "min": 3,
+    "max": 120,
+    "owner": "HCConvoyPolicy"
+  },
+  {
+    "key": "Convoys.MaxDriveSeconds",
+    "type": "float",
+    "default": 600.0,
+    "min": 30,
+    "max": 1800,
+    "owner": "HCConvoyPolicy"
   }
 ]
