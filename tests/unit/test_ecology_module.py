@@ -36,8 +36,16 @@ class EcologyModuleBehavior(unittest.TestCase):
             HCStart=lambda enabled: self.wildlife_calls.append(('start', enabled)),
             HCTick=lambda now: self.wildlife_calls.append(('tick', now)),
             HCStop=lambda: self.wildlife_calls.append('stop'))
-        self.source = SOURCE.read_text()
-        self.module = SimpleNamespace(m_Settings=None, m_Started=False, Session=lambda: "s20261117-010203-77")
+        # Synthetic HC-49 carcass-scene collaborator; the static accessor is a namespace for the translator.
+        self.e['hc49_static'] = SimpleNamespace(instance=None)
+        status = SimpleNamespace(HCPublish=lambda *args: None)
+        self.e['HCWildlifeScenes'] = lambda: SimpleNamespace(
+            HCOpen=lambda enabled: None, HCStatus=lambda: status,
+            HCStep=lambda *args: None, HCClose=lambda: None)
+        self.e['HCGroupClock'] = SimpleNamespace(Utc=lambda: 1577836900)
+        self.source = SOURCE.read_text().replace('s_Instance', 'hc49_static.instance')
+        self.module = SimpleNamespace(m_Settings=None, m_Started=False, Session=lambda: "s20261117-010203-77",
+                                      m_WildlifeScenes=None, m_Status=status)
 
     def method(self, name):
         return translated(self.source, name, self.e, "HCEcologyRuntimeModule", True)

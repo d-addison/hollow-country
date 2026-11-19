@@ -47,7 +47,7 @@ MODULE = SCENES / 'HCScenesModule.c'
 
 
 def adapted(value):
-    return re.sub(r'\bHC(?:Scene|Story|Save|Work|V2|Group)\w*', lambda m: 'HCEvent' + m[0][2:], value)
+    return re.sub(r'\bHC(?:Scene|Story|Save|Work|V2|Group|Ecology|Wildlife)\w*', lambda m: 'HCEvent' + m[0][2:], value)
 
 
 def module_method(owner, name, env):
@@ -72,7 +72,7 @@ class StoryModuleBehavior(unittest.TestCase):
                         s_CleanupOwner=None)
         self.env.update(env or {})
         owner = N(m_Running=True, m_Stopping=False, m_Stories=None,
-                  m_SaveJob=self.job, m_State=N(Revision=4, LastNow=100, Chains=EArray(),
+                  m_SaveJob=self.job, m_State=N(Revision=4, LastNow=100, Chains=EArray(), Stories=N(NextSequence=1),
                                               Catalog=N(Chains=EArray())),
                   m_Leases=EArray(), m_Cursor=0, m_WorkElapsed=0, m_LogElapsed=0,
                   m_LastNow=100, m_WorkBudget=N(HCReset=lambda value: None),
