@@ -25,6 +25,7 @@
 //   3_Game/Entities/EntityAI.c:905 EEInit, :946 EEDelete
 //   3_Game/Global/Game.c:703 CreateObjectEx; 3_Game/CE/CentralEconomy.c:18 ECE_INITAI, :38 ECE_PLACE_ON_SURFACE
 //   3_Game/Entities/Object.c:311 SetOrientation
+//   1_Core/proto/EnDebug.c:96 Print
 //   4_World/Entities/Creatures/Infected/ZombieBase.c:203 ModCommandHandlerBefore runs first in CommandHandler
 //   4_World/Entities/Creatures/Infected/ZombieMaleBase.c:76 ZmbM_HermitSkinny_Base
 
@@ -98,11 +99,10 @@ class HCPoseCommand extends DayZInfectedCommandScript
 
 class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 {
-	static const int MAX_POSED = 12;   // server-wide budget of posed infected
 	static int s_HCPosed;
 
 	protected int m_HCPose;            // 0 stand, 1 sit against a wall or tree, 2 flat sleeper, 3 lying riser, 4 kneel feeding
-	protected bool m_HCHolding;        // holds one MAX_POSED slot
+	protected bool m_HCHolding;        // holds one configured MaxPosed slot
 	protected bool m_HCStarted;        // our scripted command was started
 	protected bool m_HCRising;         // the get-up clip is playing; no new pose until it ends
 	static string s_HCLastRefusal;     // print-once-per-change refusal reason
@@ -122,9 +122,15 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			return true;
 		if (pose != 0 && !m_HCHolding)
 		{
-			if (s_HCPosed >= MAX_POSED)
+			int maxPosed = HCInfectedVariety.HCMaxPosed();
+			if (s_HCPosed >= maxPosed)
 			{
-				Print("[HollowCountryAnims] pose refused budget=" + MAX_POSED.ToString());
+				string budgetReason = "max_posed_budget=" + maxPosed.ToString();
+				if (budgetReason != s_HCLastRefusal)
+				{
+					s_HCLastRefusal = budgetReason;
+					Print("[HollowCountryAnims] pose refused reason=" + budgetReason + " runtime=PENDING");
+				}
 				return false;
 			}
 			s_HCPosed++;

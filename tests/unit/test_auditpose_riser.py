@@ -109,7 +109,7 @@ class PoseSelection(unittest.TestCase):
 
     def test_config_posed_cadence_is_optional_defaulted_and_bounded(self):
         keys = N(present=True)
-        defaults = translate(str(VARIETY), 'void HCApplyOptionalDefaults(', (), fields=('PosedFreshEvery',),
+        defaults = translate(str(VARIETY), 'void HCApplyOptionalDefaults(', (), fields=('PosedFreshEvery', 'MaxPosed'),
                              HCJsonFields=N(Has=lambda text, key: keys.present),
                              HCInfectedVarietyPolicy=N(DEFAULT_POSED_FRESH_EVERY=3))
         owner = N(PosedFreshEvery=0)
@@ -184,13 +184,14 @@ class SitterAdapter(unittest.TestCase):
         logs = []
         game = N(IsServer=lambda: True)
         posture = admission()
-        statics = N(s_HCPosed=posed, MAX_POSED=budget, s_HCLastRefusal='')
+        statics = N(s_HCPosed=posed, s_HCLastRefusal='')
         env = dict(g_Game=game, GetGame=lambda: game, Print=logs.append, STATICS=statics,
-                   HCPostureAdmission=posture)
+                   HCPostureAdmission=posture,
+                   HCInfectedVariety=N(HCMaxPosed=lambda: budget))
         refuse = translate(str(POSE), 'bool HCRefusePose(', (), statics=('s_HCLastRefusal',), **env)
         sitter.HCRefusePose = lambda refused: refuse(sitter, refused)
         fn = translate(str(POSE), 'bool HCRequestPose(', ('IsAlive', 'HCRefusePose'),
-                       statics=('s_HCPosed', 'MAX_POSED'), **env)
+                       statics=('s_HCPosed', 's_HCLastRefusal'), **env)
         return fn(sitter, pose), logs, statics
 
     def sitter(self, **kw):

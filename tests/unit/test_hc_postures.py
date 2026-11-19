@@ -119,7 +119,8 @@ class PostureAdmission(unittest.TestCase):
                    IsAlive=lambda: True)
         # Explicit synthetic body/authority and empty server-wide pose budget.
         env = dict(g_Game=game, GetGame=lambda: game, Print=logs.append,
-                   STATICS=N(s_HCPosed=0, MAX_POSED=12))
+                   STATICS=N(s_HCPosed=0, s_HCLastRefusal=''),
+                   HCInfectedVariety=N(HCMaxPosed=lambda: 12))
         if ADMISSION.exists():
             policy = N()
             for name in ('HCCanEnter', 'HCPostureRefusal', 'HCPoseMode', 'HCLine', 'HCTierCState'):
@@ -131,7 +132,7 @@ class PostureAdmission(unittest.TestCase):
         refuse = translate(str(POSE), 'bool HCRefusePose(', (), statics=('s_HCLastRefusal',), **env)
         sitter.HCRefusePose = lambda refused: refuse(sitter, refused)
         fn = translate(str(POSE), 'bool HCRequestPose(', ('IsAlive', 'HCRefusePose'),
-                       statics=('s_HCPosed', 'MAX_POSED'), **env)
+                       statics=('s_HCPosed', 's_HCLastRefusal'), **env)
         # Audit #121: admission follows shipped assets; only the sit pair ships.
         self.assertFalse(fn(sitter, 2), 'unshipped posture 2 was admitted')
         for pose in (-1, 3, 4, 99):

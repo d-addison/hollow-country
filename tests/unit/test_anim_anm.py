@@ -307,7 +307,7 @@ class AddonSources(unittest.TestCase):
         self.assertIn('BindCommand("CMD_HC_POSE")', src)
         self.assertIn('PreAnim_CallCommand', src)
         self.assertIn('override bool ModCommandHandlerBefore', src)
-        self.assertIn('MAX_POSED', src)
+        self.assertIn('HCInfectedVariety.HCMaxPosed()', src)
         self.assertIn('override void EEInit()', src)   # sits by itself when spawned by class name
 
 
