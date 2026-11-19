@@ -1,5 +1,18 @@
 """Audit #58/#197: execute authored handlers with explicit synthetic native fakes.
 These tests do not establish DayZ inventory, geometry, energy or replication.
+
+Audit-light fix-round spec/plan/tasks (2026-11-19):
+- P1: mounted identity follows the actual admitted slot; cross fallback is cargo-only.
+- P2: helmet and pack startup depend on the shared adapter's availability.
+- Tasks: execute failing authored-handler regressions, make the smallest adapter
+  changes, validate the legacy-test diff in temporary copies, retain runtime gates.
+RED: python3 -B -m unittest tests.unit.test_auditlight_runtime.ReviewRegressions -v
+Ran 3 tests; FAILED (failures=3). Actual lines: "True is not false" and
+"[('off', 'taped_light_unavailable')] != [('ready', 'admitted_unverified')]"
+(for both helmet and pack startup).
+GREEN: the same command -> Ran 3 tests; OK.
+Native proxy alignment, compilation, persistence/rejoin and normal packaged
+server/two-client acceptance remain PENDING.
 """
 import re
 from pathlib import Path
@@ -15,11 +28,22 @@ SERVICE = ROOT / 'mods/HollowCountry/scripts/4_World/Survival/HCTapedLightServic
 HELMET = ROOT / 'mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c'
 
 
+_build = build
+
+def build(*args, **kwargs):
+    gate = _build(*args, **kwargs)
+    # Explicit synthetic shared adapter; individual opt-out tests replace it.
+    gate.env['HCTapedLightAdmission'] = NS(Admitted=lambda: True)
+    return gate
+
+
 def invoke(path, cls, method, state, env, *args, source=None):
     text = source or path.read_text()
     match = re.search(r'class ' + cls + r'\b[^\{]*\{', text)
     code = body(text, match.end())
-    types = r'(?:HCTaped\w+|EntityAI|ItemBase|ComponentEnergyManager|TStringArray)'
+    types = r'(?:HCTaped\w+|EntityAI|ItemBase|InventoryLocation|ComponentEnergyManager|TStringArray)'
+    code = re.sub(r'ref array<ref HCTapedLightHostRow> ', 'HCGroupNative ', code)
+    code = code.replace('new InventoryLocation', 'new HCGroupLocation')
     code = re.sub(r'\b(?:ref )?' + types + r' (?=\w+\s*[=;])', 'HCGroupNative ', code)
     code = re.sub(r'\b' + types + r' (?=\w+\s*\()', 'int ', code)
     return ui_member(code, method, state, env, *args)
@@ -92,6 +116,77 @@ class OperationalStatus(unittest.TestCase):
         self.assertIn('slot_unavailable', published[-1][1])
         self.assertEqual(1, len([line for line in gate.logs if '[HC TapedPackMounts] pack_pairs_refused' in line]))
         self.assertEqual(1, len([line for line in gate.logs if '[HC TapedPackMounts] weapon_pairs_refused' in line]))
+
+
+class ReviewRegressions(unittest.TestCase):
+    def test_mounted_pair_optout_cannot_fall_back_but_loose_cargo_can(self):
+        events = []
+        slot = {'value': 'helmetFlashlight'}
+        energy = NS(IsSwitchedOn=lambda: False, CanSwitchOn=lambda: True,
+                    CanWork=lambda: True, SwitchOn=lambda: events.append('on'))
+        light = NS(GetType=lambda: 'UniversalLight', IsDamageDestroyed=lambda: False,
+                   GetCompEM=lambda: energy,
+                   GetInventory=lambda: NS(GetCurrentInventoryLocation=lambda loc: True))
+        actor = NS(IsAlive=lambda: True, IsUnconscious=lambda: False, IsInVehicle=lambda: False,
+                   FindAttachmentBySlotName=lambda s: None)
+        host = NS(GetType=lambda: 'TortillaBag', GetHierarchyRootPlayer=lambda: actor,
+                  IsDamageDestroyed=lambda: False,
+                  FindAttachmentBySlotName=lambda s: light if s == slot['value'] else None)
+        actor.GetItemInHands = lambda: host
+        owner = NS()
+        env = dict(GetGame=lambda: NS(IsServer=lambda: True),
+                   HCTapedLightAdmission=NS(Admitted=lambda: True),
+                   HCTapedLightHostRow=lambda: NS(PairId='', PrerequisiteSlot='', PrerequisiteClass=''),
+                   HCTapedLightCatalog=NS(Rows=lambda: EArray()),
+                   HCTapedPackMounts=NS(PairQualified=lambda p: p == 'tortilla_universal_cross'),
+                   ItemBase=NS(Cast=lambda v: v), InventoryLocationType=NS(CARGO=3),
+                   HCGroupLocation=lambda: NS(GetType=lambda: 3 if slot['value'] == 'cargo' else 1))
+        for method in ('HCWearableRow', 'Row'):
+            setattr(owner, method, lambda *args, method=method: invoke(
+                NATIVE, 'HCTapedLightV1Qualification', method, owner, env, *args))
+        env['HCTapedLightV1Qualification'] = owner
+        runtime = NS()
+        for method in ('MountedLight', 'HCToggleCandidate', 'HCToggle'):
+            setattr(runtime, method, lambda *args, method=method: invoke(
+                NATIVE, 'HCTapedLightRuntime', method, runtime, env, *args))
+        self.assertFalse(runtime.HCToggle(actor, host))
+        self.assertEqual([], events)
+        self.assertIsNone(owner.Row(host, light))
+        slot['value'] = 'Chemlight'
+        self.assertTrue(runtime.HCToggle(actor, host))
+        self.assertEqual(['on'], events)
+        self.assertEqual('Chemlight', owner.Row(host, light).SlotName)
+        slot['value'] = 'cargo'
+        self.assertEqual('Chemlight', owner.Row(host, light).SlotName)
+        self.assertFalse(runtime.HCToggle(actor, host))
+        self.assertEqual(['on'], events)
+        slot['value'] = 'another_attachment'
+        self.assertIsNone(owner.Row(host, light))
+        slot['value'] = 'cargo'
+        light.GetInventory = lambda: NS(GetCurrentInventoryLocation=lambda loc: False)
+        self.assertIsNone(owner.Row(host, light))
+
+    def test_shared_adapter_optout_closes_helmet_startup(self):
+        from tests.unit.test_hc_taped_lights import helmet_member
+        published, admission = [], []
+        state = NS(mHCStarted=False, NativeSlotAvailable=lambda: True,
+                   mHCStatus=NS(HCPublish=lambda *a: published.append(a)))
+        env = dict(HCTapedLightAdmission=NS(Admitted=lambda: False), FileExist=lambda p: False,
+                   HCTapedWearableCatalog=NS(HCSetAdmitted=admission.append, Rows=lambda: EArray(),
+                                             CompatibilityQueue=lambda: EArray(), Qualified=lambda: False),
+                   HCV2Admission=NS(Line=lambda *a: 'synthetic'), Print=lambda text: None)
+        helmet_member(HELMET, 'HCTapedHelmetMounts', 'OnStart', state, env, NS())
+        self.assertEqual([('off', 'taped_light_unavailable')], published)
+        self.assertEqual([False], admission)
+
+    def test_shared_adapter_optout_closes_pack_startup_with_usable_slots(self):
+        from tests.unit.test_hc_taped_default_on import native_slots, PATCHED
+        gate = build(MANIFEST.read_text(), receipts=(MANIFEST.parent / 'pair-receipts.json').read_text())
+        native_slots(gate, PATCHED)
+        gate.env['HCTapedLightAdmission'] = NS(Admitted=lambda: False)
+        _, published = start(gate, setting=True)
+        self.assertEqual([('off', 'taped_light_unavailable')], published)
+        self.assertFalse(any('admission result=admitted' in line for line in gate.logs))
 
 
 class NativeSwitch(unittest.TestCase):

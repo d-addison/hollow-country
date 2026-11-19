@@ -602,6 +602,11 @@ class HCTapedPackMounts : HCModule
             if (stateReason == "") { stateReason = mHCWeaponFirstRefusal; }
             if (stateReason == "") { stateReason = "all_pairs_disabled"; state = "off"; }
         }
+        if (!HCTapedLightAdmission.Admitted())
+        {
+            state = "off";
+            stateReason = "taped_light_unavailable";
+        }
         if (!mHCSettingOn)
         {
             state = "off";

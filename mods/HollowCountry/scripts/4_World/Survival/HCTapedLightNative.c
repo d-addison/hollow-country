@@ -112,9 +112,7 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         if (crossSlot) { wearable.PairId = "tortilla_universal_cross"; }
         if (GetGame().IsServer() && !HCTapedPackMounts.PairQualified(wearable.PairId))
         {
-            if (crossSlot) { return null; }
-            wearable.PairId = "tortilla_universal_cross";
-            if (!HCTapedPackMounts.PairQualified(wearable.PairId)) { return null; }
+            return null;
         }
         if (wearable.PairId == "tortilla_universal_cross") { wearable.SlotName = "Chemlight"; }
         return wearable;
@@ -134,8 +132,18 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         }
         if (hostType == "Mich2001Helmet" || hostType == "TortillaBag")
         {
-            bool crossMounted = host.FindAttachmentBySlotName("Chemlight") == light;
-            return HCWearableRow(hostType, lightType, crossMounted);
+            // Mounted identity is fixed by the actual slot; an opted-out pair
+            // cannot be relabelled as another admitted pair for remove/toggle.
+            if (host.FindAttachmentBySlotName("helmetFlashlight") == light) { return HCWearableRow(hostType, lightType, false); }
+            if (host.FindAttachmentBySlotName("Chemlight") == light) { return HCWearableRow(hostType, lightType, true); }
+            HCTapedLightHostRow looseRow = HCWearableRow(hostType, lightType, false);
+            if (looseRow || hostType != "TortillaBag") { return looseRow; }
+            // Fallback is for a loose cargo light only. Native evidence:
+            // Inventory.c:268 GetCurrentInventoryLocation; InventoryLocation.c:43 GetType.
+            InventoryLocation looseLocation = new InventoryLocation;
+            if (!light.GetInventory().GetCurrentInventoryLocation(looseLocation)) { return null; }
+            if (looseLocation.GetType() != InventoryLocationType.CARGO) { return null; }
+            return HCWearableRow(hostType, lightType, true);
         }
         return CrossRow(hostType, lightType);
     }
