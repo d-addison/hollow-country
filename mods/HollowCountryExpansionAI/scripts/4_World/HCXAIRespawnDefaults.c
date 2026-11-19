@@ -86,7 +86,40 @@ class HCXAIRespawnDefaults
         return false;
     }
 
-    static bool HCEnsure(string relative, string source)
+    // An unprovenanced locality catalog that is a strict subset of the shipped
+    // one (same settings; every locality present with the same Island/Source
+    // and a subset of its SiteIds) is an older mod image, not operator data.
+    static bool HCOlderLocalities(string profile, string shipped)
+    {
+        HCXAILocalityCatalog older;
+        HCXAILocalityCatalog newer;
+        string error;
+        if (!JsonFileLoader<HCXAILocalityCatalog>.LoadData(profile, older, error) || !older || !older.Localities) { return false; }
+        if (!JsonFileLoader<HCXAILocalityCatalog>.LoadData(shipped, newer, error) || !newer || !newer.Localities) { return false; }
+        if (older.SchemaVersion != newer.SchemaVersion || older.Enabled != newer.Enabled || older.WorldName != newer.WorldName || older.PageSize != newer.PageSize) { return false; }
+        if (older.AttemptsPerTick != newer.AttemptsPerTick || older.SelectionIntervalSeconds != newer.SelectionIntervalSeconds || older.OpportunitySeconds != newer.OpportunitySeconds || older.RetrySeconds != newer.RetrySeconds) { return false; }
+        if (older.Localities.Count() < 1 || older.Localities.Count() > newer.Localities.Count()) { return false; }
+        map<string, HCXAILocality> index = new map<string, HCXAILocality>();
+        foreach (HCXAILocality shippedLocality : newer.Localities)
+        {
+            if (shippedLocality) { index.Set(shippedLocality.Id, shippedLocality); }
+        }
+        bool fewer = older.Localities.Count() < newer.Localities.Count();
+        foreach (HCXAILocality locality : older.Localities)
+        {
+            if (!locality || !locality.SiteIds) { return false; }
+            HCXAILocality match;
+            if (!index.Find(locality.Id, match) || !match.SiteIds || match.Island != locality.Island || match.Source != locality.Source) { return false; }
+            foreach (string siteId : locality.SiteIds)
+            {
+                if (match.SiteIds.Find(siteId) < 0) { return false; }
+            }
+            if (locality.SiteIds.Count() < match.SiteIds.Count()) { fewer = true; }
+        }
+        return fewer;
+    }
+
+    static bool HCEnsure(string relative, string source, bool localities = false)
     {
         if (!HCProfileDefaults.Valid(relative)) { return false; }
         string shipped = HCProfileDefaults.ReadText(source);
@@ -107,7 +140,9 @@ class HCXAIRespawnDefaults
             if (profile == "") { return false; }
             if (origin == "")
             {
-                if (!HCXAIRespawnDefaults.HCOlderSchema(profile, shipped)) { return true; }
+                bool older = HCXAIRespawnDefaults.HCOlderSchema(profile, shipped);
+                if (!older && localities) { older = HCXAIRespawnDefaults.HCOlderLocalities(profile, shipped); }
+                if (!older) { return true; }
                 backup = target + ".legacy.bak";
                 mode = "legacy_schema";
                 if (FileExist(backup) && HCProfileDefaults.ReadText(backup) != profile) { return false; }

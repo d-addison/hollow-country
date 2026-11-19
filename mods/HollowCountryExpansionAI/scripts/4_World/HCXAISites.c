@@ -962,7 +962,7 @@ class HCXAISiteDirector : Managed
         string shippedLocalities = HCXAIDefaults.Shipped() + "expansion-ai-localities.json";
         string missionLocalities = "$mission:hollow-country/ai/localities.json";
         if (FileExist(missionLocalities)) { shippedLocalities = missionLocalities; }
-        HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", shippedLocalities);
+        HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", shippedLocalities, true);
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-formations.json", HCXAIDefaults.Shipped() + "expansion-ai-formations.json");
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-tactics.json", HCXAIDefaults.Shipped() + "expansion-ai-tactics.json");
         // Startup step markers: log timestamps locate slow steps on large policies.

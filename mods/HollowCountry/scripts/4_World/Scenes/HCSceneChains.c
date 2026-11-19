@@ -133,7 +133,9 @@ class HCSceneChains
             if (!HCGapcodeStoryIndex.HCPinnedSite(plan.IndexedSite) || plan.IndexedSite.Id != plan.SiteId) { return null; }
             return plan.IndexedSite;
         }
-        if (plan.IndexedSite) { return null; }
+        // Pre-HC-42 saves have no IndexedSite key; a zero-filled object from the
+        // native loader is not a pin. Only a named site on a plain plan refuses.
+        if (plan.IndexedSite && plan.IndexedSite.Id != "") { return null; }
         return Site(plan.SiteId);
     }
 
@@ -355,7 +357,13 @@ class HCSceneChainStore
             if (!HCGroupIO.Read(m_Path, 65536, m_Image) || !JsonFileLoader<HCSceneChainState>.LoadData(m_Image, state, error)) { Fault("read"); return null; }
             if (!HCJsonFields.Every(m_Image, "DelaySeconds", 6, "Kit")) { Fault("missing_DelaySeconds"); return null; }
             if (state && !HCJsonFields.Has(m_Image, "Stories")) { state.Stories = new HCStoryProgress; }
-            if (!HCSceneChains.StateValid(state)) { Fault("state_invalid"); return null; }
+            if (!HCSceneChains.StateValid(state))
+            {
+                // Name the failing part so a refused upgrade is diagnosable from one boot.
+                bool catalogOk = state.Catalog && HCSceneChains.CatalogValid(state.Catalog, state.Stories != null);
+                Fault("state_invalid catalog=" + catalogOk.ToString() + " stories=" + HCStoryPolicy.HCValid(state).ToString());
+                return null;
+            }
             if (now < state.LastNow) { Fault("clock"); return null; }
             m_Revision = state.Revision;
             return state;
