@@ -34,7 +34,7 @@ class ModuleReadiness(unittest.TestCase):
                           '[HC Skipped] off reason=provider_missing', '[HC Ready] ready',
                           '[HC Legacy] started reason=owner_state_unreported',
                           '[HC Conflict] off reason=owner_report_conflicts_with_no_start',
-                          '[HC Degraded] off reason=partial_admission'], lines)
+                          '[HC Degraded] degraded reason=partial_admission'], lines)
         self.assertEqual({name: 1 for name, _, _ in cases}, reads)
         self.assertEqual(['Skipped', 'Ready', 'Legacy', 'Degraded'], events)
         state.Start()  # idempotent start must not print another set

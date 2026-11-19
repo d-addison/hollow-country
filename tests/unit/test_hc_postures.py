@@ -83,7 +83,18 @@ class PostureAdmission(unittest.TestCase):
         variety_owner.m_Running = True
         observed[0] = None  # requested posture owner has not supplied a report
         self.assertEqual('degraded', getter(fixture.ctx).HCState())
+        # #187: once the posture owner reports a non-degraded row the start
+        # placeholder is cleared; a later degraded posture still surfaces.
+        settled = make_row()
+        settled.HCPublish('ready', 'posture_owner_running')
+        observed[0] = settled
+        self.assertEqual('ready', getter(fixture.ctx).HCState(),
+                         'start-pending placeholder outlived the posture owner report')
+        self.assertEqual('infected_owner_running_runtime_pending', getter(fixture.ctx).HCReason())
+        observed[0] = None
+        self.assertEqual('ready', getter(fixture.ctx).HCState())
         observed[0] = posture
+        self.assertIs(posture, getter(fixture.ctx))
         fixture.stop()
         self.assertEqual('off', getter(fixture.ctx).HCState())
         self.assertEqual('infected_owner_stopped', getter(fixture.ctx).HCReason())

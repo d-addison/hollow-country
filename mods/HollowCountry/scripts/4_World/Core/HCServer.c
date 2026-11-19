@@ -59,6 +59,7 @@ class HCServer
         bool moduleConflicted = false;
         HCOperationalStatus reported = null;
         HCOperationalOwner opOwner = null;
+        string notReadyWord = "off";
         foreach (HCModule module : modules)
         {
             // Exactly one lifecycle admission read; it may load local config.
@@ -86,7 +87,10 @@ class HCServer
                 moduleConflicted = !moduleStarted && (reported.HCState() == "ready" || reported.HCState() == "degraded" || reported.HCState() == "requested");
                 if (moduleReady) { Print("[HC " + module.GetName() + "] ready"); }
                 if (moduleConflicted) { Print("[HC " + module.GetName() + "] off reason=owner_report_conflicts_with_no_start"); }
-                if (!moduleReady && !moduleConflicted) { Print("[HC " + module.GetName() + "] off reason=" + reported.HCReason()); }
+                // A degraded owner is running with partial admission, not off.
+                notReadyWord = "off";
+                if (reported.HCState() == "degraded") { notReadyWord = "degraded"; }
+                if (!moduleReady && !moduleConflicted) { Print("[HC " + module.GetName() + "] " + notReadyWord + " reason=" + reported.HCReason()); }
             }
             if (!reported && !moduleEnabled) { Print("[HC " + module.GetName() + "] off reason=module_not_enabled"); }
             if (!reported && moduleEnabled) { Print("[HC " + module.GetName() + "] started reason=owner_state_unreported"); }

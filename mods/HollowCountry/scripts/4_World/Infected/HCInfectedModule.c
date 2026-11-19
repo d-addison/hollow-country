@@ -80,6 +80,11 @@ class HCInfectedModule : HCModule
         {
             HCOperationalStatus variety = HCInfectedVarietyModule.HCObservedStatus();
             if (variety && variety.HCState() == "degraded") { return variety; }
+            // #187: the start placeholder ends once the posture owner reports.
+            if (variety && m_HCOwnerStatus.HCReason() == "posture_owner_start_pending")
+            {
+                m_HCOwnerStatus.HCPublish("ready", "infected_owner_running_runtime_pending");
+            }
         }
         return m_HCOwnerStatus;
     }
