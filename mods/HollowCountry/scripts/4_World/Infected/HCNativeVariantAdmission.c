@@ -1,12 +1,14 @@
 // HC-14 bounded content admission receipt, not a gameplay/CE controller.
-// Lead calls Check once per module start and retains the result; HC-62 emits
+// Infected calls Check once per module start and caches the result; HC-62 emits
 // HCPlanLine through the fixed content status path. No per-actor/tick logging.
 // Source metadata and config readiness never prove a CE spawn or client asset.
 // Native evidence: installed scripts-1.30.164289, relative paths below:
 // 3_Game/Global/Game.c:449 ConfigGetText, :539 ConfigGetInt,
-// :612 ConfigIsExisting, :942 GetVersion, :1120 IsServer, :1437 IsKindOf.
+// :612 ConfigIsExisting, :1120 IsServer, :1437 IsKindOf.
+// HCBuildIdentity.SeenBuild reuses the shared installed build accessor.
 // 3_Game/gameplay.c:636 GetGame (server-owned startup context only).
-// 1_Core/proto/EnConvert.c:30 int.ToString.
+// 1_Core/proto/EnConvert.c:30 int.ToString; EnString.c:113 Substring,
+// :171 ToLower, :199 Length, :448 Get (bounded model normalization).
 // N8 ZombieBase.c:113 returns false for IsZombieMilitary; civilian clerk base
 // inherits it. ZombieFemaleBase.c:139-152 soldier/eastSoldier return true.
 // Config ancestry here cannot establish the method result on a live actor.
@@ -15,6 +17,8 @@
 // are invoked. Refuse live CE observation/mutation rather than invent an API.
 class HCNativeVariantAdmission
 {
+    // Counts and inspected classes are asserted against variants.json in
+    // test_infected_variety_install; no runtime manifest/config-tree scan.
     int Authored = 6;
     int ConfigVerified;
     int ConfigRefused;
@@ -55,8 +59,7 @@ class HCNativeVariantAdmission
         State = "refused";
         Refusal = "SERVER_CONTEXT_REQUIRED";
         if (!GetGame() || !GetGame().IsServer()) { return; }
-        string build;
-        GetGame().GetVersion(build);
+        string build = HCBuildIdentity.SeenBuild();
         Refusal = "NATIVE_BUILD_UNSUPPORTED";
         if (!HCInfectedProfiles.NativeBuildSupported(build)) { return; }
         Refusal = "none";
@@ -75,6 +78,16 @@ class HCNativeVariantAdmission
         Refusal = "CE_EVENT_INTROSPECTION_UNAVAILABLE";
     }
 
+    static string HCNormalizeModel(string model)
+    {
+        model.ToLower();
+        if (model.Length() > 0 && model.Get(0) == "\\")
+        {
+            model = model.Substring(1, model.Length() - 1);
+        }
+        return model;
+    }
+
     protected void HCInspectCandidate(string typeName, string nativeBase, string expectedModel, string expectedProfile)
     {
         string path = "CfgVehicles " + typeName;
@@ -85,7 +98,7 @@ class HCNativeVariantAdmission
         if (!GetGame().ConfigIsExisting(path)) { failure = "NATIVE_CLASS_MISSING"; }
         else if (GetGame().ConfigGetInt(path + " scope") != 2) { failure = "NATIVE_SCOPE_NOT_PUBLIC"; }
         else if (!GetGame().IsKindOf(typeName, nativeBase)) { failure = "NATIVE_PROFILE_ANCESTRY_MISMATCH"; }
-        else if (!GetGame().ConfigGetText(path + " model", model) || model != expectedModel) { failure = "NATIVE_MODEL_MISMATCH"; }
+        else if (!GetGame().ConfigGetText(path + " model", model) || HCNormalizeModel(model) != HCNormalizeModel(expectedModel)) { failure = "NATIVE_MODEL_MISMATCH"; }
         else if (!GetGame().ConfigGetText(path + " aiAgentTemplate", agentProfile) || agentProfile != expectedProfile) { failure = "NATIVE_AGENT_PROFILE_MISMATCH"; }
         else if (GetGame().ConfigIsExisting(path + " DLC"))
         {

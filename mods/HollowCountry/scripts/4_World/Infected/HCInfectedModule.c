@@ -30,6 +30,7 @@ class HCInfectedModule : HCModule
 {
     static HCInfectedModule Instance;
     protected ref HCInfectedConfig m_Config;
+    protected ref HCNativeVariantAdmission m_NativeVariants;
     // Closed until OnStart derives requested-AND-qualified capabilities.
     protected ref HCInfectedAdmission m_Admission = new HCInfectedAdmission;
     protected ref HCInfectedSnapshot m_State;
@@ -195,6 +196,10 @@ class HCInfectedModule : HCModule
             }
             m_Dirty = journalLifecycle;
         }
+        // Content admission is config-only. The separate variety module owns
+        // behavior/scaling; neither path mutates CE or the shared preference.
+        m_NativeVariants = HCNativeVariantAdmission.Check(settings.EnableInfectedVariety);
+        Print(m_NativeVariants.HCAdmissionLine());
         m_Healthy = true;
         Instance = this;
         // Periodic saves run half an interval after adoption so the two
@@ -221,6 +226,12 @@ class HCInfectedModule : HCModule
     string AdmissionStatus()
     {
         return m_Admission.Describe();
+    }
+
+    // Fixed content-status owner can read this without repeating config work.
+    HCNativeVariantAdmission NativeVariants()
+    {
+        return m_NativeVariants;
     }
 
     bool ContactGuardEnabled()
@@ -1059,6 +1070,7 @@ class HCInfectedModule : HCModule
         if (Instance == this)
             Instance = null;
         m_Healthy = false;
+        m_NativeVariants = null;
         m_Voices.Clear();
         m_Actors.Clear();
         m_Sweeps.Clear();
