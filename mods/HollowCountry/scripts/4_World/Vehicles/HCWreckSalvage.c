@@ -449,9 +449,26 @@ class HCWreckSalvageModule : HCModule
         if (!player.GetIdentity()) return HCRefuseStart(HCRefusal.SESSION);
         if (!HCWreckSalvage.Allowed(player, target, item)) return HCRefuseStart(HCRefusal.SALVAGE);
         int index = Enroll(target.GetObject());
-        bool startable = index >= 0 && m_State.Rows[index].Left > 0;
-        if (startable) m_HCStartRefusal = "";
-        return startable;
+        if (index < 0) return HCRefuseStart(HCRefusal.STORAGE);
+        if (m_State.Rows[index].Left <= 0) return HCRefuseStart(HCRefusal.NOTHING);
+        m_HCStartRefusal = "";
+        return true;
+    }
+
+    // Cause of the last CanStart refusal; the action reads it right after the call on the
+    // same server thread, so it names this player's refusal even though the field is shared.
+    string StartRefusal()
+    {
+        return m_HCStartRefusal;
+    }
+
+    // Cause of the last failed Begin: a Begin-specific reason wins, otherwise the CanStart
+    // cause, otherwise the generic salvage reason. Never empty.
+    string LastRefusal()
+    {
+        if (m_HCBeginRefusal != "" && m_HCBeginRefusal != HCRefusal.SALVAGE) return m_HCBeginRefusal;
+        if (m_HCStartRefusal != "") return m_HCStartRefusal;
+        return HCRefusal.SALVAGE;
     }
 
     void Purge()
@@ -503,11 +520,14 @@ class HCWreckSalvageModule : HCModule
         data.Tool = data.m_MainItem;
         data.Index = Enroll(data.Wreck);
         data.StartedMs = GetGame().GetTime();
-        if (data.Index >= 0)
+        if (data.Index < 0)
         {
-            m_Sessions.Insert(data);
-            m_HCBeginRefusal = "";
+            // Enroll failed after CanStart passed (state save or wreck table); no session.
+            HCRefuseBegin(HCRefusal.STORAGE);
+            return;
         }
+        m_Sessions.Insert(data);
+        m_HCBeginRefusal = "";
     }
 
     bool Continuing(HCWreckSalvageActionData data)

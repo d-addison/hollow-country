@@ -28,6 +28,32 @@ class HCCraftRefusal
     {
         HCRefusalReport.ActionRefusalMessage(data, reason, HCCraftRefusal.Message(reason));
     }
+
+    // Wreck salvage text per module reason; unknown reasons keep the original generic text.
+    static string WreckMessage(string reason)
+    {
+        if (reason == HCRefusal.BUSY || reason == HCRefusal.CAPACITY)
+            return "Another wreck salvage is in progress; try again in a moment.";
+        if (reason == HCRefusal.SERVICE)
+            return "Wreck salvage is unavailable right now.";
+        if (reason == HCRefusal.SESSION)
+            return "Salvage was interrupted; try again.";
+        if (reason == HCRefusal.NOTHING)
+            return "Nothing usable is left on this wreck.";
+        if (reason == HCRefusal.STORAGE)
+            return "The salvage could not be recorded right now.";
+        return "Cannot salvage this wreck now; check the tool, reach and remaining parts.";
+    }
+
+    static void WreckTarget(PlayerBase player, ActionTarget target, ItemBase item, string reason)
+    {
+        HCRefusalReport.TargetRefusalMessage(player, target, item, reason, HCCraftRefusal.WreckMessage(reason));
+    }
+
+    static void WreckAction(ActionData data, string reason)
+    {
+        HCRefusalReport.ActionRefusalMessage(data, reason, HCCraftRefusal.WreckMessage(reason));
+    }
 }
 
 // Surgical guards around the existing registered native instances. No new native

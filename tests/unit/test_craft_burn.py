@@ -8,6 +8,7 @@ RED: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_craft_burn -v
 GREEN: same command (recorded in the commit body).
 """
 from pathlib import Path
+import re
 from types import SimpleNamespace as NS
 import unittest
 
@@ -20,7 +21,8 @@ SCRIPTS = ROOT / 'mods/HollowCountry/scripts/4_World'
 WRECK = SCRIPTS / 'Vehicles/HCWreckSalvage.c'
 ECOLOGY = SCRIPTS / 'Ecology/HCEcologyRuntime.c'
 REFUSAL = NS(BUSY='busy', SERVICE='service', SALVAGE='salvage_unavailable', CAPACITY='capacity',
-             SESSION='session_changed')
+             SESSION='session_changed', STORAGE='storage_unavailable', NOTHING='nothing')
+ACTION = SCRIPTS / 'Actions/HCActionSalvageWreck.c'
 
 
 def selfref(**fields):
@@ -48,6 +50,17 @@ class CraftRefusalVocabulary(unittest.TestCase):
         self.assertTrue(all(text for _, text in told))
 
 
+    def test_wreck_message_is_specific_per_module_reason_and_never_empty(self):
+        env = dict(HCRefusal=REFUSAL, HCCraftRefusal=NS())
+        message = authored('WreckMessage', 'reason', env, 'HCNativeCraftingSafety.c', 'HCCraftRefusal')
+        texts = {r: message(None, r) for r in ('busy', 'capacity', 'service', 'session_changed', 'nothing',
+                                               'storage_unavailable', 'salvage_unavailable', 'unknown')}
+        self.assertEqual(texts['busy'], texts['capacity'])
+        self.assertEqual(6, len(set(texts.values())))  # busy/capacity share; salvage/unknown share
+        self.assertEqual(texts['salvage_unavailable'], texts['unknown'])
+        self.assertTrue(all(texts.values()))
+
+
 class DrysackRefusals(unittest.TestCase):
     def run_finish(self, finishing, valid):
         told = []
@@ -62,6 +75,50 @@ class DrysackRefusals(unittest.TestCase):
     def test_reentry_and_invalid_source_are_named(self):
         self.assertEqual(['busy'], self.run_finish(True, True))
         self.assertEqual(['craft_inputs_invalid'], self.run_finish(False, False))
+
+
+class DrysackOutputRefusal(unittest.TestCase):
+    def run_finish(self, bag_state, rope_state):
+        """Each state is None (allocation failed), 'fresh' or 'deleting' (deferred delete)."""
+        told, events = [], []
+
+        def result(label, mode):
+            if mode is None:
+                return None
+            return NS(IsSetForDeletion=lambda: mode == 'deleting',
+                      Delete=lambda: events.append(label + '_deleted'),
+                      SetWet=lambda wet: events.append(label + '_wet'))
+        spawned = {'WaterproofBag_Green': result('bag', bag_state), 'Rope': result('rope', rope_state)}
+        player = NS(SpawnEntityOnGroundRaycastDispersed=lambda kind: spawned[kind])
+        source = NS(ConfigGetString=lambda key: 'Green', Delete=lambda: events.append('source_deleted'),
+                    GetWet=lambda: 0.0)
+        env = dict(GetGame=lambda: NS(IsServer=lambda: True), HCRefusal=REFUSAL,
+                   MiscGameplayFunctions=NS(TransferItemProperties=lambda *a: events.append('transfer')),
+                   HCCraftRefusal=NS(INPUTS='craft_inputs_invalid', OUTPUT='craft_output_unavailable',
+                                     ActionRefuse=lambda data, reason: told.append(reason)))
+        call = authored('OnFinishProgressServer', 'action_data', env, 'HCDrysackSafety.c')
+        state = NS(m_HCFinishing=False, HCValidDrysack=lambda item, player_: True)
+        call(state, NS(m_MainItem=source, m_Player=player))
+        return told, events, state
+
+    def test_failed_allocation_deletes_only_fresh_results_and_keeps_the_source(self):
+        # Spawn order is bag then rope; a missing rope must clean the fresh bag only.
+        told, events, state = self.run_finish('fresh', None)
+        self.assertEqual(['craft_output_unavailable'], told)
+        self.assertEqual(['bag_deleted'], events)
+        self.assertFalse(state.m_HCFinishing)
+
+    def test_deferred_deleting_results_are_refused_and_both_deleted(self):
+        told, events, state = self.run_finish('fresh', 'deleting')
+        self.assertEqual(['craft_output_unavailable'], told)
+        self.assertEqual(['bag_deleted', 'rope_deleted'], events)
+        self.assertFalse(state.m_HCFinishing)
+
+    def test_fresh_results_commit_without_a_refusal(self):
+        told, events, state = self.run_finish('fresh', 'fresh')
+        self.assertEqual([], told)
+        self.assertEqual(['transfer', 'transfer', 'bag_wet', 'rope_wet', 'source_deleted'], events)
+        self.assertFalse(state.m_HCFinishing)
 
 
 class NativeRecipeRefusals(unittest.TestCase):
@@ -177,6 +234,78 @@ class WreckSalvageRefusals(unittest.TestCase):
         self.assertEqual(3, len([l for l in self.logs if 'begin refused reason=' in l]), self.logs)
         begin(module, data)
         self.assertEqual(3, len([l for l in self.logs if 'begin refused reason=' in l]), 'once per change')
+
+
+    def test_enroll_failure_after_admission_is_named_and_adds_no_session(self):
+        player = NS(GetIdentity=lambda: object())
+        data = selfref(Completed=False, m_Player=player, m_Target=NS(GetObject=lambda: NS(
+            GetType=lambda: 'Wreck', GetPosition=lambda: [0, 0, 0])), m_MainItem=object(), Key='', Index=-1)
+        module = self.module()
+        module.CanStart = lambda p, t, i: True
+        module.Enroll = lambda target: -1
+        event_translate(self.text, 'Begin', self.env, 'HCWreckSalvageModule', True)(module, data)
+        self.assertEqual('storage_unavailable', module.m_HCBeginRefusal)
+        self.assertEqual(0, len(module.m_Sessions))
+        self.assertEqual(1, len([l for l in self.logs if 'reason=storage_unavailable' in l]), self.logs)
+
+    def test_can_start_names_an_exhausted_or_unenrollable_wreck(self):
+        player = NS(GetIdentity=lambda: object())
+        module = self.module()
+        module.m_State = NS(Rows=[NS(Left=0)])
+        self.assertFalse(self.can_start(module, player))
+        self.assertEqual('nothing', module.m_HCStartRefusal)
+        module.Enroll = lambda target: -1
+        self.assertFalse(self.can_start(module, player))
+        self.assertEqual('storage_unavailable', module.m_HCStartRefusal)
+
+    def test_last_refusal_prefers_the_specific_begin_reason_then_the_start_reason(self):
+        module = self.module()
+        getter = event_translate(self.text, 'LastRefusal', self.env, 'HCWreckSalvageModule', True)
+        start = event_translate(self.text, 'StartRefusal', self.env, 'HCWreckSalvageModule', True)
+        self.assertEqual('salvage_unavailable', getter(module))
+        module.m_HCStartRefusal = 'busy'
+        self.assertEqual('busy', start(module))
+        self.assertEqual('busy', getter(module))
+        module.m_HCBeginRefusal = 'salvage_unavailable'
+        self.assertEqual('busy', getter(module), 'the generic begin marker defers to the start cause')
+        module.m_HCBeginRefusal = 'capacity'
+        self.assertEqual('capacity', getter(module))
+
+
+class WreckActionReports(unittest.TestCase):
+    def setUp(self):
+        self.told = []
+        self.module = NS(Begin=lambda data: None, Continuing=lambda data: False,
+                         LastRefusal=lambda: 'capacity', StartRefusal=lambda: 'busy',
+                         CanStart=lambda p, t, i: False)
+        data = NS(Completed=False)
+        self.data = data
+        wreck_data = NS(Cast=lambda action: data)
+        self.env = dict(GetGame=lambda: NS(IsServer=lambda: True), HCRefusal=REFUSAL,
+                        HCWreckSalvageModule=NS(Get=lambda: self.module), HCWreckSalvageActionData=wreck_data,
+                        HCCraftRefusal=NS(WreckAction=lambda d, reason: self.told.append(('action', reason)),
+                                          WreckTarget=lambda p, t, i, reason: self.told.append(('target', reason))))
+        # Syntax-only adapter: the translator has no typed-local support for HC classes.
+        self.text = re.sub(r'\bHCWreckSalvage(?:Module|ActionData) (\w+) =', r'\1 =', ACTION.read_text()).replace('super.', 'self.native.')
+
+    def call(self, name, params, *args):
+        fn = event_translate(self.text, name, self.env, 'HCActionSalvageWreck', True)
+        return fn(NS(native=NS(OnStartServer=lambda a: None)), *args)
+
+    def test_start_refusal_reports_the_modules_specific_reason(self):
+        self.call('OnStartServer', 'action_data', object())
+        self.assertEqual([('action', 'capacity')], self.told)
+
+    def test_missing_module_keeps_the_generic_reason_and_condition_reports_start_reason(self):
+        self.module = None
+        self.env['HCWreckSalvageModule'] = NS(Get=lambda: None)
+        self.call('OnStartServer', 'action_data', object())
+        self.assertEqual([('action', 'salvage_unavailable')], self.told)
+        self.told.clear()
+        self.module = NS(CanStart=lambda p, t, i: False, StartRefusal=lambda: 'busy')
+        self.env['HCWreckSalvageModule'] = NS(Get=lambda: self.module)
+        self.assertFalse(self.call('ActionCondition', 'player,target,item', object(), object(), object()))
+        self.assertEqual([('target', 'busy')], self.told)
 
 
 class EcologyStartRefusals(unittest.TestCase):
