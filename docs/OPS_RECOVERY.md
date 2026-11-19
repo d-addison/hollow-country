@@ -80,19 +80,35 @@ synthetic hash used in tests.
 On successful restore admission both receipts move to their original filenames
 plus `.consumed-<utc>`. Both complete archives are verified before either active
 name is removed. The consumed files are retained indefinitely; they never pin
-subsequent normal saves/restarts. A missing half, malformed/mismatched receipt,
-archive collision or failed consume refuses that restore attempt, retains
-evidence and logs `recovery=attestation_refused`, without classifying another
-store as damaged. Correct the operator attestation before retrying.
+subsequent normal saves/restarts. Malformed/mismatched paired receipts, archive
+collisions or failed paired consume still refuse startup, retain evidence and
+log `recovery=attestation_refused`, without classifying another store as damaged.
+Correct the operator attestation before retrying.
 
 The installed engine exposes **no rename primitive**. The supported logical
 rename uses `CopyFile`, bounded readback, then `DeleteFile` of the active name
 only after both archived images verify. It is not atomic or fsync. A crash
-between source removals can leave one active receipt plus both consumed images;
-startup then refuses the incomplete attestation. Preserve all copies and have
-the operator complete/reissue the restore pair while stopped. Neither receipt
-content nor its final archival copy is discarded. No invented `RenameFile` API
-or native inventory write is used.
+between source removals can leave one active receipt plus both consumed images.
+Startup now checks at most 64 directory entries matching that active receipt's
+own `recovery-hc.json.consumed-*` or `recovery-native.json.consumed-*` name, with
+no recursion. Only canonical positive integer UTC suffixes written by this
+consumer qualify. Reads retain the receipt's 4096/2048-byte limit. If an archive
+has identical bytes, startup removes the redundant active name and logs exactly
+one `recovery=consumed_receipt_cleanup ... action=removed runtime=PENDING` line.
+The verified archive is retained, generation stays zero and stores validate
+independently; old restore hashes are not reapplied.
+
+If no matching archive is found (including an unreadable file or a match beyond
+the scan cap), the active receipt stays in place and startup logs
+`recovery=attestation_refused reason=partial_restore_attestation`. This refuses
+only the restore; healthy stores boot and validate normally. A failed active-name
+removal similarly preserves evidence, logs `reason=stale_receipt_cleanup_failed`
+and allows normal store validation, retrying cleanup on the next boot. While
+stopped, preserve all copies, then quarantine/rename the unresolved lone receipt
+with a timestamp or reissue a complete, verified stopped restore pair. Never
+delete state files to resolve a lone receipt. Neither the receipt's final
+archival copy nor store data is discarded by automatic cleanup. No invented
+`RenameFile` API or native inventory write is used.
 
 File/JSON/schema validation still belongs to the individual stores after byte
 attestation. An attestation accepted for matching bytes does not assert gameplay
@@ -105,7 +121,7 @@ Inspected read-only snapshot: `~/.cache/hollow-country/native-scripts/scripts-1.
 - `1_Core/proto/EnSystem.c:397,417,425,443,462`: FileExist, OpenFile,
   ReadFile, CloseFile, FPrint; `:525,528,531`: MakeDirectory, DeleteFile, CopyFile.
   `:520..522`: FindFile, FindNextFile, CloseFindFile (existing group enumeration).
-- `1_Core/proto/EnString.c:199,223,240`: Length, Hash, IndexOf;
+- `1_Core/proto/EnString.c:199,223,240,113,20`: Length, Hash, IndexOf, Substring, ToInt;
   `1_Core/proto/EnConvert.c:30`: integer ToString;
   `1_Core/proto/EnDebug.c:96`: Print.
 - `3_Game/Global/Game.c:1120,934`: IsServer, GetWorldName;
@@ -179,6 +195,40 @@ names, test filenames, runbook name and `.gitignore` in `tests/unit`. The sole
 expected failure is the existing combined-module work-budget check; it is not
 reclassified as accepted. No full test discovery was run.
 
+### Issue #170: interrupted lone-receipt cleanup
+
+Scoped specification: a byte-identical consumed copy authorizes removal of only
+the lone active receipt; an unmatched lone receipt refuses only the restore.
+Inconsistent pairs retain existing fail-closed startup behavior. Plan/tasks:
+add authored-handler synthetic regressions first; isolate the lone path before
+pair decoding; bound and verify archive lookup; update operator instructions;
+run focused behavioral and native-syntax guards. Native acceptance remains
+pending.
+
+Actual RED before changing `HCPersistenceDisposition.c`:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_recovery -v
+AssertionError: False is not true : lone receipt must not refuse healthy stores
+Ran 15 tests; FAILED (failures=16)
+```
+
+GREEN with the same command: `Ran 15 tests; OK`. The new cases cover either lone
+receipt, exact raw-byte identity, wrong bytes/names, another receipt's archive,
+bounded enumeration/handle cleanup, failed removal, healthy store writes and
+unchanged refusal of inconsistent pairs. Filesystem enumeration is an explicit
+synthetic port; it does not establish native wildcard behavior or durability.
+
+Related-file modules and required guards also passed:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_recovery test_v2_world test_hc_recovery_integrity test_v1_combined_flags test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
+Ran 119 tests; OK (expected failures=1)
+```
+
+The expected failure remains the existing combined-module work-budget check.
+No full discovery or native server run was performed for #170.
+
 ## Native checks still to run
 
 Compile and boot the exact authored source with DayZDiag, then package and test
@@ -191,6 +241,7 @@ to observe, not claimed boot results:
 [HC Plan] HC-28 store=world recovery=quarantined ... files=preserved runtime=PENDING
 [HC Plan] HC-28 warning=unclosed_native_session action=validate_each_store runtime=PENDING
 [HC Plan] HC-28 recovery=attestation_refused ... quarantine=0 runtime=PENDING
+[HC Plan] HC-28 recovery=consumed_receipt_cleanup receipt=... action=removed runtime=PENDING
 ```
 
 On a private disposable installation:
@@ -206,8 +257,14 @@ On a private disposable installation:
 4. Close a store gate mid-session. Stop and confirm that healthy stores retain
    their unsaved progress while quarantined bytes remain unchanged. Test World
    off with groups on and no escalation files, and an empty group directory.
-5. Interrupt attestation archival/removal, and test archive name collisions.
-   Preserve evidence and verify explicit restore refusal without data mutation.
+5. Interrupt attestation removal after one active receipt is gone. With a
+   byte-identical `.consumed-<utc>` copy for the survivor, verify one
+   `recovery=consumed_receipt_cleanup` line, removal of only the active name,
+   retention of archives and normal healthy store startup at generation zero.
+   Repeat with no matching copy, wrong bytes/name, more than 64 candidates and
+   denied deletion: verify the named refusal, retained evidence and healthy
+   store startup without applying a restore. Test malformed/mismatched pairs
+   and archive collisions separately: those still refuse startup.
 6. With two clients, verify retained inventories/ACLs/stashes and no duplicate
    loot, refund/replay, replenished cargo or lost/restarted completion history.
 
