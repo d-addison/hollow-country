@@ -181,3 +181,18 @@ class HCDebugMaterializerCandidatesContributor : HCDebugContributor
         }
     }
 }
+
+// HC-25: aggregate reads owner caches only. No module callbacks, player/entity
+// traversal, native settings, store reads or provider readiness probes.
+class HCDebugOperationalContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        array<string> rows = HCOperationalContributors.HCRows(GetGame().GetTickTime());
+        for (int index = 0; index < rows.Count(); index++)
+        {
+            snapshot.HCAddOperational(rows[index]);
+        }
+        snapshot.HCDocument().operationalTruncated += HCOperationalContributors.HCRefused();
+    }
+}

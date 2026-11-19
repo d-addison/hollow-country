@@ -34,6 +34,10 @@ class HCDebugDocument
     int time;
     ref map<string, ref array<ref HCDebugPoint>> layers = new map<string, ref array<ref HCDebugPoint>>;
     ref array<ref HCDebugRoute> routes = new array<ref HCDebugRoute>;
+    ref array<string> operational = new array<string>;
+    int contributors;
+    int truncated;
+    int operationalTruncated;
 }
 
 class HCDebugSnapshot
@@ -46,14 +50,26 @@ class HCDebugSnapshot
     protected int m_ContributorPoints;
     protected int m_ContributorRoutes;
     protected bool m_Describing;
+    protected static int s_RegistrationRefusals;
 
-    static void HCRegister(HCDebugContributor contributor)
+    static bool HCRegister(HCDebugContributor contributor)
     {
-        if (!contributor) { return; }
+        if (!contributor) { return false; }
         if (!s_Contributors) { s_Contributors = new array<ref HCDebugContributor>; }
-        if (s_Contributors.Find(contributor) >= 0) { return; }
-        if (s_Contributors.Count() >= 16) { return; }
+        if (s_Contributors.Find(contributor) >= 0) { return true; }
+        if (s_Contributors.Count() >= 16)
+        {
+            if (s_RegistrationRefusals < 1000000) { s_RegistrationRefusals++; }
+            return false;
+        }
         s_Contributors.Insert(contributor);
+        return true;
+    }
+
+    static int HCContributorCount()
+    {
+        if (!s_Contributors) { return 0; }
+        return s_Contributors.Count();
     }
 
     static void HCUnregister(HCDebugContributor contributor)
@@ -68,8 +84,10 @@ class HCDebugSnapshot
     {
         m_Document = new HCDebugDocument;
         m_Document.time = worldTime;
+        m_Document.truncated = s_RegistrationRefusals;
         m_Contributors = new array<ref HCDebugContributor>;
         if (!s_Contributors) { return; }
+        m_Document.contributors = s_Contributors.Count();
         for (int copyIndex = 0; copyIndex < s_Contributors.Count(); copyIndex++)
         {
             m_Contributors.Insert(s_Contributors[copyIndex]);
@@ -105,12 +123,12 @@ class HCDebugSnapshot
     {
         if (value.Length() <= limit) { return value; }
         // Preserve complete UTF8 characters while enforcing a BYTE bound.
-        // All caller limits <=256; binary search needs at most 9 slices.
+        // All caller limits <=768; binary search needs at most 11 slices.
         int low = 0;
         int high = value.LengthUtf8();
         if (high > limit) { high = limit; }
         string clipped;
-        for (int attempt = 0; attempt < 9; attempt++)
+        for (int attempt = 0; attempt < 11; attempt++)
         {
             if (low > high) { break; }
             int middle = (low + high) / 2;
@@ -170,6 +188,19 @@ class HCDebugSnapshot
         }
         m_Document.routes.Insert(route);
         m_ContributorRoutes++;
+    }
+
+    // HC-25: one aggregate contributor, cached text only, no map coordinates.
+    void HCAddOperational(string line)
+    {
+        if (!m_Describing) { return; }
+        if (m_Document.operational.Count() >= 64)
+        {
+            m_Document.operationalTruncated++;
+            return;
+        }
+        if (line.Length() > 768) { m_Document.operationalTruncated++; }
+        m_Document.operational.Insert(HCText(line, 768));
     }
 
     HCDebugDocument HCDocument() { return m_Document; }
