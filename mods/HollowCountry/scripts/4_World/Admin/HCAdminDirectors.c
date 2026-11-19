@@ -315,7 +315,9 @@ modded class HCCampModule
 
     // Metadata-only controls use the existing configured camp cap and store.
     // No distance threshold, player scan, world fact, inventory or body creation.
-    protected HCCampRecord HCAdminSelectCamp(vector pos, out string reason)
+    // includeClaims is explicit so camptier keeps its hearth-only contract.
+    // Lead: HCAdminArrival must pass true; its method is outside this scope.
+    protected HCCampRecord HCAdminSelectCamp(vector pos, out string reason, bool includeClaims = false)
     {
         reason = "camp-service-unavailable";
         if (!m_Running || !m_Data || !m_Data.Camps) { return null; }
@@ -327,17 +329,43 @@ modded class HCCampModule
         if (now < 1 || now < m_LastUtc) { return null; }
         HCCampRecord selected;
         float best = -1;
-        array<ref HCCampRecord> camps = m_Data.Camps;
-        for (int candidateIndex = 0; candidateIndex < camps.Count(); candidateIndex++)
+        int count = m_Data.Camps.Count();
+        if (includeClaims)
+        {
+            reason = "claim-configured-cap-exceeded";
+            if (!m_Data.Claims || m_Data.Claims.Count() > cap) { return null; }
+            count = HCEncounterCount();
+        }
+        m_ClaimSelectionScan = null;
+        m_ClaimSelectionTarget = null;
+        bool selectionCharged = count > m_Data.Camps.Count();
+        bool noStoredItems = false;
+        if (selectionCharged && !HCReserveClaimSelection(count, reason)) { return null; }
+        for (int candidateIndex = 0; candidateIndex < count; candidateIndex++)
         {
             reason = "camp-admin-shared-work-budget";
-            if (!HCServer.Get().HCTickWork().HCTake(1)) { return null; }
-            HCCampRecord candidate = camps[candidateIndex];
+            if (!selectionCharged && !HCServer.Get().HCTickWork().HCTake(1)) { return null; }
+            HCCampRecord candidate;
+            if (includeClaims) { candidate = HCEncounterTarget(candidateIndex, now); }
+            else { candidate = m_Data.Camps[candidateIndex]; }
             if (!candidate) { continue; }
             float distance = vector.DistanceSq(pos, candidate.Position);
+            if (best >= 0 && distance >= best) { continue; }
+            if (candidate.AnchorKind == "claim")
+            {
+                HCCampScan claimScan = HCReadClaimScan(candidate, reason, true);
+                if (!claimScan) { return null; }
+                reason = "CLAIM_NO_STORED_ITEMS";
+                if (!claimScan.Storage) { noStoredItems = true; continue; }
+                m_ClaimSelectionScan = claimScan;
+                m_ClaimSelectionTarget = candidate;
+                m_ClaimSelectionUtc = now;
+            }
             if (best < 0 || distance < best) { selected = candidate; best = distance; }
         }
+        if (!selected && noStoredItems) { reason = "CLAIM_NO_STORED_ITEMS"; return null; }
         reason = "no-recognised-camp";
+        if (includeClaims) { reason = "no-recognised-camp-or-mature-claim"; }
         return selected;
     }
 
