@@ -261,7 +261,8 @@ class RadioFixture:
                        NextId=lambda prefix: prefix + str(len(self.rows)))
         self.policy = N(Place=self.places.get, SoloGroup=lambda uid: 'solo:' + uid)
         self.world = N(GetRecentFacts=lambda age, output: (output.clear(), output.extend(self.facts)))
-        self.env = dict(EArray=EArray, VectorCopy=list, Print=self.logs.append, GetGame=lambda: N(IsServer=lambda: True),
+        self.env = dict(EArray=EArray, VectorCopy=list, Print=self.logs.append, GetGame=lambda: N(IsServer=lambda: True,
+            ConfigGetFloatArray=lambda path, output: output.extend([87.8,89.5,91.3,94.6,96.6,99.7,102.5])),
             HCWorldClock=N(UTC=lambda: self.now), HCLeadPolicy=self.policy,
             HCWorldLimits=N(Token=lambda value: bool(value)),
             HCEventHCWorldModule=N(Get=lambda: self.world),
@@ -288,7 +289,7 @@ class RadioFixture:
         radio_cls = type('AuthoredRadio', (), {})
         source = syntax_port(RADIO.read_text())
         for name in ('Receiving', 'InReportRange', 'BeginChannel', 'RetainReport', 'HCRefuse',
-                     'OnTick', 'OnStop', 'Fallback', 'LatestInRange', 'HasListener', 'OnStart'):
+                     'OnTick', 'OnStop', 'Fallback', 'LatestInRange', 'HasListener', 'OnStart', 'HCRefuseAs'):
             if re.search(r'\b' + name + r'\(', source):
                 setattr(radio_cls, name, translate(source, name, self.env, 'HCRadioChatter', member=True))
         self.radio = radio_cls()

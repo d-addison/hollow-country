@@ -586,6 +586,10 @@ class WeatherOverrideHook(unittest.TestCase):
             HCGroupClock=NS(Utc=lambda: utc),
             HCWeatherDays=NS(Seed=self.seed),
         )
+        from tests.unit.test_c2_atmoscfg import defaults_env
+        scope.update(defaults_env())
+        bucket = compile_authored(WEATHER, "ChernarusPlusData", "HCAdminBucket", scope)
+        scope["HCAdminBucket"] = lambda code, value: bucket(service, code, value)
         self.fn = compile_authored(WEATHER, "ChernarusPlusData", "HCAdminWeather", scope)
         self.utc = utc
         return service

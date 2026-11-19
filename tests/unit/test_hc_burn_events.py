@@ -386,7 +386,9 @@ class RadioRefusals(unittest.TestCase):
         source = syntax_port((ROOT / '4_World/Leads/HCRadioChatter.c').read_text())
         logs, status = [], []
         env = dict(EArray=EArray, len=len, str=str, Print=logs.append,
-                   GetGame=lambda: N(IsServer=lambda: True),
+                   # Synthetic loaded radio config; actual list qualification runs in config_ports.
+                   GetGame=lambda: N(IsServer=lambda: True, ConfigGetFloatArray=lambda path, output:
+                       output.extend([87.8,89.5,91.3,94.6,96.6,99.7,102.5])),
                    HCEventHCLeadStore=N(Get=lambda: store),
                    HCEventHCMorseRateStore=lambda: N(Open=lambda: None),
                    HCV2Admission=N(Line=lambda *args: 'synthetic admission line'),

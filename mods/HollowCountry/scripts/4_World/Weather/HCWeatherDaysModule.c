@@ -185,6 +185,14 @@ modded class ChernarusPlusData
     // (daytime). Picks the first day in [today, today+63] whose Seed % 5 draws
     // the requested profile, so Profile(), FogTarget() and the forecasts all
     // run unmodified.
+    // Same ordered partition as HCWeatherDays.Profile, independent of hour.
+    static bool HCAdminBucket(int code, int bucket)
+    {
+        if (code == 4) { return bucket < HCWeatherConfig.HCGet().BadDayBuckets; }
+        if (code == 3) { return bucket >= HCWeatherConfig.HCGet().BadDayBuckets && bucket < HCWeatherConfig.HCGet().FogMorningBuckets; }
+        return bucket >= HCWeatherConfig.HCGet().BadDayBuckets && bucket >= HCWeatherConfig.HCGet().FogMorningBuckets;
+    }
+
     bool HCAdminWeather(int code, out string reason)
     {
         reason = "weather-code-0-clear-1-plain-2-calm-3-fog-4-bad";
@@ -214,9 +222,7 @@ modded class ChernarusPlusData
             int seed = HCWeatherDays.Seed(baseDay + offset);
             if (seed < 0) { break; }
             int bucket = seed % 5;
-            bool wanted = bucket >= 3;
-            if (code == 4) { wanted = bucket == 0; }
-            else if (code == 3) { wanted = bucket == 1 || bucket == 2; }
+            bool wanted = HCAdminBucket(code, bucket);
             if (wanted)
             {
                 chosen = baseDay + offset;

@@ -2,10 +2,12 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
 // HCGroupIO.Read owns bounded native file IO; HCJsonFields owns key presence.
+// Native 1_Core/proto/EnScript.c:380 Count, :394 Find, :407 Insert.
 class HCRadioDefaults
 {
     float ReportRangeMetres = 1000.0;
     int MaxListeners = 32;
+    int ChannelCountLimit = 64;
     float LocalsMHz = 87.8;
     float VolunteersMHz = 89.5;
     float ScavengersMHz = 91.3;
@@ -14,11 +16,57 @@ class HCRadioDefaults
     int BroadcastGapSeconds = 600;
     protected static ref HCRadioDefaults s_Config;
 
+    bool HCQualifyChannels(array<float> channels)
+    {
+        if (!channels || channels.Count() < 1 || channels.Count() > this.ChannelCountLimit) { return false; }
+        array<float> seen = new array<float>;
+        foreach (float frequency : channels)
+        {
+            if (!(frequency >= 87.8 && frequency <= 102.5) || seen.Find(frequency) >= 0) { return false; }
+            seen.Insert(frequency);
+        }
+        bool restored = false;
+        if (channels.Find(this.LocalsMHz) < 0)
+        {
+            if (channels.Find(87.8) < 0) { return false; }
+            this.LocalsMHz = 87.8;
+            restored = true;
+        }
+        if (channels.Find(this.VolunteersMHz) < 0)
+        {
+            if (channels.Find(89.5) < 0) { return false; }
+            this.VolunteersMHz = 89.5;
+            restored = true;
+        }
+        if (channels.Find(this.ScavengersMHz) < 0)
+        {
+            if (channels.Find(91.3) < 0) { return false; }
+            this.ScavengersMHz = 91.3;
+            restored = true;
+        }
+        if (channels.Find(this.RaidersMHz) < 0)
+        {
+            if (channels.Find(94.6) < 0) { return false; }
+            this.RaidersMHz = 94.6;
+            restored = true;
+        }
+        if (channels.Find(this.TravellersMHz) < 0)
+        {
+            if (channels.Find(96.6) < 0) { return false; }
+            this.TravellersMHz = 96.6;
+            restored = true;
+        }
+        if (restored) { Print("[HC Config] HCRadioDefaults unsupported_frequency defaults_restored runtime=PENDING"); }
+        return true;
+    }
+
     bool HCNormalize(string text)
     {
         bool invalid = false;
         if (!HCJsonFields.Has(text, "ReportRangeMetres")) { this.ReportRangeMetres = 1000.0; }
         if (!(this.ReportRangeMetres >= 1 && this.ReportRangeMetres <= 1000)) { this.ReportRangeMetres = 1000.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "ChannelCountLimit")) { this.ChannelCountLimit = 64; }
+        if (!(this.ChannelCountLimit >= 1 && this.ChannelCountLimit <= 64)) { this.ChannelCountLimit = 64; invalid = true; }
         if (!HCJsonFields.Has(text, "MaxListeners")) { this.MaxListeners = 32; }
         if (!(this.MaxListeners >= 1 && this.MaxListeners <= 32)) { this.MaxListeners = 32; invalid = true; }
         if (!HCJsonFields.Has(text, "LocalsMHz")) { this.LocalsMHz = 87.8; }
@@ -156,6 +204,18 @@ class HCRadioChatter : HCModule
     {
         if (!settings || !settings.EnableLeads || s_Instance || !GetGame().IsServer()) { return; }
         m_Defaults = HCRadioDefaults.Get();
+        // Installed scripts-1.30.164289: 3_Game/Global/Game.c:578
+        // ConfigGetFloatArray. Inspect the loaded native/modded radio config;
+        // an in-range number alone does not prove a tuneable channel exists.
+        array<float> nativeChannels = new array<float>;
+        GetGame().ConfigGetFloatArray("CfgVehicles PersonalRadio frequencies", nativeChannels);
+        if (!m_Defaults.HCQualifyChannels(nativeChannels))
+        {
+            HCRefuseAs("degraded", "native_frequency_list_invalid");
+            return;
+        }
+        int nativeCount = nativeChannels.Count();
+        Print("[HC Radio] frequencies=qualified count=" + nativeCount.ToString() + " runtime=PENDING");
         m_Status.HCPublish("refused", "lead_store_unavailable");
         if (!m_AdmissionPrinted)
         {

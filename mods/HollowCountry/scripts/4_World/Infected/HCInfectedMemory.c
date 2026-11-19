@@ -27,6 +27,7 @@ class HCInfectedMemoryState
     int Version;
     string WorldName;
     int SavedUtc;
+    float CellMetres;
     ref array<ref HCInfectedMemoryCell> Cells = new array<ref HCInfectedMemoryCell>;
 }
 
@@ -134,9 +135,23 @@ class HCInfectedMemory
         return nowUtc;
     }
 
+    // Version 1 predates grid metadata. Its only authored grid was 500 m.
+    // Retain that interpretation, persist it, and never re-key surviving heat
+    // against a new operator setting. Empty stores may adopt the new grid.
+    protected void HCResolveGrid(string image)
+    {
+        if (!HCJsonFields.Has(image, "CellMetres"))
+        {
+            m_State.CellMetres = 500;
+            m_Dirty = true;
+            Print("[HC InfectedMemory] grid=legacy_500_migrated runtime=PENDING");
+        }
+    }
+
     protected bool Valid(int nowUtc)
     {
         if (!m_State || m_State.Version != 1 || m_State.WorldName != GetGame().GetWorldName()) return false;
+        if (!(m_State.CellMetres >= 50 && m_State.CellMetres <= 2000)) return false;
         if (!m_State.Cells || m_State.Cells.Count() > 64 || m_State.SavedUtc < 1 || m_State.SavedUtc > nowUtc) return false;
         for (int i = 0; i < m_State.Cells.Count(); i++)
         {
@@ -166,16 +181,23 @@ class HCInfectedMemory
             string image;
             string error;
             if (!HCGroupIO.Read(PATH, 16384, image) || !JsonFileLoader<HCInfectedMemoryState>.LoadData(image, m_State, error)) { Fail("read/json"); return false; }
+            if (!m_State) { Fail("null state"); return false; }
+            HCResolveGrid(image);
             if (!HCFieldsPresent(image) || !Valid(nowUtc)) { Fail("missing X/Z or invalid state"); return false; }
         }
         else
         {
             m_State = new HCInfectedMemoryState;
             m_State.Version = 1;
+            m_State.CellMetres = HCInfectedTuning.Get().Memory.CellMetres;
             m_State.WorldName = GetGame().GetWorldName();
             m_State.SavedUtc = nowUtc;
             m_State.Cells = new array<ref HCInfectedMemoryCell>;
             m_Dirty = true;
+        }
+        if (m_State.CellMetres != HCInfectedTuning.Get().Memory.CellMetres)
+        {
+            Print("[HC InfectedMemory] grid=persisted_retained_until_empty runtime=PENDING");
         }
         m_Healthy = true;
         m_LastUtc = nowUtc;
@@ -186,7 +208,8 @@ class HCInfectedMemory
 
     protected HCInfectedMemoryCell Find(int x, int z)
     {
-        foreach (HCInfectedMemoryCell cell : m_State.Cells)
+        array<ref HCInfectedMemoryCell> cells = m_State.Cells;
+        foreach (HCInfectedMemoryCell cell : cells)
         {
             if (cell.X == x && cell.Z == z) return cell;
         }
@@ -199,8 +222,8 @@ class HCInfectedMemory
         if (!HCInfectedStore.ValidPosition(pos)) return 0;
         int nowUtc = s_Instance.Now(false);
         if (nowUtc < 1) return 0;
-        int x = Math.Floor(pos[0] / HCInfectedTuning.Get().Memory.CellMetres);
-        int z = Math.Floor(pos[2] / HCInfectedTuning.Get().Memory.CellMetres);
+        int x = Math.Floor(pos[0] / s_Instance.m_State.CellMetres);
+        int z = Math.Floor(pos[2] / s_Instance.m_State.CellMetres);
         HCInfectedMemoryCell cell = s_Instance.Find(x, z);
         if (!cell) return 0;
         return Decayed(cell.Value, nowUtc - cell.UpdatedUtc);
@@ -222,8 +245,8 @@ class HCInfectedMemory
         if (m_RecordUtc != nowUtc) { m_RecordUtc = nowUtc; m_RecordCount = 0; }
         if (m_RecordCount >= 32) return;
         m_RecordCount++;
-        int x = Math.Floor(pos[0] / HCInfectedTuning.Get().Memory.CellMetres);
-        int z = Math.Floor(pos[2] / HCInfectedTuning.Get().Memory.CellMetres);
+        int x = Math.Floor(pos[0] / m_State.CellMetres);
+        int z = Math.Floor(pos[2] / m_State.CellMetres);
         HCInfectedMemoryCell cell = Find(x, z);
         if (!cell)
         {
@@ -273,6 +296,11 @@ class HCInfectedMemory
             float heat = Decayed(cell.Value, nowUtc - cell.UpdatedUtc);
             if (heat <= 0) { m_State.Cells.Remove(i); m_Dirty = true; }
             else if (heat > hottest) { hottest = heat; }
+        }
+        if (m_State.Cells.Count() == 0 && m_State.CellMetres != HCInfectedTuning.Get().Memory.CellMetres)
+        {
+            m_State.CellMetres = HCInfectedTuning.Get().Memory.CellMetres;
+            m_Dirty = true;
         }
         if (!Save(nowUtc)) return;
         if (m_LogUtc == 0 || nowUtc - m_LogUtc >= 600)

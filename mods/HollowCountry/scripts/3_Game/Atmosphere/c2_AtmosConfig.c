@@ -266,7 +266,7 @@ class HCc2PresentationConfig
         this.GradeDefaultPercent = 60;
         if (HCJsonFields.Has(image, "GradeDefaultPercent"))
         {
-            if (loaded.GradeDefaultPercent >= 0 && loaded.GradeDefaultPercent <= 100) { this.GradeDefaultPercent = loaded.GradeDefaultPercent; }
+            if (loaded.GradeDefaultPercent >= 0 && loaded.GradeDefaultPercent <= 100 && loaded.GradeDefaultPercent % 10 == 0) { this.GradeDefaultPercent = loaded.GradeDefaultPercent; }
             else { invalid = true; }
         }
         this.GradeDawnHour = 8;

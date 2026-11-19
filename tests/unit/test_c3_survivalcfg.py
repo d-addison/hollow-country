@@ -33,7 +33,7 @@ CONFIGS = {
  'HCSignalConfig': ('Actions/HCActionAskForNews.c', {'CooldownMs': (30000,1000,3600000)}),
  'HCProgressionConfig': ('Progression/HCProgression.c', {'GainPeriodSeconds': (60,1,86400), 'SavePeriodSeconds': (60,60,3600)}),
  'HCRadioDefaults': ('Leads/HCRadioChatter.c', {
-  'ReportRangeMetres': (1000.0,1,1000), 'MaxListeners': (32,1,32),
+  'ReportRangeMetres': (1000.0,1,1000), 'MaxListeners': (32,1,32), 'ChannelCountLimit': (64,1,64),
   'LocalsMHz': (87.8,87.8,102.5), 'VolunteersMHz': (89.5,87.8,102.5),
   'ScavengersMHz': (91.3,87.8,102.5), 'RaidersMHz': (94.6,87.8,102.5),
   'TravellersMHz': (96.6,87.8,102.5), 'BroadcastGapSeconds': (600,60,86400)}),
@@ -82,6 +82,10 @@ def config_ports():
             # Synthetic registry port executes authored canonical-to-config mapping.
             text = (WORLD / CONFIGS[cls][0]).read_text()
             result[cls].Tuned = translate(text, 'Tuned', {'HCRadioDefaults':result[cls]}, cls)
+            qualify = translate(text, 'HCQualifyChannels',
+                                dict(HCRadioDefaults=result[cls], EArray=EArray, Print=lambda line: None),
+                                cls, member=True)
+            config.HCQualifyChannels = lambda channels, config=config, fn=qualify: fn(config, channels)
     return result
 
 
