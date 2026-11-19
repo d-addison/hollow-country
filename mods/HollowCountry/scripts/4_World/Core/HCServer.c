@@ -173,9 +173,14 @@ class HCServer
         {
             int moduleStart = TickCount(0);
             module.OnTick(elapsed);
+            // #196: a module may call Stop() from OnTick. Stop clears m_Active and retires the perf
+            // sampler, so leave the loop at once: no later module ticks (they would draw the unbounded
+            // idle budget), no further foreach step over the cleared array, no window roll.
+            if (!m_Started) { break; }
             m_Perf.SampleModule(moduleIndex, TickCount(moduleStart));
             moduleIndex++;
         }
+        if (!m_Started) { return; }
         m_TickActive = false;
         // One line per perf window (same 60 s as m_Perf.Start): shared_used_max / shared_starved.
         if (m_TickWork.HCEndTick(elapsed, 60)) { Print("" + m_TickWork.HCWindowReport()); }
