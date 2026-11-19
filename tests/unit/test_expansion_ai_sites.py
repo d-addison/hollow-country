@@ -176,6 +176,7 @@ from types import SimpleNamespace as N
 import unittest
 
 from tests.unit.test_expansion_ai_adapter import A, Authored, block, declarations
+from tests.unit.build_identity_support import translate as build_identity
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World'
@@ -183,6 +184,8 @@ AI = ROOT / 'mission/hollow-country/ai'
 
 
 def api(source, env):
+    if 'HCBuildIdentity' not in env:
+        env['HCBuildIdentity'] = build_identity()
     authored = Authored(source, env)
     out = N()
     for name in re.findall(r'static \w+ (\w+)\(', source):

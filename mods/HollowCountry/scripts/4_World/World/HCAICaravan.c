@@ -21,6 +21,8 @@
 // Pinned Expansion roots in the brief are absent. N17 is NOT an AI SDK.
 // Provider walking/arrival/flee callbacks and corridor survey remain refused.
 // All status lines below are proposed diagnostics; runtime acceptance PENDING.
+// Wave 8 #185: fresh idle-stock ceilings, terminal-history retention upgrades
+// and failed-provider-bind cleanup; the same custody/save barriers still apply.
 
 class HCCaravanCorridor
 {
@@ -187,7 +189,9 @@ class HCAICaravan
     {
         // A missing legacy array is empty, never evidence of an old trip reset.
         if (!row.History) { return row.TripSequence == 0; }
-        if (row.History.Count() >= m_Corridor.MaxTripHistory) { return false; }
+        // Validate the shipped hard bound before applying a smaller operator
+        // retention cap. Historical receipts are terminal-only, never live work.
+        if (row.History.Count() >= 64) { return false; }
         int previous = -1;
         foreach (HCCaravanReceipt receipt : row.History)
         {
@@ -200,6 +204,20 @@ class HCAICaravan
             previous = receipt.TripSequence;
         }
         return true;
+    }
+
+    bool HCTrimHistory()
+    {
+        // Validate ALL receipts before eviction so an unresolved/malformed row
+        // cannot disappear merely because the operator reduced retention.
+        if (!HCValidState(m_State)) { return false; }
+        if (!m_State.History || m_State.History.Count() < m_Corridor.MaxTripHistory) { return true; }
+        while (m_State.History.Count() >= m_Corridor.MaxTripHistory)
+        {
+            m_State.History.RemoveOrdered(0);
+        }
+        // Existing synchronous transition barrier; no new routine save loop.
+        return m_Store.Save(m_State);
     }
 
     bool HCValidState(HCCaravanState row)
@@ -280,6 +298,13 @@ class HCAICaravan
             Print("[HC Caravan] HC-36 leg=refused cargo=unknown reason=CARAVAN_JOURNAL_INVALID state=refused count=0 runtime=PENDING");
             return;
         }
+        if (!HCTrimHistory())
+        {
+            m_State.Refusal = "CARAVAN_JOURNAL_UNCERTAIN";
+            m_Status.HCPublish("refused", m_State.Refusal);
+            HCLog();
+            return;
+        }
         m_IO = provider;
         if (m_IO)
         {
@@ -327,6 +352,7 @@ class HCAICaravan
         m_Busy = true;
         bool bound = m_IO.HCBindCaravan(nextTrip);
         m_Busy = false;
+        if (!bound && m_IO) { m_IO.HCClear(); }
         if (!m_Enabled || !m_Ready || !bound) { return false; }
         if (!m_IO.HCCurrentCaravan(nextTrip) || !m_IO.HCLive()) { return false; }
         if (m_IO.HCCargoReceipt(nextTrip) != "retained" || !m_IO.HCAtCamp(nextTrip, true)) { return false; }
@@ -336,6 +362,18 @@ class HCAICaravan
             // remaining quantity; this handler never replenishes or moves it.
             if (nextTrip.LeaseId != m_State.LeaseId || nextTrip.PartyId != m_State.PartyId || nextTrip.CargoId != m_State.CargoId) { return false; }
             if (nextTrip.Generation != m_State.Generation || nextTrip.ActorId != m_State.ActorId || nextTrip.RouteId != m_State.RouteId) { return false; }
+            // Binding may carry an old quantity. Re-read the same native stock
+            // against the previous ceiling, and retain any observed idle loss
+            // BEFORE admission, even when the new bound quantity then refuses.
+            float remaining = m_IO.HCRemainingQuantity(m_State);
+            if (!(remaining >= 0) || remaining > m_State.Quantity) { return false; }
+            if (remaining < m_State.Quantity)
+            {
+                m_State.Quantity = remaining;
+                m_State.CargoReceipt = "lost";
+                m_State.Refusal = "CARAVAN_CARGO_LOST";
+                if (!HCCheckpoint()) { return false; }
+            }
             if (nextTrip.ItemId != m_State.ItemId || nextTrip.ItemClass != m_State.ItemClass || !(nextTrip.Quantity > 0) || nextTrip.Quantity > m_State.Quantity) { return false; }
             if (m_State.History)
             {

@@ -393,28 +393,40 @@ def rule_bare_print(project, source):
 _IDENTITY_LOG = re.compile(r'\b(?:Print|PrintFormat|PrintToRPT|DPrint|Error|ErrorEx|Log\w*|log\w*|\w+Log\w*)\s*(?:\(|\.)')
 _VERSION_LITERAL = re.compile(r'(?<!\d)\d+\.\d+\b')
 _VALUE = r'[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*'
-_BUILD_COMPARE = re.compile(
-    r'(?P<left>' + _VALUE + r'(?:\s*\(\s*\))?)\s*(?:==|!=)\s*(?P<right_literal>"[^"\n]*")'
-    r'|(?P<left_literal>"[^"\n]*")\s*(?:==|!=)\s*(?P<right>' + _VALUE + r'(?:\s*\(\s*\))?)')
+_BUILD_TOKEN = (r'"[^"\n]*"|[A-Za-z_]\w*(?:\s*\(\s*\))?'
+                r'(?:\s*\.\s*[A-Za-z_]\w*(?:\s*\(\s*\))?)*')
+_BUILD_COMPARE = re.compile(r'\(*\s*(?P<left>' + _BUILD_TOKEN + r')\s*\)*\s*(?:==|!=)\s*'
+                            r'\(*\s*(?P<right>' + _BUILD_TOKEN + r')\s*\)*')
 
 
-def _build_value(value):
+def _build_value(value, raw=False):
     name = value.rsplit('.', 1)[-1].lower()
-    return ('build' in name
+    if raw:
+        # Value/value comparisons need stronger evidence than literals: generic
+        # Version is commonly an RPC/schema and Building is geometry. Untyped
+        # Build fields still need owner review; explicit profile stamps, native
+        # getters and GetVersion out-argument aliases are the supported heuristic.
+        return (name == 'buildversion'
+                or (value.endswith('()') and ('build' in name or name == 'getversion()'))
+                or re.fullmatch(r'(?:m_|s_)?(?:engine|game|runtime|native|current|actual)(?:build|version)', name))
+    return (('build' in name and 'building' not in name)
             or re.fullmatch(r'(?:(?:m_|s_)?(?:engine|game|runtime|native|current|actual)?)version', name)
             or value.endswith('GetVersion()'))
 
 
 def rule_build_identity(project, source):
-    """Use cleaned offsets to inspect literals without treating comments/log text as code.
+    """Inspect build operands without treating comments/log text as code.
 
     Track GetVersion out-arguments and simple aliases within each method. Also
     recognise build-named values and conventional engine-version names (not a
     dependency's ProviderVersion). This is deliberately not intermethod dataflow.
+    Include value/value, zero-argument getters and parenthesised operands.
     A log anywhere in this method satisfies the rule; runtime path coverage is
-    still a native acceptance check.
+    still a native acceptance check. The shared matcher owns raw comparisons.
     """
     for method in _all_methods(source):
+        if method.owner and method.owner.name == 'HCBuildIdentity':
+            continue
         body = source.body(method)
         if _IDENTITY_LOG.search(body):
             continue
@@ -430,14 +442,22 @@ def rule_build_identity(project, source):
             if observed == before:
                 break
         for match in _BUILD_COMPARE.finditer(body):
-            value = re.sub(r'\s+', '', match['left'] or match['right'])
-            if value not in observed and not _build_value(value):
+            operands = [re.sub(r'\s+', '', match[key]) for key in ('left', 'right')]
+            # A normalizer call with arguments is outside the operand grammar;
+            # never mistake its argument's closing paren for a raw comparison.
+            if 'HCBuildIdentity.Normalize' in operands:
                 continue
-            literal_group = 'right_literal' if match['right_literal'] else 'left_literal'
-            offset = method.body_start + match.start(literal_group)
-            literal = source.text[offset:method.body_start + match.end(literal_group)]
-            if _VERSION_LITERAL.search(literal):
-                yield _finding('HC-S004', source, offset, _symbol(method), RULES['HC-S004'])
+            literal_index = next((i for i, value in enumerate(operands) if value.startswith('"')), None)
+            raw = literal_index is None
+            if not any(value in observed or _build_value(value, raw=raw) for value in operands if not value.startswith('"')):
+                continue
+            group = ('left', 'right')[literal_index] if literal_index is not None else 'left'
+            offset = method.body_start + match.start(group)
+            if literal_index is not None:
+                literal = source.text[offset:method.body_start + match.end(group)]
+                if not _VERSION_LITERAL.search(literal):
+                    continue
+            yield _finding('HC-S004', source, offset, _symbol(method), RULES['HC-S004'])
 
 def _branch(body, position):
     """(condition or None, branch text, is_branch, is_block) for a return at body offset position."""

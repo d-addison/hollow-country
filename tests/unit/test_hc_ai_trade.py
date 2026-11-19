@@ -677,6 +677,59 @@ class TradeBehavior(unittest.TestCase):
             repeat.clock[0] += 900
             self.assertTrue(repeat.trip.HCBegin('lease'))
             self.assertEqual(4, repeat.row.TripSequence, 'eviction/restart never reuses an identity')
+        with self.subTest(wave8='fresh_idle_stock_ceiling'):
+            idle = caravan_fixture()
+            self.assertTrue(idle.trip.HCBegin('lease'))
+            idle.place[0] = 'away'
+            idle.trip.HCStep()
+            idle.trip.HCStep()
+            idle.place[0] = 'home'
+            idle.trip.HCStep()
+            idle.clock[0] += 900
+            # Explicit synthetic stale binding: admission still reports the old
+            # quantity while the existing remaining-stock port observes depletion.
+            stale_bind = idle.trip.m_IO.HCBindCaravan
+            idle.trip.m_IO.HCRemainingQuantity = lambda image: 0.5
+            self.assertFalse(idle.trip.HCBegin('lease'), 'fresh remaining stock must reject a stale bind ceiling')
+            self.assertEqual(0.5, idle.saved[-1].Quantity)
+            idle.trip.m_IO.HCRemainingQuantity = lambda image: 2
+            self.assertFalse(idle.trip.HCBegin('lease'), 'idle refill must not restore an observed ceiling')
+            idle.stock[0] = 0.5
+            idle.trip.m_IO.HCRemainingQuantity = lambda image: 0.5
+            idle.trip.m_IO.HCBindCaravan = stale_bind
+            self.assertTrue(idle.trip.HCBegin('lease'))
+            self.assertEqual(('lost', 0.5), (idle.row.History[-1].CargoReceipt, idle.row.Quantity))
+        with self.subTest(wave8='trim_loaded_terminal_history'):
+            loaded = caravan_fixture()
+            self.assertTrue(loaded.trip.HCBegin('lease'))
+            loaded.row.TripSequence = 5
+            loaded.row.Id = 'hc36-first-corridor:trip:5'
+            loaded.row.Leg = 'returned'
+            loaded.row.History = EArray(N(Id='hc36-first-corridor:trip:' + str(seq),
+                TripSequence=seq, Leg='returned', CargoReceipt='retained',
+                ItemId='finite-item', Quantity=2) for seq in range(1, 5))
+            loaded.trip.m_Corridor.MaxTripHistory = 2
+            self.assertTrue(loaded.trip.HCValidState(loaded.row), 'lower operator cap must not invalidate terminal history')
+            # Execute the authored load preparation handler, also called by Open.
+            bind(caravan_source, 'HCAICaravan', loaded.trip, ('HCTrimHistory',), {})
+            self.assertTrue(loaded.trip.HCTrimHistory())
+            self.assertEqual([4], [r.TripSequence for r in loaded.row.History])
+            self.assertEqual([4], [r.TripSequence for r in loaded.saved[-1].History])
+            loaded.row.History[0].Leg = 'outbound'
+            before = deepcopy(loaded.row)
+            self.assertFalse(loaded.trip.HCTrimHistory(), 'nonterminal history must never be trimmed')
+            self.assertEqual(before, loaded.row)
+            loaded.row.History[0].Leg = 'returned'
+            loaded.trip.m_Corridor.MaxTripHistory = 1
+            loaded.trip.m_Store.Save = lambda image: False
+            self.assertFalse(loaded.trip.HCTrimHistory(), 'trim readback failure must refuse load')
+            self.assertIn('HCTrimHistory()', body(caravan_source, re.search(r'void Open\([^)]*\)\s*\{', caravan_source).end()))
+        with self.subTest(wave8='failed_bind_clears_handles'):
+            failed = caravan_fixture()
+            failed.trip.m_IO.HCBindCaravan = lambda image: False
+            self.assertFalse(failed.trip.HCBegin('lease'))
+            self.assertEqual(['clear'], failed.clears, 'failed bind must clear provider handles')
+            self.assertEqual([], failed.saved)
         legacy = caravan_fixture()
         self.assertTrue(legacy.trip.HCBegin('lease'))
         legacy.row.Id, legacy.row.TripSequence, legacy.row.History = 'hc36-first-corridor', 0, None
@@ -789,12 +842,16 @@ class TradeBehavior(unittest.TestCase):
         carrier_alive[0], unconscious[0] = False, False
         self.assertFalse(native_caravan.HCLive())
 
-        shipped = N()
+        shipped = N(LeftActor=carrier, RightActor=None, LeftItem=stock, RightItem=None)
+        bind(source, 'HCTradeInventory', shipped, ('HCClear',), {})
         addon = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c').read_text()
+        addon = addon.replace('HCClear()', 'self.HCClear()')  # syntax-only inherited method binding
         bind(addon, 'HCXAICaravanAdapter', shipped,
              ('HCReady', 'HCRefusal', 'HCBindCaravan', 'HCWalkCaravan', 'HCAtCamp', 'HCFleeObserved'), {})
         self.assertFalse(shipped.HCReady())
         self.assertFalse(shipped.HCBindCaravan(N()))
+        self.assertEqual((None, None), (shipped.LeftActor, shipped.LeftItem),
+                         'refused provider bind must discard stale native handles')
         self.assertFalse(shipped.HCWalkCaravan(N(), False))
         self.assertFalse(shipped.HCAtCamp(N(), True))
         self.assertFalse(shipped.HCFleeObserved(N()))
