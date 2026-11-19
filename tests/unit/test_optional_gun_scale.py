@@ -57,7 +57,7 @@ class OptionalGunScale(unittest.TestCase):
                             if entry['kind'] in {'weapon', 'magazine', 'ammo'}:
                                 expected = int((Decimal(expected) * Decimal(str(scale))).quantize(
                                     Decimal('1'), rounding=ROUND_HALF_UP))
-                                if field == 'nominal' and budget[field]:
+                                if budget[field]:
                                     expected = max(1, expected)
                             self.assertEqual(int(row.findtext(field)), expected, (entry['class'], field))
                         self.assertLessEqual(int(row.findtext('min')), int(row.findtext('nominal')))
@@ -97,7 +97,7 @@ class OptionalGunScale(unittest.TestCase):
             report['allowlist_sha256'] = case[0].allowlist_sha256(modified)
             report['classes']['SynDisabledMagazine'] = {'status': 'verified'}
             changed = (*case[:2], modified, report)
-            for scale, expected_min in ((0.25, 0), (0.5, 1), (1.5, 2)):
+            for scale, expected_min in ((0.25, 1), (0.5, 1), (1.5, 2)):  # a positive min keeps its CE restock floor
                 rows = self.types(self.generate(changed, nominal_scale=scale))
                 for entry in modified['entries']:
                     if entry['kind'] not in {'weapon', 'magazine', 'ammo'}:
