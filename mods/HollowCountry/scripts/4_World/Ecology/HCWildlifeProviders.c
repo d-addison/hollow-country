@@ -188,7 +188,7 @@ class HCWildlifeProviders
         // Explicit false remains distinct from omitted booleans zero-filled by JSON.
         if (!HCJsonFields.Every(text, "Enabled", 1) || !HCJsonFields.Every(text, "CarcassesEnabled", 1) || !HCJsonFields.Every(text, "TargetPairsEnabled", 1)) { return HCRefuse("provider_flags_missing"); }
         if (!HCJsonFields.Has(text, "SeasonalRoutesEnabled") || !HCJsonFields.Has(text, "CluesEnabled") || !HCJsonFields.Has(text, "InteractionObservationEnabled")) { return HCRefuse("ecosystem_flags_missing"); }
-        if (!HCJsonFields.Every(text, "Phase", 3) || !HCJsonFields.Every(text, "RadiusM", 3)) { return HCRefuse("ecosystem_route_fields_missing"); }
+        if (!HCJsonFields.Every(text, "Phase", 3, "Species") || !HCJsonFields.Every(text, "RadiusM", 3, "Species")) { return HCRefuse("ecosystem_route_fields_missing"); }
         if (!HCJsonFields.Every(text, "Position", 3)) { return HCRefuse("provider_site_position_missing"); }
         if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.Version", 1)) { return HCRefuse("provider_settings_registry_missing"); }
         if (!HCValid(m_Config)) { return HCRefuse("provider_config_invalid"); }
