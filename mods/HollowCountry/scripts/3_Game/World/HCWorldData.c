@@ -91,6 +91,82 @@ class HCWorldPlace
     vector Position;
 }
 
+// HC-43 content contract, separate from the bounded saved Places ledger.
+// ai/sites.json HC43 is authored input only. No row here admits an actor,
+// creates a trace, changes the 64-place save cap or establishes native access.
+// HC-18 owns selection/history; HC-62 owns the fixed bounded status receipt.
+// Lead integration adds `ref HC43ContentManifest HC43` to HCXAISitePolicy.
+// These DTOs live in 3_Game so both the core receipt and optional provider can
+// read the same content. No engine/provider API, controller or tick is added.
+class HC43AuditRanges
+{
+    float ResidentialLinkMeters;
+    float ResidentialContentProxyMeters;
+    float NamedContentProxyMeters;
+}
+
+class HC43ContentSources
+{
+    string WorldConfig;
+    string WorldConfigSha256;
+    string MapGroupPosSha256;
+    string MapGroupProtoSha256;
+    string Audit;
+    string Queue;
+}
+
+class HC43RoleContent
+{
+    string Id;
+    string ProviderFaction;
+    string Loadout;
+    string Activity;
+    string Trace;
+}
+
+class HC43LocalityContent
+{
+    string Id;
+    string Source;
+    vector Anchor;
+    bool Island;
+    bool AuditNamed;
+    int Priority;
+    ref array<string> SiteIds = new array<string>();
+    string Role;
+    string Disposition;
+}
+
+class HC43ResidentialContent
+{
+    string Id;
+    vector Anchor;
+    int Houses;
+    int Priority;
+    string Role;
+    string Disposition;
+}
+
+class HC43ContentManifest
+{
+    int SchemaVersion;
+    string Package;
+    string State;
+    string Runtime;
+    string Eligibility;
+    string SelectionPolicy;
+    string Identity;
+    string TraceRule;
+    string IslandRule;
+    string RangeBasis;
+    ref array<string> Refusals = new array<string>();
+    ref HC43AuditRanges AuditRanges;
+    ref HC43ContentSources Sources;
+    ref array<ref HC43RoleContent> Roles = new array<ref HC43RoleContent>();
+    ref array<ref HC43LocalityContent> Localities = new array<ref HC43LocalityContent>();
+    ref array<ref HC43ResidentialContent> ResidentialClusters = new array<ref HC43ResidentialContent>();
+}
+
 class HCWorldFact
 {
     string Kind;

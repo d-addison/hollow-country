@@ -45,6 +45,8 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'ai/AIPatrolSettings.override.json',
                  'ai/localities.json', 'ai/sites.json', 'ai/loadouts/HollowCountry_Patrol.json', 'ai/loadouts/HollowCountry_Scavenger.json',
                  'ai/loadouts/HollowCountry_Holdout.json',
+                 # HC-43 finite Raider/Traveller loadouts (not yet mapped by HCXAISites).
+                 'ai/loadouts/HollowCountry_Raider.json', 'ai/loadouts/HollowCountry_Traveller.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
                  'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
