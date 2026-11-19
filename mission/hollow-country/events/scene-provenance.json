@@ -5,7 +5,7 @@
   "status": "source/data review only; native compile, DayZDiag, normal PBO/server and two-client visibility acceptance PENDING",
   "class_evidence": "Read-only tools.audit.pbo_config.read_configs with resolve_field for inherited models, and read_pbo_index/model_paths against installed DayZServer vanilla addons; every model path resolved to an actual P3D member in its recorded PBO. No assets or vanilla dump included. Absence from mapgroupproto means no stock CE group, not a missing class. Scenery never registers CE loot groups; Fireplace and Land_Container_1Bo use static models only.",
   "mapgroupproto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6",
-  "site_evidence": "docs/events/sites.json and HCEventReviewedSites.Curated; exactly three existing source-reviewed sites, Surveyed=false",
+  "site_evidence": "HCEventReviewedSites.Curated contains exactly three source-reviewed anchors, Surveyed=false. events/story-sites.json adds finite kit/site candidates and HC-43 locality-label variants; none is a native survey. The previously cited docs/events/sites.json is absent in this checkout.",
   "classes": [
     {
       "class": "Fireplace",
@@ -370,10 +370,14 @@
   "remaining_gaps": [
     "No filesystem rename API is exposed in the installed native script snapshot; temp/backup/install/readback admission fails closed on interrupted writes but cannot claim filesystem atomic rename or fsync.",
     "Door positions, prop footprint radii, terrain projection, road/path clearance, collision, replication, casing static-object lifetime and no world persistence require EXP-S3 normal server and two-client checks.",
-    "Timed environmental chain directors are durable inside scene-chains.json; optional v1 INVESTIGATION missions use its normal runtime/journal only when v1 Events is admitted. No fake player progress.",
+    "Environmental directors and HC-19 identities remain durable in profile scene-chains.json. The legacy Objective data is retained for catalog validation; it is not authorization to restore the retired quest UI.",
     "Nonzero rewards stay blocked exactly as v1; the remaining cache is empty static scenery. Future real-item moves require the existing qualified journal transfer path; there is no item-creation fallback.",
-    "Chains are finite, with terminal records retained; there is no automatic replay or refilling.",
-    "Persisted catalogs stay pinned: existing three-chain profile images retain their original kits and schedule. The new fourth chain and convoy variant are installed for fresh scene state; no silent replay, reset or rewrite of existing chains is performed."
+    "Each issued story is finite; HC-19 independently issues new identities on its persistent world schedule. Terminal records are represented by retained rows, completion watermarks and bounded exceptions, never replayed, reset or refilled.",
+    "Existing profile catalogs stay pinned, including their kits, sites and schedule. The HC-42 mission template now uses convoy-wreck at Kumyrna so all ten kits are referenced for fresh plans/new HC-19 arrivals; no issued chain is rewritten. Compiled Defaults alignment and regional indexed-site integration remain lead-owned.",
+    "HC42_INDEX_INTEGRATION_PENDING: story-sites.json is authored input only until reserved Scenes/#138 and HC-62 integration consume its exact indexed candidates and bounded status receipt. It currently creates no regional placement.",
+    "HC42_KIT_SITE_SURVEY_PENDING / HC42_NATIVE_ANCHOR_PENDING / HC42_ISLAND_ACCESS_PENDING: all candidates lack native receipts; source-reviewed anchors and HC-43 map labels do not establish geometry, access or qualification.",
+    "HC42_COVERAGE_PENDING: unassigned localities and HC-43 residential clusters remain eligible and explicitly pending; no quiet-by-design exclusion or mainland radius counts as island coverage.",
+    "HC42_NATIVE_CE_STORY_IDENTITY_UNEXPOSED: installed CentralEconomy.c provides CE controls and creation flags, not a demonstrated durable native event identity/lifecycle observation port. Use HC-owned HC-19 identities only."
   ],
   "kits": {
     "last-stand": [
@@ -438,5 +442,25 @@
       "StaticObj_Furniture_kitchen_chair_a",
       "StaticObj_Furniture_bag_DZ"
     ]
+  },
+  "hc42": {
+    "Package": "HC-42",
+    "Runtime": "PENDING",
+    "StorySites": "events/story-sites.json",
+    "StorySitesSha256": "ab8ce98f9bd730db0593c6dfa4c6d746a8ca34dc411c7fc155ee4f17442df83e",
+    "SceneChainsSha256": "f2cd9497dbcb70a8a3722ca057d11b9153bc2da6f2f5f1ef36962f220d87e041",
+    "KitSourceSha256": "7a38f5d2c3d473377e73550ff757ed9225a9101ebb40b5d47c9560b819ead5da",
+    "AuthoredKits": 10,
+    "AuthoredSites": 17,
+    "AuthoredCandidates": 24,
+    "PrimaryCandidates": 10,
+    "RegionalCandidates": 14,
+    "EvidenceQualifiedCandidates": 0,
+    "NativeObservedCandidates": 0,
+    "CandidateLocalities": 17,
+    "PendingLocalities": 71,
+    "PendingResidentialClusters": 64,
+    "DistancesAdded": [],
+    "NativeEvidence": "Existing N2/N10/N16 materializer APIs inspected read-only in scripts-1.30.164289; no new native invocation or capability. Existing class/P3D member evidence is retained, not re-certified as native placement acceptance."
   }
 }

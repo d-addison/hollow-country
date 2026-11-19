@@ -222,12 +222,12 @@
       "SiteId": "kumyrna-ambush-cache",
       "Stages": [
         {
-          "Kit": "last-stand",
+          "Kit": "convoy-wreck",
           "HoldSeconds": 21600,
           "DelaySeconds": 129600,
           "Objective": {
             "Version": 1,
-            "Id": "scene-kumyrna-last-stand",
+            "Id": "scene-kumyrna-convoy-wreck",
             "SiteId": "kumyrna-ambush-cache",
             "WorldName": "chernarusplus",
             "Reviewed": true,
