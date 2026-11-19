@@ -52,6 +52,14 @@ class HCFactionConflict : HCModule
         m_Store = new HCEncounterStore<HCTerritoryOutcomeData>("faction-outcomes");
         m_Outcomes = m_Store.Load(new HCTerritoryOutcomeData, "Rows");
         m_Healthy = HCTerritoryOutcomes.HCValid(m_Outcomes);
+        string loadedText = m_Store.HCTakeLoadedText();
+        // A row missing a survivor key zero-fills to 0 and reads as NONE_REMAIN (#188).
+        if (m_Healthy && loadedText != "" && !HCTerritoryOutcomes.HCFieldsPresent(loadedText))
+        {
+            m_Healthy = false;
+            HCRefuse("OUTCOME_STORE_FIELDS_MISSING");
+            return;
+        }
         if (!m_Healthy) { HCRefuse("OUTCOME_STORE_INVALID"); return; }
         if (HCTerritoryOutcomes.HCRecover(m_Outcomes) > 0 && !HCSave())
         {

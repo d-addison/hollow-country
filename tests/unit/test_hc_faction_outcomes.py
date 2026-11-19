@@ -249,3 +249,25 @@ class FactionOutcomes(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class FactionOutcomeStorePresenceWiring(unittest.TestCase):
+    """Source contract (#188): OnStart checks the loaded image for the survivor keys.
+
+    OnStart and the generic HCEncounterStore aren't translatable here, so this pins
+    the order only; HCFieldsPresent itself is exercised behaviourally above.
+    """
+
+    def test_on_start_refuses_a_loaded_image_missing_survivor_keys(self):
+        root = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/World'
+        module = (root / 'HCFactionConflict.c').read_text()
+        store = (root / 'HCHoldouts.c').read_text()
+        start = module[module.index('override void OnStart'):module.index('override void OnStop')]
+        self.assertIn('string HCTakeLoadedText()', store)
+        self.assertIn('m_LoadedText = encoded;', store)
+        load = start.index('m_Store.Load(')
+        take = start.index('m_Store.HCTakeLoadedText()')
+        guard = start.index('HCTerritoryOutcomes.HCFieldsPresent(loadedText)')
+        refuse = start.index('HCRefuse("OUTCOME_STORE_FIELDS_MISSING")')
+        recover = start.index('HCTerritoryOutcomes.HCRecover(')
+        self.assertTrue(load < take < guard < refuse < recover)

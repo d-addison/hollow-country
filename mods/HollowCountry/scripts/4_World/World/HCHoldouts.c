@@ -29,9 +29,18 @@ class HCEncounterStore<Class T>
 {
     protected string m_Path;
     protected bool m_Fault;
+    // Raw image of the last successful file load; owners may check key presence
+    // (native load zero-fills absent ints). Taken once, then cleared.
+    protected string m_LoadedText;
 
     void HCEncounterStore(string name) { m_Path = "$profile:HollowCountry/" + name + ".json"; }
     bool Healthy() { return !m_Fault; }
+    string HCTakeLoadedText()
+    {
+        string text = m_LoadedText;
+        m_LoadedText = "";
+        return text;
+    }
     bool Fault()
     {
         if (!m_Fault) Print("[HollowCountry] V2 encounter store inactive: preserve " + m_Path + ", .tmp and .bak; recovery required");
@@ -48,6 +57,7 @@ class HCEncounterStore<Class T>
             string encoded = HCWorldStore.Read(m_Path);
             if (encoded.Length() > 262144 || encoded.IndexOf("\"Version\"") < 0 || encoded.IndexOf("\"" + collection + "\"") < 0) { Fault(); return null; }
             if (!HCV2ThreatStore<T>.Load(m_Path, 262144, result)) { Fault(); return null; }
+            m_LoadedText = encoded;
             return result;
         }
         if (!Save(fresh)) return null;
