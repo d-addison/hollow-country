@@ -32,6 +32,8 @@ class HCInteriorTemplates
     protected static int s_FurnishProps;
     protected static int s_LoadCheck;
     static const int DEFAULT_PACK_LOAD_STEPS = 8; // provisional, target-load measurement owed
+    // Coverage/furnish rows validated per load step; bounded, provisional.
+    static const int TEMPLATE_CHECKS_PER_STEP = 32;
     protected static int s_LoadPhase;
     protected static int s_LoadChunk;
     protected static string s_Reason;
@@ -895,13 +897,19 @@ class HCInteriorTemplates
         {
             if (s_LoadCheck < s_Classes.Count())
             {
-                HCInteriorTemplateClassRow checkRow = s_Classes.Get(s_LoadCheck);
-                if (Covered(checkRow) != (FindTemplate(checkRow.BuildingClass) != null))
+                int coverageBatch = 0;
+                HCInteriorTemplateClassRow checkRow;
+                while (s_LoadCheck < s_Classes.Count() && coverageBatch < TEMPLATE_CHECKS_PER_STEP)
                 {
-                    Refuse("template_coverage");
-                    return 2;
+                    checkRow = s_Classes.Get(s_LoadCheck);
+                    if (Covered(checkRow) != (FindTemplate(checkRow.BuildingClass) != null))
+                    {
+                        Refuse("template_coverage");
+                        return 2;
+                    }
+                    s_LoadCheck = s_LoadCheck + 1;
+                    coverageBatch = coverageBatch + 1;
                 }
-                s_LoadCheck = s_LoadCheck + 1;
                 return 0;
             }
             s_LoadPhase = 3;
@@ -912,8 +920,13 @@ class HCInteriorTemplates
         {
             if (s_LoadCheck < s_Furnish.Count())
             {
-                if (!HCFurnishRowValid(s_Furnish.Get(s_LoadCheck))) { Refuse("furnish_binding_or_budget"); return 2; }
-                s_LoadCheck = s_LoadCheck + 1;
+                int furnishBatch = 0;
+                while (s_LoadCheck < s_Furnish.Count() && furnishBatch < TEMPLATE_CHECKS_PER_STEP)
+                {
+                    if (!HCFurnishRowValid(s_Furnish.Get(s_LoadCheck))) { Refuse("furnish_binding_or_budget"); return 2; }
+                    s_LoadCheck = s_LoadCheck + 1;
+                    furnishBatch = furnishBatch + 1;
+                }
                 return 0;
             }
             s_Loaded = true;

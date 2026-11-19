@@ -264,9 +264,13 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         env['HCLoadStep'](None, SyntheticBudget(True))
         self.assertLessEqual(len(visits), 1, 'coverage step exceeded one row')
         visits.clear()
+        # Coverage validates a bounded named batch per step, never the whole list
+        # and never one row per budget unit (2048 rows at 8 steps/s took ~4 min).
+        batch = int(re.search(r'TEMPLATE_CHECKS_PER_STEP = (\d+);', (SRC / 'HCInteriorTemplates.c').read_text())[1])
+        self.assertTrue(1 < batch <= 64)
         before_check = env['s_LoadCheck']
         env['HCLoadStep'](None, SyntheticBudget(True))
-        self.assertEqual(before_check + 1, env['s_LoadCheck'])
+        self.assertEqual(before_check + batch, env['s_LoadCheck'])
         self.assertLessEqual(len(visits), 1, 'coverage scanned classes or templates')
         for settings, expected in ((None, 8), (NS(TemplateLoadStepsPerTick=0), 8),
                                    (NS(TemplateLoadStepsPerTick=1), 1), (NS(TemplateLoadStepsPerTick=65), 8)):
