@@ -281,7 +281,7 @@ modded class HCScenesModule
         {
             HCSceneChain chain = m_State.Chains[chainIndex];
             if (chain.Cancelled || chain.Complete || Lease(chain.Id)) { continue; }
-            HCEventSite site = HCSceneChains.Site(m_State.Catalog.Chains[chainIndex].SiteId);
+            HCEventSite site = HCSceneChains.HCPlanSite(m_State.Catalog.Chains[chainIndex]);
             if (!site) { continue; }
             float distance = vector.DistanceSq(pos, site.Position);
             if (distance < best) { selected = chainIndex; best = distance; }

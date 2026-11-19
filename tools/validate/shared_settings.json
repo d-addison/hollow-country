@@ -2620,5 +2620,45 @@
     "min": 1,
     "max": 128,
     "owner": "HCSignalConfig"
+  },
+  {
+    "key": "StoryIndex.ReadLinesPerTick",
+    "type": "int",
+    "default": 16,
+    "min": 1,
+    "max": 32,
+    "owner": "HCGapcodeStoryLimits"
+  },
+  {
+    "key": "StoryIndex.MaxSites",
+    "type": "int",
+    "default": 1024,
+    "min": 1,
+    "max": 1024,
+    "owner": "HCGapcodeStoryLimits"
+  },
+  {
+    "key": "StoryIndex.MaxCandidates",
+    "type": "int",
+    "default": 2048,
+    "min": 1,
+    "max": 2048,
+    "owner": "HCGapcodeStoryLimits"
+  },
+  {
+    "key": "StoryIndex.MaxLineBytes",
+    "type": "int",
+    "default": 8192,
+    "min": 1024,
+    "max": 8192,
+    "owner": "HCGapcodeStoryLimits"
+  },
+  {
+    "key": "StoryIndex.MaxFileBytes",
+    "type": "int",
+    "default": 2097152,
+    "min": 8192,
+    "max": 2097152,
+    "owner": "HCGapcodeStoryLimits"
   }
 ]

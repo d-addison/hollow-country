@@ -24,7 +24,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.'))]
 
 
 def check_performance(rows, source, registry):
@@ -277,6 +277,28 @@ def check_external_owner(rules, owner, path, prefix, var):
 
 
 
+def check_story_index(rows):
+    source = (ROOT / 'mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c').read_text()
+    source = re.sub(r'//[^\n]*', '', source)
+    dto = source.split('class HCGapcodeStoryLimits\n', 1)[1].split('class HCGapcodeStoryHeader', 1)[0]
+    fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+    rules = {r['key'].removeprefix('StoryIndex.'): r for r in rows}
+    errors = []
+    if fields.keys() != rules.keys(): errors.append('StoryIndex registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', source, re.M)
+    if compiled != render_native_registry(rows).splitlines():
+        errors.append('StoryIndex compiled registry differs')
+    for key, row in rules.items():
+        if row['owner'] != 'HCGapcodeStoryLimits' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'StoryIndex DTO default/type/owner differs for {key}')
+        binding = f'if (HCJsonFields.Has(image, "{key}")) {{ limits.{key} = decoded.{key}; }}'
+        validation = f'if (!HCOperatorSettingsRegistry.HCValid("StoryIndex.{key}", limits.{key})) {{ return null; }}'
+        if binding not in dto or validation not in dto:
+            errors.append(f'StoryIndex apply binding/range differs for {key}')
+    return errors
+
+
 def check_consistency(*, registry=None, shipped=None, native=None, perf_native=None, perf_registry=None):
     """Optional inputs are explicit synthetic mutation seams for the same check."""
     rows = load_registry(include_scoped=True) if registry is None else registry
@@ -312,7 +334,8 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_world_runtime([r for r in rows if r['key'].startswith('WorldRuntime.')]))
     errors.extend(check_search_limits([r for r in rows if r['key'].startswith('SearchLimits.')]))
     errors.extend(check_local_policy(rows))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.'))]
+    errors.extend(check_story_index([r for r in rows if r['key'].startswith('StoryIndex.')]))
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
