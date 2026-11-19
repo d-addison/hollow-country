@@ -35,6 +35,72 @@ class HCCampProbes
         Print("[HC Plan] HC-16 probes=dispatch_pending reason=" + reason + " runtime=PENDING");
     }
 
+    protected static ref HCBaseRaidPort s_Visitor;
+    protected static ref HCOperationalStatus s_VisitorStatus = new HCOperationalStatus;
+    protected static bool s_VisitorStarted;
+    protected static bool s_VisitorEnabled;
+
+    static void HCBindVisitor(HCBaseRaidPort visitor) { s_Visitor = visitor; }
+    static HCBaseRaidPort HCVisitor() { return s_Visitor; }
+    static bool HCVisitorOwns(string lease) { return s_Visitor && s_Visitor.HCOwns(lease); }
+
+    static bool HCVisitorsEnabled()
+    {
+        if (!s_VisitorStarted)
+        {
+            s_VisitorEnabled = !FileExist("$profile:HollowCountry/acceptance/camp_visitors.disable");
+            s_VisitorStarted = true;
+            Print(HCV2Admission.Line("CampVisitors", s_VisitorEnabled, "HC-16-VISIT", false) + " runtime=PENDING");
+        }
+        return s_VisitorEnabled;
+    }
+
+    static HCOperationalStatus HCGetOperationalStatus()
+    {
+        if (!HCCampProbes.HCVisitorsEnabled() || !HCCampProbes.HCEnabled()) { s_VisitorStatus.HCPublish("off", "camp_visitors_or_probes_operator_disabled"); return s_VisitorStatus; }
+        if (!HCBaseRaid.HCEnabled())
+        {
+            HCOperationalStatus baseStatus = HCBaseRaid.HCGetOperationalStatus();
+            s_VisitorStatus.HCPublish(baseStatus.HCState(), baseStatus.HCReason());
+            return s_VisitorStatus;
+        }
+        if (!s_Visitor) { s_VisitorStatus.HCPublish("degraded", "CAMP_VISITOR_PROVIDER_UNAVAILABLE"); return s_VisitorStatus; }
+        if (!s_Visitor.HCReady()) { s_VisitorStatus.HCPublish("degraded", s_Visitor.HCRefusal()); return s_VisitorStatus; }
+        s_VisitorStatus.HCPublish("ready", "physical_visitor_provider_bound_runtime_pending");
+        return s_VisitorStatus;
+    }
+
+    static bool HCRequestRaidParty(HCCampModule module, HCCampRecord camp, HCCampScan scan, bool burning, int now, out string reason)
+    {
+        reason = "camp_probes.disable";
+        if (!HCCampProbes.HCEnabled()) { return false; }
+        reason = "BASE_RAID_TIER_DAY_HIDDEN_OR_COOLDOWN";
+        if (!HCCampProbes.Eligible(camp.Tier, HCEscalationClock.Day(), now, camp.LastProbe, scan.Hidden(burning))) { return false; }
+        reason = "base-raid-warning-started; runtime=PENDING";
+        if (HCBaseRaid.HCWarn(module, camp, scan, now)) { return true; }
+        reason = HCBaseRaid.HCRefusal();
+        return false;
+    }
+
+    // Visits share the conservative probe tier/day/hidden/three-day policy.
+    // LastVisit is independent of raid cooldown; no metadata/body fiction.
+    static bool HCRequestVisitorParty(HCCampModule module, HCCampRecord camp, HCCampScan scan, bool burning, int now, out string reason)
+    {
+        HCOperationalStatus status = HCCampProbes.HCGetOperationalStatus();
+        reason = status.HCReason();
+        if (status.HCState() != "ready") { HCCampProbes.HCRefuse(status.HCReason()); return false; }
+        reason = "CAMP_VISITOR_TIER_DAY_HIDDEN_OR_COOLDOWN";
+        if (!HCCampProbes.Eligible(camp.Tier, HCEscalationClock.Day(), now, camp.LastVisit, scan.Hidden(burning))) { return false; }
+        reason = "CAMP_VISITOR_PARTY_NOT_OBSERVED";
+        if (!s_Visitor.HCSeen(camp, scan)) { HCCampProbes.HCRefuse("CAMP_VISITOR_PARTY_NOT_OBSERVED"); return false; }
+        reason = "CAMP_VISITOR_ATTENDED_OR_OBSERVED";
+        if (!HCBaseRaid.HCUnattended(module, camp, camp.Position)) { HCCampProbes.HCRefuse("CAMP_VISITOR_ATTENDED_OR_OBSERVED"); return false; }
+        reason = "CAMP_VISITOR_RESERVATION_OR_PERSISTENCE_REFUSED";
+        if (!s_Visitor.HCVisit(module, camp, now)) { HCCampProbes.HCRefuse("CAMP_VISITOR_RESERVATION_OR_PERSISTENCE_REFUSED"); return false; }
+        reason = "camp-visitor-reserved-walk-pending; runtime=PENDING";
+        return true;
+    }
+
     static bool Eligible(int tier, int day, int now, int last, bool hidden)
     {
         if (tier != 3 || day < 14 || hidden || now < 1 || now < last) { return false; }

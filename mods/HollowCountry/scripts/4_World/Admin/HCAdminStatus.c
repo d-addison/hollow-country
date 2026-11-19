@@ -65,8 +65,14 @@ modded class HCServer
         HCAdminKitLine(reply, "event", "Events", "", "none; nearest reviewed site");
         HCAdminKitLine(reply, "camp", "Camps", "", "none; camp within 100 m");
         HCAdminKitLine(reply, "camptier", "Camps", controlsGate, "value 0 to 3; nearest recognised camp; opt-out AdminControls.disable");
-        HCAdminKitLine(reply, "campvisit", "Camps", "missing-hook-HCRequestVisitorParty", "none; runtime=PENDING");
-        HCAdminKitLine(reply, "campraid", "Camps", "missing-hook-HCRequestRaidParty", "none; runtime=PENDING");
+        HCOperationalStatus visitStatus = HCCampProbes.HCGetOperationalStatus();
+        HCOperationalStatus raidStatus = HCBaseRaid.HCGetOperationalStatus();
+        string visitGate = controlsGate;
+        string raidGate = controlsGate;
+        if (visitGate == "" && visitStatus.HCState() != "ready") { visitGate = visitStatus.HCReason(); }
+        if (raidGate == "" && raidStatus.HCState() != "ready") { raidGate = raidStatus.HCReason(); }
+        HCAdminKitLine(reply, "campvisit", "Camps", visitGate, "none; live eligibility/attendance/cooldown; runtime=PENDING");
+        HCAdminKitLine(reply, "campraid", "Camps", raidGate, "none; normal warning/eligibility/cooldown; runtime=PENDING");
         HCAdminKitLine(reply, "holdout", "Holdouts", "", "none; holdout within 100 m");
         HCAdminKitLine(reply, "day", "Escalation", "", "value 0 to 3650");
         HCAdminKitLine(reply, "radio", "Radio", "", "none; needs a tuned powered radio");

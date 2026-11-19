@@ -745,12 +745,15 @@ class ExtraRouting(unittest.TestCase):
 
 
 class KitListing(unittest.TestCase):
-    def build(self, active=("AdminMap", "Infected", "Scenes", "Radio"), sitter_class=True, controls=True):
+    def build(self, active=("AdminMap", "Infected", "Scenes", "Radio"), sitter_class=True, controls=True, physical="ready", physical_reason="bound"):
         lines = []
         reply = NS(Lines=EArray())
         # Synthetic cast: the started AdminMap owner exposes its cached opt-out sample.
         admin = NS(HCOperatorControls=lambda: controls)
-        scope = base_scope(GetGame=lambda: NS(ConfigIsExisting=lambda name: sitter_class),
+        status = NS(HCState=lambda: physical, HCReason=lambda: physical_reason)
+        scope = base_scope(HCCampProbes=NS(HCGetOperationalStatus=lambda: status),
+                           HCBaseRaid=NS(HCGetOperationalStatus=lambda: status),
+                           GetGame=lambda: NS(ConfigIsExisting=lambda name: sitter_class),
                            HCAdminModule=NS(Cast=lambda module: admin if module == "AdminMap" else None))
         service = NS()
         service.HCAdminModuleNamed = lambda name: name if name in active else None
@@ -787,6 +790,21 @@ class KitListing(unittest.TestCase):
         off = [l for l in self.build(active=("AdminMap", "Camps"), controls=False) if "cmd=camptier" in l][0]
         self.assertIn("available=0", off)
         self.assertIn("reason=AdminControls.disable", off)
+
+    def test_arrival_lines_follow_live_status_and_admin_opt_out(self):
+        for state, reason, controls in (("ready", "bound", True),
+                ("degraded", "CAMP_VISITOR_PROVIDER_UNAVAILABLE", True),
+                ("off", "camp_probes_operator_disabled", True), ("ready", "bound", False)):
+            lines = self.build(active=("AdminMap", "Camps"), physical=state,
+                               physical_reason=reason, controls=controls)
+            for command in ("campvisit", "campraid"):
+                line = next(l for l in lines if "cmd=" + command + " " in l)
+                self.assertIn("available=" + str(int(state == "ready" and controls)), line)
+                if not controls:
+                    self.assertIn("reason=AdminControls.disable", line)
+                elif state != "ready":
+                    self.assertIn("reason=" + reason, line)
+                self.assertNotIn("missing-hook", line)
 
     def test_sitter_needs_its_addon_class(self):
         lines = self.build(sitter_class=False)

@@ -242,9 +242,36 @@ class HCCampModule : HCModule
         if (!m_Running) { return; }
         HCCampMailbox.Step(this, camp, scan, now);
         if (!m_Running) { return; }
+        string visitorReason;
+        HCCampProbes.HCRequestVisitorParty(this, camp, scan, burning, now, visitorReason);
+        if (!m_Running) { return; }
         HCCampProbes.Step(this, camp, scan, burning, now);
         if (!m_Running) { return; }
         HCCampTheft.Step(this, camp, scan, now);
+    }
+
+    // #203: select is bounded by the admin owner; native scans and dispatch
+    // consume the SAME shared budget as normal physical camp work.
+    bool HCAdminRequestArrival(HCCampRecord camp, bool raid, out string reason)
+    {
+        reason = "camp-service-unavailable";
+        if (!m_Running || !camp || !GetGame() || !GetGame().IsServer()) { return false; }
+        int now = HCWorldClock.UTC();
+        reason = "camp-clock-unavailable";
+        if (now < 1 || now < m_LastUtc) { return false; }
+        reason = "camp-admin-shared-work-budget";
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + 32)) { return false; }
+        m_Players.Clear();
+        GetGame().GetPlayers(m_Players);
+        reason = "camp-player-cap-exceeded";
+        if (m_Players.Count() > 32) { m_Players.Clear(); return false; }
+        FireplaceBase fire = FireFor(camp);
+        bool burning = fire && fire.IsBurning();
+        HCCampScan scan = HCCampScan.Read(camp.Position, burning);
+        reason = "camp-scan-unavailable";
+        if (!scan) { return false; }
+        if (raid) { return HCCampProbes.HCRequestRaidParty(this, camp, scan, burning, now, reason); }
+        return HCCampProbes.HCRequestVisitorParty(this, camp, scan, burning, now, reason);
     }
 
     override void OnTick(float deltaTime)

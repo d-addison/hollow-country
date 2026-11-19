@@ -365,11 +365,7 @@ modded class HCCampModule
     {
         HCCampRecord selected = HCAdminSelectCamp(pos, reason);
         if (!selected) { return false; }
-        // Visitors.Step/Probes.Step only persist refusal/legacy metadata. Calling
-        // them cannot request physical arrivals. Keep their cooldowns untouched.
-        reason = "missing-hook-HCRequestVisitorParty; visitor-body-provider-unavailable; runtime=PENDING";
-        if (raid) { reason = "missing-hook-HCRequestRaidParty; raid-body-provider-unavailable; runtime=PENDING"; }
-        return false;
+        return HCAdminRequestArrival(selected, raid, reason);
     }
 
     bool HCAdminCamp(vector pos, array<Man> players, out string reason)
