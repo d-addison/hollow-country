@@ -9,6 +9,7 @@
 // 3_Game/Global/Game.c:1120 IsServer; 3_Game/gameplay.c:636 GetGame;
 // 1_Core/proto/EnDebug.c:96 Print; EnString.c:199 Length;
 // EnScript.c:380 Count, :394 Find; 3_Game/tools/JsonFileLoader.c:69 LoadData.
+// 1_Core/proto/EnSystem.c:397 FileExist.
 // All remaining calls are existing HC ports. No N17 AI SDK is inferred.
 
 class HCCampRaidProfile
@@ -23,16 +24,15 @@ class HCCampRaidProfile
 class HCCampRaidConfig
 {
     // Zero (including a native missing-int load) is explicitly refused.
-    // No implicit legacy upgrade and no default-enabled preference.
+    // Legacy Enabled is retained for decoding; acceptance/w38_raids.disable is the opt-out.
     int Version;
     bool Enabled;
     ref array<ref HCCampRaidProfile> Profiles = new array<ref HCCampRaidProfile>;
 }
 
-// Trusted original server addon only. This content slice has no supported
-// activation port: a JSON flag, route label or client cannot install capability.
-// Expanding this requires observed walking/retreat, combat/cargo callbacks and
-// durable HC-38 integration, not changing the refusal string into a ready flag.
+// Trusted server capability port. HCXAIRaidAdapter uses the shared live-party
+// implementation; HC-38 alone starts actors after its durable intent barrier.
+// Availability is an observation of the bound provider, never a JSON ready flag.
 class HCCampRaidActorPort : HCSituationActorPort
 {
     override string HCRefusal() { return "RAID_PROVIDER_UNAVAILABLE"; }
@@ -52,6 +52,7 @@ class HCCampRaidActors
 class HCCampRaidSituation
 {
     protected ref HCCampRaidConfig m_Config;
+    protected static ref HCCampRaidConfig s_Profiles;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Enabled;
     protected int m_Reports;
@@ -128,7 +129,18 @@ class HCCampRaidSituation
         Print(line + " authored=" + authored + " admitted=0 observed=0 count_cap=2 report_cap=16 runtime=PENDING");
     }
 
-    HCOperationalStatus HCStatus() { return m_Status; }
+    HCOperationalStatus HCStatus()
+    {
+        if (m_Enabled)
+        {
+            HCCampRaidActorPort actors = HCCampRaidActors.HCGet();
+            m_Effective = "refused";
+            m_Reason = actors.HCRefusal();
+            if (actors.HCReady()) { m_Effective = "ready"; m_Reason = "live_raid_provider_available"; }
+            m_Status.HCPublish(m_Effective, m_Reason);
+        }
+        return m_Status;
+    }
 
     static HCCampRaidConfig HCLoad()
     {
@@ -141,6 +153,17 @@ class HCCampRaidSituation
         return config;
     }
 
+    static int HCCooldown(string kind)
+    {
+        if (!s_Profiles || !HCValidConfig(s_Profiles)) { return -1; }
+        array<ref HCCampRaidProfile> profiles = s_Profiles.Profiles;
+        foreach (HCCampRaidProfile profile : profiles)
+        {
+            if (profile.Kind == kind) { return profile.CooldownSeconds; }
+        }
+        return -1;
+    }
+
     bool HCProfilesEnabled() { return m_Enabled; }
 
     void HCOpen(HCCampRaidConfig config, bool enabled)
@@ -151,15 +174,19 @@ class HCCampRaidSituation
         if (HCValidConfig(config)) { m_Authored = 2; }
         m_Effective = "off";
         m_Reason = "operator_off";
-        if (HCV2Admission.Admitted(enabled) && (!config || config.Enabled))
+        if (HCV2Admission.Admitted(enabled) && !FileExist("$profile:HollowCountry/acceptance/w38_raids.disable"))
         {
             m_Effective = "refused";
             m_Reason = "RAID_CONFIG_INVALID";
             if (HCValidConfig(config) && GetGame() && GetGame().IsServer())
             {
                 m_Config = config;
+                s_Profiles = config;
                 m_Enabled = true;
-                m_Reason = HCCampRaidActors.HCGet().HCRefusal();
+                HCCampRaidActorPort actors = HCCampRaidActors.HCGet();
+                m_Reason = actors.HCRefusal();
+                if (actors.HCReady()) { m_Effective = "ready"; m_Reason = "live_raid_provider_available"; }
+                Print(HCV2Admission.Line("CampRaids", true, "w38_raids", false) + " runtime=PENDING");
             }
         }
         m_Status.HCPublish(m_Effective, m_Reason);
@@ -171,20 +198,27 @@ class HCCampRaidSituation
         if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return false; }
         if (!m_Config || m_Config.Profiles.Find(profile) < 0) { return false; }
         m_Reason = HCValidate(profile, opportunity, progress, proposal, targetLease, now, lastEndedAt, exitRef, returnRef);
-        if (m_Reason == "") { m_Reason = HCCampRaidActors.HCGet().HCRefusal(); }
+        bool admitted = false;
+        if (m_Reason == "")
+        {
+            admitted = HCCampRaidActors.HCGet().HCReady();
+            if (!admitted) { m_Reason = HCCampRaidActors.HCGet().HCRefusal(); }
+        }
         m_Effective = "refused";
+        if (admitted) { m_Effective = "ready"; m_Reason = "raid_preflight_valid"; }
         string party = "none";
         if (proposal && HCAIPartyIdentity.HCValid(proposal.Identity)) { party = proposal.Identity.HCPartyId(); }
         m_Status.HCPublish(m_Effective, m_Reason);
-        HCReport(profile.Kind, party, "refused");
+        HCReport(profile.Kind, party, m_Effective);
         // NEVER begin, mutate the lifecycle, debit camp/cargo or release HC-10.
         // Existing provider death/cleanup/result handlers retain all ownership.
-        return false;
+        return admitted;
     }
 
     void HCClose()
     {
         m_Enabled = false;
+        if (s_Profiles == m_Config) { s_Profiles = null; }
         m_Config = null;
         m_Effective = "off";
         m_Reason = "owner_closed";

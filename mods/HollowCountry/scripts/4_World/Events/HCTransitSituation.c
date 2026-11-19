@@ -1,14 +1,15 @@
 // HC-40 / #146/#147. Two finite content profiles for HC-38, NOT a second
 // situation director, population owner, route planner or persistence service.
 // Spec/plan/task: HC-19 issues fresh durable identities -> HC-38 intent/store
-// barriers -> existing HC-10 lease -> HC-36 verified walking route. The last
-// seam has no provider/clearance evidence; admission stops at named refusal.
+// barriers -> existing HC-10 lease -> qualified native walking points.
+// HCXAITransitAdapter implements the optional provider; native verdict pending.
 // HC-5/37 remain the sole observed signal, stance and betrayal owners.
 //
 // Native scripts-1.30.164289 inspected evidence:
 // 3_Game/Global/Game.c:1120 IsServer; 3_Game/gameplay.c:636 GetGame;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnScript.c:380 Count. File IO uses bounded HCGroupIO.Read.
+// 1_Core/proto/EnSystem.c:397 FileExist.
 // N16 DayZPhysics.c:199/208 rays and :222/228 overlaps are geometry queries,
 // NOT a surveyed passable road/entrance corridor or an AI walking guarantee.
 // Object.c:287/294 exposes position/set-position; never relocate an actor to
@@ -136,7 +137,7 @@ class HCTransitSituation
         m_Opened = true;
         m_Effective = "off";
         m_Reason = "operator_off";
-        if (HCV2Admission.Admitted(enabled))
+        if (HCV2Admission.Admitted(enabled) && !FileExist("$profile:HollowCountry/acceptance/w38_transit.disable"))
         {
             m_Effective = "refused";
             m_Reason = "TRANSIT_MANIFEST_INVALID";
@@ -144,14 +145,28 @@ class HCTransitSituation
             if (m_Manifest)
             {
                 m_Authored = 2;
-                m_Reason = "TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED";
+                HCSituationActorPort actors = HCSituationActors.HCForProfile("roadside-position");
+                m_Reason = actors.HCRefusal();
+                if (actors.HCReady()) { m_Effective = "ready"; m_Reason = "live_transit_provider_available"; }
+                Print(HCV2Admission.Line("TransitSituations", true, "w38_transit", false) + " runtime=PENDING");
             }
         }
         m_Status.HCPublish(m_Effective, m_Reason);
         HCReport("roadside,exodus", m_Effective);
     }
 
-    HCOperationalStatus HCStatus() { return m_Status; }
+    HCOperationalStatus HCStatus()
+    {
+        if (m_Opened && !m_Closed && m_Manifest)
+        {
+            HCSituationActorPort actors = HCSituationActors.HCForProfile("roadside-position");
+            m_Effective = "refused";
+            m_Reason = actors.HCRefusal();
+            if (actors.HCReady()) { m_Effective = "ready"; m_Reason = "live_transit_provider_available"; }
+            m_Status.HCPublish(m_Effective, m_Reason);
+        }
+        return m_Status;
+    }
 
     void HCClose()
     {
