@@ -95,20 +95,12 @@ class HCC1Reach
             ElevatedMax = 2.3;
             HCC1Range.s_Invalid = true;
         }
-        if (VaultMin >= VaultLow)
+        // Resolve the quartet as one unit: partial repairs can invert an
+        // already-checked neighbour after a later pair falls back.
+        if (!(VaultMin < VaultLow && VaultLow < VaultHigh && VaultHigh < VaultMax))
         {
             VaultMin = 0.8;
             VaultLow = 1.1;
-            HCC1Range.s_Invalid = true;
-        }
-        if (VaultLow >= VaultHigh)
-        {
-            VaultLow = 1.1;
-            VaultHigh = 1.6;
-            HCC1Range.s_Invalid = true;
-        }
-        if (VaultHigh >= VaultMax)
-        {
             VaultHigh = 1.6;
             VaultMax = 2.0;
             HCC1Range.s_Invalid = true;

@@ -23,7 +23,7 @@ class HCActionSalvageWreckCB : ActionContinuousBaseCB
 {
     override void CreateActionComponent()
     {
-        m_ActionData.m_ActionComponent = new CAContinuousTime(HCWreckSalvageConfig.Get().ActionSeconds);
+        m_ActionData.m_ActionComponent = new CAContinuousTime(m_ActionData.m_Player.HCWreckActionSeconds());
     }
 }
 
@@ -48,7 +48,11 @@ class HCActionSalvageWreck : ActionContinuousBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (!GetGame().IsServer()) return HCWreckSalvage.Allowed(player, target, item);
+        if (!GetGame().IsServer())
+        {
+            if (!player || player.HCWreckActionSeconds() <= 0) return false;
+            return HCWreckSalvage.Allowed(player, target, item);
+        }
         HCWreckSalvageModule module = HCWreckSalvageModule.Get();
         if (module && module.CanStart(player, target, item)) return true;
         // CanStart names its cause on the module; report it through the bounded per-reason window.
@@ -94,7 +98,7 @@ class HCActionSalvageWreck : ActionContinuousBase
         HCWreckSalvageActionData data = HCWreckSalvageActionData.Cast(action_data);
         if (data && !data.Completed)
         {
-            if (!module || !module.Continuing(data) || GetGame().GetTime() - data.StartedMs < HCWreckSalvageConfig.Get().ActionSeconds * 1000 - HCWreckSalvageConfig.Get().CompletionGraceMs)
+            if (!module || !module.Continuing(data) || GetGame().GetTime() - data.StartedMs < action_data.m_Player.HCWreckActionSeconds() * 1000 - HCWreckSalvageConfig.Get().CompletionGraceMs)
             {
                 HCCraftRefusal.WreckAction(action_data, HCRefusal.SALVAGE);
                 return;
@@ -145,4 +149,32 @@ modded class Pliers
         super.SetActions();
         AddAction(HCActionSalvageWreck);
     }
+}
+
+// Native scripts-1.30.164289: 4_World/Entities/ManBase/PlayerBase.c:359
+// PlayerBase constructor; 3_Game/Entities/EntityAI.c:905 EEInit, :2861
+// RegisterNetSyncVariableFloat, :3064 SetSynchDirty. Server publishes once on
+// entity init. Client actions wait for replication, never read local timing.
+modded class PlayerBase
+{
+    protected float m_HCWreckActionSeconds;
+
+    void PlayerBase()
+    {
+        // Equal default bounds disable quantization (EntityAI.c:2857-2858),
+        // preserving fractional operator durations exactly.
+        RegisterNetSyncVariableFloat("m_HCWreckActionSeconds");
+    }
+
+    override void EEInit()
+    {
+        super.EEInit();
+        if (GetGame().IsServer())
+        {
+            m_HCWreckActionSeconds = HCWreckSalvageConfig.Get().ActionSeconds;
+            SetSynchDirty();
+        }
+    }
+
+    float HCWreckActionSeconds() { return m_HCWreckActionSeconds; }
 }

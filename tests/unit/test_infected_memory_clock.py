@@ -46,7 +46,7 @@ class MemoryFixture:
         self.api = N()
         self.memory = N(m_Healthy=True, m_Dirty=False, m_LastUtc=self.last,
                         m_RecordUtc=self.last, m_RecordCount=0, m_LogUtc=self.last,
-                        m_State=N(Version=1, WorldName='synthetic_world',
+                        m_State=N(Version=1, CellMetres=500, WorldName='synthetic_world',
                                   SavedUtc=self.last, Cells=EArray([
                                       N(X=0, Z=0, Value=0.5, UpdatedUtc=self.last),
                                       N(X=1, Z=0, Value=0.7, UpdatedUtc=self.last)])))
