@@ -20,9 +20,11 @@ from tests.unit import test_core_lifecycle as core
 from tests.unit import tick_budget_fixture as tick_fixture
 from tests.unit.test_event_runtime import translate
 from tools.validate.runtime import V2_FLAGS as RUNTIME_FLAGS
+from tools.validate.settings_consistency import load_registry
 
 # EnableTapedPackMounts is a default-off gate switch (#58), not a V2 preference.
-V2_FLAGS = {flag for flag in RUNTIME_FLAGS if flag != 'EnableTapedPackMounts'}
+V2_FLAGS = RUNTIME_FLAGS & {row['key'] for row in load_registry()
+                            if row['owner'] in ('HCSettings', 'HCAILimits')} - {'EnableTapedPackMounts'}
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCV2Admission.c'

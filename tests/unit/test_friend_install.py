@@ -267,7 +267,7 @@ class DryRunTests(InstallerCase):
     def test_missing_habitat_stock_surfaces_as_overlay_refusal_without_writes(self):
         # Real bundle planner; only stock and dependency presence are synthetic.
         fi.overlays.main.side_effect = REAL_OVERLAY_MAIN
-        put(self.bundle, 'mission-overlay/hollow-country/ecology/habitat-overrides.json', '{"Enabled": false}')
+        put(self.bundle, 'mission-overlay/hollow-country/ecology/habitat-overrides.json', '{"Enabled": true}')
         put(self.bundle, 'mission-overlay/hollow-country/ecology/events.append.xml', '<events/>')
         write_manifest(self.bundle)
         stock = {'cfgenvironment.xml': b'<env><territories/></env>', 'db/events.xml': b'<events/>'}

@@ -29,6 +29,15 @@ V2_FLAGS = ('EnableGrade', 'EnableAmbientLife', 'EnableSignsOfLife', 'EnableTrav
             'EnableInfectedVariety', 'EnableDebugSnapshot', 'EnableAdminMap', 'EnableCampRespawn', 'EnableTeamPing', 'EnableVehicleFlip', 'EnableMealBuffs', 'EnableForage', 'EnableProgression', 'EnableGroupScaling')
 
 class RuntimeSettingsTests(unittest.TestCase):
+    def test_global_settings_reject_separate_dto_registry_fields(self):
+        from tools.validate.settings_consistency import load_registry
+        defaults = json.loads((ROOT / 'config/hollow-country-settings.json').read_text())
+        for row in load_registry():
+            if row['owner'] not in ('HCSettings', 'HCAILimits'):
+                with self.subTest(owner=row['owner'], key=row['key']):
+                    errors = validate_settings(dict(defaults, **{row['key']: row['default']}))
+                    self.assertIn('Unknown field ' + row['key'], errors)
+
     def test_native_settings_reader_is_bounded_before_json_parsing(self):
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         match = re.search(r'static bool AcceptDocumentLength\(int length\)\s*\{\s*return ([^;]+);', source)
@@ -256,7 +265,8 @@ class DensityRegistryTests(unittest.TestCase):
         self.assertEqual(1.0, admitted.HCEffectiveSearchDensity())
         self.assertEqual([], profile.writes, 'loading must preserve operator profile bytes')
         effective = [line for line in profile.logs if line.startswith('[HC Settings] effective ')]
-        registered = json.loads((ROOT / 'tools/validate/shared_settings.json').read_text())
+        registered = [row for row in json.loads((ROOT / 'tools/validate/shared_settings.json').read_text())
+                      if row['owner'] in ('HCSettings', 'HCAILimits')]
         self.assertEqual({row['key'] for row in registered if row['type'] != 'object'},
                          {line.split(' effective ')[1].split('=')[0] for line in effective})
         self.assertEqual(len({row['key'] for row in registered if row['type'] != 'object'}), len(effective))

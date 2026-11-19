@@ -17,7 +17,7 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             (bundle / 'mission-patches.json').write_text(json.dumps({'core': [], 'gameplay': []}))
             ecology = bundle / 'mission-overlay/hollow-country/ecology'
             ecology.mkdir(parents=True)
-            (ecology / 'habitat-overrides.json').write_text('{"Enabled": false}')
+            (ecology / 'habitat-overrides.json').write_text('{"Enabled": true}')
             (ecology / 'events.append.xml').write_text('<events/>')
             stock = {'cfgeconomycore.xml': b'<economycore/>',
                      'cfgenvironment.xml': b'<env><territories/></env>', 'db/events.xml': b'<events/>'}
@@ -38,6 +38,35 @@ class OptionalOverlaysSmoke(unittest.TestCase):
 
     def test_bundle_refuses_missing_habitat_events(self):
         self.assert_missing_habitat_stock_refused('db/events.xml')
+
+    def test_disabled_habitat_skips_unused_inputs_and_installs_other_overlay(self):
+        import json
+        from tools.package import optional_overlays as overlays
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-habitat-disabled-') as directory:
+            root = Path(directory)
+            bundle, mission = root / 'bundle', root / 'mission'
+            ecology = bundle / 'mission-overlay/hollow-country/ecology'
+            ecology.mkdir(parents=True)
+            mission.mkdir()
+            (ecology / 'habitat-overrides.json').write_text('{"Enabled": false}')
+            # No delta, environment or stock events: none is used when disabled.
+            other = bundle / 'mission-overlay/hollow-country/synthetic.json'
+            other.write_text('{"synthetic": true}')
+            (bundle / 'mission-patches.json').write_text(json.dumps({'core': [], 'gameplay': []}))
+            original = b'<economycore/>'
+            (mission / 'cfgeconomycore.xml').write_bytes(original)
+            candidate = overlays.bundle_candidate(bundle, mission)
+            self.assertEqual({'hollow-country/synthetic.json'}, set(candidate['files']))
+            overlays.install(candidate, mission, overlays.BUNDLE_MANAGED)
+            self.assertEqual(other.read_bytes(), (mission / 'hollow-country/synthetic.json').read_bytes())
+            self.assertFalse((mission / 'hollow-country/ecology').exists())
+            self.assertFalse((mission / 'cfgenvironment.xml').exists())
+            self.assertFalse((mission / 'db/events.xml').exists())
+            self.assertEqual(original, (mission / 'cfgeconomycore.xml').read_bytes())
+            overlays.rollback(mission, managed_name=overlays.BUNDLE_MANAGED)
+            self.assertEqual({'cfgeconomycore.xml': original},
+                             {p.relative_to(mission).as_posix(): p.read_bytes()
+                              for p in mission.rglob('*') if p.is_file()})
 
     def test_cellar_measurement_generates_native_triggers_and_reversible_merge(self):
         # Synthetic geometry only: this does not establish cellar fit or darkness.
