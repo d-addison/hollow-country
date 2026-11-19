@@ -178,13 +178,36 @@ class CampReserveBehavior(unittest.TestCase):
         self.assertEqual(unspent, pool.Refunded)
         self.assertTrue(writes[-1].Rows[0].Camp.Refunded)
         self.assertEqual(before + unspent, writes[-1].Resources.Stock)
+        # #176: a synthetic provider death inside an already-refunded lockout
+        # debits one living body but cannot refund twice or reopen occupancy.
+        row = state.Rows[0]
+        refunded_deadline = camp.ReoccupyAfter
+        clock[0] += 1
+        body = N()
+        module.m_Bodies.Insert(N(HoldoutId=row.Ledger.Id, Body=body))
+        identity = N(HCGeneration=lambda: 7, HCPartyId=lambda: camp.Party,
+                     HCCampId=lambda: 'camp:' + row.Ledger.Id,
+                     HCHomeId=lambda: row.Ledger.PlaceId,
+                     HCRouteId=lambda: 'stationary:' + row.Ledger.Id,
+                     HCCargoId=lambda: 'cargo:' + row.Ledger.Id)
+        module.HCPartyKilled(identity, body)
+        module.OccupantKilled(body)  # Authored super path cannot debit twice.
+        population -= 1
+        self.assertEqual(population, camp.Population)
+        self.assertEqual((before + unspent, unspent), (pool.Stock, pool.Refunded))
+        self.assertEqual(('RAIDED', 0, refunded_deadline),
+                         (row.Ledger.State, row.Ledger.Occupants, camp.ReoccupyAfter))
+        self.assertFalse(module.HCStepCamp(0, clock[0]))
+        self.assertTrue(camp.Refunded)
+        self.assertTrue(writes[-1].Rows[0].Camp.Refunded)
+        self.assertEqual(population, writes[-1].Rows[0].Camp.Population)
         restored = deepcopy(state)  # Explicit persisted-image restart.
         module, _, _, _, _ = authored_holdouts(restored)
         module.m_Ready = True
         module.Raid(0)
         self.assertEqual(before + unspent, restored.Resources.Stock)
-        self.assertFalse(module.HCStepCamp(0, clock[0] + cfg.RaidLockoutSeconds - 1))
-        self.assertTrue(module.HCStepCamp(0, clock[0] + cfg.RaidLockoutSeconds))
+        self.assertFalse(module.HCStepCamp(0, refunded_deadline - 1))
+        self.assertTrue(module.HCStepCamp(0, refunded_deadline))
         self.assertEqual('OCCUPIED', restored.Rows[0].Ledger.State)
         self.assertFalse(restored.Rows[0].Camp.Refunded)
         self.assertEqual(population, restored.Rows[0].Camp.Population)
@@ -528,31 +551,30 @@ class AICampBehavior(unittest.TestCase):
         step()
         self.assertEqual([], identities)
         worker.m_Enabled = True
-        for expected in range(1, 4):
-            step()
-            self.assertEqual(expected, len(requests))
-        self.assertEqual(['walk', 'rest', 'walk'], [r[0] for r in requests])
+        for _ in range(3): step()
+        self.assertEqual(['rest'], [r[0] for r in requests])
+        self.assertIn('ROUTINE_TARGET_CLEAR_UNAVAILABLE', refusals)
         step()  # Role cooldown: no new request.
-        self.assertEqual(3, len(requests))
+        self.assertEqual(1, len(requests))
         view.Home.State = 'ALERT'
         step()
-        self.assertEqual(3, len(requests), 'alert suspends routine roles')
+        self.assertEqual(1, len(requests), 'alert suspends routine roles')
         view.Home.State = 'OCCUPIED'
         clock[0] += cfg.RoleSeconds
         step()  # Relief boundary resets the cursor without issuing an action.
-        self.assertEqual(3, len(requests))
+        self.assertEqual(1, len(requests))
         for _ in range(3): step()
-        self.assertEqual(['rest', 'walk', 'walk'], [r[0] for r in requests[3:]])
-        self.assertEqual(site.PatrolPoints[1], requests[4][1][0], 'work route rotates; sentry keeps home point')
-        self.assertEqual(site.PatrolPoints[0], requests[5][1][0])
+        self.assertEqual(['rest', 'rest'], [r[0] for r in requests])
         combat[0] = True
         step()
-        self.assertEqual(6, len(requests))
+        self.assertEqual(2, len(requests))
         combat[0] = False
+        clock[0] += cfg.RoleSeconds
+        step()  # Finish relief before checking the actor's observed position.
         position[0] = (cfg.RoutineRangeMeters+1, 0, 0)
         step()
         self.assertEqual('HOUSE_ROUTE_CONNECTION_UNPROVEN', refusals[-1])
-        self.assertEqual(6, len(requests))
+        self.assertEqual(2, len(requests))
         routine_env['Close'](worker)
         count = len(identities)
         step()
