@@ -272,10 +272,16 @@ class HCXLivingModule : HCModule
         HCXAIQualification.SetEncountersEnabled(true);
         HCAskForNews.Configure(false);
         HCXEmoteObservation.Start();
-        HCXEmoteObservation.Install(new HCXNativeSignalProvider());
+        HCXNativeSignalProvider provider = new HCXNativeSignalProvider();
+        HCXEmoteObservation.Install(provider);
         m_Checkpoints = new HCXCheckpointProps();
         m_Checkpoints.Start();
         m_Refusal = "";
+        if (!HCXEmoteObservation.Ready())
+        {
+            m_Refusal = "emote_provider_or_betrayal_store_unavailable";
+            Print("[HollowCountry] Living AI admission refused: " + m_Refusal + "; runtime=PENDING");
+        }
         m_Started = true;
     }
     override void OnTick(float deltaTime)
@@ -331,6 +337,7 @@ modded class HCModuleRegistry
     override void RegisterModules()
     {
         super.RegisterModules();
-        Register(new HCXLivingModule());
+        HCXLivingModule livingModule = new HCXLivingModule();
+        Register(livingModule);
     }
 }

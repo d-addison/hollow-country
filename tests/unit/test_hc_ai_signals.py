@@ -362,13 +362,15 @@ class Signals(unittest.TestCase):
     def test_concrete_provider_installed_from_living_module_and_warning_escalates(self):
         stance = (HCX / "HCXStance.c").read_text()
         start = stance.split("override void OnStart", 1)[1].split("override void OnTick", 1)[0]
+        # Syntax-only declaration adaptation for the restricted translator.
+        start = start.replace("HCXNativeSignalProvider provider", "Object provider")
         events = []
         env = dict(Print=lambda *a:None, HCV2Admission=N(Line=lambda *a:""),
                    HCV2Gates=N(Qualified=lambda *a:False),
                    HCXAIQualification=N(SetEncountersEnabled=lambda *a:None),
                    HCAskForNews=N(Configure=lambda *a:None),
                    HCXEmoteObservation=N(Start=lambda:events.append("start"),
-                       Install=lambda p:events.append(p)),
+                       Install=lambda p:events.append(p), Ready=lambda:True),
                    HCXNativeSignalProvider=lambda:"concrete-provider",
                    HCXCheckpointProps=lambda:N(Start=lambda:None))
         Authored("void OnStart" + start, env).call("OnStart", N(), N())
