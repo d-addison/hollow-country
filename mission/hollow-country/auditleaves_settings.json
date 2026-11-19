@@ -1,0 +1,11 @@
+{
+  "Enabled": true,
+  "SampleSeconds": 0.5,
+  "QuerySeconds": 10,
+  "QueryRadius": 12,
+  "MaxObjects": 64,
+  "LifetimeSeconds": 3,
+  "MinTreeHeight": 3,
+  "MaxTreeHeight": 40,
+  "CanopyFraction": 0.75
+}
