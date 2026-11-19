@@ -34,6 +34,16 @@ Healthy stores continue and flush at Stop. World ticks stop at a closed world
 gate; escalation ticks consult only the escalation gate. `EnableWorld=false`
 requires neither world nor escalation files and does not prevent group startup.
 
+Each store's `.bak` and `.tmp` files are part of its image. Restore or remove
+them together with the primary; never restore a primary alone. A `.tmp`, a
+`.bak` without its primary, or a `.bak` whose epoch differs from the primary
+(or whose tick is newer) quarantines that store with `world_interrupted_pair` or
+`world_backup_damage_or_revision_regression`. Builds before HC-28 deliberately
+kept a mismatched-epoch `world.json.bak` after a rejected load, so on upgrade a
+server whose world was ever reset may see that reason once. Stop the server,
+keep a copy of the `.bak` and remove it from `$profile:HollowCountry` to admit
+the current primary.
+
 `recovery-active.intent` records a running HC session. An intent left after a
 crash produces `warning=unclosed_native_session` followed by ordinary independent
 file validation. Its presence alone never quarantines a store. The final store
