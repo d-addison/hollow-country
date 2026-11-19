@@ -133,11 +133,12 @@ class VarietyW56(unittest.TestCase):
         observed = N(HCPublish=lambda *args: publications.append(args))
         fault = ['']
         fn = native(str(AREA / 'HCInfectedVarietyStatus.c'),
-                    'HCOperationalStatus HCGetOperationalStatus(', (),
+                    'HCOperationalStatus HCGetOperationalStatus(', ('HCRefreshVarietyStatus',),
                     super=N(HCGetOperationalStatus=lambda: observed),
                     HCInfectedVariety=N(HCFault=lambda: fault[0]),
+                    HCInfectedVarietyRoutes=N(HCFault=lambda: ''),
                     HCInfectedModule=N(Instance=N()))
-        owner = N(m_Running=True, m_Variety=True)
+        owner = N(m_Running=True, m_Variety=True, HCRefreshVarietyStatus=lambda: None)
         self.assertIs(observed, fn(owner))
         self.assertEqual([], publications, 'getter invented a ready result')
         fault[0] = 'variety_data_invalid'

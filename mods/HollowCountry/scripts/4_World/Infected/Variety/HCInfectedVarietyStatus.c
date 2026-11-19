@@ -16,6 +16,11 @@ modded class HCInfectedVarietyModule
         {
             observed.HCPublish("degraded", "infected_owner_unavailable");
         }
+        else if (m_Variety && HCInfectedVarietyRoutes.HCFault() != "")
+        {
+            observed.HCPublish("degraded", HCInfectedVarietyRoutes.HCFault());
+        }
+        else { HCRefreshVarietyStatus(); }
         return observed;
     }
 }

@@ -26,6 +26,11 @@ class HCInfectedVarietyConfig
     int GroupMembers = 3;
     // Every second fresh body is standing; 0 opts out of this variant.
     int StandingRiserEvery = 2;
+    bool EnableMigration = true;
+    float CorridorRangeMetres = 80;
+    float MaxMigrationMetres = 480;
+    float MigrationLifetimeSeconds = 60;
+    float MigrationScanSeconds = 5;
     float ContextRange = 40;
     float InterestRange = 1000;
     float RequestRange = 1500;
@@ -40,6 +45,9 @@ class HCInfectedVarietyConfig
     {
         if (SchemaVersion != 1 || !Sites || Sites.Count() < 1 || Sites.Count() > MaxSites) { return false; }
         if (MaxSites < 1 || MaxSites > 64 || GroupMembers < 1 || GroupMembers > MaxFreshBodies || MaxFreshBodies > 3) { return false; }
+        if (!(CorridorRangeMetres > 0 && CorridorRangeMetres <= 80 && MaxMigrationMetres >= CorridorRangeMetres && MaxMigrationMetres <= 480)) { return false; }
+        if (!(MigrationScanSeconds >= 1 && MigrationScanSeconds <= 60)) { return false; }
+        if (!(MigrationLifetimeSeconds > 0 && MigrationLifetimeSeconds <= 60)) { return false; }
         if (StandingRiserEvery < 0 || StandingRiserEvery > MaxFreshBodies) { return false; }
         if (!(ContextRange >= 1 && ContextRange <= 100 && InterestRange >= 120 && InterestRange <= 1500)) { return false; }
         if (!(MinSpawnDistance >= 120 && VisibilityRange >= 1100 && VisibilityRange <= 1500)) { return false; }
@@ -76,6 +84,7 @@ class HCInfectedVariety
     {
         s_Running = false;
         s_Pending = false;
+        s_Config = null;
         s_Fault = "";
         bool enabled = HCOperatorEnabled(preference);
         Print(HCV2Admission.Line("InfectedVarietyPlaces", enabled, "W60-native-fresh-variants", false) + " runtime=PENDING");
@@ -89,7 +98,6 @@ class HCInfectedVariety
         if (!HCLoadConfig()) { return; }
         s_Running = true;
         Print("[HC Variety] fresh_crawlers=admitted_unverified standing_risers=native_standing_idle places=authored_CE opt_out=acceptance/infected_variety.disable runtime=PENDING");
-        Print("[HC Variety] migration=authored_routes_retained reason=road_terrain_topology_missing runtime=PENDING");
     }
 
     static bool HCOperatorEnabled(bool preference)
@@ -103,7 +111,7 @@ class HCInfectedVariety
         string error;
         // Every operational scalar is required: native JSON zero-fill must not
         // silently turn missing ranges/caps into an unbounded permissive gate.
-        array<string> keys = {"SchemaVersion", "MaxSites", "MaxFreshBodies", "GroupMembers", "StandingRiserEvery", "ContextRange", "InterestRange", "RequestRange", "MinSpawnDistance", "VisibilityRange", "MaxObservers", "GroupSpacing", "AutomaticIntervalSeconds", "Sites"};
+        array<string> keys = {"SchemaVersion", "MaxSites", "MaxFreshBodies", "GroupMembers", "StandingRiserEvery", "EnableMigration", "CorridorRangeMetres", "MaxMigrationMetres", "MigrationLifetimeSeconds", "MigrationScanSeconds", "ContextRange", "InterestRange", "RequestRange", "MinSpawnDistance", "VisibilityRange", "MaxObservers", "GroupSpacing", "AutomaticIntervalSeconds", "Sites"};
         foreach (string key : keys)
         {
             if (!HCJsonFields.Has(content, key)) { s_Fault = "variety_data_missing_field:" + key; HCRefuse(s_Fault); return false; }
@@ -118,6 +126,8 @@ class HCInfectedVariety
         s_Config = config;
         return true;
     }
+
+    static HCInfectedVarietyConfig HCConfig() { return s_Config; }
 
     static string HCFault() { return s_Fault; }
 
