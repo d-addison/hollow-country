@@ -28,6 +28,10 @@ def append_types(packs, workshop, loaded, types, source, overlays):
             if entry.tag != 'type':
                 raise ValueError('invalid RaG shipped type')
             overlays.unique_append(types, entry)
+        # HC-32: the inspected dependency supplies four tools/consumables, no
+        # new transport family. Generic CE ownership checks in optional_overlays
+        # also reject vehicle classes smuggled through a positive types budget.
+        overlays.travel.validate_vehicle_budgets(types, set())
     if 'Navigation' in packs:
         # Own policy: four map-wide, counting stored/carried GPS against CE refill.
         gps = ET.Element('type', {'name': 'ExpansionGPS'})
