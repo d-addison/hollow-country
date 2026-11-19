@@ -83,7 +83,9 @@
         "sample_is_candidate": false,
         "path_tests": 0,
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
-      }
+      },
+      "LocalityId": "sinystok",
+      "MembershipBasis": "existing_catalog_declaration_not_native_access"
     },
     {
       "Id": "nc-feed-roof",
@@ -163,7 +165,9 @@
         "sample_is_candidate": false,
         "path_tests": 0,
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
-      }
+      },
+      "LocalityId": "kamensk",
+      "MembershipBasis": "existing_catalog_declaration_not_native_access"
     },
     {
       "Id": "ne-feed-roof",
@@ -243,7 +247,9 @@
         "sample_is_candidate": false,
         "path_tests": 0,
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
-      }
+      },
+      "LocalityId": "novodmitrovsk",
+      "MembershipBasis": "existing_catalog_declaration_not_native_access"
     },
     {
       "Id": "sc-bus-roof",
@@ -323,7 +329,9 @@
         "sample_is_candidate": false,
         "path_tests": 0,
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
-      }
+      },
+      "LocalityId": "prigorodki",
+      "MembershipBasis": "existing_catalog_declaration_not_native_access"
     },
     {
       "Id": "se-bus-roof",
@@ -403,7 +411,6037 @@
         "sample_is_candidate": false,
         "path_tests": 0,
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied."
-      }
+      },
+      "LocalityId": "elektrozavodsk",
+      "MembershipBasis": "existing_catalog_declaration_not_native_access"
     }
-  ]
+  ],
+  "LegacyBarnMembership": {
+    "Rows": [
+      {
+        "Name": "Drozhino Hay Refuge",
+        "Position": [
+          2585.119873,
+          202.433472,
+          5360.409668
+        ],
+        "LocalityId": "zelenogorsk",
+        "DistanceToLabelM": 286.82,
+        "StockRowIndex": 1411,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING"
+      },
+      {
+        "Name": "Bor South Rest",
+        "Position": [
+          3100.955811,
+          249.415558,
+          4238.387207
+        ],
+        "LocalityId": "bor",
+        "DistanceToLabelM": 272.853,
+        "StockRowIndex": 1955,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING"
+      },
+      {
+        "Name": "Sosnovka Track Barn",
+        "Position": [
+          3560.896484,
+          337.081543,
+          7004.783203
+        ],
+        "LocalityId": "pustoshka",
+        "DistanceToLabelM": 981.904,
+        "StockRowIndex": 2482,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING"
+      },
+      {
+        "Name": "Pulkovo Ridge Rest",
+        "Position": [
+          5271.449219,
+          308.912933,
+          5515.677246
+        ],
+        "LocalityId": "pulkovo",
+        "DistanceToLabelM": 272.224,
+        "StockRowIndex": 3722,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING"
+      },
+      {
+        "Name": "Dolina Upper Refuge",
+        "Position": [
+          9710.349609,
+          216.305511,
+          6487.099121
+        ],
+        "LocalityId": "shakhovka",
+        "DistanceToLabelM": 82.26,
+        "StockRowIndex": 7300,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING"
+      },
+      {
+        "Name": "Polana South Wayhouse",
+        "Position": [
+          10677.808594,
+          214.414337,
+          7923.848633
+        ],
+        "LocalityId": "polana",
+        "DistanceToLabelM": 263.188,
+        "StockRowIndex": 8264,
+        "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+        "RuntimeAcceptance": "PENDING"
+      }
+    ]
+  },
+  "AdditionalScenes": [
+    {
+      "Id": "gapcov-balota-roof",
+      "Name": "balota exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        4544.932617,
+        59.827011,
+        3130.591064
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "4544.932617 59.827011 3130.591064",
+          "rpy": "-0.000000 0.000000 52.967697",
+          "a": "37.032299"
+        },
+        "stock_row_index": 3200,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 665.497
+      },
+      "LocalityId": "balota",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-belaya-polyana-roof",
+      "Name": "belaya-polyana exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        14188.152344,
+        131.525253,
+        14838.943359
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "14188.152344 131.525253 14838.943359",
+          "rpy": "-0.000000 0.000000 -60.651497",
+          "a": "150.651489"
+        },
+        "stock_row_index": 11599,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 130.944
+      },
+      "LocalityId": "belaya-polyana",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-berezhki-roof",
+      "Name": "berezhki exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        14917.326172,
+        159.152939,
+        14257.607422
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "14917.326172 159.152939 14257.607422",
+          "rpy": "-0.000000 0.000000 158.460876",
+          "a": "-68.460876"
+        },
+        "stock_row_index": 11648,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 367.252
+      },
+      "LocalityId": "berezhki",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-berezino-roof",
+      "Name": "berezino exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        12360.422852,
+        10.900807,
+        9651.760742
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "12360.422852 10.900807 9651.760742",
+          "rpy": "-0.017967 -0.021444 129.959030",
+          "a": "-39.959042"
+        },
+        "stock_row_index": 10145,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 109.873
+      },
+      "LocalityId": "berezino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-bogatyrka-roof",
+      "Name": "bogatyrka exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        1808.760254,
+        293.057983,
+        9146.089844
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "1808.760254 293.057983 9146.089844",
+          "rpy": "-0.000000 0.000000 18.944813",
+          "a": "71.055183"
+        },
+        "stock_row_index": 859,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 449.269
+      },
+      "LocalityId": "bogatyrka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-bor-roof",
+      "Name": "bor exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        3100.955811,
+        249.415558,
+        4238.387207
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "3100.955811 249.415558 4238.387207",
+          "rpy": "-0.000000 0.000000 -96.056847",
+          "a": "-173.943161"
+        },
+        "stock_row_index": 1955,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 272.853
+      },
+      "LocalityId": "bor",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-chernaya-polyana-roof",
+      "Name": "chernaya-polyana exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        12141.347656,
+        96.841225,
+        13641.462891
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "12141.347656 96.841225 13641.462891",
+          "rpy": "0.005967 0.018861 -72.443924",
+          "a": "162.443909"
+        },
+        "stock_row_index": 9779,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 129.9
+      },
+      "LocalityId": "chernaya-polyana",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-chernogorsk-roof",
+      "Name": "chernogorsk exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        6342.815918,
+        10.309018,
+        2502.824951
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "6342.815918 10.309018 2502.824951",
+          "rpy": "-0.000000 0.000000 -50.437710",
+          "a": "140.437698"
+        },
+        "stock_row_index": 4677,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 471.915
+      },
+      "LocalityId": "chernogorsk",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-devils-castle-roof",
+      "Name": "devils-castle exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        6889.009277,
+        340.438019,
+        10862.524414
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "6889.009277 340.438019 10862.524414",
+          "rpy": "-0.000000 0.000000 -162.726593",
+          "a": "-107.273399"
+        },
+        "stock_row_index": 5456,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 537.588
+      },
+      "LocalityId": "devils-castle",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-dobroye-roof",
+      "Name": "dobroye exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        13314.882813,
+        38.745819,
+        14760.651367
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "13314.882813 38.745819 14760.651367",
+          "rpy": "-0.000000 0.000000 -42.595123",
+          "a": "132.595139"
+        },
+        "stock_row_index": 11067,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 441.502
+      },
+      "LocalityId": "dobroye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-dubovo-roof",
+      "Name": "dubovo exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        6653.661621,
+        17.15004,
+        3096.433838
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "6653.661621 17.150040 3096.433838",
+          "rpy": "-0.000000 0.000000 73.962112",
+          "a": "16.037884"
+        },
+        "stock_row_index": 5189,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 508.915
+      },
+      "LocalityId": "dubovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-dubrovka-roof",
+      "Name": "dubrovka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        10873.338867,
+        86.26506,
+        10268.777344
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "10873.338867 86.265060 10268.777344",
+          "rpy": "-0.000000 0.000000 -132.029770",
+          "a": "-137.970230"
+        },
+        "stock_row_index": 8464,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 668.024
+      },
+      "LocalityId": "dubrovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-galkino-roof",
+      "Name": "galkino exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        1292.366821,
+        240.988266,
+        7988.322266
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "1292.366821 240.988266 7988.322266",
+          "rpy": "-0.000000 0.000000 -96.072365",
+          "a": "-173.927628"
+        },
+        "stock_row_index": 507,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 831.863
+      },
+      "LocalityId": "galkino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-gorka-roof",
+      "Name": "gorka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        9656.139648,
+        294.76709,
+        9187.803711
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "9656.139648 294.767090 9187.803711",
+          "rpy": "-0.000000 0.000000 -58.510178",
+          "a": "148.510178"
+        },
+        "stock_row_index": 7285,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 276.432
+      },
+      "LocalityId": "gorka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-guglovo-roof",
+      "Name": "guglovo exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        8855.47168,
+        344.730774,
+        6983.57666
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "8855.471680 344.730774 6983.576660",
+          "rpy": "-0.000000 0.000000 0.000000",
+          "a": "90.000000"
+        },
+        "stock_row_index": 6829,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 576.341
+      },
+      "LocalityId": "guglovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-gvozdno-roof",
+      "Name": "gvozdno exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        8633.587891,
+        180.257217,
+        12096.203125
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "8633.587891 180.257217 12096.203125",
+          "rpy": "0.017289 -0.009613 29.073950",
+          "a": "60.926044"
+        },
+        "stock_row_index": 6764,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 162.472
+      },
+      "LocalityId": "gvozdno",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-kabanino-roof",
+      "Name": "kabanino exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        5347.12793,
+        336.546448,
+        8650.952148
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "5347.127930 336.546448 8650.952148",
+          "rpy": "-0.000000 0.000000 129.137482",
+          "a": "-39.137486"
+        },
+        "stock_row_index": 3792,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 46.692
+      },
+      "LocalityId": "kabanino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-kalinovka-roof",
+      "Name": "kalinovka exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        7731.844727,
+        172.662537,
+        13149.407227
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "7731.844727 172.662537 13149.407227",
+          "rpy": "0.017826 0.008577 -25.693956",
+          "a": "115.693947"
+        },
+        "stock_row_index": 6026,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 382.633
+      },
+      "LocalityId": "kalinovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-kamenka-roof",
+      "Name": "kamenka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        1354.851318,
+        8.170421,
+        2457.874268
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "1354.851318 8.170421 2457.874268",
+          "rpy": "-0.000000 0.000000 28.529408",
+          "a": "61.470592"
+        },
+        "stock_row_index": 534,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 674.537
+      },
+      "LocalityId": "kamenka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-kamyshovo-roof",
+      "Name": "kamyshovo exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        11816.854492,
+        60.724621,
+        4013.427734
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "11816.854492 60.724621 4013.427734",
+          "rpy": "-0.000000 0.000000 142.997055",
+          "a": "-52.997059"
+        },
+        "stock_row_index": 9251,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 658.188
+      },
+      "LocalityId": "kamyshovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-karmanovka-roof",
+      "Name": "karmanovka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        12624.743164,
+        110.643318,
+        14528.345703
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "12624.743164 110.643318 14528.345703",
+          "rpy": "-0.000000 0.000000 0.000000",
+          "a": "90.000000"
+        },
+        "stock_row_index": 10318,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 179.768
+      },
+      "LocalityId": "karmanovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-khelm-roof",
+      "Name": "khelm exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        12241.135742,
+        95.680054,
+        10614.205078
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "12241.135742 95.680054 10614.205078",
+          "rpy": "0.027975 -0.000233 0.477244",
+          "a": "89.522758"
+        },
+        "stock_row_index": 9966,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 179.876
+      },
+      "LocalityId": "khelm",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-kozlovka-roof",
+      "Name": "kozlovka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        4444.75293,
+        317.184357,
+        5074.055664
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "4444.752930 317.184357 5074.055664",
+          "rpy": "-0.000000 0.000000 -29.051270",
+          "a": "119.051277"
+        },
+        "stock_row_index": 3117,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 340.748
+      },
+      "LocalityId": "kozlovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-krasnostav-roof",
+      "Name": "krasnostav exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        11212.105469,
+        196.35141,
+        12197.904297
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "11212.105469 196.351410 12197.904297",
+          "rpy": "-0.000000 0.000000 -55.545189",
+          "a": "145.545197"
+        },
+        "stock_row_index": 8643,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 143.183
+      },
+      "LocalityId": "krasnostav",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-krasnoye-roof",
+      "Name": "krasnoye exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        6220.273438,
+        465.571747,
+        15337.134766
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "6220.273438 465.571747 15337.134766",
+          "rpy": "-0.000000 0.000000 79.893440",
+          "a": "10.106553"
+        },
+        "stock_row_index": 4557,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 361.767
+      },
+      "LocalityId": "krasnoye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-kumyrna-roof",
+      "Name": "kumyrna exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        8171.711426,
+        184.208511,
+        5446.868652
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "8171.711426 184.208511 5446.868652",
+          "rpy": "-0.000000 0.000000 -78.291336",
+          "a": "168.291336"
+        },
+        "stock_row_index": 6464,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 620.537
+      },
+      "LocalityId": "kumyrna",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-lopatino-roof",
+      "Name": "lopatino exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        2563.891602,
+        261.918457,
+        9221.756836
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "2563.891602 261.918457 9221.756836",
+          "rpy": "-0.000000 0.000000 108.788376",
+          "a": "-18.788376"
+        },
+        "stock_row_index": 1351,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 841.345
+      },
+      "LocalityId": "lopatino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-mogilevka-roof",
+      "Name": "mogilevka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        6997.211426,
+        217.29245,
+        4549.72168
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "6997.211426 217.292450 4549.721680",
+          "rpy": "-0.000000 0.000000 -4.419368",
+          "a": "94.419365"
+        },
+        "stock_row_index": 5521,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 851.816
+      },
+      "LocalityId": "mogilevka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-msta-roof",
+      "Name": "msta exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        11756.543945,
+        200.672852,
+        5805.47998
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "11756.543945 200.672852 5805.479980",
+          "rpy": "-0.000000 0.000000 -153.155655",
+          "a": "-116.844337"
+        },
+        "stock_row_index": 9205,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 571.173
+      },
+      "LocalityId": "msta",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-myshkino-roof",
+      "Name": "myshkino exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        2543.650391,
+        366.802979,
+        7593.288574
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "2543.650391 366.802979 7593.288574",
+          "rpy": "-0.000000 0.000000 -71.922707",
+          "a": "161.922699"
+        },
+        "stock_row_index": 1349,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 598.404
+      },
+      "LocalityId": "myshkino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-nadezhdino-roof",
+      "Name": "nadezhdino exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        5263.218262,
+        295.056061,
+        4857.912109
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "5263.218262 295.056061 4857.912109",
+          "rpy": "-0.000000 0.000000 98.373466",
+          "a": "-8.373473"
+        },
+        "stock_row_index": 3721,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 635.575
+      },
+      "LocalityId": "nadezhdino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-nagornoye-roof",
+      "Name": "nagornoye exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        9164.732422,
+        294.66864,
+        14844.21582
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "9164.732422 294.668640 14844.215820",
+          "rpy": "-0.000000 0.000000 72.835823",
+          "a": "17.164173"
+        },
+        "stock_row_index": 6918,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 206.56
+      },
+      "LocalityId": "nagornoye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-nizhnee-roof",
+      "Name": "nizhnee exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        12942.088867,
+        13.62428,
+        8130.702637
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "12942.088867 13.624280 8130.702637",
+          "rpy": "-0.000000 0.000000 97.717949",
+          "a": "-7.717946"
+        },
+        "stock_row_index": 10692,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 121.767
+      },
+      "LocalityId": "nizhnee",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-novaya-petrovka-roof",
+      "Name": "novaya-petrovka exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        3689.553467,
+        190.512543,
+        13081.108398
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "3689.553467 190.512543 13081.108398",
+          "rpy": "-0.000000 0.000000 167.733292",
+          "a": "-77.733299"
+        },
+        "stock_row_index": 2620,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 259.936
+      },
+      "LocalityId": "novaya-petrovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-novoselki-roof",
+      "Name": "novoselki exterior rest",
+      "BuildingClass": "Land_BusStop_Village2",
+      "Position": [
+        6078.25,
+        20.931112,
+        2827.880371
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.03784,
+        -1.57774,
+        -1.40146
+      ],
+      "ClipMax": [
+        3.03784,
+        1.57774,
+        1.40146
+      ],
+      "AccessMin": [
+        -5.03784,
+        -20,
+        -3.40146
+      ],
+      "AccessMax": [
+        5.03784,
+        20,
+        3.40146
+      ],
+      "YardMin": [
+        -9.53784,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -5.537839999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -7.537839999999999,
+          0,
+          0
+        ],
+        [
+          -7.537839999999999,
+          0,
+          -3
+        ],
+        [
+          -7.537839999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          6206.87,
+          20.9111,
+          2776.78
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_BusStop_Village2",
+          "pos": "6078.250000 20.931112 2827.880371",
+          "rpy": "-0.000000 0.000000 -105.581787",
+          "a": "-164.418198"
+        },
+        "stock_row_index": 4347,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 430.131
+      },
+      "LocalityId": "novoselki",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-novy-sobor-roof",
+      "Name": "novy-sobor exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        8118.444824,
+        407.60434,
+        8237.876953
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "8118.444824 407.604340 8237.876953",
+          "rpy": "-0.000000 0.000000 171.827316",
+          "a": "-81.827324"
+        },
+        "stock_row_index": 6410,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": false,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 1097.385
+      },
+      "LocalityId": "novy-sobor",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-nw-airfield-roof",
+      "Name": "nw-airfield exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        5026.818359,
+        267.413544,
+        11275.800781
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "5026.818359 267.413544 11275.800781",
+          "rpy": "-0.014914 -0.036646 112.145355",
+          "a": "-22.145351"
+        },
+        "stock_row_index": 3611,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 974.269
+      },
+      "LocalityId": "nw-airfield",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-olsha-roof",
+      "Name": "olsha exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        13791.62207,
+        43.747513,
+        12868.035156
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "13791.622070 43.747513 12868.035156",
+          "rpy": "-0.000000 0.000000 -71.045952",
+          "a": "161.045959"
+        },
+        "stock_row_index": 11335,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 390.773
+      },
+      "LocalityId": "olsha",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-orlovets-roof",
+      "Name": "orlovets exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        12378.510742,
+        105.373116,
+        7740.572266
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "12378.510742 105.373116 7740.572266",
+          "rpy": "-0.000000 0.000000 179.228226",
+          "a": "-89.228218"
+        },
+        "stock_row_index": 10125,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 504.224
+      },
+      "LocalityId": "orlovets",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-pavlovo-roof",
+      "Name": "pavlovo exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        1409.074463,
+        141.003555,
+        4047.021729
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "1409.074463 141.003555 4047.021729",
+          "rpy": "-0.000000 0.000000 57.548100",
+          "a": "32.451900"
+        },
+        "stock_row_index": 560,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 341.548
+      },
+      "LocalityId": "pavlovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-polana-roof",
+      "Name": "polana exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        10677.808594,
+        214.414337,
+        7923.848633
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "10677.808594 214.414337 7923.848633",
+          "rpy": "0.038326 -0.022088 29.955965",
+          "a": "60.044033"
+        },
+        "stock_row_index": 8264,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 263.188
+      },
+      "LocalityId": "polana",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-polesovo-roof",
+      "Name": "polesovo exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        5298.107422,
+        213.97818,
+        13590.946289
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "5298.107422 213.978180 13590.946289",
+          "rpy": "-0.000000 0.000000 -20.233112",
+          "a": "110.233109"
+        },
+        "stock_row_index": 3772,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 658.452
+      },
+      "LocalityId": "polesovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-pulkovo-roof",
+      "Name": "pulkovo exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        5271.449219,
+        308.912933,
+        5515.677246
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "5271.449219 308.912933 5515.677246",
+          "rpy": "-0.000000 0.000000 13.336027",
+          "a": "76.663971"
+        },
+        "stock_row_index": 3722,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 272.224
+      },
+      "LocalityId": "pulkovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-pusta-roof",
+      "Name": "pusta exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        9200.192383,
+        231.352341,
+        3976.314941
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "9200.192383 231.352341 3976.314941",
+          "rpy": "-0.033754 0.044625 -127.103096",
+          "a": "-142.896896"
+        },
+        "stock_row_index": 6930,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 103.364
+      },
+      "LocalityId": "pusta",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-pustoshka-roof",
+      "Name": "pustoshka exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        3215.144287,
+        313.942108,
+        7776.054199
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "3215.144287 313.942108 7776.054199",
+          "rpy": "-0.000000 0.000000 132.909515",
+          "a": "-42.909523"
+        },
+        "stock_row_index": 2058,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 138.402
+      },
+      "LocalityId": "pustoshka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-rogovo-roof",
+      "Name": "rogovo exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        5097.820801,
+        289.098145,
+        6386.413574
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "5097.820801 289.098145 6386.413574",
+          "rpy": "-0.000000 0.000000 -136.989365",
+          "a": "-133.010620"
+        },
+        "stock_row_index": 3649,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 467.177
+      },
+      "LocalityId": "rogovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-severograd-roof",
+      "Name": "severograd exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        8068.223145,
+        121.205116,
+        12586.291992
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "8068.223145 121.205116 12586.291992",
+          "rpy": "-0.000000 0.000000 129.397385",
+          "a": "-39.397388"
+        },
+        "stock_row_index": 6371,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 101.061
+      },
+      "LocalityId": "severograd",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-shakhovka-roof",
+      "Name": "shakhovka exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        9710.349609,
+        216.305511,
+        6487.099121
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "9710.349609 216.305511 6487.099121",
+          "rpy": "-0.000000 0.000000 36.855698",
+          "a": "53.144299"
+        },
+        "stock_row_index": 7300,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 82.26
+      },
+      "LocalityId": "shakhovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-skvsch-biathlon-arena-roof",
+      "Name": "skvsch-biathlon-arena exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        80.261421,
+        411.262756,
+        10449.132813
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "80.261421 411.262756 10449.132813",
+          "rpy": "-0.000000 0.000000 -58.923214",
+          "a": "148.923218"
+        },
+        "stock_row_index": 1,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 746.089
+      },
+      "LocalityId": "skvsch-biathlon-arena",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-sosnovka-roof",
+      "Name": "sosnovka exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        2057.715088,
+        314.685272,
+        6277.850586
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "2057.715088 314.685272 6277.850586",
+          "rpy": "-0.000000 0.000000 -139.037216",
+          "a": "-130.962784"
+        },
+        "stock_row_index": 1022,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 499.137
+      },
+      "LocalityId": "sosnovka",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-staroye-roof",
+      "Name": "staroye exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        10643.481445,
+        247.555817,
+        6059.513672
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "10643.481445 247.555817 6059.513672",
+          "rpy": "-0.018207 0.021241 -130.601456",
+          "a": "-139.398529"
+        },
+        "stock_row_index": 8261,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 800.393
+      },
+      "LocalityId": "staroye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-stary-yar-roof",
+      "Name": "stary-yar exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        4850.998047,
+        476.733582,
+        15220.709961
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "4850.998047 476.733582 15220.709961",
+          "rpy": "0.038577 -0.008788 12.833685",
+          "a": "77.166313"
+        },
+        "stock_row_index": 3453,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 265.695
+      },
+      "LocalityId": "stary-yar",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-svergino-roof",
+      "Name": "svergino exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        9667.137695,
+        77.460258,
+        13778.698242
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "9667.137695 77.460258 13778.698242",
+          "rpy": "-0.014548 -0.013405 137.340652",
+          "a": "-47.340652"
+        },
+        "stock_row_index": 7347,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 198.669
+      },
+      "LocalityId": "svergino",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-svetloyarsk-roof",
+      "Name": "svetloyarsk exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        13980.379883,
+        18.696783,
+        13250.694336
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "13980.379883 18.696783 13250.694336",
+          "rpy": "0.033034 -0.029419 41.687847",
+          "a": "48.312157"
+        },
+        "stock_row_index": 11501,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 16.089
+      },
+      "LocalityId": "svetloyarsk",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-svyatoy-roman-ski-resort-roof",
+      "Name": "svyatoy-roman-ski-resort exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        196.072708,
+        541.651978,
+        11741.008789
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "196.072708 541.651978 11741.008789",
+          "rpy": "-0.000000 0.000000 127.190041",
+          "a": "-37.190048"
+        },
+        "stock_row_index": 24,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 448.082
+      },
+      "LocalityId": "svyatoy-roman-ski-resort",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-tisy-roof",
+      "Name": "tisy exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        3905.636963,
+        418.40564,
+        15270.59082
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "3905.636963 418.405640 15270.590820",
+          "rpy": "-0.000000 0.000000 0.000000",
+          "a": "90.000000"
+        },
+        "stock_row_index": 2801,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 661.183
+      },
+      "LocalityId": "tisy",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-tisy-military-roof",
+      "Name": "tisy-military exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        2171.249023,
+        407.516541,
+        13767.192383
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "2171.249023 407.516541 13767.192383",
+          "rpy": "-0.007487 0.038850 -100.907761",
+          "a": "-169.092239"
+        },
+        "stock_row_index": 1106,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 663.986
+      },
+      "LocalityId": "tisy-military",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-topolniki-roof",
+      "Name": "topolniki exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        2766.59082,
+        230.615921,
+        12138.327148
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "2766.590820 230.615921 12138.327148",
+          "rpy": "0.009952 -0.017097 59.797150",
+          "a": "30.202845"
+        },
+        "stock_row_index": 1723,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 271.389
+      },
+      "LocalityId": "topolniki",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-tulga-roof",
+      "Name": "tulga exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        13331.621094,
+        7.484608,
+        5062.072754
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "13331.621094 7.484608 5062.072754",
+          "rpy": "-0.000568 0.027970 -91.162498",
+          "a": "-178.837494"
+        },
+        "stock_row_index": 11071,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 881.732
+      },
+      "LocalityId": "tulga",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-turovo-roof",
+      "Name": "turovo exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        13746.259766,
+        30.365343,
+        14129.463867
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "13746.259766 30.365343 14129.463867",
+          "rpy": "-0.000000 0.000000 -5.485096",
+          "a": "95.485092"
+        },
+        "stock_row_index": 11355,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 117.43
+      },
+      "LocalityId": "turovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-vavilovo-roof",
+      "Name": "vavilovo exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        2256.535645,
+        272.844635,
+        10899.652344
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "2256.535645 272.844635 10899.652344",
+          "rpy": "0.019777 0.000452 -1.308053",
+          "a": "91.308044"
+        },
+        "stock_row_index": 1126,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 203.45
+      },
+      "LocalityId": "vavilovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-vybor-roof",
+      "Name": "vybor exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        3849.562256,
+        311.902374,
+        8854.833984
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "3849.562256 311.902374 8854.833984",
+          "rpy": "0.030991 -0.014614 25.246809",
+          "a": "64.753189"
+        },
+        "stock_row_index": 2731,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 175.456
+      },
+      "LocalityId": "vybor",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-vybor-military-roof",
+      "Name": "vybor-military exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        4431.20166,
+        315.407806,
+        8233.883789
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "4431.201660 315.407806 8233.883789",
+          "rpy": "-0.000000 0.000000 -84.813560",
+          "a": "174.813568"
+        },
+        "stock_row_index": 3060,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 78.361
+      },
+      "LocalityId": "vybor-military",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-vyshnoye-roof",
+      "Name": "vyshnoye exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        6155.063965,
+        231.612427,
+        5688.321777
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -10.39135,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "6155.063965 231.612427 5688.321777",
+          "rpy": "-0.000000 0.000000 41.762417",
+          "a": "48.237579"
+        },
+        "stock_row_index": 4457,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 596.784
+      },
+      "LocalityId": "vyshnoye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-vysotovo-roof",
+      "Name": "vysotovo exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        5716.401367,
+        58.884052,
+        2425.210205
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "5716.401367 58.884052 2425.210205",
+          "rpy": "-0.000000 0.000000 -5.497609",
+          "a": "95.497604"
+        },
+        "stock_row_index": 3969,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 131.775
+      },
+      "LocalityId": "vysotovo",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-zabolotye-roof",
+      "Name": "zabolotye exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        1029.501343,
+        341.571014,
+        9965.56543
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "1029.501343 341.571014 9965.565430",
+          "rpy": "-0.000000 0.000000 -119.682327",
+          "a": "-150.317657"
+        },
+        "stock_row_index": 366,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 229.038
+      },
+      "LocalityId": "zabolotye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-zaprudnoye-roof",
+      "Name": "zaprudnoye exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        5387.128418,
+        161.014206,
+        12627.210938
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "5387.128418 161.014206 12627.210938",
+          "rpy": "-0.000000 0.000000 18.536394",
+          "a": "71.463600"
+        },
+        "stock_row_index": 3805,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 239.016
+      },
+      "LocalityId": "zaprudnoye",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-zelenogorsk-roof",
+      "Name": "zelenogorsk exterior rest",
+      "BuildingClass": "Land_BusStop_City",
+      "Position": [
+        2837.758301,
+        205.57312,
+        5262.322754
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -5.58416,
+        -1.84628,
+        -2.61728
+      ],
+      "ClipMax": [
+        5.58416,
+        1.84628,
+        2.61728
+      ],
+      "AccessMin": [
+        -7.58416,
+        -20,
+        -4.61728
+      ],
+      "AccessMax": [
+        7.58416,
+        20,
+        4.61728
+      ],
+      "YardMin": [
+        -12.08416,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -8.08416,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -10.08416,
+          0,
+          0
+        ],
+        [
+          -10.08416,
+          0,
+          -3
+        ],
+        [
+          -10.08416,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_BusStop_City",
+          "pos": "2837.758301 205.573120 5262.322754",
+          "rpy": "-0.058171 0.011757 -168.573486",
+          "a": "-101.426506"
+        },
+        "stock_row_index": 1750,
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          8559.86,
+          105.811,
+          12806.7
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 104.985
+      },
+      "LocalityId": "zelenogorsk",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-zvir-roof",
+      "Name": "zvir exterior rest",
+      "BuildingClass": "Land_Barn_Wood2",
+      "Position": [
+        555.201538,
+        152.866577,
+        5393.116211
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -8.48698,
+        -5.7232,
+        -15.659
+      ],
+      "ClipMax": [
+        8.48698,
+        5.7232,
+        15.659
+      ],
+      "AccessMin": [
+        -10.48698,
+        -20,
+        -17.659
+      ],
+      "AccessMax": [
+        10.48698,
+        20,
+        17.659
+      ],
+      "YardMin": [
+        -14.986979999999999,
+        -20,
+        -6
+      ],
+      "YardMax": [
+        -10.986979999999999,
+        20,
+        6
+      ],
+      "Slots": [
+        [
+          -12.986979999999999,
+          0,
+          0
+        ],
+        [
+          -12.986979999999999,
+          0,
+          -3
+        ],
+        [
+          -12.986979999999999,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+        "sample_position": [
+          5271.45,
+          308.913,
+          5515.68
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "stock_row": {
+          "name": "Land_Barn_Wood2",
+          "pos": "555.201538 152.866577 5393.116211",
+          "rpy": "-0.000000 0.000000 40.842407",
+          "a": "49.157593"
+        },
+        "stock_row_index": 201,
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 78.864
+      },
+      "LocalityId": "zvir",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    }
+  ],
+  "GapcovIntegration": {
+    "RuntimeAcceptance": "PENDING",
+    "State": "authored_additional_scenes_waiting_shared_catalog_registration",
+    "ExistingGlobalOptOut": "Enabled=false applies to both Scenes and AdditionalScenes after integration",
+    "OperatorOptOut": "Enabled=false for regional scenes; each scene Enabled=false for individual opt-out; EnableTravel=false for all shelters",
+    "Policy": "Scenes stays compatible with the five-row catalog. AdditionalScenes reuses those measured class envelopes, three empty exterior props, zero stock grants and full roof/access keepouts. Site collision, terrain, rain and all-player visibility remain runtime vetoes.",
+    "RequiredSharedEdit": "Register these HCCandidate calls after the existing five in HCShelterCatalog.HCEnsureCandidates; merge AdditionalScenes after Scenes in HCLoadRegional BEFORE HCRegionalValid and HCJsonFields guards; add owned AdditionalScenes array to HCShelterRegionalConfig. Keep existing shape, identity, bounds, slot, sight and budget checks. Derive status through existing HCGetOperationalStatus.",
+    "CandidateCalls": [
+      "HCCandidate(\"gapcov-balota-roof\", \"balota exterior rest\", \"Land_Misc_FeedShack\", \"4544.932617 59.827011 3130.591064\", \"balota\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-belaya-polyana-roof\", \"belaya-polyana exterior rest\", \"Land_Barn_Wood2\", \"14188.152344 131.525253 14838.943359\", \"belaya-polyana\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-berezhki-roof\", \"berezhki exterior rest\", \"Land_Misc_FeedShack\", \"14917.326172 159.152939 14257.607422\", \"berezhki\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-berezino-roof\", \"berezino exterior rest\", \"Land_BusStop_City\", \"12360.422852 10.900807 9651.760742\", \"berezino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-bogatyrka-roof\", \"bogatyrka exterior rest\", \"Land_Barn_Wood2\", \"1808.760254 293.057983 9146.089844\", \"bogatyrka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-bor-roof\", \"bor exterior rest\", \"Land_Barn_Wood2\", \"3100.955811 249.415558 4238.387207\", \"bor\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-chernaya-polyana-roof\", \"chernaya-polyana exterior rest\", \"Land_BusStop_City\", \"12141.347656 96.841225 13641.462891\", \"chernaya-polyana\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-chernogorsk-roof\", \"chernogorsk exterior rest\", \"Land_BusStop_City\", \"6342.815918 10.309018 2502.824951\", \"chernogorsk\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-devils-castle-roof\", \"devils-castle exterior rest\", \"Land_Misc_FeedShack\", \"6889.009277 340.438019 10862.524414\", \"devils-castle\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-dobroye-roof\", \"dobroye exterior rest\", \"Land_Barn_Wood2\", \"13314.882813 38.745819 14760.651367\", \"dobroye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-dubovo-roof\", \"dubovo exterior rest\", \"Land_Barn_Wood2\", \"6653.661621 17.15004 3096.433838\", \"dubovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-dubrovka-roof\", \"dubrovka exterior rest\", \"Land_Misc_FeedShack\", \"10873.338867 86.26506 10268.777344\", \"dubrovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-galkino-roof\", \"galkino exterior rest\", \"Land_Misc_FeedShack\", \"1292.366821 240.988266 7988.322266\", \"galkino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-gorka-roof\", \"gorka exterior rest\", \"Land_Misc_FeedShack\", \"9656.139648 294.76709 9187.803711\", \"gorka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-guglovo-roof\", \"guglovo exterior rest\", \"Land_Misc_FeedShack\", \"8855.47168 344.730774 6983.57666\", \"guglovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-gvozdno-roof\", \"gvozdno exterior rest\", \"Land_Misc_FeedShack\", \"8633.587891 180.257217 12096.203125\", \"gvozdno\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kabanino-roof\", \"kabanino exterior rest\", \"Land_Barn_Wood2\", \"5347.12793 336.546448 8650.952148\", \"kabanino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kalinovka-roof\", \"kalinovka exterior rest\", \"Land_Barn_Wood2\", \"7731.844727 172.662537 13149.407227\", \"kalinovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kamenka-roof\", \"kamenka exterior rest\", \"Land_Misc_FeedShack\", \"1354.851318 8.170421 2457.874268\", \"kamenka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kamyshovo-roof\", \"kamyshovo exterior rest\", \"Land_Misc_FeedShack\", \"11816.854492 60.724621 4013.427734\", \"kamyshovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-karmanovka-roof\", \"karmanovka exterior rest\", \"Land_Misc_FeedShack\", \"12624.743164 110.643318 14528.345703\", \"karmanovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-khelm-roof\", \"khelm exterior rest\", \"Land_Barn_Wood2\", \"12241.135742 95.680054 10614.205078\", \"khelm\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kozlovka-roof\", \"kozlovka exterior rest\", \"Land_Misc_FeedShack\", \"4444.75293 317.184357 5074.055664\", \"kozlovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-krasnostav-roof\", \"krasnostav exterior rest\", \"Land_BusStop_City\", \"11212.105469 196.35141 12197.904297\", \"krasnostav\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-krasnoye-roof\", \"krasnoye exterior rest\", \"Land_Misc_FeedShack\", \"6220.273438 465.571747 15337.134766\", \"krasnoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kumyrna-roof\", \"kumyrna exterior rest\", \"Land_Misc_FeedShack\", \"8171.711426 184.208511 5446.868652\", \"kumyrna\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-lopatino-roof\", \"lopatino exterior rest\", \"Land_Misc_FeedShack\", \"2563.891602 261.918457 9221.756836\", \"lopatino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-mogilevka-roof\", \"mogilevka exterior rest\", \"Land_Misc_FeedShack\", \"6997.211426 217.29245 4549.72168\", \"mogilevka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-msta-roof\", \"msta exterior rest\", \"Land_Misc_FeedShack\", \"11756.543945 200.672852 5805.47998\", \"msta\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-myshkino-roof\", \"myshkino exterior rest\", \"Land_Misc_FeedShack\", \"2543.650391 366.802979 7593.288574\", \"myshkino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-nadezhdino-roof\", \"nadezhdino exterior rest\", \"Land_Misc_FeedShack\", \"5263.218262 295.056061 4857.912109\", \"nadezhdino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-nagornoye-roof\", \"nagornoye exterior rest\", \"Land_Barn_Wood2\", \"9164.732422 294.66864 14844.21582\", \"nagornoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-nizhnee-roof\", \"nizhnee exterior rest\", \"Land_Barn_Wood2\", \"12942.088867 13.62428 8130.702637\", \"nizhnee\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-novaya-petrovka-roof\", \"novaya-petrovka exterior rest\", \"Land_BusStop_City\", \"3689.553467 190.512543 13081.108398\", \"novaya-petrovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-novoselki-roof\", \"novoselki exterior rest\", \"Land_BusStop_Village2\", \"6078.25 20.931112 2827.880371\", \"novoselki\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-novy-sobor-roof\", \"novy-sobor exterior rest\", \"Land_Misc_FeedShack\", \"8118.444824 407.60434 8237.876953\", \"novy-sobor\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-nw-airfield-roof\", \"nw-airfield exterior rest\", \"Land_Misc_FeedShack\", \"5026.818359 267.413544 11275.800781\", \"nw-airfield\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-olsha-roof\", \"olsha exterior rest\", \"Land_Barn_Wood2\", \"13791.62207 43.747513 12868.035156\", \"olsha\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-orlovets-roof\", \"orlovets exterior rest\", \"Land_Misc_FeedShack\", \"12378.510742 105.373116 7740.572266\", \"orlovets\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-pavlovo-roof\", \"pavlovo exterior rest\", \"Land_Barn_Wood2\", \"1409.074463 141.003555 4047.021729\", \"pavlovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-polana-roof\", \"polana exterior rest\", \"Land_Barn_Wood2\", \"10677.808594 214.414337 7923.848633\", \"polana\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-polesovo-roof\", \"polesovo exterior rest\", \"Land_Misc_FeedShack\", \"5298.107422 213.97818 13590.946289\", \"polesovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-pulkovo-roof\", \"pulkovo exterior rest\", \"Land_Barn_Wood2\", \"5271.449219 308.912933 5515.677246\", \"pulkovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-pusta-roof\", \"pusta exterior rest\", \"Land_Barn_Wood2\", \"9200.192383 231.352341 3976.314941\", \"pusta\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-pustoshka-roof\", \"pustoshka exterior rest\", \"Land_Barn_Wood2\", \"3215.144287 313.942108 7776.054199\", \"pustoshka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-rogovo-roof\", \"rogovo exterior rest\", \"Land_Misc_FeedShack\", \"5097.820801 289.098145 6386.413574\", \"rogovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-severograd-roof\", \"severograd exterior rest\", \"Land_BusStop_City\", \"8068.223145 121.205116 12586.291992\", \"severograd\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-shakhovka-roof\", \"shakhovka exterior rest\", \"Land_Barn_Wood2\", \"9710.349609 216.305511 6487.099121\", \"shakhovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-skvsch-biathlon-arena-roof\", \"skvsch-biathlon-arena exterior rest\", \"Land_Misc_FeedShack\", \"80.261421 411.262756 10449.132813\", \"skvsch-biathlon-arena\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-sosnovka-roof\", \"sosnovka exterior rest\", \"Land_Misc_FeedShack\", \"2057.715088 314.685272 6277.850586\", \"sosnovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-staroye-roof\", \"staroye exterior rest\", \"Land_Misc_FeedShack\", \"10643.481445 247.555817 6059.513672\", \"staroye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-stary-yar-roof\", \"stary-yar exterior rest\", \"Land_Barn_Wood2\", \"4850.998047 476.733582 15220.709961\", \"stary-yar\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-svergino-roof\", \"svergino exterior rest\", \"Land_BusStop_City\", \"9667.137695 77.460258 13778.698242\", \"svergino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-svetloyarsk-roof\", \"svetloyarsk exterior rest\", \"Land_BusStop_City\", \"13980.379883 18.696783 13250.694336\", \"svetloyarsk\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-svyatoy-roman-ski-resort-roof\", \"svyatoy-roman-ski-resort exterior rest\", \"Land_Misc_FeedShack\", \"196.072708 541.651978 11741.008789\", \"svyatoy-roman-ski-resort\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-tisy-roof\", \"tisy exterior rest\", \"Land_Barn_Wood2\", \"3905.636963 418.40564 15270.59082\", \"tisy\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-tisy-military-roof\", \"tisy-military exterior rest\", \"Land_Misc_FeedShack\", \"2171.249023 407.516541 13767.192383\", \"tisy-military\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-topolniki-roof\", \"topolniki exterior rest\", \"Land_Barn_Wood2\", \"2766.59082 230.615921 12138.327148\", \"topolniki\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-tulga-roof\", \"tulga exterior rest\", \"Land_Misc_FeedShack\", \"13331.621094 7.484608 5062.072754\", \"tulga\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-turovo-roof\", \"turovo exterior rest\", \"Land_Barn_Wood2\", \"13746.259766 30.365343 14129.463867\", \"turovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-vavilovo-roof\", \"vavilovo exterior rest\", \"Land_Barn_Wood2\", \"2256.535645 272.844635 10899.652344\", \"vavilovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-vybor-roof\", \"vybor exterior rest\", \"Land_BusStop_City\", \"3849.562256 311.902374 8854.833984\", \"vybor\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-vybor-military-roof\", \"vybor-military exterior rest\", \"Land_Barn_Wood2\", \"4431.20166 315.407806 8233.883789\", \"vybor-military\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-vyshnoye-roof\", \"vyshnoye exterior rest\", \"Land_Misc_FeedShack\", \"6155.063965 231.612427 5688.321777\", \"vyshnoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-vysotovo-roof\", \"vysotovo exterior rest\", \"Land_BusStop_City\", \"5716.401367 58.884052 2425.210205\", \"vysotovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-zabolotye-roof\", \"zabolotye exterior rest\", \"Land_Barn_Wood2\", \"1029.501343 341.571014 9965.56543\", \"zabolotye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-zaprudnoye-roof\", \"zaprudnoye exterior rest\", \"Land_BusStop_City\", \"5387.128418 161.014206 12627.210938\", \"zaprudnoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-zelenogorsk-roof\", \"zelenogorsk exterior rest\", \"Land_BusStop_City\", \"2837.758301 205.57312 5262.322754\", \"zelenogorsk\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-zvir-roof\", \"zvir exterior rest\", \"Land_Barn_Wood2\", \"555.201538 152.866577 5393.116211\", \"zvir\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");"
+    ]
+  }
 }
