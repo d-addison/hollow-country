@@ -153,7 +153,12 @@ class HCInfectedMemory
 
     bool Start()
     {
-        if (!GetGame().IsServer() || s_Instance) return false;
+        if (!GetGame().IsServer()) return false;
+        if (s_Instance)
+        {
+            Print("[HollowCountry] V2 infected memory start refused: already_active");
+            return false;
+        }
         int nowUtc = HCGroupClock.SampleUtc();
         if (nowUtc < 1 || !HCV2ThreatStore<HCInfectedMemoryState>.CanOpen(PATH)) { Fail(); return false; }
         if (FileExist(PATH))

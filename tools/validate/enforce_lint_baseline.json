@@ -58,29 +58,11 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c",
-      "symbol": "HCInfectedDoorsModule.Apply",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 372,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
       "symbol": "HCInfectedMemoryModule.OnStart",
       "key": "if (!GetGame().IsServer() || !IsEnabled(settings) || m_Memory) return;",
       "count": 1,
       "line_at_review": 274,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
-      "symbol": "HCInfectedLODModule.OnStart",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 337,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
@@ -175,24 +157,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c",
-      "symbol": "HCScenesModule.OnStart",
-      "key": "if (!m_State) { return; }",
-      "count": 1,
-      "line_at_review": 68,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c",
-      "symbol": "HCScenesModule.OnStart",
-      "key": "if (now < 1) { return; }",
-      "count": 1,
-      "line_at_review": 65,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
       "symbol": "HCTapedLightStartup.OnStart",
       "key": "if (m_Printed) { return; }",
@@ -205,35 +169,8 @@
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereLifecycle.c",
       "symbol": "HCServer.Start",
       "key": "return;",
-      "count": 2,
+      "count": 1,
       "line_at_review": 15,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c",
-      "symbol": "HCWeatherDaysModule.OnStart",
-      "key": "if (!HCAtmosphereQualification.SupportedWorld() || !HCAtmosphereQualification.DelegatedWeather()) return;",
-      "count": 1,
-      "line_at_review": 41,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c",
-      "symbol": "HCWeatherDaysModule.OnStart",
-      "key": "if (!mission) return;",
-      "count": 1,
-      "line_at_review": 50,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c",
-      "symbol": "HCLightingClient.Start",
-      "key": "if (m_HCRunning || !m_HCLighting) return;",
-      "count": 1,
-      "line_at_review": 41,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
@@ -387,33 +324,6 @@
       "key": "if (marker.Position[0] > worldSize || marker.Position[2] > worldSize) return false;",
       "count": 1,
       "line_at_review": 187,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
-      "symbol": "HCInfectedMemory.Start",
-      "key": "if (!GetGame().IsServer() || s_Instance) return false;",
-      "count": 1,
-      "line_at_review": 131,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
-      "symbol": "HCNativeInfectedPack.Start",
-      "key": "if (s_PendingRelease.Count() > 0) return false;",
-      "count": 1,
-      "line_at_review": 140,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
-      "symbol": "HCNativeInfectedPack.Start",
-      "key": "return false;",
-      "count": 10,
-      "line_at_review": 142,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {

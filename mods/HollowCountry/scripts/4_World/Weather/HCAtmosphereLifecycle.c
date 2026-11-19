@@ -23,7 +23,10 @@ modded class HCServer
         }
         Mission atmosphereMission = GetGame().GetMission();
         if (!atmosphereMission)
+        {
+            Print("[HollowCountry][Atmosphere] not started: mission_unavailable; vanilla weather retained");
             return;
+        }
         ChernarusPlusData atmosphereData = ChernarusPlusData.Cast(atmosphereMission.GetWorldData());
         if (atmosphereData)
             atmosphereData.HCStartAtmosphere();

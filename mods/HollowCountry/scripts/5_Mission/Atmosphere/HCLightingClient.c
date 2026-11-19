@@ -43,7 +43,12 @@ class HCLightingClient
 
     void Start()
     {
-        if (m_HCRunning || !m_HCLighting) return;
+        if (m_HCRunning) return;
+        if (!m_HCLighting)
+        {
+            Print("[HollowCountry] V2 client lighting not started: world_lighting_unavailable runtime=PENDING");
+            return;
+        }
         if (GetGame() && !GetGame().IsDedicatedServer())
         {
             m_HCRunning = true;
