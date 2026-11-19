@@ -55,7 +55,9 @@ class HCUnitBudget
     static const int HC_WORK_FORMATION = 14;
     // AI car finding and repair jobs.
     static const int HC_WORK_CARFIX = 15;
-    static const int HC_WORK_CONSUMERS = 16;
+    // Hearth fire bookkeeping behind house smoke (lit fireplaces with provenance).
+    static const int HC_WORK_HEARTH = 16;
+    static const int HC_WORK_CONSUMERS = 17;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;

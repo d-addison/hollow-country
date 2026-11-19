@@ -21,11 +21,13 @@ class SyntheticSources(list):
 
 
 class SignsOfLifeSmoke(unittest.TestCase):
-    def test_daily_selection_force_registry_and_caps(self):
+    def test_native_fire_selection_ordering_force_hints_and_caps(self):
         self.assertTrue(SOURCE.is_file(), 'missing HCSignsOfLife.c implementation')
         source = SOURCE.read_text()
         policy = N(ForceLit=[])
-        env = {'HCSignsOfLife': policy, 'Math': N(Round=round),
+        burning = set()
+        env = {'HCSignsOfLife': policy,
+               'HCHearthFires': N(HCHasBurning=lambda house: tuple(house) in burning), 'Math': N(Round=round),
                'vector': N(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b)))}
         for key, value in re.findall(r'static const int (\w+) = (\d+);', source):
             setattr(policy, key, int(value))
@@ -33,9 +35,10 @@ class SignsOfLifeSmoke(unittest.TestCase):
             setattr(policy, method, translate(source, method, env, 'HCSignsOfLife'))
         # Explicit synthetic neighbourhood; repeated calls must make the same choices.
         positions = [(100+i*17, 0, 200+i*23) for i in range(96)]
+        burning.update(positions[::2])
         today = [policy.IsLit(pos, 739937) for pos in positions]
         self.assertEqual(today, [policy.IsLit(pos, 739937) for pos in positions])
-        self.assertNotEqual(today, [policy.IsLit(pos, 739938) for pos in positions])
+        self.assertEqual(today, [policy.IsLit(pos, 739938) for pos in positions])
         self.assertTrue(any(today))
         self.assertTrue(any(not value for value in today))
         self.assertEqual((4, 2, 6), (policy.MAX_LIT, policy.MAX_SMOKE, policy.MAX_FLIES))
@@ -54,9 +57,13 @@ class SignsOfLifeSmoke(unittest.TestCase):
             self.assertFalse(policy.CanAdd(len(chosen), cap))
         forced = next(pos for pos, selected in zip(positions, today) if not selected)
         policy.ForceLit.append(forced)
+        self.assertFalse(policy.IsLit(forced, 739937), 'occupancy cannot fabricate fire')
+        burning.add(forced)
         self.assertTrue(policy.IsLit(forced, 739937))
-        self.assertTrue(policy.IsLit(forced, 739938))
+        self.assertTrue(policy.IsSmoke(forced, 739938))
         policy.ForceLit.clear()
+        self.assertTrue(policy.IsLit(forced, 739937))
+        burning.remove(forced)
         self.assertFalse(policy.IsLit(forced, 739937))
 
 

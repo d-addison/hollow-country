@@ -179,8 +179,8 @@ class HCSignsOfLifeClient
             if (vector.DistanceSq(candidate.GetPosition(), center) > HCSignsOfLife.FLY_RADIUS * HCSignsOfLife.FLY_RADIUS) continue;
             HCSignsOfLife.Offer(flies, candidate, day, HCSignsOfLife.MAX_FLIES);
         }
-        Reconcile(m_Lit, lit, 0, HCSignsOfLife.MAX_LIT);
-        Reconcile(m_Smoke, smoke, 1, HCSignsOfLife.MAX_SMOKE);
+        Reconcile(m_Lit, lit, 0, HCHearthConfig.HCGet().MaxLit);
+        Reconcile(m_Smoke, smoke, 1, HCHearthConfig.HCGet().MaxSmoke);
         Reconcile(m_Flies, flies, 2, HCSignsOfLife.MAX_FLIES);
     }
 
@@ -236,11 +236,9 @@ class HCSignsOfLifeClient
             created.Source = source;
             if (kind == 0 || kind == 1)
             {
-                vector lamp, chimney;
-                if (!HCSignsOfLife.HousePoints(source, lamp, chimney)) continue;
-                if (kind == 0) created.Lamp = ScriptedLightBase.CreateLight(HCSignsWindowLight, lamp);
-                if (kind == 1) created.Smoke = Particle.PlayInWorld(ParticleList.HOUSE_SMALL_SMOKE, chimney);
-                if (!created.Lamp && !created.Smoke) continue;
+                // Native FireplaceIndoor owns chimney smoke and firelight. These
+                // are observation rows only: never add duplicate particles/glow.
+                if (!HCHearthFires.HCHasBurning(source)) continue;
             }
             else
             {
