@@ -1,0 +1,72 @@
+{
+  "SchemaVersion": 1,
+  "WorkPackage": "HC-23",
+  "Issue": "#58 part 2",
+  "DependsOn": "HC-7",
+  "GameBuild": "1.30.164289",
+  "Qualified": false,
+  "RuntimeAcceptance": "PENDING",
+  "Authority": "Review manifest mirrored by compiled HCTapedWearableCatalog; operator edits cannot grant qualification.",
+  "NativePairs": [
+    {
+      "HostClass": "Mich2001Helmet",
+      "LightClass": "UniversalLight",
+      "SlotName": "helmetFlashlight",
+      "PrerequisiteSlot": "",
+      "PrerequisiteClass": ""
+    }
+  ],
+  "Attachment": {
+    "Mode": "native_attachment",
+    "HostConfigRoot": "CfgVehicles",
+    "BatterySlot": "BatteryD",
+    "LightMemoryPoints": ["beamStart", "beamEnd"],
+    "TransformOwner": "Native helmet attachment and UniversalLight; no authored offset, orientation, proxy or light entity.",
+    "ModelGeometry": "PENDING; slot/config and script evidence do not establish mounted origin, orientation or cone.",
+    "TransactionOwner": "HC-7 HCTapedLightService/HCTapedLightPort with existing custody, journal and inventory barriers; lead binding pending.",
+    "Refusal": "helmet_mount_two_client_pending"
+  },
+  "CompatibilityQueue": [
+    {
+      "HostClass": "BallisticHelmet_Green",
+      "LightClass": "UniversalLight",
+      "Reason": "no_native_helmet_light_slot",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "HostClass": "ConstructionHelmet_Orange",
+      "LightClass": "UniversalLight",
+      "Reason": "no_native_helmet_light_slot",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "HostClass": "GorkaHelmet",
+      "LightClass": "UniversalLight",
+      "Reason": "no_native_helmet_light_slot",
+      "RuntimeAcceptance": "PENDING"
+    }
+  ],
+  "QueuePolicy": "Bounded first compatibility queue, not a helmet census or permanent exclusions. Inspect each exact config/model before any separate subclass stanza. Unknown pairs refuse unsupported_helmet_pair; no ancestry inference.",
+  "Evidence": {
+    "Kind": "Installed static config and native script inspection only; no new runtime experiment.",
+    "ConfigRoot": "~/.cache/hollow-country/wine-server-20261116/addons",
+    "HelmetConfig": "characters_headgear.pbo:config.bin CfgVehicles/Mich2001Helmet attachments=[NVG,helmetFlashlight]",
+    "HelmetConfigSHA256": "ae7c5ebe2fd14336bf9d63e93ccb7694f5cdacb3573f1a9549d5b05cdc268a66",
+    "LightConfig": "weapon_lights.pbo:config.bin CfgVehicles/UniversalLight inventorySlot=[weaponFlashlight,helmetFlashlight]",
+    "LightConfigSHA256": "95dbd81b85ed9e5ecdd405c8df877a6d99a3a5b0846fc9cf1c717d75e29db64e",
+    "QueueConfig": "characters_headgear.pbo:config.bin: BallisticHelmet_Green and ConstructionHelmet_Orange have no resolved attachments; GorkaHelmet attachments=[Glass].",
+    "ScriptRoot": "~/.cache/hollow-country/native-scripts/scripts-1.30.164289",
+    "HelmetActions": "4_World/Entities/ItemBase/Clothing/HelmetBase/Mich2001Helmet.c:3-10,14-23",
+    "NativeSwitch": "4_World/Classes/UserActionsComponent/Actions/SingleUse/ActionTurnOnHelmetFlashlight.c:33-65",
+    "LightLifetime": "4_World/Entities/ItemBase/Switchable_Base/UniversalLight.c:47-91 (client light creation, memory points and fade-out)",
+    "GeometryLimit": "No complete proxy/LOD or worn-transform evidence. Ground-model string scan is not geometry qualification."
+  },
+  "AcceptanceQueue": [
+    "Lead binds the separate catalogue/qualification seam to HC-7; no CfgVehicles patch for the selected native pair.",
+    "Exact-source DayZDiag compile/boot; zero script/CE errors; off path and stop/restart cleanup; retain exact source/PBO/mission/config/dependency hashes.",
+    "Normal signed PBO/server with two clients: mounted origin/orientation, hands/free look, aim, cone and shadows.",
+    "Both clients: removal with full/free cargo, destruction, same light/battery identity and energy, reconnect and persistence; engine inventory and HC journal backed up together.",
+    "Qualification remains false until observed receipts justify a separate reviewed promotion. HC-7 local opt-in never promotes helmet pairs."
+  ],
+  "DistancesAdded": []
+}
