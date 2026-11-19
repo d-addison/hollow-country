@@ -120,6 +120,9 @@ class Field:
     modifiers: frozenset
     initializer: str
     offset: int
+    # Preserve the existing masked initializer for all structural consumers.
+    # Only the JSON-default audit needs literal contents, including whitespace.
+    string_initializer: str = field(default='', compare=False)
 
     @property
     def strong(self):
@@ -314,6 +317,14 @@ class Source:
                     offset = statement_start + len(statement) - len(statement.lstrip()) + parsed.start(3)
                     definition.fields.append(Field(parsed.group(3), re.sub(r'\s+', '', parsed.group(2)),
                                                    frozenset(words), (parsed.group(4) or '').strip(), offset))
+                    if parsed.group(2) == 'string' and parsed.group(4) is not None:
+                        start = statement_start + len(statement) - len(statement.lstrip()) + parsed.start(4)
+                        # Quote spans come from cleaned code, so commented-out
+                        # literals cannot become an initializer. Recover only
+                        # those literal spans; keep structural parsing masked.
+                        definition.fields[-1].string_initializer = re.sub(
+                            r'"[^"\n]*"', lambda m: self.text[start + m.start():start + m.end()],
+                            parsed.group(4)).strip()
                 statement_start = position + 1
             elif ch == '{':
                 end = matching_brace(code, position)
