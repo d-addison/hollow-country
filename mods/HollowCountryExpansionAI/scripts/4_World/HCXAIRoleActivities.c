@@ -511,7 +511,7 @@ class HCXAIRoleActivities : HCModule
         // This bounds release work and prevents retired groups leaking slots.
         if (m_Leases.Count() > 0)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONFLICT, 1)) { return; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROLES, 1)) { return; }
             m_LeaseCursor = m_LeaseCursor % m_Leases.Count();
             HCXAIRoleLease expiring = m_Leases[m_LeaseCursor];
             bool expired = HCWorldClock.UTC() >= expiring.Until;
@@ -534,7 +534,7 @@ class HCXAIRoleActivities : HCModule
             if (!m_Work.HCContinue()) { return; }
             // Integration requests a separate consumer id. Until assigned, use
             // the existing conflict family rather than an unregistered bit.
-            bool granted = HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONFLICT, 1);
+            bool granted = HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROLES, 1);
             if (!granted) { return; }
             m_Cursor = m_Cursor % states.Count();
             int groupIndex = m_Cursor;

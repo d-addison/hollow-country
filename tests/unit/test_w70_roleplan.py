@@ -141,7 +141,7 @@ class RolePlan(unittest.TestCase):
         director = N(Phase=lambda: 'run', States=lambda: states)
         env = dict(HCXAISiteDirector=N(Active=lambda: visits.append('director') or director),
                    HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda *args: False)),
-                   HCUnitBudget=N(HC_WORK_CONFLICT=9))
+                   HCUnitBudget=N(HC_WORK_ROLES=13))
         tick = translate(text, 'OnTick', env, 'HCXAIRoleActivities', member=True)
         job = N(m_Running=False, m_Config=N(GroupsPerTick=1), m_Leases=EArray(),
                 m_Cursor=0, m_Work=N(HCReset=lambda *args: None, HCContinue=lambda: True))
