@@ -237,14 +237,62 @@ from the server browser.
 Copy-Item -Recurse -Force "$BUNDLE\profiles\*" "$SERVER\profiles\"
 ```
 
-This installs `profiles\HollowCountry\...` (settings, stamina, templates, the
-21-site `expansion-ai-sites.json`, infected config) and the Expansion AI files
-(`profiles\ExpansionMod\Settings\AISettings.json`, `profiles\ExpansionMod\Loadouts\HollowCountry_*.json`).
+This installs `profiles\HollowCountry\...` (settings, stamina, templates,
+`expansion-ai-sites.json`, `expansion-ai-localities.json`, infected config) and the
+Expansion AI files (`profiles\ExpansionMod\Settings\AISettings.json`,
+`profiles\ExpansionMod\Loadouts\HollowCountry_*.json`). Runtime cursor files
+are excluded from the friend bundle.
 
-Upgrade note: an old `profiles\HollowCountry\expansion-ai-sites.json` with 17
-sites must not survive; the copy above replaces it. If the operator keeps their
-own file instead, delete it and the server writes the 21-site default from the
-PBO on the next start (it never overwrites an existing file).
+The server provisions missing site/locality policies from its PBO with
+`HCProfileDefaults.Ensure`; existing operator files are never overwritten at
+startup. The profile copy above is an explicit replacement, so retain any
+operator edits in the step 3 backup. Keeping a customized 17-site, 21-site or
+larger policy is supported: unknown catalog site IDs are skipped with one
+startup diagnostic, and added operator sites receive single-site localities.
+
+`profiles\HollowCountry\expansion-ai-localities.json` maps locality IDs to site
+IDs and controls rotation timing. The shipped mission source is
+`mission/hollow-country/ai/localities.json`, mirrored byte-for-byte in the addon.
+`PageSize=0` uses the live `HCAILimits.MaxActiveSites` cap; legacy nonzero page
+values also cannot shrink coverage below that cap. All eligible sites in a
+visited locality can enter the page, including several sites in the same town.
+When all sites fit the cap, their empty controllers remain armed across
+rotation intervals. Beyond the cap, the durable cursor provides fair opportunities. Site-less
+localities remain pending route/access work, with bounded pending logging;
+they do not create speculative routes or imply observed world coverage.
+
+With the server stopped and backed up, deleting `expansion-ai-localities.json`
+adopts the shipped catalog on next startup. It does not reset AI caps, the site
+policy, raid cooldowns, ownership or loot/cache journals. Set its `Enabled` to
+`false` to use legacy per-site controllers instead of rotation.
+
+The following files under `profiles\HollowCountry\` hold only rotation history:
+
+- `expansion-ai-locality-rotation.json`: current cursor, per-locality site cursor,
+  pending/observed coverage and retry history.
+- `expansion-ai-locality-rotation.pending.json`: staged cursor checkpoint. A
+  leftover file is logged and discarded on restart; load tries the primary,
+  then `expansion-ai-locality-rotation.bak.json`.
+- `expansion-ai-locality-rotation.bak.json`: preceding checkpoint, used if the
+  primary is absent or invalid.
+
+Deleting only the primary allows backup recovery. Deleting only the pending
+file discards the interrupted checkpoint. To reset fairness/history completely,
+stop the server, back up, then delete all three rotation files; next start
+creates fresh cursor history. This never resets raid/loot state or proves
+coverage. A cursor clock/save fault disables rotation for that process and
+continues with legacy per-site controllers, preserving existing patrols.
+
+Look for `[HC Plan] HC-18 localities=... page=... oldest_pending=... cursor=...`
+at startup and adapter readiness. `state=off:rotation_fault_legacy_sites_retained`
+means the cursor path fell back; `catalog_unknown_site skipped=...` reports
+catalog/operator drift. Check for `route qualified`, cached route refusals and
+normal native patrol creation/spawn logs as separate stages. Route outcomes use
+the existing route cache; cached refusals survive restart. Successful routes
+still rebuild geometry because that cache does not store snapped/skipped
+waypoints. Native qualification, normal PBO/server behavior, two-client
+observer/combat cleanup, restart recovery and 3–6-player performance remain
+**runtime acceptance pending** for this change.
 
 ## 8. Mission overlay
 

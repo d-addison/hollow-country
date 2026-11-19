@@ -8,17 +8,15 @@ class HCXAISiteRules
     // Catalog cardinality is independent of native actor/group budgets. Files
     // also have a bounded byte read; excess input is refused, never truncated.
     static int HCMaxCatalogRows() { return 1024; }
-    static int HCDefaultPageSize() { return 4; }
     static int HCDefaultAttemptsPerTick() { return 1; }
     static int HCDefaultSelectionIntervalSeconds() { return 30; }
     static int HCDefaultOpportunitySeconds() { return 3600; }
     static int HCDefaultRetrySeconds() { return 300; }
     static int HCPageSize(HCXAILocalityCatalog catalog, int cap)
     {
-        int size = catalog.PageSize;
-        if (size == 0) { size = HCXAISiteRules.HCDefaultPageSize(); }
-        if (size > cap) { size = cap; }
-        return size;
+        // Legacy PageSize is retained as a readable field, but cannot shrink
+        // coverage below the live shared cap. Rotation supplies fairness only.
+        return cap;
     }
     static int HCAttemptsPerTick(HCXAILocalityCatalog catalog)
     {
@@ -93,17 +91,10 @@ class HCXAISiteRules
             foreach (string siteId : locality.SiteIds)
             {
                 if (sites.Find(siteId) >= 0) { return "catalog_duplicate_site"; }
-                bool known = false;
-                foreach (HCXAISite site : policy.Sites)
-                {
-                    if (site.Id == siteId) { known = true; break; }
-                }
-                if (!known) { return "catalog_unknown_site"; }
                 sites.Insert(siteId);
             }
         }
-        // No authored site silently disappears when rotation is selected.
-        if (sites.Count() != policy.Sites.Count()) { return "catalog_unmapped_site"; }
+        // Operator policy drift is reconciled by the director, never refused.
         return "";
     }
     static float HCGroupFactor(int players)

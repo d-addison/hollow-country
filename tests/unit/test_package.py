@@ -19,6 +19,13 @@ from unittest.mock import Mock
 
 
 class PackageBehavior(unittest.TestCase):
+    def test_locality_catalog_is_in_portable_mission_handoff(self):
+        root = Path(__file__).resolve().parents[2]
+        blob = pbo.handoff(root / 'mods/HollowCountry', root / 'mission/hollow-country')
+        with zipfile.ZipFile(io.BytesIO(blob)) as files:
+            self.assertEqual((root / 'mission/hollow-country/ai/localities.json').read_bytes(),
+                             files.read('mission/hollow-country/ai/localities.json'))
+
     def test_stored_roundtrip_exact_prefix_and_reproducibility(self):
         files = {'scripts/4_World/HC.c': b'// synthetic\n', 'config.cpp': b'class Synthetic {};'}
         blob = pbo.pack(files)

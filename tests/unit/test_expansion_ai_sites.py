@@ -1410,6 +1410,7 @@ class ShippedDefaultsTests(unittest.TestCase):
         self.env = env
         self.defaults = api((SCRIPTS / 'HCXAIDefaults.c').read_text(), env)
         env['HCXAIDefaults'] = self.defaults
+        env['HCXAISiteRules'] = N(HCMaxCatalogRows=lambda: 1024)
         declarations(env)
 
     def copy(self, source, target):
@@ -1455,6 +1456,52 @@ class ShippedDefaultsTests(unittest.TestCase):
         self.assertEqual(1, sum('loadout default provisioned' in line for line in self.printed))
         self.assertTrue(any('HollowCountry_Missing' in line for line in self.printed))
         self.assertEqual(0, self.defaults.ProvisionLoadouts(policy))
+
+    def test_localities_mirror_is_byte_identical_and_provisioned_without_overwrite(self):
+        self.assertTrue((self.DEFAULTS / 'expansion-ai-localities.json').exists())
+        self.assertEqual((AI / 'localities.json').read_bytes(),
+                         (self.DEFAULTS / 'expansion-ai-localities.json').read_bytes())
+        calls = []
+        def ensure(name, shipped):
+            calls.append((name, shipped))
+            target = '$profile:HollowCountry/' + name
+            if target in self.files:
+                return False
+            self.files[target] = self.files[shipped + name]
+            return True
+        self.env['HCProfileDefaults'].Ensure = ensure
+        self.files[self.defaults.Shipped() + 'expansion-ai-localities.json'] = 'synthetic catalog'
+        self.assertTrue(self.defaults.ProvisionLocalities())
+        target = '$profile:HollowCountry/expansion-ai-localities.json'
+        self.files[target] = 'operator catalog'
+        self.assertFalse(self.defaults.ProvisionLocalities())
+        self.assertEqual('operator catalog', self.files[target])
+        self.assertEqual(2, len(calls))
+        sites = (SCRIPTS / 'HCXAISites.c').read_text()
+        self.assertLess(sites.index('HCXAIDefaults.ProvisionLocalities()'),
+                        sites.index('m_Policy = HCXAISiteDirector.LoadPolicy()'))
+
+    def test_loadout_provisioning_visits_beyond_64_catalog_rows(self):
+        self.env['HCXAISiteRules'] = N(HCMaxCatalogRows=lambda: 1024)
+        self.files[self.defaults.Shipped() + 'loadouts/HollowCountry_Last.json'] = 'last'
+        policy = N(Sites=A([N(Loadout='HollowCountry_Missing')] * 64 + [N(Loadout='HollowCountry_Last')]))
+        self.assertEqual(1, self.defaults.ProvisionLoadouts(policy))
+
+    def test_shipped_policy_comparison_uses_policy_sized_reader(self):
+        reads = []
+        self.env['HCWorldStore'] = N(Read=lambda path: reads.append(path) or ('x' * 70000))
+        self.env['HCXAISiteDirector'] = N(POLICY='operator', ReadBounded=lambda path: '')
+        self.assertTrue(self.defaults.MatchesShipped())
+        self.assertEqual(2, len(reads))
+        source = (SCRIPTS / 'HCXAIDefaults.c').read_text()
+        self.assertIn('HCWorldStore.Read(', source[source.index('static int ShippedSiteCount()'):])
+
+    def test_readiness_reports_locality_after_null_guard(self):
+        code = (SCRIPTS / 'HCXAIAdapter.c').read_text()
+        method = code[code.index('    void LogReadiness('):code.index('    void LogAddonChecks()')]
+        self.assertIn('Print(m_Sites.HCLocalitySummary())', method)
+        self.assertLess(method.index('if (!m_Encounters || !m_Sites)'),
+                        method.index('Print(m_Sites.HCLocalitySummary())'))
 
     def test_policy_drift_names_a_stale_operator_policy_without_replacing_it(self):
         drift = self.defaults.PolicyDrift

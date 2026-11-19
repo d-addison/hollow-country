@@ -85,6 +85,9 @@ class FriendBundleTests(unittest.TestCase):
         put(p, 'HollowCountry/hc-interiors-pack/receipt.json', '{}')
         put(p, 'HollowCountry/expansion-ai-leases.json', '{}')
         put(p, 'HollowCountry/expansion-ai-sites.json', '{}')
+        put(p, 'HollowCountry/expansion-ai-localities.json', '{"synthetic": true}')
+        for suffix in ('json', 'pending.json', 'bak.json'):
+            put(p, 'HollowCountry/expansion-ai-locality-rotation.' + suffix, '{}')
         put(p, 'HollowCountry/expansion-ai-routes.json', '{}')
         put(p, 'HollowCountry/expansion-ai-caches.json', '{}')
         put(p, 'HollowCountry/expansion-ai-owned.json', '{}')
@@ -226,6 +229,11 @@ class FriendBundleTests(unittest.TestCase):
             self.assertIn(name, files)
         self.assertIn('loot boost', (self.out / 'README.txt').read_text())
 
+    def test_locality_config_is_allowed_but_rotation_state_is_not(self):
+        self.assertTrue(fb._profile_allowed('HollowCountry/expansion-ai-localities.json'))
+        for suffix in ('json', 'pending.json', 'bak.json'):
+            self.assertFalse(fb._profile_allowed('HollowCountry/expansion-ai-locality-rotation.' + suffix))
+
     def test_profile_copy_is_an_allowlist_of_config_never_runtime_state(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
@@ -234,7 +242,8 @@ class FriendBundleTests(unittest.TestCase):
             'ExpansionMod/Loadouts/HollowCountry_Patrol.json', 'ExpansionMod/Settings/AISettings.json',
             'HollowCountry/Ecology/settings.json', 'HollowCountry/Events/settings.json',
             'HollowCountry/Groups/settings.json', 'HollowCountry/Infected/config.json',
-            'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai.json',
+            'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai-localities.json',
+            'HollowCountry/expansion-ai.json',
             'HollowCountry/settings.json', 'HollowCountry/stamina.json',
             'HollowCountry/templates/index.json', 'HollowCountry/templates/t-0000.json']))
 

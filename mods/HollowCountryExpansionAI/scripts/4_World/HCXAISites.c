@@ -245,7 +245,7 @@ class HCXAISiteState : Managed
 // HC-18 verified intent/backup/copy/readback, same protocol as HCWorldStore.
 // Native scripts-1.30.164289: JsonFileLoader.c:69,85; EnSystem.c:397,528,531.
 // HCWorldStore.Read/Write supply bounded IO; no rename/fsync claim. Interrupted
-// intent is quarantined, never silently reset. Routine observation checkpoints
+// cursor intent is discarded on restart; primary then backup restore fairness. Routine observation checkpoints
 // use the shared staged scheduler; selection intent is a synchronous barrier.
 class HCXAILocalitySave : HCSaveJob
 {
@@ -263,58 +263,77 @@ class HCXAILocalitySave : HCSaveJob
     void HCChanged() { m_Revision++; HCDirty = true; }
     bool HCLoad(string world)
     {
-        if (FileExist(INTENT)) { Fault = true; return false; }
-        if (!FileExist(PATH))
+        if (FileExist(INTENT))
+        {
+            Print("[HC Plan] HC-18 rotation interrupted cursor intent discarded; primary then backup runtime=PENDING");
+            DeleteFile(INTENT);
+        }
+        if (this.HCRestore(PATH, world)) { return true; }
+        if (this.HCRestore(BACKUP, world))
+        {
+            Print("[HC Plan] HC-18 rotation cursor recovered from backup runtime=PENDING");
+            // Remove an invalid primary so the next checkpoint cannot back it
+            // up over the valid recovery copy. This is cursor data only.
+            if (FileExist(PATH)) { DeleteFile(PATH); }
+            return true;
+        }
+        if (!FileExist(PATH) && !FileExist(BACKUP))
         {
             Data = new HCXAILocalityRotation();
             Data.WorldName = world;
             return true;
         }
+        Fault = true;
+        return false;
+    }
+    protected bool HCRestore(string path, string world)
+    {
+        if (!FileExist(path)) { return false; }
         string error;
-        if (!JsonFileLoader<HCXAILocalityRotation>.LoadData(HCWorldStore.Read(PATH), Data, error) || !Data || Data.SchemaVersion != 1 || Data.WorldName != world || !Data.Rows || Data.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows() || Data.SelectionSerial < 0 || Data.NextId.Length() > 48) { Fault = true; return false; }
+        if (!JsonFileLoader<HCXAILocalityRotation>.LoadData(HCWorldStore.Read(path), Data, error) || !Data || Data.SchemaVersion != 1 || Data.WorldName != world || !Data.Rows || Data.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows() || Data.SelectionSerial < 0 || Data.NextId.Length() > 48) { return false; }
         array<string> ids = new array<string>();
         foreach (HCXAILocalityCoverage row : Data.Rows)
         {
-            if (!row || !HCXAIRules.Token(row.LocalityId) || row.LocalityId.Length() > 48 || ids.Find(row.LocalityId) >= 0 || row.NextSite < 0 || row.LastSelected < 0 || row.LastSelected > Data.SelectionSerial || row.LastObserved < 0 || row.LastObserved > row.LastSelected || row.PendingSinceSerial < 0 || row.PendingSinceSerial > Data.SelectionSerial || row.RetryAt < 0 || row.Refusal.Length() > 192) { Fault = true; return false; }
+            if (!row || !HCXAIRules.Token(row.LocalityId) || row.LocalityId.Length() > 48 || ids.Find(row.LocalityId) >= 0 || row.NextSite < 0 || row.LastSelected < 0 || row.LastSelected > Data.SelectionSerial || row.LastObserved < 0 || row.LastObserved > row.LastSelected || row.PendingSinceSerial < 0 || row.PendingSinceSerial > Data.SelectionSerial || row.RetryAt < 0 || row.Refusal.Length() > 192) { return false; }
             ids.Insert(row.LocalityId);
         }
         return true;
     }
     override int HCStep()
     {
-        if (Fault || !Data) { return STEP_FAILED; }
+        if (Fault || !Data) { return HCSaveJob.STEP_FAILED; }
         string error;
         if (m_Stage == 0)
         {
-            if (FileExist(INTENT) || !JsonFileLoader<HCXAILocalityRotation>.MakeData(Data, m_Text, error) || m_Text.Length() > HCWorldStore.MAX_BYTES) { Fault = true; return STEP_FAILED; }
+            if (FileExist(INTENT) || !JsonFileLoader<HCXAILocalityRotation>.MakeData(Data, m_Text, error) || m_Text.Length() > HCWorldStore.MAX_BYTES) { Fault = true; return HCSaveJob.STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
             MakeDirectory("$profile:HollowCountry");
-            if (!HCWorldStore.Write(INTENT, m_Text)) { Fault = true; return STEP_FAILED; }
+            if (!HCWorldStore.Write(INTENT, m_Text)) { Fault = true; return HCSaveJob.STEP_FAILED; }
             m_Stage = 1;
-            return STEP_MORE;
+            return HCSaveJob.STEP_MORE;
         }
         if (m_Stage == 1)
         {
             if (FileExist(PATH))
             {
                 string prior = HCWorldStore.Read(PATH);
-                if (prior == "" || !CopyFile(PATH, BACKUP) || HCWorldStore.Read(BACKUP) != prior) { Fault = true; return STEP_FAILED; }
+                if (prior == "" || !CopyFile(PATH, BACKUP) || HCWorldStore.Read(BACKUP) != prior) { Fault = true; return HCSaveJob.STEP_FAILED; }
             }
             m_Stage = 2;
-            return STEP_MORE;
+            return HCSaveJob.STEP_MORE;
         }
         if (m_Stage == 2)
         {
-            if (!CopyFile(INTENT, PATH) || HCWorldStore.Read(PATH) != m_Text) { Fault = true; return STEP_FAILED; }
+            if (!CopyFile(INTENT, PATH) || HCWorldStore.Read(PATH) != m_Text) { Fault = true; return HCSaveJob.STEP_FAILED; }
             m_Stage = 3;
-            return STEP_MORE;
+            return HCSaveJob.STEP_MORE;
         }
-        if (!DeleteFile(INTENT) || FileExist(INTENT)) { Fault = true; return STEP_FAILED; }
+        if (!DeleteFile(INTENT) || FileExist(INTENT)) { Fault = true; return HCSaveJob.STEP_FAILED; }
         m_Stage = 0;
         m_Text = "";
         // An observed spawn during staging must not be lost by dirty clearing.
-        if (m_SnapshotRevision != m_Revision) { return STEP_MORE; }
-        return STEP_DONE;
+        if (m_SnapshotRevision != m_Revision) { return HCSaveJob.STEP_MORE; }
+        return HCSaveJob.STEP_DONE;
     }
 }
 class HCXAISiteDirector : Managed
@@ -360,6 +379,7 @@ class HCXAISiteDirector : Managed
     protected ref HCWorkBudget m_LocalityWork = new HCWorkBudget();
     protected int m_LocalityCursor;
     protected int m_LocalityNextAttemptAt;
+    protected int m_LocalityNextPendingLogAt;
     protected bool m_LocalityRefused;
     protected string m_LocalityStatus = "off";
 
@@ -380,14 +400,14 @@ class HCXAISiteDirector : Managed
     {
         int count = 0;
         int page = 0;
-        string oldest;
+        string oldest = "";
         if (m_Localities) { count = m_Localities.Localities.Count(); }
         if (m_LocalitySave && m_LocalitySave.Data) { oldest = HCXAISiteRules.HCOldestPending(m_LocalitySave.Data); }
         foreach (HCXAISiteState state : m_States)
         {
             if (state.LocalityId != "") { page++; }
         }
-        string next;
+        string next = "";
         if (m_LocalitySave && m_LocalitySave.Data) { next = m_LocalitySave.Data.NextId; }
         string line = "[HC Plan] HC-18 localities=" + count.ToString() + " page=" + page.ToString() + " oldest_pending=" + oldest;
         return line + " cursor=" + next + " state=" + m_LocalityStatus + " runtime=PENDING";
@@ -397,7 +417,7 @@ class HCXAISiteDirector : Managed
         if (!FileExist(LOCALITIES))
         {
             Print(this.HCLocalitySummary() + " refusal=catalog_missing legacy_sites_retained");
-            return m_Policy.Sites.Count() <= 64;
+            return true;
         }
         string error;
         if (!JsonFileLoader<HCXAILocalityCatalog>.LoadData(HCWorldStore.Read(LOCALITIES), m_Localities, error)) { m_LocalityStatus = "refused:catalog_unreadable"; return false; }
@@ -408,8 +428,9 @@ class HCXAISiteDirector : Managed
         {
             m_Localities = null;
             Print(this.HCLocalitySummary() + " refusal=operator_off legacy_sites_retained");
-            return m_Policy.Sites.Count() <= 64;
+            return true;
         }
+        if (!this.HCReconcileLocalitySites()) { m_LocalityStatus = "refused:catalog_drift_capacity"; return false; }
         m_LocalitySave = new HCXAILocalitySave();
         if (!m_LocalitySave.HCLoad(m_Localities.WorldName)) { m_LocalityStatus = "refused:rotation_quarantined"; return false; }
         foreach (HCXAILocality locality : m_Localities.Localities)
@@ -437,21 +458,89 @@ class HCXAISiteDirector : Managed
         }
         return count;
     }
-    protected bool HCLocalityReserved(string id)
+    protected bool HCHasSite(string id)
     {
         foreach (HCXAISiteState state : m_States)
         {
-            if (state.LocalityId == id) { return true; }
+            if (!state.Transient && state.Site.Id == id) { return true; }
         }
         return false;
+    }
+    // Keep valid operator additions in single-site localities. Catalog IDs
+    // absent from the current operator policy are skipped once at startup.
+    protected bool HCReconcileLocalitySites()
+    {
+        int unknown = 0;
+        foreach (HCXAILocality locality : m_Localities.Localities)
+        {
+            int siteIndex = locality.SiteIds.Count() - 1;
+            while (siteIndex >= 0)
+            {
+                bool known = false;
+                foreach (HCXAISite candidate : m_Policy.Sites)
+                {
+                    if (candidate.Id == locality.SiteIds[siteIndex]) { known = true; break; }
+                }
+                if (!known) { locality.SiteIds.RemoveOrdered(siteIndex); unknown++; }
+                siteIndex--;
+            }
+        }
+        if (unknown > 0) { Print("[HC Plan] HC-18 catalog_unknown_site skipped=" + unknown.ToString() + " operator policy retained runtime=PENDING"); }
+        int syntheticIndex = 0;
+        foreach (HCXAISite site : m_Policy.Sites)
+        {
+            bool mapped = false;
+            foreach (HCXAILocality mappedLocality : m_Localities.Localities)
+            {
+                if (mappedLocality.SiteIds.Find(site.Id) >= 0) { mapped = true; break; }
+            }
+            if (mapped) { continue; }
+            if (m_Localities.Localities.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return false; }
+            string id = site.Id;
+            bool collision = true;
+            while (collision)
+            {
+                collision = false;
+                foreach (HCXAILocality existing : m_Localities.Localities)
+                {
+                    if (existing.Id == id) { collision = true; break; }
+                }
+                if (collision) { id = "hc-unmapped-" + syntheticIndex.ToString(); syntheticIndex++; }
+            }
+            HCXAILocality added = new HCXAILocality();
+            added.Id = id;
+            added.Source = "operator site policy";
+            added.SiteIds.Insert(site.Id);
+            m_Localities.Localities.Insert(added);
+        }
+        return true;
+    }
+    protected void HCAddLegacySites()
+    {
+        foreach (HCXAISite site : m_Policy.Sites)
+        {
+            if (site.Checkpoint && !HCXAIQualification.EncountersEnabled()) { continue; }
+            if (this.HCHasSite(site.Id)) { continue; }
+            HCXAISiteState added = new HCXAISiteState();
+            added.Site = site;
+            m_States.Insert(added);
+        }
     }
     protected void HCLocalityFault()
     {
         if (m_LocalityRefused) { return; }
         m_LocalityRefused = true;
-        m_Phase = "refused"; // existing spawn guard holds new provider spawns
         if (m_LocalitySave) { HCSaveScheduler.HCUnregister(m_LocalitySave); }
-        m_LocalityStatus = "refused:rotation_quarantined";
+        m_LocalitySave = null;
+        m_Localities = null;
+        m_LocalityStatus = "off:rotation_fault_legacy_sites_retained";
+        foreach (HCXAISiteState retained : m_States) { retained.LocalityId = ""; }
+        if (m_Phase == "run" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
+        {
+            this.HCAddLegacySites();
+            m_Phase = "bind";
+            m_Cursor = 0;
+        }
         Print(this.HCLocalitySummary());
     }
     // Attempts have a durable cursor. A full page retains its next candidate:
@@ -467,9 +556,9 @@ class HCXAISiteDirector : Managed
         rotation.SelectionSerial++;
         HCXAILocality locality = m_Localities.Localities[index];
         HCXAILocalityCoverage row = HCXAISiteRules.HCCoverage(rotation, locality.Id);
-        HCXAISite selected;
-        bool reserved = this.HCLocalityReserved(locality.Id);
-        if (now >= row.RetryAt && !reserved)
+        array<ref HCXAISite> selected = new array<ref HCXAISite>();
+        int slots = HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites) - this.HCLocalityPageCount();
+        if (now >= row.RetryAt)
         {
             row.LastSelected = rotation.SelectionSerial;
             if (!row.Pending) { row.PendingSinceSerial = rotation.SelectionSerial; }
@@ -477,31 +566,43 @@ class HCXAISiteDirector : Managed
             row.RetryAt = now + HCXAISiteRules.HCRetrySeconds(m_Localities);
             row.Refusal = "route_not_reviewed";
             if (locality.Island) { row.Refusal = "island_access_route_unreviewed"; }
-            if (locality.SiteIds.Count() > 0)
+            int tries = 0;
+            while (tries < locality.SiteIds.Count() && selected.Count() < slots)
             {
                 int siteIndex = row.NextSite % locality.SiteIds.Count();
                 string siteId = locality.SiteIds[siteIndex];
                 row.NextSite = (siteIndex + 1) % locality.SiteIds.Count();
+                tries++;
+                if (this.HCHasSite(siteId)) { continue; }
                 foreach (HCXAISite candidate : m_Policy.Sites)
                 {
-                    if (candidate.Id == siteId) { selected = candidate; break; }
+                    if (candidate.Id != siteId) { continue; }
+                    if (candidate.Checkpoint && !HCXAIQualification.EncountersEnabled()) { row.Refusal = "checkpoint_gate_pending"; break; }
+                    selected.Insert(candidate);
+                    break;
                 }
-                if (selected && selected.Checkpoint && !HCXAIQualification.EncountersEnabled()) { row.Refusal = "checkpoint_gate_pending"; selected = null; }
-                if (selected) { row.Refusal = "route_provider_pending"; }
             }
+            if (selected.Count() > 0) { row.Refusal = "route_provider_pending"; }
         }
         m_LocalitySave.HCChanged();
         if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { this.HCLocalityFault(); return; }
-        if (!selected)
+        if (selected.Count() == 0)
         {
-            if (row.LastSelected == rotation.SelectionSerial) { Print("[HC Plan] HC-18 state=pending locality=" + locality.Id + " reason=" + row.Refusal + " pending=1 runtime=PENDING"); }
+            if (row.LastSelected == rotation.SelectionSerial && now >= m_LocalityNextPendingLogAt)
+            {
+                m_LocalityNextPendingLogAt = now + 300;
+                Print("[HC Plan] HC-18 state=pending locality=" + locality.Id + " reason=" + row.Refusal + " pending=1 runtime=PENDING");
+            }
             return;
         }
-        HCXAISiteState state = new HCXAISiteState();
-        state.Site = selected;
-        state.LocalityId = locality.Id;
-        state.OpportunityAt = now;
-        m_States.Insert(state);
+        foreach (HCXAISite admitted : selected)
+        {
+            HCXAISiteState state = new HCXAISiteState();
+            state.Site = admitted;
+            state.LocalityId = locality.Id;
+            state.OpportunityAt = now;
+            m_States.Insert(state);
+        }
     }
     protected void HCStepLocalities()
     {
@@ -519,7 +620,9 @@ class HCXAISiteDirector : Managed
             HCXAISiteState state = m_States[m_LocalityCursor];
             visited++;
             if (state.LocalityId == "") { m_LocalityCursor++; continue; }
-            bool expired = now >= state.OpportunityAt + HCXAISiteRules.HCOpportunitySeconds(m_Localities);
+            // With enough slots, keep every legacy-eligible controller armed.
+            // Expiry is solely for fairness among candidates beyond the cap.
+            bool expired = m_Policy.Sites.Count() > HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites) && now >= state.OpportunityAt + HCXAISiteRules.HCOpportunitySeconds(m_Localities);
             bool live = state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && state.Patrol.m_Group.Count() > 0));
             if (state.Patrol && state.Patrol.m_Group && state.Patrol.m_Group.Count() > 0)
             {
@@ -547,22 +650,19 @@ class HCXAISiteDirector : Managed
             m_LocalityCursor++;
             if (state.Failed || state.Patrol) { continue; }
             m_LocalityUnits.HCCharge(63); // same shared path-probe weight
-            if (!state.Bound)
+            bool createFailed = false;
+            if (!state.Bound) { this.Bind(state); }
+            else if (!state.Qualified)
             {
-                this.Bind(state);
-                // A previous failure is pending coverage, not a permanent
-                // exclusion. Retry once on a later catalog visit after backoff.
-                int cachedIndex = m_Routes.Rows.Count() - 1;
-                while (cachedIndex >= 0)
-                {
-                    HCXAIRouteRow cached = m_Routes.Rows[cachedIndex];
-                    if (cached.SiteId == state.Site.Id && !cached.Qualified) { m_Routes.Rows.RemoveOrdered(cachedIndex); }
-                    cachedIndex--;
-                }
+                this.QualifyStep(state);
+                if (state.Failed || state.Qualified) { this.SaveRoutes(); }
             }
-            else if (!state.Qualified) { this.QualifyStep(state); }
-            else { this.Create(state); }
-            if (state.Failed || (state.Qualified && !state.Patrol))
+            else
+            {
+                this.Create(state);
+                createFailed = !state.Patrol;
+            }
+            if (state.Failed || createFailed)
             {
                 HCXAILocalityCoverage row = HCXAISiteRules.HCCoverage(m_LocalitySave.Data, state.LocalityId);
                 row.Pending = true;
@@ -747,6 +847,7 @@ class HCXAISiteDirector : Managed
         m_Build = HCXAIStore.NativeBuild();
         m_Diagnostic = FileExist(HCXAISiteDirector.DIAGNOSTIC);
         HCXAIDefaults.ProvisionSites(); // Workshop route: shipped default when the profile has none
+        HCXAIDefaults.ProvisionLocalities();
         m_Policy = HCXAISiteDirector.LoadPolicy();
         if (!m_Policy)
         {
@@ -775,10 +876,7 @@ class HCXAISiteDirector : Managed
         }
         if (!this.HCStartLocalities())
         {
-            m_LocalityRefused = true;
-            m_Phase = "refused";
-            Print(this.HCLocalitySummary());
-            return;
+            this.HCLocalityFault();
         }
         int count = m_Policy.Sites.Count();
         Print("[HC Expansion AI] sites policy accepted: " + count.ToString() + " sites; waiting for Expansion AI settings");
@@ -952,7 +1050,7 @@ class HCXAISiteDirector : Managed
         int work = 0;
         while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
         {
-            this.Bind(m_States[m_Cursor]);
+            if (!m_States[m_Cursor].Bound && !m_States[m_Cursor].Failed) { this.Bind(m_States[m_Cursor]); }
             m_Cursor++;
             work++;
         }
@@ -1384,7 +1482,7 @@ class HCXAISiteDirector : Managed
             if (m_Routes.Rows[index].SiteId == row.SiteId) { m_Routes.Rows.Remove(index); }
             index--;
         }
-        if (m_Routes.Rows.Count() >= 64) { m_Routes.Rows.Remove(0); }
+        if (m_Routes.Rows.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { m_Routes.Rows.Remove(0); }
         m_Routes.Rows.Insert(row);
     }
     protected void StepCreate()
@@ -1394,7 +1492,7 @@ class HCXAISiteDirector : Managed
         {
             HCXAISiteState state = m_States[m_Cursor];
             m_Cursor++;
-            if (!state.Qualified) { continue; }
+            if (!state.Qualified || state.Patrol) { continue; }
             this.Create(state);
             work++;
         }
@@ -1859,7 +1957,7 @@ class HCXAISiteDirector : Managed
     }
     bool SaveRoutes()
     {
-        if (!m_Routes || m_Routes.Rows.Count() > 64) { return false; }
+        if (!m_Routes || m_Routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
         string error;
         MakeDirectory("$profile:HollowCountry");
         return JsonFileLoader<HCXAIRouteCache>.SaveFile(HCXAISiteDirector.ROUTES, m_Routes, error);
@@ -1911,11 +2009,11 @@ class HCXAISiteDirector : Managed
     static HCXAIRouteCache LoadRoutes()
     {
         if (!FileExist(HCXAISiteDirector.ROUTES)) { return new HCXAIRouteCache(); }
-        string data = HCXAISiteDirector.ReadBounded(HCXAISiteDirector.ROUTES);
+        string data = HCWorldStore.Read(HCXAISiteDirector.ROUTES);
         if (data == "") { return null; }
         string error;
         HCXAIRouteCache routes;
-        if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes.Rows || routes.Rows.Count() > 64) { return null; }
+        if (!JsonFileLoader<HCXAIRouteCache>.LoadData(data, routes, error) || !routes.Rows || routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return null; }
         return routes;
     }
     static HCXAICacheJournal LoadCaches()

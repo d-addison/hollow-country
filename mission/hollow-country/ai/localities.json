@@ -2,7 +2,7 @@
   "SchemaVersion": 1,
   "Enabled": true,
   "WorldName": "chernarusplus",
-  "PageSize": 4,
+  "PageSize": 0,
   "AttemptsPerTick": 1,
   "SelectionIntervalSeconds": 30,
   "OpportunitySeconds": 3600,

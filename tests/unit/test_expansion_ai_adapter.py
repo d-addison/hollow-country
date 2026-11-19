@@ -219,7 +219,8 @@ class ExpansionAdapterTests(unittest.TestCase):
         # Synthetic HC sites director: records lifecycle calls only.
         self.env["HCXAISiteDirector"]=lambda:N(Start=lambda:self.calls.append(("sites","start")),
                                                 Step=lambda:self.calls.append(("sites","step")),
-                                                Stop=lambda:self.calls.append(("sites","stop")))
+                                                Stop=lambda:self.calls.append(("sites","stop")),
+                                                HCLocalitySummary=lambda: "[HC Plan] HC-18 synthetic runtime=PENDING")
         self.engine=Authored(self.runtime_source,self.env)
         self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
@@ -769,7 +770,8 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.env["HCXAISiteDirector"] = lambda: N(Start=lambda: self.calls.append(("sites", "start")),
                                                   Step=lambda: self.calls.append(("sites", "step")),
                                                   Stop=lambda: self.calls.append(("sites", "stop")),
-                                                  Phase=lambda: "run" if st.armed else "wait")
+                                                  Phase=lambda: "run" if st.armed else "wait",
+                                                  HCLocalitySummary=lambda: "[HC Plan] HC-18 synthetic runtime=PENDING")
         return stub
 
     def test_start_arms_encounters_without_profile_or_receipt_and_logs_readiness_when_settled(self):
@@ -785,6 +787,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertIs(self.mod, svc.Adapter())
         lines = self.diagnostics()
         ready = [l for l in lines if "readiness" in l]
+        self.assertIn("[HC Plan] HC-18 synthetic runtime=PENDING", lines)
         self.assertEqual(1, len(ready), lines)
         for part in ("ai_encounter ready=false", "encounters=waiting for sites", "sites=wait",
                      "expansion-ai.json and receipt verifiers retired"):

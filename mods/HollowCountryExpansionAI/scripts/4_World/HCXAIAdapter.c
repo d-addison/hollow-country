@@ -100,6 +100,7 @@ class HCXAIAdapter extends HCModule
     void LogReadiness(string trigger)
     {
         if (!m_Encounters || !m_Sites) { return; }
+        Print(m_Sites.HCLocalitySummary());
         if (m_Encounters.Settled()) { m_ReadinessLogged = true; }
         bool ready = m_Encounters.Ready(GetGame().GetWorldName());
         int qualified = m_Encounters.QualifiedCount();
