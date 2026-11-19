@@ -322,7 +322,7 @@ def make_controller(states, flags, cfg=None, logs=None):
     def new_style():
         return N(GroupRef=None, FormRef=None, Seed=0, Evals=0, NextEvalAt=0, NextPauseAt=0, PauseUntil=0,
                  RegroupUntil=0, Mode=-1, PaceEpoch=0, PaceEpochStart=0, LastJunction=-1,
-                 Halted=EArray(), Foreign=False)
+                 Halted=EArray(), Foreign=False, Styled=False)
 
     def new_form():
         form = N(mode=-1, seed=0, cfg=None)
@@ -345,6 +345,7 @@ def make_controller(states, flags, cfg=None, logs=None):
         HCPerfPlayers=N(HCGet=lambda: EArray([object()] * flags.players)),
         HCXAISiteDirector=N(Active=lambda: director),
         HCServer=N(HCTickWork=lambda: N(HCTakeFor=take)),
+        HCUnitBudget=N(HC_WORK_FORMATION=14),
         HCWorldClock=N(UTC=lambda: flags.now),
         HCXAIGroupStyle=new_style, HCXAIStyleFormation=new_form,
         HCOperationalStatus=lambda: N(HCPublish=lambda s, why: setattr(status_log, 'last', (s, why)),
@@ -362,10 +363,10 @@ def make_controller(states, flags, cfg=None, logs=None):
     env['HCXAIFormationRules'] = r
     names = ('Open', 'Close', 'Step', 'ReleasePass', 'StepGroup', 'ApplyPace', 'BeginPause',
              'ReleaseStyle', 'HoldEnded', 'JunctionIndex', 'HCRefuse', 'HCGetOperationalStatus',
-             'Observe', 'ForgetStyle', 'ContextOf', 'Due', 'ConsiderPause', 'ApplyFormation')
+             'Observe', 'ForgetStyle', 'ContextOf', 'Due', 'ConsiderPause', 'ApplyFormation', 'LiveCount', 'ThreatFelt')
     translate(text, 'HCXAIFormationController', env, only=names)
     worker = N(m_Enabled=False, m_Closed=False, m_Cursor=0, m_Config=None, m_Refusal='',
-               m_Managed=0, m_Refused=0, m_Worked=0, m_Pauses=0, m_Junctions=0, m_LoadProblem='',
+               m_Refused=0, m_Worked=0, m_Pauses=0, m_Junctions=0, m_LoadProblem='',
                m_Holding=EArray(), m_Owner=None, m_Requested=False, m_ConfigProblem='', m_ObserveAt=0)
     worker.SurfaceAt = lambda at: flags.surface
     for name in names:
@@ -547,6 +548,13 @@ class ControllerPauses(unittest.TestCase):
         run_steps(worker, flags, 4, cfg.RefreshSeconds)
         self.assertFalse(any(e[0] == 'halt' for e in log))
 
+    def test_no_pause_starts_while_a_member_is_threatened(self):
+        worker, group, members, flags, log, cfg, logs = self.build()
+        members[2].threat = 0.9
+        run_steps(worker, flags, 4, cfg.RefreshSeconds)
+        self.assertFalse(any(e[0] == 'halt' and e[2] for e in log), 'a threatened group is never halted, not even for one tick')
+        self.assertEqual(0, worker.m_Pauses)
+
     def test_far_from_the_vertex_is_not_a_junction(self):
         turn = [(0.0, 0.0, 0.0), (0.0, 0.0, 50.0), (50.0, 0.0, 50.0)]
         worker, group, members, flags, log, cfg, logs = self.build(turn, PauseChancePercent=0)
@@ -645,6 +653,42 @@ class ControllerBounds(unittest.TestCase):
         flags.now += cfg.RefreshSeconds
         worker.Step()
         self.assertEqual('ready', worker.HCGetOperationalStatus().HCState())
+
+    def test_ready_needs_a_live_installed_formation_not_an_allocated_record(self):
+        flags = N(now=1000, combat=False, position=(0.0, 0.0, 0.0), moving=2.0, surface=EStr('cp_grass'),
+                  players=1, budget=True, takes=0)
+        group, members, f, log, installed = group_fixture(1)
+        state = site_fixture(group)
+        worker, cfg, logs, status = make_controller([state], flags, shipped_config(PauseChancePercent=0))
+        worker.Open(cfg, '', True)
+        run_steps(worker, flags, 2, cfg.RefreshSeconds)
+        self.assertEqual([], installed, 'a one-member group is below MinMembers and gets no formation')
+        self.assertNotEqual('ready', worker.HCGetOperationalStatus().HCState())
+
+    def test_ready_is_dropped_when_the_only_styled_group_completes_or_is_lost(self):
+        group, members, flags, log, installed = group_fixture(3)
+        state = site_fixture(group)
+        worker, cfg, logs, status = make_controller([state], flags, shipped_config(PauseChancePercent=0))
+        worker.Open(cfg, '', True)
+        run_steps(worker, flags, 2, cfg.RefreshSeconds)
+        self.assertEqual(1, len(installed))
+        self.assertEqual('ready', worker.HCGetOperationalStatus().HCState())
+        state.Completed = True
+        self.assertNotEqual('ready', worker.HCGetOperationalStatus().HCState(), 'completed group is not live')
+        state.Completed = False
+        self.assertEqual('ready', worker.HCGetOperationalStatus().HCState())
+        state.Patrol.m_Group = None
+        self.assertNotEqual('ready', worker.HCGetOperationalStatus().HCState(), 'lost group is not live')
+
+    def test_ready_is_dropped_when_another_owner_replaces_the_formation(self):
+        group, members, flags, log, installed = group_fixture(3)
+        state = site_fixture(group)
+        worker, cfg, logs, status = make_controller([state], flags, shipped_config(PauseChancePercent=0))
+        worker.Open(cfg, '', True)
+        run_steps(worker, flags, 2, cfg.RefreshSeconds)
+        installed.append(N(foreign=True))
+        run_steps(worker, flags, 2, cfg.RefreshSeconds)
+        self.assertNotEqual('ready', worker.HCGetOperationalStatus().HCState())
 
     def test_pending_members_and_missing_leader_are_skipped_without_effects(self):
         flags = N(now=1000, combat=False, position=(0.0, 0.0, 0.0), moving=2.0, surface=EStr('cp_grass'),
