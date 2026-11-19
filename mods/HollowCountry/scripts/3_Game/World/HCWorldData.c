@@ -624,12 +624,16 @@ class HCWorldData
     {
         if (!data || !data.Meta || data.Meta.SchemaVersion != HCWorldLimits.SCHEMA || data.Meta.Epoch < 1 || data.Meta.LastTick < data.Meta.Epoch || data.Meta.BuildId.Length() > 64) { return false; }
         if (!data.Places || !data.Facts || !data.Factions || !data.Holdouts || !data.Parties || !data.SiteMemory || !data.Leads || !data.Scenes || !data.Notes || !data.Camps || !data.TheftRows || !data.Salvage || !data.Escalation || !data.Escalation.PressureCaps) { return false; }
-        if (data.Holdouts.Count() > HCAILimits.Get().MaxHoldouts || data.Parties.Count() > HCAILimits.Get().MaxParties || data.Camps.Count() > HCAILimits.Get().MaxCamps || data.OccupiedCount() > HCAILimits.Get().MaxOccupiedPlaces)
+        // Boot 046: one condition with 17 calls failed native compile ("Formula too
+        // complex"), so the limits are read once and the cap check is split.
+        HCAILimits aiLimits = HCAILimits.Get();
+        if (data.Holdouts.Count() > aiLimits.MaxHoldouts || data.Parties.Count() > aiLimits.MaxParties || data.Camps.Count() > aiLimits.MaxCamps || data.OccupiedCount() > aiLimits.MaxOccupiedPlaces)
         {
             Print("[HC AI] saved world exceeds AILimits; load refused; original preserved");
             return false;
         }
-        if (data.Places.Count() > HCWorldLimits.PLACES || data.Factions.Count() != HCWorldLimits.FACTIONS || data.Facts.Count() > HCWorldLimits.FACTS || data.Holdouts.Count() > HCAILimits.Get().MaxHoldouts || data.Parties.Count() > HCAILimits.Get().MaxParties || data.SiteMemory.Count() > HCWorldLimits.MEMORIES || data.Leads.Count() > HCWorldLimits.LEADS || data.Scenes.Count() > HCWorldLimits.SCENES || data.Notes.Count() > HCWorldLimits.NOTES || data.Camps.Count() > HCAILimits.Get().MaxCamps || data.TheftRows.Count() > HCWorldLimits.THEFT || data.Salvage.Count() > HCWorldLimits.SALVAGE || data.Escalation.PressureCaps.Count() > HCWorldLimits.PRESSURE_CAPS) { return false; }
+        if (data.Places.Count() > HCWorldLimits.PLACES || data.Factions.Count() != HCWorldLimits.FACTIONS || data.Facts.Count() > HCWorldLimits.FACTS || data.SiteMemory.Count() > HCWorldLimits.MEMORIES || data.Leads.Count() > HCWorldLimits.LEADS || data.Scenes.Count() > HCWorldLimits.SCENES) { return false; }
+        if (data.Notes.Count() > HCWorldLimits.NOTES || data.TheftRows.Count() > HCWorldLimits.THEFT || data.Salvage.Count() > HCWorldLimits.SALVAGE || data.Escalation.PressureCaps.Count() > HCWorldLimits.PRESSURE_CAPS) { return false; }
         if (data.FactHead < 0 || data.FactHead >= HCWorldLimits.FACTS || (data.Facts.Count() < HCWorldLimits.FACTS && data.FactHead != 0) || data.MemoryHead < 0 || data.MemoryHead >= HCWorldLimits.MEMORIES || (data.SiteMemory.Count() < HCWorldLimits.MEMORIES && data.MemoryHead != 0)) { return false; }
         HCWorldData check = new HCWorldData;
         check.Meta = data.Meta;
