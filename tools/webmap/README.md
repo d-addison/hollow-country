@@ -136,3 +136,9 @@ Focused GREEN command:
 (`Ran 1 test; OK`). These are offline source checks only. Exact-source DayZDiag,
 normal signed PBO/server, two-client privacy/replication and cost observations
 remain pending; no engine experiment is accepted by this receipt.
+
+Layer legend (w27): the page lists each layer's meaning and, for bounded layers
+(for example `camps`), the optional snapshot `layerStats` row as
+`N of M shown` with a truncated note. `layerStats` is validated when present and
+optional, so older snapshots still load. Offline check only:
+`tests/unit/test_debug_map_layers.py`; nothing observed in DayZ yet.
