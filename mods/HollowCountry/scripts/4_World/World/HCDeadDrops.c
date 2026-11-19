@@ -12,8 +12,8 @@
 // HCEncounterStore uses the inspected HCWorldStore/HCSearchJson file primitives.
 // Coordinates are OWN approximate hidden woodland spots, not surveyed geometry
 // or acceptance evidence. Terrain height + collision refusal precede creation.
-// No stash contents are spawned: one finite journaled house item/day, at most
-// four lifetime deposits per spot. Recoverable, ordinary persistent vanilla crates.
+// HC-34 retires abstract remote harvesting. Existing provenance/history stays
+// intact, in recoverable ordinary persistent vanilla crates. No refill.
 // EXP-L4 persistence and EXP-L5 noise, native compile and two clients PENDING.
 class HCDeadDropRow
 {
@@ -37,13 +37,12 @@ class HCDeadDrops : HCModule
     protected ref HCEncounterStore<HCDeadDropState> m_Store;
     protected ref HCDeadDropState m_State;
     protected ref array<ref HCEncounterCacheIO> m_Caches = new array<ref HCEncounterCacheIO>;
-    protected ref HCCacheMoves m_Moves;
     protected bool m_Ready;
     protected bool m_Dirty;
     protected int m_Next;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
+    protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected float m_Elapsed;
-    protected int m_Reports;
 
     static HCDeadDrops Get() { if (s_Instance && s_Instance.m_Ready) { return s_Instance; } return null; }
     override string GetName() { return "DeadDrops"; }
@@ -78,8 +77,8 @@ class HCDeadDrops : HCModule
         return true;
     }
 
-    // Only V2Visit calls this after a durable phase-2 house journal result.
-    // Missing legacy provenance stays ineligible; never infer it from cargo.
+    // Legacy provenance writer, retained for compatibility only. V2Visit now
+    // refuses remote hops; never infer a new deposit from abstract progress.
     static bool RecordHouseDeposit(EntityAI destination, string itemId)
     {
         HCDeadDrops module = Get();
@@ -156,10 +155,9 @@ class HCDeadDrops : HCModule
             ids.Set(row.Id, true);
             m_Caches.Insert(new HCEncounterCacheIO);
         }
-        m_Moves = HCCacheMoves.Shared();
         s_Instance = this;
         m_Ready = true;
-        Print("[HollowCountry] V2 dead drops ready spots=8 finite_deposits=4/spot interval=1/day");
+        Print("[HC Plan] HC-34 party=dead-drops phase=refused cargo_owner=native-cache state=refused count=0 refusal=ABSTRACT_DEPOSIT_WITHDRAWAL_RETIRED runtime=PENDING");
     }
 
     protected void HCRefuseState()
@@ -181,22 +179,13 @@ class HCDeadDrops : HCModule
         return cache;
     }
 
-    // Server consumers (pickers/theft) share this exact finite withdrawal journal.
+    // Compatibility refusal for former server-side abstract consumers.
     // Players use ordinary vanilla inventory; no RPC or client-owned state.
     int TakeOne(int index, EntityAI destination, string actorId)
     {
-        EntityAI source = Cache(index);
-        if (!source || !destination || m_State.Rows[index].Quarantined) return 0;
-        if (!HCObserverTransitionGate.CanTransition(source.GetPosition(), 500) || !HCObserverTransitionGate.CanTransition(destination.GetPosition(), 500)) return 0;
-        int phase = m_Moves.TakeOne(source, destination, actorId, m_State.Rows[index].SurvivorDeposits);
-        if (!m_Ready) return 3;
-        if (phase == 3)
-        {
-            m_State.Rows[index].Quarantined = true;
-            m_Dirty = true;
-            SaveChanged();
-        }
-        return phase;
+        // HC-34: a cache-to-cache hop has no carrier or observed route. Keep
+        // existing caches stealable but refuse this legacy abstract withdrawal.
+        return 4;
     }
 
     override void OnTick(float deltaTime)
@@ -205,14 +194,14 @@ class HCDeadDrops : HCModule
         m_Elapsed += deltaTime;
         if (m_Elapsed < 60) return;
         m_Elapsed = 0;
+        m_Units.HCReset(1);
         m_WorkBudget.HCReset(1);
-        if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        if (!m_Units.HCTake(1) || !m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         if (m_Next >= Count()) { m_Next = 0; }
         int index = m_Next;
         m_Next++;
         HCDeadDropRow row = m_State.Rows[index];
         if (row.Quarantined) return;
-        int today = HCEscalationClock.Day();
         if (row.Cache.Phase == 0)
         {
             vector anchor = row.Cache.Position;
@@ -234,38 +223,10 @@ class HCDeadDrops : HCModule
         m_Caches[index].LinkCache(row.Cache);
         if (row.Cache.Phase != priorPhase || row.Cache.EntityRef != priorRef) m_Dirty = true;
         if (!SaveChanged()) return;
-        if (!Cache(index) || row.Deposits >= 4 || today < row.NextDay) return;
-        HCHoldouts holdouts = HCHoldouts.Get();
-        HCSearchHouses houses = HCSearchBinding.Houses();
-        if (!holdouts || !houses || holdouts.Count() < 1) return;
-        int houseIndex = (index + row.Deposits * 8) % holdouts.Count();
-        Object house = holdouts.Structure(houseIndex);
-        if (!house) return;
-        if (!HCObserverTransitionGate.CanTransition(house.GetPosition(), 500) || !HCObserverTransitionGate.CanTransition(row.Cache.Position, 500)) return;
-        // One survivor trip/day, including failed/empty attempts. Save the charge
-        // before journal/native callbacks, and never catch up after downtime.
-        row.Deposits++;
-        row.NextDay = today + 1;
-        m_Dirty = true;
-        if (!SaveChanged()) return;
-        int phase = houses.V2Visit(house, Cache(index), row.Id, row.Deposits - 1);
-        if (phase == 3) { row.Quarantined = true; m_Dirty = true; }
-        if (!SaveChanged() || !m_Ready) return;
-        if (phase == 2)
-        {
-            HCWorldModule world = HCWorldModule.Get();
-            if (world)
-            {
-                string place = world.NearestPlace(row.Cache.Position);
-                place.ToLower();
-                world.AddFact("dead_drop_supplied", place, 0);
-            }
-        }
-        if (m_Reports < 16)
-        {
-            m_Reports++;
-            Print("[HollowCountry] V2 dead drop deposit id=" + row.Id + " phase=" + phase.ToString() + " used=" + row.Deposits.ToString() + "/4");
-        }
+        // HC-34: old house -> remote drop deposits bypassed a real survivor.
+        // Preserve the finite caches/history; new deposits require the same
+        // actual item carried by an admitted party and a native return receipt.
+        // No automatic stock harvesting, route progression or refill here.
     }
 
     override void OnStop()
@@ -273,7 +234,6 @@ class HCDeadDrops : HCModule
         // Flush deposits/removals marked by EECargoIn/Out since the last tick; a faulted store stays unwritten.
         if (m_Ready && m_State) SaveChanged();
         m_Ready = false;
-        if (m_Moves) m_Moves.Stop();
         if (s_Instance == this) s_Instance = null;
     }
 }
