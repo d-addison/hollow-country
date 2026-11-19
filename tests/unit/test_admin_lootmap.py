@@ -61,7 +61,7 @@ class LootmapBehavior(unittest.TestCase):
         self.assertTrue(wire.HCIsLootMap(EStr('lootmap')))
         self.assertFalse(wire.HCIsLootMap(EStr('lootmapx BandageDressing')))
         path = ADMIN / 'HCAdminLootMap.c'
-        defaults = N(SubCellM=1000, MaxPositionsPerReply=2, MaxRowsPerStep=2, MatchRowUnits=1,
+        defaults = N(SubCellM=1000, MaxPositionsPerReply=2, MaxRowsPerStep=2, MinRowUnitsPerTick=1, TickCapHeadroomPercent=0, MatchRowUnits=1,
                      MaxObjectsPerCell=16, MaxItemsScanned=40, MaxMatches=20,
                      MaxTypes=4, MaxCells=16, CooldownSeconds=30, MaxTickIntervalMs=1000, RowDeadlineMs=4)
         query_calls, probes, sent, exported = [], [], [], []
@@ -112,6 +112,7 @@ class LootmapBehavior(unittest.TestCase):
                 self.used, self.items = self.used + max(cost, 1), self.items + 1
                 return True
             def HCCharge(self, cost): self.used += max(cost, 0)
+            def HCUsed(self): return self.used
 
         def job():
             owner = N(m_Limits=defaults, m_Document=None, m_Candidates=NativeArray(),
@@ -196,7 +197,9 @@ class LootmapBehavior(unittest.TestCase):
         self.assertTrue(deferred.HCStart(EStr('Bandage'), 1000))
         deferred.m_Budget.HCContinue = lambda:False
         self.assertFalse(deferred.HCStep())
-        self.assertEqual((0, 0, 1), (deferred.m_Cursor, deferred.HCDocument().scanned, len(query_calls)))
+        # The deadline is an upper bound only AFTER the MinRowUnitsPerTick floor (1 here): that row
+        # is always processed, the next one waits for the following tick.
+        self.assertEqual((1, 1, 1), (deferred.m_Cursor, deferred.HCDocument().scanned, len(query_calls)))
         deferred.m_Budget.HCContinue = lambda:True
         self.assertFalse(deferred.HCStep())
         self.assertEqual(1, len(query_calls))  # retained native output, no requery
@@ -250,8 +253,9 @@ class LootmapBehavior(unittest.TestCase):
         factory = lambda:job()
         factory.PATH = '$profile:HollowCountry/debug/lootmap.json'
         factory.MAX_BYTES = 65536
+        factory.HCBudgetMs = lambda ticks, configured, observed: ticks * max(configured, observed)
         module = N(m_DebugEnabled=True, m_LootMap=None, m_LootMapAfter=0,
-                   m_LootMapSender=None, m_LootMapTicket=0,
+                   m_LootMapSender=None, m_LootMapTicket=0, m_ObservedTickMs=0,
                    HCAuthorized=lambda who:authorized[0], HCPlayer=lambda who:object(),
                    HCReply=lambda *args:notices.append(args),
                    HCSend=lambda *args:exported.append(args))
@@ -287,7 +291,7 @@ class LootmapBehavior(unittest.TestCase):
         # derived tick estimate. The marks are NOT sent yet; they come later by ticket.
         ack = notices[-1]
         self.assertEqual((5, 'lootmap', True), ack[1:4])
-        for token in ('started', 'ticket=5', 'est_ticks=', 'tick_ms=1000', 'final_reply=by_ticket'):
+        for token in ('started', 'ticket=5', 'est_ticks=', 'tick_ms=1000', 'budget_ms=', 'final_reply=by_ticket'):
             self.assertIn(token, ack[-1])
         self.assertEqual([], exported)
         # A second lootmap while one runs is refused server-side with a named reason.
@@ -385,6 +389,16 @@ class LootmapBehavior(unittest.TestCase):
             self.assertEqual(503, get('/lootmap.json')[0])
             self.assertEqual(404, get('/lootmap.json.bak')[0])
             self.assertIn(b'id="loot-filter"', get('/')[1])
+
+
+    def test_module_remembers_the_real_tick_cadence_even_while_idle(self):
+        # Wave 12 (#193): the ack budget uses the cadence HCServer actually delivered
+        # (OnTick deltaTime, seconds), not only the configured TickIntervalMs.
+        tick = compile_authored(ADMIN/'HCAdminModule.c', 'HCAdminModule', 'OnTick', base_scope(),
+                                modded=False, fields=('m_ObservedTickMs', 'm_Running'))
+        module = N(m_Running=False, m_ObservedTickMs=0)
+        tick(module, 2.5)  # stopped module: nothing else runs, the cadence is still noted
+        self.assertEqual(2500, module.m_ObservedTickMs)
 
 
 if __name__ == '__main__':

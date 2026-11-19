@@ -276,12 +276,11 @@ class HCAdminClient
             // A refusal (including `lootmap_job_running`) leaves any running job tracked.
             if (!reply.Snapshot && HCAdminWire.HCIsLootMap(command) && reply.Notice.IndexOf("result=refused") < 0)
             {
-                // Window sized from the ack's est_ticks and tick_ms (floor and ceiling
-                // in HCClientWindowSeconds); an unreadable ack gets the ceiling.
-                int estTicks = HCAdminLootMap.HCAckInt(reply.Notice, "est_ticks=");
-                int tickMs = HCAdminLootMap.HCAckInt(reply.Notice, "tick_ms=");
+                // Window sized from the deadline the SERVER sent (ack budget_ms; floor and
+                // ceiling in HCClientWindowSeconds); an unreadable ack gets the ceiling.
+                int budgetMs = HCAdminLootMap.HCAckInt(reply.Notice, "budget_ms=");
                 m_LootTicket = reply.Ticket;
-                m_LootUntil = GetGame().GetTickTime() + HCAdminLootMap.HCClientWindowSeconds(estTicks, tickMs);
+                m_LootUntil = GetGame().GetTickTime() + HCAdminLootMap.HCClientWindowSeconds(budgetMs);
             }
         }
         // Log the received body before the snapshot reuses the previous status.
@@ -291,7 +290,10 @@ class HCAdminClient
         Notice = reply.Notice;
         if (loot)
         {
-            HCMergeLootMap(reply);
+            // A refused or failed final reply keeps the previous lootmap marks (owner-safe
+            // default) and shows its reason; only an ok reply replaces the layer.
+            if (reply.Notice.IndexOf("result=refused") < 0) { HCMergeLootMap(reply); }
+            else if (HCLootMarkCount() > 0) { Notice = Notice + "; previous lootmap marks kept"; }
             m_LootTicket = 0;
         }
         else if (reply.Snapshot)
@@ -309,6 +311,17 @@ class HCAdminClient
         }
         Revision++;
         Changed.Invoke();
+    }
+
+    protected int HCLootMarkCount()
+    {
+        if (!View) { return 0; }
+        int found = 0;
+        for (int markIndex = 0; markIndex < View.Marks.Count(); markIndex++)
+        {
+            if (View.Marks[markIndex].Layer == "lootmap") { found++; }
+        }
+        return found;
     }
 
     // Final lootmap reply: its marks replace only the `lootmap` layer, so a captured

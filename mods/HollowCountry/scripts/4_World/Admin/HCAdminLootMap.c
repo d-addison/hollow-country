@@ -18,9 +18,12 @@
 // until the row-unit budget is spent, so ticks <= cells + ceil(worst-case row units /
 // rows per step) + 1. The row loop has its own wall-clock deadline (RowDeadlineMs)
 // that STARTS AFTER the query, so a slow native query (not preemptible) never
-// consumes the deadline of its own rows and costs no extra tick. Slow ROW work
-// (rows over RowDeadlineMs) can still add ticks; the job then ends in the safe
-// job_tick_cap refusal. Unmeasured.
+// consumes the deadline of its own rows and costs no extra tick. Progress is
+// deterministic: every tick spends at least MinRowUnitsPerTick row units before the
+// wall-clock deadline may stop the loop (the deadline is only an upper bound beyond
+// that floor), so a slow row loop cannot add unbounded ticks. job_tick_cap is sized
+// from the guaranteed floor plus TickCapHeadroomPercent and still caps total ticks.
+// Wave 12 (#193). Unmeasured.
 class HCAdminLootMapLimits
 {
     // Square sub-cell edge for one query. The query circle is its half diagonal,
@@ -32,8 +35,15 @@ class HCAdminLootMapLimits
     // only); a matched class costs MatchRowUnits (cast, profile, type row, point).
     int MaxRowsPerStep = 256;
     int MatchRowUnits = 4;
+    // Progress floor: row units every tick spends BEFORE the wall-clock row deadline
+    // is consulted (clamped to MaxRowsPerStep). The tick cap is sized from it.
+    int MinRowUnitsPerTick = 128;
+    // Slack added to the row-tick term of the tick cap (percent of that term), so a
+    // slow machine finishes the job instead of refusing at job_tick_cap.
+    int TickCapHeadroomPercent = 25;
     // Wall-clock guard for the row loop only, started after the native query so the
     // query's own time never spends it (the 4 ms HCWorkBudget default, now named).
+    // An upper bound only: it cannot stop a tick before MinRowUnitsPerTick units.
     int RowDeadlineMs = 4;
     int MaxObjectsPerCell = 4096;
     int MaxItemsScanned = 65536;
@@ -130,12 +140,16 @@ class HCAdminLootMap
 
     // Worst case row units: every scanned row costs 1, each match costs MatchRowUnits.
     // One query plus its rows fit one tick (RowDeadlineMs starts after the query), so the
-    // cells term is one tick per cell; the row term is the extra ticks big cells need.
+    // cells term is one tick per cell. The row term uses the GUARANTEED row units per tick
+    // (MinRowUnitsPerTick, clamped to MaxRowsPerStep), which the wall-clock deadline cannot
+    // undercut, plus TickCapHeadroomPercent. Total ticks stay capped.
     static int HCJobTickCap(HCAdminLootMapLimits limits, int cells)
     {
-        int stepUnits = Math.Max(limits.MaxRowsPerStep, 1);
+        int floorUnits = Math.Min(limits.MinRowUnitsPerTick, limits.MaxRowsPerStep);
+        floorUnits = Math.Max(floorUnits, 1);
         int units = limits.MaxItemsScanned + (limits.MatchRowUnits - 1) * limits.MaxMatches;
-        int rowTicks = (units + stepUnits - 1) / stepUnits;
+        int rowTicks = (units + floorUnits - 1) / floorUnits;
+        rowTicks = rowTicks + rowTicks * limits.TickCapHeadroomPercent / 100;
         return cells + rowTicks + 1;
     }
 
@@ -172,16 +186,25 @@ class HCAdminLootMap
         return value;
     }
 
-    // Client job window from the ack's est_ticks and the server tick interval (tick_ms),
-    // plus ReplyGraceSeconds, between MinClientWaitSeconds and HCClientWaitSeconds().
+    // Server-side expected job deadline in ms for the ack: the job's tick cap times the
+    // slower of the configured core tick and the cadence the server last delivered
+    // (observedMs <= 0 means none yet). Bounded: observed cadence is at most 300 s.
+    static int HCBudgetMs(int ticks, int configuredMs, int observedMs)
+    {
+        int cadence = Math.Max(configuredMs, 1);
+        if (observedMs > cadence) { cadence = observedMs; }
+        return ticks * cadence;
+    }
+
+    // Client job window from the server's own deadline (ack budget_ms) plus
+    // ReplyGraceSeconds, between MinClientWaitSeconds and HCClientWaitSeconds().
     // An unreadable or out-of-range ack falls back to the ceiling, never a short wait.
-    static int HCClientWindowSeconds(int estTicks, int tickMs)
+    static int HCClientWindowSeconds(int budgetMs)
     {
         HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
         int ceiling = HCAdminLootMap.HCClientWaitSeconds();
-        if (estTicks < 1 || estTicks > 100000) { return ceiling; }
-        if (tickMs < 1 || tickMs > limits.MaxTickIntervalMs) { return ceiling; }
-        int seconds = (estTicks * tickMs + 999) / 1000 + limits.ReplyGraceSeconds;
+        if (budgetMs < 1) { return ceiling; }
+        int seconds = (budgetMs + 999) / 1000 + limits.ReplyGraceSeconds;
         seconds = Math.Max(seconds, limits.MinClientWaitSeconds);
         seconds = Math.Min(seconds, ceiling);
         return seconds;
@@ -318,7 +341,8 @@ class HCAdminLootMap
     }
 
     // No idle tick, periodic refresh, loot mutation, inventory traversal or CE
-    // debug export. One query at most, then rows until MaxRowsPerStep units are spent.
+    // debug export. One query at most, then rows until MaxRowsPerStep units are spent
+    // (the wall clock may stop the loop only after MinRowUnitsPerTick units).
     bool HCStep()
     {
         if (!m_Document || m_Document.state != "pending") { return true; }
@@ -330,9 +354,12 @@ class HCAdminLootMap
         // Start the row clock after the query: a query slower than the row deadline
         // must not leave its rows for a second tick.
         m_Budget.HCReset(m_Limits.MaxRowsPerStep, m_Limits.RowDeadlineMs);
+        int floorUnits = Math.Min(m_Limits.MinRowUnitsPerTick, m_Limits.MaxRowsPerStep);
         while (m_Cursor < m_Candidates.Count())
         {
-            if (!m_Units.HCTake(1) || !m_Budget.HCContinue()) { return false; }
+            if (!m_Units.HCTake(1)) { return false; }
+            // The wall clock is an upper bound only once the guaranteed floor is spent.
+            if (m_Units.HCUsed() > floorUnits && !m_Budget.HCContinue()) { return false; }
             if (m_Document.scanned >= m_Limits.MaxItemsScanned) { HCFinish("items_scanned_cap"); return true; }
             Object candidate = m_Candidates[m_Cursor];
             m_Cursor++;

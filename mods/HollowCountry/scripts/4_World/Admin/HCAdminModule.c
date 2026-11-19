@@ -41,6 +41,8 @@ class HCAdminModule : HCModule
     protected PlayerIdentity m_LootMapSender;
     protected int m_LootMapTicket;
     protected float m_LootMapAfter;
+    // Real cadence HCServer last delivered to OnTick (ms); sizes the lootmap ack deadline.
+    protected int m_ObservedTickMs;
     // HC-1 status the core reads after OnStart (#160): every start refusal publishes
     // its reason here instead of returning silently.
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -210,8 +212,12 @@ class HCAdminModule : HCModule
         // Immediate ack, the snapshot pattern: the client is freed at once, then the
         // one final marks RPC follows by this ticket (no automatic retries). If the
         // client session ends first the final reply is dropped client-side.
+        // budget_ms is the server's own expected deadline (tick cap x the slower of the
+        // configured and the last observed cadence); the client window derives from it.
+        int budgetMs = HCAdminLootMap.HCBudgetMs(job.HCMaxTicks(), tickMs, m_ObservedTickMs);
         string ack = "started ticket=" + ticket.ToString() + " est_ticks=" + job.HCMaxTicks().ToString();
-        ack += " cells=" + job.HCTotalCells().ToString() + " tick_ms=" + tickMs.ToString() + " final_reply=by_ticket; query_cost=unmeasured";
+        ack += " cells=" + job.HCTotalCells().ToString() + " tick_ms=" + tickMs.ToString() + " budget_ms=" + budgetMs.ToString();
+        ack += " final_reply=by_ticket; query_cost=unmeasured";
         HCReply(sender, ticket, "lootmap", true, ack);
         return true;
     }
@@ -447,6 +453,8 @@ class HCAdminModule : HCModule
 
     override void OnTick(float deltaTime)
     {
+        // Cheap cadence note (HCServer passes the real elapsed seconds), kept while idle.
+        m_ObservedTickMs = deltaTime * 1000;
         if (!m_Running) { return; }
         if (!m_Pending && !m_Capture && !m_LootMap) { return; }
         m_Players.Clear();

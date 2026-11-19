@@ -51,7 +51,7 @@ class Harness:
         static.HCCellsAcross = lambda size, cell: math.ceil(size / cell)
         self.static = static
         units = shared_budget(SCRIPTS / 'Core/HCUnitBudget.c', 'HCUnitBudget', {},
-                              ('HCReset', 'HCTake', 'HCCharge'), game)
+                              ('HCReset', 'HCTake', 'HCCharge', 'HCUsed'), game)
         work = shared_budget(SCRIPTS / 'World/HCWorkBudget.c', 'HCWorkBudget', dict(m_LogAfter=0.),
                              ('HCReset', 'HCMayContinue', 'HCContinue'), game)
         self.job = N(m_Limits=self.limits, m_Document=None, m_Candidates=NativeArray(), m_Cargos=NativeArray(),
@@ -67,7 +67,11 @@ class Harness:
         self.queries += 1
         self.clock[0] += self.query_seconds  # one native call cannot be preempted
         for _ in range(self.rows_per_cell):
-            candidates.append(N(GetType=lambda: EStr('Other')))
+            candidates.append(N(GetType=self.row))
+
+    def row(self):
+        self.clock[0] += self.row_seconds  # synthetic row cost, never a DayZ measurement
+        return EStr('Other')
 
     def run(self):
         assert self.job.HCStart(EStr('Bandage'), 1000)
@@ -100,6 +104,39 @@ class TickCapAgainstWallClock(unittest.TestCase):
         self.assertEqual('observed', h.job.m_Document.state)
         self.assertEqual(self.CELLS * math.ceil(600 / limits.MaxRowsPerStep), ticks)
         self.assertLessEqual(ticks, h.job.m_MaxTicks)
+
+    def test_slow_row_loop_still_finishes_because_the_row_floor_is_deterministic(self):
+        # Wave 12 (#193): every row costs 1 ms of synthetic clock, so the 4 ms wall-clock
+        # deadline alone allowed only ~4 rows per tick: 600 rows x 4 cells = ~600 ticks
+        # against a cap of ~357, ending in the job_tick_cap refusal.
+        limits = authored_limits()
+        h = Harness(rows_per_cell=600, query_seconds=0.0, row_seconds=0.001)
+        ticks = h.run()
+        self.assertEqual('observed', h.job.m_Document.state, h.job.m_Document.reason)
+        self.assertEqual(self.CELLS * 600, h.job.m_Document.scanned)
+        self.assertEqual(self.CELLS * math.ceil(600 / limits.MinRowUnitsPerTick), ticks)
+        self.assertLessEqual(ticks, h.job.m_MaxTicks)
+
+    def test_every_tick_spends_at_least_the_row_floor_before_the_deadline_may_stop_it(self):
+        limits = authored_limits()
+        h = Harness(rows_per_cell=600, query_seconds=0.0, row_seconds=0.001)
+        h.clock[0] += 1.0
+        assert h.job.HCStart(EStr('Bandage'), 1000)
+        self.assertFalse(h.job.HCStep())
+        self.assertEqual(limits.MinRowUnitsPerTick, h.job.m_Document.scanned)
+
+    def test_row_deadline_remains_an_upper_bound_and_the_cap_is_sized_from_the_floor(self):
+        limits = authored_limits()
+        # The floor never exceeds the unit ceiling, so MaxRowsPerStep stays the hard cap.
+        self.assertLessEqual(limits.MinRowUnitsPerTick, limits.MaxRowsPerStep)
+        h = Harness(rows_per_cell=600, query_seconds=0.0, row_seconds=0.0)
+        self.assertTrue(h.job.HCStart(EStr('Bandage'), 1000))
+        units = limits.MaxItemsScanned + (limits.MatchRowUnits - 1) * limits.MaxMatches
+        rows = math.ceil(units / limits.MinRowUnitsPerTick)
+        rows += rows * limits.TickCapHeadroomPercent // 100
+        self.assertEqual(self.CELLS + rows + 1, h.job.m_MaxTicks)
+        self.assertIn('MinRowUnitsPerTick', README.read_text())
+        self.assertIn('TickCapHeadroomPercent', README.read_text())
 
     def test_row_deadline_is_a_named_limit_and_the_readme_states_the_assumption(self):
         self.assertGreaterEqual(authored_limits().RowDeadlineMs, 1)
