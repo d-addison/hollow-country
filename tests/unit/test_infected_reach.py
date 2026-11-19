@@ -10,6 +10,7 @@ RED: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_reac
         policy mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachPolicy.c
 GREEN: same command.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import math
 import re
 import unittest
@@ -30,7 +31,7 @@ def policy():
     owner = SimpleNamespace()
     for name, value in re.findall(r'static const (?:bool|string) (\w+) = ("[^"]*"|true|false);', text):
         setattr(owner, name, value == 'true' if value in ('true', 'false') else value[1:-1])
-    env = dict(HCInfectedReachPolicy=owner, len=len, str=str,
+    env = dict(HCInfectedTuning=tuning_fixture(), HCInfectedReachPolicy=owner, len=len, str=str,
                Math=SimpleNamespace(AbsFloat=abs, Min=min, Max=max))
     for name in re.findall(r"\bstatic (?:bool|int|float) (\w+)\(", text):
         setattr(owner, name, translate(text, name, env, owner="HCInfectedReachPolicy"))

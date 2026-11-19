@@ -1,4 +1,5 @@
 """Authored route policies/scheduler on synthetic observations; no native AI claim."""
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import math
 import re
 from types import SimpleNamespace
@@ -62,7 +63,7 @@ def authored_navigation(signature, context, **namespace):
         elif token.startswith("for "): token += ":"
         elif token == "else": token += ":"
         lines.append("    " * indent + token)
-    scope = dict(NativeArray=NativeArray, Print=lambda: None,
+    scope = dict(HCInfectedTuning=tuning_fixture(), NativeArray=NativeArray, Print=lambda: None,
                  HCInfectedPolicy=SimpleNamespace(**policy_functions()))
     scope.update(namespace)
     exec(compile("\n".join(lines), "authored-navigation:" + signature, "exec"), scope)

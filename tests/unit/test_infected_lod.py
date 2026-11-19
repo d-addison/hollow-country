@@ -13,6 +13,7 @@ RED:   PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_lo
           authored #135 source .../4_World/Core/HCLODPolicy.c; KeyError: 'DormantLimitAt'
 GREEN: same command -> Ran 16 tests OK
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import math
 import re
 import unittest
@@ -50,7 +51,7 @@ def policy():
     owner = SimpleNamespace()
     for name, value in re.findall(r"static const (?:int|float) (\w+) = ([-\d.]+);", text):
         setattr(owner, name, float(value) if "." in value else int(value))
-    env = dict(HCLODPolicy=owner, len=len, str=str,
+    env = dict(HCInfectedTuning=tuning_fixture(), HCLODPolicy=owner, len=len, str=str,
                Math=SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Sqrt=math.sqrt))
     for name in re.findall(r"\bstatic (?:bool|int|float) (\w+)\(", text):
         setattr(owner, name, translate(text, name, env, owner="HCLODPolicy"))
@@ -85,10 +86,10 @@ class LODTiers(unittest.TestCase):
         # Observers can close the gap at vehicle speed between samples.
         self.assertFalse(p.SafelyFar(100.0, 2.0, 6.0))
         self.assertTrue(p.SafelyFar(200.0, 2.0, 6.0))
-        self.assertFalse(p.SafelyFar(5000.0, p.MAX_SAMPLE_AGE + 0.5, 6.0), "stale samples never skip work")
+        self.assertFalse(p.SafelyFar(5000.0, tuning_fixture().Get().LevelOfDetail.SampleAge + 0.5, 6.0), "stale samples never skip work")
         self.assertFalse(p.SafelyFar(-1.0, 0.0, 6.0), "unknown distance never skips work")
         self.assertFalse(p.SafelyFar(200.0, -1.0, 6.0), "clock went backwards")
-        self.assertGreaterEqual(p.MAX_OBSERVER_SPEED, 40.0)
+        self.assertGreaterEqual(tuning_fixture().Get().LevelOfDetail.ObserverSpeed, 40.0)
 
 
 class VirtualHerds(unittest.TestCase):
@@ -130,7 +131,7 @@ class VirtualHerds(unittest.TestCase):
         self.assertEqual(p.FOLD_KEEP, p.FoldDecision(True, True, -1.0, False, 600.0, 450.0, 2, 1, 8), "a player can see it")
         self.assertEqual(p.FOLD_KEEP, p.FoldDecision(True, True, -1.0, False, 600.0, 450.0, 9, 9, 8))
         self.assertEqual(p.FOLD_KEEP, p.FoldDecision(True, True, -1.0, False, -1.0, 450.0, 0, 0, 8))
-        self.assertGreaterEqual(p.FOLD_HIT_QUIET, 60.0)
+        self.assertGreaterEqual(tuning_fixture().Get().LevelOfDetail.HitQuiet, 60.0)
 
     def test_regrow_is_slow_and_only_while_fully_virtual(self):
         p = policy()

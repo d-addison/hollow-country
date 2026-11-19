@@ -20,10 +20,7 @@ class HCLODPolicy
 
     // Fastest observer assumed between two distance samples (vehicles
     // included) and the oldest sample a consumer may reuse.
-    static const float MAX_OBSERVER_SPEED = 60.0;
-    static const float MAX_SAMPLE_AGE = 3.0;
     // A member hit within this many seconds is never folded.
-    static const float FOLD_HIT_QUIET = 120.0;
     // Structural caps: snapshot players, persisted herds and head count.
     static const int MAX_PLAYERS = 64;
     static const int MAX_HERDS = 16;
@@ -46,8 +43,8 @@ class HCLODPolicy
     static bool SafelyFar(float sampledDistance, float age, float radius)
     {
         if (!(sampledDistance >= 0) || !(age >= 0)) { return false; }
-        if (age > HCLODPolicy.MAX_SAMPLE_AGE) { return false; }
-        return sampledDistance - age * HCLODPolicy.MAX_OBSERVER_SPEED > radius;
+        if (age > HCInfectedTuning.Get().LevelOfDetail.SampleAge) { return false; }
+        return sampledDistance - age * HCInfectedTuning.Get().LevelOfDetail.ObserverSpeed > radius;
     }
 
     // Bodies a herd wants in the world: its nearest members, only while a
@@ -81,7 +78,7 @@ class HCLODPolicy
         if (!alive) { return HCLODPolicy.FOLD_DEAD; }
         if (claimed) { return HCLODPolicy.FOLD_RELEASE; }
         if (!calm) { return HCLODPolicy.FOLD_KEEP; }
-        if (sinceHit >= 0 && sinceHit < HCLODPolicy.FOLD_HIT_QUIET) { return HCLODPolicy.FOLD_KEEP; }
+        if (sinceHit >= 0 && sinceHit < HCInfectedTuning.Get().LevelOfDetail.HitQuiet) { return HCLODPolicy.FOLD_KEEP; }
         if (!(nearest > foldRange)) { return HCLODPolicy.FOLD_KEEP; }
         if (observers > maxObservers || occluded < observers) { return HCLODPolicy.FOLD_KEEP; }
         return HCLODPolicy.FOLD_NOW;

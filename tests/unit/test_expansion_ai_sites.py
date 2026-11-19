@@ -229,6 +229,16 @@ class SiteRulesTests(unittest.TestCase):
     def test_w5_group_scaling_rounds_and_caps_authored_counts(self):
         # Synthetic player counts only; no native spawning or runtime evidence.
         self.env['Math'].Round = lambda value: math.floor(value + 0.5)
+        # Explicit synthetic port: the shipped default Infected variety GroupScaling curve. The AI
+        # sites delegate to that one operator-tuned curve instead of keeping a duplicate.
+        calls = []
+        def scale(players):
+            calls.append(players)
+            if players <= 1: return .6
+            if players < 3: return .6 + (players - 1) * .2
+            if players < 6: return 1. + (players - 3) * .1
+            return 1.3
+        self.env["HCInfectedVarietyPolicy"] = N(GroupScale=scale)
         for players, factor, expected in ((1, .6, [1, 2, 2]),
                                            (3, 1., [2, 3, 4]),
                                            (6, 1.3, [3, 4, 5])):
@@ -239,6 +249,7 @@ class SiteRulesTests(unittest.TestCase):
         self.assertEqual(12, self.rules.HCGroupMembers(20, 1.3))
         self.assertEqual(.6, self.rules.HCGroupFactor(0))
         self.assertEqual(1.3, self.rules.HCGroupFactor(90))
+        self.assertEqual([1, 3, 6, 0, 90], calls)
 
     # Expansion's stock AI aims at 35-95%, notices threats to 1000 m, investigates noise to 500 m and
     # flanks up to 200 m (ExpansionAISettings.Defaults). The owner asked for worse aim and less smarts.

@@ -55,7 +55,7 @@ class HCAlertChain
         // Both arrays have fixed hard caps, independently of entity count.
         for (int q = m_Queue.Count() - 1; q >= 0; q--)
         {
-            if (!m_Queue[q].Clue.IsLive(now) || now - m_Queue[q].Clue.Observed > 2)
+            if (!m_Queue[q].Clue.IsLive(now) || now - m_Queue[q].Clue.Observed > HCInfectedTuning.Get().Chain.EmissionAge)
                 m_Queue.Remove(q);
         }
         for (int r = m_Roots.Count() - 1; r >= 0; r--)
@@ -71,7 +71,7 @@ class HCAlertChain
             return;
         Expire(now);
         queueCap = Math.Min(queueCap, 16);
-        if (queueCap < 1 || m_Queue.Count() >= queueCap || trackedCount < 1 || trackedCount > 24)
+        if (queueCap < 1 || m_Queue.Count() >= queueCap || trackedCount < 1 || trackedCount > HCInfectedTuning.Get().Chain.TrackedCap)
             return;
         HCAlertRoot root;
         int hops = 0;
@@ -94,12 +94,12 @@ class HCAlertChain
             // for a new supplementary alarm root.
             if (actor.InfectedEntity.GetMindStateSynced() == DayZInfectedConstants.MINDSTATE_CALM)
                 return;
-            if (m_Roots.Count() >= 8 || m_NextRootId >= 2000000000)
+            if (m_Roots.Count() >= HCInfectedTuning.Get().Chain.RootCap || m_NextRootId >= 2000000000)
                 return;
             root = new HCAlertRoot;
             root.RootId = m_NextRootId++;
             root.RootObserved = now;
-            root.RootExpires = now + Math.Min(actor.ClueLifetime, 30);
+            root.RootExpires = now + Math.Min(actor.ClueLifetime, HCInfectedTuning.Get().Chain.ClueTTL);
             root.Recipients.Insert(actor.InfectedEntity);
             m_Roots.Insert(root);
             // The seed cannot hear itself or relay its own root again.
@@ -151,7 +151,7 @@ class HCAlertChain
     {
         Expire(now);
         int spent = 0;
-        if (!GetGame().IsServer() || !actors || actors.Count() < 1 || actors.Count() > 24)
+        if (!GetGame().IsServer() || !actors || actors.Count() < 1 || actors.Count() > HCInfectedTuning.Get().Chain.TrackedCap)
             return spent;
         // One bounded tracked recipient per work item, up to two geometry tests.
         // No GetPlayers/global entity enumeration or unbounded spatial result.

@@ -220,7 +220,9 @@ class VarietyW60(unittest.TestCase):
         data['Sites'] = Array([N(Id='synthetic-site', Context='wreck',
                                  SourceClass='synthetic-class', Position=[1000., 0., 1000.])])
         owner = N(**data)
-        valid = translate(str(AREA / 'HCInfectedVariety.c'), 'bool HCValid(', (),
+        # This fixture tests the original site/cadence limits with default tuning.
+        owner.HCNormalizeTunables = lambda: None
+        valid = translate(str(AREA / 'HCInfectedVariety.c'), 'bool HCValid(', ('HCNormalizeTunables',),
                           fields=tuple(data), HCInfectedStore=N(ValidPosition=lambda p: True))
         for cadence, expected in ((2, True), (0, True), (-1, False), (4, False)):
             owner.StandingRiserEvery = cadence

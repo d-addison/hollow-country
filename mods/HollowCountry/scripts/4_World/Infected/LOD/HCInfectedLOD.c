@@ -91,19 +91,19 @@ class HCInfectedLOD
     // Tiered posed budget; 12/12/12 (the shipped fixed cap) when inactive.
     static int PosedBudget()
     {
-        if (!HCInfectedLOD.Active()) { return 12; }
+        if (!HCInfectedLOD.Active()) { return HCInfectedTuning.Get().LevelOfDetail.PosedFallback; }
         return s_Config.PosedBudget;
     }
 
     static int PosedFullBudget()
     {
-        if (!HCInfectedLOD.Active()) { return 12; }
+        if (!HCInfectedLOD.Active()) { return HCInfectedTuning.Get().LevelOfDetail.PosedFallback; }
         return s_Config.PosedFullBudget;
     }
 
     static int PosedIdleBudget()
     {
-        if (!HCInfectedLOD.Active()) { return 12; }
+        if (!HCInfectedLOD.Active()) { return HCInfectedTuning.Get().LevelOfDetail.PosedFallback; }
         return s_Config.PosedIdleBudget;
     }
 

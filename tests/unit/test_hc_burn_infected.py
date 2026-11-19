@@ -9,6 +9,7 @@ RED: PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest tests.unit.test_hc_burn_in
 ('refused', 'MISSION_UNAVAILABLE') != ('refused', 'WEATHER_OWNER_NOT_ADMITTED')".
 GREEN: same command, Ran 13 tests, OK. Runtime acceptance pending; nothing observed in DayZ.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 from pathlib import Path
 from types import SimpleNamespace as N
 import re
@@ -59,6 +60,7 @@ def authored(path, owner, names, target, env, prep=()):
     source = re.sub(r'(?:ref )?array<[^;=]*?> (\w+) = ', r'\1 = ', source)
     for pattern, replacement in prep:
         source = re.sub(pattern, replacement, source)
+    env.setdefault('HCInfectedTuning', tuning_fixture())
     env.setdefault('EArray', EArray)
     bind(source, owner, target, names, env)
     return target

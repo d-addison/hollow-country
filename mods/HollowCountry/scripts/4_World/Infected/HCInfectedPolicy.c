@@ -4,7 +4,7 @@ class HCInfectedPolicy
     // Reuse a released journal slot only after a bounded quiet interval.
     static int HordeCooldownSeconds()
     {
-        return 180;
+        return HCInfectedTuning.Get().HordeCooldownSeconds;
     }
 
     static bool MayReuseHorde(int state, bool refunded, int retired, int now)
@@ -26,7 +26,7 @@ class HCInfectedPolicy
         {
             return false;
         }
-        if (!(expires > now && expires - observed <= 30))
+        if (!(expires > now && expires - observed <= HCInfectedTuning.Get().Chain.ClueTTL))
         {
             return false;
         }
@@ -34,7 +34,7 @@ class HCInfectedPolicy
         {
             return false;
         }
-        return strength >= 0.2 && strength <= 1 && hops >= 0 && hops <= 2;
+        return strength >= HCInfectedTuning.Get().Chain.MinStrength && strength <= 1 && hops >= 0 && hops <= HCInfectedTuning.Get().Chain.MaxHops;
     }
 
     static bool AdmitVoice(float now, float nextAllowed, int queued, int queueCap, int work, int workCap, bool alive, bool nativeNoise, bool duplicate, int hops, float strength, float expires)
@@ -55,16 +55,16 @@ class HCInfectedPolicy
         {
             return false;
         }
-        if (!(hops >= 0 && hops < 2 && strength >= 0.2 && strength <= 1))
+        if (!(hops >= 0 && hops < HCInfectedTuning.Get().Chain.MaxHops && strength >= HCInfectedTuning.Get().Chain.MinStrength && strength <= 1))
         {
             return false;
         }
-        return expires > now && expires - now <= 30;
+        return expires > now && expires - now <= HCInfectedTuning.Get().Chain.ClueTTL;
     }
 
     static float Attenuate(float strength)
     {
-        return strength * 0.5;
+        return strength * HCInfectedTuning.Get().Chain.Attenuation;
     }
 
     static float CentroidWeight(int living)
@@ -186,7 +186,7 @@ class HCInfectedPolicy
         {
             return false;
         }
-        if (!(expires > now && expires - observed <= 30 && observed > lastObserved))
+        if (!(expires > now && expires - observed <= HCInfectedTuning.Get().Chain.ClueTTL && observed > lastObserved))
         {
             return false;
         }
@@ -526,11 +526,11 @@ class HCInfectedPolicy
 
     static bool MayRelay(float now, float rootObserved, float rootExpires, int hops, float strength, bool actualNativeEmission, bool alive)
     {
-        if (!(now >= rootObserved && rootObserved >= 0 && rootExpires > now && rootExpires - rootObserved <= 30))
+        if (!(now >= rootObserved && rootObserved >= 0 && rootExpires > now && rootExpires - rootObserved <= HCInfectedTuning.Get().Chain.ClueTTL))
         {
             return false;
         }
-        if (!(hops >= 0 && hops < 2 && strength >= 0.2 && strength <= 1))
+        if (!(hops >= 0 && hops < HCInfectedTuning.Get().Chain.MaxHops && strength >= HCInfectedTuning.Get().Chain.MinStrength && strength <= 1))
         {
             return false;
         }
@@ -539,11 +539,11 @@ class HCInfectedPolicy
 
     static bool MayHearRelay(float now, float rootExpires, int hops, float strength, float distanceSq, int recipients, int recipientCap, bool duplicate, bool alive, bool clearGeometry, float nextAllowed)
     {
-        if (!(now >= 0 && rootExpires > now && hops >= 0 && hops <= 2))
+        if (!(now >= 0 && rootExpires > now && hops >= 0 && hops <= HCInfectedTuning.Get().Chain.MaxHops))
         {
             return false;
         }
-        if (!(strength >= 0.2 && strength <= 1 && distanceSq >= 0.01 && distanceSq <= 225))
+        if (!(strength >= HCInfectedTuning.Get().Chain.MinStrength && strength <= 1 && distanceSq >= 0.01 && distanceSq <= 225))
         {
             return false;
         }

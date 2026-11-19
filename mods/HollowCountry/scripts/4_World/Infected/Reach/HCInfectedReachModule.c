@@ -253,13 +253,13 @@ class HCInfectedReachModule : HCModule
             state.Vehicle = seat.GetTransport();
             state.InVehicle = state.Vehicle != null;
         }
-        else if (vertical >= 0.8)
+        else if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin)
         {
             state.Vehicle = FloorVehicle(target);
             state.OnVehicle = state.Vehicle != null;
         }
         // Bounded lifetime: context refreshes up to 180 s after admission.
-        if (vertical >= 0.8 || state.InVehicle)
+        if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin || state.InVehicle)
         {
             state.Expires = Math.Min(now + 10, state.Admitted + 180);
         }
@@ -275,7 +275,7 @@ class HCInfectedReachModule : HCModule
 
         if (!HCInfectedReachPolicy.HCForcedMovementSupported()) { return; }
         state.OffNavmesh = false;
-        if (vertical >= 0.8 && !state.InVehicle)
+        if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin && !state.InVehicle)
         {
             state.OffNavmesh = !OnWalkableNavmesh(aim);
         }
@@ -285,14 +285,14 @@ class HCInfectedReachModule : HCModule
         {
             float facing = FacingDegrees(infected, dx, dz, horizontal);
             bool ahead = false;
-            if (HCInfectedReachPolicy.VaultType(vertical) >= 0 && horizontal <= 1.6)
+            if (HCInfectedReachPolicy.VaultType(vertical) >= 0 && horizontal <= HCInfectedTuning.Get().Reach.VaultHorizontal)
             {
                 ahead = ContactDistance(infected, null, 1.2) >= 0;
             }
             if (HCInfectedReachPolicy.MayVault(vertical, horizontal, facing, ahead, now, state.NextVault, m_VaultActive, m_VaultRetired))
             {
                 state.VaultType = HCInfectedReachPolicy.VaultType(vertical);
-                state.NextVault = now + 15;
+                state.NextVault = now + HCInfectedTuning.Get().Reach.VaultCooldown;
             }
         }
 

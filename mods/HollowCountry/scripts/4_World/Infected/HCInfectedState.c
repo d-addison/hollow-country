@@ -1,6 +1,7 @@
 // Authored DTOs only. No entity pointers, target identities or player positions
 // enter persistence. Schema/build/world mismatches quarantine instead of wiping.
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :407 Insert;
+// Config fallback Print: 1_Core/proto/EnDebug.c:96.
 // the new retirement fields belong only to our JSON DTO, never vanilla storage.
 class HCInfectedConfig
 {
@@ -25,8 +26,47 @@ class HCInfectedConfig
     int SaveIntervalSeconds = 60;
     int MaxInvestigators = 2;
 
+    int HordeCooldownSeconds = 180;
+    ref HCC1Doors Doors = new HCC1Doors;
+    ref HCC1Reach Reach = new HCC1Reach;
+    ref HCC1Vision Vision = new HCC1Vision;
+    ref HCC1Memory Memory = new HCC1Memory;
+    ref HCC1Chain Chain = new HCC1Chain;
+    ref HCC1Navigation Navigation = new HCC1Navigation;
+    ref HCC1LOD LevelOfDetail = new HCC1LOD;
+
+    protected static bool s_HCTuningInvalidLogged;
+    void HCNormalizeTunables()
+    {
+        HCC1Range.s_Invalid = false;
+        HordeCooldownSeconds = HCC1Range.Value(HordeCooldownSeconds, 1, 86400, 180);
+        if (!Doors) { Doors = new HCC1Doors; }
+        Doors.Normalize();
+        if (!Reach) { Reach = new HCC1Reach; }
+        Reach.Normalize();
+        if (!Vision) { Vision = new HCC1Vision; }
+        Vision.Normalize();
+        if (!Memory) { Memory = new HCC1Memory; }
+        Memory.Normalize();
+        if (!Chain) { Chain = new HCC1Chain; }
+        Chain.Normalize();
+        if (!Navigation) { Navigation = new HCC1Navigation; }
+        Navigation.Normalize();
+        if (!LevelOfDetail) { LevelOfDetail = new HCC1LOD; }
+        LevelOfDetail.Normalize();
+        if (Memory.CohortBase + Memory.CohortHeat > 6) { Memory.CohortBase = 3; Memory.CohortHeat = 3; HCC1Range.s_Invalid = true; }
+        if (Memory.ResponseBase + Memory.ResponseHeat > 12) { Memory.ResponseBase = 6; Memory.ResponseHeat = 6; HCC1Range.s_Invalid = true; }
+        if (HCC1Range.s_Invalid && !s_HCTuningInvalidLogged)
+        {
+            s_HCTuningInvalidLogged = true;
+            Print("[HC Infected] tunables=invalid_fields_defaulted runtime=PENDING");
+        }
+        HCInfectedTuning.Set(this);
+    }
+
     bool IsValid()
     {
+        HCNormalizeTunables();
         if (!HCInfectedProfiles.ValidateMap(CivilianVariants, false))
             return false;
         if (!HCInfectedProfiles.ValidateMap(MilitaryVariants, false))

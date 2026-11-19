@@ -38,10 +38,10 @@ class HCInfectedVarietyPolicy
 
     static float GroupScale(int players)
     {
-        if (players <= 1) { return 0.6; }
-        if (players < 3) { return 0.6 + 0.2 * (players - 1); }
-        if (players < 6) { return 1.0 + 0.1 * (players - 3); }
-        return 1.3;
+        if (players <= 1) { return HCInfectedTuning.Variety().GroupScaling.Solo; }
+        if (players < 3) { return HCInfectedTuning.Variety().GroupScaling.Solo + HCInfectedTuning.Variety().GroupScaling.DuoIncrement * (players - 1); }
+        if (players < 6) { return HCInfectedTuning.Variety().GroupScaling.Trio + HCInfectedTuning.Variety().GroupScaling.PartyIncrement * (players - 3); }
+        return HCInfectedTuning.Variety().GroupScaling.LargeParty;
     }
 
     static int DormantLimit(float scale)
@@ -54,7 +54,7 @@ class HCInfectedVarietyPolicy
     static int DormantLimitAt(float scale, int budget)
     {
         if (budget < 1) { return 0; }
-        return Math.Min(budget, Math.Max(0, Math.Round(scale * budget * 2.0 / 3.0)));
+        return Math.Min(budget, Math.Max(0, Math.Round(scale * budget * HCInfectedTuning.Variety().Variety.DormantShare)));
     }
 
     // Per-tier posed sub-budgets: near players (full AI tier) or middle range.
@@ -75,18 +75,18 @@ class HCInfectedVarietyPolicy
 
     static int RunnerLimit(int population, float nightness)
     {
-        float share = 0.08 + 0.07 * Math.Clamp(nightness, 0, 1);
+        float share = HCInfectedTuning.Variety().Variety.RunnerDay + HCInfectedTuning.Variety().Variety.RunnerNightIncrement * Math.Clamp(nightness, 0, 1);
         return Math.Floor(Math.Max(0, population) * share);
     }
 
     static float DormantChance(float nightness, float rain)
     {
-        return Math.Clamp(0.55 - 0.25 * nightness - 0.15 * rain, 0.1, 0.6);
+        return Math.Clamp(HCInfectedTuning.Variety().Variety.DormantBase - HCInfectedTuning.Variety().Variety.DormantNightReduction * nightness - HCInfectedTuning.Variety().Variety.DormantRainReduction * rain, HCInfectedTuning.Variety().Variety.DormantMin, HCInfectedTuning.Variety().Variety.DormantMax);
     }
 
     static float NoiseWakeChance(float nightness, float rain)
     {
-        return Math.Clamp(0.8 + 0.2 * nightness - 0.3 * rain, 0.4, 1);
+        return Math.Clamp(HCInfectedTuning.Variety().Variety.WakeBase + HCInfectedTuning.Variety().Variety.WakeNightIncrement * nightness - HCInfectedTuning.Variety().Variety.WakeRainReduction * rain, HCInfectedTuning.Variety().Variety.WakeMin, HCInfectedTuning.Variety().Variety.WakeMax);
     }
 
     // Native ZombieBase.c:96-99 samples [0,4); no custom graph/idle values.

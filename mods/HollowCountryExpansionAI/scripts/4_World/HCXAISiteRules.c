@@ -97,12 +97,10 @@ class HCXAISiteRules
         // Operator policy drift is reconciled by the director, never refused.
         return "";
     }
+    // One operator-tuned group curve for infected and AI groups (Infected variety GroupScaling).
     static float HCGroupFactor(int players)
     {
-        if (players <= 1) { return 0.6; }
-        if (players < 3) { return 0.6 + (players - 1) * 0.2; }
-        if (players < 6) { return 1.0 + (players - 3) * 0.1; }
-        return 1.3;
+        return HCInfectedVarietyPolicy.GroupScale(players);
     }
     static int HCGroupMembers(int authored, float factor)
     {

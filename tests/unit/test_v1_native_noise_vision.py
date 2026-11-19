@@ -27,6 +27,7 @@ Engine citations (installed 1.30.164289 scripts):
   4_World/Entities/ItemBase/ChemLight.c:1,66-74,141-154   Chemlight_ColorBase : ItemBase
   4_World/Entities/ItemBase/PortableGasLamp.c:1,34-43     PortableGasLamp : ItemBase
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import itertools
 import keyword
 import math
@@ -501,11 +502,13 @@ _TRANSLATED = {}
 def execute(path, select, natives):
     """Translate the selected classes of an authored file and run the class
     definitions in a namespace of explicit synthetic natives."""
+    natives = dict(natives, HCInfectedTuning=tuning_fixture())
     text = Path(path).read_text()
     key = (text, repr(sorted((k, sorted(v) if v else v) for k, v in select.items())), tuple(sorted(natives)))
     if key not in _TRANSLATED:
         _TRANSLATED[key] = Translator(text, natives).emit(select)
     namespace = dict(natives)
+    namespace.setdefault("HCInfectedTuning", tuning_fixture())
     namespace["f32"] = f32
     exec(compile(_TRANSLATED[key], "authored-enforce:" + Path(path).name, "exec"), namespace)
     return namespace

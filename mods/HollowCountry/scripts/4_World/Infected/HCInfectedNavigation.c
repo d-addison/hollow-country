@@ -130,9 +130,9 @@ class HCNativeInfectedPack
             return false;
         if (vector.DistanceSq(from, desired) > maxSegment * maxSegment)
             return false;
-        if (!GetAIWorld().SampleNavmeshPosition(desired, 1.5, m_Filter, sampled))
+        if (!GetAIWorld().SampleNavmeshPosition(desired, HCInfectedTuning.Get().Navigation.SampleRadius, m_Filter, sampled))
             return false;
-        if (Math.AbsFloat(sampled[1] - desired[1]) > 1.5)
+        if (Math.AbsFloat(sampled[1] - desired[1]) > HCInfectedTuning.Get().Navigation.VerticalTolerance)
             return false;
         TVectorArray path = new TVectorArray;
         if (!GetAIWorld().FindPath(from, sampled, m_Filter, path) || !path || path.Count() < 2 || path.Count() > 32)
@@ -178,16 +178,16 @@ class HCNativeInfectedPack
             return HCRefuse("leader_unavailable");
         InitFilter();
         vector start;
-        if (!GetAIWorld().SampleNavmeshPosition(leader.GetPosition(), 1.5, m_Filter, start))
+        if (!GetAIWorld().SampleNavmeshPosition(leader.GetPosition(), HCInfectedTuning.Get().Navigation.SampleRadius, m_Filter, start))
             return HCRefuse("leader_off_navmesh");
         vector end;
         float radius = 120;
         if (search)
-            radius = 24;
+            radius = HCInfectedTuning.Get().Navigation.SearchRing;
         if (!Reachable(start, destination, radius, end))
             return HCRefuse("route_unreachable");
         ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-        route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 1.5));
+        route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, HCInfectedTuning.Get().Navigation.WaypointRadius));
         TVectorArray rooms;
         if (search && actors[0].SearchAnchorLimit > 1)
         {
@@ -337,7 +337,7 @@ class HCNativeInfectedPack
         BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
         if (!behaviour) return 1;
         ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-        route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 1.5));
+        route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, HCInfectedTuning.Get().Navigation.WaypointRadius));
         // ActivateWaypoint uses the inspected SetWaypoints API on this group.
         m_RoutePlan = route;
         RoutePlanned = 1;

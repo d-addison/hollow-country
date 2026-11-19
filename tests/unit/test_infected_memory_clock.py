@@ -10,6 +10,7 @@ heat=0.5, and small-skew Record failed assertTrue(f.api.Active()).
 GREEN (21 tests, OK):
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_memory_clock tests.unit.test_group_null_context tests.unit.test_v1_combined_rpc -v
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import copy
 from datetime import datetime, timezone
 import json
@@ -62,7 +63,7 @@ class MemoryFixture:
         source = re.sub(r'for \(int (\w+) = ([^;]+); \1 < ([^;]+); \1\+\+\)',
                         r'foreach (int \1 : range(\2, \3))', source)
         source = re.sub(r'\b(\w+)\+\+;', r'\1 += 1;', source)
-        self.scope = dict(Memory=self.api, HCInfectedMemory=self.api,
+        self.scope = dict(HCInfectedTuning=tuning_fixture(), Memory=self.api, HCInfectedMemory=self.api,
                           HCGroupClock=N(**self.clock), Math=real_math(), Print=self.logs.append,
                           HCEventMemoryCell=lambda: N(X=-401, Z=-401, Value=0.0, UpdatedUtc=0),
                           HCInfectedStore=N(ValidPosition=lambda pos: True),

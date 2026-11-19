@@ -1,4 +1,5 @@
 """Explicit synthetic #35 alert integration; no native hearing/audio evidence."""
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 from types import SimpleNamespace as NS
 import unittest
 
@@ -27,7 +28,7 @@ class V1WeatherAlertIntegrationTests(unittest.TestCase):
             WEATHER / 'HCAtmosphereRelay.c', 'RangeAtSource', relay_scope, None, radius, position))
         # Compile the actual ProcessPending body with the newly required explicit
         # collaborator; the existing out-of-scope fixture supplies only old APIs.
-        scope = {'HCAtmosphereRelay': relay, 'HCInfectedPolicy': NS(**policy_functions()),
+        scope = {'HCInfectedTuning': tuning_fixture(), 'HCAtmosphereRelay': relay, 'HCInfectedPolicy': NS(**policy_functions()),
                  'GetGame': lambda: NS(IsServer=lambda: True),
                  'vector': NS(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b)))}
         process = compile_method('HCAlertChain.c', 'ProcessPending(', 'actors, now, work', scope,
