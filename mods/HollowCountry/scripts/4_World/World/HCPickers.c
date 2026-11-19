@@ -290,8 +290,9 @@ class HCPickerSurvey
         if (!HCJsonFields.Has(text, "Version") || !HCJsonFields.Has(text, "WorldName") || !HCJsonFields.Has(text, "MaxLegMeters") || !HCJsonFields.Has(text, "ArrivalRangeMeters")) { return false; }
         if (!HCJsonFields.Has(text, "MapExtentMeters") || !HCJsonFields.Has(text, "MaxRoutes") || !HCJsonFields.Has(text, "MaxWaypoints")) { return false; }
         if (!HCJsonFields.Has(text, "MaxScannedObjects") || !HCJsonFields.Has(text, "MaxCargoScan")) { return false; }
-        if (!HCJsonFields.Every(text, "RouteId", 3) || !HCJsonFields.Every(text, "SiteId", 3)) { return false; }
-        if (!HCJsonFields.Every(text, "HomeIndex", 3) || !HCJsonFields.Every(text, "SourceIndex", 3)) { return false; }
+        // Route objects are the depth-3 objects with Waypoints; CacheLoot rows share that depth.
+        if (!HCJsonFields.Every(text, "RouteId", 3, "Waypoints") || !HCJsonFields.Every(text, "SiteId", 3, "Waypoints")) { return false; }
+        if (!HCJsonFields.Every(text, "HomeIndex", 3, "Waypoints") || !HCJsonFields.Every(text, "SourceIndex", 3, "Waypoints")) { return false; }
         return HCJsonFields.Every(text, "X", 5) && HCJsonFields.Every(text, "Y", 5) && HCJsonFields.Every(text, "Z", 5);
     }
 

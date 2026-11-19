@@ -327,8 +327,8 @@ class PickersModuleReadiness(unittest.TestCase):
     def test_the_survey_is_loaded_once_from_the_mission_file_with_the_zero_fill_guards(self):
         self.assertIn('"$mission:hollow-country/ai/picker-routes.json"', self.source)
         self.assertEqual(1, self.source.count("class HCPickerSurvey"))
-        for guard in ('HCJsonFields.Has(text, "Version")', 'HCJsonFields.Every(text, "HomeIndex", 3)',
-                      'HCJsonFields.Every(text, "SourceIndex", 3)', 'HCJsonFields.Every(text, "X", 5)',
+        for guard in ('HCJsonFields.Has(text, "Version")', 'HCJsonFields.Every(text, "HomeIndex", 3, "Waypoints")',
+                      'HCJsonFields.Every(text, "SourceIndex", 3, "Waypoints")', 'HCJsonFields.Every(text, "X", 5)',
                       "JsonFileLoader<HCPickerSurvey>.LoadData"):
             self.assertIn(guard, self.source)
 
@@ -419,6 +419,29 @@ class PickerOperationRegressions(unittest.TestCase):
         self.assertEqual("PICKER_LEAVE_REFUSED", module.HCBeginSurveyed(
             N(HCRouteId=lambda: "route"), "lease", object()))
         self.assertEqual(("refused", "HC34_JOURNAL_UNAVAILABLE"), published[-1])
+
+
+class ShippedSurveyFieldPresence(unittest.TestCase):
+    """Authored HCPickerSurvey.HCFieldsPresent over the authored HCJsonFields and the shipped survey text.
+
+    Native boot 076 (03d4aa7): [HC Pickers] degraded reason=PICKER_SURVEY_FIELDS_MISSING after the
+    #205 CacheLoot rows were added at the same depth as the route objects.
+    """
+
+    @staticmethod
+    def present():
+        from tests.unit.json_loader_port import json_fields_port
+        from tests.unit.test_event_runtime import translate
+        source = (ROOT / "mods/HollowCountry/scripts/4_World/World/HCPickers.c").read_text()
+        return translate(source, "HCFieldsPresent", {"HCJsonFields": json_fields_port()})
+
+    def test_the_shipped_survey_with_cache_loot_rows_has_every_field(self):
+        self.assertTrue(self.present()(SURVEY.read_text()))
+
+    def test_a_route_without_its_route_id_is_still_refused(self):
+        data = json.loads(SURVEY.read_text())
+        del data["Routes"][1]["RouteId"]
+        self.assertFalse(self.present()(json.dumps(data, indent=2)))
 
 
 if __name__ == "__main__":
