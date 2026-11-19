@@ -48,6 +48,10 @@ modded class HCServer
     {
         string sitterGate = "";
         if (!GetGame().ConfigIsExisting("CfgVehicles HC_ZmbM_Sitter")) { sitterGate = "class-missing-HC_ZmbM_Sitter"; }
+        // Same cached opt-out sample the command dispatch refuses with (#207).
+        string controlsGate = "";
+        HCAdminModule admin = HCAdminModule.Cast(HCAdminModuleNamed("AdminMap"));
+        if (admin && !admin.HCOperatorControls()) { controlsGate = "AdminControls.disable"; }
         HCAdminKitLine(reply, "status", "AdminMap", "", "none");
         HCAdminKitLine(reply, "snapshot", "DebugSnapshot", "", "none; 5 s cooldown");
         HCAdminKitLine(reply, "kit", "AdminMap", "", "none");
@@ -60,7 +64,7 @@ modded class HCServer
         HCAdminKitLine(reply, "scene", "Scenes", "", "none; nearest due scene");
         HCAdminKitLine(reply, "event", "Events", "", "none; nearest reviewed site");
         HCAdminKitLine(reply, "camp", "Camps", "", "none; camp within 100 m");
-        HCAdminKitLine(reply, "camptier", "Camps", "", "value 0 to 3; nearest recognised camp; opt-out AdminControls.disable");
+        HCAdminKitLine(reply, "camptier", "Camps", controlsGate, "value 0 to 3; nearest recognised camp; opt-out AdminControls.disable");
         HCAdminKitLine(reply, "campvisit", "Camps", "missing-hook-HCRequestVisitorParty", "none; runtime=PENDING");
         HCAdminKitLine(reply, "campraid", "Camps", "missing-hook-HCRequestRaidParty", "none; runtime=PENDING");
         HCAdminKitLine(reply, "holdout", "Holdouts", "", "none; holdout within 100 m");

@@ -745,10 +745,13 @@ class ExtraRouting(unittest.TestCase):
 
 
 class KitListing(unittest.TestCase):
-    def build(self, active=("AdminMap", "Infected", "Scenes", "Radio"), sitter_class=True):
+    def build(self, active=("AdminMap", "Infected", "Scenes", "Radio"), sitter_class=True, controls=True):
         lines = []
         reply = NS(Lines=EArray())
-        scope = base_scope(GetGame=lambda: NS(ConfigIsExisting=lambda name: sitter_class))
+        # Synthetic cast: the started AdminMap owner exposes its cached opt-out sample.
+        admin = NS(HCOperatorControls=lambda: controls)
+        scope = base_scope(GetGame=lambda: NS(ConfigIsExisting=lambda name: sitter_class),
+                           HCAdminModule=NS(Cast=lambda module: admin if module == "AdminMap" else None))
         service = NS()
         service.HCAdminModuleNamed = lambda name: name if name in active else None
         fn = compile_authored(ADMIN / "HCAdminStatus.c", "HCServer", "HCAdminKit", scope,
@@ -777,6 +780,13 @@ class KitListing(unittest.TestCase):
         for line in lines:
             self.assertTrue(line.startswith("[HC Admin] kit "), line)
             self.assertIn("input=", line)
+
+    def test_camp_tier_reports_the_admin_controls_opt_out(self):
+        on = [l for l in self.build(active=("AdminMap", "Camps")) if "cmd=camptier" in l][0]
+        self.assertIn("available=1", on)
+        off = [l for l in self.build(active=("AdminMap", "Camps"), controls=False) if "cmd=camptier" in l][0]
+        self.assertIn("available=0", off)
+        self.assertIn("reason=AdminControls.disable", off)
 
     def test_sitter_needs_its_addon_class(self):
         lines = self.build(sitter_class=False)

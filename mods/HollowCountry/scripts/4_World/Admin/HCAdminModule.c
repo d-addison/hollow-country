@@ -49,6 +49,7 @@ class HCAdminModule : HCModule
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     override string GetName() { return "AdminMap"; }
+    bool HCOperatorControls() { return m_OperatorControls; }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
     override bool IsEnabled(HCSettings settings)
     {
