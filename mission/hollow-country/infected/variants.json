@@ -1,0 +1,4012 @@
+{
+  "schema_version": 1,
+  "work_package": "HC-14",
+  "issue": 121,
+  "world": "chernarusplus",
+  "trace": {
+    "spec": "selected_native_unused_variants_owner_decision_2026-11-18; required_spec_paths_absent_in_worker_checkout",
+    "plan": "consolidated_coverage_Wave_2_HC-14",
+    "task": "author_manifest_three_event_substitutions_and_bounded_admission_helper; HC-11_owns_shared_trace"
+  },
+  "runtime_acceptance": "PENDING",
+  "production_enabled": false,
+  "population_delta": 0,
+  "counts": {
+    "stock_ce": 260,
+    "native_only_exact_names": 18,
+    "exact_names": 278,
+    "case_only_duplicates": 2,
+    "selected_authored": 6,
+    "dispositions": {
+      "excluded": 4,
+      "kept": 169,
+      "pending": 105
+    },
+    "admitted": "UNKNOWN; CE_has_no_event_child_query",
+    "observed": "UNMEASURED",
+    "unresolved_spelling_groups": 1,
+    "unresolved_scope": "BlueBright_only; 105_pending_dispositions_are_separate_from_name_resolution"
+  },
+  "evidence": {
+    "native_scripts": "~/.cache/hollow-country/native-scripts/scripts-1.30.164289",
+    "native_build": "1.30.164289",
+    "source_addon": "addons/characters_zombies.pbo",
+    "source_addon_sha256": "93504400228b7e6b1913a78f9582a932d27bc9efc6990b7b82882b222ad1ed5e",
+    "stock_events_sha256": "4089710dfa15515261167dc769206059b426ab9c7a28b06cb3af505195f869a6",
+    "stock_types_sha256": "d477597418530c3e226fa18b296290eb9669210d9a37a301eaf7e3426e5e1040",
+    "workbook_sha256": "2fe8154743c671182fcf5ef3be448109ce4e2b4fcd340f98a86b68ede62b6983",
+    "interpretation": "installed_static_metadata_only; server_files_are_not_client_entitlement_or_rendering_proof"
+  },
+  "native_evidence": [
+    "N8: 4_World/Entities/Creatures/Infected/ZombieBase.c:113 returns false for IsZombieMilitary; ZombieFemaleBase.c:19-46 ordinary clerk bases inherit false; :139-152 soldier/eastSoldier bases return true",
+    "N10: 3_Game/CE/CentralEconomy.c:379-495 exposes creation/debug operations; :710-717 diagnostics do not return event-child configuration or support live child mutation; none invoked",
+    "3_Game/Global/Game.c:449 ConfigGetText; :539 ConfigGetInt; :612 ConfigIsExisting; :1437 IsKindOf; helper verifies configured ancestry, not an instantiated actor method result"
+  ],
+  "admission": {
+    "mode": "restart_bound_mission_content; no_runtime_spawn_controller",
+    "effective_preference": "lead_installer_requires_EnableInfected_and_EnableInfectedVariety; preserve_existing_operator_choices",
+    "on_failure": "do_not_wire_delta; retain_original_stock_event_definitions; already_loaded_CE_changes_require_mission_restart",
+    "profile_changes": "none; native_aiAgentTemplate_and_IsZombieMilitary_ancestry_retained; existing_HC_profile_fallback_unchanged",
+    "observer": "HC-62_fixed_bounded_content_status_path; helper_returns_cached_metadata_only; never_CE_success",
+    "helper": "HCNativeVariantAdmission.Check(preference); invoke_once_at_start; HCPlanLine_is_formatted_only_by_fixed_boot_status_owner",
+    "distances_added": [],
+    "distances_retained_from_stock": {
+      "saferadius": 100,
+      "distanceradius": 50,
+      "cleanupradius": 100
+    },
+    "loot": "new_children_inherit_donor_lootmin_and_lootmax; no_scripted_inventory_or_extra_loot_spawn",
+    "mission_install_directory": "hollow-country-infected",
+    "economycore_child": "<ce folder=\"hollow-country-infected\"><file name=\"events.append.xml\" type=\"events\" /></ce>"
+  },
+  "refusals": [
+    {
+      "name": "CE_EVENT_INTROSPECTION_UNAVAILABLE",
+      "disposition": "pending",
+      "reason": "No demonstrated installed API queries effective CE event children or their actual spawn success; config_verified is not CE_admitted or observed."
+    },
+    {
+      "name": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED",
+      "disposition": "pending",
+      "reason": "HCVisualSeasons remains the sole season-clock owner; HC-14 does not sample it because no supported CE child mutation is demonstrated. No second clock is added. Winter substitution awaits restart-bound integration and qualification."
+    },
+    {
+      "name": "CE_RUNTIME_DISABLE_UNAVAILABLE",
+      "disposition": "pending",
+      "reason": "Script preference off skips admission work; it cannot undo mission XML already consumed by CE. Packaging must omit this delta when off and restart when changing it."
+    },
+    {
+      "name": "BLUEBRIGHT_SPELLING_UNRESOLVED",
+      "disposition": "pending",
+      "reason": "Keep both B and C names as review entries, never automatically rename."
+    }
+  ],
+  "aliases": [
+    {
+      "requested": "ZmbM_takiCitizenUrbanB_BlueBright",
+      "comparison": "ZmbM_takiCitizenUrbanC_BlueBright",
+      "kind": "unresolved_spelling",
+      "automatic_rename": false,
+      "disposition": "pending"
+    },
+    {
+      "requested": "ZmbM_Mummy",
+      "comparison": "Zmbm_Mummy",
+      "kind": "case_only",
+      "automatic_rename": false,
+      "disposition": "excluded_duplicate"
+    },
+    {
+      "requested": "ZmbF_ShortSkirt_Black",
+      "comparison": "ZmbF_ShortSkirt_black",
+      "kind": "case_only",
+      "automatic_rename": false,
+      "disposition": "excluded_duplicate"
+    }
+  ],
+  "substitutions": [
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_ClerkFat_Grey",
+      "to": "ZmbF_ClerkFat_Black",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_ClerkFat_Khaki",
+      "to": "ZmbF_ClerkFat_BluePattern",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_ClerkFat_White",
+      "to": "ZmbF_ClerkFat_GreyPattern",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbF_Clerk_Normal_White",
+      "to": "ZmbF_ClerkFat_White",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_usSoldier_normal_Woodland",
+      "to": "ZmbF_eastSoldier_Normal_Navy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_usSoldier_normal_Woodland",
+      "to": "ZmbF_eastSoldier_Normal_Navy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_usSoldier_Officer_Desert",
+      "to": "ZmbF_ArmyOfficer",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    }
+  ],
+  "acceptance_required": [
+    "exact_source_DayZDiag_compile_boot_no_script_or_CE_errors",
+    "normal_signed_PBO_server_same_mission_config_dependency_hashes",
+    "off_path_omits_delta_before_CE_initialization",
+    "stop_restart_retains_stock_population_and_no_duplicate_event_children",
+    "sample_all_six_new_appearances_and_three_families_for_skin_model_audio_death_crawl_native_door_profile",
+    "two_clients_rendering_and_late_join",
+    "observe_IsZombieMilitary_on_real_newly_admitted_civilian_and_soldier_actors; no_name_based_assertion"
+  ],
+  "entries": [
+    {
+      "class": "ZmbF_ArmyOfficer",
+      "source": "native_only",
+      "disposition": "kept",
+      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "selected": true,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "role": "army_officer",
+      "native_config": {
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\ArmyOfficer_fat_f.p3d",
+        "model_member_present": true,
+        "appearance_members": [
+          "dz\\characters\\zombies\\data\\ZmbF_SoldierNormal.rvmat"
+        ],
+        "appearance_members_present": true,
+        "ai_agent_template": "InfectedSoldier_Officer",
+        "profile_base": "ZmbF_SoldierNormal_Base",
+        "military": true,
+        "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
+    },
+    {
+      "class": "ZmbF_BlueCollarFat_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_BlueCollarFat_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_BlueCollarFat_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_BlueCollarFat_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity",
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedCity",
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_CitizenANormal_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_CitizenANormal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_CitizenANormal_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_CitizenBSkinny",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ClerkFat_Black",
+      "source": "native_only",
+      "disposition": "kept",
+      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "selected": true,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "role": "city_clerk",
+      "native_config": {
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d",
+        "model_member_present": true,
+        "appearance_members": [
+          "dz\\characters\\zombies\\data\\clerkB_fat_f_black_co.paa",
+          "dz\\characters\\zombies\\data\\clerkB_fat_f.rvmat"
+        ],
+        "appearance_members_present": true,
+        "ai_agent_template": "InfectedFemale",
+        "profile_base": "ZmbF_ClerkFat_Base",
+        "military": false,
+        "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
+    },
+    {
+      "class": "ZmbF_ClerkFat_BluePattern",
+      "source": "native_only",
+      "disposition": "kept",
+      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "selected": true,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "role": "city_clerk",
+      "native_config": {
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d",
+        "model_member_present": true,
+        "appearance_members": [
+          "dz\\characters\\zombies\\data\\clerkB_fat_f_bluepattern_co.paa",
+          "dz\\characters\\zombies\\data\\clerkB_fat_f.rvmat"
+        ],
+        "appearance_members_present": true,
+        "ai_agent_template": "InfectedFemale",
+        "profile_base": "ZmbF_ClerkFat_Base",
+        "military": false,
+        "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
+    },
+    {
+      "class": "ZmbF_ClerkFat_GreyPattern",
+      "source": "native_only",
+      "disposition": "kept",
+      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "selected": true,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "role": "city_clerk",
+      "native_config": {
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d",
+        "model_member_present": true,
+        "appearance_members": [
+          "dz\\characters\\zombies\\data\\clerkB_fat_f_greypattern_co.paa",
+          "dz\\characters\\zombies\\data\\clerkB_fat_f.rvmat"
+        ],
+        "appearance_members_present": true,
+        "ai_agent_template": "InfectedFemale",
+        "profile_base": "ZmbF_ClerkFat_Base",
+        "military": false,
+        "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
+    },
+    {
+      "class": "ZmbF_ClerkFat_White",
+      "source": "native_only",
+      "disposition": "kept",
+      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "selected": true,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "role": "city_clerk",
+      "native_config": {
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d",
+        "model_member_present": true,
+        "appearance_members": [
+          "dz\\characters\\zombies\\data\\clerkB_fat_f_white_co.paa",
+          "dz\\characters\\zombies\\data\\clerkB_fat_f.rvmat"
+        ],
+        "appearance_members_present": true,
+        "ai_agent_template": "InfectedFemale",
+        "profile_base": "ZmbF_ClerkFat_Base",
+        "military": false,
+        "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
+    },
+    {
+      "class": "ZmbF_Clerk_Normal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_Clerk_Normal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_Clerk_Normal_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_Clerk_Normal_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_DoctorSkinny",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_HikerSkinny_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_HikerSkinny_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_HikerSkinny_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_HikerSkinny_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JoggerSkinny_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JoggerSkinny_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JoggerSkinny_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JoggerSkinny_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JournalistNormal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JournalistNormal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JournalistNormal_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_JournalistNormal_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MechanicNormal_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MechanicNormal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MechanicNormal_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MechanicNormal_Orange",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MilkMaidOld_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MilkMaidOld_Black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSpooky",
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MilkMaidOld_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_MilkMaidOld_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_NurseFat",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_NurseFat_Winter",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ParamedicNormal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ParamedicNormal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ParamedicNormal_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PatientOld",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PatientOld_Winter",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PatrolNormal_Autumn",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PatrolNormal_PautRev",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PatrolNormal_Summer",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PatrolNormal_Winter",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_PoliceWomanNormal",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedPolice"
+      ],
+      "active_stock_events": [
+        "InfectedPolice"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_Black",
+      "source": "native_only",
+      "disposition": "excluded",
+      "reason": "case_only_definition_duplicate; exact_stock_spelling_preserved; never_add_second_child",
+      "selected": false,
+      "case_alias_of": "ZmbF_ShortSkirt_black",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_checks",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_stripes",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_white",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_ShortSkirt_yellow",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SkaterYoung_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SkaterYoung_Striped",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SkaterYoung_Violet",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SoldierNormal",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SurvivorNormal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SurvivorNormal_Orange",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SurvivorNormal_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_SurvivorNormal_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_VillagerOld_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_VillagerOld_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_VillagerOld_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_VillagerOld_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_eastSoldier_Heavy_Navy",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "HEAVY_LABEL_PROFILE_MISMATCH; inherits_InfectedMSoldier_not_InfectedSoldier_Heavy; no_automatic_heavy_substitution",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_eastSoldier_Normal_Navy",
+      "source": "native_only",
+      "disposition": "kept",
+      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "selected": true,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "role": "army_navy_soldier",
+      "native_config": {
+        "scope": 2,
+        "model": "dz\\characters\\zombies\\eastSoldier_normal_Navy_f.p3d",
+        "model_member_present": true,
+        "appearance_members": [
+          "dz\\characters\\zombies\\data\\eastsoldier_normal_navy_f_co.paa"
+        ],
+        "appearance_members_present": true,
+        "ai_agent_template": "InfectedMSoldier",
+        "profile_base": "ZmbF_eastSoldier_Base",
+        "military": true,
+        "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Flowers",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Olive",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Orange",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Pink",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Purple",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenRural_Yellow",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanA_Beige",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanA_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanA_Brown",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanA_Grey",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Flowers",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Olive",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Orange",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Pink",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Purple",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanB_Yellow",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanC_NavyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanC_Olive",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanC_Orange",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanC_Pink",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanC_Purple",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanC_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanD_Beige",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanD_Brown",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanD_Purple",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiCitizenUrbanD_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiOilRigWorker_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiOilRigWorker_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiOilRigWorker_Yellow",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiPoliceWoman",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_takiPoliceWoman_Heavy",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_usSoldier_Heavy_Desert",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmyDesert"
+      ],
+      "active_stock_events": [
+        "InfectedArmyDesert"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_usSoldier_Heavy_Woodland",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_usSoldier_normal_Desert",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmyDesert"
+      ],
+      "active_stock_events": [
+        "InfectedArmyDesert"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbF_usSoldier_normal_Woodland",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenASkinny_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenASkinny_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenASkinny_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenASkinny_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenBFat_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenBFat_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CitizenBFat_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ClerkFat_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ClerkFat_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ClerkFat_Khaki",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ClerkFat_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CommercialPilotOld_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CommercialPilotOld_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CommercialPilotOld_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_CommercialPilotOld_Olive",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ConstrWorkerNormal_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ConstrWorkerNormal_Black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ConstrWorkerNormal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ConstrWorkerNormal_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_DoctorFat",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_DoctorFat_Winter",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FarmerFat_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FarmerFat_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FarmerFat_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FarmerFat_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FirefighterNormal",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedFirefighter"
+      ],
+      "active_stock_events": [
+        "InfectedFirefighter"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FishermanOld_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FishermanOld_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FishermanOld_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_FishermanOld_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Gamedev_Black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Gamedev_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Gamedev_Gray",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HandymanNormal_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial",
+        "InfectedSpooky"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HandymanNormal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HandymanNormal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HandymanNormal_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HandymanNormal_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HeavyIndustryWorker",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HermitSkinny_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HermitSkinny_Black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HermitSkinny_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HermitSkinny_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HikerSkinny_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HikerSkinny_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HikerSkinny_Yellow",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HunterOld_Autumn",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HunterOld_Desert",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HunterOld_Spring",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HunterOld_Summer",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_HunterOld_Winter",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSolitude"
+      ],
+      "active_stock_events": [
+        "InfectedSolitude"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_1_Green",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_1_Grey",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_1_Tan",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_2_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_2_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_2_White",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_IonSoldier_Normal_3",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_bluechecks",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_greenchecks",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_khaki",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_magenta",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Jacket_stripes",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_JoggerSkinny_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_JoggerSkinny_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_JoggerSkinny_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_JournalistSkinny",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MechanicSkinny_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MechanicSkinny_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MechanicSkinny_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MechanicSkinny_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MotobikerFat_Beige",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MotobikerFat_Black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_MotobikerFat_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Mummy",
+      "source": "native_only",
+      "disposition": "excluded",
+      "reason": "case_only_definition_duplicate; exact_stock_spelling_preserved; never_add_second_child",
+      "selected": false,
+      "case_alias_of": "Zmbm_Mummy",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_NBC_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedNBC"
+      ],
+      "active_stock_events": [
+        "InfectedNBC"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_NBC_White",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_NBC_Yellow",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedFirefighter",
+        "InfectedMedic",
+        "InfectedNBCYellow"
+      ],
+      "active_stock_events": [
+        "InfectedFirefighter",
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_OffshoreWorker_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_OffshoreWorker_Orange",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_OffshoreWorker_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_OffshoreWorker_Yellow",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedIndustrial"
+      ],
+      "active_stock_events": [
+        "InfectedIndustrial"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ParamedicNormal_Black",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ParamedicNormal_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ParamedicNormal_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_ParamedicNormal_Red",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatientSkinny",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedMedic"
+      ],
+      "active_stock_events": [
+        "InfectedMedic"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatientSkinny_Winter",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatrolNormal_Autumn",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatrolNormal_Flat",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatrolNormal_PautRev",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatrolNormal_Summer",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PatrolNormal_Winter",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PolicemanFat",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedPolice"
+      ],
+      "active_stock_events": [
+        "InfectedPolice"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PolicemanSpecForce",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedPolice"
+      ],
+      "active_stock_events": [
+        "InfectedPolice"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PolicemanSpecForce_Heavy",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedPolice",
+        "InfectedPoliceHard"
+      ],
+      "active_stock_events": [
+        "InfectedPolice",
+        "InfectedPoliceHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_PrisonerSkinny",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedPoliceHard",
+        "InfectedPrisoner"
+      ],
+      "active_stock_events": [
+        "InfectedPoliceHard",
+        "InfectedPrisoner"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_Santa",
+      "source": "stock_ce",
+      "disposition": "excluded",
+      "reason": "costume_theme_not_selected_for_grounded_ordinary_roles; stock_configuration_unchanged",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedSanta"
+      ],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_SkaterYoung_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCityTier1"
+      ],
+      "active_stock_events": [
+        "InfectedCityTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_SkaterYoung_Brown",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_SkaterYoung_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_SkaterYoung_Grey",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedCity"
+      ],
+      "active_stock_events": [
+        "InfectedCity"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_SoldierNormal",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_VillagerOld_Blue",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_VillagerOld_Green",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "active_stock_events": [
+        "InfectedVillageTier1"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_VillagerOld_White",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedVillage"
+      ],
+      "active_stock_events": [
+        "InfectedVillage"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_eastSoldier_Heavy_Navy",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_eastSoldier_normal_Navy",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_priestPopSkinny",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedReligious"
+      ],
+      "active_stock_events": [
+        "InfectedReligious"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_Beige",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_Brown",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_Grey",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_NavyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_SkyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenRural_White",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanA_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanA_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanA_Cream",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanA_Green",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_Beige",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_BlueBright",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "BLUEBRIGHT_SPELLING_UNRESOLVED; B_and_C_are_not_automatic_aliases",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_Brown",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_Grey",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_NavyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_SkyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanB_White",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanC_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanC_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanC_BlueBright",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "BLUEBRIGHT_SPELLING_UNRESOLVED; B_and_C_are_not_automatic_aliases",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanC_Green",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanC_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiCitizenUrbanC_White",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHermitA_Black",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHermitA_NavyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHermitB_Beige",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHermitB_Brown",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHiker_Beige",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHiker_Grey",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHiker_NavyBlue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiHiker_White",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiImam",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiImam_Green",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiOilRigWorker_Blue",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiOilRigWorker_Red",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiOilRigWorker_Yellow",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiPoliceman",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiPoliceman_Heavy",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiSoldier_Normal_Olive",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiSoldier_Normal_Tan",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_takiSoldier_Officer",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_usSoldier_Heavy_Woodland",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_usSoldier_Officer_Convoy",
+      "source": "native_only",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_usSoldier_Officer_Desert",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_usSoldier_normal_Desert",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmyDesert"
+      ],
+      "active_stock_events": [
+        "InfectedArmyDesert"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "ZmbM_usSoldier_normal_Woodland",
+      "source": "stock_ce",
+      "disposition": "kept",
+      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "active_stock_events": [
+        "InfectedArmy",
+        "InfectedArmyHard"
+      ],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "Zmbf_IonSoldier_Normal_1",
+      "source": "stock_ce",
+      "disposition": "pending",
+      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    },
+    {
+      "class": "Zmbm_Mummy",
+      "source": "stock_ce",
+      "disposition": "excluded",
+      "reason": "costume_theme_not_selected_for_grounded_ordinary_roles; stock_configuration_unchanged",
+      "selected": false,
+      "case_alias_of": "",
+      "stock_events": [],
+      "active_stock_events": [],
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+    }
+  ],
+  "population_delta_scope": "authored_event_budgets_only; native_population_measurement_PENDING"
+}
