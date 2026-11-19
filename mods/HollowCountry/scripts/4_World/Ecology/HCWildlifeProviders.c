@@ -20,7 +20,8 @@
 // native CanBeTargetedByAI plus faction checks. AnimalBase.c:42-49 exposes its
 // creature target information to Expansion's existing perception pipeline.
 // Eligibility is a pure native passthrough: never reserve a queried candidate.
-// No interaction cap is installed. Follow-up: a safe actual-target lifecycle
+// Damage-contact receipts are bounded; no native combat cap is installed.
+// Follow-up: a safe actual-target lifecycle
 // covering both infected and wolves, preserving native target choice/brains.
 // Inspected: 4_World/Entities/Creatures/Infected/ZombieBase.c:685,726 reads
 // actual infected targets; 3_Game/Entities/DayZAnimal.c:772-775 starts/signals
@@ -36,12 +37,17 @@ class HCWildlifeProviderConfig
 {
     int Version;
     bool Enabled;
+    bool SeasonalRoutesEnabled;
+    bool CluesEnabled;
+    bool InteractionObservationEnabled;
+    int ClueLifetimeSeconds;
+    ref array<ref HCWildlifeRoute> Routes;
     bool CarcassesEnabled;
     bool TargetPairsEnabled;
     int TickMs;
     int WorkUnits;
     int MaxCarcasses;
-    // Legacy pair settings remain readable/validated, but have no runtime cap.
+    // Bound actual damage-contact bookkeeping; never cap native combat.
     int MaxPairs;
     int MaxPairChecksPerTick;
     int PairLifetimeMs;
@@ -112,6 +118,7 @@ class HCWildlifeProviders
     {
         if (!s_Owner) { return; }
         s_Owner.m_Running = false;
+        s_Owner.HCEcosystemStop();
         s_Owner.HCObserve();
     }
 
@@ -166,7 +173,7 @@ class HCWildlifeProviders
     {
         string fault = m_RuntimeFault;
         if (m_Fault) { fault = "wildlife_allocation_store_uncertain"; }
-        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, fault, "finite_carcasses_native_targeting_passthrough");
+        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, fault, "finite_carcasses_phase_data_shared_clues_observed_contacts_goals_unavailable");
         HCOperationalOwner owner = HCOperationalContributors.HCRegisterOwner("HC-149");
         if (owner) { owner.HCObserve(m_Running, m_Status, GetGame().GetTickTime()); }
     }
@@ -180,6 +187,8 @@ class HCWildlifeProviders
         if (text == "" || !JsonFileLoader<HCWildlifeProviderConfig>.LoadData(text, m_Config, error)) { return HCRefuse("provider_config_unreadable"); }
         // Explicit false remains distinct from omitted booleans zero-filled by JSON.
         if (!HCJsonFields.Every(text, "Enabled", 1) || !HCJsonFields.Every(text, "CarcassesEnabled", 1) || !HCJsonFields.Every(text, "TargetPairsEnabled", 1)) { return HCRefuse("provider_flags_missing"); }
+        if (!HCJsonFields.Has(text, "SeasonalRoutesEnabled") || !HCJsonFields.Has(text, "CluesEnabled") || !HCJsonFields.Has(text, "InteractionObservationEnabled")) { return HCRefuse("ecosystem_flags_missing"); }
+        if (!HCJsonFields.Every(text, "Phase", 3) || !HCJsonFields.Every(text, "RadiusM", 3)) { return HCRefuse("ecosystem_route_fields_missing"); }
         if (!HCJsonFields.Every(text, "Position", 3)) { return HCRefuse("provider_site_position_missing"); }
         if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.Version", 1)) { return HCRefuse("provider_settings_registry_missing"); }
         if (!HCValid(m_Config)) { return HCRefuse("provider_config_invalid"); }
@@ -213,6 +222,7 @@ class HCWildlifeProviders
                 if (!m_Ledger.Configure(io, pool) || !m_Ledger.Start()) { m_Fault = true; return HCRefuse("carcass_economy_unavailable"); }
             }
         }
+        if (!HCEcosystemOpen()) { return false; }
         m_Running = true;
         m_RuntimeFault = "";
         m_Refusal = "";
@@ -220,8 +230,7 @@ class HCWildlifeProviders
         {
             m_AdmissionPrinted = true;
             Print(HCV2Admission.Line("WildlifeProviders", true, "N9-wildlife", false) + " runtime=PENDING");
-            Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=finite pair_selection=native interaction_cap=unimplemented runtime=PENDING");
-            Print("[HC Plan] HC-149 missing=animal_resource_goal_and_consumption_api seasonal_routes_blood_trails_carcass_attraction=unimplemented runtime=PENDING");
+            Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=finite pair_selection=native interaction_observation=bounded combat_cap=unavailable runtime=PENDING");
         }
         HCObserve();
         return true;
@@ -281,6 +290,7 @@ class HCWildlifeProviders
         m_LastNow = nowMs;
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
+        HCEcosystemStep(nowMs);
         HCUnitBudget work = HCServer.HCTickWork();
         if (m_Config.CarcassesEnabled && m_State.SpentSites.Count() < m_Config.MaxCarcasses && work.HCTake(m_Config.WorkUnits))
         {
@@ -298,6 +308,111 @@ class HCWildlifeProviders
         }
         HCObserve();
     }
+
+    protected ref HCWildlifeInteractions m_Interactions;
+    protected int m_SeasonPhase = -2;
+    protected int m_ClueCursor;
+    protected bool m_EcosystemOpen;
+    protected bool m_EcosystemPrinted;
+
+    bool HCEcosystemOpen()
+    {
+        if (!HCWildlifeRoutes.HCConfigValid(m_Config)) { return HCRefuse("ecosystem_config_invalid"); }
+        if (!m_Interactions) { m_Interactions = new HCWildlifeInteractions; }
+        m_Interactions.HCConfigure(m_Config);
+        if (m_Config.CluesEnabled)
+        {
+            HCWorldIncidentPolicy policy = HCWorldIncidentPolicy.HCGet();
+            if (!policy) { return HCRefuse("ecosystem_incident_policy_missing"); }
+            int missing = 0;
+            if (!policy.HCFind("wildlife_blood")) { missing = missing + 1; }
+            if (!policy.HCFind("wildlife_carcass")) { missing = missing + 1; }
+            if (policy.Kinds.Count() + missing > 24) { return HCRefuse("ecosystem_incident_kind_capacity"); }
+            // No auditory/visual stimulus invented for a blood point/body.
+            // Response none: the registry records memory without giving AI
+            // knowledge or silently enlisting Expansion's human-only observer.
+            if (!policy.HCFind("wildlife_blood")) { policy.HCAddKind("wildlife_blood", "", "none", 0, 0, 0, 0, m_Config.ClueLifetimeSeconds, 0, ""); }
+            if (!policy.HCFind("wildlife_carcass")) { policy.HCAddKind("wildlife_carcass", "", "none", 0, 0, 0, 0, m_Config.ClueLifetimeSeconds, 0, ""); }
+        }
+        m_EcosystemOpen = true;
+        if (!m_EcosystemPrinted)
+        {
+            m_EcosystemPrinted = true;
+            Print("[HC Wildlife] AUDITWILD_MEMORY admitted_unverified clues=shared_incidents contacts=observed_only runtime=PENDING");
+            Print("[HC Wildlife] AUDITWILD_GOALS_PENDING reason=no_native_animal_destination_target_or_consumption_port routes=data_only attraction=unavailable crows=unavailable combat_cap=unavailable runtime=PENDING");
+        }
+        return true;
+    }
+
+    void HCEcosystemStop()
+    {
+        m_EcosystemOpen = false;
+        if (m_Interactions) { m_Interactions.HCClear(); }
+        m_SeasonPhase = -2;
+    }
+
+    void HCEcosystemStep(int nowMs)
+    {
+        if (!m_EcosystemOpen) { return; }
+        if (!m_Config.SeasonalRoutesEnabled && !m_Config.CluesEnabled && !m_Config.InteractionObservationEnabled) { return; }
+        // Share the existing world-incident consumer: these are incident
+        // observations. One finite slice; no fresh consumer id or timer.
+        HCUnitBudget work = HCServer.HCTickWork();
+        if (!work.HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, m_Config.WorkUnits)) { return; }
+        if (m_Config.InteractionObservationEnabled) { m_Interactions.HCSweep(nowMs); }
+        if (m_Config.SeasonalRoutesEnabled)
+        {
+            int phase = HCWildlifeRoutes.HCPhase();
+            if (phase != m_SeasonPhase)
+            {
+                m_SeasonPhase = phase;
+                HCWildlifeRoute graze = HCWildlifeRoutes.HCSelect(m_Config.Routes, "Animal_CervusElaphus", phase);
+                HCWildlifeRoute patrol = HCWildlifeRoutes.HCSelect(m_Config.Routes, "Animal_CanisLupus", phase);
+                string grazeId = "unavailable";
+                string patrolId = "unavailable";
+                if (graze) { grazeId = graze.Id; }
+                if (patrol) { patrolId = patrol.Id; }
+                Print("[HC Wildlife] AUDITWILD_PHASE phase=" + phase.ToString() + " graze=" + grazeId + " territory=" + patrolId + " animal_movement=unavailable runtime=PENDING");
+            }
+        }
+        if (!m_Config.CluesEnabled) { return; }
+        // HC-15 snapshots already bound freshness, handles, species and count.
+        array<ref HCWildlifeFact> facts = HCWildlifeObservation.HCSnapshot(nowMs);
+        int examined = 0;
+        while (examined < facts.Count() && examined < m_Config.MaxPairChecksPerTick)
+        {
+            if (!work.HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { break; }
+            if (m_ClueCursor >= facts.Count()) { m_ClueCursor = 0; }
+            HCWildlifeFact fact = facts.Get(m_ClueCursor);
+            m_ClueCursor = m_ClueCursor + 1;
+            examined = examined + 1;
+            if (!HCEcologyResourceSurvey.Carcass(fact)) { continue; }
+            HCWorldIncidents.HCPublish("wildlife_carcass", fact.Position, 0, m_Config.ClueLifetimeSeconds, null);
+        }
+    }
+
+    static void HCRecordDamage(EntityAI victim, EntityAI source, TotalDamageResult damageResult, string zone)
+    {
+        if (!s_Owner || !s_Owner.m_Running || !s_Owner.m_EcosystemOpen || !HCEcologyNative.Authority()) { return; }
+        if (!s_Owner.m_Config.CluesEnabled && !s_Owner.m_Config.InteractionObservationEnabled) { return; }
+        if (!victim || victim.IsPendingDeletion() || !damageResult) { return; }
+        int nowMs = GetGame().GetTime();
+        if (nowMs < s_Owner.m_LastNow || nowMs < 0) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { return; }
+        // Actual positive blood damage only, never inferred from proximity,
+        // bleeding state, live position polling or a targeting eligibility query.
+        if (s_Owner.m_Config.CluesEnabled && damageResult.GetDamage(zone, "Blood") > 0)
+        {
+            vector point = victim.GetPosition();
+            if (HCEcologyRuntimeRules.PositionValid(point)) { HCWorldIncidents.HCPublish("wildlife_blood", point, 0, s_Owner.m_Config.ClueLifetimeSeconds, null); }
+        }
+        if (!s_Owner.m_Config.InteractionObservationEnabled || !source) { return; }
+        bool pair = AnimalBase.Cast(victim) && ZombieBase.Cast(source);
+        PlayerBase campActor = PlayerBase.Cast(victim);
+        if (campActor && !campActor.GetIdentity() && source.IsKindOf("Animal_CanisLupus")) { pair = true; }
+        if (pair) { s_Owner.m_Interactions.HCContact(source, victim, nowMs); }
+    }
+
 }
 
 modded class AnimalBase

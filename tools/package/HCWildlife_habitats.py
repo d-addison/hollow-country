@@ -97,3 +97,67 @@ def build(manifest, delta, environment_data, events_data, available_classes):
         territories.remove(duplicate)
     return {path: xml_text.document(root) + b'\n'
             for path, root in (('db/events.xml', events), ('cfgenvironment.xml', environment))}
+
+
+def seasonal_routes(data, source, species, roles):
+    """Author four phase records from existing native zones; no runtime movement.
+
+    Ordering is a design choice, source locations are not geometry surveys.
+    Vanilla XML/brains and population budgets are never modified here.
+    """
+    import math
+    import re
+    if species not in ('Animal_CervusElaphus', 'Animal_CanisLupus') or len(roles) != 4:
+        raise ValueError('seasonal species/four phase contract')
+    if source not in ('env/red_deer_territories.xml', 'env/wolf_territories.xml'):
+        raise ValueError('seasonal source must name inspected native territory')
+    _xml(data, 'territory-type')
+    text = data.decode('utf-8-sig')
+    zones = []
+    for match in re.finditer(r'<zone\s+[^<>]*?/\s*>', text):
+        node = ET.fromstring(match[0])
+        values = [float(node.get(key, 'nan')) for key in ('x', 'z', 'r')]
+        if not all(math.isfinite(v) and 0 < v <= 20000 for v in values) or values[2] > 2000:
+            raise ValueError('seasonal zone geometry invalid')
+        zones.append((node.get('name'), values, text.count('\n', 0, match.start()) + 1))
+    rows = []
+    for phase, role in enumerate(roles):
+        matching = [z for z in zones if z[0] == role]
+        if not matching:
+            raise ValueError('seasonal native zone missing: ' + role)
+        _, (x, z, radius), line = matching[0]
+        rows.append(dict(Id=species.lower() + '-phase-' + str(phase), Species=species,
+                         Phase=phase, Position=[x, 0., z], RadiusM=radius, Role=role,
+                         Source=source + ':' + str(line)))
+    return rows
+
+
+def validate_ecosystem(config):
+    """Validate the owning mission JSON; no shared settings keys are introduced."""
+    import math
+    for key in ('SeasonalRoutesEnabled', 'CluesEnabled', 'InteractionObservationEnabled'):
+        if type(config.get(key)) is not bool:
+            raise ValueError('ecosystem flag missing: ' + key)
+    lifetime = config.get('ClueLifetimeSeconds')
+    if type(lifetime) is not int or not 1 <= lifetime <= 3600:
+        raise ValueError('ecosystem clue lifetime invalid')
+    rows = config.get('Routes')
+    if not isinstance(rows, list) or len(rows) != 8:
+        raise ValueError('ecosystem requires eight species/phase records')
+    seen = set()
+    for row in rows:
+        species, phase = row.get('Species'), row.get('Phase')
+        if species not in ('Animal_CervusElaphus', 'Animal_CanisLupus') or type(phase) is not int or not 0 <= phase <= 3:
+            raise ValueError('ecosystem species/phase invalid')
+        key = species, phase
+        if key in seen:
+            raise ValueError('ecosystem duplicate species/phase')
+        seen.add(key)
+        position, radius = row.get('Position'), row.get('RadiusM')
+        if not isinstance(position, list) or len(position) != 3 or not all(type(v) in (int, float) and math.isfinite(v) and abs(v) <= 20000 for v in position):
+            raise ValueError('ecosystem route position invalid')
+        if type(radius) not in (int, float) or not math.isfinite(radius) or not 0 < radius <= 2000:
+            raise ValueError('ecosystem route radius invalid')
+        if row.get('Role') not in ('Graze', 'Rest', 'Water', 'HuntingGround') or not row.get('Source') or not row.get('Id'):
+            raise ValueError('ecosystem route provenance/role invalid')
+    return True
