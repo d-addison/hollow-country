@@ -18,26 +18,8 @@
 // Repo helper HCGroupClock.CalendarUtc supplies checked calendar conversion.
 // Preferences admit source by owner decision; EXP-A5 is logged, never qualified
 // by this module. No persistence, loot or inventory changes.
-// Client-only entity class declared in 4_World so native CreateLight can resolve
-// it. Native: Entities/ScriptedLightBase/PointLightBase.c:1; ScriptedLightBase.c:
-// 258/303 brightness/radius; PointLightBase/FireplaceLight.c:8-16 light setters.
-// 3_Game/Entities/EntityLightSource.c:19/27/47/53/65 shadow/daylight/colours/flare.
-class HCSignsWindowLight extends PointLightBase
-{
-    void HCSignsWindowLight()
-    {
-        // DuskOrNight owns the dusk boundary, including twilight before native
-        // night-only lights become visible. The client removes this at dawn.
-        SetVisibleDuringDaylight(true);
-        SetRadiusTo(6.0);
-        SetBrightnessTo(1.1);
-        SetCastShadow(true);
-        SetDiffuseColor(1.0, 0.64, 0.3);
-        SetAmbientColor(1.0, 0.64, 0.3);
-        SetFlareVisible(false);
-    }
-}
-
+// W69: fireplace presentation is entirely native (HCHearthFires.c evidence).
+// Occupied holdout snapshots are ordering hints and cannot create a light/fire.
 class HCSignsOfLife extends HCModule
 {
     static const int MAX_LIT = 4;
@@ -77,6 +59,7 @@ class HCSignsOfLife extends HCModule
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("SignsOfLife", true, "EXP-A5", HCV2Gates.Qualified("EXP-A5")));
+        HCHearthFires.HCStart();
         m_Day = -1;
         m_Clock = 60.0;
         m_Started = true;
@@ -119,19 +102,16 @@ class HCSignsOfLife extends HCModule
         return false;
     }
 
-    // Eligibility is independent of observer and query order. Local selection
-    // then ranks eligible sites and applies the hard per-area caps, forced first.
-    static bool IsLit(vector housePos, int day)
+    // Occupancy and the daily hash never establish a burning hearth. The hash
+    // remains a deterministic ordering aid only; native fires own all visuals.
+    static bool IsLit(Object house, int day)
     {
-        if (day < 0) return false;
-        if (HCSignsOfLife.IsForced(housePos)) return true;
-        return HCSignsOfLife.HouseHash(housePos, day) % 16 < 3;
+        return HCHearthFires.HCHasBurning(house);
     }
 
-    static bool IsSmoke(vector housePos, int day)
+    static bool IsSmoke(Object house, int day)
     {
-        if (day < 0) return false;
-        return HCSignsOfLife.HouseHash(housePos, day) % 8 == 0;
+        return HCHearthFires.HCHasBurning(house);
     }
 
     static bool CanAdd(int count, int cap)
@@ -151,7 +131,7 @@ class HCSignsOfLife extends HCModule
         if (!GetGame().GetMission()) return false;
         WorldData climate = GetGame().GetMission().GetWorldData();
         if (!climate) return false;
-        return climate.GetBaseEnvTemperatureAtObject(viewer) < COLD_C;
+        return climate.GetBaseEnvTemperatureAtObject(viewer) < HCSignsOfLife.COLD_C;
     }
 
     static bool HousePoints(Object house, out vector lamp, out vector chimney)
@@ -209,24 +189,32 @@ class HCSignsOfLife extends HCModule
         ref array<Object> objects = new array<Object>;
         ref array<CargoBase> proxies = new array<CargoBase>;
         vector center = viewer.GetPosition();
-        GetGame().GetObjectsAtPosition3D(center, HOUSE_RADIUS, objects, proxies);
+        GetGame().GetObjectsAtPosition3D(center, HCSignsOfLife.HOUSE_RADIUS, objects, proxies);
         bool night = DuskOrNight();
         bool cold = Cold(viewer);
-        int count = Math.Min(objects.Count(), MAX_OBJECTS);
+        int count = Math.Min(objects.Count(), HCSignsOfLife.MAX_OBJECTS);
+        HCWorkBudget houseBudget = new HCPerfSlices("SignsHearths");
+        houseBudget.HCReset(HCHearthConfig.HCGet().HousesPerScan);
+        int housesExamined = 0;
         for (int i = 0; i < count; i++)
         {
             Object candidate = objects[i];
             vector lamp, chimney;
             if (!HousePoints(candidate, lamp, chimney)) continue;
             vector position = candidate.GetPosition();
-            if (vector.DistanceSq(position, center) > HOUSE_RADIUS * HOUSE_RADIUS) continue;
-            if (night && IsLit(position, day)) Offer(lit, candidate, day, MAX_LIT);
-            if (cold && IsSmoke(position, day)) Offer(smoke, candidate, day, MAX_SMOKE);
+            if (vector.DistanceSq(position, center) > HCSignsOfLife.HOUSE_RADIUS * HCSignsOfLife.HOUSE_RADIUS) continue;
+            if (housesExamined >= HCHearthConfig.HCGet().HousesPerScan) { break; }
+            if (!houseBudget.HCContinue()) { break; }
+            if (GetGame().IsServer() && !HCServer.HCTickWork().HCTake(1)) { break; }
+            housesExamined = housesExamined + 1;
+            if (night && IsLit(candidate, day)) Offer(lit, candidate, day, HCHearthConfig.HCGet().MaxLit);
+            if (cold && IsSmoke(candidate, day)) Offer(smoke, candidate, day, HCHearthConfig.HCGet().MaxSmoke);
         }
     }
 
     override void OnTick(float deltaTime)
     {
+        HCHearthFires.HCTick();
         m_Clock += deltaTime;
         if (m_Clock < 60.0) return;
         int today = RealDay();
@@ -266,6 +254,7 @@ class HCSignsOfLife extends HCModule
     override void OnStop()
     {
         m_Started = false;
+        HCHearthFires.HCStop();
         m_Viewers.Clear();
     }
 }
@@ -298,7 +287,7 @@ class HCSignsHoldoutRPC
         rpc.Write(s_Occupied.Count());
         foreach (vector position : s_Occupied) { rpc.Write(position); }
         // Null target avoids waiting for the player entity to replicate.
-        rpc.Send(null, RPC_HOLDOUTS, true, identity);
+        rpc.Send(null, HCSignsHoldoutRPC.RPC_HOLDOUTS, true, identity);
     }
 
     static void Publish(array<vector> positions)

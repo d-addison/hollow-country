@@ -212,6 +212,7 @@ class HCHoldouts : HCModule
     {
         HCHoldouts module = HCHoldouts.Get();
         if (!module || !GetGame().IsServer()) return;
+        if (HCHearthFires.HCSpending(container)) return;
         for (int cacheIndex = 0; cacheIndex < module.Count(); cacheIndex++)
         {
             HCHoldoutRow row = module.m_State.Rows[cacheIndex];
@@ -611,6 +612,24 @@ class HCHoldouts : HCModule
     bool HCAdvanceOccupancy(int index, int now)
     {
         return HCStepCamp(index, now);
+    }
+
+    // W69 narrow port: only this holdout's materialized living occupant may
+    // spend its actual crate fuel. Visibility/fuel/ignition checks live in the owner.
+    void HCHearthLight(int index)
+    {
+        if (!m_Ready || index < 0 || index >= Count() || LootRemoved(index)) { return; }
+        HCHoldoutRow hearthRow = m_State.Rows[index];
+        if (hearthRow.Ledger.State != "OCCUPIED" && hearthRow.Ledger.State != "ALERT") { return; }
+        array<ref HCHoldoutBody> hearthBodies = m_Bodies;
+        foreach (HCHoldoutBody hearthBody : hearthBodies)
+        {
+            if (hearthBody.HoldoutId != hearthRow.Ledger.Id || !hearthBody.Body || !hearthBody.Body.IsAlive()) { continue; }
+            HCHearthFires.HCLight(Structure(index), hearthBody.Body, Cache(index), "holdout", hearthRow.Ledger.Id);
+            SnapshotContents(index);
+            SaveChanged();
+            return;
+        }
     }
 
     void HCSyncLights()
