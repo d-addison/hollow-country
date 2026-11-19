@@ -1,8 +1,10 @@
 // Hollow Country posed infected: server-side request hook for the HCMasterControl pose layer.
 // Experimental: compiled and played by nobody yet; native and two-client acceptance pending.
 //
-// HC_ZmbM_Sitter asks to sit by itself 2 s after server-side init (EEInit), so spawning it by
-// class name is enough. Server code may also call HCRequestPose(1) (sit) or (0) (get up).
+// HC-45: all seated/prone/riser entry requests now refuse until native proof.
+// EEInit submits one request synchronously; no retained CallLater callback can
+// outlive deletion. Pose 0 remains cleanup. The graph implementation below stays
+// experimental, unreachable through HCRequestPose while admission refuses it.
 // A scripted command holds the infected still and sends the synchronized graph command
 // CMD_HC_POSE (int param = pose); hc_poses.agf enters/leaves the pose on that command and
 // returns to the vanilla MasterControl on any vanilla death/hit/crawl/attack/vault command.
@@ -95,10 +97,12 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	protected int m_HCPoseCmd = -1;
 	protected int m_HCPoseVar = -1;
 
-	//! Server: request a pose. False when not the server, dead, or the posed budget is full.
+	//! Server: only modes with verified admission may acquire a pose slot.
 	bool HCRequestPose(int pose)
 	{
 		if (!g_Game.IsServer() || !IsAlive())
+			return false;
+		if (pose != 0 && !HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose)))
 			return false;
 		if (pose == m_HCPose)
 			return true;
@@ -177,12 +181,12 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		return true;
 	}
 
-	//! Server: sit by itself once the AI is running (spawned by class name, CE or script).
+	//! One bounded admission request; unsupported modes keep native AI unchanged.
 	override void EEInit()
 	{
 		super.EEInit();
 		if (g_Game.IsServer())
-			g_Game.GetCallQueue(CALL_CATEGORY_GAMEPLAY).CallLater(HCRequestSit, 2000, false);
+			HCRequestSit();
 	}
 
 	override void EEDelete(EntityAI parent)

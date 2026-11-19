@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "work_package": "HC-45",
+  "issue": 121,
+  "world": "chernarusplus",
+  "trace": {
+    "spec": "FR-008; FR-011; AC-007; owner_task_2026-11-18",
+    "plan": "consolidated_coverage_Wave_2_HC-45",
+    "task": "one_attempt_native_crawler_hold_release_and_bounded_posture_support_queue",
+    "shared_trace_owner": "HC-11; canonical_spec_plan_tasks_are_not_in_this_worktree; read_existing_lead_copies_without_modifying_them"
+  },
+  "runtime_acceptance": "PENDING",
+  "production_enabled": false,
+  "interpretation": "Authored support queue and pending site coverage, not a runtime spawn/config loader or CE success receipt. HCPostureAdmission.c contains the fixed runtime capability table. No preference, manifest edit or graph bind promotes an unproved mode.",
+  "bounds": {
+    "support_modes": 4,
+    "queue_rows_per_tick": 1,
+    "attempts_per_existing_entity": 1,
+    "retained_entities_in_support_queue": 0,
+    "new_entities": 0,
+    "new_loot": 0,
+    "distances_added": []
+  },
+  "framework": [
+    "HC-14 registered InfectedVariety lifecycle and existing observer/corpse admission",
+    "#135 existing LOD posed budgets; unchanged; integration owned by #135",
+    "HCUnitBudget",
+    "HCWorkBudget",
+    "HCV2Admission",
+    "HCOperationalStatus cached hook"
+  ],
+  "support_queue": [
+    {
+      "mode": "native_crawler_idle",
+      "source_support": "native_idle_api_only",
+      "wake": "release_own_idle_latch_resume_existing_native_crawler_ai; NOT_stand_up",
+      "admission": "one_attempt_only_existing_living_calm_crawler_with_agent_after_HC14_observer_and_HC135_budget_admission",
+      "refusal": "none_native_idle_only",
+      "native_evidence": [
+        "3_Game/AI/AIAgent.c:6 SetKeepInIdle",
+        "3_Game/Entities/DayZAnimal.c:193 GetAIAgent",
+        "3_Game/Entities/DayZInfected.c:107 GetInputController",
+        "3_Game/Entities/DayZInfectedInputController.c:9 GetMindState",
+        "4_World/Entities/Creatures/Infected/ZombieBase.c:811-833 injury transition; :1089-1092 crawler remains crawler; :1060-1086 native finisher owns idle latch"
+      ],
+      "runtime_acceptance": "PENDING"
+    },
+    {
+      "mode": "sit_wall",
+      "source_support": "refused",
+      "wake": "refused",
+      "refusal": "SIT_WAKE_NATIVE_PROOF_PENDING",
+      "class_candidate": "HC_ZmbM_Sitter",
+      "event_reference": null,
+      "existing_assets": ["hc_sit_wall_idle", "hc_sit_wall_getup"],
+      "graph": "HCMasterControl; CMD_HC_POSE; HCPose; mods/HollowCountryAnims/anims/infected/hc_poses.agf",
+      "evidence_limit": "Already authored own-prefix assets only. No exact-source installed config/playback/wake/observer proof; hidden subclass and all entry requests refused.",
+      "required_experiment": "DayZDiag graph/load/bind/playback and safe native command return, then normal signed PBO and two clients including late streaming"
+    },
+    {
+      "mode": "prone_sleep",
+      "source_support": "refused",
+      "wake": "refused",
+      "refusal": "PRONE_WAKE_GRAPH_UNVERIFIED",
+      "required_experiment": "Find permitted installed resting and waking graph/clip entry points; never force native injury crawl as a reversible sleep"
+    },
+    {
+      "mode": "riser",
+      "source_support": "refused",
+      "wake": "refused",
+      "refusal": "REVERSIBLE_RISE_UNEXPOSED",
+      "required_experiment": "Demonstrate a permitted reversible living posture; never revive a real corpse, replace a fallen entity or restart completed life/loot"
+    }
+  ],
+  "sites": [],
+  "pending_coverage": "Every eligible settlement and island remains eligible for eventual measured sites; none admitted without geometry/access and observer evidence. Empty authored sites are pending coverage, not a quiet-by-design exclusion.",
+  "lead_integration": {
+    "config_cpp": "No pose subclass or CE event enablement now. After native proof choose the exact verified subclass/event; no verified event reference exists yet.",
+    "package_allowlist": "Lead adds 'infected/variety-sites.json' to tools/package/pbo.py MISSION_FILES, then reruns test_package. Shared packager is outside worker scope.",
+    "policy_owner": "#135 consumes HCPostureAdmission.HCCanEnter(mode) alongside existing observer/PosedRoom admission; keep LOD/policy/state ownership unchanged.",
+    "status": "HC-14 lifecycle extension emits one mode per tick and drains once. Cached HC-1 ready/degraded/off describes the existing variety/scaling owner, not animation qualification; queue support remains degraded/off. No module registration edit needed."
+  },
+  "native_acceptance": [
+    "Exact-source DayZDiag compile and boot, then normal signed server/client PBO; no script/CE errors",
+    "Record exact source, PBO, mission, config and dependency hashes with raw logs external/private",
+    "Two clients: approach, real noise and attack; day/night/weather; native wake/crawl, combat and death; late-stream observer consistency",
+    "Off path and stop/restart: release each owned idle latch once; no delayed pose callbacks, new entities, corpse replacement, duplicate loot or second resurrection",
+    "Unsupported sit/prone/riser modes remain named pending experiments; native HC-14 variants remain available"
+  ]
+}

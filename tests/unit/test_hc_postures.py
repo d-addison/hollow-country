@@ -1,0 +1,252 @@
+"""HC-45 / #121: one behavioral scenario on explicit synthetic native ports.
+
+Spec FR-008/011, plan AC-007, task HC-45; HC-11 owns shared trace edits.
+Restricted translation executes shipped Enforce methods, not a Python gameplay
+model. No DayZ compile, animation, observer, wake or two-client proof.
+
+Actual RED command (before implementation):
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_postures -v
+AssertionError: True is not false : unsupported posture 2 was admitted
+GREEN: same command -> Ran 1 test; OK (offline only).
+"""
+import json
+from pathlib import Path
+from types import MethodType, SimpleNamespace as N
+import re
+import unittest
+
+from tests.unit.test_infected_admission import Array, translate
+from tests.unit.test_event_runtime import translate as scalar
+from tests.unit.test_hc_infected_doors import shared_budget
+
+ROOT = Path(__file__).resolve().parents[2]
+POSE = ROOT / 'mods/HollowCountryAnims/scripts/4_World/HCPoseInfected.c'
+NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyNative.c'
+ADMISSION = NATIVE.with_name('HCPostureAdmission.c')
+
+
+def bind(path, obj, names, env, statics=()):
+    for name in names:
+        match = re.search(r'\b(?:bool|void|int|string) ' + name + r'\(', path.read_text())
+        fn = translate(str(path), match[0], names, statics=statics, **env)
+        setattr(obj, name, MethodType(fn, obj))
+    return obj
+
+
+class PostureAdmission(unittest.TestCase):
+    def test_unsupported_transition_refuses_then_native_hold_wakes_once_and_queue_is_bounded(self):
+        logs = []
+        game = N(IsServer=lambda: True, GetTickTime=lambda: 0.)
+        sitter = N(m_HCPose=0, m_HCHolding=False, m_HCStarted=False,
+                   IsAlive=lambda: True)
+        # Explicit synthetic body/authority and empty server-wide pose budget.
+        env = dict(g_Game=game, GetGame=lambda: game, Print=logs.append,
+                   STATICS=N(s_HCPosed=0, MAX_POSED=12))
+        if ADMISSION.exists():
+            policy = N()
+            for name in ('HCCanEnter', 'HCPostureRefusal', 'HCPoseMode', 'HCLine'):
+                setattr(policy, name, scalar(ADMISSION.read_text(), name,
+                        dict(HCPostureAdmission=policy), 'HCPostureAdmission'))
+            env['HCPostureAdmission'] = policy
+        fn = translate(str(POSE), 'bool HCRequestPose(',
+                       ('IsAlive',), statics=('s_HCPosed', 'MAX_POSED'), **env)
+        self.assertFalse(fn(sitter, 2), 'unsupported posture 2 was admitted')
+        for pose in (-1, 1, 3, 99):
+            self.assertFalse(fn(sitter, pose))
+        self.assertEqual(0, env['STATICS'].s_HCPosed)
+        self.assertEqual(0, sitter.m_HCPose)
+        self.assertTrue(fn(sitter, 0), 'cleanup request remains valid')
+        self.assertEqual('POSTURE_MODE_UNSUPPORTED', policy.HCPostureRefusal('invented'))
+
+        # A fixed support queue executes the authored shared budgets and keeps
+        # its cursor on time exhaustion. It stores modes, never entity handles.
+        world = NATIVE.parents[2]
+        units = shared_budget(world / 'Core/HCUnitBudget.c', 'HCUnitBudget', {},
+                              ('HCReset', 'HCTake', 'HCUsed'), game)
+        work = shared_budget(world / 'World/HCWorkBudget.c', 'HCWorkBudget',
+                             dict(m_LogAfter=0.),
+                             ('HCReset', 'HCMayContinue', 'HCContinue'), game)
+        statuses = []
+        queue = N(m_Queue=Array(), m_Units=units, m_Work=work,
+                  m_Status=N(HCPublish=lambda *args: statuses.append(args)),
+                  m_Running=False, m_Cursor=0)
+        queue_env = dict(env, HCPostureAdmission=policy,
+                        HCV2Admission=N(Line=lambda *args: 'synthetic admission'))
+        queue_env['HCLine'] = policy.HCLine
+        bind(ADMISSION, queue, ('HCStart', 'HCSlice', 'HCStop'), queue_env)
+        queue.HCStart(True)
+        self.assertEqual(1, queue.m_Cursor)
+        queue.HCStart(True)  # repeated start cannot refill the queue
+        self.assertEqual(1, queue.m_Cursor)
+        game.GetTickTime = lambda: .01  # synthetic clock advances beyond 4 ms
+        # Force the shared clock guard to see elapsed time within this slice.
+        clock = iter((0., .01))
+        game.GetTickTime = lambda: next(clock)
+        queue.HCSlice()
+        self.assertEqual(1, queue.m_Cursor)
+        game.GetTickTime = lambda: 0.
+        for checked in (2, 3, 4):
+            queue.HCSlice()
+            self.assertEqual(checked, queue.m_Cursor)
+            self.assertEqual(1, units.HCUsed())
+        lines = [line for line in logs if '[HC Plan] HC-45 posture=' in line]
+        self.assertEqual(4, len(lines))
+        for mode in ('sit_wall', 'prone_sleep', 'riser'):
+            line = next(line for line in lines if 'posture=' + mode + ' ' in line)
+            self.assertIn('support=refused wake=refused state=refused', line)
+            self.assertIn(policy.HCPostureRefusal(mode), line)
+            self.assertIn('runtime=PENDING', line)
+        # Drained and off queues must return before clocks/budgets/logging.
+        game.GetTickTime = lambda: self.fail('drained/off queue sampled a clock')
+        for _ in range(10): queue.HCSlice()
+        queue.HCStop()
+        self.assertEqual([], queue.m_Queue)
+        queue.HCStart(False)
+        queue.HCSlice()
+        self.assertEqual(('off', 'operator_preference'), statuses[-1])
+        game.GetTickTime = lambda: 0.
+        queue.HCStart(True)
+        self.assertEqual(1, queue.m_Cursor)
+        queue.HCStop()
+
+        # Execute HC-14 lifecycle extension. The inherited owner callbacks are
+        # explicit synthetic ports; the extension's start/off/stop/status logic
+        # is authored Enforce. No policy is reimplemented in Python.
+        owner_statuses = []
+        owner_report = N(HCPublish=lambda *args: owner_statuses.append(args))
+        owner = N(m_HCPostures=None, m_Running=False, m_Variety=True,
+                  m_HCVarietyStatus=owner_report, VarietyActive=lambda: True)
+        owner_calls = []
+        def inherited_start(settings):
+            owner_calls.append('start')
+            owner.m_Running = settings.synthetic_original_module_enabled
+        def inherited_stop():
+            owner_calls.append('stop')
+            owner.m_Running = False
+        inherited = N(IsEnabled=lambda settings: settings.synthetic_original_module_enabled,
+                      OnStart=inherited_start, OnTick=lambda dt: owner_calls.append('tick'),
+                      OnStop=inherited_stop)
+        lifecycle = dict(env, super=inherited, HCPostureAdmission=lambda: queue)
+        for name in ('IsEnabled', 'OnStart', 'OnTick', 'OnStop'):
+            fn_owner = translate(str(NATIVE), ('bool ' if name == 'IsEnabled' else 'void ') + name + '(',
+                                 ('VarietyActive',), **lifecycle)
+            setattr(owner, name, MethodType(fn_owner, owner))
+        status_source = NATIVE.read_text().split('modded class HCInfectedVarietyModule', 1)[1]
+        status_source = status_source.replace('HCOperationalStatus HCGetOperationalStatus',
+                                              'string HCGetOperationalStatus')
+        queue.HCStatus = lambda: queue.m_Status
+        owner.HCGetOperationalStatus = MethodType(scalar(status_source,
+            'HCGetOperationalStatus', {}, member=True), owner)
+        disabled = N(synthetic_original_module_enabled=False)
+        self.assertFalse(owner.IsEnabled(disabled))
+        self.assertIs(owner_report, owner.HCGetOperationalStatus())
+        self.assertEqual(('off', 'operator_preference'), statuses[-1])
+        owner.OnTick(1.)
+        self.assertEqual(0, queue.m_Cursor)
+        owner.OnStop()
+        self.assertIsNone(owner.m_HCPostures)
+        enabled_owner = N(synthetic_original_module_enabled=True)
+        self.assertTrue(owner.IsEnabled(enabled_owner))
+        owner.OnStart(enabled_owner)
+        self.assertEqual(1, queue.m_Cursor)
+        owner.OnStart(enabled_owner)
+        self.assertEqual(1, queue.m_Cursor)
+        owner.OnTick(1.)
+        self.assertEqual(2, queue.m_Cursor)
+        self.assertEqual('degraded', statuses[-1][0])
+        self.assertEqual('ready', owner_statuses[-1][0])
+        # The inherited module's scaling service may run while posture is off.
+        owner.m_Variety = False
+        owner.OnStart(enabled_owner)
+        self.assertEqual('ready', owner_statuses[-1][0])
+        owner.m_Variety = True
+        owner.VarietyActive = lambda: False
+        owner.OnStart(enabled_owner)
+        self.assertEqual('degraded', owner_statuses[-1][0])
+        owner.OnStop()
+        self.assertEqual([], queue.m_Queue)
+        self.assertEqual(('off', 'posture_queue_stopped'), statuses[-1])
+        self.assertIs(owner_report, owner.HCGetOperationalStatus())
+        self.assertEqual(('off', 'variety_owner_stopped'), owner_statuses[-1])
+
+        # Synthetic existing crawler + actual native hold/release bodies. A
+        # successful idle latch is not animation, pathfinding or wake proof.
+        latches = []
+        speed = []
+        native_calls = []
+        enabled = [True]
+        actor = N(m_HCVarietyTriedDormant=False, m_HCVarietyDormant=False,
+                  m_HCVarietySleepUntil=0., m_HCVarietySpeed=False,
+                  m_HCVarietyRole=0, m_HCVarietyPlace='synthetic-place',
+                  IsAlive=lambda: True, IsCrawling=lambda: True,
+                  IsBeingBackstabbed=lambda: False,
+                  GetAIAgent=lambda: N(SetKeepInIdle=latches.append),
+                  GetInputController=lambda: N(GetMindState=lambda: 0,
+                     OverrideMovementSpeed=lambda *args: speed.append(args)))
+        native_env = dict(env, DayZInfectedConstants=N(MINDSTATE_CALM=0),
+                          HCInfectedVarietyModule=N(VarietyActive=lambda: enabled[0]),
+                          super=N(EEDelete=lambda parent: native_calls.append(parent)))
+        names = ('HCVarietySleep', 'HCVarietyWake', 'HCVarietyRelease', 'EEDelete')
+        externals = ('IsAlive', 'IsCrawling', 'IsBeingBackstabbed',
+                     'GetAIAgent', 'GetInputController')
+        for name in names:
+            fn_native = translate(str(NATIVE), ('override void ' if name == 'EEDelete' else
+                                  'void ' if name == 'HCVarietyRelease' else 'bool ') + name + '(',
+                                  names + externals, **native_env)
+            setattr(actor, name, MethodType(fn_native, actor))
+        self.assertTrue(actor.HCVarietySleep(100., True))
+        self.assertEqual([True], latches)
+        until = actor.m_HCVarietySleepUntil
+        self.assertFalse(actor.HCVarietySleep(110., True))
+        self.assertEqual(until, actor.m_HCVarietySleepUntil, 'repeat extended hold')
+        self.assertTrue(actor.HCVarietyWake())
+        self.assertFalse(actor.HCVarietyWake())
+        self.assertEqual([True, False], latches)
+        self.assertEqual(0, actor.m_HCVarietySleepUntil)
+        actor.m_HCVarietySpeed = True
+        actor.HCVarietyRelease()
+        actor.EEDelete('synthetic-parent')
+        self.assertEqual([(False, 0)], speed)
+        self.assertEqual(['synthetic-parent'], native_calls)
+        self.assertEqual('', actor.m_HCVarietyPlace)
+        self.assertFalse(actor.HCVarietySleep(200., True), 'released entity was reactivated')
+
+        for guard in ('dead', 'standing', 'finisher', 'missing_agent', 'combat', 'off', 'client'):
+            actor.m_HCVarietyTriedDormant = False  # distinct synthetic entity
+            actor.IsAlive = lambda: guard != 'dead'
+            actor.IsCrawling = lambda: guard != 'standing'
+            actor.IsBeingBackstabbed = lambda: guard == 'finisher'
+            actor.GetAIAgent = lambda: None if guard == 'missing_agent' else N(SetKeepInIdle=latches.append)
+            actor.GetInputController = lambda: N(GetMindState=lambda: 4 if guard == 'combat' else 0)
+            enabled[0] = guard != 'off'
+            game.IsServer = lambda: guard != 'client'
+            self.assertFalse(actor.HCVarietySleep(300., True), guard)
+        self.assertEqual([True, False], latches)
+        # Releasing ownership after death/finisher clears HC state, but never
+        # clears a native finisher's latch or wakes a dead actor's FSM.
+        for alive, finisher in ((False, False), (True, True)):
+            actor.m_HCVarietyDormant = True
+            actor.IsAlive = lambda: alive
+            actor.IsBeingBackstabbed = lambda: finisher
+            self.assertTrue(actor.HCVarietyWake())
+        self.assertEqual([True, False], latches)
+
+        manifest = json.loads((ROOT / 'mission/hollow-country/infected/variety-sites.json').read_text())
+        self.assertEqual(['native_crawler_idle', 'sit_wall', 'prone_sleep', 'riser'],
+                         [row['mode'] for row in manifest['support_queue']])
+        self.assertEqual(4, manifest['bounds']['support_modes'])
+        self.assertEqual([], manifest['bounds']['distances_added'])
+        self.assertFalse(manifest['production_enabled'])
+        self.assertEqual('PENDING', manifest['runtime_acceptance'])
+        self.assertEqual([], manifest['sites'])
+        for row in manifest['support_queue']:
+            self.assertEqual(row['refusal'], policy.HCPostureRefusal(row['mode']))
+        # Guard the dependency/load order and lack of delayed callback lifetime.
+        config = (ROOT / 'mods/HollowCountryAnims/config.cpp').read_text()
+        self.assertRegex(config, r'requiredAddons\[\]\s*=\s*\{[^}]*"HollowCountry"')
+        self.assertIn('scope = 1;', config)
+        self.assertNotIn('CallLater(', POSE.read_text())
+
+
+if __name__ == '__main__':
+    unittest.main()
