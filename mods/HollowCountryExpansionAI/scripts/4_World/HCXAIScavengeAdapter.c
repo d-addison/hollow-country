@@ -2,7 +2,8 @@
 // No population, route scan, cargo store, timer or provider-created party.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:1120 IsServer;
 // 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnDebug.c:96 Print.
-// Expansion calls and exact installed-source citations: HCXAIPickerWalk.c.
+// No direct Expansion SDK calls in this file; HCXAIService is HC-owned.
+// Walk SDK signatures/ownership verified read-only against xref: HCXAIPickerWalk.c.
 // Spec/plan/task HC-34 consumes HC-10 identity + HC-16 custody + route survey.
 // Runtime acceptance PENDING; EnableEncounters remains the operator opt-out.
 class HCXAIScavengeAdapter

@@ -2,10 +2,12 @@
 // One state/candidate per existing StepTransients invocation, no new scheduler.
 // Native scripts-1.30.164289: Global/Game.c:1120 IsServer; gameplay.c:636
 // GetGame; Entities/Object.c:287 GetPosition; EnConvert.c:210 DistanceSq.
-// Installed Expansion API evidence already recorded in HCXAISites.c:
-// eAIGroup.c:1123 IsInCombat; :1139 GetMember; :1185 Count;
-// ExpansionStatic.c:1748 GetTimestamp.
-// DayZPlayerImplement.c:234 GetGroup (HCXAIPickerWalk.c). No new provider API.
+// Verified read-only .banso-writer/xref/{ai,core} (CC BY-NC-ND), PBO paths:
+// ai/4_World/DayZExpansion_AI/Classes/eAIGroup.c:1123 bool IsInCombat(),
+// :1139 DayZPlayerImplement GetMember(int), :1185 int Count();
+// ai/4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 eAIGroup GetGroup();
+// core/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
+// static int GetTimestamp(bool useUTC = false). No new provider API.
 // Runtime acceptance PENDING. Never creates an actor, lease, group or item.
 modded class HCXAISiteState
 {
