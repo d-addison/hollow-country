@@ -29,8 +29,8 @@ def member(path, cls, method, state, env, *args):
     match = re.search(r'class ' + cls + r'\b[^\{]*\{', text)
     source = body(text, match.end())
     source = re.sub(r'\b(?:TStringArray|HCTapedPackManifest|HCTapedPackSettingsContract|'
-                    r'HCTapedLightMountSettings|HCTapedPairReceipts|HCTapedPairReceipt|'
-                    r'array<ref HCTapedPairReceipt>|array<ref HCTapedLightHostRow>|HCTapedLightHostRow)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
+                    r'HCTapedLightMountSettings|HCTapedPairReceipts|HCTapedPairReceipt|HCTapedReceiptRows|HCTapedReceiptRow|'
+                    r'array<ref HCTapedPairReceipt>|array<ref HCTapedReceiptRow>|array<ref HCTapedLightHostRow>|HCTapedLightHostRow)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
     source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
     # Native string members on Python str: Get/Substring/IndexOf/IndexOfFrom.
@@ -39,8 +39,9 @@ def member(path, cls, method, state, env, *args):
     source = re.sub(r'(\w+)\.IndexOfFrom\((\w+), (\w+)\)', r'\1.find(\3, \2)', source)
     source = re.sub(r'(\w+)\.IndexOf\((\w+)\)', r'\1.find(\2)', source)
     source = re.sub(r'\bTStringArray (?=(?:PairIds|ReceiptPairIds|CrossPairIds)\()', 'int ', source)
-    source = re.sub(r'\b(?:HCTapedPackManifest|HCTapedPairReceipts|HCOperationalStatus) (?=(?:ParseManifest|ParseReceipts|HCGetOperationalStatus)\()',
+    source = re.sub(r'\b(?:HCTapedPackManifest|HCTapedPairReceipts|HCTapedReceiptRows|HCOperationalStatus) (?=(?:ParseManifest|ParseReceipts|ParseOptOuts|HCGetOperationalStatus)\()',
                     'int ', source)
+    source = re.sub(r'\bHCTapedLightHostRow (?=(?:CrossRow|CrossRowFor|CrossRowMatch)\()', 'int ', source)
     return ui_member(source, method, state, dict(env), *args)
 
 
@@ -65,13 +66,15 @@ def light_catalogue():
     """Executes the authored HCTapedLightCatalog cross-pair derivation over the
     compiled Add(rows, ...) data. The row list is parsed from the source text; the
     derivation rule itself is the authored code, not a copy."""
-    rows = EArray(NS(HostClass=a, LightClass=b, SlotName=c, PrerequisiteSlot=d, PrerequisiteClass=e)
+    rows = EArray(NS(HostClass=a, LightClass=b, SlotName=c, PrerequisiteSlot=d, PrerequisiteClass=e, PairId="")
                   for a, b, c, d, e in re.findall(
                       r'Add\(rows, "([^"]+)", "([^"]+)", "([^"]+)", "([^"]*)", "([^"]*)"\)',
                       CATALOG.read_text()))
     catalogue = NS(Rows=lambda: rows, rows=rows)
-    env = {"NewSlots": EArray, "Rows": catalogue.Rows}
-    for name in ("CrossLightClass", "CrossPairId", "CrossPairIds"):
+    env = {"NewSlots": EArray, "Rows": catalogue.Rows,
+           "HCTapedLightHostRow": lambda: NS(HostClass="", LightClass="", SlotName="",
+                                             PrerequisiteSlot="", PrerequisiteClass="", PairId="")}
+    for name in ("CrossLightClass", "CrossPairId", "CrossPairIds", "CrossRowFor", "CrossRow", "CrossRowMatch"):
         setattr(catalogue, name, lambda *a, name=name: member(
             CATALOG, "HCTapedLightCatalog", name, catalogue, env, *a))
     return catalogue
@@ -88,7 +91,8 @@ def build(text, build_ok=True, files=None, receipts=""):
     probes = []
     gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False, probes=probes,
               mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0,
-              mHCStarted=False)
+              mHCStarted=False, mHCDisabled=EArray(), mHCReceiptReason="",
+              mHCWeaponAdmitted=EArray(), mHCWeaponFirstRefusal="", mHCWeaponRefused=0)
     logs = []
     manifest_text = {"value": text}
     receipt_text = {"value": receipts}
@@ -110,14 +114,24 @@ def build(text, build_ok=True, files=None, receipts=""):
         return json.loads(t, object_hook=hook)
     names = ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable", "PairRefusal",
              "BindingAllowed", "ApplyManifest", "LoadSettings", "ReadManifest", "ParseManifest",
-             "ApplyReceipts", "ReceiptCheckedTyped", "ValidCheckDate", "DateNumber", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ReceiptChecked",
-             "PairAdmission", "PairQualified", "AdmittedCount", "FirstAdmissionReason", "OnStart")
+             "ApplyReceipts", "ReceiptCheckedTyped", "ReceiptBoolTyped", "ValidCheckDate", "DateNumber", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ParseOptOuts", "ReceiptChecked",
+             "ReceiptDisabled", "PairAdmission", "PairQualified", "AdmittedCount", "VerifiedCount", "FirstAdmissionReason", "OnStart",
+             "WeaponPairAdmission", "WeaponNativeSlotAvailable", "WeaponPairAdmitted", "WeaponBindingAllowed", "HCRefreshWeaponAdmission",
+             "ReceiptPackChecked", "ReceiptWeaponChecked", "PackRefusedCount")
     for name in names:
         setattr(gate, name, lambda *a, name=name: member(PACKS, "HCTapedPackMounts", name, gate, env, *a))
     gate.ReadManifest = lambda: manifest_text["value"]
     gate.ParseManifest = parse
     gate.ReadReceipts = lambda: receipt_text["value"]
     gate.ParseReceipts = parse
+    def parse_opt_outs(t):
+        # SYNTHETIC codec: an absent optional bool loads as false, like the native default.
+        data = parse(t)
+        for row in data.Receipts:
+            if not hasattr(row, "Disabled"):
+                row.Disabled = False
+        return data
+    gate.ParseOptOuts = parse_opt_outs
     gate.receipt_text = receipt_text
     gate.manifest_text = manifest_text
     gate.logs = logs
@@ -207,21 +221,32 @@ class TapedPackLoaderTests(unittest.TestCase):
                       "reason=setting_off", "admitted=0", "runtime=PENDING"):
             self.assertIn(field, plan[0])
 
-    def test_enabled_cross_slot_is_refused_client_check_pending_and_never_attaches(self):
+    def test_enabled_cross_slot_needs_its_native_slot_then_is_admitted_unverified(self):
         data = json.loads(self.real())
         data["SettingsContract"]["DefaultCrossSlotLights"] = True
         data["SettingsContract"]["DefaultPermittedPairIds"] = ["tortilla_universal_cross"]
         gate = build(json.dumps(data), receipts=(ROOT / "mission/hollow-country/lights/pair-receipts.json").read_text())
         module, published = start(gate, setting=True)
         self.assertTrue(gate.CrossSlotEnabled())
-        self.assertIn(("refused", "client_check_pending"), published)
+        # Wave 16: the synthetic config has no native slot arrays, so the pair is a
+        # named refusal and the module stays ready (loaded, nothing degraded).
+        self.assertIn(("ready", "pack_native_slot_unavailable"), published)
         binding = NS(HostConfigRoot="CfgVehicles", PairId="tortilla_universal_cross",
                      HostClass="TortillaBag", LightClass="UniversalLight",
                      SlotName="Chemlight", CrossSlot=True)
         self.assertFalse(gate.BindingAllowed(binding))
         plan = [x for x in gate.logs if isinstance(x, str) and "HC-52 pack_pairs=" in x][0]
-        self.assertIn("state=refused", plan)
+        self.assertIn("state=ready", plan)
         self.assertIn("permitted=1", plan)
+        # SYNTHETIC native slot arrays: now cross is admitted unverified, nothing more.
+        slots = {"CfgVehicles TortillaBag attachments": ["Chemlight", "helmetFlashlight"],
+                 "CfgVehicles UniversalLight inventorySlot": ["Chemlight", "helmetFlashlight"]}
+        gate.env["GetGame"] = lambda: NS(IsServer=lambda: True,
+                                         ConfigGetTextArray=lambda p, out: out.extend(slots.get(p, [])))
+        module, published = start(gate, setting=True)
+        self.assertIn(("ready", "admitted_unverified"), published)
+        self.assertTrue(gate.BindingAllowed(binding))
+        self.assertEqual(0, gate.VerifiedCount())
 
     def test_unreadable_or_invalid_manifest_degrades_with_reason(self):
         for text, reason in (("", "mount_manifest_unreadable"),

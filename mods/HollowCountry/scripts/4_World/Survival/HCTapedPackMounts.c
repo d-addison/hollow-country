@@ -9,11 +9,30 @@
 // UniversalLight.c:47-91 owns its client light/memory points and cleanup.
 // ActionTurnOnHelmetFlashlight.c:33-65 requires Mich2001Helmet; not a pack API.
 // Do not use those APIs to simulate an unobserved backpack proxy/mount.
-// Wave 13: a pair qualifies only when ALL hold: the operator setting
-// HCSettings.EnableTapedPackMounts is on (a missing JSON bool zero-fills to false,
-// the safe closed value), the pair has Checked=true in the mission-authored
-// lights/pair-receipts.json (HCJsonFields presence guards, strict ids), and the
-// HCTapedPackCatalog gate admits it (it admits nothing in shipped code).
+// Wave 16 (owner: "enable all features by default"): the mounts are admitted
+// unverified, the HCV2Admission pattern. HCSettings.EnableTapedPackMounts
+// defaults true and is the operator opt-out. lights/pair-receipts.json is a
+// verdict log, not a gate: a pair is admitted unless its row has Disabled=true;
+// Checked/CheckDate/Note record an operator's client check and change nothing
+// else. An unknown pair id or a malformed file refuses the whole file (the
+// module reports degraded). HCTapedPackCatalog.Qualified stays false: it is the
+// native two-client verdict, so the admission line says "admitted unverified".
+// Every pair still needs its native slot arrays (honest check, startup only).
+// Weapon cross-slot pairs (cross_<Host>_<Light>) are admitted here at startup
+// into mHCWeaponAdmitted; the attach site (HCTapedLightV1Qualification) asks
+// WeaponPairAdmitted, a cached lookup. Nothing here was observed in DayZ.
+// Receipt rows read with the optional Disabled opt-out; absent loads as false.
+class HCTapedReceiptRow
+{
+    string PairId;
+    bool Disabled = false;
+}
+
+class HCTapedReceiptRows
+{
+    ref array<ref HCTapedReceiptRow> Receipts = new array<ref HCTapedReceiptRow>();
+}
+
 class HCTapedPackMounts : HCModule
 {
     protected static bool mHCCrossSlot;
@@ -22,6 +41,14 @@ class HCTapedPackMounts : HCModule
     protected static bool mHCSettingOn;
     protected static int mHCReceiptMaxBytes;
     protected static ref TStringArray mHCChecked = new TStringArray;
+    // Pair ids a receipt row opts out (Disabled=true); empty when the file was refused.
+    protected static ref TStringArray mHCDisabled = new TStringArray;
+    // "" when the receipt file loaded (or was not read), else the refusal reason.
+    protected static string mHCReceiptReason;
+    // Weapon pair ids admitted at startup, and the first weapon refusal reason.
+    protected static ref TStringArray mHCWeaponAdmitted = new TStringArray;
+    protected static string mHCWeaponFirstRefusal;
+    protected static int mHCWeaponRefused;
     protected bool mHCStarted;
     protected ref HCOperationalStatus mHCStatus = new HCOperationalStatus;
 
@@ -37,6 +64,11 @@ class HCTapedPackMounts : HCModule
         mHCSettingOn = false;
         mHCReceiptMaxBytes = 0;
         mHCChecked.Clear();
+        mHCDisabled.Clear();
+        mHCReceiptReason = "";
+        mHCWeaponAdmitted.Clear();
+        mHCWeaponFirstRefusal = "";
+        mHCWeaponRefused = 0;
     }
 
     // Called only by the server settings owner before module startup. Copy a
@@ -79,21 +111,10 @@ class HCTapedPackMounts : HCModule
         return hostSlots.Find(slotName) >= 0 && lightSlots.Find(slotName) >= 0;
     }
 
-    static string PairRefusal(string pairId)
-    {
-        if (!HCTapedPackCatalog.KnownPair(pairId)) { return "unsupported_pack_pair"; }
-        if (pairId == "tortilla_universal_cross")
-        {
-            if (!CrossSlotEnabled()) { return "cross_slot_disabled"; }
-            if (mHCPermitted.Find(pairId) < 0) { return "cross_slot_pair_not_permitted"; }
-        }
-        if (!NativeSlotAvailable(pairId)) { return "pack_native_slot_unavailable"; }
-        return HCTapedPackCatalog.Refusal(pairId);
-    }
-
     static bool BindingAllowed(HCTapedLightBinding binding)
     {
         if (!GetGame() || !GetGame().IsServer() || !binding) { return false; }
+        if (binding.HostConfigRoot == "CfgWeapons") { return WeaponBindingAllowed(binding); }
         if (!mHCConfigured || binding.HostConfigRoot != "CfgVehicles") { return false; }
         if (!HCTapedPackCatalog.Matches(binding.PairId, binding.HostClass, binding.LightClass, binding.SlotName, binding.CrossSlot)) { return false; }
         if (binding.CrossSlot)
@@ -110,20 +131,42 @@ class HCTapedPackMounts : HCModule
         return mHCChecked.Find(pairId) >= 0;
     }
 
+    static bool ReceiptDisabled(string pairId)
+    {
+        return mHCDisabled.Find(pairId) >= 0;
+    }
+
+    // Checked receipt ids split by kind, for the separate boot counts.
+    static int ReceiptPackChecked()
+    {
+        int packChecked = 0;
+        foreach (string checkedId : mHCChecked)
+        {
+            if (HCTapedPackCatalog.KnownPair(checkedId)) { packChecked = packChecked + 1; }
+        }
+        return packChecked;
+    }
+
+    static int ReceiptWeaponChecked()
+    {
+        return mHCChecked.Count() - ReceiptPackChecked();
+    }
+
     // "" when the pair is admitted, else the first refusal reason. Order keeps
     // the closed path cheap: no native config scan until every earlier gate holds.
+    // Pack pairs are decided here; any other id goes to the weapon path.
     static string PairAdmission(string pairId)
     {
-        if (!HCTapedPackCatalog.KnownPair(pairId)) { return "unsupported_pack_pair"; }
+        if (!HCTapedPackCatalog.KnownPair(pairId)) { return WeaponPairAdmission(pairId); }
         if (!mHCConfigured) { return "pack_mounts_unconfigured"; }
         if (!mHCSettingOn) { return "setting_off"; }
-        if (!ReceiptChecked(pairId)) { return "client_check_pending"; }
+        if (mHCReceiptReason != "") { return mHCReceiptReason; }
+        if (ReceiptDisabled(pairId)) { return "receipt_disabled"; }
         if (pairId == "tortilla_universal_cross")
         {
             if (!CrossSlotEnabled()) { return "cross_slot_disabled"; }
             if (mHCPermitted.Find(pairId) < 0) { return "cross_slot_pair_not_permitted"; }
         }
-        if (!HCTapedPackCatalog.Qualified(pairId)) { return HCTapedPackCatalog.Refusal(pairId); }
         if (!NativeSlotAvailable(pairId)) { return "pack_native_slot_unavailable"; }
         return "";
     }
@@ -144,16 +187,109 @@ class HCTapedPackMounts : HCModule
         return admitted;
     }
 
-    // First refusal across the known pairs, for the one-line boot summary.
+    // Pairs with a recorded native/two-client verdict. Shipped code has none, so
+    // every admission is "admitted unverified".
+    static int VerifiedCount()
+    {
+        int verified = 0;
+        TStringArray ids = HCTapedPackCatalog.PairIds();
+        foreach (string pairId : ids)
+        {
+            if (HCTapedPackCatalog.Qualified(pairId)) { verified = verified + 1; }
+        }
+        return verified;
+    }
+
+    // First refusal across the known pack pairs, for the one-line boot summary.
+    // An operator opt-out (receipt_disabled) is a choice, not a refusal.
     static string FirstAdmissionReason()
     {
         TStringArray ids = HCTapedPackCatalog.PairIds();
         string reason = "";
         foreach (string pairId : ids)
         {
-            if (reason == "") { reason = PairAdmission(pairId); }
+            string refusal = PairAdmission(pairId);
+            if (reason == "" && refusal != "receipt_disabled") { reason = refusal; }
         }
         return reason;
+    }
+
+    static int PackRefusedCount()
+    {
+        int refused = 0;
+        TStringArray ids = HCTapedPackCatalog.PairIds();
+        foreach (string pairId : ids)
+        {
+            string refusal = PairAdmission(pairId);
+            if (refusal != "" && refusal != "receipt_disabled") { refused = refused + 1; }
+        }
+        return refused;
+    }
+
+    // Weapon cross-slot pair: the host must carry the slot natively and the cross
+    // light must list that slot in its own inventorySlot, or the engine itself
+    // refuses the attachment. Same startup-only config scan as the pack check.
+    static bool WeaponNativeSlotAvailable(HCTapedLightHostRow row)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !row) { return false; }
+        if (!HCBuildIdentity.Matches(HCBuildIdentity.SeenBuild())) { return false; }
+        TStringArray hostSlots = new TStringArray;
+        TStringArray lightSlots = new TStringArray;
+        GetGame().ConfigGetTextArray("CfgWeapons " + row.HostClass + " attachments", hostSlots);
+        GetGame().ConfigGetTextArray("CfgVehicles " + row.LightClass + " inventorySlot", lightSlots);
+        return hostSlots.Find(row.SlotName) >= 0 && lightSlots.Find(row.SlotName) >= 0;
+    }
+
+    static string WeaponPairAdmission(string pairId)
+    {
+        HCTapedLightHostRow row = HCTapedLightCatalog.CrossRow(pairId);
+        if (!row) { return "unsupported_pack_pair"; }
+        if (!mHCConfigured) { return "pack_mounts_unconfigured"; }
+        if (!mHCSettingOn) { return "setting_off"; }
+        if (mHCReceiptReason != "") { return mHCReceiptReason; }
+        if (ReceiptDisabled(pairId)) { return "receipt_disabled"; }
+        if (!WeaponNativeSlotAvailable(row)) { return "weapon_light_slot_unavailable"; }
+        return "";
+    }
+
+    // Startup only: decide every weapon pair once and cache the admitted ids, so
+    // the attach site never repeats a config scan. Clears first, so a stop/start
+    // or a refused receipt file leaves nothing admitted.
+    static void HCRefreshWeaponAdmission()
+    {
+        mHCWeaponAdmitted.Clear();
+        mHCWeaponFirstRefusal = "";
+        mHCWeaponRefused = 0;
+        TStringArray ids = HCTapedLightCatalog.CrossPairIds();
+        foreach (string pairId : ids)
+        {
+            string refusal = WeaponPairAdmission(pairId);
+            if (refusal == "") { mHCWeaponAdmitted.Insert(pairId); }
+            // An operator opt-out (receipt_disabled) is counted in disabled=, not here.
+            if (refusal != "" && refusal != "receipt_disabled")
+            {
+                mHCWeaponRefused = mHCWeaponRefused + 1;
+                if (mHCWeaponFirstRefusal == "") { mHCWeaponFirstRefusal = refusal; }
+            }
+        }
+    }
+
+    // Cached runtime lookup for the attach site; cheap and false off the server.
+    static bool WeaponPairAdmitted(string pairId)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return false; }
+        if (!mHCConfigured || !mHCSettingOn) { return false; }
+        return mHCWeaponAdmitted.Find(pairId) >= 0;
+    }
+
+    // A weapon binding must name an admitted pair and match its derived row exactly.
+    static bool WeaponBindingAllowed(HCTapedLightBinding binding)
+    {
+        if (!binding || !binding.CrossSlot || binding.PairId == "") { return false; }
+        HCTapedLightHostRow row = HCTapedLightCatalog.CrossRow(binding.PairId);
+        if (!row) { return false; }
+        if (row.HostClass != binding.HostClass || row.LightClass != binding.LightClass || row.SlotName != binding.SlotName) { return false; }
+        return WeaponPairAdmitted(binding.PairId);
     }
 
     // Receipt file read: bounded by the manifest's MaxReceiptBytes, "" when unreadable.
@@ -173,19 +309,30 @@ class HCTapedPackMounts : HCModule
         return parsed;
     }
 
-    // True when every "Checked" key (the quoted word followed by a colon) in the
-    // text is followed by a true or false literal. JsonFileLoader may coerce or zero-fill a wrongly typed bool, so
-    // the raw text is checked first. Escaped quotes inside a Note never match.
-    static bool ReceiptCheckedTyped(string text)
+    // Second parse of the same text for the optional per-row Disabled opt-out.
+    // An absent Disabled loads as false (admitted); a non-bool is refused earlier.
+    protected static HCTapedReceiptRows ParseOptOuts(string text)
     {
-        string needle = "\"Checked\"";
+        HCTapedReceiptRows parsed;
+        string error;
+        if (!JsonFileLoader<HCTapedReceiptRows>.LoadData(text, parsed, error)) { return null; }
+        return parsed;
+    }
+
+    // True when every quoted key (the quoted word followed by a colon) in the
+    // text is followed by a true or false literal. JsonFileLoader may coerce or
+    // zero-fill a wrongly typed bool, so the raw text is checked first. A key that
+    // is absent passes (optional bools). Escaped quotes inside a Note never match.
+    static bool ReceiptBoolTyped(string text, string key)
+    {
+        string needle = "\"" + key + "\"";
         int total = text.Length();
         int at = text.IndexOf(needle);
         while (at >= 0)
         {
             int cursor = at + needle.Length();
             while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
-            // A "Checked" string value (e.g. "Note": "Checked") is not a key: no colon follows, skip it.
+            // A string value equal to the key (e.g. "Note": "Checked") is not a key: no colon follows, skip it.
             if (cursor < total && text.Get(cursor) == ":")
             {
                 cursor = cursor + 1;
@@ -199,6 +346,11 @@ class HCTapedPackMounts : HCModule
             at = text.IndexOfFrom(cursor, needle);
         }
         return true;
+    }
+
+    static bool ReceiptCheckedTyped(string text)
+    {
+        return ReceiptBoolTyped(text, "Checked");
     }
 
     // Decimal value of width digit characters of an already digit-checked date.
@@ -255,20 +407,26 @@ class HCTapedPackMounts : HCModule
         return day >= 1 && day <= limit;
     }
 
-    // Returns "" and records the checked pair ids, else a refusal reason with
-    // nothing recorded. Unknown or duplicate ids and half-filled rows refuse the
-    // whole file: a receipt file is all-or-nothing, never partially trusted.
+    // Returns "" and records the checked and disabled pair ids, else a refusal
+    // reason with nothing recorded. Unknown or duplicate ids, half-filled rows and
+    // a non-bool Checked/Disabled refuse the whole file: a receipt file is
+    // all-or-nothing, never partially trusted. The file never admits a pair; it
+    // records client checks and opts pairs out (Disabled=true).
     static string ApplyReceipts(string text)
     {
         mHCChecked.Clear();
+        mHCDisabled.Clear();
         if (text == "") { return "receipts_unreadable"; }
         if (!HCJsonFields.Has(text, "SchemaVersion") || !HCJsonFields.Has(text, "Receipts")) { return "receipts_fields_missing"; }
         if (!HCJsonFields.Every(text, "PairId", 3) || !HCJsonFields.Every(text, "Checked", 3)) { return "receipts_fields_missing"; }
         if (!HCJsonFields.Every(text, "CheckDate", 3) || !HCJsonFields.Every(text, "Note", 3)) { return "receipts_fields_missing"; }
         if (!ReceiptCheckedTyped(text)) { return "receipt_checked_type"; }
+        if (!ReceiptBoolTyped(text, "Disabled")) { return "receipt_disabled_type"; }
         HCTapedPairReceipts parsed = ParseReceipts(text);
         if (!parsed || !parsed.Receipts) { return "receipts_invalid"; }
         if (parsed.SchemaVersion != 1) { return "receipts_schema"; }
+        HCTapedReceiptRows optOuts = ParseOptOuts(text);
+        if (!optOuts || !optOuts.Receipts) { return "receipts_invalid"; }
         TStringArray seen = new TStringArray;
         TStringArray known = HCTapedPackCatalog.ReceiptPairIds();
         array<ref HCTapedPairReceipt> rows = parsed.Receipts;
@@ -285,18 +443,31 @@ class HCTapedPackMounts : HCModule
                 if (row.Checked) { mHCChecked.Insert(row.PairId); }
             }
         }
-        if (refusal != "") { mHCChecked.Clear(); }
+        array<ref HCTapedReceiptRow> optRows = optOuts.Receipts;
+        foreach (HCTapedReceiptRow optRow : optRows)
+        {
+            if (refusal == "" && optRow && optRow.Disabled) { mHCDisabled.Insert(optRow.PairId); }
+        }
+        if (refusal != "")
+        {
+            mHCChecked.Clear();
+            mHCDisabled.Clear();
+        }
         return refusal;
     }
 
     // Startup-only. Skipped while the setting is off (no file read), and while
-    // the manifest is not configured (no read limit exists yet).
+    // the manifest is not configured (no read limit exists yet). Remembers the
+    // refusal so PairAdmission can name it for every pair.
     static string LoadReceipts()
     {
         mHCChecked.Clear();
+        mHCDisabled.Clear();
+        mHCReceiptReason = "";
         if (!mHCConfigured) { return "pack_mounts_unconfigured"; }
         if (!mHCSettingOn) { return ""; }
-        return ApplyReceipts(ReadReceipts());
+        mHCReceiptReason = ApplyReceipts(ReadReceipts());
+        return mHCReceiptReason;
     }
 
     // Mission manifest read: bounded (file is under 16 KiB), "" when unreadable.
@@ -359,38 +530,81 @@ class HCTapedPackMounts : HCModule
         // Set after LoadSettings(): Configure() resets this class's state first.
         mHCSettingOn = settings.EnableTapedPackMounts;
         string receiptReason = LoadReceipts();
+        HCRefreshWeaponAdmission();
         string receipts = "not_read";
         if (mHCSettingOn && receiptReason == "") { receipts = "ok"; }
         if (receiptReason != "") { receipts = receiptReason; }
-        string reason = PairRefusal("tortilla_universal_mount");
-        string crossReason = PairRefusal("tortilla_universal_cross");
         string crossSlot = HCV2Admission.OnOff(CrossSlotEnabled());
         string setting = HCV2Admission.OnOff(mHCSettingOn);
         int pairs = HCTapedPackCatalog.PairIds().Count();
+        int weaponPairs = HCTapedLightCatalog.CrossPairIds().Count();
         int receiptPairs = HCTapedPackCatalog.ReceiptPairIds().Count();
         int permitted = mHCPermitted.Count();
-        int checked = mHCChecked.Count();
-        int qualified = AdmittedCount();
-        // off: operator setting off. refused: setting on but no checked receipt,
-        // an invalid receipt file or a closed catalogue gate. ready only once a
-        // pair is admitted by code. degraded: the manifest itself failed.
-        string state = "refused";
-        string stateReason = FirstAdmissionReason();
-        if (!mHCSettingOn) { state = "off"; stateReason = "setting_off"; }
-        if (receiptReason != "") { stateReason = receiptReason; }
-        if (qualified > 0) { state = "ready"; stateReason = "pairs_client_checked"; }
-        if (loadReason != "") { state = "degraded"; stateReason = loadReason; }
+        int packChecked = ReceiptPackChecked();
+        int weaponChecked = ReceiptWeaponChecked();
+        int receiptsChecked = packChecked + weaponChecked;
+        int packAdmitted = AdmittedCount();
+        int weaponAdmitted = mHCWeaponAdmitted.Count();
+        int admitted = packAdmitted + weaponAdmitted;
+        int verified = VerifiedCount();
+        int disabled = mHCDisabled.Count();
+        // off: operator setting off. degraded: the manifest or the receipt file
+        // failed (named reason). ready: loaded and admitted unverified; a pair
+        // whose native slot is missing is a named one-time refusal below, never
+        // a silent skip, and never claimed as admitted.
+        string state = "ready";
+        string stateReason = "admitted_unverified";
+        if (admitted == 0)
+        {
+            stateReason = FirstAdmissionReason();
+            if (stateReason == "") { stateReason = mHCWeaponFirstRefusal; }
+            if (stateReason == "") { stateReason = "all_pairs_disabled"; }
+        }
+        if (!mHCSettingOn)
+        {
+            state = "off";
+            stateReason = "setting_off";
+        }
+        if (receiptReason != "")
+        {
+            state = "degraded";
+            stateReason = receiptReason;
+        }
+        if (loadReason != "")
+        {
+            state = "degraded";
+            stateReason = loadReason;
+        }
         mHCStatus.HCPublish(state, stateReason);
-        Print(HCV2Admission.Line("TapedPackMounts", mHCSettingOn, stateReason, qualified > 0));
-        string line = "[HC TapedPackMounts] pairs=" + pairs.ToString() + " receipt_pairs=" + receiptPairs.ToString();
-        line = line + " receipts_checked=" + checked.ToString();
-        line = line + " admitted=" + qualified.ToString() + " setting=" + setting + " reason=" + stateReason;
+        Print(HCV2Admission.Line("TapedPackMounts", mHCSettingOn, "light_mount_two_client_check", verified > 0));
+        string line = "[HC TapedPackMounts] pairs=" + pairs.ToString() + " weapon_pairs=" + weaponPairs.ToString() + " receipt_pairs=" + receiptPairs.ToString();
+        line = line + " receipts_checked=" + receiptsChecked.ToString() + " pack_checked=" + packChecked.ToString() + " weapon_checked=" + weaponChecked.ToString();
+        line = line + " pack_admitted=" + packAdmitted.ToString() + " weapon_admitted=" + weaponAdmitted.ToString() + " admitted=" + admitted.ToString();
+        line = line + " setting=" + setting + " reason=" + stateReason;
         Print(line + " receipts=" + receipts + " runtime=PENDING");
-        line = "[HC Plan] HC-52 pack_pairs=1 cross_slot=" + crossSlot + " qualified=" + qualified.ToString();
+        if (state == "ready")
+        {
+            // One summary line, never one line per pair. Admitted unverified:
+            // no native or two-client verdict is recorded for any pair.
+            int covered = admitted + disabled;
+            int unchecked = covered - receiptsChecked;
+            line = "[HC TapedPackMounts] admission result=admitted unverified pairs=" + covered.ToString() + " unchecked=" + unchecked.ToString();
+            Print(line + " checked=" + receiptsChecked.ToString() + " disabled=" + disabled.ToString() + " runtime=PENDING");
+            int packRefused = PackRefusedCount();
+            if (packRefused > 0) { Print("[HC TapedPackMounts] pack_pairs_refused count=" + packRefused.ToString() + " reason=" + FirstAdmissionReason() + " runtime=PENDING"); }
+            if (mHCWeaponRefused > 0) { Print("[HC TapedPackMounts] weapon_pairs_refused count=" + mHCWeaponRefused.ToString() + " reason=" + mHCWeaponFirstRefusal + " runtime=PENDING"); }
+        }
+        string mountReason = PairAdmission("tortilla_universal_mount");
+        string mountState = "refused";
+        if (mountReason == "") { mountState = "admitted_unverified"; }
+        string crossReason = PairAdmission("tortilla_universal_cross");
+        string crossState = "refused";
+        if (crossReason == "") { crossState = "admitted_unverified"; }
+        line = "[HC Plan] HC-52 pack_pairs=1 cross_slot=" + crossSlot + " qualified=" + verified.ToString();
         line = line + " permitted=" + permitted.ToString() + " state=" + state + " reason=" + stateReason;
-        Print(line + " authored=1 admitted=" + qualified.ToString() + " observed=0 config=" + config + " runtime=PENDING");
-        Print("[HC Plan] HC-52 pair=tortilla_universal_mount state=refused reason=" + reason + " runtime=PENDING");
-        Print("[HC Plan] HC-52 pair=tortilla_universal_cross state=refused reason=" + crossReason + " runtime=PENDING");
+        Print(line + " authored=1 admitted=" + packAdmitted.ToString() + " observed=0 config=" + config + " runtime=PENDING");
+        Print("[HC Plan] HC-52 pair=tortilla_universal_mount state=" + mountState + " reason=" + mountReason + " runtime=PENDING");
+        Print("[HC Plan] HC-52 pair=tortilla_universal_cross state=" + crossState + " reason=" + crossReason + " runtime=PENDING");
     }
 
     override void OnStop()

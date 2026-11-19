@@ -7,6 +7,10 @@
 class HCTapedWearableCatalog
 {
     protected static ref array<ref HCTapedLightHostRow> s_Rows;
+    // Wave 16: startup admission (HCTapedHelmetMounts.OnStart) of the one helmet
+    // pair as admitted UNVERIFIED. Cached once at boot; Qualified() below stays the
+    // native two-client verdict and is still false.
+    protected static bool s_Admitted;
     static const string MANIFEST = "24abaeed06c1b28ee12a64be5816f0cf5ffd8f2c9716ac66dc035380c5a13038";
 
     static bool Supported(HCTapedLightHostRow row)
@@ -52,9 +56,22 @@ class HCTapedWearableCatalog
         return "helmet_mount_two_client_pending";
     }
 
+    // Only the server startup owner calls this; false on opt-out, a missing
+    // native slot or module stop.
+    static void HCSetAdmitted(bool admitted)
+    {
+        s_Admitted = admitted;
+    }
+
+    static bool Admitted()
+    {
+        return s_Admitted;
+    }
+
     static bool Qualified()
     {
-        // No file, client claim, transform or HC-7 acceptance opt-in can set this.
+        // The native two-client verdict. No file, client claim, transform or HC-7
+        // acceptance opt-in can set this; admission above is a separate fact.
         return false;
     }
 }
@@ -86,8 +103,8 @@ class HCTapedPackCatalog
 
     // Every id a client-check receipt may name (startup only): the pack pairs
     // above, then one cross-slot weapon pair per catalogue host, derived from the
-    // HCTapedLightCatalog rows. Naming a pair here only lets an operator record a
-    // check; Qualified() below still admits nothing.
+    // HCTapedLightCatalog rows. Naming a pair here lets an operator record a check
+    // or opt it out (Disabled); Qualified() below is the verdict and stays false.
     static TStringArray ReceiptPairIds()
     {
         TStringArray ids = PairIds();
@@ -115,8 +132,9 @@ class HCTapedPackCatalog
     {
         // Neither native model/proxy geometry nor two-client receipts exist.
         // A settings flag, live slot array or HC-7 opt-in cannot qualify these.
-        // HCTapedPackMounts.PairQualified additionally needs the operator
-        // setting and a checked per-pair receipt; this gate alone never admits.
+        // HCTapedPackMounts.PairAdmission admits unverified by default (wave 16) when the
+        // operator setting is on and the receipt row is not Disabled; this gate is the
+        // recorded verdict and alone stays false.
         return false;
     }
 

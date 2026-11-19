@@ -89,16 +89,19 @@ class ShippedReceiptSheetTests(unittest.TestCase):
         size = len(RECEIPTS.read_bytes())
         self.assertLess(size * 4, limit * 3, "receipt sheet %d bytes vs limit %d" % (size, limit))
 
-    def test_shipped_sheet_loads_with_zero_checked_and_admits_nothing(self):
+    def test_shipped_sheet_loads_clean_with_zero_checked_and_nothing_disabled(self):
         gate = build(MANIFEST.read_text(), receipts=RECEIPTS.read_text())
         _, published = start(gate, setting=True)
         line = boot_line(gate)
-        for field in ("receipts_checked=0", "admitted=0", "setting=on", "receipts=ok",
-                      "receipt_pairs=%d" % (2 + RIFLES + PISTOLS), "runtime=PENDING"):
+        for field in ("receipts_checked=0", "pack_checked=0", "weapon_checked=0", "setting=on",
+                      "receipts=ok", "receipt_pairs=%d" % (2 + RIFLES + PISTOLS),
+                      "runtime=PENDING"):
             self.assertIn(field, line)
-        self.assertIn(("refused", "client_check_pending"), published)
-        self.assertEqual(0, gate.AdmittedCount())
+        self.assertFalse(any(state == "degraded" for state, _ in published), published)
+        self.assertEqual(0, gate.VerifiedCount())
         self.assertEqual([], list(gate.mHCChecked))
+        for row in json.loads(RECEIPTS.read_text())["Receipts"]:
+            self.assertIs(False, row["Disabled"], row["PairId"])
 
     def test_setting_off_keeps_the_file_unread_and_the_count_visible(self):
         gate = build(MANIFEST.read_text(), receipts=RECEIPTS.read_text())
@@ -124,19 +127,19 @@ class WeaponPairReceiptTests(unittest.TestCase):
         self.assertTrue(gate.ReceiptChecked(ids[0]))
         self.assertFalse(gate.ReceiptChecked(ids[1]))
 
-    def test_a_checked_weapon_receipt_never_admits_anything(self):
+    def test_a_checked_weapon_receipt_is_only_a_record_and_admits_no_pack_pair(self):
         ids = derived_ids()
         gate = build(MANIFEST.read_text(), receipts=receipts(receipt(ids[0]), receipt(ids[-1])))
         synthetic_catalogue_admits(gate, tuple(PACK_IDS) + tuple(ids))
         _, published = start(gate, setting=True)
         line = boot_line(gate)
-        for field in ("receipts_checked=2", "admitted=0", "receipts=ok"):
+        for field in ("receipts_checked=2", "weapon_checked=2", "pack_checked=0", "receipts=ok"):
             self.assertIn(field, line)
-        self.assertEqual(0, gate.AdmittedCount())
+        self.assertEqual(1, gate.AdmittedCount())
+        self.assertEqual(0, gate.VerifiedCount())
         for pair in ids:
             self.assertFalse(gate.PairQualified(pair), pair)
-            self.assertEqual("unsupported_pack_pair", gate.PairAdmission(pair))
-        self.assertNotIn("ready", [state for state, _ in published])
+        self.assertFalse(any(state == "degraded" for state, _ in published), published)
 
     def test_a_pair_that_is_not_in_the_catalogue_is_refused_with_a_named_reason(self):
         ids = derived_ids()
@@ -173,14 +176,14 @@ class SourceContractTests(unittest.TestCase):
         self.assertEqual(0, len(re.findall(r'"cross_[A-Z0-9]', WEARABLE.read_text())))
         self.assertEqual(0, len(re.findall(r'"cross_[A-Z0-9]', PACKS.read_text())))
 
-    def test_qualification_stays_closed_and_the_setting_stays_off(self):
+    def test_verdict_gate_stays_closed_and_the_setting_defaults_on(self):
         wearable = WEARABLE.read_text()
         match = re.search(r"class HCTapedPackCatalog\b.*?static bool Qualified\(string pairId\)\s*\{(.*?)\}",
                           wearable, re.S)
         self.assertIsNotNone(match)
         self.assertIn("return false;", match[1])
         native = (ROOT / "mods/HollowCountry/scripts/3_Game/HCSettings.c").read_text()
-        self.assertIn("bool EnableTapedPackMounts = false;", native)
+        self.assertIn("bool EnableTapedPackMounts = true;", native)
         self.assertEqual([], json.loads(MANIFEST.read_text())["SettingsContract"]["DefaultPermittedPairIds"])
         self.assertIs(False, json.loads(MANIFEST.read_text())["Qualified"])
 

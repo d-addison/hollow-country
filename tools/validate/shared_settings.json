@@ -226,7 +226,7 @@
   {
     "key": "EnableTapedPackMounts",
     "type": "bool",
-    "default": false,
+    "default": true,
     "min": 0,
     "max": 1,
     "owner": "HCSettings"

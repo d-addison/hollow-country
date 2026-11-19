@@ -1,12 +1,13 @@
-"""#58 / HC-52 wave 13: operator setting + per-pair client-check receipt; runtime=PENDING.
+"""#58 / HC-52 wave 13, revised wave 16: setting + verdict-log receipts; runtime=PENDING.
 
-A pack pair qualifies only when ALL hold: the operator setting
-EnableTapedPackMounts is on, that pair has a checked receipt in the
-mission-authored lights/pair-receipts.json, and the catalogue gate admits it.
-The catalogue gate (HCTapedPackCatalog.Qualified) stays false in shipped code,
-so the shipped result is admitted=0. Fixtures are SYNTHETIC: the file read, the
-JSON codec, the native slot arrays and the catalogue verdict used to exercise the
-"catalogue admits" branch are explicit fakes; DayZ behaviour is not established.
+Wave 16 owner decision ("enable all features by default"): a pack pair is admitted
+UNVERIFIED when the operator setting EnableTapedPackMounts (default true) is on, the
+mission-authored lights/pair-receipts.json does not mark its row Disabled=true, the
+pair rules hold (cross-slot setting and permission) and its native slot arrays exist.
+A Checked receipt is only the operator's record. The catalogue verdict gate
+(HCTapedPackCatalog.Qualified) stays false in shipped code, so VerifiedCount is 0.
+Fixtures are SYNTHETIC: the file read, the JSON codec and the native slot arrays are
+explicit fakes; DayZ behaviour is not established.
 """
 import json
 from pathlib import Path
@@ -35,18 +36,18 @@ def receipts(*rows):
 
 
 def synthetic_catalogue_admits(gate, pairs):
-    """Explicit SYNTHETIC verdict: the catalogue gate admits these pairs and the
-    native slot arrays list the slot. Real shipped code admits nothing."""
-    gate.env["HCTapedPackCatalog"].Qualified = lambda pair: pair in pairs
+    """Explicit SYNTHETIC native slot arrays: they list the pack slots. The pairs
+    argument is kept for callers; the catalogue verdict gate is NOT touched, so it
+    stays false (admission is unverified)."""
     slots = {"CfgVehicles TortillaBag attachments": ["helmetFlashlight", "Chemlight"],
              "CfgVehicles UniversalLight inventorySlot": ["helmetFlashlight", "Chemlight"]}
     gate.env["GetGame"] = lambda: type("G", (), {
         "IsServer": staticmethod(lambda: True),
-        "ConfigGetTextArray": staticmethod(lambda path, out: out.extend(slots[path]))})()
+        "ConfigGetTextArray": staticmethod(lambda path, out: out.extend(slots.get(path, [])))})()
 
 
 def boot_line(gate):
-    lines = [x for x in gate.logs if isinstance(x, str) and x.startswith("[HC TapedPackMounts]")]
+    lines = [x for x in gate.logs if isinstance(x, str) and x.startswith("[HC TapedPackMounts] pairs=")]
     assert len(lines) == 1, lines
     return lines[0]
 
@@ -59,17 +60,17 @@ def manifest_with(cross=False, permitted=()):
 
 
 class ShippedFilesTests(unittest.TestCase):
-    def test_setting_is_registered_and_shipped_off_in_every_settings_file(self):
+    def test_setting_is_registered_and_shipped_on_in_every_settings_file(self):
         self.assertEqual([], settings_consistency.check_consistency())
         for rel in ("config/hollow-country-settings.json",
                     "mission/hollow-country/operator/settings.json"):
-            self.assertIs(False, json.loads((ROOT / rel).read_text())[SETTING], rel)
+            self.assertIs(True, json.loads((ROOT / rel).read_text())[SETTING], rel)
         registry = {row["key"]: row for row in settings_consistency.load_registry()}
-        self.assertEqual(("bool", False, "HCSettings"),
+        self.assertEqual(("bool", True, "HCSettings"),
                          (registry[SETTING]["type"], registry[SETTING]["default"],
                           registry[SETTING]["owner"]))
         native = (ROOT / "mods/HollowCountry/scripts/3_Game/HCSettings.c").read_text()
-        self.assertIn("bool EnableTapedPackMounts = false;", native)
+        self.assertIn("bool EnableTapedPackMounts = true;", native)
         self.assertIn('HCJsonFields.Has(content, "EnableTapedPackMounts")', native)
 
     def test_shipped_receipts_list_only_known_pairs_all_unchecked(self):
@@ -113,7 +114,7 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(0, gate.AdmittedCount())
         self.assertFalse(gate.PairQualified(MOUNT))
 
-    def test_setting_off_admits_nothing_even_with_a_checked_receipt_and_open_catalogue(self):
+    def test_setting_off_admits_nothing_even_with_a_checked_receipt_and_native_slots(self):
         gate = build(MANIFEST.read_text(), receipts=receipts(receipt(MOUNT)))
         synthetic_catalogue_admits(gate, (MOUNT, CROSS))
         start(gate, setting=False)
@@ -122,57 +123,73 @@ class AdmissionTests(unittest.TestCase):
         self.assertIn("receipts_checked=0", boot_line(gate))
         self.assertFalse(gate.PairQualified(MOUNT))
 
-    def test_setting_on_without_a_checked_receipt_admits_nothing_with_a_reason(self):
+    def test_setting_on_admits_unverified_without_any_checked_receipt(self):
         for text in (RECEIPTS.read_text(), receipts(), receipts(receipt(MOUNT, checked=False))):
             gate = build(MANIFEST.read_text(), receipts=text)
             synthetic_catalogue_admits(gate, (MOUNT, CROSS))
             _, published = start(gate, setting=True)
             line = boot_line(gate)
-            for field in ("receipts_checked=0", "admitted=0", "setting=on",
-                          "reason=client_check_pending"):
+            for field in ("receipts_checked=0", "pack_admitted=1", "setting=on",
+                          "reason=admitted_unverified", "runtime=PENDING"):
                 self.assertIn(field, line)
-            self.assertIn(("refused", "client_check_pending"), published)
-            self.assertEqual("client_check_pending", gate.PairAdmission(MOUNT))
+            self.assertIn(("ready", "admitted_unverified"), published)
+            self.assertEqual("", gate.PairAdmission(MOUNT))
+            self.assertEqual(0, gate.VerifiedCount())
 
-    def test_checked_receipt_for_one_pair_qualifies_exactly_that_pair(self):
+    def test_a_checked_receipt_is_only_a_record_and_a_disabled_row_opts_out(self):
         gate = build(manifest_with(cross=True, permitted=(CROSS,)),
                      receipts=receipts(receipt(MOUNT), receipt(CROSS, checked=False)))
         synthetic_catalogue_admits(gate, (MOUNT, CROSS))
         _, published = start(gate, setting=True)
         line = boot_line(gate)
-        for field in ("pairs=2", "receipts_checked=1", "admitted=1", "setting=on",
-                      "reason=pairs_client_checked"):
+        for field in ("pairs=2", "receipts_checked=1", "pack_checked=1", "weapon_checked=0",
+                      "pack_admitted=2", "setting=on", "reason=admitted_unverified"):
             self.assertIn(field, line)
-        self.assertIn(("ready", "pairs_client_checked"), published)
+        self.assertIn(("ready", "admitted_unverified"), published)
         self.assertTrue(gate.PairQualified(MOUNT))
-        self.assertFalse(gate.PairQualified(CROSS))
-        self.assertEqual("client_check_pending", gate.PairAdmission(CROSS))
+        self.assertTrue(gate.PairQualified(CROSS))
+        disabled = receipts(dict(receipt(MOUNT), Disabled=True), receipt(CROSS, checked=False))
+        gate = build(manifest_with(cross=True, permitted=(CROSS,)), receipts=disabled)
+        synthetic_catalogue_admits(gate, (MOUNT, CROSS))
+        start(gate, setting=True)
+        self.assertFalse(gate.PairQualified(MOUNT))
+        self.assertEqual("receipt_disabled", gate.PairAdmission(MOUNT))
+        self.assertTrue(gate.PairQualified(CROSS))
 
-    def test_cross_pair_needs_cross_slot_and_permission_as_well_as_its_receipt(self):
+    def test_cross_pair_needs_cross_slot_and_permission(self):
         for manifest, reason in ((manifest_with(), "cross_slot_disabled"),
                                  (manifest_with(cross=True), "cross_slot_pair_not_permitted")):
             gate = build(manifest, receipts=receipts(receipt(CROSS)))
             synthetic_catalogue_admits(gate, (MOUNT, CROSS))
             start(gate, setting=True)
             self.assertEqual(reason, gate.PairAdmission(CROSS))
-            self.assertIn("admitted=0", boot_line(gate))
+            self.assertIn("pack_admitted=1", boot_line(gate))
         gate = build(manifest_with(cross=True, permitted=(CROSS,)),
                      receipts=receipts(receipt(CROSS)))
         synthetic_catalogue_admits(gate, (MOUNT, CROSS))
         start(gate, setting=True)
         self.assertTrue(gate.PairQualified(CROSS))
-        self.assertFalse(gate.PairQualified(MOUNT))
+        self.assertTrue(gate.PairQualified(MOUNT))
 
-    def test_shipped_catalogue_gate_keeps_a_checked_receipt_at_admitted_zero(self):
+    def test_shipped_catalogue_gate_keeps_the_verdict_at_zero_even_when_admitted(self):
         gate = build(MANIFEST.read_text(), receipts=receipts(receipt(MOUNT)))
+        synthetic_catalogue_admits(gate, (MOUNT,))
         start(gate, setting=True)
         line = boot_line(gate)
-        for field in ("receipts_checked=1", "admitted=0", "setting=on",
-                      "reason=pack_mount_geometry_pending"):
+        for field in ("receipts_checked=1", "pack_admitted=1", "setting=on",
+                      "reason=admitted_unverified"):
             self.assertIn(field, line)
-        self.assertFalse(gate.PairQualified(MOUNT))
+        self.assertEqual(0, gate.VerifiedCount())
+        self.assertFalse(gate.env["HCTapedPackCatalog"].Qualified(MOUNT))
 
-    def test_binding_is_allowed_only_for_a_qualified_pair(self):
+    def test_without_native_slots_the_pair_is_a_named_refusal_not_an_admission(self):
+        gate = build(MANIFEST.read_text(), receipts=receipts(receipt(MOUNT)))
+        _, published = start(gate, setting=True)
+        self.assertEqual("pack_native_slot_unavailable", gate.PairAdmission(MOUNT))
+        self.assertEqual(0, gate.AdmittedCount())
+        self.assertFalse(any(state == "degraded" for state, _ in published))
+
+    def test_binding_is_allowed_only_for_an_admitted_pair(self):
         from types import SimpleNamespace as NS
         binding = NS(HostConfigRoot="CfgVehicles", PairId=MOUNT, HostClass="TortillaBag",
                      LightClass="UniversalLight", SlotName="helmetFlashlight", CrossSlot=False)
@@ -183,7 +200,7 @@ class AdmissionTests(unittest.TestCase):
         gate.mHCSettingOn = False
         self.assertFalse(gate.BindingAllowed(binding))
         gate.mHCSettingOn = True
-        gate.mHCChecked.clear()
+        gate.mHCDisabled.append(MOUNT)
         self.assertFalse(gate.BindingAllowed(binding))
 
 
@@ -290,7 +307,7 @@ class ReceiptValidationTests(unittest.TestCase):
         line = boot_line(gate)
         for field in ("receipts_checked=0", "admitted=0", "reason=receipt_checked_type"):
             self.assertIn(field, line)
-        self.assertIn(("refused", "receipt_checked_type"), published)
+        self.assertIn(("degraded", "receipt_checked_type"), published)
 
     def test_note_text_quoting_the_checked_key_is_not_a_typed_field(self):
         note = 'the "Checked": 1 wording is only prose'
@@ -357,7 +374,7 @@ class ReceiptValidationTests(unittest.TestCase):
         for field in ("receipts_checked=0", "admitted=0", "reason=receipts_unreadable",
                       "receipts=receipts_unreadable"):
             self.assertIn(field, line)
-        self.assertIn(("refused", "receipts_unreadable"), published)
+        self.assertIn(("degraded", "receipts_unreadable"), published)
         self.assertEqual([], gate.mHCChecked)
 
     def test_unconfigured_manifest_never_reads_receipts(self):
@@ -380,7 +397,7 @@ class ReceiptValidationTests(unittest.TestCase):
         line = boot_line(gate)
         for field in ("receipts_checked=0", "admitted=0", "reason=receipt_unknown_pair"):
             self.assertIn(field, line)
-        self.assertIn(("refused", "receipt_unknown_pair"), published)
+        self.assertIn(("degraded", "receipt_unknown_pair"), published)
 
     def test_stop_clears_the_receipts_and_setting(self):
         gate = build(MANIFEST.read_text(), receipts=receipts(receipt(MOUNT)))

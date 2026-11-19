@@ -68,7 +68,7 @@
     "Conclusion": "No safe flashlight backpack pair is established. The ordinary candidate lacks a backpack flashlight slot; the cross-slot candidate lacks a matching UniversalLight inventorySlot. Neither a config-only slot addition nor a client light offset establishes mounted geometry."
   },
   "SettingsContract": {
-    "RuntimeInput": "This mission manifest is the runtime input: HCTapedPackMounts.ReadManifest/ApplyManifest read it at module start and call Configure() with the Default/Max fields below. The operator setting EnableTapedPackMounts (default false) and a per-pair checked receipt in lights/pair-receipts.json must both allow a pair before it can qualify, and the HCTapedPackCatalog gate still refuses every pair (Qualified() stays false), so no pair attaches; runtime acceptance pending.",
+    "RuntimeInput": "This mission manifest is the runtime input: HCTapedPackMounts.ReadManifest/ApplyManifest read it at module start and call Configure() with the Default/Max fields below. The operator setting EnableTapedPackMounts (default true since wave 16) admits the pairs unverified, and a row with Disabled=true in lights/pair-receipts.json opts one pair out; a Checked receipt is only the operator's record. The HCTapedPackCatalog verdict gate still records no native or two-client check (Qualified() stays false), so the boot line says admitted unverified; a pair also needs its native slot arrays, otherwise it is refused with a named reason. Runtime acceptance pending.",
     "OfflineMirror": "config/hollow-country-light-mounts.json is an offline mirror of the closed defaults. No runtime code reads it; only a unit test pins that it matches these defaults.",
     "DTO": "HCTapedLightMountSettings",
     "ConfigureOwner": "HCTapedPackMounts.ApplyManifest(text) calls Configure(preferences) from the module start; there is no HCSettings.LightMounts field and no HCServer call to Configure.",
@@ -82,7 +82,7 @@
   },
   "LeadIntegration": {
     "Registry": "HCTapedPackMounts is registered once in HCModuleRegistry.RegisterModules() (pinned by the loader unit test); it reads this manifest at start and publishes its readiness line (off reason=cross_slot_disabled while cross-slot stays off).",
-    "Settings": "Landed: HCSettings.EnableTapedPackMounts (bool, default false; a missing JSON bool zero-fills to false, the safe value). The per-pair client-check receipts are read from lights/pair-receipts.json only while the setting is on, bounded by SettingsContract.MaxReceiptBytes.",
+    "Settings": "Landed: HCSettings.EnableTapedPackMounts (bool, default true since wave 16; a missing JSON key keeps the code default true through the HCJsonFields presence guard, and false is the operator opt-out). The per-pair verdict log is read from lights/pair-receipts.json only while the setting is on, bounded by SettingsContract.MaxReceiptBytes.",
     "ServerStart": "Not done: HCServer does not call Configure(); the manifest read at module start is the only configuration path. Configure resets malformed settings closed.",
     "AddonConfigRefusal": "pack_mount_geometry_pending: no justified config.cpp mount/slot stanza can be supplied from the inspected evidence. Wait for genuine exact TortillaBag model/proxy and slot-class evidence; keep production disabled. No broad clothing/Back slot or UniversalLight inventorySlot override.",
     "Actions": "Existing HC-7 weapon action registration and qualification remain unchanged. A held-backpack action/custody binding and native switching need separate observed model/slot support before activation; no backpack action is registered by this refusal-only slice."
@@ -94,7 +94,7 @@
     "Add other packs/helmets only after exact model/config inspection in later bounded slices; this manifest establishes no broad compatibility count."
   ],
   "AcceptanceQueue": [
-    "Observe the HCTapedPackMounts readiness line and pair refusals after a server boot, including feature off and stop/restart cleanup. The EnableTapedPackMounts setting ships off and lights/pair-receipts.json ships with every pair unchecked.",
+    "Observe the HCTapedPackMounts readiness line and pair refusals after a server boot, including feature off and stop/restart cleanup. The EnableTapedPackMounts setting ships on and lights/pair-receipts.json ships with every pair unchecked and not Disabled; read pack_checked= and weapon_checked= separately and the one admission result=admitted unverified line.",
     "Exact-source DayZDiag compile/boot with zero script/CE errors; retain exact source/PBO/mission/config/dependency hashes.",
     "Normal signed PBO/server with two clients per pair: native attachment hierarchy and slot permission, mounted origin/orientation, light cone, prone, aim, cargo and backpack swaps, obstruction, rain and shadows.",
     "Same light/battery persistent IDs, health and energy across mount/removal/destruction/full cargo/rejoin/restart; one tape debit per new mount; back up native inventory and HC journals together.",

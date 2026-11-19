@@ -148,7 +148,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableForage", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableProgression", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableGroupScaling", "bool", 1, 0, 1, "HCSettings");
-        HCAdd("EnableTapedPackMounts", "bool", 0, 0, 1, "HCSettings");
+        HCAdd("EnableTapedPackMounts", "bool", 1, 0, 1, "HCSettings");
         HCAdd("TickIntervalMs", "int", 1000, 500, 10000, "HCSettings");
         HCAdd("MaxTickWorkItems", "int", 32, 1, 256, "HCSettings");
         HCAdd("MaxActiveHordes", "int", 2, 1, 8, "HCSettings");
@@ -287,8 +287,9 @@ class HCSettings
     bool EnableForage = true;
     bool EnableProgression = true;
     bool EnableGroupScaling = true;
-    // Default false: JsonFileLoader zero-fills a missing bool to false (assumed by analogy to the observed int zero-fill), which is the safe closed value.
-    bool EnableTapedPackMounts = false;
+    // Wave 16 owner decision: default true. A missing JSON key keeps this default through the HCJsonFields.Has guard in LoadFromProfile
+    // (JsonFileLoader would zero-fill it to false). Receipts record checks; a per-row Disabled opt-out or this setting turns pairs off.
+    bool EnableTapedPackMounts = true;
     // Optional: JsonFileLoader absent ints are 0; progression resolves 0 to 128.
     int MaxFamiliarityRows = 0;
     int TickIntervalMs = 1000;
