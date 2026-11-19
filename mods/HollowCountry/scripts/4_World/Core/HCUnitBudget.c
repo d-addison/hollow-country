@@ -61,7 +61,8 @@ class HCUnitBudget
     static const int HC_WORK_INCIDENTS = 17;
     // Expansion AI responses to perceived world incidents.
     static const int HC_WORK_INCIDENT_RESPONSE = 18;
-    static const int HC_WORK_CONSUMERS = 19;
+    static const int HC_WORK_AI_RESPAWN = 19;
+    static const int HC_WORK_CONSUMERS = 20;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;

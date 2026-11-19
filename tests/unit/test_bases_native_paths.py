@@ -169,17 +169,17 @@ class BasesNativePaths(unittest.TestCase):
         state = NS(m_Running=True, m_HCBasesEnabled=True, m_HCBasesCursor=0,
                    m_Data=NS(Camps=EArray()), m_LastUtc=1000,
                    HCBasesCandidate=lambda item, now: dispatched.append((item, now)))
-        # Explicit LOCAL fixture for the requested shared-core edit:
-        # HCUnitBudget.HC_WORK_BASES=6, HC_WORK_CONSUMERS=7. Production core is read-only.
+        # Explicit synthetic constants follow the integrated shared core:
+        # HCUnitBudget.HC_WORK_BASES=8, HC_WORK_CONSUMERS=20.
         budget = NS(HCTake=lambda cost: False,
                     HCTakeFor=lambda consumer, cost: charged.append((consumer, cost)) or True)
         env = dict(super=NS(OnTick=lambda delta: None), HCServer=NS(HCTickWork=lambda: budget),
-                   HCUnitBudget=NS(HC_WORK_BASES=6, HC_WORK_CONSUMERS=7),
+                   HCUnitBudget=NS(HC_WORK_BASES=8, HC_WORK_CONSUMERS=20),
                    HCWorldMaterializer=NS(MAX_PLAYERS=32),
                    HCBasesContainers=NS(HCCount=lambda: 1, HCAt=lambda index: 'synthetic-stash'))
         run(source, 'OnTick', state, env, 1)
         self.assertEqual([('synthetic-stash', 1000)], dispatched, 'container must progress after other consumers exhaust the tick')
-        self.assertEqual([(6, 32)], charged)
+        self.assertEqual([(8, 32)], charged)
         state.m_HCBasesEnabled = False
         run(source, 'OnTick', state, env, 1)
         self.assertEqual(1, len(dispatched), 'operator off is a cheap no-op')

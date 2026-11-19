@@ -274,6 +274,36 @@ class HCOperatorSettingsRegistry
         HCAdd("Helicopters.MaxTypeCache", "int", 128, 1, 512, "HCHeliPolicyConfig");
         HCAdd("Helicopters.SpawnFuelMaxFraction", "float", 0.1, 0, 0.35, "HCHeliPolicyConfig");
         HCAdd("Radio.ChannelCountLimit", "int", 64, 1, 64, "HCRadioDefaults");
+        HCAdd("AISites.SchemaVersion", "int", 1, 1, 1, "HCXAISitePolicy");
+        HCAdd("AISites.MinPlayerDistance", "float", 200, 200, 7500, "HCXAISitePolicy");
+        HCAdd("AISites.LineOfSightRange", "float", 1000, 200, 1500, "HCXAISitePolicy");
+        HCAdd("AISites.MaxLegLength", "float", 400, 50, 600, "HCXAISitePolicy");
+        HCAdd("AISites.CacheClearRadius", "float", 300, 100, 1000, "HCXAISitePolicy");
+        HCAdd("AISites.AIRespawnSeconds", "int", 900, 0, 604800, "HCXAISitePolicy");
+        HCAdd("AISites.PatrolRespawnSeconds", "int", 0, 0, 604800, "HCXAISitePolicy");
+        HCAdd("AISites.HoldoutRespawnSeconds", "int", 0, 0, 604800, "HCXAISitePolicy");
+        HCAdd("AISites.MilitaryRespawnSeconds", "int", 0, 0, 604800, "HCXAISitePolicy");
+        HCAdd("AISites.MemberReplaceSeconds", "int", 600, 0, 604800, "HCXAISitePolicy");
+        HCAdd("AISites.RaidCooldownFloorSeconds", "int", 0, 0, 604800, "HCXAISitePolicy");
+        HCAdd("AISites.ActivationRadiusScale", "float", 0, 0, 2.0, "HCXAISitePolicy");
+        HCAdd("AICamps.FoundingStock", "int", 48, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.FoundingPopulation", "int", 12, 1, 128, "HCAICampPolicy");
+        HCAdd("AICamps.CampAllocation", "int", 24, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.ReserveCap", "int", 144, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.ReserveRegenPerDay", "int", 12, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.ReserveDaySeconds", "int", 86400, 3600, 604800, "HCAICampPolicy");
+        HCAdd("AICamps.ReservePopulationCap", "int", 36, 1, 128, "HCAICampPolicy");
+        HCAdd("AICamps.ReservePopulationRegenPerDay", "int", 3, 1, 128, "HCAICampPolicy");
+        HCAdd("AICamps.BivouacCost", "int", 1, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.HouseholdCost", "int", 2, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.StableCost", "int", 4, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.HubCost", "int", 8, 1, 256, "HCAICampPolicy");
+        HCAdd("AICamps.GrowthSeconds", "int", 3600, 60, 604800, "HCAICampPolicy");
+        HCAdd("AICamps.UpkeepSeconds", "int", 86400, 3600, 604800, "HCAICampPolicy");
+        HCAdd("AICamps.RaidLockoutSeconds", "int", 1800, 60, 604800, "HCAICampPolicy");
+        HCAdd("AICamps.RoleSeconds", "int", 120, 60, 3600, "HCAICampPolicy");
+        HCAdd("AICamps.RoutineRangeMeters", "int", 30, 1, 30, "HCAICampPolicy");
+        HCAdd("AICamps.ArrivalToleranceMeters", "int", 1, 1, 1, "HCAICampPolicy");
         // END GENERATED SETTINGS REGISTRY
     }
 

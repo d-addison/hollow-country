@@ -159,7 +159,7 @@ class InteriorCoverage(unittest.TestCase):
         env.update(HCInteriorTemplates=N(Loaded=lambda: state.loaded, SourcePin=lambda: state.pin,
                        HCLootCoverageRows=lambda: rows, TEMPLATE_CHECKS_PER_STEP=32),
                    HCServer=N(HCTickWork=lambda: N(HCTakeFor=take)),
-                   HCUnitBudget=N(HC_WORK_SEARCH_MAINT=1), Print=logs.append)
+                   HCUnitBudget=N(HC_WORK_SEARCH_MAINT=3), Print=logs.append)
         for code in preview.NativeSyntax(source.read_text(), only=('HCLootInteriorCoverage',)).classes():
             exec(code, env)
         reporter = env['HCLootInteriorCoverage']()

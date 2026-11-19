@@ -181,6 +181,8 @@ LOOT_PREFIXES = HOUSE_PREFIXES + ('Land_HouseBlock_', 'Land_Tenement_')
 POLICY_DEFAULTS = dict(SchemaVersion=1, WorldName='chernarusplus', BuildVersion='1.30.164289',
                        ObserverPolicy='native-eai', MaxActiveAI=72, MaxActiveSites=15, MinPlayerDistance=200.0,
                        LineOfSightRange=1000.0, MaxLegLength=400.0, CacheClearRadius=300.0,
+                       AIRespawnSeconds=900, PatrolRespawnSeconds=0, HoldoutRespawnSeconds=0,
+                       MilitaryRespawnSeconds=0, MemberReplaceSeconds=600,
                        RaidCooldownFloorSeconds=0, ActivationRadiusScale=0.0,
                        MaxSignalWorkPerSecond=8, MaxBetrayalRows=128, BetrayalRetentionSeconds=172800)
 
@@ -188,6 +190,11 @@ POLICY_DEFAULTS = dict(SchemaVersion=1, WorldName='chernarusplus', BuildVersion=
 def validate_policy(policy):
     """Validate operator overrides; zero/missing preserves legacy runtime defaults."""
     need(type(policy) is dict, 'object-required')
+    for key in ('AIRespawnSeconds', 'PatrolRespawnSeconds', 'HoldoutRespawnSeconds',
+                'MilitaryRespawnSeconds', 'MemberReplaceSeconds'):
+        seconds = policy.get(key, POLICY_DEFAULTS[key])
+        need(type(seconds) is int and (seconds == 0 or 60 <= seconds <= 604800),
+             key + ' must be 0 or 60..604800')
     floor = policy.get('RaidCooldownFloorSeconds', 0)
     need(type(floor) is int and (floor == 0 or 1800 <= floor <= 604800),
          'RaidCooldownFloorSeconds must be 0 or 1800..604800')
@@ -198,13 +205,13 @@ def validate_policy(policy):
 
 KIND_DEFAULTS = {
     'patrol': dict(Loadout='HollowCountry_Patrol', NumberOfAI=2, NumberOfAIMax=5, Behaviour='LOOP', Speed='WALK',
-                   ActivationRadius=650.0, DespawnSeconds=600, RespawnSeconds=2700),
+                   ActivationRadius=650.0, DespawnSeconds=600, RespawnSeconds=900),
     'scavenger': dict(Faction='Raiders', Loadout='HollowCountry_Scavenger', NumberOfAI=2, NumberOfAIMax=6,
                       Behaviour='LOOP', Speed='WALK', ActivationRadius=600.0, DespawnSeconds=600,
-                      RespawnSeconds=1800),
+                      RespawnSeconds=900),
     'holdout': dict(Faction='Guards', Loadout='HollowCountry_Holdout', NumberOfAI=3, NumberOfAIMax=8,
                     Behaviour='ALTERNATE', Speed='WALK', ActivationRadius=500.0, DespawnSeconds=900,
-                    RespawnSeconds=5400, CacheCooldownSeconds=14400),
+                    RespawnSeconds=900, CacheCooldownSeconds=14400),
 }
 
 

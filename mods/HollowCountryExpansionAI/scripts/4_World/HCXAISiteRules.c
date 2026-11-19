@@ -171,6 +171,7 @@ class HCXAISiteRules
         if (!HCXAISiteRules.HCRespawnTimerValid(p.MilitaryRespawnSeconds) || !HCXAISiteRules.HCRespawnTimerValid(p.MemberReplaceSeconds)) { return "invalid replacement policy timer (0 or 60..604800)"; }
         if (p.RaidCooldownFloorSeconds != 0 && (p.RaidCooldownFloorSeconds < 1800 || p.RaidCooldownFloorSeconds > 604800)) { return "RaidCooldownFloorSeconds must be 0 or 1800..604800"; }
         if (!HCXAIRules.Finite(p.ActivationRadiusScale) || (p.ActivationRadiusScale != 0 && (p.ActivationRadiusScale < 0.5 || p.ActivationRadiusScale > 2.0))) { return "ActivationRadiusScale must be 0 or 0.5..2.0"; }
+        if (!HCRespawnSiteRegistry.HCPolicyValid(p)) { return "invalid registered site policy timer/range"; }
         if (!p.Sites || p.Sites.Count() < 1 || p.Sites.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return "site catalog row budget exceeded"; }
         int index = 0;
         while (index < p.Sites.Count())

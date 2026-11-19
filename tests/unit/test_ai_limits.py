@@ -354,7 +354,7 @@ class SharedSpawnPaths(unittest.TestCase):
         source = source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)',
                                 'synthetic_suffix(m_HCSiteId)')
         env = dict(adapter.env)
-        env['HCXAISiteDirector'] = N(Active=lambda: N(SpawnProblemFor=lambda p: '',
+        env['HCXAISiteDirector'] = N(Active=lambda: N(HCPrepareRingSpawn=lambda patrol: '', SpawnProblemFor=lambda p: '',
                                                     Spawned=lambda p: spawned.append(p)))
         env['synthetic_spawn'] = lambda patrol: setattr(patrol, 'm_Group', N(Count=lambda: 1))
         env['synthetic_suffix'] = lambda key: key[10:]
@@ -385,7 +385,7 @@ class ReviewAdmissionRegression(unittest.TestCase):
         from tests.unit.ai_limits_fixture import install
         now, logs, problem = [1000], [], ['synthetic occupied place']
         env = dict(A=A, Print=logs.append, GetGame=lambda: N(GetTime=lambda: now[0]),
-                   HCXAISiteDirector=N(Active=lambda: N(SpawnProblemFor=lambda patrol: problem[0])))
+                   HCXAISiteDirector=N(Active=lambda: N(HCPrepareRingSpawn=lambda patrol: '', SpawnProblemFor=lambda patrol: problem[0])))
         install(env, MaxLiveGroups=1)
         self.assertTrue(env['HCAIBudget'].TryReserve('synthetic-full', 1))
         source = (ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c').read_text()
@@ -428,7 +428,7 @@ class ReviewAdmissionRegression(unittest.TestCase):
         from tests.unit.ai_limits_fixture import install
         now, logs = [1000], []
         env = dict(A=A, Print=logs.append, GetGame=lambda: N(GetTime=lambda: now[0]),
-                   HCXAISiteDirector=N(Active=lambda: N(SpawnProblemFor=lambda patrol: '')))
+                   HCXAISiteDirector=N(Active=lambda: N(HCPrepareRingSpawn=lambda patrol: '', SpawnProblemFor=lambda patrol: '')))
         install(env, MaxLiveGroups=1)
         self.assertTrue(env['HCAIBudget'].TryReserve('synthetic-full', 1))
         source = (ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c').read_text()

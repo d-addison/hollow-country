@@ -124,7 +124,7 @@ class BaseRaidRuntimeHandlers(unittest.TestCase):
             env = dict(HCBaseRaid=NS(HCEnabled=lambda: True, HCUnattended=lambda *args: unattended),
                        HCCampProbes=NS(HCEnabled=lambda: True),
                        HCServer=NS(HCTickWork=lambda: NS(HCTakeFor=lambda *args: True)),
-                       HCUnitBudget=NS(HC_WORK_BASE_RAID=12, HC_WORK_CONSUMERS=13))
+                       HCUnitBudget=NS(HC_WORK_BASE_RAID=12, HC_WORK_CONSUMERS=20))
             run(source, 'HCStep', state, env, now)
             self.assertEqual(expected, calls)
 

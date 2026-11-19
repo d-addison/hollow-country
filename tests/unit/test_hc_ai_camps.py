@@ -19,20 +19,35 @@ ROOT = Path(__file__).resolve().parents[2]
 WORLD = ROOT / 'mods/HollowCountry/scripts/4_World/World'
 
 
-def authored_camp_api():
+def authored_camp_api(config_text=None):
     """Shared explicit synthetic DTO/stdlib port for holdout fixture updates."""
     source = (WORLD / 'HCAICampLifecycle.c').read_text()
     cfg = N(**{k: int(v) for k, v in re.findall(r'^    int (\w+) = (\d+);',
-                source.split('class HCAICampLife')[0], re.M)})
+                source.split('class HCAICampPolicy\n', 1)[1], re.M)})
     api = N()
     env = dict(HCAICampLifecycle=api, HCAILimits=N(SIZE_CEILING=12),
                Math=N(Min=min, Max=max), INT_MAX=2147483647,
                integer_div=lambda left, right: left // right)
+    from tests.unit.settings_registry_fixture import install_registry
+    install_registry(env)
+    env['FileExist'] = lambda path: config_text is not None
+    env['HCProfileDefaults'] = N(ReadText=lambda path: config_text)
+    env['HCJsonFields'] = N(Has=lambda text, key: key in json.loads(text))
+    def decode_config(text):
+        try:
+            fields = json.loads(text)
+            return N(**fields) if isinstance(fields, dict) else None
+        except (ValueError, TypeError):
+            return None
+    env['synthetic_policy_decode'] = decode_config
     # Language ports: Enforce integer division and native DTO field defaults.
     # Older shared fixtures deliberately specify only the fields they exercise.
     translated = source.replace('(now - pool.ReserveAt) / policy.ReserveDaySeconds',
                                 'integer_div(now - pool.ReserveAt, policy.ReserveDaySeconds)')
     translated = translated.replace('int.MAX', 'INT_MAX')
+    translated = translated.replace(
+        'if (!JsonFileLoader<HCAICampRespawnConfig>.LoadData(text, configured, error) || !configured)',
+        'configured = synthetic_policy_decode(text); if (!configured)')
     translate(translated, 'HCAICampLifecycle', env)
     defaults = {}
     for typ in ('HCAICampLife', 'HCAICampResources'):
@@ -53,7 +68,7 @@ def authored_camp_api():
     for name, value in tuple(env.items()):
         match = re.search(r'static \w+ ' + name + r'\(([^)]*)\)', source)
         if match:
-            params = [p.strip().split()[0] for p in match[1].split(',')]
+            params = [p.strip().split()[0] for p in match[1].split(',') if p.strip()]
             setattr(api, name, dto_port(value, params))
     return cfg, api
 
@@ -73,14 +88,14 @@ def synthetic_image(value):
     return EStr(json.dumps(value, default=fields, sort_keys=True, indent=2))
 
 
-def authored_holdouts(state, prior=None, save_ok=True):
+def authored_holdouts(state, prior=None, save_ok=True, config_text=None):
     """Execute authored startup/transitions with synthetic storage/world ports."""
     from tests.unit.ai_limits_fixture import install
     class Map(dict):
         def Get(self, key): return self.get(key, '')
         def Set(self, key, value): self[key] = value
         def Contains(self, key): return key in self
-    cfg, api = authored_camp_api()
+    cfg, api = authored_camp_api(config_text)
     logs, writes, status = [], [], []
     clock = [1000000]
     module = N(m_State=state, m_Ready=False, m_Dirty=False, m_Caches=EArray(),
@@ -94,6 +109,7 @@ def authored_holdouts(state, prior=None, save_ok=True):
                GetGame=lambda: N(IsServer=lambda: True),
                HCAIPartyIdentity=N(HCValid=lambda identity: identity is not None),
                HCArray=EArray, HCMap=Map, HCHoldoutState=lambda: state,
+               HCAICampPolicy=lambda: authored_camp_api()[0],
                HCEncounterCacheIO=N(Valid=lambda cache: cache.Phase == 2),
                HCHoldoutSaveJob=N, HCAICampDebug=N, HCAICampRoutineView=N,
                HCSaveScheduler=N(HCRegister=lambda job: None),
@@ -149,6 +165,8 @@ def authored_holdouts(state, prior=None, save_ok=True):
 def synthetic_state():
     cfg, api = authored_camp_api()
     policy_env = {}
+    from tests.unit.settings_registry_fixture import install_registry
+    install_registry(policy_env)
     translate((WORLD/'HCAICampLifecycle.c').read_text(), 'HCAICampPolicy', policy_env)
     cfg.HCValid = lambda: policy_env['HCValid'](cfg)
     camp = synthetic_camp()

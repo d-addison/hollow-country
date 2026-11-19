@@ -197,6 +197,7 @@ class HCHoldouts : HCModule
     protected ref array<string> m_ViewKeys = new array<string>;
     protected int m_Next;
     protected int m_TickPhase;
+    protected int m_TickMeasuredStage;
     protected int m_TickIndex;
     protected int m_BodyNext;
     protected Object m_TickStructure;
@@ -326,6 +327,40 @@ class HCHoldouts : HCModule
         }
         if (allocatedPopulation > m_State.CampPolicy.ReservePopulationCap) { HCRefuseState(); return; }
         if (occupied > HCAILimits.Get().MaxOccupiedPlaces) { HCRefuseState(); return; }
+        // Migrate only historical shipped lockouts. Custom operator timing is
+        // retained. Validate the original canonical journal before changing it.
+        HCAICampPolicy currentPolicy = new HCAICampPolicy;
+        int oldLockout = m_State.CampPolicy.RaidLockoutSeconds;
+        int configuredLockout = HCAICampLifecycle.HCConfiguredLockout();
+        if (configuredLockout < 0)
+        {
+            m_Operational.HCPublish("refused", "HC16_respawn_config_invalid");
+            Print("[HC Holdouts] respawn config refused file=ai-camp-policy.json; runtime=PENDING");
+            return;
+        }
+        if (configuredLockout > 0 && configuredLockout != oldLockout)
+        {
+            m_State.CampPolicy.RaidLockoutSeconds = configuredLockout;
+            m_Dirty = true;
+        }
+        else if (configuredLockout == 0 && (oldLockout == 604800 || oldLockout == 21600))
+        {
+            m_State.CampPolicy.RaidLockoutSeconds = currentPolicy.RaidLockoutSeconds;
+            m_Dirty = true;
+        }
+        int deadlineLimit = now + m_State.CampPolicy.RaidLockoutSeconds;
+        array<ref HCHoldoutRow> respawnRows = m_State.Rows;
+        foreach (HCHoldoutRow respawnRow : respawnRows)
+        {
+            if (respawnRow.Camp.ReoccupyAfter > deadlineLimit || respawnRow.Ledger.ReoccupyAfter > deadlineLimit)
+            {
+                respawnRow.Camp.ReoccupyAfter = deadlineLimit;
+                respawnRow.Ledger.ReoccupyAfter = deadlineLimit;
+                respawnRow.Published = false;
+                m_Dirty = true;
+            }
+        }
+        if (m_Dirty) { Print("[HC Holdouts] respawn policy migrated/clamped; runtime=PENDING"); }
         s_Instance = this;
         m_SaveJob = new HCHoldoutSaveJob;
         m_SaveJob.Owner = this;
@@ -898,6 +933,7 @@ class HCHoldouts : HCModule
 
     override void OnTick(float deltaTime)
     {
+        m_TickMeasuredStage = 0;
         if (!m_Ready || !HCWorldModule.Get()) return;
         m_Elapsed += deltaTime;
         if (!HCInteriorTemplates.Loaded())
@@ -924,6 +960,7 @@ class HCHoldouts : HCModule
         m_CampUnits.HCReset(1);
         m_WorkBudget.HCReset(1);
         if (!m_CampUnits.HCTake(1) || !m_WorkBudget.HCContinue()) { return; }
+        m_TickMeasuredStage = m_TickPhase;
         int index = m_TickIndex;
         HCHoldoutRow row = m_State.Rows[index];
         int now = HCWorldClock.UTC();
@@ -1113,7 +1150,7 @@ modded class HCHoldouts
         int catalogBefore = m_CatalogCursor;
         super.OnTick(deltaTime);
         int elapsedTicks = TickCount(tickStart);
-        m_TickSteps.HCAdd(continuation, elapsedTicks);
+        m_TickSteps.HCAdd(Math.Min(m_TickMeasuredStage, HCStepTimer.MAX_STEPS - 1), elapsedTicks);
         if (continuation > 0 || m_TickPhase > 0 || catalogBefore != m_CatalogCursor)
         {
             m_TickSteps.HCItem("holdout_stage", elapsedTicks);

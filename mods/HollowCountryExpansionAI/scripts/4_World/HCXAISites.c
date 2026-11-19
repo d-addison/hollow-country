@@ -88,10 +88,11 @@ class HCXAISitePatrol : eAIDynamicPatrol
     override bool CanSpawn()
     {
         if (m_HCFinished) { return false; }
-        if (!super.CanSpawn()) { return false; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return false; }
-        string problem = director.SpawnProblemFor(this);
+        string problem = director.HCPrepareRingSpawn(this);
+        if (problem == "" && !super.CanSpawn()) { return false; }
+        if (problem == "") { problem = director.SpawnProblemFor(this); }
         if (problem != m_HCRefusal)
         {
             m_HCRefusal = problem;
@@ -113,6 +114,8 @@ class HCXAISitePatrol : eAIDynamicPatrol
             this.HCRefuseBudget("sites not running");
             return;
         }
+        string ringProblem = director.HCPrepareRingSpawn(this);
+        if (ringProblem != "") { this.HCRefuseBudget(ringProblem); return; }
         string problem = director.SpawnProblemFor(this);
         if (problem != "")
         {
@@ -411,6 +414,7 @@ class HCXAISiteDirector : Managed
     protected int m_Cursor;
     protected int m_CacheCursor;
     protected int m_RespawnCursor;
+    protected int m_RingCandidates;
     protected int m_Ticks;
     protected int m_LastActiveAI = -1;
     protected bool m_Diagnostic;
@@ -886,6 +890,8 @@ class HCXAISiteDirector : Managed
         s_Active = this;
         HCSettings preferences = HCServer.Get().GetSettings();
         m_GroupScaling = preferences && preferences.EnableGroupScaling;
+        m_RingCandidates = HCOperatorSettingsRegistry.HCDefault("MaxTickWorkItems");
+        if (preferences) { m_RingCandidates = preferences.MaxTickWorkItems; }
         if (preferences && preferences.EnableDebugSnapshot)
         {
             m_Debug = new HCXAIPatrolDebug();
@@ -894,8 +900,15 @@ class HCXAISiteDirector : Managed
         }
         m_Build = HCXAIStore.NativeBuild();
         m_Diagnostic = FileExist(HCXAISiteDirector.DIAGNOSTIC);
-        HCXAIDefaults.ProvisionSites(); // Workshop route: shipped default when the profile has none
-        HCXAIDefaults.ProvisionLocalities();
+        // One provenance helper covers every expansion-ai profile copy sharing
+        // the PBO-default path, before its existing owner reads/provisions it.
+        string shippedSites = HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile();
+        string missionSites = "$mission:hollow-country/ai/sites.json";
+        if (FileExist(missionSites)) { shippedSites = missionSites; }
+        HCXAIRespawnDefaults.HCEnsure(HCXAIDefaults.SitesFile(), shippedSites);
+        HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", HCXAIDefaults.Shipped() + "expansion-ai-localities.json");
+        HCXAIRespawnDefaults.HCEnsure("expansion-ai-formations.json", HCXAIDefaults.Shipped() + "expansion-ai-formations.json");
+        HCXAIRespawnDefaults.HCEnsure("expansion-ai-tactics.json", HCXAIDefaults.Shipped() + "expansion-ai-tactics.json");
         m_Policy = HCXAISiteDirector.LoadPolicy();
         if (!m_Policy)
         {
@@ -1698,6 +1711,61 @@ class HCXAISiteDirector : Managed
             return;
         }
     }
+    // Select only an unmaterialized outdoor patrol anchor. HCFindLand is a
+    // proposal; navmesh, route reachability and final sight veto still own it.
+    // Native Game.c:1196 SurfaceIsSea, :1197 SurfaceIsPond; Object.c:287
+    // GetPosition, :517 IsAlive; Man.c:21 GetIdentity; AIWorld.c:98 FindPath.
+    // Expansion eAIDynamicPatrol.c:17 m_Position, :617 SpawnAI(m_Position).
+    string HCPrepareRingSpawn(HCXAISitePatrol patrol)
+    {
+        if (!m_Policy || m_Phase != "run") { return "sites not running"; }
+        if (patrol.m_Group || patrol.m_HCTransient || patrol.m_HCKind == "holdout") { return ""; }
+        vector original = patrol.m_Position;
+        float minimum = HCPerceptionRing.HCSpawnMin();
+        if (this.NearestPlayer(original) >= minimum && !GetGame().SurfaceIsSea(original[0], original[2]) && !GetGame().SurfaceIsPond(original[0], original[2])) { return ""; }
+        this.HCRefreshPlayers();
+        array<vector> ringObservers = new array<vector>();
+        array<Man> ringPlayers = m_Players;
+        vector centre = vector.Zero;
+        float nearestGap = -1;
+        foreach (Man ringPlayer : ringPlayers)
+        {
+            if (!ringPlayer || !ringPlayer.GetIdentity() || !ringPlayer.IsAlive()) { continue; }
+            vector observerPoint = ringPlayer.GetPosition();
+            ringObservers.Insert(observerPoint);
+            float observerGap = vector.Distance(observerPoint, original);
+            if (nearestGap < 0 || observerGap < nearestGap) { centre = observerPoint; nearestGap = observerGap; }
+        }
+        if (ringObservers.Count() == 0) { return "spawn_ring_search_unavailable"; }
+        if (!HCServer.HCTickWork().HCTake(m_RingCandidates)) { return "spawn_ring_work_pending"; }
+        HCPerceptionRingPick pick = HCPerceptionRing.HCFindLand(centre, 0, ringObservers, m_RingCandidates);
+        if (pick.Reason != "") { return pick.Reason; }
+        HCServer.HCTickWork().HCCharge(1);
+        vector ground = this.GroundSample(pick.Position, HCPerceptionRing.HCGet().SpawnMarginMeters);
+        if (ground == vector.Zero || !HCPerceptionRing.HCClearOfObservers(ground, ringObservers)) { return "spawn_ring_ground_unavailable"; }
+        if (vector.Distance(ground, centre) > HCPerceptionRing.HCSpawnMax()) { return "spawn_ring_ground_outside_band"; }
+        string routeProblem = this.HCRingRouteProblem(ground, original);
+        if (routeProblem != "") { return routeProblem; }
+        string observerProblem = this.MemberProblemFor(ground);
+        if (observerProblem != "") { return observerProblem; }
+        // No actor exists here. Provider owns the eventual fresh spawn.
+        patrol.m_Position = ground;
+        return "";
+    }
+
+    protected string HCRingRouteProblem(vector start, vector target)
+    {
+        AIWorld ringWorld = GetGame().GetWorld().GetAIWorld();
+        if (!ringWorld) { return "spawn_ring_navmesh_unavailable"; }
+        TVectorArray ringPath = new TVectorArray();
+        HCServer.HCTickWork().HCCharge(1);
+        if (!ringWorld.FindPath(start, target, m_Filter, ringPath) || ringPath.Count() < 2) { return "spawn_ring_route_unreachable"; }
+        // Constant work after the single native query. A connector must reach
+        // the exact already-qualified anchor; partial endpoints never authorize
+        // a new spawn. Route qualification retains its separate detour checks.
+        if (ringPath[ringPath.Count() - 1] != target) { return "spawn_ring_route_incomplete"; }
+        return "";
+    }
     string SpawnProblemFor(HCXAISitePatrol patrol)
     {
         if (!m_Policy || m_Phase != "run") { return "sites not running"; }
@@ -1848,7 +1916,7 @@ class HCXAISiteDirector : Managed
             HCXAISiteState respawnState = m_States[m_RespawnCursor];
             int cost = 1;
             if (respawnState.Patrol) { cost += respawnState.Patrol.m_HCGroupMax; }
-            if (!HCServer.HCTickWork().HCTake(cost)) { return; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_RESPAWN, cost)) { return; }
             m_RespawnCursor++;
             checked++;
             if (respawnState.Patrol) { this.HCRefreshDepleted(respawnState.Patrol); }

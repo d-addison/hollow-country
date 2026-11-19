@@ -103,6 +103,8 @@ def render_native_registry(rows):
 
 # Owner -> (source, registry key prefix, DTO accessor used in validation bindings).
 EXTERNAL_OWNERS = {
+    'HCXAISitePolicy': ('mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c', 'AISites', 'p.'),
+    'HCAICampPolicy': ('mods/HollowCountry/scripts/4_World/World/HCAICampLifecycle.c', 'AICamps', ''),
     'HCW38SituationPolicy': ('mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c', 'W38Situations', 'policy.'),
     'HCTheftConfig': ('mods/HollowCountry/scripts/4_World/Camps/HCCampTheft.c', 'CampTheft', 'config.'),
     'HCBaseRaidConfig': ('mods/HollowCountry/scripts/4_World/Camps/HCBaseRaid.c', 'BaseRaid', 'config.'),
