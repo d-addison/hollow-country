@@ -21,7 +21,7 @@ RUNTIME = ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRunt
 def binding(**values):
     result = N(SmokeAttempts=0, SmokeDone=False, SmokeStock=None, SmokeOwner=None,
                SmokeDropped=False, FactPublished=False, SmokeScan=None, SmokeMember=0, Profile='survivor',
-               Lease='owned', Members=EArray(), Group=N(GetMember=lambda index: N(GetPosition=lambda: 0, IsAlive=lambda: True)))
+               Lease='owned', Members=EArray(), Group=N(Count=lambda: 1, GetMember=lambda index: N(GetPosition=lambda: 0, IsAlive=lambda: True)))
     vars(result).update(values)
     return result
 
@@ -134,6 +134,21 @@ class W58Situations(unittest.TestCase):
         self.assertEqual([], calls)
         env['HCObserve'](N(Id='incident'))
         self.assertEqual([env['active']], calls)
+
+    def test_wiped_or_destroyed_group_still_reaches_the_dead_outcome(self):
+        """Review P1: Expansion removes killed members (GetMember indexes directly)."""
+        for group in (None, N(Count=lambda: 0, GetMember=lambda index: [][index])):
+            with self.subTest(group=group):
+                env, state = signal_fixture()
+                state.grant = True
+                source = RUNTIME.read_text().replace('array<eAIBase>', 'EArray').replace('s_Active', 'active')
+                corpse = N(IsAlive=lambda: False, IsPendingDeletion=lambda: False)
+                env['active'] = binding(Id='incident', Group=group, Members=EArray([corpse]))
+                translate(source, 'HCW38SituationRuntime', env, only=('HCObserve',))
+                self.assertEqual('dead', env['HCObserve'](N(Id='incident')))
+                self.assertEqual(0, env['active'].SmokeAttempts)
+                self.assertEqual([], state.refusals)
+
 
 class W58StockAndShelter(unittest.TestCase):
     def test_inventory_cursor_charges_before_each_step_and_retains_nested_smoke(self):

@@ -327,6 +327,9 @@ class HCW38SituationRuntime
         if (!binding || binding.SmokeDone) { return; }
         if (FileExist("$profile:HollowCountry/acceptance/w38_situations.disable") || !HCProfileOn(binding.Profile)) { return; }
         if (!HCWorldMaterializer.HCIdentity(binding.Lease)) { return; }
+        // Expansion removes killed members and GetMember indexes directly
+        // (eAIGroup.c:1139): a wiped or destroyed group leaves smoke to body observation.
+        if (!binding.Group || binding.Group.Count() == 0) { return; }
         binding.SmokeAttempts++;
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { HCSmokeFailed(binding, "BUDGET"); return; }
         eAIBase witness = eAIBase.Cast(binding.Group.GetMember(0));
