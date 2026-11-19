@@ -39,10 +39,12 @@ from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
-from tools.package import loot_boost, map_overlay
+from tools.package import loot_boost, map_overlay, xml_text
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
+# ElementTree's xml_declaration=True prolog, written by installs older than #168's xml_text fix.
+STALE_DECLARATION = b"<?xml version='1.0' encoding='utf-8'?>\n"
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
@@ -506,6 +508,11 @@ def build(args):
     for rel, data in unboosted.items():
         if rel in authored:
             authored[rel] = data
+    # An older install's generated XML (for example the economy delta) carries ElementTree's single-quoted
+    # declaration, which CF's XML reader rejects (#168): rewrite it to the double-quoted form on export.
+    for rel, data in list(authored.items()):
+        if rel.endswith('.xml') and data.startswith(STALE_DECLARATION):
+            authored[rel] = xml_text.DECLARATION + data[len(STALE_DECLARATION):]
     # Every authored V2 JSON is copied at its runtime mission path. Never infer
     # the catalog from a hard-coded list that silently misses the next module.
     for path in sorted(SOURCE.rglob('*.json')):
