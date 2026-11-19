@@ -3,6 +3,20 @@
 // :427 Floor, :540 Clamp, :553 Min, :566 Max. Limits remain provisional.
 class HCInfectedVarietyPolicy
 {
+    // Hold for a non-calm (aggro'd) native crawler before the next rest roll.
+    // lod.json VarietyNonCalmHoldSeconds; the default equals the shipped 600 s
+    // failed-roll cooldown (ZombieBase.HC_VARIETY_RETRY_SECONDS), so behaviour is
+    // unchanged until an operator edits it. Provisional until measured.
+    static const float DEFAULT_NONCALM_HOLD_SECONDS = 600;
+    static const float MIN_NONCALM_HOLD_SECONDS = 30;
+    static const float MAX_NONCALM_HOLD_SECONDS = 3600;
+
+    // A native zero-fill (missing key) is below the minimum, so it never validates.
+    static bool ValidNonCalmHold(float seconds)
+    {
+        return seconds >= MIN_NONCALM_HOLD_SECONDS && seconds <= MAX_NONCALM_HOLD_SECONDS;
+    }
+
     static float GroupScale(int players)
     {
         if (players <= 1) { return 0.6; }

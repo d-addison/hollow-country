@@ -67,17 +67,18 @@ class MissingKeyGuards(unittest.TestCase):
         self.assertFalse(present('{"Towns":[' + town + ']}'), 'missing Version must refuse')
         self.assertFalse(present('{"Version":1,"Towns":[' + town + ',{"LastDay":0}]}'))
 
-    def test_lod_config_without_herd_world_is_refused_with_a_reason(self):
+    def test_lod_config_without_herd_world_restores_the_declared_default(self):
+        # Wave 12 (#193): a missing HerdWorld used to disable the whole infected LOD
+        # module; the guard now restores the declared default and prints the key.
         store = text('4_World/Infected/LOD/HCInfectedLODStore.c')
-        present = execute(store, 'HCFieldsPresent', {'HCJsonFields': json_fields_port()})
-        self.assertTrue(present('{"SchemaVersion":1,"HerdWorld":"chernarusplus"}'))
-        self.assertTrue(present('{"SchemaVersion":1,"HerdWorld":""}'), 'explicit empty is an operator choice')
         config = decode_json('{"SchemaVersion":1}', 'HCInfectedLODConfig')
-        self.assertEqual('', config.HerdWorld, 'native zero-fill silently disables every herd seed')
-        self.assertFalse(present('{"SchemaVersion":1}'), 'missing HerdWorld must refuse')
+        self.assertEqual('', config.HerdWorld, 'native zero-fill, not the declared default')
         load = store.split('static HCInfectedLODConfig Load(out string reason)', 1)[1].split('\n    }\n', 1)[0]
-        self.assertRegex(load, r'HCFieldsPresent\(content\)')
-        self.assertIn('lod.json missing HerdWorld', load)
+        self.assertRegex(load, r'HCRestoreMissingDefaults\(config, content\)')
+        self.assertNotIn('lod.json missing HerdWorld; preserving file', load)
+        restore = store.split('static void HCRestoreMissingDefaults(', 1)[1].split('\n    }\n', 1)[0]
+        self.assertIn('HCJsonFields.Has(content, "HerdWorld")', restore)
+        self.assertIn('missing key HerdWorld', restore)
 
     def test_legacy_interior_pilot_candidates_need_an_explicit_slot(self):
         present = self.present('4_World/Interiors/HCInteriorModule.c')

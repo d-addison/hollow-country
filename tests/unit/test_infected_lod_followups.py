@@ -260,10 +260,11 @@ class DistanceBands(unittest.TestCase):
         fields = ('SchemaVersion', 'MemberTypes', 'Herds', 'FullRange', 'IdleRange',
                   'MinSpawnDistance', 'MaterializeRange', 'FoldRange', 'VisibilityRange',
                   'ClassifyPerTick', 'MaxMaterialized', 'MaxPerHerd', 'PosedBudget',
-                  'PosedFullBudget', 'PosedIdleBudget', 'MaxObservers', 'RegrowSeconds', 'HerdWorld')
+                  'PosedFullBudget', 'PosedIdleBudget', 'MaxObservers', 'RegrowSeconds', 'HerdWorld', 'VarietyNonCalmHoldSeconds')
         for field in fields:
             text = re.sub(r'(?<![\w.])' + field + r'\b', 'm_' + field, text)
-        valid = authored(text, 'IsValid', dict(HCLODPolicy=policy(), indices=range))
+        valid = authored(text, 'IsValid', dict(HCLODPolicy=policy(), indices=range,
+                                               HCInfectedVarietyPolicy=NS(ValidNonCalmHold=lambda seconds: 30 <= seconds <= 3600)))
         def evaluate(cfg):
             obj = NS(**{'m_' + key: getattr(cfg, key) for key in fields})
             return valid(obj)

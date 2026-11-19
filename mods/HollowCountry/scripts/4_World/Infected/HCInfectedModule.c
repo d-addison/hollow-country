@@ -859,9 +859,15 @@ class HCInfectedModule : HCModule
             return;
         if (record.AdoptionStage != 2)
         {
-            string packReason = "none";
-            if (pack && pack.HCRefusalReason() != "")
-                packReason = pack.HCRefusalReason();
+            // not_started: Start was never called (routes off, clue no longer live);
+            // none: Start ran and left an empty reason.
+            string packReason = "not_started";
+            if (pack && pack.HCStartRan())
+            {
+                packReason = "none";
+                if (pack.HCRefusalReason() != "")
+                    packReason = pack.HCRefusalReason();
+            }
             Print("[HollowCountry] infected cohort quarantined id=" + record.Id.ToString() + " reason=adoption_transfer_failed_or_ambiguous pack_reason=" + packReason + " reservation=retained");
         }
         // Native entities are never spawned, deleted or moved by script.

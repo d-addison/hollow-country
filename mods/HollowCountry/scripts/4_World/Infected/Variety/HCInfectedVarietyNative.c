@@ -72,9 +72,15 @@ modded class ZombieBase
         // mean "not a candidate" (gate off, dead, not crawling, backstab) and must
         // flip the instant the state does. The single rest is still not consumed.
         DayZInfectedInputController controller = GetInputController();
-        if (!controller || controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM)
+        if (!controller)
         {
             m_HCVarietyNextTry = now + HC_VARIETY_RETRY_SECONDS;
+            return false;
+        }
+        if (controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM)
+        {
+            // Named, validated hold (lod.json VarietyNonCalmHoldSeconds, default 600 s).
+            m_HCVarietyNextTry = now + HCInfectedLOD.HCVarietyNonCalmHoldSeconds();
             return false;
         }
         AIAgent agent = GetAIAgent();
@@ -173,6 +179,17 @@ modded class ZombieBase
             if (HCVarietyWake()) { HCInfectedVarietyModule.HCRecordDamageWake(); }
         }
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+    }
+}
+
+// Variety-owned read of the shared lod.json config (same source as the posed
+// budget): the non-calm crawler hold. Inactive LOD or no config reads the default.
+modded class HCInfectedLOD
+{
+    static float HCVarietyNonCalmHoldSeconds()
+    {
+        if (!HCInfectedLOD.Active()) { return HCInfectedVarietyPolicy.DEFAULT_NONCALM_HOLD_SECONDS; }
+        return s_Config.VarietyNonCalmHoldSeconds;
     }
 }
 

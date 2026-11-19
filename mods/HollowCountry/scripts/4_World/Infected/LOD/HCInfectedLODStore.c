@@ -51,6 +51,9 @@ class HCInfectedLODConfig
     int PosedBudget = 12;
     int PosedFullBudget = 12;
     int PosedIdleBudget = 12;
+    // Seconds a non-calm native crawler is held before the next rest roll (variety).
+    // Range HCInfectedVarietyPolicy.MIN/MAX_NONCALM_HOLD_SECONDS; default 600 = shipped.
+    float VarietyNonCalmHoldSeconds = 600;
     // Seeds apply only on this world (lower case as GetWorldName reports it).
     string HerdWorld = "chernarusplus";
     ref array<string> MemberTypes = new array<string>;
@@ -76,6 +79,7 @@ class HCInfectedLODConfig
         if (!HCLODPolicy.ValidCaps(ClassifyPerTick, MaxMaterialized, MaxPerHerd, PosedBudget, PosedFullBudget, PosedIdleBudget, Herds.Count())) { return false; }
         if (MaxObservers < 1 || MaxObservers > 8 || RegrowSeconds < 0 || RegrowSeconds > 86400) { return false; }
         if (MemberTypes.Count() > 16 || HerdWorld.Length() > 64) { return false; }
+        if (!HCInfectedVarietyPolicy.ValidNonCalmHold(VarietyNonCalmHoldSeconds)) { return false; }
         for (int typeIndex = 0; typeIndex < MemberTypes.Count(); typeIndex++)
         {
             string type = MemberTypes[typeIndex];
@@ -118,11 +122,25 @@ class HCInfectedLODConfig
         return true;
     }
 
-    // Native LoadData zero-fills a missing HerdWorld to "", which would silently
-    // disable every herd seed: an existing lod.json must name its seed world.
-    static bool HCFieldsPresent(string text)
+    // Native LoadData zero-fills a missing key to 0/"" instead of keeping the
+    // initializer. HerdWorld "" would silently disable every herd seed and a 0
+    // hold is out of range, so a lod.json written before these keys existed would
+    // disable the whole module. Restore the declared default of just these two keys
+    // (taken from a fresh instance), print one line per defaulted key; every other
+    // missing or invalid key still fails IsValid exactly as before.
+    static void HCRestoreMissingDefaults(HCInfectedLODConfig config, string content)
     {
-        return HCJsonFields.Has(text, "HerdWorld");
+        HCInfectedLODConfig declared = new HCInfectedLODConfig;
+        if (!HCJsonFields.Has(content, "HerdWorld"))
+        {
+            config.HerdWorld = declared.HerdWorld;
+            Print("[HC InfectedLOD] lod.json missing key HerdWorld; declared default restored value=" + declared.HerdWorld + " runtime=PENDING");
+        }
+        if (!HCJsonFields.Has(content, "VarietyNonCalmHoldSeconds"))
+        {
+            config.VarietyNonCalmHoldSeconds = declared.VarietyNonCalmHoldSeconds;
+            Print("[HC InfectedLOD] lod.json missing key VarietyNonCalmHoldSeconds; declared default restored value=" + declared.VarietyNonCalmHoldSeconds.ToString() + " runtime=PENDING");
+        }
     }
 
     // Bounded read (64 KiB) then parse; a missing file gets the template.
@@ -142,11 +160,7 @@ class HCInfectedLODConfig
                 reason = "unreadable lod.json; preserving file";
                 return null;
             }
-            if (!HCFieldsPresent(content))
-            {
-                reason = "lod.json missing HerdWorld; preserving file";
-                return null;
-            }
+            HCRestoreMissingDefaults(config, content);
         }
         else if (!JsonFileLoader<HCInfectedLODConfig>.SaveFile(path, config, error))
         {

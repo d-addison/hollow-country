@@ -49,6 +49,9 @@ class HCNativeInfectedPack
     // before the first call). Callers may read it; every refusal also logs once
     // per reason, then every 512th time, so a per-tick caller cannot flood.
     protected string m_RefusalReason;
+    // Latched once Start has been called at all (success or refusal), so a
+    // quarantine line can tell "Start never ran" from "ran, empty reason".
+    protected bool m_HCStartRan;
     protected static ref map<string, int> s_RefusalSeen = new map<string, int>;
 
     protected bool ActivateWaypoint(float now)
@@ -155,10 +158,12 @@ class HCNativeInfectedPack
     }
 
     string HCRefusalReason() { return m_RefusalReason; }
+    bool HCStartRan() { return m_HCStartRan; }
 
     bool Start(array<HCInfectedActor> actors, vector destination, bool search, float now, float expires)
     {
         m_RefusalReason = "";
+        m_HCStartRan = true;
         if (s_PendingRelease.Count() > 0) return HCRefuse("release_pending");
         if (!GetGame().IsServer()) return HCRefuse("not_server");
         if (!actors || actors.Count() < 1 || actors.Count() > 6) return HCRefuse("roster_bounds");
