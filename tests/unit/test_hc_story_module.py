@@ -78,7 +78,7 @@ class StoryModuleBehavior(unittest.TestCase):
                   m_Leases=EArray(), m_Cursor=0, m_WorkElapsed=0, m_LogElapsed=0,
                   m_LastNow=100, m_WorkBudget=N(HCReset=lambda value: None),
                   Now=lambda: 1000, Summary=lambda: None,
-                  ReleaseRefusals=lambda key: None)
+                  ReleaseRefusals=lambda key: None, HCDebugRelease=lambda: None)
         return owner
 
     def bind(self, owner, *names):

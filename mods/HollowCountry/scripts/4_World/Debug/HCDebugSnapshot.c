@@ -11,7 +11,9 @@
 // below (camps) draw on their own DEBUG_LAYER_POINTS share via HCAddLayerPoint,
 // so neither side squeezes the other and the total never exceeds the wire cap.
 // Each hardened layer also reports total/shown/truncated through HCNoteLayer.
-// Leads and Scenes have no read-only enumeration on their modules: not authored.
+// w28-debugmap #193: the lead-ledger and scenes layers read the new read-only
+// owner getters (HCLeadModule.HCDebugLead*, HCScenesModule.HCDebugLease*) and draw
+// on the same hardened share: camps 24 + lead-ledger 56 + scenes 8 = 88.
 class HCDebugContributor
 {
     void HCDescribe(HCDebugSnapshot snapshot) {}
@@ -63,6 +65,9 @@ class HCDebugSnapshot
     static const int DEBUG_LAYER_POINTS = 88;
     // Camps layer: one row per holdout; mirrors the holdouts layer bound.
     static const int CAMP_LAYER_CAP = 24;
+    // Lead ledger rows (store ceiling is 64) and scene leases (owner lease cap is 2).
+    static const int LEAD_LAYER_CAP = 56;
+    static const int SCENE_LAYER_CAP = 8;
     static const int MAX_LAYER_STATS = 16;
     protected static ref array<ref HCDebugContributor> s_Contributors;
     protected ref array<ref HCDebugContributor> m_Contributors;
@@ -270,15 +275,16 @@ class HCDebugSnapshot
 }
 
 // w27-debugmap: read-only Camps layer. Replaces the plain holdouts contributor
-// in its registry slot (the registry cap stays 16): the base class still emits
-// the existing holdouts layer, then this adds id/position/ledger state per camp
-// site from the public HCHoldouts.Count/Snapshot seam. No player ids or names,
-// no routine/occupant detail, no entity search. A ledger state is not a body claim.
+// in its registry slot (the registry cap stays 16). w28-debugmap #193: ONE
+// HCHoldouts.Snapshot per row per capture (each is a JSON round trip) feeds both
+// the existing `holdouts` layer (routine/occupants detail, shared pool) and the
+// reduced `camps` layer (id/position/ledger state only, own share). The overlap
+// is intentional: `camps` is the privacy-reduced operator view of the same rows.
+// No player ids or names, no entity search. A ledger state is not a body claim.
 class HCDebugCampSitesContributor : HCDebugHoldoutsContributor
 {
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
-        super.HCDescribe(snapshot);
         HCHoldouts holdouts = HCHoldouts.Get();
         if (!holdouts) { return; }
         int total = holdouts.Count();
@@ -289,9 +295,65 @@ class HCDebugCampSitesContributor : HCDebugHoldoutsContributor
         {
             HCWorldHoldout row = holdouts.Snapshot(index);
             if (!row) { continue; }
+            string holdoutDetail = row.State + " / " + row.Routine + " occupants=" + row.Occupants.ToString();
+            snapshot.AddPoint("holdouts", row.Id, row.HousePos, row.PlaceId, holdoutDetail);
             string detail = "state=" + row.State + "; ledger state, not a body-presence claim";
             if (snapshot.HCAddLayerPoint("camps", row.Id, row.HousePos, row.PlaceId, detail)) { shown++; }
         }
         snapshot.HCNoteLayer("camps", total, shown);
+    }
+}
+
+// w28-debugmap #193: read-only lead ledger layer (`lead-ledger`; the older `leads`
+// layer shows only what online recipients received). Place-level rows from the
+// owner's HCDebugLeadCount/HCDebugLead: kind and expiry only, no group id, no live
+// position (targets are authored named places). Bounded by LEAD_LAYER_CAP.
+class HCDebugLeadLedgerContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCLeadModule leads = HCLeadModule.Get();
+        if (!leads) { return; }
+        int total = leads.HCDebugLeadCount();
+        int work = total;
+        if (work > HCDebugSnapshot.LEAD_LAYER_CAP) { work = HCDebugSnapshot.LEAD_LAYER_CAP; }
+        int shown = 0;
+        for (int index = 0; index < work; index++)
+        {
+            HCWorldLead lead = leads.HCDebugLead(index);
+            if (!lead) { continue; }
+            HCWorldPlace place = HCLeadPolicy.Place(lead.TargetPlaceId);
+            if (!place) { continue; }
+            string detail = "kind=" + lead.Kind + "; expires=" + lead.Expires.ToString() + "; ledger row at place level; group id withheld";
+            if (snapshot.HCAddLayerPoint("lead-ledger", lead.Id, place.Position, place.Name, detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("lead-ledger", total, shown);
+    }
+}
+
+// w28-debugmap #193: read-only Scenes layer, one row per owned lease anchor from
+// HCScenesModule.HCDebugLease. Lease/ledger state only: not an entity-presence
+// claim, no object handles. Bounded by SCENE_LAYER_CAP.
+class HCDebugScenesContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCScenesModule scenes = HCScenesModule.HCDebugGet();
+        if (!scenes) { return; }
+        int total = scenes.HCDebugLeaseCount();
+        int work = total;
+        if (work > HCDebugSnapshot.SCENE_LAYER_CAP) { work = HCDebugSnapshot.SCENE_LAYER_CAP; }
+        int shown = 0;
+        for (int index = 0; index < work; index++)
+        {
+            HCDebugSceneLeaseRow row = scenes.HCDebugLease(index);
+            if (!row) { continue; }
+            string state = "placing";
+            if (row.Placed) { state = "placed"; }
+            if (row.Closing) { state = "closing"; }
+            string detail = "stage=" + row.Stage.ToString() + "; state=" + state + "; due=" + row.DueAt.ToString() + "; expires=" + row.ExpiresAt.ToString() + "; lease anchor, not an entity-presence claim";
+            if (snapshot.HCAddLayerPoint("scenes", row.ChainId, row.Anchor, row.ChainId, detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("scenes", total, shown);
     }
 }

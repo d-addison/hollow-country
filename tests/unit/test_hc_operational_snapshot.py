@@ -318,12 +318,13 @@ class OperationalSnapshot(unittest.TestCase):
                           HCAdminMark=lambda:N(), Vector=lambda x,y,z:(x,y,z))
         wire = N()
         bind(wire, WORLD / 'Admin/HCAdminSnapshotWire.c', 'HCAdminSnapshotWire',
-             ('HCMark','HCBuild'), wire_scope, members=('HCMark',))
+             ('HCMark','HCSlot','HCAllocate','HCBuild'), wire_scope, members=('HCMark','HCSlot','HCAllocate'))
         doc.layers = NativeMap({str(i):EArray([N(x=1,z=2,label='fixture',detail='fixture')
                                               for _ in range(32)]) for i in range(32)})
         doc.routes = EArray([N(layer='fixture', label='route',
                               points=EArray([EArray([1,2]) for _ in range(64)])) for _ in range(128)])
         doc.truncated = 2
+        doc.layerStats = EArray()
         delivered = wire.HCBuild(capture, 19)
         self.assertEqual(19, delivered.Ticket)
         self.assertEqual(512, len(delivered.Marks))
