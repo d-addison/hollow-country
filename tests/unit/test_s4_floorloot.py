@@ -161,6 +161,80 @@ class FloorPolicyAdmission(unittest.TestCase):
         self.assertTrue(accepts(shelf, rows['Hammer']) and accepts(shelf, rows['Apple']),
                         'displaced classes stay spawnable on shelves')
 
+    def test_unavailable_shelves_preserve_original_floor_eligibility(self):
+        path = self.mission / 'mapgroupproto.xml'
+        path.write_text('<prototype><group name="OnlyFloor" lootmax="1">'
+                        '<container name="lootFloor" lootmax="1"><category name="tools"/>'
+                        '<tag name="floor"/>' + point(0) + '</container></group></prototype>')
+        receipt = self.install()
+        row = rows_of(self.mission / 'db/types.xml')['Hammer']
+        floor = containers_of(path, 'OnlyFloor')[0]
+        self.assertTrue(accepts(floor, row), 'fallback must preserve Hammer eligibility')
+        self.assertEqual(receipt['counts']['floor_policy']['kept_without_shelf_room'], 1)
+
+    def test_rounding_a_rare_displacement_to_zero_does_not_remove_eligibility(self):
+        path = self.mission / 'mapgroupproto.xml'
+        path.write_text('<prototype><group name="Rare" lootmax="1">'
+                        '<container name="lootFloor" lootmax="1"><category name="tools"/>'
+                        '<category name="clothes"/><tag name="floor"/>' + point(0) +
+                        '</container></group></prototype>')
+        (self.mission / 'db/types.xml').write_text(
+            '<types><type name="Hammer"><nominal>1</nominal><category name="tools"/></type>'
+            '<type name="TShirt"><nominal>100</nominal><category name="clothes"/></type></types>')
+        self.install()
+        self.assertTrue(accepts(containers_of(path, 'Rare')[0],
+                                rows_of(self.mission / 'db/types.xml')['Hammer']),
+                        'rounding is not replacement capacity')
+
+    def test_fallback_propagates_to_other_groups_including_extra_floor_points(self):
+        path = self.mission / 'mapgroupproto.xml'
+        path.write_text(PROTO.replace('</prototype>',
+                        '<group name="OnlyFloor" lootmax="1"><container name="lootSyntheticExtra" lootmax="1">'
+                        '<category name="tools"/><tag name="floor"/>' + point(0) +
+                        '</container></group><group name="StockFloor" lootmax="1">'
+                        '<container name="lootFloor" lootmax="1"><category name="tools"/>'
+                        '<tag name="floor"/>' + point(0) + '</container></group></prototype>'))
+        receipt = self.install(floor_container_names=POLICY['floor_container_names'] + ['lootSyntheticExtra'],
+                               extra_floor_container_names=['lootSyntheticExtra'])
+        counts = receipt['counts']['floor_policy']
+        # A retained untagged Hammer also remains eligible on extra floors; the report must admit that.
+        self.assertEqual(counts['converted'], 0, 'global fallback must propagate before reporting conversion')
+        self.assertEqual(counts['kept_without_shelf_room'], 4)
+        self.assertGreater(counts['floor_nonclothing_slots_after'], 0)
+
+    def test_incompatible_shelves_do_not_count_as_replacement_capacity(self):
+        for mismatch in ('category', 'tag', 'usage'):
+            with self.subTest(mismatch=mismatch):
+                mission = Path(self.temp.name) / mismatch
+                write_mission(mission)
+                (mission / 'db/types.xml').write_text(
+                    '<types><type name="Hammer"><nominal>6</nominal><category name="tools"/>'
+                    '<tag name="floor"/><usage name="Village"/></type></types>')
+                category = 'books' if mismatch == 'category' else 'tools'
+                tags = '<tag name="shelves"/>' + ('<tag name="floor"/>' if mismatch == 'tag' else '')
+                usage = 'Industrial' if mismatch == 'usage' else 'Village'
+                # A receiver without the resulting shelf tag cannot replace this floor.
+                if mismatch == 'tag':
+                    tags = '<tag name="ground"/>'
+                proto = ('<prototype><group name="Mismatch" lootmax="1">'
+                         '<container name="lootFloor" lootmax="1"><category name="tools"/>'
+                         '<tag name="floor"/><usage name="Village"/>' + point(0) + '</container>'
+                         '<container name="shelf" lootmax="0"><category name="' + category + '"/>'
+                         + tags + '<usage name="' + usage + '"/>' + point(1) + '</container></group></prototype>')
+                (mission / 'mapgroupproto.xml').write_text(proto)
+                receipt = self.lb.install(mission, multiplier=1.0, points=None, floor_policy=policy_bytes())
+                counts = receipt['counts']['floor_policy']
+                self.assertEqual(counts['transferred'], 0, mismatch + ' cannot receive Hammer')
+                self.assertTrue(accepts(containers_of(mission / 'mapgroupproto.xml', 'Mismatch')[0],
+                                        rows_of(mission / 'db/types.xml')['Hammer']))
+                self.assertEqual(counts['kept_without_shelf_room'], 1)
+                self.lb.rollback(mission)
+                receipt = self.lb.install(mission, multiplier=1.0, points=None,
+                                          floor_policy=policy_bytes(extra_floor_container_names=['lootFloor']))
+                counts = receipt['counts']['floor_policy']
+                self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (1, 0, 1),
+                                 'unmatched extra capacity must be reported, never assigned to an incompatible shelf')
+
     def test_bag_pattern_admits_a_bag_and_firearms_and_vehicle_parts_are_never_retagged(self):
         self.install()
         rows = rows_of(self.mission / 'db/types.xml')
@@ -171,31 +245,50 @@ class FloorPolicyAdmission(unittest.TestCase):
     def test_displaced_floor_capacity_moves_to_shelves_and_totals_are_preserved_within_tolerance(self):
         receipt = self.install()
         floor, shelf, _weapons = containers_of(self.mission / 'mapgroupproto.xml', 'Land_House_S4')
-        # Hand computed: the floor container accepted nominal 6+2+4+10=22 before and 2+4=6 after, so 16/22 of its
-        # lootmax 6 (4.36 -> 4 slots) is displaced; the shelf container has 8 points, so it takes all 4. The mixed
-        # building's low container (nominal 6+2+10=18 before, 2 after, lootmax 2) displaces 2 and its raised
-        # container (6 points, lootmax 2) takes them.
-        self.assertEqual(floor.get('lootmax'), '6', 'floor lootmax is not reduced, clothes still fill it')
-        self.assertEqual(shelf.get('lootmax'), '5')
         counts = receipt['counts']['floor_policy']
-        self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (6, 6, 0))
-        self.assertGreaterEqual(counts['transferred'], counts['displaced'] * (1 - 0.1))
-        # Independent of the receipt: the lootmax the output gained over the input equals the displaced slots.
-        def total(path):
-            return sum(int(c.get('lootmax') or 4) for g in ET.parse(path).getroot().iter('group')
-                       for c in g.findall('container') if c.get('name') != 'lootweapons')
-        self.lb.rollback(self.mission)
-        before_total = total(self.mission / 'mapgroupproto.xml')
+        self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (4, 4, 0))
+        self.assertEqual((counts['slots_before'], counts['slots_after']), (6, 6),
+                         'reported usable capacity must respect group limits')
+        self.assertEqual(floor.get('lootmax'), '4', 'transferred slots leave the floor budget')
+        self.assertEqual(shelf.get('lootmax'), '3', 'group limit bounds estimated displacement')
+        def usable(data):
+            root = ET.fromstring(data)
+            return sum(min(int(g.get('lootmax')), sum(min(int(c.get('lootmax')), len(c.findall('point')))
+                       for c in g.findall('container'))) for g in root.findall('group'))
+        self.assertEqual(usable(self.before['mapgroupproto.xml']),
+                         usable((self.mission / 'mapgroupproto.xml').read_bytes()))
+        rows = rows_of(self.mission / 'db/types.xml')
+        group = ET.parse(self.mission / 'mapgroupproto.xml').getroot().find('group')
+        hammer_capacity = min(int(group.get('lootmax')), sum(
+            min(int(c.get('lootmax')), len(c.findall('point'))) for c in group.findall('container')
+            if accepts(c, rows['Hammer'])))
+        self.assertEqual(hammer_capacity, 3, 'usable tool capacity survives the group limit')
+
+    def test_repeat_generation_is_deterministic_and_policy_is_idempotent(self):
+        from tools.package import loot_floor_policy as policy
+        first = self.lb.plan(self.mission, multiplier=1.0, points=None, floor_policy=policy_bytes())
+        second = self.lb.plan(self.mission, multiplier=1.0, points=None, floor_policy=policy_bytes())
+        self.assertEqual(first, second)
         self.install()
-        gained = total(self.mission / 'mapgroupproto.xml') - before_total
-        self.assertAlmostEqual(gained, counts['displaced'], delta=counts['displaced'] * 0.1)
+        output = {name: (self.mission / name).read_bytes() for name in self.before}
+        with self.assertRaisesRegex(ValueError, 'never applied twice'):
+            self.install()
+        self.assertEqual(output, {name: (self.mission / name).read_bytes() for name in self.before})
+        types, rows = policy.retag_types(output['db/types.xml'], policy.parse_policy(policy_bytes()))
+        proto, _ = policy.rebalance_proto(output['mapgroupproto.xml'], [rows],
+                                          policy.parse_policy(policy_bytes()))
+        self.assertEqual(types, output['db/types.xml'])
+        self.assertEqual(proto, output['mapgroupproto.xml'])
+        self.lb.rollback(self.mission)
+        self.install()
+        self.assertEqual(output, {name: (self.mission / name).read_bytes() for name in self.before})
 
     def test_transfer_is_capped_by_the_shelf_points_and_the_unplaced_remainder_is_reported(self):
         receipt = self.install(capacity={'enabled': True, 'max_container_lootmax': 3, 'preserve_tolerance': 0.5})
         shelf = containers_of(self.mission / 'mapgroupproto.xml', 'Land_House_S4')[1]
         self.assertEqual(shelf.get('lootmax'), '3', 'never above the named cap')
         counts = receipt['counts']['floor_policy']
-        self.assertEqual((counts['transferred'], counts['unplaced']), (3, 3))
+        self.assertEqual((counts['transferred'], counts['unplaced']), (3, 1))
 
     def test_low_loot_container_loses_its_shelves_tag_and_a_raised_one_keeps_it(self):
         self.install()

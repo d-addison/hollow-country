@@ -615,11 +615,13 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     roster = _roster_names()
     policy, policy_sha = _floor_policy(floor_policy)
     outputs, counts, tag_rows = [], {'types': {}}, []
+    scaled_types = {}
     for name in types_files(mission):
         before = economy.read_plain(mission, name)
         after, count = scale_types(before, multiplier, roster)
         counts['types'][name] = count
         if policy is not None:
+            scaled_types[name] = after
             after, rows = loot_floor_policy.retag_types(after, policy, roster)
             tag_rows.append(rows)
         outputs.append((name, before, after))
@@ -631,8 +633,17 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     proto_after, report = scale_proto(proto_before, multiplier, overlay, _limits(mission) if overlay else None)
     counts['mapgroupproto'] = report
     if policy is not None:
-        proto_after, floor = loot_floor_policy.rebalance_proto(proto_after, tag_rows, policy)
-        floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if sorted(r[2]) != sorted(r[3]))
+        # Resolve all fallback dependencies before imposing global type restrictions.
+        preserve = set()
+        while True:
+            previous = set(preserve)
+            planned_proto, floor = loot_floor_policy.rebalance_proto(proto_after, tag_rows, policy, preserve)
+            if previous == preserve:
+                break
+        proto_after = planned_proto
+        outputs = [(n, b, loot_floor_policy.retag_types(scaled_types[n], policy, roster, preserve)[0])
+                   if n in scaled_types else (n, b, a) for n, b, a in outputs]
+        floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if r[0] not in preserve and sorted(r[2]) != sorted(r[3]))
         floor['policy_sha256'] = policy_sha
     else:
         floor = {'enabled': False}
