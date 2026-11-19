@@ -1307,8 +1307,12 @@ class TemplatesPackTests(TempCase):
         self.assertTrue(8 <= len(index['Sources']) <= 520)
         for pin in index['Sources'].values():
             self.assertRegex(pin, r'^[0-9a-f]{64}$')
-        for field, key, cap in [('ClassFiles', 'Rows', 160), ('FurnishFiles', 'Rows', 128),
-                                 ('GroupFiles', 'Groups', 512)]:
+        # HC-56 has no measured prop boxes for these synthetic classes; search
+        # coverage still loads, while furnishing must stay refused/unmeasured.
+        self.assertEqual([], index['FurnishFiles'])
+        table = {r['BuildingClass']: r for entry in index['ClassFiles'] for r in docs[entry['File']]['Rows']}
+        self.assertEqual('unmeasured', table[f.HOUSE]['Furniture'])
+        for field, key, cap in [('ClassFiles', 'Rows', 160), ('GroupFiles', 'Groups', 512)]:
             self.assertTrue(index[field], field)
             for number, entry in enumerate(index[field]):
                 chunk = docs[entry['File']]

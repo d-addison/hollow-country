@@ -339,7 +339,13 @@ def derive_config(profile, evidence):
 
 def check_config(config, evidence):
     """Mirror HCInteriorsModule.ValidateConfig for review, and bind every candidate to native pose evidence."""
-    exact_keys(config, CONFIG_KEYS, 'interiors.json')
+    config_keys = CONFIG_KEYS
+    if 'TemplateLoadStepsPerTick' in config:
+        config_keys += ('TemplateLoadStepsPerTick',)
+        load_steps = config['TemplateLoadStepsPerTick']
+        require(type(load_steps) is int and 0 <= load_steps <= 64,
+                'interiors.json: TemplateLoadStepsPerTick must be 0 (legacy default) or 1..64')
+    exact_keys(config, config_keys, 'interiors.json')
     require(config['SchemaVersion'] == 1 and type(config['SchemaVersion']) is int, 'interiors.json: schema/map/build mismatch')
     require(config['MapName'] == WORLD and config['Build'] == BUILD, 'interiors.json: schema/map/build mismatch')
     require(type(config['Epoch']) is int and 1 <= config['Epoch'] <= 899999, 'interiors.json: epoch outside supported bounds')
@@ -1365,7 +1371,7 @@ def templates_build(censuses, proto, pos, types_bytes=None):
     docs, names = tpl.load_censuses(censuses, proto)
     tpl.parse_pos(pos)
     if docs:
-        return tpl.build(censuses, proto, pos, types_bytes=types_bytes)
+        return tpl.build(censuses, proto, pos, types_bytes=types_bytes, authored_bytes=tpl.authored_inputs())
     sources = {'mapgroupproto': sha(proto), 'mapgrouppos': sha(pos), 'generator': tpl.generator_sha256()}
     parameters = {'reach_source': 'strict', 'min_agreement': tpl.DEFAULT_MIN_AGREEMENT,
                   'max_furnished': tpl.MAX_FURNISHED}

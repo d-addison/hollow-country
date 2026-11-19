@@ -33,12 +33,17 @@ class EMap(BaseMap):
     def Clear(self): self.clear()
 
 
+class RefMap(EMap):
+    def __missing__(self, key): return None
+    def Get(self, key): return self.get(key)
+
+
 class Array(EArray):
     def Sort(self): self.sort()
     def Set(self, index, value): self[index] = value
 
 
-def authored(include_read=False):
+def authored():
     """Translate authored control flow, replacing only native I/O/config boundaries."""
     files = [SRC / name for name in ('HCInteriorTemplatesData.c',
              'HCInteriorTemplatesStrict.c', 'HCInteriorTemplates.c',
@@ -60,12 +65,12 @@ def authored(include_read=False):
     sources = re.sub(r'//[^\n]*', '', sources)
     for match in re.finditer(r'static ([\w<> ]+?) (\w+)\(([^)]*)\)\s*\{', sources):
         name = match[2]
-        if name in {'EngineHouse', 'Spawn', 'Available', 'Schedule'} or (name == 'Read' and not include_read):
+        if name in {'EngineHouse', 'Spawn', 'Available', 'Schedule'}:
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
         args = [arg.replace("=false", "=False").replace("=true", "=True") for arg in args]
         lines = [f'def {name}({", ".join(args)}):',
-                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery, s_ResolveNext, s_Job, s_LoadPhase, s_LoadChunk, s_LoadStart']
+                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery, s_ResolveNext, s_Job, s_LoadPhase, s_LoadChunk, s_LoadStart, s_LoadCheck, s_FurnishProps']
         indent = 1
         for token in statements(body(sources, match.end())):
             token = token.strip()
@@ -179,7 +184,7 @@ def fixture(values=None, staged=False, connect_pack=True):
         except ValueError: return False
     game=NS(GetWorldName=lambda:'chernarusplus',ConfigIsExisting=lambda path:True,
             GetObjectsAtPosition3D=lambda point,radius,found,cargos:found.extend(objects),
-            GetPlayers=lambda players:None)  # no players online: placement is never deferred
+            GetPlayers=lambda players:None, GetTime=lambda:123)  # no players online: placement is never deferred
     def synthetic_spawn(typ, point, orientation):
         # Explicit native boundary: invented dimensions, never installed-model evidence.
         def clipping(box): box[:]=[[-.5,0,-.3],[.5,2,.3]]
@@ -199,6 +204,8 @@ def fixture(values=None, staged=False, connect_pack=True):
         HCV1Admission=NS(Refused=lambda feature,gate,reason:'[HollowCountry] V1 admission feature='+feature+' preference=on gate='+gate+' qualified=0 result=refused: '+reason),
         s_Attempted=False,s_Loaded=False,s_Index=None,s_Bytes=0,s_Files=0,s_Reason='',
         s_Classes=EArray(),s_Templates=EArray(),s_Groups=EArray(),s_Furnish=EArray(),
+        s_ClassIndex=RefMap(),s_TemplateIndex=RefMap(),s_GroupIndex=RefMap(),s_TemplatePins=EMap(),
+        s_FurnishSlots=EMap(),s_FurnishInstances=EMap(),s_FurnishProps=0,s_LoadCheck=0,
         s_Placed=0,s_Capped=0,s_Refused=EMap(),s_Houses=EArray(),s_Started=False,s_ResolveReason='',s_MaxProps=5,
         s_BoxLogged=Array(), s_Deferred=Array(), s_DeferredNext=0,
         s_ResolveCache=Array(), s_ResolveNext=0,
@@ -221,7 +228,7 @@ def fixture(values=None, staged=False, connect_pack=True):
             begin = env['EnsureLoaded']
             def load(legacy, cap=5):
                 begin(legacy, cap)
-                for _ in range(1000):
+                for _ in range(6000):
                     if env['s_Loaded'] or env['s_Reason']: break
                     env['HCLoadStep'](legacy, SyntheticBudget(True))
                 else: raise AssertionError('synthetic pack admission did not finish')
@@ -230,6 +237,46 @@ def fixture(values=None, staged=False, connect_pack=True):
 
 
 class InteriorTemplatesRuntimeTests(unittest.TestCase):
+    def test_large_pack_phase_boundaries_obey_budget_and_lookups_do_not_scan(self):
+        from tests.unit.test_hc_template_pack import SyntheticBudget
+        env = fixture(staged=True)[0]
+        env['EnsureLoaded'](None)
+        visits = []
+        class CountedArray(Array):
+            def __iter__(self):
+                for row in super().__iter__():
+                    visits.append(row)
+                    yield row
+        # Explicit synthetic maximum denominator; no claim about native geometry.
+        env['s_Classes'] = CountedArray(NS(BuildingClass='Land_Synthetic_%04d' % n,
+            Rooms='unmeasured', Furniture='unmeasured', Search='unmeasured') for n in range(2048))
+        env['EngineHouse'] = lambda cls: True
+        env['s_LoadChunk'] = 1  # class chunk consumed, phase boundary next
+        status = env['HCLoadStep'](None, SyntheticBudget(False))
+        self.assertEqual(0, len(visits), 'exhausted phase boundary scanned 2048 classes')
+        self.assertEqual(1, status)
+        self.assertEqual(0, env['s_LoadPhase'])
+        # Coverage is a retained one-row step even with 512 templates present.
+        env['s_LoadPhase'] = 2
+        env['s_LoadChunk'] = 1
+        env['s_Templates'] = CountedArray(NS(BuildingClass='Land_Other_%04d' % n) for n in range(512))
+        visits.clear()
+        env['HCLoadStep'](None, SyntheticBudget(True))
+        self.assertLessEqual(len(visits), 1, 'coverage step exceeded one row')
+        visits.clear()
+        before_check = env['s_LoadCheck']
+        env['HCLoadStep'](None, SyntheticBudget(True))
+        self.assertEqual(before_check + 1, env['s_LoadCheck'])
+        self.assertLessEqual(len(visits), 1, 'coverage scanned classes or templates')
+        for settings, expected in ((None, 8), (NS(TemplateLoadStepsPerTick=0), 8),
+                                   (NS(TemplateLoadStepsPerTick=1), 1), (NS(TemplateLoadStepsPerTick=65), 8)):
+            self.assertEqual(expected, env['HCLoadStepLimit'](settings))
+        # A missing group in the maximum synthetic group collection uses the index.
+        env['s_Groups'] = CountedArray(NS(Id='g-%05d' % n) for n in range(32768))
+        visits.clear()
+        self.assertFalse(env['FindGroup']('missing'))
+        self.assertEqual([], visits, 'group lookup scanned 32768 groups')
+
     def test_module_tick_finishes_admission_and_stop_cancels_pending_load(self):
         from tests.unit.test_group_server import execute_member
         from tests.unit.test_hc_template_pack import SyntheticBudget
@@ -237,6 +284,10 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         # Before integration, execute the existing tick: it never advances a pack.
         if 'modded class HCInteriorsModule' not in source:
             source = (SRC / 'HCInteriorTemplatesModule.c').read_text()
+        # The member translator supports primitive return declarations only;
+        # preserve the getter body and adapt its type spelling at this boundary.
+        source = source.replace('override HCOperationalStatus HCGetOperationalStatus()',
+                                'override int HCGetOperationalStatus()')
         source = source.replace('super.OnTick(deltaTime)', 'self.LegacyTick(deltaTime)')
         source = source.replace('super.OnStop()', 'self.LegacyStop()')
         source = source.replace('super.OnStart(settings)', 'self.LegacyStart(settings)')
@@ -266,11 +317,17 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         self.assertTrue(env['Loaded'](), logs)
         self.assertIs(module, module.s_Instance)
         self.assertEqual(['place', 'search'], events)
+        status_rows = []
+        module.m_PackStatus = NS(HCPublish=lambda state,reason:status_rows.append((state,reason)))
+        execute_member(source, 'HCGetOperationalStatus', ports, module)
+        self.assertEqual('ready', status_rows[-1][0])
         execute_member(source, 'OnTick', ports, module, 1.0)
         self.assertEqual(['place', 'search'], events)
         execute_member(source, 'OnStop', ports, module)
         self.assertFalse(env['Loaded']())
         self.assertFalse(env['s_Job'].Started)
+        execute_member(source, 'HCGetOperationalStatus', ports, module)
+        self.assertEqual('off', status_rows[-1][0])
         execute_member(source, 'OnStart', ports, module, settings)
         env['EnsureLoaded'](None)
         self.assertTrue(module.m_PackLoading)
@@ -281,7 +338,7 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         self.assertFalse(env['s_Job'].Started)
         self.assertTrue(any('state=off' in line for line in logs))
 
-        # Explicit two-page synthetic metadata: HCStep=1 must end this tick.
+        # Explicit two-page synthetic metadata: page-merged can continue within this tick.
         from tools.package import interiors_profile as ip
         values = pack()
         index = values['index.json']
@@ -299,8 +356,8 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         module.s_Instance = None
         env['EnsureLoaded'](None)
         execute_member(source, 'OnTick', ports, module, 1.0)
-        self.assertEqual(2, len(reads), 'HCStep=1 must yield to the next module tick')
-        self.assertTrue(reads[-1].endswith('index-000.json'))
+        self.assertGreaterEqual(len(reads), 3, 'page-merged must differ from exhausted budget')
+        self.assertTrue(any(path.endswith('index-001.json') for path in reads))
         self.assertFalse(env['Loaded']())
 
     def test_reader_stages_both_schemas_without_reloading_and_resets_on_stop(self):
@@ -754,16 +811,6 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
             values=pack(); mutate(values['t-0000.json']); self.assert_refused(self.load(values))
 
 
-    def test_actual_bounded_reader_rejects_count_mismatch_and_reads_cap_plus_one(self):
-        for count,content,accepted in [(2,'{}',True),(3,'{}',False),(0,'',False),
-                                       (32768,' '*32768,False)]:
-            e=authored(include_read=True); lengths=[]; closed=[]
-            e.update(OpenFile=lambda p,m:7,CloseFile=closed.append,
-                FileMode=NS(READ=0),Print=lambda text:None,
-                NativeRead=lambda handle,length:(lengths.append(length) or count,content))
-            self.assertEqual(content if accepted else '',e['Read']('synthetic','index'))
-            self.assertEqual([32768],lengths); self.assertEqual([7],closed)
-
     def test_file_keys_reach_the_engine_as_FileName(self):
         # A loaded dependency declares a type named File (compile with the Expansion stack: "Variable name
         # 'File' already used as type name"), so DTO members cannot be called File or Slot.
@@ -806,6 +853,13 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         e['FileExist']=lambda path:path.endswith('/Infected/production-rooms.json')
         e['EnsureLoaded'](None); self.assert_refused(result)
         self.assertEqual('rooms_conflict',e['s_Reason'])
+        result=fixture(); e=result[0]
+        e['HCProfileDefaults'].Resolve=lambda relative,root:root+relative
+        e['HCInteriorMeasuredCatalog'].MeasuredClaimedClass=lambda:'Land_House_1W01'
+        e['EnsureLoaded'](None); self.assert_refused(result)
+        self.assertIn('[HC Interiors] shipped pack yields to legacy room owner', result[3])
+        for key in ('s_ClassIndex', 's_TemplateIndex', 's_GroupIndex', 's_TemplatePins'):
+            self.assertEqual(0, len(e[key]), key)
 
     def test_per_house_cap_and_startup_once(self):
         values=pack(); second=copy.deepcopy(values['t-0000.json']['PropSlots'][0]); second['Id']=2

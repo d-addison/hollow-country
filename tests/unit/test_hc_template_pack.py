@@ -72,8 +72,26 @@ class TemplatePackTests(unittest.TestCase):
         ports['HCReceipt'](job, 1, True)
         self.assertIn('pack_chunks=3 classes=1 refused=none state=ready', ports['logs'][-1])
         self.assertEqual(3, sum('HC-24 read=' in line for line in ports['logs']))
+        def late_clock(previous):
+            raise AssertionError('completed pack timing must be frozen before shutdown')
+        ports['TickCount'] = late_clock
+        ports['HCReceipt'](job, 1, False)
+        self.assertIn('state=off', ports['logs'][-1])
         ports['HCReadChunk'](job, 'bad', 'template', 'a'*64)
         self.assertIn('pack_chunks=3 classes=0 refused=chunk_before_index_or_pin state=refused', ports['logs'][-1])
+
+    def test_bounded_reader_rejects_count_mismatch_and_reads_cap_plus_one(self):
+        for count, content, accepted in ((2, '{}', True), (3, '{}', False),
+                                         (0, '', False), (32768, ' '*32768, False)):
+            ports = pack_reader({})
+            lengths, closed = [], []
+            ports.update(OpenFile=lambda path, mode:7, CloseFile=closed.append,
+                         NativeRead=lambda handle, length:(lengths.append(length) or count, content))
+            job = ports['HCInteriorPackJob']()
+            job.Root = 'synthetic/'
+            self.assertEqual(content if accepted else '', ports['HCRead'](job, 'index.json'))
+            self.assertEqual([32768], lengths)
+            self.assertEqual([7], closed)
 
     def test_610_leaves_plus_16_pages_count_once_and_leaf_611_refuses(self):
         # Explicit IO/accounting boundary fixture: synthetic ready metadata with
@@ -133,7 +151,8 @@ class TemplatePackTests(unittest.TestCase):
             self.assertEqual(runtime['HCStep'](job, budget), 1)
             self.assertEqual(len(runtime['reads']), before)
             budget.allowed = True
-            while runtime['HCStep'](job, budget) == 1:
+            self.assertEqual(3, runtime['HCStep'](job, budget), 'page merge differs from exhausted budget')
+            while runtime['HCStep'](job, budget) in (1, 3):
                 pass
             self.assertTrue(job.Ready)
             self.assertEqual(job.Index.TemplateFiles.Count(), 180)
@@ -157,7 +176,7 @@ class TemplatePackTests(unittest.TestCase):
                 ports = pack_reader(damaged)
                 failed = ports['HCInteriorPackJob']()
                 ports['HCStart'](failed, 'synthetic/')
-                while ports['HCStep'](failed, budget) == 1:
+                while ports['HCStep'](failed, budget) in (1, 3):
                     pass
                 if name.startswith('t-'):
                     binding = failed.Index.TemplateFiles[-1]
@@ -220,7 +239,7 @@ class TemplatePackTests(unittest.TestCase):
             ports = pack_reader(maximum_files)
             full_job = ports['HCInteriorPackJob']()
             self.assertTrue(ports['HCStart'](full_job, 'synthetic/'))
-            while ports['HCStep'](full_job, budget) == 1:
+            while ports['HCStep'](full_job, budget) in (1, 3):
                 pass
             self.assertTrue(full_job.Ready)
             self.assertEqual(full_job.Index.TemplateFiles.Count(), 512)

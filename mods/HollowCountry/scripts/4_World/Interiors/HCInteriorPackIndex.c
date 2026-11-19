@@ -46,6 +46,11 @@ class HCInteriorPackJob
     string Root;
     string Reason;
     int NextPage;
+    int TickSample;
+    float LoadTicks = 0;
+    int StartMs;
+    int LoadMs;
+    bool TimingFinished;
     int Files;
     int LeafFiles;
     bool LeafLogged;
@@ -69,12 +74,31 @@ class HCInteriorPackIndex
         return job.Files - 1;
     }
 
+    // Sample on every retained step, including budget yields. Summing short raw
+    // deltas into a float avoids a single int TickCount spanning a long pack load.
+    static void HCSampleDuration(HCInteriorPackJob job)
+    {
+        if (!job.Started || job.TimingFinished) { return; }
+        int previousTicks = job.TickSample;
+        job.LoadTicks = job.LoadTicks + TickCount(previousTicks);
+        job.TickSample = TickCount(0);
+    }
+
+    static void HCFinishDuration(HCInteriorPackJob job)
+    {
+        if (!job.Started || job.TimingFinished) { return; }
+        HCSampleDuration(job);
+        job.LoadMs = GetGame().GetTime() - job.StartMs;
+        job.TimingFinished = true;
+    }
+
     static bool HCFail(HCInteriorPackJob job, string reason)
     {
         if (job.Reason != "")
         {
             return false;
         }
+        HCFinishDuration(job);
         job.Reason = reason;
         job.Ready = false;
         job.Index = null;
@@ -82,7 +106,8 @@ class HCInteriorPackIndex
         job.Pins.Clear();
         job.Schemas.Clear();
         int chunks = HCChunks(job);
-        Print("[HC Plan] HC-24 pack_chunks=" + chunks.ToString() + " classes=0 refused=" + reason + " state=refused runtime=PENDING");
+        string failureLine = "[HC Plan] HC-24 pack_chunks=" + chunks.ToString() + " classes=0 refused=" + reason + " state=refused";
+        Print(failureLine + HCInteriorTemplates.HCLoadDuration(job) + " runtime=PENDING");
         return false;
     }
 
@@ -91,6 +116,11 @@ class HCInteriorPackIndex
         job.Root = "";
         job.Reason = "";
         job.NextPage = 0;
+        job.TickSample = 0;
+        job.LoadTicks = 0;
+        job.StartMs = 0;
+        job.LoadMs = 0;
+        job.TimingFinished = false;
         job.Files = 0;
         job.LeafFiles = 0;
         job.LeafLogged = false;
@@ -148,6 +178,10 @@ class HCInteriorPackIndex
             return false;
         }
         job.Started = true;
+        // Native EnSystem.c:106 TickCount; Game.c:1535 GetTime (mission ms).
+        // Both clocks include retained startup ticks; no assumed ticks/ms ratio.
+        job.TickSample = TickCount(0);
+        job.StartMs = GetGame().GetTime();
         job.Root = root;
         if (root == "")
         {
@@ -258,11 +292,12 @@ class HCInteriorPackIndex
         return true;
     }
 
-    // 0 metadata complete, 1 yield/more, 2 refused. Retain this job and the existing
+    // 0 metadata complete, 1 budget exhausted, 2 refused, 3 page merged/more. Retain this job and the existing
     // reader's placement/load cursors. Caller resets HCWorkBudget for each slice.
     // Never publish any class/template until the reserved reader validates ALL leaves.
     static int HCStep(HCInteriorPackJob job, HCWorkBudget budget)
     {
+        HCSampleDuration(job);
         if (!job.Started || job.Reason != "")
         {
             return 2;
@@ -296,7 +331,7 @@ class HCInteriorPackIndex
         job.NextPage = job.NextPage + 1;
         if (job.NextPage < job.Header.IndexFiles.Count())
         {
-            return 1;
+            return 3;
         }
         if (!HCInteriorTemplates.IndexValid(job.Index))
         {
@@ -361,6 +396,7 @@ class HCInteriorPackIndex
     // Counts prove admission only, never physical fit. 'off' is the caller's off path.
     static void HCReceipt(HCInteriorPackJob job, int classes, bool enabled)
     {
+        HCFinishDuration(job);
         string state = "off";
         string refused = "none";
         if (enabled)
@@ -377,6 +413,7 @@ class HCInteriorPackIndex
             }
         }
         int chunks = HCChunks(job);
-        Print("[HC Plan] HC-24 pack_chunks=" + chunks.ToString() + " classes=" + classes.ToString() + " refused=" + refused + " state=" + state + " hash=offline-receipt runtime=PENDING");
+        string packLine = "[HC Plan] HC-24 pack_chunks=" + chunks.ToString() + " classes=" + classes.ToString() + " refused=" + refused + " state=" + state;
+        Print(packLine + HCInteriorTemplates.HCLoadDuration(job) + " hash=offline-receipt runtime=PENDING");
     }
 }
