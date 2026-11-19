@@ -28,6 +28,15 @@ def claim(group=1, x=20, held=14):
 NOW = 30*86400
 
 
+
+def policy_scope():
+    eligible = compile_authored(CAMPS / 'HCCampProbes.c', 'HCCampProbes', 'Eligible',
+                               base_scope(), modded=False)
+    policy = compile_authored(CAMPS / 'HCCampProbes.c', 'HCCampProbes', 'HCClaimEligibility',
+        base_scope(HCCampProbes=NS(Eligible=lambda *args: eligible(None, *args))), modded=False)
+    return NS(HCClaimEligibility=lambda *args: policy(None, *args))
+
+
 class ClaimTargets(unittest.TestCase):
     def store(self, name, *args):
         fn = compile_authored(CAMPS / 'HCCampStore.c', 'HCCampStore', name,
@@ -47,8 +56,9 @@ class ClaimTargets(unittest.TestCase):
         scope = base_scope(HCAILimits=NS(Get=lambda: NS(MaxCamps=32)),
                            HCWorldClock=NS(UTC=lambda: NOW),
                            HCBuildingClaim=NS(HCGet=lambda: True),
-                           HCServer=NS(Get=lambda: NS(HCTickWork=lambda: NS(HCTake=lambda cost: True))))
-        owner.HCReadClaimScan = lambda candidate, reason, budgeted: NS(Storage=True)
+                           HCServer=NS(Get=lambda: NS(HCTickWork=lambda: NS(HCTake=lambda cost: True))),
+                           HCCampProbes=policy_scope())
+        owner.HCReadClaimScan = lambda candidate, reason, budgeted: NS(Hidden=lambda burning: False, Storage=True)
         owner.HCReserveClaimSelection = lambda count, reason: True
         owner.HCEncounterCount = lambda: len(rows)
         owner.HCEncounterTarget = lambda index, now: rows[index].Anchor if index < 2 else None
@@ -56,10 +66,10 @@ class ClaimTargets(unittest.TestCase):
                               ('HCEncounterCount', 'HCEncounterTarget', 'HCReadClaimScan', 'HCReserveClaimSelection'))
         self.assertIs(rows[1].Anchor, fn(owner, (0, 0, 0), Cell(), True),
                       'nearest eligible claim must be selectable without a hearth camp')
-        owner.HCReadClaimScan = lambda candidate, reason, budgeted: NS(Storage=candidate is rows[0].Anchor)
+        owner.HCReadClaimScan = lambda candidate, reason, budgeted: NS(Hidden=lambda burning: False, Storage=candidate is rows[0].Anchor)
         self.assertIs(rows[0].Anchor, fn(owner, (0, 0, 0), Cell(), True),
                       'an empty closer claim must not mask stored cargo farther away')
-        owner.HCReadClaimScan = lambda candidate, reason, budgeted: NS(Storage=False)
+        owner.HCReadClaimScan = lambda candidate, reason, budgeted: NS(Hidden=lambda burning: False, Storage=False)
         refusal = Cell()
         self.assertIsNone(fn(owner, (0, 0, 0), refusal, True))
         self.assertEqual('CLAIM_NO_STORED_ITEMS', refusal.value)

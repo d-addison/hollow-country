@@ -315,9 +315,9 @@ modded class HCCampModule
 
     // Metadata-only controls use the existing configured camp cap and store.
     // No distance threshold, player scan, world fact, inventory or body creation.
-    // includeClaims is explicit so camptier keeps its hearth-only contract.
-    // Lead: HCAdminArrival must pass true; its method is outside this scope.
-    protected HCCampRecord HCAdminSelectCamp(vector pos, out string reason, bool includeClaims = false)
+    // The default preserves camptier's hearth-only contract.
+    // Encounter kind: 0 = hearth-only tier command, 1 = visit, 2 = raid.
+    protected HCCampRecord HCAdminSelectCamp(vector pos, out string reason, int encounterKind = 0)
     {
         reason = "camp-service-unavailable";
         if (!m_Running || !m_Data || !m_Data.Camps) { return null; }
@@ -330,6 +330,7 @@ modded class HCCampModule
         HCCampRecord selected;
         float best = -1;
         int count = m_Data.Camps.Count();
+        bool includeClaims = encounterKind > 0;
         if (includeClaims)
         {
             reason = "claim-configured-cap-exceeded";
@@ -339,7 +340,7 @@ modded class HCCampModule
         m_ClaimSelectionScan = null;
         m_ClaimSelectionTarget = null;
         bool selectionCharged = count > m_Data.Camps.Count();
-        bool noStoredItems = false;
+        string claimRefusal = "";
         if (selectionCharged && !HCReserveClaimSelection(count, reason)) { return null; }
         for (int candidateIndex = 0; candidateIndex < count; candidateIndex++)
         {
@@ -355,15 +356,19 @@ modded class HCCampModule
             {
                 HCCampScan claimScan = HCReadClaimScan(candidate, reason, true);
                 if (!claimScan) { return null; }
-                reason = "CLAIM_NO_STORED_ITEMS";
-                if (!claimScan.Storage) { noStoredItems = true; continue; }
+                // HCEncounterTarget maps claims after the hearth rows. Reuse
+                // the same durable row/policy as HCRequestClaimArrival without
+                // an extra search or native scan. Claims have no burning hearth.
+                HCBuildingClaimRecord claimRow = m_Data.Claims[candidateIndex - m_Data.Camps.Count()];
+                string eligibility = HCCampProbes.HCClaimEligibility(claimRow, now, claimScan.Storage, claimScan.Hidden(false), encounterKind == 2);
+                if (eligibility != "") { claimRefusal = eligibility; continue; }
                 m_ClaimSelectionScan = claimScan;
                 m_ClaimSelectionTarget = candidate;
                 m_ClaimSelectionUtc = now;
             }
             if (best < 0 || distance < best) { selected = candidate; best = distance; }
         }
-        if (!selected && noStoredItems) { reason = "CLAIM_NO_STORED_ITEMS"; return null; }
+        if (!selected && claimRefusal != "") { reason = claimRefusal; return null; }
         reason = "no-recognised-camp";
         if (includeClaims) { reason = "no-recognised-camp-or-mature-claim"; }
         return selected;
@@ -388,7 +393,9 @@ modded class HCCampModule
 
     bool HCAdminArrival(vector pos, bool raid, out string reason)
     {
-        HCCampRecord selected = HCAdminSelectCamp(pos, reason, true);
+        int encounterKind = 1;
+        if (raid) { encounterKind = 2; }
+        HCCampRecord selected = HCAdminSelectCamp(pos, reason, encounterKind);
         if (!selected) { return false; }
         return HCAdminRequestArrival(selected, raid, reason);
     }
