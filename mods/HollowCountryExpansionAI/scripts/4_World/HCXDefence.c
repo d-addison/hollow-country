@@ -611,7 +611,12 @@ class HCXDefenceModule : HCModule
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override void OnStart(HCSettings settings)
     {
-        if (!GetGame().IsServer() || !IsEnabled(settings) || HCXDefence.Running()) { return; }
+        if (!GetGame().IsServer() || !IsEnabled(settings)) { return; }
+        if (HCXDefence.Running())
+        {
+            Print("[HCX Defence] start ignored: already running");
+            return;
+        }
         HCXDefence.Start();
         Print(HCV2Admission.Line("AISelfDefence", true, "W7-AIDEF", false));
         Print("[HCX Defence] started grudges<=64 expiry hit=240s kill=300s miss=90s rescue_excuse=30s near_miss=4m/12m infected_excuse=25m runtime=PENDING");

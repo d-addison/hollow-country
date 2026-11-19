@@ -131,7 +131,8 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.reconciled = True
         self.created = []
         self.pending_factory = []
-        self.env = dict(A=A, HCObserverTransitionState=lambda: N(), HCObserverTransitionPolicy=lambda:N(),
+        self.env = dict(A=A, HCRefusal=N(BUSY="busy", SERVICE="service", CAPACITY="capacity"),
+                        HCObserverTransitionState=lambda: N(), HCObserverTransitionPolicy=lambda:N(),
                         HCObserverTransitionGate=N(
                             ValidPolicy=lambda p: p is not None,
                             Configure=lambda s,p: True,
@@ -247,7 +248,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         for class_name in ('HCXAISituationAdapter', 'HCXAIRaidAdapter', 'HCXAITransitAdapter'):
             self.env[class_name] = lambda name=class_name: situation_port(name)
         self.engine=Authored(self.runtime_source,self.env)
-        self.mod=N(m_Caravan=None,m_CaravanRequested=False,m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
+        self.mod=N(m_Caravan=None,m_CaravanRequested=False,m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_LeaseRefusal="",m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
                    m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None,m_Encounters=None,m_CampRoutine=None)
@@ -319,7 +320,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         source = (SCRIPTS / "4_World/HCXAIJournal.c").read_text()
         engine = Authored(source, self.env)
         def journal():
-            owner = N()
+            owner = N(m_Refusal="")
             for name in re.findall(r"\b\w+ (\w+)\([^)]*\)\s*\{", source):
                 setattr(owner, name, lambda *a,n=name: engine.call(n, owner, *a))
             return owner
@@ -400,7 +401,10 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertFalse(self.start())
         self.assertFalse(self.start(session="another-session"))
         self.assertEqual(vars(before), vars(self.disk))
-        self.assertEqual(before_calls, self.calls)
+        # Only the bounded refusal line is new: one line for the repeated reason.
+        self.assertEqual(before_calls + [("diagnostic", "[HC Expansion AI] lease start refused reason=lease_id_pruned")],
+                         self.calls)
+        self.assertEqual("lease_id_pruned", self.mod.LeaseRefusal())
         self.assertEqual((0, 0, 0), (self.mod.m_ReservedGroups,
                                     self.mod.m_ReservedActors, self.mod.m_ReservedItems))
 

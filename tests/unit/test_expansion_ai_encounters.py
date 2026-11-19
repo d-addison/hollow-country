@@ -49,7 +49,8 @@ class EncounterTests(unittest.TestCase):
         self.journal = FakeJournal()
         self.opened = []
         self.states = A()
-        self.env = dict(A=A, Print=self.logs.append)
+        self.env = dict(A=A, Print=self.logs.append,
+                        HCRefusal=N(CAPACITY='capacity', NO_SITE='no_site'))
         declarations(self.env)
         self.env['vector'] = N(Distance=lambda a, b: math.dist(a, b), Zero=(0., 0., 0.))
         self.env['Math'] = N(AbsFloat=abs)
@@ -74,7 +75,7 @@ class EncounterTests(unittest.TestCase):
         self.source = (SCRIPTS / 'HCXAIEncounters.c').read_text()
         self.code = Authored(self.source, self.env)
         self.svc = N(m_Journal=None, m_Bindings=A(), m_Token='', m_State='waiting for sites',
-                     m_Armed=False, m_Settled=False)
+                     m_Armed=False, m_Settled=False, m_LastRefusal='')
         for name in re.findall(r'\n    (?:protected |static |override )*[\w<>]+ (\w+)\([^)]*\)\s*\{', self.source):
             setattr(self.svc, name, lambda *a, n=name: self.code.call(n, self.svc, *a))
 
