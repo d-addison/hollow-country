@@ -22,7 +22,7 @@ modded class HCXFactionCombatAdapter
                 if (!group || group.Count() < 1) { continue; }
                 DayZPlayerImplement participant = group.GetMember(0);
                 if (!participant) { continue; }
-                E1IncidentSources.HCPublish("scene", participant.GetPosition(), null);
+                HCIncidentEmissions.HCPublish("scene", participant.GetPosition(), null);
                 break;
             }
         }

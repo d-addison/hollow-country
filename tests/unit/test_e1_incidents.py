@@ -134,7 +134,7 @@ def registry(now=1000, maxima=32, sweep=4, responders=1, world=None, budget=True
                HCWorldIncidents=N(HCNowSeconds=lambda: now), HCNowSeconds=lambda: now)
     env.update(extra)
     obj = bind(text(CORE), 'HCWorldIncidents', env,
-               only=['HCAdd', 'HCFindSame', 'HCRetireAnchor', 'HCRetireId', 'HCCount', 'HCRowAt', 'HCById', 'HCPerceives',
+               only=['HCRefreshSound', 'HCAdd', 'HCFindSame', 'HCRetireAnchor', 'HCRetireId', 'HCCount', 'HCRowAt', 'HCById', 'HCPerceives',
                      'HCClaim', 'HCRelease', 'HCSweep', 'HCEvict', 'HCRadio', 'HCTag', 'HCRemoveAt', 'HCGone', 'HCEye', 'HCClear'],
                m_Policy=pol, m_Rows=EArray(), m_NextId=1, m_Cursor=0, m_Running=True, m_Off=False, m_Refused=0,
                m_FullLogged=False)
@@ -207,6 +207,28 @@ class RegistryBehavior(unittest.TestCase):
         self.assertEqual(1500, reg.HCById(timed).ExpiresAt)
         self.assertEqual(0, reg.HCAdd('not_a_kind', [0, 0, 0], 0.0, 0, None, 1000))
         self.assertEqual(1, reg.m_Refused)
+
+    def test_real_emission_refreshes_sound_beyond_original_window(self):
+        reg = registry()
+        point = [100, 0, 100]
+        first = reg.HCAdd('gunfire', point, 0.0, 0, None, 1000)
+        row = reg.HCById(first)
+        listener = looker([200, 0, 100])
+        self.assertTrue(reg.HCPerceives(row, listener, 1120))
+        self.assertFalse(reg.HCPerceives(row, listener, 1121))
+        self.assertEqual(first, reg.HCAdd('gunfire', point, 0.0, 0, None, 1121))
+        self.assertFalse(reg.HCPerceives(row, listener, 1121), 'survey publication alone never renews sound')
+        reg.HCRefreshSound(first, 1121)
+        self.assertTrue(reg.HCPerceives(row, listener, 1121))
+        self.assertTrue(reg.HCPerceives(row, listener, 1241))
+        self.assertFalse(reg.HCPerceives(row, listener, 1242))
+        self.assertFalse(reg.HCPerceives(row, looker([901, 0, 100]), 1121))
+        self.assertEqual(1421, row.ExpiresAt)
+        self.assertEqual(1, reg.HCCount())
+        reg.HCRefreshSound(999, 1250)
+        reg.m_Off = True
+        reg.HCRefreshSound(first, 1250)
+        self.assertEqual(1121, row.StartAt, 'opt-out prevents sound renewal')
 
     def test_same_anchor_or_same_place_never_duplicates(self):
         reg = registry()

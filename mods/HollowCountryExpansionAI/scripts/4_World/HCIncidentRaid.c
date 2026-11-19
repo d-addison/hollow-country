@@ -9,6 +9,6 @@ modded class HCXAIBaseRaid
     {
         super.HCWarned(camp, now);
         if (!m_Reserved || m_Camp != camp) { return; }
-        E1IncidentSources.HCPublish("raid", m_Point, null);
+        HCIncidentEmissions.HCPublish("raid", m_Point, null);
     }
 }

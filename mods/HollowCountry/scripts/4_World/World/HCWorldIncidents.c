@@ -400,6 +400,16 @@ class HCWorldIncidents : HCModule
         return row.Id;
     }
 
+    // Only real repeated emissions renew sound; surveys that re-publish a live
+    // source retain its original sound window. Identity, claims and radio stay intact.
+    void HCRefreshSound(int id, int now)
+    {
+        if (m_Off) { return; }
+        HCWorldIncident row = HCById(id);
+        if (!row || row.SoundRange <= 0 || row.SoundSeconds <= 0) { return; }
+        row.StartAt = now;
+    }
+
     // Earliest-expiring transient row goes first; permanent (native-owned) rows are never evicted.
     bool HCEvict()
     {

@@ -9,18 +9,18 @@ import re
 from types import SimpleNamespace as N
 import unittest
 
-from tests.unit.test_e1_incidents import bind, registry
+from tests.unit.test_e1_incidents import bind, registry, looker
 from tests.unit.test_group_server import EArray
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/World/E1IncidentSources.c'
-RAID = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/E1IncidentRaid.c'
+SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCIncidentEmissions.c'
+RAID = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCIncidentRaid.c'
 
 
 def hook(cls, name, receiver=None, parent=None, server=True, path=SOURCE, **extra):
     calls = []
     env = dict(receiver=receiver or N(), super=parent or N(), GetGame=lambda: N(IsServer=lambda: server),
-               E1IncidentSources=N(HCPublish=lambda *args: calls.append(args)),
+               HCIncidentEmissions=N(HCPublish=lambda *args: calls.append(args)),
                HCEventCode=N(OK=0), Print=lambda line: None)
     env.update(extra)
     source = path.read_text().replace('override ', '').replace('protected ', '')
@@ -33,6 +33,39 @@ def hook(cls, name, receiver=None, parent=None, server=True, path=SOURCE, **extr
 
 
 class SourceBehavior(unittest.TestCase):
+    def test_source_adapter_names_have_hc_prefix(self):
+        self.assertTrue((SOURCE.parent / 'HCIncidentEmissions.c').is_file())
+        self.assertTrue((RAID.parent / 'HCIncidentRaid.c').is_file())
+        self.assertTrue((RAID.parent / 'HCIncidentConflict.c').is_file())
+        self.assertIn('class HCIncidentEmissions', SOURCE.read_text())
+
+    def test_repeated_shots_remain_audible_after_original_sound_window(self):
+        clock = [1000]
+        reg = registry()
+        env = dict(GetGame=lambda: N(IsServer=lambda: True), Print=lambda line: None,
+                   HCWorldIncidents=N(HCPublish=lambda kind, pos, radius, life, anchor:
+                                      reg.HCAdd(kind, pos, radius, life, anchor, clock[0]),
+                                      HCGet=lambda: reg, HCNowSeconds=lambda: clock[0]))
+        adapter = bind(SOURCE.read_text().replace('protected ', ''), 'HCIncidentEmissions', env, only=['HCPublish'])
+        env['HCIncidentEmissions'] = N(s_Logged=False)
+        fire, _ = hook('Weapon_Base', 'EEFired',
+                       N(GetPosition=lambda: [100, 0, 100], IsKindOf=lambda kind: False),
+                       N(EEFired=lambda *args: None), HCIncidentEmissions=adapter)
+        fire(0, 0, 'synthetic-ammo')
+        row = reg.HCRowAt(0)
+        listener = looker([200, 0, 100])
+        clock[0] = 1121
+        self.assertFalse(reg.HCPerceives(row, listener, clock[0]))
+        fire(0, 0, 'synthetic-ammo')
+        self.assertEqual(1, reg.HCCount())
+        self.assertTrue(reg.HCPerceives(row, listener, clock[0]))
+        self.assertFalse(reg.HCPerceives(row, listener, 1242), 'silence still closes the refreshed window')
+        # Other physical publications do not repeatedly renew their sound.
+        adapter.HCPublish('horde', [900, 0, 900], None)
+        clock[0] = 1242
+        adapter.HCPublish('horde', [900, 0, 900], None)
+        self.assertEqual(1121, reg.HCRowAt(1).StartAt)
+
     def test_smoke_publishes_at_native_work_start_after_super(self):
         order = []
         pos = [421, 8, 915]
@@ -87,10 +120,11 @@ class SourceBehavior(unittest.TestCase):
         logs = []
         env = dict(GetGame=lambda: N(IsServer=lambda: True), Print=logs.append,
                    HCWorldIncidents=N(HCPublish=lambda kind, pos, radius, life, anchor:
-                                      reg.HCAdd(kind, pos, radius, life, anchor, 1000)))
+                                      reg.HCAdd(kind, pos, radius, life, anchor, 1000),
+                                      HCGet=lambda: reg, HCNowSeconds=lambda: 1000))
         source = SOURCE.read_text().replace('protected ', '')
-        adapter = bind(source, 'E1IncidentSources', env, only=['HCPublish'])
-        env['E1IncidentSources'] = N(s_Logged=False)
+        adapter = bind(source, 'HCIncidentEmissions', env, only=['HCPublish'])
+        env['HCIncidentEmissions'] = N(s_Logged=False)
         adapter.HCPublish('gunfire', [10, 0, 10], None)
         adapter.HCPublish('gunfire', [10, 0, 10], None)
         self.assertEqual(1, reg.HCCount(), 'same-position shots share a registry row')
@@ -113,7 +147,7 @@ class SourceBehavior(unittest.TestCase):
         self.assertEqual(retained, [(row.Id, row.Kind, row.Position) for row in reg.m_Rows])
 
     def test_faction_observation_publishes_once_per_seen_combat_transition(self):
-        source = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/E1IncidentConflict.c'
+        source = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCIncidentConflict.c'
         for initial, observed in ((False, True), (False, False), (True, True)):
             pos = [654, 9, 321]
             actor = N(GetPosition=lambda: pos)
