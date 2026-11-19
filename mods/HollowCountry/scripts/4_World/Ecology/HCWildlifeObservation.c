@@ -3,7 +3,7 @@
 // HC-11 must retain N9 herd/flee/regroup/predator/pair experiments as PENDING.
 // Installed source root: ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // Native evidence for every engine read below:
-// 3_Game/Global/Game.c:1120 IsServer, :1535 GetTime (via the existing authority/owner ports);
+// 3_Game/Global/Game.c:1120 IsServer, :914 GetTickTime, :1535 GetTime (via the existing authority/owner ports);
 // 3_Game/Entities/Object.c:215 IsPendingDeletion, :287 GetPosition,
 // :467 GetType, :511 IsKindOf, :517 IsAlive;
 // 3_Game/Entities/DayZAnimal.c:60 CanBeSkinned, :193 GetAIAgent, :664 GetInputController;
@@ -95,6 +95,9 @@ class HCWildlifeObservation
     protected bool m_Collecting = true;
     protected bool m_Running;
     protected bool m_OverflowReported;
+    protected bool m_CapabilitiesPrinted;
+    protected string m_Refusal;
+    protected string m_LastRefusal;
     protected int m_NextSerial = 1;
     protected int m_Cursor;
     protected int m_LastTick = -1;
@@ -132,8 +135,10 @@ class HCWildlifeObservation
             string error;
             if (text != "" && !JsonFileLoader<HCWildlifeConfig>.LoadData(text, config, error)) { config = null; }
         }
-        bool started = owner.HCBegin(ecologyEnabled, config);
-        HCWildlifeProviders.HCStart(started);
+        owner.HCBegin(ecologyEnabled, config);
+        // A refused/opted-out observation service must not suppress finite
+        // carcasses or actual damage-contact receipts in the independent owner.
+        HCWildlifeProviders.HCStart(ecologyEnabled);
     }
 
     static void HCTick(int nowMs)
@@ -157,6 +162,18 @@ class HCWildlifeObservation
     static bool HCDestinationSupported() { return false; }
     static bool HCFeedingSupported() { return false; }
     static bool HCTargetObservationSupported() { return false; }
+
+    static bool HCObservationAvailable()
+    {
+        return s_Instance && s_Instance.m_Running;
+    }
+
+    void HCObserve()
+    {
+        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, "", "native_observation_only_goals_separate");
+        HCOperationalOwner owner = HCOperationalContributors.HCRegisterOwner("HC-15");
+        if (owner) { owner.HCObserve(m_Running, m_Status, GetGame().GetTickTime()); }
+    }
 
     static bool HCConfigValid(HCWildlifeConfig config)
     {
@@ -202,24 +219,28 @@ class HCWildlifeObservation
             return false;
         }
         if (!HCConfigValid(config)) { HCRefuse("invalid_species_config"); return false; }
-        Print(HCV2Admission.Line("WildlifeBaseline", config.Enabled, "native_wildlife_baseline", false));
+        Print(HCV2Admission.Line("WildlifeBaseline", config.Enabled, "native_wildlife_baseline", false) + " runtime=PENDING");
         if (!HCV2Admission.Admitted(config.Enabled)) { HCEnd(); return false; }
         if (m_Bindings.Count() > config.MaxAnimals) { HCRefuse("prestart_cohort_over_cap"); return false; }
         m_Config = config;
         m_Collecting = true;
         m_Running = true;
+        m_Refusal = "";
+        m_LastRefusal = "";
         m_Cursor = 0;
         m_LastTick = -1;
         m_LastNow = -1;
         m_Debug = new HCWildlifeDebugContributor;
         m_Debug.Owner = this;
         HCDebugSnapshot.HCRegister(m_Debug);
-        m_Status.HCPublish("ready", "native_observation_only");
+        HCObserve();
         int targets = config.TargetPairs.Count();
-        Print("[HC Plan] HC-15 wildlife provider=native destination=unsupported targets=" + targets.ToString() + " state=ready authored_pairs=" + targets.ToString() + " observed_targets=0 runtime=PENDING");
-        Print("[HC Plan] HC-15 state=refused capability=destination reason=no_inspected_animal_destination_api runtime=PENDING");
-        Print("[HC Plan] HC-15 state=refused capability=feeding reason=no_inspected_feeding_transaction runtime=PENDING");
-        Print("[HC Plan] HC-15 state=refused capability=animal_target reason=no_inspected_animal_target_accessor pair_matrix=PENDING runtime=PENDING");
+        Print("[HC Plan] HC-15 wildlife provider=native destination=unsupported targets=" + targets.ToString() + " state=" + m_Status.HCState() + " authored_pairs=" + targets.ToString() + " observed_targets=0 runtime=PENDING");
+        if (!m_CapabilitiesPrinted)
+        {
+            m_CapabilitiesPrinted = true;
+            Print("[HC Wildlife] W2_OBSERVATION_AVAILABLE native_activity=read_only native_groups=identity_only native_targets=unknown goal_port=unavailable pair_matrix=PENDING runtime=PENDING");
+        }
         return true;
     }
 
@@ -316,6 +337,7 @@ class HCWildlifeObservation
     {
         if (!m_Running) { return; }
         if (!HCEcologyNative.Authority() || nowMs < 0 || nowMs < m_LastNow) { HCRefuse("authority_or_clock"); return; }
+        HCObserve();
         m_LastNow = nowMs;
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
@@ -391,14 +413,20 @@ class HCWildlifeObservation
         m_Bindings.Clear();
         m_Config = null;
         m_Cursor = 0;
-        m_Status.HCPublish("off", "ecology_off_or_stopped");
+        m_Refusal = "";
+        HCObserve();
         // Serial never resets inside a mission, preventing stale ID reuse.
     }
 
     void HCRefuse(string reason)
     {
         HCEnd();
-        m_Status.HCPublish("refused", reason);
-        Print("[HC Plan] HC-15 wildlife provider=native destination=unsupported targets=0 state=refused reason=" + reason + " runtime=PENDING");
+        m_Refusal = reason;
+        HCObserve();
+        if (m_LastRefusal != reason)
+        {
+            m_LastRefusal = reason;
+            Print("[HC Plan] HC-15 wildlife provider=native destination=unsupported targets=0 state=refused reason=" + reason + " runtime=PENDING");
+        }
     }
 }
