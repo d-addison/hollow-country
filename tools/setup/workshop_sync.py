@@ -389,7 +389,12 @@ def resolve(args):
 
 
 def managed_folders(args):
-    return {m['folder'] for m in load_manifest(args.manifest)['mods']}
+    # A filtered --manifest (the friend installer passes only the pending mods) must not orphan folders an
+    # earlier install created from the shipped manifest; those stay ours for receipt validation and rollback.
+    folders = {m['folder'] for m in load_manifest(args.manifest)['mods']}
+    if args.manifest:
+        folders |= {m['folder'] for m in load_manifest(None)['mods']}
+    return folders
 
 
 def classify(item, root):
