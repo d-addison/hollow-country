@@ -572,8 +572,6 @@ modded class HCModuleRegistry
 // accepting JsonFileLoader zero-fill. The shared verified JSON store owns I/O.
 class HCConflictConfig
 {
-    // Lead reserves this consumer in HCUnitBudget (shared-file edit report).
-    static const int WORK_CONSUMER = 6;
     int Version = 1;
     bool Enabled = true;
     float FarMeters = 1500;
@@ -678,7 +676,7 @@ modded class HCWorldModule
         if (frame == m_ConflictFrame) { return; }
         m_ConflictFrame = frame;
         HCUnitBudget shared = HCServer.HCTickWork();
-        if (!shared.HCTakeFor(HCConflictConfig.WORK_CONSUMER, 1)) { return; }
+        if (!shared.HCTakeFor(HCUnitBudget.HC_WORK_CONFLICT, 1)) { return; }
         int now = HCWorldClock.UTC();
         if (now < m_Data.Meta.Epoch || m_Data.Places.Count() < 1 || m_Data.Factions.Count() < 2) { return; }
         if (m_ConflictPlace >= m_Data.Places.Count()) { m_ConflictPlace = 0; }

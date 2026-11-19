@@ -315,7 +315,8 @@ class SourceWiringTests(unittest.TestCase):
         for name in CONST:
             if name in ("HC_WORK_CONSUMERS", "HC_WORK_UNBOUNDED"):
                 continue
-            self.assertIn("HCTakeFor(HCUnitBudget." + name + ", 1)", sources, name)
+            # Wave 17: bases charge a measured stash cost, so only the id is pinned here.
+            self.assertIn("HCTakeFor(HCUnitBudget." + name + ",", sources, name)
 
     def test_every_consumer_loop_takes_a_unit_from_the_shared_budget(self):
         wiring = {

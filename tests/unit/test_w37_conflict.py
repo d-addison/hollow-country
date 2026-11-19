@@ -100,7 +100,7 @@ class W37WorldBehavior(unittest.TestCase):
                    HCWorldClock=N(UTC=lambda: clock[0], Day=lambda d,t: t//86400),
                    HCRecoveryGate=N(HCReady=lambda store: True),
                    HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer,n: True)),
-                   HCConflictConfig=N(WORK_CONSUMER=6),
+                   HCUnitBudget=N(HC_WORK_CONFLICT=9),
                    HCWorldMaterializer=N(HCDebugGet=lambda: None),
                    HCFactionConflict=N(Cell=lambda p:'0:0', HCReserveDataOutcome=lambda *a:True,
                                        HCTerritoryPending=lambda place:False),
