@@ -60,7 +60,9 @@ def policy():
 def variety():
     return policy_functions("Variety/HCInfectedVarietyPolicy.c", Math=SimpleNamespace(
         Min=min, Max=max, Floor=math.floor, Round=lambda v: math.floor(v + .5),
-        Clamp=lambda v, lo, hi: max(lo, min(hi, v))))
+        Clamp=lambda v, lo, hi: max(lo, min(hi, v))),
+        HCPostureAdmission=SimpleNamespace(HCCanEnter=translate(
+            source(VARIETY.with_name("HCPostureAdmission.c")), "HCCanEnter", {})))
 
 
 class LODTiers(unittest.TestCase):

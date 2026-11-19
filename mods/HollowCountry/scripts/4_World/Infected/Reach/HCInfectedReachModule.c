@@ -96,6 +96,7 @@ class HCInfectedReachModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
+        HCInfectedReachPolicy.HCThreatResetBudget();
         m_States.Clear();
         for (int i = 0; i < SLOTS; i++)
         {
@@ -115,6 +116,7 @@ class HCInfectedReachModule : HCModule
 
     override void OnStop()
     {
+        HCInfectedReachPolicy.HCThreatResetBudget();
         m_Running = false;
         m_States.Clear();
         m_Vehicles.Clear();
@@ -262,6 +264,7 @@ class HCInfectedReachModule : HCModule
             state.VehicleAt = now;
         }
 
+        if (!HCInfectedReachPolicy.HCForcedMovementSupported()) { return; }
         state.OffNavmesh = false;
         if (vertical >= 0.8 && !state.InVehicle)
         {

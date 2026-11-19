@@ -750,6 +750,9 @@ class StartedModule:
             HCNativeVariantAdmission=NS(Check=lambda preference: NS(Preference=preference,
                 HCAdmissionLine=lambda: "[HC test] synthetic native variants; runtime=PENDING")),
             HCInfectedClock=NS(UtcSeconds=lambda: self.clock[0]), HCHordeSweep=SweepFixture,
+            # Synthetic passive vision boundary; integration tests supply the
+            # authored gate with an explicit synthetic marker port.
+            HCInfectedVisionQualification=NS(HCThreatReset=lambda enabled: None, Admitted=lambda: False),
             HCHordeRecovery=NS(Reconcile=lambda *a: False), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
             HCInfectedRoomCatalog=NS(Clear=lambda: None, EnsureProductionLoaded=lambda: False, ConfigureBinding=lambda radius, queries: True, BeginTick=lambda: None), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
             DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4),
@@ -758,13 +761,16 @@ class StartedModule:
         namespace.update(extra)
         return namespace
 
-    def module_function(self, signature):
+    def module_function(self, signature, diag=False):
         original = Path.read_text
 
         def read(path, *args, **kwargs):
             source = original(path, *args, **kwargs)
             if path.name == "HCInfectedModule.c":
-                source = re.sub(r"#ifdef DIAG_DEVELOPER.*?#endif", "", source, flags=re.S)
+                if diag:
+                    source = source.replace("#ifdef DIAG_DEVELOPER", "").replace("#endif", "")
+                else:
+                    source = re.sub(r"#ifdef DIAG_DEVELOPER.*?#endif", "", source, flags=re.S)
                 source = source.replace("string content, error;", 'string content = ""; string error = "";')
                 source = source.replace("GetGame().GetVersion(runtimeBuild);", "runtimeBuild = GetGame().GetVersion();")
                 source = re.sub(r"(?<![.\w])Instance\b", "self.Instance", source)

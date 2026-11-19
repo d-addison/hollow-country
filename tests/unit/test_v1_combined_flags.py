@@ -178,6 +178,10 @@ class CoreFixture:
                        HCSettings=N(LoadFromProfile=self.profile.load),
                        HCModuleRegistry=lambda: self.registry, CALL_CATEGORY_SYSTEM=0,
                        TickCount=lambda prior:0,
+                       # Synthetic passive threat ports; authored admission is
+                       # exercised in test_hc_threat_posture_wiring.
+                       HCInfectedVisionQualification=N(HCThreatReset=lambda enabled: None),
+                       HCInfectedReachPolicy=N(HCThreatSummary=lambda requested: '[HC Plan] HC-47 synthetic'),
                        HCV2Admission=N(Summary=lambda settings: '[HollowCountry] V2 preferences',
                                        OperationalSummary=lambda status: '[HC Plan] HC-1 status',
                                        NonModuleSummary=lambda: '[HC Plan] HC-1 non_modules'))

@@ -86,8 +86,12 @@ class OperationalLifecycleTests(unittest.TestCase):
                  GetCallQueue=lambda category: N(Remove=lambda fn: None, CallLater=lambda *args: None))
         env = dict(GetGame=lambda: game, HCNativeSelfTests=N(Run=lambda: True),
                    HCOperationalContributors=N(HCReset=lambda: None, HCRegisterOwner=lambda name: None, HCReport=lambda: None),
-                   HCSettings=N(LoadFromProfile=lambda: N(TickIntervalMs=1000)),
+                   HCSettings=N(LoadFromProfile=lambda: N(TickIntervalMs=1000, EnableInfected=True)),
                    HCModuleRegistry=lambda: N(RegisterModules=lambda: None, GetModules=lambda: modules),
+                   # Synthetic passive ports; HC-47 integration has its own
+                   # authored-gate tests, independent of HC-1 cached receipts.
+                   HCInfectedVisionQualification=N(HCThreatReset=lambda enabled: None),
+                   HCInfectedReachPolicy=N(HCThreatSummary=lambda requested: '[HC Plan] HC-47 synthetic'),
                    Print=logs.append, CALL_CATEGORY_SYSTEM=0)
         admission_source = ADMISSION.read_text().replace('HCOperational', 'HCEventOperational')
         admission = N(Summary=lambda settings: 'synthetic preferences')

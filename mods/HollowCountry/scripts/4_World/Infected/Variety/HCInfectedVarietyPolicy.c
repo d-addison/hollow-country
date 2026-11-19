@@ -27,6 +27,7 @@ class HCInfectedVarietyPolicy
     // Per-tier posed sub-budgets: near players (full AI tier) or middle range.
     static bool PosedRoom(bool nearPlayers, int fullPosed, int idlePosed, int fullBudget, int idleBudget)
     {
+        if (!HCPostureAdmission.HCCanEnter("native_crawler_idle")) { return false; }
         if (nearPlayers) { return fullPosed < fullBudget; }
         return idlePosed < idleBudget;
     }
