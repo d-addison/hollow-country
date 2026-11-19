@@ -56,6 +56,8 @@ class HCSettings
     bool EnableForage = true;
     bool EnableProgression = true;
     bool EnableGroupScaling = true;
+    // Optional: JsonFileLoader absent ints are 0; progression resolves 0 to 128.
+    int MaxFamiliarityRows;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
     int MaxActiveHordes = 2;
@@ -78,6 +80,7 @@ class HCSettings
         HCAILimits.Use(AILimits);
         error = "";
         if (SchemaVersion != 1) error = "Unsupported settings schema";
+        else if (MaxFamiliarityRows < 0 || MaxFamiliarityRows > 128) error = "Familiarity row budget outside 0..128";
         else if (TickIntervalMs < 500 || TickIntervalMs > 10000) error = "Tick interval outside 500..10000 ms";
         else if (MaxTickWorkItems < 1 || MaxTickWorkItems > 256) error = "Work budget outside 1..256";
         else if (MaxActiveHordes < 1 || MaxActiveHordes > 8) error = "Horde budget outside 1..8";

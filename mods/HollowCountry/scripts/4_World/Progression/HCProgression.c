@@ -7,7 +7,8 @@
 // Persistence-ID allocation/stability across reconnect/restart remains PENDING.
 // Shared budget/scheduler evidence: Core/HCUnitBudget.c, World/HCWorkBudget.c.
 // W5 #130 forage familiarity. Tick bound: decay <=4 of <=128 records with a
-// cursor, no player scan; one <=65536-byte save at most every 300 seconds.
+// cursor, no routine player scan; routine <=65536-byte checkpoints wait >=60s.
+// Death/Stop are durability barriers. Legacy migration inspects <=16 players.
 // Pickup callbacks look up <=128 records; one gain/player/60s, score <=100.
 // Off: no store, arrays, callbacks or ticks. No entity persistence additions.
 // Installed scripts-1.30.164289 evidence:
@@ -50,11 +51,13 @@ class HCProgressionSaveJob : HCSaveJob
 class HCProgressionModule : HCModule
 {
     static const string PATH = "$profile:HollowCountry/progression.json";
+    static const string LEGACY_PATH = "$profile:HollowCountry/progression.v1.json";
     protected static HCProgressionModule s_HCInstance;
     protected ref HCProgressionState m_State;
     protected bool m_Healthy;
     protected bool m_Dirty;
     protected int m_Cursor;
+    protected int m_RowCap = 128;
     protected int m_SaveUtc;
     protected int m_Revision;
     protected int m_SnapshotRevision;
@@ -78,7 +81,7 @@ class HCProgressionModule : HCModule
     {
         int records = 0;
         if (m_State && m_State.Players) { records = m_State.Players.Count(); }
-        Print("[HC Plan] HC-13 familiarity_scope=character-life state=" + state + " reason=" + reason + " records=" + records.ToString() + " cap=128 runtime=PENDING");
+        Print("[HC Plan] HC-13 familiarity_scope=character-life state=" + state + " reason=" + reason + " records=" + records.ToString() + " cap=" + m_RowCap.ToString() + " runtime=PENDING");
     }
 
     protected void HCIdentityRefusal()
@@ -99,20 +102,70 @@ class HCProgressionModule : HCModule
         HCChanged();
     }
 
+    // Only a server-observed living account with an allocated native ID can
+    // carry a legacy score forward. Unknown/corpse IDs never share a row.
+    protected string HCLegacyCharacterKey(string key)
+    {
+        array<Man> players = HCPerfPlayers.HCGet();
+        if (!players || players.Count() > 16) { return ""; }
+        foreach (Man observed : players)
+        {
+            PlayerBase player = PlayerBase.Cast(observed);
+            if (!player || !player.IsAlive()) { continue; }
+            if (HCSurvivalRuntime.HCIdentityKey(player) != key) { continue; }
+            string characterKey = HCSurvivalRuntime.HCCharacterKey(player);
+            if (characterKey == "") { HCIdentityRefusal(); }
+            return characterKey;
+        }
+        return "";
+    }
+
     protected bool HCMigrate(int now)
     {
         if (!m_State) { return false; }
         if (m_State.Version == 2) { return true; }
         if (m_State.Version != 1) { return false; }
-        // Caller validates the complete legacy image before migration. No
-        // account-wide reward is evidence of the current character's life.
+        // Preserve the validated v1 image before touching any row. An existing
+        // archive is operator-owned evidence: never overwrite it on retry.
+        if (FileExist(LEGACY_PATH)) { return false; }
+        if (!HCV2ThreatStore<HCProgressionState>.CanOpen(LEGACY_PATH)) { return false; }
+        if (!HCV2ThreatStore<HCProgressionState>.Save(LEGACY_PATH, m_State, 65536)) { return false; }
+        HCProgressionState migrated = new HCProgressionState;
+        int dropped = 0;
         foreach (HCProgressionRow row : m_State.Players)
         {
-            HCResetLife(row, "", false, now);
+            string characterKey = HCLegacyCharacterKey(row.Key);
+            if (characterKey == "") { dropped = dropped + 1; continue; }
+            row.CharacterKey = characterKey;
+            row.Dead = false;
+            migrated.Players.Insert(row);
         }
-        m_State.Version = 2;
+        m_State = migrated;
         HCChanged();
+        Print("[HC Plan] HC-13 legacy rows_dropped=" + dropped.ToString() + " rows_mapped=" + m_State.Players.Count().ToString() + " archive=progression.v1.json runtime=PENDING");
         return true;
+    }
+
+    // Oldest last gain (or life reset for zero-gain/dead rows) leaves first.
+    // Physical store limit is 128, so each eviction scans <=128 rows.
+    protected void HCPruneRows(int limit)
+    {
+        while (m_State.Players.Count() > limit)
+        {
+            int oldest = 0;
+            int oldestUtc = 2146000001;
+            for (int rowIndex = 0; rowIndex < m_State.Players.Count(); rowIndex++)
+            {
+                HCProgressionRow row = m_State.Players[rowIndex];
+                int activity = row.GainUtc;
+                if (activity == 0) { activity = row.DecayUtc; }
+                if (activity < oldestUtc) { oldest = rowIndex; oldestUtc = activity; }
+            }
+            m_State.Players.RemoveOrdered(oldest);
+            if (oldest < m_Cursor) { m_Cursor = m_Cursor - 1; }
+            if (m_Cursor >= m_State.Players.Count()) { m_Cursor = 0; }
+            HCChanged();
+        }
     }
 
     override string GetName() { return "Progression"; }
@@ -167,6 +220,14 @@ class HCProgressionModule : HCModule
 
     override void OnStart(HCSettings settings)
     {
+        m_IdentityRefused = false;
+        m_RowCap = 128;
+        if (settings.MaxFamiliarityRows > 0) { m_RowCap = settings.MaxFamiliarityRows; }
+        m_Cursor = 0;
+        m_SaveStage = 0;
+        m_Revision = 0;
+        m_SnapshotRevision = 0;
+        m_Dirty = false;
         Print(HCV2Admission.Line("Progression", settings.EnableProgression, "W5-130", false));
         if (!settings.EnableProgression || !HCSurvivalRuntime.HCIsServer())
         {
@@ -188,7 +249,8 @@ class HCProgressionModule : HCModule
         }
         if (!HCValidState(now)) { HCFail(); return; }
         if (!HCMigrate(now)) { HCFail(); return; }
-        // Migration cannot publish old account rewards before its reset is durable.
+        HCPruneRows(m_RowCap);
+        // Migration/pruning cannot publish changes before the image is durable.
         if (m_Dirty)
         {
             if (!HCV2ThreatStore<HCProgressionState>.Save(PATH, m_State, 65536)) { HCFail(); return; }
@@ -238,7 +300,7 @@ class HCProgressionModule : HCModule
         }
         if (!found)
         {
-            if (!HCWorldLimits.Admit(m_State.Players.Count(), 128, "ProgressionPlayers")) { return 0; }
+            HCPruneRows(m_RowCap - 1);
             found = new HCProgressionRow;
             found.Key = key;
             found.DecayUtc = now;
@@ -352,7 +414,7 @@ class HCProgressionModule : HCModule
             if (row.DecayUtc > now || row.GainUtc > now) { HCFail(); return; }
             HCDecay(row, now);
         }
-        if (m_Dirty && now - m_SaveUtc >= 300) { m_SaveJob.HCDirty = true; }
+        if (m_Dirty && now - m_SaveUtc >= 60) { m_SaveJob.HCDirty = true; }
     }
 
     override void OnStop()
