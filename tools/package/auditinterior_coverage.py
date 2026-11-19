@@ -1,7 +1,7 @@
 """Measured-pack coverage report for the interior template pack (audit #199 / #197).
 
     python3 tools/package/interiors_profile.py coverage --proto mapgroupproto.xml --pos mapgrouppos.xml \
-        [--census census.json ...] [--json]
+        [--census census.json ...] [--census-dir RUN_DIR ...] [--batch-plan batch-plan.json] [--json]
 
 Unmeasured rooms retain a native clearance queue; the builder can admit search-only defaults at vanilla
 CE points using native House bounds. This report states, from the stock XML and the census files
@@ -11,6 +11,7 @@ still needed. It reuses the builder's own census admission (interior_templates.l
 disagree with `templates build`. It reads inputs only and writes nothing. It never shows how DayZ lays out,
 renders or spawns an interior; runtime acceptance of every interior stays pending.
 """
+import json
 from pathlib import Path
 import sys
 
@@ -66,6 +67,85 @@ def classify_census(label, data):
     return verdict
 
 
+def census_inputs(paths=(), directories=()):
+    """Discover sampler layouts once; directory inputs require the completion sentinel.
+
+    Preserve the original bytes/run ids for the builder rather than inventing a combined
+    native run. Labels contain runtime leaf names only, never operator profile paths.
+    Explicit --census retains its historical admission rules.
+    """
+    candidates = {}
+    for path in paths:
+        path = Path(path)
+        candidates.setdefault(path.resolve(), [path, False])
+    for directory in directories:
+        directory = Path(directory)
+        if not directory.is_dir():
+            raise ValueError("census directory not found: " + directory.name)
+        for path in sampler._census_files(directory):
+            key = path.resolve()
+            candidates.setdefault(key, [path, True])[1] = True
+    if len(candidates) > sampler.MAX_CENSUS_FILES:
+        raise ValueError("too many census files")
+    inputs, rejected = [], []
+    for path, needs_sentinel in candidates.values():
+        root = path.parent
+        if root.name == sampler.PROFILE_DIRECTORY:
+            root = root.parent.parent if root.parent.name == "profiles" else root.parent
+        label = root.name + "_" + path.name
+        if needs_sentinel and not (path.parent / sampler.SENTINEL_NAME).is_file():
+            rejected.append({"label": label, "reason": "no_sentinel"})
+            continue
+        try:
+            data = tpl._read(path, tpl.pts.MAX_CENSUS_BYTES)
+        except (ValueError, OSError):
+            rejected.append({"label": label, "reason": "unreadable"})
+            continue
+        inputs.append((label, data))
+    return inputs, rejected
+
+
+def batch_progress(path, accepted):
+    """Match admitted native ids to validated deterministic batch runs."""
+    document = json.loads(tpl._read(path, sampler.MAX_BATCH_PLAN_BYTES))
+    if not isinstance(document, dict) or document.get("kind") != sampler.BATCH_PLAN_KIND:
+        raise ValueError("not an interior sampler batch plan")
+    runs = document.get("runs")
+    if not isinstance(runs, list) or len(runs) > sampler.MAX_BATCH_CLASSES:
+        raise ValueError("invalid batch plan runs")
+    indices, ids, done, missing = set(), set(), [], []
+    admitted = {row["run"] for row in accepted}
+    for run in runs:
+        sampler._checked_run(run)
+        index, run_id = run["index"], run["native_run_id"]
+        if index in indices or run_id in ids:
+            raise ValueError("duplicate batch run index or native_run_id")
+        indices.add(index)
+        ids.add(run_id)
+        (done if run_id in admitted else missing).append(index)
+    return {"runs": len(runs), "done": sorted(done), "missing": sorted(missing),
+            "unplanned": sorted(admitted - ids)}
+
+
+def coverage_inputs(proto, pos, paths=(), directories=(), batch_plan=None):
+    """Shared admission for coverage and templates build; return report and accepted bytes."""
+    inputs, rejected = census_inputs(paths, directories)
+    report = coverage(proto, pos, inputs)
+    report["rejected"].extend(rejected)
+    report["census_rejected"] = len(report["rejected"])
+    # coverage() admits in input order, including cross-run House consistency.
+    admitted = {row["run"] for row in report["accepted"]}
+    selected, seen = [], set()
+    for label, data in inputs:
+        verdict = classify_census(label, data)
+        if verdict["accepted"] and verdict["run"] in admitted and verdict["run"] not in seen:
+            selected.append(data)
+            seen.add(verdict["run"])
+    if batch_plan is not None:
+        report["batch_plan"] = batch_progress(batch_plan, report["accepted"])
+    return report, selected
+
+
 def _stock_positions(pos_bytes):
     placed = {}
     for name, position, _yaw in tpl.parse_pos(pos_bytes):
@@ -85,11 +165,18 @@ def coverage(proto_bytes, pos_bytes, censuses, per_class=1, run_size=sampler.MAX
     queue = [name for name in stock if placed.get(name)]
     unplaced = [name for name in stock if not placed.get(name)]
     accepted, rejected, runs, measured = [], [], set(), set()
+    admitted_bytes = []
     for label, data in censuses:
         verdict = classify_census(label, data)
         if verdict["accepted"] and verdict["run"] in runs:
             verdict.update(accepted=False, reason="duplicate_run")
         if verdict["accepted"]:
+            try:
+                tpl.load_censuses(admitted_bytes + [data], proto_bytes)
+            except (ValueError, KeyError, TypeError, AttributeError):
+                verdict.update(accepted=False, reason="conflicting_house_config")
+        if verdict["accepted"]:
+            admitted_bytes.append(data)
             runs.add(verdict["run"])
             measured.update(verdict["measured"])
             accepted.append(verdict)
@@ -123,6 +210,12 @@ def lines(report):
            % (report["state"], report["stock_classes"], report["placed_classes"], report["measured_classes"],
               report["unmeasured_classes"], report["survey_runs_needed"], report["census_accepted"],
               report["census_rejected"])]
+    if "batch_plan" in report:
+        batch = report["batch_plan"]
+        out.append("[HC Interiors] batch plan runs=%d done=%s missing=%s runtime=PENDING"
+                   % (batch["runs"], json.dumps(batch["done"]), json.dumps(batch["missing"])))
+        if batch["unplanned"]:
+            out.append("accepted runs outside batch plan: " + ",".join(batch["unplanned"]))
     for row in report["rejected"]:
         out.append("rejected %s: %s" % (row["label"], row["reason"]))
     for row in report["accepted"]:

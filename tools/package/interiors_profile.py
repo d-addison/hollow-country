@@ -1552,11 +1552,15 @@ def main(argv=None):
     p.add_argument('--proto', type=Path, required=True)
     p.add_argument('--pos', type=Path, required=True)
     p.add_argument('--census', type=Path, action='append', default=[])
+    p.add_argument('--census-dir', type=Path, action='append', default=[], help='sampler run directory (repeatable; requires complete.txt)')
+    p.add_argument('--batch-plan', type=Path, help='report completed and missing batch run indices')
     p.add_argument('--json', action='store_true', help='print one JSON object instead of lines')
     p = sub.add_parser('templates', help='assemble, validate and manage the additive class template pack')
     commands = p.add_subparsers(dest='templates_command', required=True)
     entry = commands.add_parser('build', help='build observed House rows and audit excluded stock classes; census is optional')
     entry.add_argument('--census', type=Path, action='append', default=[])
+    entry.add_argument('--census-dir', type=Path, action='append', default=[], help='merge completed sampler runs (repeatable)')
+    entry.add_argument('--batch-plan', type=Path, help='require every planned run to be admitted before building')
     entry.add_argument('--proto', type=Path, required=True)
     entry.add_argument('--pos', type=Path, required=True)
     entry.add_argument('--types', type=Path, help='stock types.xml; required to emit search sites')
@@ -1584,19 +1588,24 @@ def main(argv=None):
         if args.command == 'coverage':
             from tools.package import auditinterior_coverage as coverage
             from tools.package import interior_templates as tpl
-            report = coverage.coverage(tpl._read(args.proto, tpl.pts.MAX_STOCK_BYTES),
-                                       tpl._read(args.pos, tpl.pts.MAX_STOCK_BYTES),
-                                       [(p.parent.name + '_' + p.name, tpl._read(p, tpl.pts.MAX_CENSUS_BYTES)) for p in args.census])
+            report, _ = coverage.coverage_inputs(tpl._read(args.proto, tpl.pts.MAX_STOCK_BYTES),
+                                                 tpl._read(args.pos, tpl.pts.MAX_STOCK_BYTES),
+                                                 args.census, args.census_dir, args.batch_plan)
             print(json.dumps(report, sort_keys=True) if args.json else '\n'.join(coverage.lines(report)))
             return
         if args.command == 'templates':
             if args.templates_command == 'build':
                 from tools.package import interior_templates as tpl
-                out = tpl._output_dir(args.out)
-                built = templates_build([tpl._read(p, tpl.pts.MAX_CENSUS_BYTES) for p in args.census],
-                                        tpl._read(args.proto, tpl.pts.MAX_STOCK_BYTES),
-                                        tpl._read(args.pos, tpl.pts.MAX_STOCK_BYTES),
+                from tools.package import auditinterior_coverage as coverage
+                proto = tpl._read(args.proto, tpl.pts.MAX_STOCK_BYTES)
+                pos = tpl._read(args.pos, tpl.pts.MAX_STOCK_BYTES)
+                report, censuses = coverage.coverage_inputs(proto, pos, args.census, args.census_dir, args.batch_plan)
+                require(not report['rejected'], 'census inputs rejected; inspect coverage before building')
+                if args.batch_plan:
+                    require(not report['batch_plan']['missing'], 'batch plan has missing runs; inspect coverage')
+                built = templates_build(censuses, proto, pos,
                                         tpl._read(args.types, tpl.pts.MAX_STOCK_BYTES) if args.types else None)
+                out = tpl._output_dir(args.out)
                 tpl._write(out, built)
                 print('\n'.join(tpl.summary_lines(built.summary, built.manifest['PackId'])))
             elif args.templates_command == 'assemble':
