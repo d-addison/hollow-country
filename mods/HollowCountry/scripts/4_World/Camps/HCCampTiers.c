@@ -14,7 +14,10 @@ class HCCampTiers
 
     static int Evaluate(bool hearth, bool shelter, bool storage, bool flag, bool food, bool kitchen, int walls, int lights, bool radio)
     {
-        if (!hearth || !shelter || !storage) { return 0; }
+        if (!storage) { return 0; }
+        // Native stash recognition needs neither construction nor a hearth.
+        // Higher legacy tiers retain their established shelter/fire checks.
+        if (!hearth || !shelter) { return 1; }
         // HC-17: legacy visit classification only; no wall/flag progression.
         // Explicit building claims never write tiers or admit new respawns.
         if (!food || !kitchen) { return 1; }

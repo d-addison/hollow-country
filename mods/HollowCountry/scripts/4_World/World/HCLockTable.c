@@ -19,6 +19,8 @@ class HCLockTable
 
     static bool StorageType(ItemBase container)
     {
+        if (!container) { return false; }
+        if (container.IsKindOf("SeaChest") || container.IsKindOf("Barrel_ColorBase")) { return true; }
         if (container.IsKindOf("TentBase")) { return true; }
         if (container.IsKindOf("Fence")) { return true; }
         return container.GetType() == "WoodenCrate";
