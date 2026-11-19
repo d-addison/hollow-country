@@ -46,7 +46,7 @@ SOURCE = lts.ROOT / 'mission/hollow-country'
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
-                'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'firearms_roster.json',
+                'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json',
                 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'

@@ -60,7 +60,7 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'events/transit-situations.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
-                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
+                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json', 'loot-points/floor-policy.json',
                  # HC-14 infected variety policy read by tools/package/infected_variety.py install/rollback.
                  'infected/variants.json',
                  # HC-33 authored forage route dispositions (native generator stays in charge).
@@ -290,7 +290,7 @@ def handoff(addon, mission, release=False):
             raise ValueError(f'mission handoff file outside allowlist: {name}')
         files['mission/hollow-country/' + name] = path.read_bytes()
     # Only these authored helpers, never arbitrary repository or build outputs.
-    for name in ('travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'loot_boost.py', 'firearms_roster.json', 'README.md'):
+    for name in ('travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json', 'README.md'):
         path = Path(__file__).with_name(name)
         if path.is_file():
             files['tools/package/' + name] = path.read_bytes()
@@ -334,7 +334,7 @@ def verify_handoff(blob):
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
             helper_names = {'travel.py', 'optional_overlays.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
-                            'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'rag_optional.py', 'loot_boost.py',
+                            'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'rag_optional.py', 'loot_boost.py', 'loot_floor_policy.py',
                             'firearms_roster.json', 'README.md'}
             for name, expected in manifest['files'].items():
                 if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp', 'docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'}
