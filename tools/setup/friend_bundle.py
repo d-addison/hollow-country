@@ -68,6 +68,7 @@ PROFILE_INCLUDE = (
     'HollowCountry/expansion-ai.json',
     'HollowCountry/expansion-ai-sites.json',
     'HollowCountry/expansion-ai-localities.json',
+    'HollowCountry/expansion-ai-tactics.json',
     'HollowCountry/Ecology/settings.json',
     'HollowCountry/Events/settings.json',
     'HollowCountry/Groups/settings.json',
@@ -221,6 +222,8 @@ PROFILE_SOURCES = {
     'HollowCountry/expansion-ai-localities.json': (
         'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-localities.json',
         'mission/hollow-country/ai/localities.json'),
+    'HollowCountry/expansion-ai-tactics.json': (
+        'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-tactics.json',),
 }
 
 

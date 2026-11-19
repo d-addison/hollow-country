@@ -249,6 +249,26 @@
             "InventoryCargo": [],
             "ConstructionPartsBuilt": [],
             "Sets": []
+        },
+        {
+            "ClassName": "M18SmokeGrenade_White",
+            "Include": "",
+            "Chance": 0.25,
+            "Quantity": {
+                "Min": 0.0,
+                "Max": 0.0
+            },
+            "Health": [
+                {
+                    "Min": 0.6,
+                    "Max": 0.9,
+                    "Zone": ""
+                }
+            ],
+            "InventoryAttachments": [],
+            "InventoryCargo": [],
+            "ConstructionPartsBuilt": [],
+            "Sets": []
         }
     ],
     "ConstructionPartsBuilt": [],

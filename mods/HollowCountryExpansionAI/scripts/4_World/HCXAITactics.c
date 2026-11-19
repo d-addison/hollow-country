@@ -33,6 +33,7 @@ class HCXAITacticsPolicy
     static const int TARGET_SCAN_MAX = 16;
     static const int MEMBER_SCAN_MAX = 16;
     static const int SCAN_TIMEOUT_MS = 30000;
+    static const int BACKOFF_MAX = 32;
 
     // Zero-filled (missing) and out-of-range values fall back to the default.
     static int ClampInt(int value, int fallback, int lo, int hi)
@@ -146,6 +147,52 @@ class HCXAITacticsPolicy
         if (tries >= maxTries) { return "give_up"; }
         return "activate";
     }
+
+    // thrown: the native throw call went out; dropped: its preconditions refused
+    // and the real item was put on the ground instead; failed: neither moved the
+    // item, so nothing is queued and no use is counted.
+    static string ThrowOutcome(string refusal, bool dropped)
+    {
+        if (refusal == "") { return "thrown"; }
+        if (dropped) { return "dropped"; }
+        return "failed";
+    }
+
+    // What one pending entry needs next. step is ActivateStep's verdict; landed is
+    // true once the lure landing delay has passed.
+    // remove_lost: counted lost and named; remove_activated: smoke is live;
+    // activate_smoke: pull the pin now; noise_remove: emit the one lure noise.
+    static string PendingAction(bool gone, bool smoke, string step, bool landed)
+    {
+        if (gone)
+        {
+            if (smoke) { return "remove_lost"; }
+            return "remove";
+        }
+        if (step == "give_up") { return "remove_lost"; }
+        if (step == "done")
+        {
+            if (smoke) { return "remove_activated"; }
+            return "remove";
+        }
+        if (step == "activate")
+        {
+            if (smoke) { return "activate_smoke"; }
+            if (landed) { return "noise_remove"; }
+        }
+        return "keep";
+    }
+
+    // Per-actor stock backoff: an empty scan blocks only that member.
+    static bool BackedOff(int nowMs, int untilMs)
+    {
+        return untilMs > 0 && nowMs < untilMs;
+    }
+
+    static int BackoffUntil(int nowMs, int cooldownMs)
+    {
+        return nowMs + cooldownMs;
+    }
 }
 
 class HCXAITacticsConfig
@@ -236,10 +283,17 @@ class HCXTacticsGroup
     int SmokeUses;
     int LureLast;
     int LureUses;
-    int SmokeStockUntil;
-    int LureStockUntil;
     int FireNext;
     ref array<int> Fire = new array<int>;
+}
+
+// Per-actor stock backoff (bounded by HCXAITacticsPolicy.BACKOFF_MAX): a member
+// without smoke or a noisy item never blocks a mate who carries one.
+class HCXTacticsBackoff
+{
+    eAIBase Actor;
+    int SmokeUntil;
+    int LureUntil;
 }
 
 class HCXTacticsPending
@@ -281,6 +335,7 @@ class HCXAITactics
     protected static ref HCXAITacticsConfig s_Config;
     protected static ref array<ref HCXTacticsGroup> s_Groups = new array<ref HCXTacticsGroup>;
     protected static ref array<ref HCXTacticsPending> s_Pending = new array<ref HCXTacticsPending>;
+    protected static ref array<ref HCXTacticsBackoff> s_Backoff = new array<ref HCXTacticsBackoff>;
     protected static ref HCXTacticsScan s_Scan;
     protected static ref HCXTacticsView s_View = new HCXTacticsView;
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
@@ -329,7 +384,24 @@ class HCXAITactics
     // then stays off and says so on its single admission line.
     static bool OperatorOff(HCXAITacticsConfig config)
     {
-        return !HCXAITacticsPolicy.Allowed(config.Disabled, false);
+        bool markerOff = FileExist("$profile:HollowCountry/acceptance/ai_tactics.disable");
+        return !HCXAITacticsPolicy.Allowed(config.Disabled, markerOff);
+    }
+
+    // This actor's own backoff entry, created on first use; the oldest entry goes at the bound.
+    protected static HCXTacticsBackoff Backoff(eAIBase actor)
+    {
+        for (int index = s_Backoff.Count() - 1; index >= 0; index--)
+        {
+            HCXTacticsBackoff known = s_Backoff.Get(index);
+            if (!known || !known.Actor) { s_Backoff.RemoveOrdered(index); continue; }
+            if (known.Actor == actor) { return known; }
+        }
+        if (HCXAITacticsPolicy.TrackedFull(s_Backoff.Count(), HCXAITacticsPolicy.BACKOFF_MAX)) { s_Backoff.RemoveOrdered(0); }
+        HCXTacticsBackoff created = new HCXTacticsBackoff();
+        created.Actor = actor;
+        s_Backoff.Insert(created);
+        return created;
     }
 
     static void Start(HCXAITacticsConfig config)
@@ -337,6 +409,7 @@ class HCXAITactics
         s_Config = config;
         s_Groups.Clear();
         s_Pending.Clear();
+        s_Backoff.Clear();
         s_Scan = null;
         s_ScanGroup = null;
         s_ScanActor = null;
@@ -353,6 +426,7 @@ class HCXAITactics
         s_Running = false;
         s_Groups.Clear();
         s_Pending.Clear();
+        s_Backoff.Clear();
         s_Scan = null;
         s_ScanGroup = null;
         s_ScanActor = null;
@@ -501,8 +575,9 @@ class HCXAITactics
         bool lureOn = HCXAITacticsPolicy.Allowed(s_Config.Disabled, s_Config.LureDisabled);
         string smokeGate = HCXAITacticsPolicy.Gate(nowMs, rec.SmokeLast, s_Config.SmokeCooldownSec * 1000, rec.SmokeUses, s_Config.SmokeGroupCap);
         string lureGate = HCXAITacticsPolicy.Gate(nowMs, rec.LureLast, s_Config.LureCooldownSec * 1000, rec.LureUses, s_Config.LureGroupCap);
-        if (smokeGate != "" || nowMs < rec.SmokeStockUntil) { smokeOn = false; s_Throttled++; }
-        if (lureGate != "" || nowMs < rec.LureStockUntil) { lureOn = false; s_Throttled++; }
+        HCXTacticsBackoff own = HCXAITactics.Backoff(actor);
+        if (smokeGate != "" || HCXAITacticsPolicy.BackedOff(nowMs, own.SmokeUntil)) { smokeOn = false; s_Throttled++; }
+        if (lureGate != "" || HCXAITacticsPolicy.BackedOff(nowMs, own.LureUntil)) { lureOn = false; s_Throttled++; }
         if (!smokeOn && !lureOn) { return; }
         HCXAITactics.Perceive(actor);
         if (smokeOn)
@@ -534,16 +609,20 @@ class HCXAITactics
         vector landing = here + heading.Normalized() * reach;
         float force = HCXAITacticsPolicy.ThrowForce(reach, s_Config.SmokeThrowMeters, s_Config.ThrowForceMin, s_Config.ThrowForceMax);
         string refusal = HCXAIThrowables.Throw(actor, item, landing, force, s_Config.ThrowLiftPct);
+        bool dropped = false;
         if (refusal != "")
         {
             HCXAITactics.HCRefuse(refusal);
-            if (!HCXAIThrowables.Drop(actor, item))
-            {
-                HCXAITactics.HCRefuse("drop_refused");
-                return;
-            }
-            s_Dropped++;
+            dropped = HCXAIThrowables.Drop(actor, item);
         }
+        string outcome = HCXAITacticsPolicy.ThrowOutcome(refusal, dropped);
+        if (outcome == "failed")
+        {
+            HCXAITactics.HCRefuse("drop_refused");
+            HCXAITactics.Backoff(actor).SmokeUntil = HCXAITacticsPolicy.BackoffUntil(nowMs, s_Config.SmokeCooldownSec * 1000);
+            return;
+        }
+        if (outcome == "dropped") { s_Dropped++; }
         rec.SmokeLast = nowMs;
         rec.SmokeUses++;
         s_SmokeThrown++;
@@ -567,6 +646,7 @@ class HCXAITactics
         if (refusal != "")
         {
             HCXAITactics.HCRefuse(refusal);
+            HCXAITactics.Backoff(actor).LureUntil = HCXAITacticsPolicy.BackoffUntil(nowMs, s_Config.LureCooldownSec * 1000);
             return;
         }
         rec.LureLast = nowMs;
@@ -604,14 +684,15 @@ class HCXAITactics
             return;
         }
         if (!s_Scan.Complete) { return; }
+        HCXTacticsBackoff own = HCXAITactics.Backoff(s_ScanActor);
         if (s_ScanSmoke)
         {
-            s_ScanGroup.SmokeStockUntil = nowMs + s_Config.SmokeCooldownSec * 1000;
+            own.SmokeUntil = HCXAITacticsPolicy.BackoffUntil(nowMs, s_Config.SmokeCooldownSec * 1000);
             HCXAITactics.HCRefuse("no_smoke_stock");
         }
         else
         {
-            s_ScanGroup.LureStockUntil = nowMs + s_Config.LureCooldownSec * 1000;
+            own.LureUntil = HCXAITacticsPolicy.BackoffUntil(nowMs, s_Config.LureCooldownSec * 1000);
             HCXAITactics.HCRefuse("no_noisy_item");
         }
         HCXAITactics.EndScan();
@@ -625,40 +706,38 @@ class HCXAITactics
         while (index < s_Pending.Count() && s_Budget.HCContinue())
         {
             HCXTacticsPending pending = s_Pending.Get(index);
-            bool remove = false;
-            if (!pending || !pending.Item || pending.Item.IsPendingDeletion())
+            bool gone = !pending || !pending.Item || pending.Item.IsPendingDeletion();
+            bool smoke = false;
+            string step = "wait";
+            bool landed = false;
+            if (!gone)
             {
-                remove = true;
-                if (pending && pending.Smoke) { s_Lost++; }
-            }
-            else
-            {
+                smoke = pending.Smoke;
                 bool pinned = true;
                 int maxTries = 1;
-                if (pending.Smoke)
+                if (smoke)
                 {
                     pinned = HCXAIThrowables.Pinned(pending.Item);
                     maxTries = s_Config.SmokeActivationTries;
                 }
-                string step = HCXAITacticsPolicy.ActivateStep(HCXAIThrowables.Held(pending.Item), pinned, pending.Tries, maxTries, nowMs - pending.Since, s_Config.ActivateWaitSec * 1000);
-                if (step == "done" && pending.Smoke) { s_SmokeActivated++; }
-                if (step == "done" || step == "give_up") { remove = true; }
-                if (step == "give_up")
-                {
-                    s_Lost++;
-                    HCXAITactics.HCRefuse("throw_not_observed");
-                }
-                if (step == "activate")
-                {
-                    if (pending.Smoke) { pending.Tries++; HCXAIThrowables.ActivateSmoke(pending.Item); }
-                    else if (nowMs >= pending.LandAt)
-                    {
-                        if (HCXAIThrowables.Noise(pending.Item, s_Config.LureNoisePath, s_Config.LureNoiseMultPct)) { s_LureNoises++; }
-                        remove = true;
-                    }
-                }
+                step = HCXAITacticsPolicy.ActivateStep(HCXAIThrowables.Held(pending.Item), pinned, pending.Tries, maxTries, nowMs - pending.Since, s_Config.ActivateWaitSec * 1000);
+                landed = nowMs >= pending.LandAt;
             }
-            if (remove) { s_Pending.RemoveOrdered(index); }
+            else if (pending) { smoke = pending.Smoke; }
+            string action = HCXAITacticsPolicy.PendingAction(gone, smoke, step, landed);
+            if (action == "remove_lost")
+            {
+                s_Lost++;
+                if (!gone) { HCXAITactics.HCRefuse("throw_not_observed"); }
+            }
+            if (action == "remove_activated") { s_SmokeActivated++; }
+            if (action == "activate_smoke")
+            {
+                pending.Tries++;
+                HCXAIThrowables.ActivateSmoke(pending.Item);
+            }
+            if (action == "noise_remove" && HCXAIThrowables.Noise(pending.Item, s_Config.LureNoisePath, s_Config.LureNoiseMultPct)) { s_LureNoises++; }
+            if (action.Contains("remove")) { s_Pending.RemoveOrdered(index); }
             else { index++; }
         }
     }
@@ -709,7 +788,11 @@ class HCXAITactics
         {
             s_SummaryAfter = tickNow + 60;
             s_Logged = signature;
-            Print("[HCX Tactics] groups=" + s_Groups.Count().ToString() + "/" + s_Config.TrackedGroups.ToString() + " fire_events=" + s_FireEvents.ToString() + " smoke_thrown=" + s_SmokeThrown.ToString() + " smoke_activated=" + s_SmokeActivated.ToString() + " smoke_dropped=" + s_Dropped.ToString() + " lure_thrown=" + s_LureThrown.ToString() + " lure_noises=" + s_LureNoises.ToString() + " lost=" + s_Lost.ToString() + " refused=" + s_Refused.ToString() + " throttled=" + s_Throttled.ToString() + " deferred=" + s_Deferred.ToString() + " pending=" + s_Pending.Count().ToString());
+            string summary = "[HCX Tactics] groups=" + s_Groups.Count().ToString() + "/" + s_Config.TrackedGroups.ToString() + " fire_events=" + s_FireEvents.ToString();
+            summary = summary + " smoke_thrown=" + s_SmokeThrown.ToString() + " smoke_activated=" + s_SmokeActivated.ToString() + " smoke_dropped=" + s_Dropped.ToString();
+            summary = summary + " lure_thrown=" + s_LureThrown.ToString() + " lure_noises=" + s_LureNoises.ToString() + " lost=" + s_Lost.ToString();
+            summary = summary + " refused=" + s_Refused.ToString() + " throttled=" + s_Throttled.ToString() + " deferred=" + s_Deferred.ToString() + " pending=" + s_Pending.Count().ToString();
+            Print("" + summary);
         }
     }
 }
@@ -743,11 +826,16 @@ class HCXAITacticsModule : HCModule
         Print(HCV2Admission.Line("AITactics", !off, "S2-TACTICS", false));
         if (off)
         {
-            Print("[HCX Tactics] off: operator opt-out (Disabled in expansion-ai-tactics.json); runtime=PENDING");
+            Print("[HCX Tactics] off: operator opt-out (Disabled in expansion-ai-tactics.json or acceptance/ai_tactics.disable); runtime=PENDING");
             return;
         }
         HCXAITactics.Start(config);
-        Print("[HCX Tactics] started smoke=" + HCV2Admission.OnOff(!config.SmokeDisabled) + " lure=" + HCV2Admission.OnOff(!config.LureDisabled) + " cooldown smoke=" + config.SmokeCooldownSec.ToString() + "s lure=" + config.LureCooldownSec.ToString() + "s cap/group=" + config.SmokeGroupCap.ToString() + "/" + config.LureGroupCap.ToString() + " per " + config.CapWindowSec.ToString() + "s; flare_lure_unverified (no native flare noise path found); capability_unverified: throw force units, infected noise reaction, smoke activation; opt-out Disabled/SmokeDisabled/LureDisabled in expansion-ai-tactics.json; runtime=PENDING");
+        string started = "[HCX Tactics] started smoke=" + HCV2Admission.OnOff(!config.SmokeDisabled) + " lure=" + HCV2Admission.OnOff(!config.LureDisabled);
+        started = started + " cooldown smoke=" + config.SmokeCooldownSec.ToString() + "s lure=" + config.LureCooldownSec.ToString() + "s";
+        started = started + " cap/group=" + config.SmokeGroupCap.ToString() + "/" + config.LureGroupCap.ToString() + " per " + config.CapWindowSec.ToString() + "s;";
+        started = started + " flare_lure_unverified (no native flare noise path found); capability_unverified: throw force units, infected noise reaction, smoke activation;";
+        started = started + " opt-out Disabled/SmokeDisabled/LureDisabled in expansion-ai-tactics.json or the ai_tactics.disable acceptance marker; runtime=PENDING";
+        Print("" + started);
     }
 
     override void OnTick(float deltaTime) { HCXAITactics.Tick(); }
@@ -774,6 +862,7 @@ modded class HCModuleRegistry
     override void RegisterModules()
     {
         super.RegisterModules();
-        Register(new HCXAITacticsModule());
+        HCXAITacticsModule tacticsModule = new HCXAITacticsModule();
+        Register(tacticsModule);
     }
 }
