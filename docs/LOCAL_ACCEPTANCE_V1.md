@@ -258,6 +258,7 @@ features (a feature whose prerequisite you turned off stays refused):
 - `HCInteriorRules.PlacementAccepted`
 - `HCInteriorRules.SearchAccepted`
 - `HCTapedLightAdmission.Qualified`
+- `HCTapedWearableCatalog.Qualified`
 - `HCXAIQualification.Qualified`
 
 ### 5. Server gameplay configuration (enableCfgGameplayFile)
