@@ -59,6 +59,7 @@ class HCScenesModule : HCModule
     protected bool m_AdmissionPrinted;
     protected bool m_SummaryPrinted;
     protected string m_Refusal;
+    protected string m_Fault;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Scenes"; }
@@ -67,6 +68,11 @@ class HCScenesModule : HCModule
     // its own HC-19 reason) and the module is running; a refused start reports the named refusal.
     override HCOperationalStatus HCGetOperationalStatus()
     {
+        if (m_Fault != "")
+        {
+            m_Operational.HCPublish("degraded", m_Fault);
+            return m_Operational;
+        }
         HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, "", "scene_store_open_schedule_running");
         return m_Operational;
     }
@@ -76,6 +82,7 @@ class HCScenesModule : HCModule
     {
         if (!GetGame() || !GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
         m_Refusal = "";
+        m_Fault = "";
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("Scenes", true, "EXP-S3", HCV2Gates.Qualified("EXP-S3")));
@@ -152,6 +159,7 @@ class HCScenesModule : HCModule
             SaveBarrierDone();
             return true;
         }
+        m_Fault = "scene_save_failed";
         m_Running = false;
         OnStop();
         return false;
@@ -200,7 +208,12 @@ class HCScenesModule : HCModule
             return;
         }
         if (m_Stories.HCReady()) { return; }
-        if (m_Stories.HCReason() == "save-failed") { SaveBarrierDone(); }
+        m_Fault = "scene_story_" + m_Stories.HCReason();
+        if (m_Stories.HCReason() == "save-failed")
+        {
+            m_Fault = "scene_story_save_failed";
+            SaveBarrierDone();
+        }
         m_Running = false;
         OnStop();
     }
@@ -566,6 +579,7 @@ class HCScenesModule : HCModule
         if (!m_Store.SaveInFlight()) { m_State.LastNow = m_LastNow; }
         int result = m_Store.SaveStep(m_State);
         if (result != HCSaveJob.STEP_FAILED) { return result; }
+        m_Fault = "scene_heartbeat_save_failed";
         // Clear the job BEFORE OnStop: its HCFlush must not step a faulted save again.
         m_SaveJob.HCDirty = false;
         m_SaveJob.HCInFlight = false;
