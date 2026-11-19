@@ -21,9 +21,13 @@ import xml.etree.ElementTree as ET
 
 try:
     from tools.package import economy
+    from tools.package import xml_text
+    from tools.package import xml_text
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import economy
+    from tools.package import xml_text
+    from tools.package import xml_text
 
 ROSTER_PATH = Path(__file__).with_name('firearms_roster.json')
 MUTABLE = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 'restock'})
@@ -299,8 +303,8 @@ def generate(source, roster, include_datamined=True):
               'population_budget': 'roster counts are proposals for 3-6 players; effective world totals unobserved',
               'pending': ['normal PBO/server load', 'CE spawn/error trials', '3-6-player budget measurement',
                           'local acceptance of every datamined candidate', 'destination rollback']}
-    files = {'ce/types.xml': ET.tostring(out, encoding='utf-8', xml_declaration=True) + b'\n',
-             'cfgeconomycore.append.xml': ET.tostring(fragment, encoding='utf-8', xml_declaration=True) + b'\n',
+    files = {'ce/types.xml': xml_text.document(out) + b'\n',
+             'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
              'core-defaults.patch.json': economy.encode({}), 'economy-report.json': economy.encode(report)}
     files['delta-manifest.json'] = economy.encode({
         'schema': 1, 'kind': 'firearms-roster', 'profile': roster['name'],

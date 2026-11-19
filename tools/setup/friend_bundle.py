@@ -44,7 +44,7 @@ import xml.etree.ElementTree as ET
 SOURCE = lts.ROOT / 'mission/hollow-country'
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
-BUNDLE_TOOLS = ('optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
+BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
                 'datamined_items.py', 'datamined_items.json', 'loot_boost.py', 'firearms_roster.json',
                 'map_overlay.py')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).

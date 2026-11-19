@@ -19,6 +19,11 @@ import stat
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+try:
+    from tools.package import xml_text
+except ImportError:  # run as a script
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from tools.package import xml_text
 
 from tools.package import rag_optional
 
@@ -104,7 +109,7 @@ def xml(data, tag):
 
 
 def serialized(root):
-    return ET.tostring(root, encoding='utf-8', xml_declaration=True) + b'\n'
+    return xml_text.document(root) + b'\n'
 
 
 def fragments(data, tag):

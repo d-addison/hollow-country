@@ -49,6 +49,11 @@ import re
 import stat
 import sys
 import xml.etree.ElementTree as ET
+try:
+    from tools.package import xml_text
+except ImportError:  # run as a script
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from tools.package import xml_text
 
 MAX_XML_BYTES = 65536
 MAX_JSON_BYTES = 65536
@@ -63,7 +68,7 @@ PENDING = ['native XML load/storage precedence and world-script interaction',
            'normal server restart/rollback', 'two-client visibility and accessibility',
            'representative client/server performance and map compatibility']
 SCRIPT_PROFILE = 'hc-v1-script'
-SCRIPT_XML_PREFIX = b'<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<weather enable="0" reset="0">'
+SCRIPT_XML_PREFIX = xml_text.DECLARATION + b'<weather enable="0" reset="0">'
 
 
 def v1_script_profile(source):
@@ -324,9 +329,9 @@ def generate(source, profile):
         root.attrib.clear()
         root.set('enable', '0')
         root.set('reset', '0')
-        candidate = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+        candidate = xml_text.document(root)
     else:
-        candidate = ET.tostring(root, encoding='utf-8', xml_declaration=True) if changes else data
+        candidate = xml_text.document(root) if changes else data
     _, after = _xml(candidate)
     for name in PHENOMENA:
         if before[name]['limits']['max'] == 0 and after[name]['limits']['max'] != 0:
