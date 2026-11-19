@@ -2,7 +2,10 @@
   "SchemaVersion": 1,
   "WorkPackage": "HC-52",
   "Issue": "#58 part 2",
-  "DependsOn": ["HC-7", "HC-23"],
+  "DependsOn": [
+    "HC-7",
+    "HC-23"
+  ],
   "GameBuild": "1.30.164289",
   "Qualified": false,
   "RuntimeAcceptance": "PENDING",
@@ -17,9 +20,10 @@
       "LocalPosition": null,
       "LocalOrientation": null,
       "Qualified": false,
-      "Status": "candidate_only",
+      "Status": "admitted_unverified_when_native_slots_available",
       "Refusal": "pack_native_slot_unavailable",
-      "GeometryRefusal": "pack_mount_geometry_pending"
+      "GeometryRefusal": "pack_mount_geometry_pending",
+      "MountGeometryOwner": "Native attachment slot and item model. LocalPosition/LocalOrientation are deliberately null: no measured offset is claimed or applied."
     }
   ],
   "CrossSlotPairs": [
@@ -32,10 +36,11 @@
       "LocalPosition": null,
       "LocalOrientation": null,
       "Qualified": false,
-      "Status": "candidate_only",
-      "Refusal": "cross_slot_disabled",
+      "Status": "admitted_unverified_when_native_slots_available",
+      "Refusal": "pack_native_slot_unavailable",
       "EnabledRefusal": "pack_native_slot_unavailable",
-      "GeometryRefusal": "cross_slot_geometry_pending"
+      "GeometryRefusal": "cross_slot_geometry_pending",
+      "MountGeometryOwner": "Native attachment slot and item model. LocalPosition/LocalOrientation are deliberately null: no measured offset is claimed or applied."
     }
   ],
   "Attachment": {
@@ -43,11 +48,14 @@
     "HostConfigRoot": "CfgVehicles",
     "HostInventorySlot": "Back",
     "BatterySlot": "BatteryD",
-    "LightMemoryPoints": ["beamStart", "beamEnd"],
+    "LightMemoryPoints": [
+      "beamStart",
+      "beamEnd"
+    ],
     "TransformOwner": "Pending genuine authored backpack model/proxy mount. No numeric offsets or orientations are invented; null is missing evidence, never an origin transform.",
     "NativeHierarchy": "actor -> exact backpack -> existing light -> existing battery, conditional on actual native slot permissions and measured model mount; never a second inventory or visual copy.",
     "TransactionOwner": "HC-7 HCTapedLightService/HCTapedLightPort plus HCTapedLightV1Custody reservations, same synchronous journal/intent/readback and native move barriers. HC-52 grants no alternate move path.",
-    "SwitchingRefusal": "pack_native_switch_action_pending",
+    "SwitchingRefusal": "Native energy-manager switching implemented by HCActionToggleTapedPackLight; runtime acceptance pending.",
     "WearerRefusal": "pack_ai_wearer_observation_pending"
   },
   "Evidence": {
@@ -65,7 +73,7 @@
     "NativeLight": "4_World/Entities/ItemBase/Switchable_Base/UniversalLight.c:47-91 creates a client light, uses beamStart/beamEnd and fades on stop.",
     "LocalLightTransform": "4_World/Entities/ScriptedLightBase.c:132-180 AttachOnObjectPivot/AttachOnMemoryPoint apply to the light entity; they do not establish an inventory item model/proxy mount.",
     "NativeSwitch": "4_World/Classes/UserActionsComponent/Actions/SingleUse/ActionTurnOnHelmetFlashlight.c:33-65 casts Mich2001Helmet; cannot be reused as a backpack action without further authored implementation/qualification.",
-    "Conclusion": "No safe flashlight backpack pair is established. The ordinary candidate lacks a backpack flashlight slot; the cross-slot candidate lacks a matching UniversalLight inventorySlot. Neither a config-only slot addition nor a client light offset establishes mounted geometry."
+    "Conclusion": "Source actions and exact native-slot bindings are implemented for the patched slots. Model/proxy alignment, worn geometry and two-client beam observations remain pending; slot permission is not geometry qualification."
   },
   "SettingsContract": {
     "RuntimeInput": "This mission manifest is the runtime input: HCTapedPackMounts.ReadManifest/ApplyManifest read it at module start and call Configure() with the Default/Max fields below. Cross-slot lights and the exact tortilla_universal_cross permission default on. The operator setting EnableTapedPackMounts (default true since wave 16) admits the pairs unverified, and a row with Disabled=true in lights/pair-receipts.json opts one pair out; a Checked receipt is only the operator's record. The HCTapedPackCatalog verdict gate still records no native or two-client check (Qualified() stays false), so the boot line says admitted unverified; a pair also needs its native slot arrays, otherwise it is refused with a named reason. Runtime acceptance pending.",
@@ -73,7 +81,9 @@
     "DTO": "HCTapedLightMountSettings",
     "ConfigureOwner": "HCTapedPackMounts.ApplyManifest(text) calls Configure(preferences) from the module start; there is no HCSettings.LightMounts field and no HCServer call to Configure.",
     "DefaultCrossSlotLights": true,
-    "DefaultPermittedPairIds": ["tortilla_universal_cross"],
+    "DefaultPermittedPairIds": [
+      "tortilla_universal_cross"
+    ],
     "MaxPermittedPairIds": 2,
     "MaxReceiptBytes": 32768,
     "MaxReceiptBytesCeiling": 65536,
@@ -81,11 +91,11 @@
     "Lifecycle": "OnStop clears preferences and cached module start state; server owner must configure again before the next start."
   },
   "LeadIntegration": {
-    "Registry": "HCTapedPackMounts is registered once in HCModuleRegistry.RegisterModules() (pinned by the loader unit test); it reads this manifest at start and publishes its readiness line (off reason=cross_slot_disabled while cross-slot stays off).",
+    "Registry": "Existing HCTapedPackMounts module slot retained; readiness requires at least one admitted pair. Zero usable pairs publishes degraded with its actual refusal or off when every pair is explicitly disabled.",
     "Settings": "Landed: HCSettings.EnableTapedPackMounts (bool, default true since wave 16; a missing JSON key keeps the code default true through the HCJsonFields presence guard, and false is the operator opt-out). The per-pair verdict log is read from lights/pair-receipts.json only while the setting is on, bounded by SettingsContract.MaxReceiptBytes.",
     "ServerStart": "Not done: HCServer does not call Configure(); the manifest read at module start is the only configuration path. Configure resets malformed settings closed.",
-    "AddonConfigRefusal": "pack_mount_geometry_pending: no justified config.cpp mount/slot stanza can be supplied from the inspected evidence. Wait for genuine exact TortillaBag model/proxy and slot-class evidence; keep production disabled. No broad clothing/Back slot or UniversalLight inventorySlot override.",
-    "Actions": "Existing HC-7 weapon action registration and qualification remain unchanged. A held-backpack action/custody binding and native switching need separate observed model/slot support before activation; no backpack action is registered by this refusal-only slice."
+    "AddonConfigRefusal": "Existing exact TortillaBag helmetFlashlight and UniversalLight Chemlight slot patches are reused. No additional config stanza or transform shim requested. Native model/proxy validation remains pending.",
+    "Actions": "Held mount/remove actions registered on exact TortillaBag and Mich2001Helmet classes use HC-7 qualification, custody and v1 journal. Player actions switch held/worn lights through the same native energy component, with fresh server validation."
   },
   "GeometryEvidenceQueue": [
     "Author/inspect the exact TortillaBag worn and ground model proxy/memory points, origin, orientation, cone and clearance before recording genuine local transforms. Keep model assets external/private.",
@@ -99,8 +109,9 @@
     "Normal signed PBO/server with two clients per pair: native attachment hierarchy and slot permission, mounted origin/orientation, light cone, prone, aim, cargo and backpack swaps, obstruction, rain and shadows.",
     "Same light/battery persistent IDs, health and energy across mount/removal/destruction/full cargo/rejoin/restart; one tape debit per new mount; back up native inventory and HC journals together.",
     "Player wearers first; AI wearers remain refused until observed server ownership and lifecycle support exists. HC-7's player-identity port does not establish an AI wearer adapter.",
-    "Implement/observe a native backpack toggle action before any qualification. Never create a second light item, client-owned inventory, or a per-frame light controller.",
+    "Observe the implemented held/worn backpack and helmet toggle actions; verify native battery, rain, energy and beam replication with two clients. No second light item or controller exists.",
     "Qualification remains false until separate reviewed promotion with genuine pair-level native/two-client receipts."
   ],
-  "DistancesAdded": []
+  "DistancesAdded": [],
+  "BindingProvenance": "ManifestDigest records wearable authoring provenance. MeasurementDigest is empty for these exact unverified native-slot wearable pairs; no native measurement digest or verdict is fabricated. Qualified stays false."
 }

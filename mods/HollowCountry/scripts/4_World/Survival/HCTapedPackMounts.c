@@ -597,9 +597,10 @@ class HCTapedPackMounts : HCModule
         string stateReason = "admitted_unverified";
         if (admitted == 0)
         {
+            state = "degraded";
             stateReason = FirstAdmissionReason();
             if (stateReason == "") { stateReason = mHCWeaponFirstRefusal; }
-            if (stateReason == "") { stateReason = "all_pairs_disabled"; }
+            if (stateReason == "") { stateReason = "all_pairs_disabled"; state = "off"; }
         }
         if (!mHCSettingOn)
         {
@@ -632,6 +633,11 @@ class HCTapedPackMounts : HCModule
             int unchecked = covered - coveredChecked;
             line = "[HC TapedPackMounts] admission result=admitted unverified pairs=" + covered.ToString() + " unchecked=" + unchecked.ToString();
             Print(line + " checked=" + coveredChecked.ToString() + " disabled=" + disabled.ToString() + " runtime=PENDING");
+        }
+        // Missing native slots remain visible even when no pair is usable.
+        // No repeated tick/config logging; this owner runs once per start.
+        if (mHCSettingOn && loadReason == "" && receiptReason == "")
+        {
             int packRefused = PackRefusedCount();
             if (packRefused > 0) { Print("[HC TapedPackMounts] pack_pairs_refused count=" + packRefused.ToString() + " reason=" + FirstAdmissionReason() + " runtime=PENDING"); }
             if (mHCWeaponRefused > 0) { Print("[HC TapedPackMounts] weapon_pairs_refused count=" + mHCWeaponRefused.ToString() + " reason=" + mHCWeaponFirstRefusal + " runtime=PENDING"); }
@@ -644,7 +650,7 @@ class HCTapedPackMounts : HCModule
         if (crossReason == "") { crossState = "admitted_unverified"; }
         line = "[HC Plan] HC-52 pack_pairs=1 cross_slot=" + crossSlot + " qualified=" + verified.ToString();
         line = line + " permitted=" + permitted.ToString() + " state=" + state + " reason=" + stateReason;
-        Print(line + " authored=1 admitted=" + packAdmitted.ToString() + " observed=0 config=" + config + " runtime=PENDING");
+        Print(line + " authored=1 admitted=" + packAdmitted.ToString() + " observed=0 geometry=native_proxy_unverified config=" + config + " runtime=PENDING");
         Print("[HC Plan] HC-52 pair=tortilla_universal_mount state=" + mountState + " reason=" + mountReason + " runtime=PENDING");
         Print("[HC Plan] HC-52 pair=tortilla_universal_cross state=" + crossState + " reason=" + crossReason + " runtime=PENDING");
     }

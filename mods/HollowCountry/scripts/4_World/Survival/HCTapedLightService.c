@@ -34,10 +34,27 @@ class HCTapedLightService
         }
         return true;
     }
+    // Historical validity is independent of today's operator admission. Only
+    // these exact native-slot wearable bindings may carry no measured digest;
+    // an authoring-manifest hash never impersonates a measurement receipt.
+    static bool HCUnverifiedWearable(HCTapedLightBinding b)
+    {
+        if (!b || b.HostConfigRoot != "CfgVehicles" || b.LightClass != "UniversalLight") { return false; }
+        if (b.HostClass == "Mich2001Helmet") { return b.SlotName == "helmetFlashlight" && b.PairId == "" && !b.CrossSlot; }
+        if (b.HostClass != "TortillaBag") { return false; }
+        if (b.PairId == "tortilla_universal_mount") { return b.SlotName == "helmetFlashlight" && !b.CrossSlot; }
+        if (b.PairId == "tortilla_universal_cross") { return b.SlotName == "Chemlight" && b.CrossSlot; }
+        return false;
+    }
+
     static bool BindingValid(HCTapedLightBinding b, string build)
     {
         if (!b || b.Version != 1) { return false; }
-        if (!DigestValid(b.ManifestDigest) || !DigestValid(b.MeasurementDigest)) { return false; }
+        if (!DigestValid(b.ManifestDigest)) { return false; }
+        if (!DigestValid(b.MeasurementDigest))
+        {
+            if (b.MeasurementDigest != "" || !HCUnverifiedWearable(b)) { return false; }
+        }
         if (!TextValid(build, 96) || !HCBuildIdentity.SameBuild(b.GameBuild, build)) { return false; }
         if (b.HostConfigRoot != "CfgVehicles" && b.HostConfigRoot != "CfgWeapons") { return false; }
         if (!TextValid(b.HostClass, 128) || !TextValid(b.LightClass, 128)) { return false; }
@@ -52,6 +69,10 @@ class HCTapedLightService
     static bool PairAllowed(HCTapedLightBinding b)
     {
         if (!b) { return false; }
+        if (b.HostConfigRoot == "CfgVehicles" && b.HostClass == "Mich2001Helmet")
+        {
+            return b.LightClass == "UniversalLight" && b.SlotName == "helmetFlashlight" && b.PairId == "" && !b.CrossSlot && HCTapedWearableCatalog.Admitted();
+        }
         if (b.PairId != "" || b.CrossSlot || b.HostClass == "TortillaBag")
         {
             return HCTapedPackMounts.BindingAllowed(b);

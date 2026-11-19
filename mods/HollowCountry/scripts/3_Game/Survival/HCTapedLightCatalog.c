@@ -38,8 +38,8 @@ class HCTapedLightCatalog
 
     // #58 cross-slot weapon pairs: the same host carrying the other light class
     // (TLRLight on the rail rifles, UniversalLight on the pistols). The rule reads
-    // the compiled rows below, so there is no second hand-kept weapon list. Wave 16:
-    // this catalogue still admits nothing itself; HCTapedPackMounts admits a derived
+    // the compiled rows below; explicit receipt keys survive future host renames.
+    // This catalogue still admits nothing itself; HCTapedPackMounts admits an exact
     // pair (receipt gate plus native slot check) and the attach site asks it.
     static string CrossLightClass(HCTapedLightHostRow row)
     {
@@ -52,9 +52,39 @@ class HCTapedLightCatalog
     // "" when the row has no approved cross-slot light, else the stable pair id.
     static string CrossPairId(HCTapedLightHostRow row)
     {
-        string crossLight = CrossLightClass(row);
-        if (crossLight == "") { return ""; }
-        return "cross_" + row.HostClass + "_" + crossLight;
+        if (CrossLightClass(row) == "") { return ""; }
+        // Durable receipt keys. A future class rename changes the selector only;
+        // retain the literal key so existing opt-outs and checks keep their identity.
+        if (row.HostClass == "AK101") { return "cross_AK101_TLRLight"; }
+        if (row.HostClass == "AK101_Black") { return "cross_AK101_Black_TLRLight"; }
+        if (row.HostClass == "AK101_Green") { return "cross_AK101_Green_TLRLight"; }
+        if (row.HostClass == "AK74") { return "cross_AK74_TLRLight"; }
+        if (row.HostClass == "AK74_Black") { return "cross_AK74_Black_TLRLight"; }
+        if (row.HostClass == "AK74_Green") { return "cross_AK74_Green_TLRLight"; }
+        if (row.HostClass == "AKM") { return "cross_AKM_TLRLight"; }
+        if (row.HostClass == "AKM_Gold") { return "cross_AKM_Gold_TLRLight"; }
+        if (row.HostClass == "ASVAL") { return "cross_ASVAL_TLRLight"; }
+        if (row.HostClass == "Aug") { return "cross_Aug_TLRLight"; }
+        if (row.HostClass == "Colt1911") { return "cross_Colt1911_UniversalLight"; }
+        if (row.HostClass == "CZ75") { return "cross_CZ75_UniversalLight"; }
+        if (row.HostClass == "Engraved1911") { return "cross_Engraved1911_UniversalLight"; }
+        if (row.HostClass == "FNX45") { return "cross_FNX45_UniversalLight"; }
+        if (row.HostClass == "FNX45_arrow") { return "cross_FNX45_arrow_UniversalLight"; }
+        if (row.HostClass == "Glock19") { return "cross_Glock19_UniversalLight"; }
+        if (row.HostClass == "Glock19_Tan") { return "cross_Glock19_Tan_UniversalLight"; }
+        if (row.HostClass == "M4A1") { return "cross_M4A1_TLRLight"; }
+        if (row.HostClass == "M4A1_Black") { return "cross_M4A1_Black_TLRLight"; }
+        if (row.HostClass == "M4A1_Green") { return "cross_M4A1_Green_TLRLight"; }
+        if (row.HostClass == "MP5K") { return "cross_MP5K_TLRLight"; }
+        if (row.HostClass == "SCARH") { return "cross_SCARH_TLRLight"; }
+        if (row.HostClass == "SCARH_Black") { return "cross_SCARH_Black_TLRLight"; }
+        if (row.HostClass == "SCARL") { return "cross_SCARL_TLRLight"; }
+        if (row.HostClass == "SCARL_Black") { return "cross_SCARL_Black_TLRLight"; }
+        if (row.HostClass == "UMP45") { return "cross_UMP45_TLRLight"; }
+        if (row.HostClass == "Scout") { return "cross_Scout_TLRLight"; }
+        if (row.HostClass == "Scout_Chernarus") { return "cross_Scout_Chernarus_TLRLight"; }
+        if (row.HostClass == "Scout_Livonia") { return "cross_Scout_Livonia_TLRLight"; }
+        return "";
     }
 
     // Every derived pair id, unique, in catalogue row order (startup only).
