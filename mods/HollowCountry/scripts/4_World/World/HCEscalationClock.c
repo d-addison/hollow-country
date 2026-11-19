@@ -18,6 +18,7 @@ class HCV2ThreatStore<Class T>
 {
     static bool CanOpen(string path)
     {
+        if (!HCRecoveryGate.HCAllowRead(path)) { return false; }
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) return false;
         if (FileExist(path + ".tmp")) return false;
         if (!FileExist(path) && FileExist(path + ".bak")) return false;
@@ -31,6 +32,7 @@ class HCV2ThreatStore<Class T>
 
     static bool Save(string path, T state, int limit)
     {
+        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
         string text;
         string error;
         if (!JsonFileLoader<T>.MakeData(state, text, error)) return false;
@@ -73,9 +75,11 @@ class HCEscalationClock : HCModule
     protected int m_LogDay = -1;
     protected bool m_Healthy;
     protected ref HCEscalationSaveJob m_SaveJob;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     static const string PATH = "$profile:HollowCountry/escalation.json";
 
     override string GetName() { return "Escalation"; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Operational; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
 
     // Authored piecewise knots at day 0 / 7 / 14 / 30; held at cap thereafter.
@@ -113,6 +117,8 @@ class HCEscalationClock : HCModule
     protected void Fail()
     {
         m_Healthy = false;
+        HCPersistenceDisposition.HCQuarantine("escalation_schema_clock_or_store_fault");
+        m_Operational.HCPublish("refused", "recovery_or_clock_fault");
         if (s_Instance == this) s_Instance = null;
         Print("[HollowCountry] V2 escalation disabled: UTC/schema/world/persistence fault; preserve escalation.json, .tmp and .bak");
     }
@@ -126,6 +132,7 @@ class HCEscalationClock : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || s_Instance) return;
+        if (!HCPersistenceDisposition.HCAdmitStore("escalation")) { Fail(); return; }
         Print(HCV2Admission.Line("Escalation", true, "none", true));
         m_NowUtc = HCGroupClock.Utc();
         if (m_NowUtc < 1 || !HCV2ThreatStore<HCEscalationState>.CanOpen(PATH)) { Fail(); return; }
@@ -135,14 +142,12 @@ class HCEscalationClock : HCModule
         }
         else
         {
-            m_State = new HCEscalationState;
-            m_State.Version = 1;
-            m_State.WorldName = GetGame().GetWorldName();
-            m_State.EpochUtc = m_NowUtc;
-            m_State.SavedUtc = m_NowUtc;
-            if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) { Fail(); return; }
+            // Missing durable epoch is not an empty successful recovery.
+            Fail();
+            return;
         }
         m_Healthy = true;
+        m_Operational.HCPublish("ready", "operator_paired_restore");
         s_Instance = this;
         m_SaveJob = new HCEscalationSaveJob;
         m_SaveJob.Owner = this;
@@ -170,6 +175,7 @@ class HCEscalationClock : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Healthy) return;
+        if (!HCRecoveryGate.HCReady()) { Fail(); return; }
         int nowUtc = HCGroupClock.Utc();
         if (nowUtc < m_NowUtc) { Fail(); return; }
         m_NowUtc = nowUtc;
@@ -200,6 +206,7 @@ class HCEscalationClock : HCModule
             }
         }
         HCSaveScheduler.HCUnregister(m_SaveJob);
+        m_Operational.HCPublish("off", "stopped");
         m_Healthy = false;
         if (s_Instance == this) { s_Instance = null; }
     }
