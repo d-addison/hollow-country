@@ -118,34 +118,27 @@ class PinnedSituations(unittest.TestCase):
         self.assertEqual([points[2]], made)
 
     def test_signal_scan_does_not_activate_visible_or_owned_smoke(self):
-        source = RUNTIME.read_text().replace('eAIBase witness', 'HCWitness witness')
-        for kind in ('array<Object>', 'array<CargoBase>'):
-            source = source.replace(kind, 'EArray')
-        smoke = N(GetPosition=lambda: 4)
-        calls, logs = [], []
-        scene = N(seen=True, grant=True)
-        pending = N(fact=False, smoke=False)
-        source = source.replace('s_FactPending', 'pending.fact').replace('s_SmokePending', 'pending.smoke')
-        env = dict(EArray=EArray, eAIBase=N(Cast=lambda actor: actor),
-            SmokeGrenadeBase=N(Cast=lambda actor: actor),
-            s_Policy=N(ShelterMeters=20, PhysicalScanObjects=64),
-            pending=pending,
-            HCSituationSignals=N(HCPublish=lambda at: True, HCSmoke=lambda actor: calls.append(actor) or True),
-            HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer,cost: scene.grant)),
-            HCUnitBudget=N(HC_WORK_SITUATIONS=11),
-            HCXAISiteDirector=N(Active=lambda: N(MemberProblemFor=lambda at: 'seen' if scene.seen else '')),
-            GetGame=lambda: N(GetObjectsAtPosition3D=lambda at,radius,nearby,proxies: nearby.append(smoke)), Print=logs.append)
-        translate(source, 'HCW38SituationRuntime', env, only=('HCSignals',))
-        binding = N(Group=N(GetMember=lambda index: N(GetPosition=lambda: 0)))
-        env['HCSignals'](binding)
-        self.assertEqual([], calls)
-        self.assertIn('SITUATION_SMOKE_STOCK_PENDING', logs[0])
-        scene.seen = False
-        scene.grant = False
-        env['HCSignals'](binding)
-        self.assertEqual([], calls)
+        # #210: explicit leased stock replaces the unsafe loose-ground fixture.
+        from tests.unit.test_w58_situations import signal_fixture, binding as make_binding
+        env, scene = signal_fixture()
+        smoke = N(GetPosition=lambda: 0, GetHierarchyRootPlayer=lambda: None,
+                  GetHierarchyParent=lambda: None, IsPendingDeletion=lambda: False)
+        row = make_binding(SmokeStock=smoke, SmokeDropped=True)
         scene.grant = True
-        env['HCSignals'](binding)
-        self.assertEqual([smoke], calls)
+        scene.visible = True
+        env['HCSignals'](row)
+        self.assertEqual([], scene.fired)
+        self.assertFalse(row.SmokeDone)
+        scene.visible = False
+        scene.grant = False
+        env['HCSignals'](row)
+        self.assertEqual([], scene.fired)
+        scene.grant = True
+        env['HCSignals'](row)
+        self.assertEqual([smoke], scene.fired)
+        smoke.GetHierarchyParent = lambda: object()
+        scene.fired.clear()
+        env['HCSignals'](make_binding(SmokeStock=smoke, SmokeDropped=True))
+        self.assertEqual([], scene.fired)
 
 if __name__ == '__main__': unittest.main()
