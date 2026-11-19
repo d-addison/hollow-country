@@ -30,10 +30,14 @@ import xml.etree.ElementTree as ET
 try:
     from tools.audit import pbo_config
     from tools.package import economy, firearms
+    from tools.package import xml_text
+    from tools.package import xml_text
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.audit import pbo_config
     from tools.package import economy, firearms
+    from tools.package import xml_text
+    from tools.package import xml_text
 
 from tools.package import ce_extensions
 
@@ -544,10 +548,9 @@ def generate(source, allowlist, report):
             'dependency': 'optional; server and every client must load Tactical Flava; never bundled or repacked',
             'allowlist_sha256': allowlist_sha256(allowlist), 'entries': rows, 'totals': totals,
             'rights': allowlist['rights'], 'verification': report, 'pending': PENDING}
-    files = {SPAWNABLE: ET.tostring(_spawnable_types(allowlist['entries']), encoding='utf-8',
-                                    xml_declaration=True) + b'\n',
-             'ce/types.xml': ET.tostring(out, encoding='utf-8', xml_declaration=True) + b'\n',
-             'cfgeconomycore.append.xml': ET.tostring(fragment, encoding='utf-8', xml_declaration=True) + b'\n',
+    files = {SPAWNABLE: xml_text.document(_spawnable_types(allowlist['entries'])) + b'\n',
+             'ce/types.xml': xml_text.document(out) + b'\n',
+             'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
              'core-defaults.patch.json': economy.encode({}), 'economy-report.json': economy.encode(meta)}
     files['delta-manifest.json'] = economy.encode({
         'schema': 1, 'kind': KIND, 'profile': allowlist['name'],

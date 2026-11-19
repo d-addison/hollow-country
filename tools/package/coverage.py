@@ -15,9 +15,11 @@ import xml.etree.ElementTree as ET
 try:
     from .economy import xml
     from .pbo import safe_name
+    from . import xml_text
 except ImportError:
     from economy import xml
     from pbo import safe_name
+    import xml_text
 
 
 def digest(data):
@@ -153,7 +155,7 @@ def prepare(stock, exported, evidence, artifacts):
         if node.tag == 'group' and node.get('name') in changed:
             before.remove(node)
             before.insert(index, copy.deepcopy(new[node.get('name')]))
-    candidate = ET.tostring(before, encoding='utf-8', xml_declaration=True) + b'\n'
+    candidate = xml_text.document(before) + b'\n'
     return candidate, {'schema': 1, 'status': 'candidate-native-validation-required',
                        'changed_groups': sorted(changed), 'added_raw_points': added,
                        'engine_eligibility_verified': False, 'evidence': copy.deepcopy(evidence),

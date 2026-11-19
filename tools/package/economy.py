@@ -20,9 +20,13 @@ import xml.etree.ElementTree as ET
 
 try:
     from tools.package import ce_extensions, datamined_items
+    from tools.package import xml_text
+    from tools.package import xml_text
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import ce_extensions, datamined_items
+    from tools.package import xml_text
+    from tools.package import xml_text
 
 INPUTS = ('cfgeconomycore.xml', 'db/types.xml', 'cfglimitsdefinition.xml',
           'mapgroupproto.xml', 'mapgrouppos.xml')
@@ -246,8 +250,8 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
                           'CE spawn/error trials', '3-6-player budget measurement',
                           'two-client multiplayer', 'destination rollback']}
     patches = {n: {'before': defaults[n].get('value'), 'after': 'true'} for n in profile['diagnostics']}
-    files = {'ce/types.xml': ET.tostring(out, encoding='utf-8', xml_declaration=True) + b'\n',
-             'cfgeconomycore.append.xml': ET.tostring(fragment, encoding='utf-8', xml_declaration=True) + b'\n',
+    files = {'ce/types.xml': xml_text.document(out) + b'\n',
+             'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
              'core-defaults.patch.json': encode(patches), 'economy-report.json': encode(report)}
     files['delta-manifest.json'] = encode({'schema': 1, 'profile': profile['name'],
         'sources': {n: sha(d) for n, d in data.items()},
