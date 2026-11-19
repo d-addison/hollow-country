@@ -27,7 +27,7 @@
   "EnableForage": true,
   "EnableProgression": true,
   "EnableGroupScaling": true,
-  "EnableTapedPackMounts": false,
+  "EnableTapedPackMounts": true,
   "TickIntervalMs": 1000,
   "MaxTickWorkItems": 32,
   "MaxActiveHordes": 2,

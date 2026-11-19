@@ -9,6 +9,8 @@ class HCTapedLightHostRow
     string SlotName;
     string PrerequisiteSlot;
     string PrerequisiteClass;
+    // Empty on the audited rows; a cross-slot weapon row carries its stable pair id.
+    string PairId;
 }
 
 class HCTapedLightCatalog
@@ -36,8 +38,9 @@ class HCTapedLightCatalog
 
     // #58 cross-slot weapon pairs: the same host carrying the other light class
     // (TLRLight on the rail rifles, UniversalLight on the pistols). The rule reads
-    // the compiled rows below, so there is no second hand-kept weapon list; each
-    // derived pair is only a receipt id and is never admitted by this catalogue.
+    // the compiled rows below, so there is no second hand-kept weapon list. Wave 16:
+    // this catalogue still admits nothing itself; HCTapedPackMounts admits a derived
+    // pair (receipt gate plus native slot check) and the attach site asks it.
     static string CrossLightClass(HCTapedLightHostRow row)
     {
         if (!row) { return ""; }
@@ -65,6 +68,47 @@ class HCTapedLightCatalog
             if (pairId != "" && ids.Find(pairId) < 0) { ids.Insert(pairId); }
         }
         return ids;
+    }
+
+    // The cross-slot row for one catalogue row (same host, slot and rail
+    // prerequisite, the other light class, the stable pair id), or null. A fresh
+    // object each call: callers use it only after an exact match or at startup.
+    static HCTapedLightHostRow CrossRowFor(HCTapedLightHostRow source)
+    {
+        string pairId = CrossPairId(source);
+        if (pairId == "") { return null; }
+        HCTapedLightHostRow derived = new HCTapedLightHostRow;
+        derived.HostClass = source.HostClass;
+        derived.LightClass = CrossLightClass(source);
+        derived.SlotName = source.SlotName;
+        derived.PrerequisiteSlot = source.PrerequisiteSlot;
+        derived.PrerequisiteClass = source.PrerequisiteClass;
+        derived.PairId = pairId;
+        return derived;
+    }
+
+    // Row for one stable pair id, or null for an unknown id.
+    static HCTapedLightHostRow CrossRow(string pairId)
+    {
+        if (pairId == "") { return null; }
+        array<ref HCTapedLightHostRow> rows = Rows();
+        foreach (HCTapedLightHostRow row : rows)
+        {
+            if (CrossPairId(row) == pairId) { return CrossRowFor(row); }
+        }
+        return null;
+    }
+
+    // Exact host class + cross light class lookup for the attach site: no
+    // allocation until one catalogue row matches, no case folding or inference.
+    static HCTapedLightHostRow CrossRowMatch(string hostType, string lightType)
+    {
+        array<ref HCTapedLightHostRow> rows = Rows();
+        foreach (HCTapedLightHostRow row : rows)
+        {
+            if (row.HostClass == hostType && CrossLightClass(row) == lightType) { return CrossRowFor(row); }
+        }
+        return null;
     }
 
     static array<ref HCTapedLightHostRow> Rows()

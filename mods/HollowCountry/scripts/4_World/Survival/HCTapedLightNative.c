@@ -43,16 +43,29 @@ class HCTapedLightAdmission
     }
 }
 
+// Wave 16: honest owner status. The local-acceptance opt-in is on by default and
+// the operator file taped_light.disable is the named opt-out, so the module
+// publishes ready/admitted_unverified, or off/operator_disable_file. HC-7 has no
+// recorded native or two-client verdict (Qualified stays false): runtime=PENDING.
 class HCTapedLightStartup : HCModule
 {
     protected bool m_Printed;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     override string GetName() { return "TapedLight"; }
     override bool IsEnabled(HCSettings settings) { return settings != null; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override void OnStop()
+    {
+        m_Printed = false;
+        m_Status.HCStop();
+    }
     override void OnStart(HCSettings settings)
     {
         if (m_Printed) { return; }
         m_Printed = true;
         bool admitted = HCTapedLightAdmission.Admitted();
+        if (admitted) { m_Status.HCPublish("ready", "admitted_unverified"); }
+        else { m_Status.HCPublish("off", "operator_disable_file"); }
         Print(HCV2Admission.Line("TapedLight", admitted, "TAPED-LIGHT-V1", HCTapedLightAdmission.Qualified()));
         int weaponPairs = HCTapedLightCatalog.Rows().Count();
         Print("[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client runtime=PENDING");
@@ -87,7 +100,19 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         {
             if (HCTapedLightCatalog.Matches(row, hostType, lightType, row.SlotName)) { return row; }
         }
-        return null;
+        return CrossRow(hostType, lightType);
+    }
+
+    // Wave 16: a weapon cross-slot pair (cross_<Host>_<Light>) resolves only for
+    // the exact catalogue host with its cross light AND only after startup
+    // admission (HCTapedPackMounts, cached lookup, no config scan here). It never
+    // enlarges the native cohort above; Resolve below still checks the live config.
+    static HCTapedLightHostRow CrossRow(string hostType, string lightType)
+    {
+        HCTapedLightHostRow row = HCTapedLightCatalog.CrossRowMatch(hostType, lightType);
+        if (!row) { return null; }
+        if (!HCTapedPackMounts.WeaponPairAdmitted(row.PairId)) { return null; }
+        return row;
     }
 
     override HCTapedLightBinding Resolve(EntityAI host, ItemBase light)
@@ -117,6 +142,8 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         binding.HostClass = row.HostClass;
         binding.LightClass = row.LightClass;
         binding.SlotName = row.SlotName;
+        binding.PairId = row.PairId;
+        binding.CrossSlot = row.PairId != "";
         binding.BatterySlotName = "BatteryD";
         binding.TapeUnits = 1;
         binding.MaxDistance = 2;
@@ -308,7 +335,11 @@ class HCTapedLightRuntime
         {
             if (row.HostClass != hostType) { continue; }
             ItemBase candidate = ItemBase.Cast(host.FindAttachmentBySlotName(row.SlotName));
-            if (candidate && HCTapedLightCatalog.Matches(row, hostType, candidate.GetType(), row.SlotName)) { return candidate; }
+            if (!candidate) { continue; }
+            string candidateType = candidate.GetType();
+            if (HCTapedLightCatalog.Matches(row, hostType, candidateType, row.SlotName)) { return candidate; }
+            // Wave 16: an admitted weapon cross-slot light mounted in the same slot.
+            if (HCTapedLightV1Qualification.CrossRow(hostType, candidateType)) { return candidate; }
         }
         return null;
     }

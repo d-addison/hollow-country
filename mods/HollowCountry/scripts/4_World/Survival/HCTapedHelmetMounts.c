@@ -8,6 +8,13 @@
 // client OnWorkStart/OnWorkStop, FadeOut at 85. No transform/light API is called.
 // ActionTurnOnHelmetFlashlight.c:33-65 (N11) uses helmetFlashlight natively.
 // See the manifest for exact installed config hashes and all pending checks.
+// Wave 16 (owner: "enable all features by default"): the one Mich2001Helmet pair is
+// admitted UNVERIFIED at startup (the HCV2Admission pattern). Named opt-out: the
+// operator file $profile:HollowCountry/acceptance/taped_helmet.disable (the same
+// style as taped_light.disable). A missing native slot reports degraded with its
+// reason. There is still no helmet action, measurement digest or binding, so
+// nothing attaches yet: that is reported once as helmet_action_pending. Nothing
+// here was observed in DayZ (runtime=PENDING).
 class HCTapedHelmetMounts : HCModule
 {
     protected bool mHCStarted;
@@ -33,32 +40,46 @@ class HCTapedHelmetMounts : HCModule
     {
         if (mHCStarted) { return; }
         mHCStarted = true;
-        string reason = "helmet_mount_two_client_pending";
-        if (!NativeSlotAvailable()) { reason = "helmet_native_slot_unavailable"; }
-        mHCStatus.HCPublish("off", reason);
+        string state = "ready";
+        string reason = "admitted_unverified";
+        if (!NativeSlotAvailable())
+        {
+            state = "degraded";
+            reason = "helmet_native_slot_unavailable";
+        }
+        if (FileExist("$profile:HollowCountry/acceptance/taped_helmet.disable"))
+        {
+            state = "off";
+            reason = "operator_disable_file";
+        }
+        HCTapedWearableCatalog.HCSetAdmitted(state == "ready");
+        mHCStatus.HCPublish(state, reason);
         int authored = HCTapedWearableCatalog.Rows().Count();
         int unsupported = HCTapedWearableCatalog.CompatibilityQueue().Count();
-        Print(HCV2Admission.Line("TapedHelmetMounts", false, reason, false));
-        Print("[HC Plan] HC-23 helmet_mounts=" + authored.ToString() + " qualified=0 unsupported=" + unsupported.ToString() + " state=off reason=" + reason + " unsupported_reason=unsupported_helmet_pair queue_reason=no_native_helmet_light_slot runtime=PENDING");
+        Print(HCV2Admission.Line("TapedHelmetMounts", state != "off", "helmet_mount_two_client_check", HCTapedWearableCatalog.Qualified()));
+        string line = "[HC Plan] HC-23 helmet_mounts=" + authored.ToString() + " qualified=0 unsupported=" + unsupported.ToString() + " state=" + state + " reason=" + reason;
+        Print(line + " unsupported_reason=unsupported_helmet_pair queue_reason=no_native_helmet_light_slot action=helmet_action_pending runtime=PENDING");
     }
 
     override void OnStop()
     {
         mHCStarted = false;
+        HCTapedWearableCatalog.HCSetAdmitted(false);
         mHCStatus.HCStop();
     }
 }
 
 // Separate HC-7 qualification port: do not append wearable rows to the weapon
 // catalogue or grant them the weapon adapter's default local-acceptance opt-in.
-// Lead integration must retain the same service/port, custody and journal. No
-// binding is minted until native/two-client acceptance supplies the missing
-// evidence. There is deliberately no synthetic measurement digest or new range.
+// Lead integration must retain the same service/port, custody and journal. Ready
+// follows the startup admission (unverified, opt-out file), but no binding is
+// minted until a helmet action and measured geometry exist: Resolve stays null.
+// There is deliberately no synthetic measurement digest or new range.
 class HCTapedHelmetQualification : HCTapedLightQualification
 {
     override bool Ready()
     {
-        return HCTapedWearableCatalog.Qualified();
+        return HCTapedWearableCatalog.Admitted();
     }
 
     override HCTapedLightBinding Resolve(EntityAI host, ItemBase light)

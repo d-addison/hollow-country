@@ -48,12 +48,12 @@ class RuntimeSettingsTests(unittest.TestCase):
         self.assertEqual([], validate_settings(self.value))
         flags = {k: v for k, v in self.value.items() if k.startswith('Enable')}
         self.assertEqual(27, len(flags))
-        # EnableTapedPackMounts (#58) is a default-off gate switch; every other preference is on.
-        self.assertIs(False, flags.pop('EnableTapedPackMounts'))
+        # Wave 16 owner decision: EnableTapedPackMounts (#58) is default on like every other preference.
+        self.assertIs(True, flags['EnableTapedPackMounts'])
         self.assertTrue(all(v is True for v in flags.values()), flags)
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))
-        self.assertEqual('false', native.pop('EnableTapedPackMounts'))
+        self.assertEqual('true', native['EnableTapedPackMounts'])
         self.assertEqual(set(flags), set(native))
         self.assertEqual({'true'}, set(native.values()))
 

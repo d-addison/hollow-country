@@ -102,13 +102,14 @@ class TapedLightPreviewCostTests(unittest.TestCase):
         host = NS(GetType=lambda: reads.__setitem__('host', reads['host'] + 1) or 'SNAFU_M4')
         light = NS(GetType=lambda: reads.__setitem__('light', reads['light'] + 1) or 'UniversalLight')
         rows = EArray([NS(HostClass='H' + str(i), SlotName='slot') for i in range(26)])
-        catalog = NS(Rows=lambda: rows, Matches=lambda row, h, l, s: False)
+        catalog = NS(Rows=lambda: rows, Matches=lambda row, h, l, s: False, CrossRowMatch=lambda h, l: None)
         env = dict(HCTapedLightCatalog=catalog)
         source = class_body(NATIVE.read_text(), 'HCTapedLightV1Qualification')
         source = source.replace('static HCTapedLightHostRow Row', 'static int Row')
+        source = source.replace('static HCTapedLightHostRow CrossRow', 'static int CrossRow')
         source = source.replace('ref array<ref HCTapedLightHostRow> ', '')
         source = re.sub(r'\bHCTapedLightHostRow\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
-        self.assertIsNone(ui_member(source, 'Row', NS(), env, host, light))
+        self.assertIsNone(ui_member(source, 'Row', NS(CrossRow=lambda h, l: None), env, host, light))
         self.assertEqual({'host': 1, 'light': 1}, reads)
 
     def test_mounted_light_reads_the_host_type_once_for_all_rows(self):

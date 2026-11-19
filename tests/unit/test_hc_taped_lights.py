@@ -96,7 +96,9 @@ class TapedLightConservationTests(unittest.TestCase):
                 WEARABLE, "HCTapedPackCatalog", method, catalog,
                 {"NewSlots": EArray, "HCTapedLightCatalog": lights}, *args))
         gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False,
-                  mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0)
+                  mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0,
+                  mHCDisabled=EArray(), mHCReceiptReason="", mHCWeaponAdmitted=EArray(),
+                  mHCWeaponFirstRefusal="", mHCWeaponRefused=0)
         server = True
         slots = {"CfgVehicles TortillaBag attachments": EArray([
                     "Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag"]),
@@ -108,12 +110,13 @@ class TapedLightConservationTests(unittest.TestCase):
             out.extend(slots[path])
         env = dict(GetGame=lambda: NS(IsServer=lambda: server, ConfigGetTextArray=config),
                    HCBuildIdentity=NS(Matches=lambda build: True, SeenBuild=lambda: "synthetic"),
-                   HCTapedPackCatalog=catalog, NewSlots=EArray,
+                   HCTapedPackCatalog=catalog, HCTapedLightCatalog=lights, NewSlots=EArray,
                    HCV2Admission=NS(OnOff=lambda value: "on" if value else "off",
                                      Line=lambda *args: "synthetic admission"))
         for method in ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable",
-                       "PairRefusal", "BindingAllowed", "PairQualified", "PairAdmission",
-                       "ReceiptChecked"):
+                       "BindingAllowed", "PairQualified", "PairAdmission", "ReceiptChecked",
+                       "ReceiptDisabled", "WeaponPairAdmission", "WeaponNativeSlotAvailable",
+                       "WeaponPairAdmitted", "WeaponBindingAllowed"):
             setattr(gate, method, lambda *args, method=method: helmet_member(
                 PACKS, "HCTapedPackMounts", method, gate, env, *args))
         self.e["HCTapedPackMounts"] = gate
@@ -122,11 +125,14 @@ class TapedLightConservationTests(unittest.TestCase):
         self.assertFalse(defaults["crossSlotLights"])
         self.assertEqual([], defaults["permittedPairIds"])
         self.assertTrue(gate.Configure(NS(crossSlotLights=False, permittedPairIds=EArray())))
-        self.assertEqual("cross_slot_disabled", gate.PairRefusal("tortilla_universal_cross"))
-        self.assertEqual("pack_native_slot_unavailable", gate.PairRefusal("tortilla_universal_mount"))
-        self.assertEqual("unsupported_pack_pair", gate.PairRefusal("unknown"))
+        self.assertEqual("setting_off", gate.PairAdmission("tortilla_universal_mount"))
+        gate.mHCSettingOn = True
+        self.assertEqual("cross_slot_disabled", gate.PairAdmission("tortilla_universal_cross"))
+        self.assertEqual("pack_native_slot_unavailable", gate.PairAdmission("tortilla_universal_mount"))
+        self.assertEqual("unsupported_pack_pair", gate.PairAdmission("unknown"))
         self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=EArray())))
-        self.assertEqual("cross_slot_pair_not_permitted", gate.PairRefusal("tortilla_universal_cross"))
+        gate.mHCSettingOn = True
+        self.assertEqual("cross_slot_pair_not_permitted", gate.PairAdmission("tortilla_universal_cross"))
         pairs = manifest["AuthoredPairs"] + manifest["CrossSlotPairs"]
         for pair in pairs:
             self.assertTrue(catalog.Matches(pair["PairId"], pair["HostClass"],
@@ -167,26 +173,32 @@ class TapedLightConservationTests(unittest.TestCase):
         slots["CfgVehicles TortillaBag attachments"].append("helmetFlashlight")
         self.assertTrue(gate.NativeSlotAvailable("tortilla_universal_mount"))
         self.assertFalse(catalog.Qualified("tortilla_universal_mount"))
-        self.assertEqual("pack_mount_geometry_pending", gate.PairRefusal("tortilla_universal_mount"))
-        self.assertEqual("pack_native_slot_unavailable", gate.PairRefusal("tortilla_universal_cross"))
-        # Explicit SYNTHETIC future qualification isolates preference/identity
-        # checks, then executes the same HC-7 transaction and conservation code.
-        # The shipped catalogue's Qualified method above remains hard false.
-        catalog.Qualified = lambda pair_id: True
+        # Wave 16: with the setting on the pack pair is admitted UNVERIFIED (native slot
+        # present, no receipt row needed); the verdict gate above stays hard false.
+        gate.mHCSettingOn = True
+        self.assertEqual("", gate.PairAdmission("tortilla_universal_mount"))
+        self.assertEqual("pack_native_slot_unavailable", gate.PairAdmission("tortilla_universal_cross"))
+        # The shipped catalogue's Qualified method stays hard false for the whole
+        # test: admission is a separate fact, then the same HC-7 transaction and
+        # conservation code runs.
         slots["CfgVehicles UniversalLight inventorySlot"].append("Chemlight")
         for enabled, ids in ((False, ["tortilla_universal_cross"]), (True, [])):
             self.assertTrue(gate.Configure(NS(crossSlotLights=enabled, permittedPairIds=EArray(ids))))
+            gate.mHCSettingOn = True
             self.assertFalse(gate.BindingAllowed(self.port.binding))
         permitted = EArray(["tortilla_universal_cross"])
         self.assertTrue(gate.Configure(NS(crossSlotLights=True, permittedPairIds=permitted)))
         permitted.clear()
-        # Wave 13: the operator setting and a checked per-pair receipt are also
-        # required (explicit SYNTHETIC state; the loader tests cover the file).
-        self.assertFalse(gate.BindingAllowed(self.port.binding), "admitted without setting and receipt")
+        # Wave 16: the operator setting is the opt-out and a Disabled receipt row opts
+        # one pair out; no Checked receipt is needed (explicit SYNTHETIC state; the
+        # loader tests cover the file).
+        self.assertFalse(gate.BindingAllowed(self.port.binding), "admitted with the setting off")
         gate.mHCSettingOn = True
-        self.assertFalse(gate.BindingAllowed(self.port.binding), "admitted without a receipt")
-        gate.mHCChecked.append("tortilla_universal_cross")
         self.assertTrue(gate.BindingAllowed(self.port.binding), "settings ID list was not copied")
+        gate.mHCDisabled.append("tortilla_universal_cross")
+        self.assertFalse(gate.BindingAllowed(self.port.binding), "admitted despite Disabled")
+        gate.mHCDisabled.clear()
+        self.assertTrue(gate.BindingAllowed(self.port.binding))
         before = copy.deepcopy(self.port.sample)
         self.assertEqual(self.code.OK, self.run_op())
         self.assertTrue(self.e["Preserved"](before, self.port.sample))
@@ -197,8 +209,6 @@ class TapedLightConservationTests(unittest.TestCase):
         self.assertEqual([1], self.port.consumptions)
         self.assertEqual([True, False], self.port.moves)
         self.assertTrue(self.e["StateValid"](self.state))
-        catalog.Qualified = lambda pair_id: helmet_member(
-            WEARABLE, "HCTapedPackCatalog", "Qualified", catalog, {}, pair_id)
         for settings in (None, NS(crossSlotLights=True, permittedPairIds=None),
                          NS(crossSlotLights=True, permittedPairIds=EArray(["unknown"])),
                          NS(crossSlotLights=True, permittedPairIds=EArray([
@@ -222,10 +232,15 @@ class TapedLightConservationTests(unittest.TestCase):
         status = NS(HCPublish=lambda *args: logs.append(args), HCStop=lambda: logs.append("stop"))
         # Stubbed receipt/admission members: loader behaviour is pinned by
         # test_hc_taped_pack_loader and test_hc_taped_pack_receipts.
-        module = NS(mHCStarted=False, mHCStatus=status, PairRefusal=gate.PairRefusal,
+        module = NS(mHCStarted=False, mHCStatus=status, PairAdmission=gate.PairAdmission,
                     CrossSlotEnabled=gate.CrossSlotEnabled, Reset=gate.Reset,
                     LoadSettings=lambda: "", mHCPermitted=gate.mHCPermitted,
                     mHCChecked=gate.mHCChecked, mHCSettingOn=False,
+                    mHCDisabled=gate.mHCDisabled, mHCWeaponAdmitted=gate.mHCWeaponAdmitted,
+                    mHCWeaponFirstRefusal="", mHCWeaponRefused=0,
+                    HCRefreshWeaponAdmission=lambda: None, ReceiptPackChecked=lambda: 0,
+                    ReceiptWeaponChecked=lambda: 0, VerifiedCount=lambda: 0,
+                    PackRefusedCount=lambda: 0,
                     LoadReceipts=lambda: "", AdmittedCount=lambda: 0,
                     FirstAdmissionReason=lambda: "setting_off")
         env["Print"] = logs.append
@@ -381,8 +396,11 @@ class TapedLightNativeCustodyTests(unittest.TestCase):
         # A marker/HC-7 opt-in cannot qualify helmets. No inventory/light port
         # is supplied: any mutation attempted by this off path fails the test.
         self.assertFalse(helmet_member(WEARABLE, "HCTapedWearableCatalog", "Qualified", NS(), {}))
+        # Wave 16: Ready follows the startup admission (unverified), not the verdict gate.
         self.assertFalse(helmet_member(HELMETS, "HCTapedHelmetQualification", "Ready", NS(),
-                                      {"HCTapedWearableCatalog": NS(Qualified=lambda: False)}))
+                                      {"HCTapedWearableCatalog": NS(Admitted=lambda: False)}))
+        self.assertTrue(helmet_member(HELMETS, "HCTapedHelmetQualification", "Ready", NS(),
+                                     {"HCTapedWearableCatalog": NS(Admitted=lambda: True)}))
         for host in (None, NS(), unsupported):
             self.assertIsNone(helmet_member(HELMETS, "HCTapedHelmetQualification", "Resolve",
                                            NS(), {}, host, NS()))
@@ -419,23 +437,28 @@ class TapedLightNativeCustodyTests(unittest.TestCase):
         logs, status = [], NS(HCPublish=lambda *args: logs.append(args), HCStop=lambda: logs.append("stop"))
         module = NS(mHCStarted=False, mHCStatus=status)
         self.assertIs(status, helmet_member(HELMETS, "HCTapedHelmetMounts", "HCGetOperationalStatus", module, {}))
+        admitted_log = []
         env = dict(Print=logs.append, HCV2Admission=NS(Line=lambda *args: "synthetic admission"),
-                   HCTapedWearableCatalog=NS(Rows=lambda: rows,
+                   FileExist=lambda path: False, GetGame=lambda: NS(IsServer=lambda: True),
+                   HCTapedWearableCatalog=NS(Rows=lambda: rows, Qualified=lambda: False,
+                                            HCSetAdmitted=admitted_log.append,
                                             CompatibilityQueue=lambda: EArray(queued)))
         module.NativeSlotAvailable = lambda: True
         for _ in range(2):
             helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStart", module, env, NS())
         plan = [line for line in logs if isinstance(line, str) and line.startswith("[HC Plan] HC-23 ")]
         self.assertEqual(1, len(plan))
-        for field in ("helmet_mounts=1", "qualified=0", "unsupported=3", "state=off",
-                      "reason=helmet_mount_two_client_pending", "runtime=PENDING"):
+        for field in ("helmet_mounts=1", "qualified=0", "unsupported=3", "state=ready",
+                      "reason=admitted_unverified", "helmet_action_pending", "runtime=PENDING"):
             self.assertIn(field, plan[0])
+        self.assertIn(("ready", "admitted_unverified"), logs)
         helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStop", module, env)
         self.assertFalse(module.mHCStarted)
         self.assertIn("stop", logs)
         module.NativeSlotAvailable = lambda: False
         helmet_member(HELMETS, "HCTapedHelmetMounts", "OnStart", module, env, NS())
-        self.assertIn(("off", "helmet_native_slot_unavailable"), logs)
+        self.assertIn(("degraded", "helmet_native_slot_unavailable"), logs)
+        self.assertEqual([True, False, False], admitted_log)
 
     def test_failed_acquisition_releases_partial_owned_reservations(self):
         # Explicit synthetic native reservation API. A failed host/tape/battery
@@ -500,7 +523,7 @@ class TapedLightNativeCustodyTests(unittest.TestCase):
                        HCTapedLightCatalog=NS(Rows=lambda: EArray(rows)),
                        HCV2Admission=NS(Line=lambda *args: "synthetic admission",
                                         OnOff=lambda value: "on" if value else "off"))
-            state = NS(m_Printed=False)
+            state = NS(m_Printed=False, m_Status=NS(HCPublish=lambda *args: None))
             ui_member(source, "OnStart", state, env, NS())
             ui_member(source, "OnStart", state, env, NS())
             plan = [line for line in logs if line.startswith("[HC Plan] HC-7 ")]
