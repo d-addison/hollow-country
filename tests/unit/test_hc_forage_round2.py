@@ -95,6 +95,8 @@ class SyntheticRuntime:
             SurfaceIsPond=lambda x,z:False, SurfaceGetType=lambda x,z:self.surface,
             ConfigIsExisting=lambda path:True, IsBoxCollidingGeometry=lambda *args:self.collision,
             CreateObjectEx=self.create, ObjectDelete=lambda item:None)
+        self.hidden = True  # SYNTHETIC shared cover verdict; no native sight evidence
+        self.env['HCEcologyMigrationNative'] = N(PointHidden=lambda *args:self.hidden)
         self.env['GetGame'] = lambda:self.game
         self.env['native_date'] = lambda:(2026,self.month,1,12,0)
         self.env['HCSaveScheduler'] = N(HCRegister=lambda job:None, HCUnregister=lambda job:None,

@@ -69,6 +69,9 @@ except ImportError:  # executed as a script from tools/setup
     sys.path.insert(0, str(ROOT))
     from tools.package import pbo
 
+# Installed DayZServer 1.30.164289 mpmissions/dayzOffline.chernarusplus/cfgweather.xml.
+# Only these exact stock bytes may be converted automatically; foreign settings stay untouched.
+WEATHER_STOCK_SHA256 = 'f72b7002dacdd04ec4f774f8252cf13001e90ce32ee1a24606e74dfa29a48bfd'
 SCHEMA = 1
 STATE_NAME = 'hollow-country-local-test'
 RECEIPT_NAME = 'session-receipt.json'
@@ -1351,6 +1354,51 @@ def check_destinations(plan, mission, snafu, tf, ai, keys, plan_interiors_target
                               'choose another destination. Nothing was changed.' % (name_a, path_a, name_b, path_b))
 
 
+def plan_weather(mission, enabled=True):
+    """Convert only pinned stock XML, through the existing atmosphere generator."""
+    if not enabled:
+        return None, 'operator opt-out --no-weather; runtime=PENDING'
+    source = mission / 'cfgweather.xml'
+    if not os.path.lexists(source):
+        return None, 'no XML controller; native script delegation retained; runtime=PENDING'
+    before = read_bytes(source, 'weather XML', 65536)
+    if sha(before) != WEATHER_STOCK_SHA256:
+        return None, 'foreign weather settings preserved; runtime=PENDING'
+    from tools.package import atmosphere
+    candidate = atmosphere.generate(source, atmosphere.v1_script_profile(source))
+    after = candidate['cfgweather.xml']
+    return {'before': before, 'after': after, 'before_sha256': sha(before),
+            'after_sha256': sha(after)}, 'stock weather delegated automatically; runtime=PENDING'
+
+
+def apply_weather(plan, receipt, state):
+    weather = plan.get('weather')
+    if not weather:
+        return
+    path = plan['mission'] / 'cfgweather.xml'
+    if sha(read_bytes(path, 'weather XML', 65536)) != weather['before_sha256']:
+        raise Refused('weather XML changed after plan; foreign settings preserved')
+    receipt.step('weather', 'started')
+    write_new(state / 'weather.backup', weather['before'])
+    replace_with(path, weather['after'], mode_of(path), temp=state / 'weather.next')
+    receipt.step('weather', 'done')
+
+
+def weather_rollback(data, state, mission):
+    weather = data['weather']
+    path = mission / 'cfgweather.xml'
+    current = sha(read_bytes(path, 'weather XML', 65536))
+    if current == weather['before_sha256']:
+        return ('weather', 'weather: already original', noop)
+    if current != weather['after_sha256']:
+        raise Refused('weather XML drift; reconcile by hand (backup kept)')
+    before = read_bytes(state / 'weather.backup', 'weather backup', 65536)
+    if sha(before) != weather['before_sha256']:
+        raise Refused('weather backup differs from receipt')
+    return ('weather', 'weather: restore byte-exact original',
+            lambda: replace_with(path, before, mode_of(path), temp=state / 'weather.restore'))
+
+
 def build_plan(args, repo=ROOT):
     server_root = existing_dir(args.server_root, 'server root', repo)
     state = server_root / STATE_NAME
@@ -1404,6 +1452,7 @@ def build_plan(args, repo=ROOT):
         if row['key'].lower() == 'thirdpersonview':
             row['to_confirm'] = TO_CONFIRM
     # Mission deltas: generate in memory with the existing generators; this validates the mission.
+    plan['weather'], plan['weather_note'] = plan_weather(mission, not getattr(args, 'no_weather', False))
     plan['gameplay'] = None
     if not args.no_gameplay:
         gameplay = load_tool('gameplay')
@@ -1642,6 +1691,7 @@ def render_plan(plan, args, commands, applied=False):
                (product, plan['time_accel'], plan['night_accel'], NIGHT_HOURS * 60 / product, NIGHT_HOURS))
     out.append('     BattlEye, signature verification and passwords: untouched and never printed.')
     out.append('3. Mission deltas in %s:' % plan['mission'])
+    out.append('     weather: ' + plan.get('weather_note', 'not planned; runtime=PENDING'))
     out.append('     gameplay (cfggameplay.json + spawn kit): %s' % ('install' if plan['gameplay'] else 'skipped'))
     out.append('     economy (CE delta, profile %s%s): %s' % (
         args.economy_profile, ', firearms roster' if plan['economy'] and plan['economy'].get('roster') else '',
@@ -1768,6 +1818,8 @@ def apply_plan(plan, args):
                            'report': plan['ce_coverage']['report']}
     receipt.create({'schema': SCHEMA, 'status': 'in-progress', 'server_root': str(plan['server_root']),
                     'steps': {}, 'runtime_acceptance': 'pending',
+                    'weather': {key: plan['weather'][key] for key in ('before_sha256', 'after_sha256')}
+                    if plan.get('weather') else None,
                     'cfg': {'path': str(plan['cfg_path']), 'before_sha256': sha(plan['cfg_before']),
                             'after_sha256': sha(plan['cfg_after']),
                             'changes': [{k: v for k, v in row.items()} for row in plan['changes']]},
@@ -1835,6 +1887,7 @@ def apply_plan(plan, args):
         raise Refused('serverDZ.cfg changed since the plan was made; run again')
     replace_with(plan['cfg_path'], plan['cfg_after'], mode_of(plan['cfg_path']), temp=state / NEXT_NAME)
     receipt.step('cfg', 'done')
+    apply_weather(plan, receipt, state)
     # 3 and 4. mission deltas through the existing installers (their own receipts and rollback)
     if plan['gameplay']:
         gameplay = load_tool('gameplay')
@@ -2228,6 +2281,8 @@ def plan_rollback(server_root, repo=ROOT):
     if data['cfg']['path'] != str(cfg_path):
         raise Refused('receipt names a different serverDZ.cfg')
     todo = []  # (step, description, action), in undo order; steps an earlier attempt finished are skipped
+    if steps.get('weather') and progress.get('weather') != 'done' and data.get('weather'):
+        todo.append(weather_rollback(data, state, mission))
 
     if progress.get('markers') != 'done':
         base = profiles / 'HollowCountry' / 'acceptance'
@@ -2447,6 +2502,7 @@ def build_parser():
         p.add_argument('--economy-profile', default=DEFAULT_ECONOMY_PROFILE, help='economy profile name or none')
         p.add_argument('--no-roster', action='store_true',
                        help='leave the firearms roster (%s) out of the economy delta' % FIREARMS_ROSTER)
+        p.add_argument('--no-weather', action='store_true', help='preserve mission weather XML; skip stock delegation')
         p.add_argument('--no-gameplay', action='store_true', help='skip the cfggameplay delta')
         p.add_argument('--install-key', action='store_true',
                        help='copy the public .bikey of HC and of --tactical-flava into <server root>\\keys')

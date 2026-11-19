@@ -66,6 +66,7 @@ class ForageTravel(unittest.TestCase):
         rewards = []
         policy = N()
         env = dict(range=range, str=str, EArray=EArray, Print=logs.append,
+                   HCEcologyMigrationNative=N(PointHidden=lambda *args:True),
                    RECORD_CAP=40, LIVE_CAP=40, Math=N(Floor=math.floor, RandomInt=lambda lo, hi: 0),
                    HCSurvivalPolicy=policy,
                    HCSaveJob=N(STEP_DONE=0, STEP_MORE=1, STEP_FAILED=2),
@@ -173,7 +174,7 @@ class ForageTravel(unittest.TestCase):
         self.assertIsNone(runtime.forage.m_Nodes)
         self.assertFalse(runtime.writes or runtime.created)
         self.assertTrue(any('[HC Plan] HC-33' in line and 'state=off' in line for line in runtime.logs))
-        # Every slot/roll keeps orchard fruit and native mushrooms native-only.
+        # Every slot/roll keeps orchard fruit and the five stock generator children native-only.
         for slot in range(3):
             for roll in range(10):
                 runtime = SyntheticRuntime()
@@ -183,7 +184,7 @@ class ForageTravel(unittest.TestCase):
                 runtime.forage.m_SlotCursor = slot
                 runtime.forage.OnTick(10)
                 self.assertEqual(1, len(runtime.created))
-                self.assertIn(runtime.created[0].kind, ('CaninaBerry', 'SambucusBerry', 'Cannabis'))
+                self.assertIn(runtime.created[0].kind, ('CaninaBerry', 'SambucusBerry', 'Cannabis', 'AmanitaMushroom', 'AuriculariaMushroom', 'CraterellusMushroom', 'PsilocybeMushroom'))
 
         # Dispositions feed the existing small route report. These are authored
         # routes, never additional CE usages or an observed acquisition receipt.
@@ -199,8 +200,8 @@ class ForageTravel(unittest.TestCase):
         self.assertEqual(20, len(rows))  # 15 flora + five native essential-use families.
         self.assertTrue(all(row[1] == 0 and row[4] == 'authored_only_runtime_pending' for row in rows))
         self.assertEqual(13, sum(row[3] == 'native_route_runtime_pending' for row in rows))
-        self.assertEqual(3, sum(row[3] == 'hc_bounded_supplement_runtime_pending' for row in rows))
-        self.assertEqual(4, sum(row[3] == 'refused_no_acquisition_evidence' for row in rows))
+        self.assertEqual(7, sum(row[3] == 'hc_bounded_supplement_runtime_pending' for row in rows))
+        self.assertEqual(0, sum(row[3] == 'refused_no_acquisition_evidence' for row in rows))
 
 
 if __name__ == '__main__':

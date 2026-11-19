@@ -5,8 +5,8 @@
   "native_snapshot": "1.30.164289",
   "trace": {
     "spec": "HC-33 task brief: practical native acquisition without calendar starvation or duplicate orchard fruit; owner 2026-11-18 decisions binding",
-    "plan": "Reuse HC-12 bounded records and HC-13 death-reset progression; retain eight verified stock flora generator children, three finite HC supplements and five native essential-use families; explicitly refuse four missing flora routes and script generator control",
-    "task": "One HC-12 behavioral check extended with actual all-season tick RED/GREEN; no new controller or registration",
+    "plan": "Reuse HC-12 bounded records, exact-handle custody, HCSaveScheduler, HCPerfPlayers and shared HCEcologyMigrationNative sight veto; admit four otherwise absent vanilla mushroom classes through the existing slot-2 ten-roll supplement. Preserve eight stock generator children and five native essential-use families.",
+    "task": "w43 #150/#202; tests/unit/test_w43_seasons.py behavioral RED/GREEN; native acquisition pending",
     "dependencies": [
       "HC-12",
       "HC-13",
@@ -20,17 +20,17 @@
   "authored_counts": {
     "flora": 15,
     "native_routes": 13,
-    "hc_routes": 3,
-    "unresolved": 5
+    "hc_routes": 7,
+    "unresolved": 1
   },
-  "counts_definition": "native_routes = eight flora with exact active stock generator children plus five essential-use families; hc_routes = three finite supplemental classes; unresolved = four flora lacking acquisition evidence plus one unsupported generator lifecycle request. No observed or admitted success implied.",
-  "admitted_routes": 0,
+  "counts_definition": "13 native routes, seven HC supplements; four newly admitted unverified flora routes, zero observed; one unsupported generator lifecycle request remains. No native acquisition success implied.",
+  "admitted_routes": 4,
   "observed_routes": 0,
   "distances_added": [],
   "native_use_policy": "tools/package/essential_routes.json#native_use_routes",
   "runtime_policy": {
-    "supplements": "HCForageModule uses existing June berry/herb content table for every runtime month; Cannabis remains one-of-ten on slot 2. No GetDate/HCVisualSeasons dependency, no mushroom/orchard HC grant. Legacy selector retained for existing callers.",
-    "habitat_predicate": "existing cp_conifer_/cp_broadleaf_ prefixes and all existing surface/water/slope/player/geometry vetoes; no new surface inferred",
+    "supplements": "June berry/herb table all year; slot 2 uses existing ten-roll draw: 0 Cannabis, 1 Amanita, 2 Auricularia, 3 Craterellus, 4 Psilocybe, otherwise berry. Same cap, reservation-before-create and cooldown; no duplicate stock generator children.",
+    "habitat_predicate": "existing cp_conifer_/cp_broadleaf_ prefixes and all existing surface/water/slope/player/geometry vetoes; no new surface inferred; every observer must pass shared PointHidden, including its existing proximity/vehicle/unknown vetoes",
     "native_supply": "Installed stock mission only: orchard and five mushroom children active; berry trajectories inactive. Effective mission/dependency drift must be checked before promotion. No generator API invoked, no native counts/ranges changed.",
     "familiarity": "HC-13 character identity/death hooks, consumed unchanged; native pickups do not award HC familiarity",
     "saves": "HC-12 reservation-before-create, bounded exact-handle custody observation and staged HCSaveScheduler checkpoints unchanged",
@@ -115,19 +115,24 @@
     },
     {
       "class": "AmanitaMushroom",
-      "route": "refused",
-      "acquisition": "no-active-stock-generator-child-inspected",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule existing finite slot 2; admitted unverified runtime=PENDING",
       "uses": [
         "ActionEat"
       ],
       "habitats": [
-        "forest_candidate_unverified"
+        "conifer_forest",
+        "broadleaf_forest"
       ],
       "safety": "unknown-config-and-food-stage-dependent",
       "evidence": [
         "4_World/Entities/ItemBase/Edible_Base/AmanitaMushroom.c:1",
-        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
-      ]
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed gear_food.pbo config.bin/CfgVehicles/AmanitaMushroom: scope=2, parent=MushroomBase, native model inspected (binary config has no line numbers)",
+        "installed Chernarus db/events.xml:925-1044: no active child for this class; db/types.xml:2545-2555,6486-6495: Auricularia/Craterellus nominal=0; Amanita/Psilocybe absent",
+        "Forage/HCForage.c: HCSeasonalType slot-2 roll and existing server reservation-before-create path"
+      ],
+      "acceptance": "admitted unverified; runtime=PENDING"
     },
     {
       "class": "Apple",
@@ -150,19 +155,24 @@
     },
     {
       "class": "AuriculariaMushroom",
-      "route": "refused",
-      "acquisition": "no-active-stock-generator-child-inspected",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule existing finite slot 2; admitted unverified runtime=PENDING",
       "uses": [
         "ActionEat"
       ],
       "habitats": [
-        "forest_candidate_unverified"
+        "conifer_forest",
+        "broadleaf_forest"
       ],
       "safety": "unknown-config-and-food-stage-dependent",
       "evidence": [
         "4_World/Entities/ItemBase/Edible_Base/AuriculariaMushroom.c:1",
-        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
-      ]
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed gear_food.pbo config.bin/CfgVehicles/AuriculariaMushroom: scope=2, parent=MushroomBase, native model inspected (binary config has no line numbers)",
+        "installed Chernarus db/events.xml:925-1044: no active child for this class; db/types.xml:2545-2555,6486-6495: Auricularia/Craterellus nominal=0; Amanita/Psilocybe absent",
+        "Forage/HCForage.c: HCSeasonalType slot-2 roll and existing server reservation-before-create path"
+      ],
+      "acceptance": "admitted unverified; runtime=PENDING"
     },
     {
       "class": "BoletusMushroom",
@@ -218,19 +228,24 @@
     },
     {
       "class": "CraterellusMushroom",
-      "route": "refused",
-      "acquisition": "no-active-stock-generator-child-inspected",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule existing finite slot 2; admitted unverified runtime=PENDING",
       "uses": [
         "ActionEat"
       ],
       "habitats": [
-        "forest_candidate_unverified"
+        "conifer_forest",
+        "broadleaf_forest"
       ],
       "safety": "unknown-config-and-food-stage-dependent",
       "evidence": [
         "4_World/Entities/ItemBase/Edible_Base/CraterellusMushroom.c:1",
-        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
-      ]
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed gear_food.pbo config.bin/CfgVehicles/CraterellusMushroom: scope=2, parent=MushroomBase, native model inspected (binary config has no line numbers)",
+        "installed Chernarus db/events.xml:925-1044: no active child for this class; db/types.xml:2545-2555,6486-6495: Auricularia/Craterellus nominal=0; Amanita/Psilocybe absent",
+        "Forage/HCForage.c: HCSeasonalType slot-2 roll and existing server reservation-before-create path"
+      ],
+      "acceptance": "admitted unverified; runtime=PENDING"
     },
     {
       "class": "LactariusMushroom",
@@ -326,19 +341,24 @@
     },
     {
       "class": "PsilocybeMushroom",
-      "route": "refused",
-      "acquisition": "no-active-stock-generator-child-inspected",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule existing finite slot 2; admitted unverified runtime=PENDING",
       "uses": [
         "ActionEat"
       ],
       "habitats": [
-        "forest_candidate_unverified"
+        "conifer_forest",
+        "broadleaf_forest"
       ],
       "safety": "unknown-config-and-food-stage-dependent",
       "evidence": [
         "4_World/Entities/ItemBase/Edible_Base/PsilocybeMushroom.c:1",
-        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
-      ]
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed gear_food.pbo config.bin/CfgVehicles/PsilocybeMushroom: scope=2, parent=MushroomBase, native model inspected (binary config has no line numbers)",
+        "installed Chernarus db/events.xml:925-1044: no active child for this class; db/types.xml:2545-2555,6486-6495: Auricularia/Craterellus nominal=0; Amanita/Psilocybe absent",
+        "Forage/HCForage.c: HCSeasonalType slot-2 roll and existing server reservation-before-create path"
+      ],
+      "acceptance": "admitted unverified; runtime=PENDING"
     },
     {
       "class": "SambucusBerry",
@@ -382,7 +402,7 @@
     {
       "id": "unassigned-flora",
       "status": "pending",
-      "acceptance": "Find permitted native acquisition evidence for Amanita/Auricularia/Craterellus/Psilocybe; do not enable HC spawning or infer safe food from a name."
+      "acceptance": "Observe four admitted HC slot-2 mushrooms, pickup/re-drop/cooldown/restart; confirm shared sight veto for two clients and vanilla food-stage/agent behavior. No safe-food claim."
     },
     {
       "id": "berry-generator-overlap",

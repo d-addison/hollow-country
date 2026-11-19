@@ -2,20 +2,32 @@
   "schema_version": 1,
   "work_package": "HC-50",
   "issue": 150,
-  "result": "unresolved_feasibility",
+  "result": "native_snowfall_retained_white_ground_unavailable",
   "white_terrain": "pending",
   "runtime_consumed": false,
   "runtime_acceptance": "PENDING",
   "production_enabled": false,
-  "selected_option": null,
+  "selected_option": "native-weather-only",
   "dependency_id": null,
   "exact_dependency_version": null,
   "required_addons": [],
   "trace": {
     "task": ".banso-writer/inputs/task.md: HC-50",
-    "requirements": ["#150 white terrain", "FR-011", "FR-012", "NFR-006"],
-    "depends_on": ["HC-6", "HC-60", "Wave 3 interfaces"],
-    "handoff_to": ["HC-11 canonical spec/plan/task trace", "HC-62 dependency receipts and restart ordering"],
+    "requirements": [
+      "#150 white terrain",
+      "FR-011",
+      "FR-012",
+      "NFR-006"
+    ],
+    "depends_on": [
+      "HC-6",
+      "HC-60",
+      "Wave 3 interfaces"
+    ],
+    "handoff_to": [
+      "HC-11 canonical spec/plan/task trace",
+      "HC-62 dependency receipts and restart ordering"
+    ],
     "canonical_trace": "pending_HC-11; required spec files absent here; lead checkout copies read only as design input"
   },
   "target": {
@@ -25,7 +37,10 @@
     "phase_seconds": 604800,
     "cycle_phases": 4,
     "clock": "accumulated_running_server_time",
-    "load_players": [3, 6],
+    "load_players": [
+      3,
+      6
+    ],
     "existing_stack_record": "docs/PROVENANCE_AND_LICENSES.md",
     "existing_stack_qualification": "UNKNOWN; exact launch/dependency hashes still required"
   },
@@ -63,7 +78,12 @@
     "exit": "HC-62 stops server, restores recorded baseline dependency/launch configuration on server and both clients, then restarts",
     "rollback": "Use existing receipt-backed configuration restoration; preserve CE/native inventory/custody and visual-seasons state together; quarantine uncertain state without reset or replay",
     "phase_drift": "HC-6 continues uptime only; time from save/checkpoint policy remains unchanged. No live map switch; mismatched installed appearance remains pending until a qualified operator restart",
-    "unknowns": ["Dependency can be removed safely", "Same Chernarus world/storage identity survives", "Exact load order", "White terrain actually covers the full world"]
+    "unknowns": [
+      "Dependency can be removed safely",
+      "Same Chernarus world/storage identity survives",
+      "Exact load order",
+      "White terrain actually covers the full world"
+    ]
   },
   "options": [
     {
@@ -78,8 +98,13 @@
       "exact_version": "DayZ 1.30.164289",
       "terrain_coverage": "UNPROVEN; snowfall is a weather phenomenon, not evidence of ground replacement",
       "restart_policy": "No terrain change selected; existing weather ownership unchanged",
-      "unknowns": ["Any native terrain whitening capability outside inspected interfaces"],
-      "evidence": ["3_Game/Weather.c:192,321,328", "3_Game/WorldData.c:195-198"]
+      "unknowns": [
+        "Any native terrain whitening capability outside inspected interfaces"
+      ],
+      "evidence": [
+        "3_Game/Weather.c:192,321,328",
+        "3_Game/WorldData.c:195-198"
+      ]
     },
     {
       "id": "live-terrain-material-swap",
@@ -94,8 +119,17 @@
       "terrain_coverage": "UNKNOWN; no verified terrain setter, material mapping or foliage/LOD lifecycle",
       "restart_policy": "Not implemented; refused rather than attempting live swapping",
       "refusal": "DYNAMIC_TERRAIN_API_UNPROVEN",
-      "unknowns": ["Supported terrain mutation API", "Replication", "Material/LOD/foliage ownership", "Safe reversal"],
-      "evidence": ["3_Game/Global/World.c:137-162", "3_Game/SurfaceInfo.c:1-79", "3_Game/Entities/EntityAI.c:2881-2884"]
+      "unknowns": [
+        "Supported terrain mutation API",
+        "Replication",
+        "Material/LOD/foliage ownership",
+        "Safe reversal"
+      ],
+      "evidence": [
+        "3_Game/Global/World.c:137-162",
+        "3_Game/SurfaceInfo.c:1-79",
+        "3_Game/Entities/EntityAI.c:2881-2884"
+      ]
     },
     {
       "id": "chernarus-seasonal-dependency-unidentified",
@@ -109,8 +143,17 @@
       "exact_version": null,
       "terrain_coverage": "UNKNOWN: ground, satellite/close textures, distant LOD, roads, foliage, buildings, islands and coastline all pending",
       "restart_policy": "stopped-server-restart on entry, exit and rollback; all clients use the same qualified set",
-      "unknowns": ["Public Workshop URL and author", "Permitted dependency use and actual licence text", "Exact immutable version/content receipt", "ChernarusPlus identity and full-stack compatibility", "No added seasonal temperature/clothing effects", "Native and HC persistence safety"],
-      "evidence": ["config/hollow-country-variant-dependencies.json: winter-terrain-unidentified"]
+      "unknowns": [
+        "Public Workshop URL and author",
+        "Permitted dependency use and actual licence text",
+        "Exact immutable version/content receipt",
+        "ChernarusPlus identity and full-stack compatibility",
+        "No added seasonal temperature/clothing effects",
+        "Native and HC persistence safety"
+      ],
+      "evidence": [
+        "config/hollow-country-variant-dependencies.json: winter-terrain-unidentified"
+      ]
     },
     {
       "id": "separate-winter-world-unidentified",
@@ -124,8 +167,15 @@
       "exact_version": null,
       "terrain_coverage": "UNKNOWN; a different snowy world does not establish Chernarus coverage",
       "restart_policy": "Stopped-server mission/world transition; no storage conversion authorized or implemented",
-      "unknowns": ["Public Workshop identity/rights/version", "HC-6 rejects worlds other than chernarusplus", "CE, locality, situations, claims, AI routes and custody compatibility", "Native hive and HC world-identity migration; never reset to obtain a winter map"],
-      "evidence": ["mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasonStore.c: HCLoadState/HCValid"]
+      "unknowns": [
+        "Public Workshop identity/rights/version",
+        "HC-6 rejects worlds other than chernarusplus",
+        "CE, locality, situations, claims, AI routes and custody compatibility",
+        "Native hive and HC world-identity migration; never reset to obtain a winter map"
+      ],
+      "evidence": [
+        "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasonStore.c: HCLoadState/HCValid"
+      ]
     }
   ],
   "acceptance_pending": [
@@ -137,5 +187,21 @@
     "Surface/audio/visibility, traction, CE, navmesh, doors and existing AI stack checks",
     "No script/CE errors; exact source/PBO/mission/config/dependency hashes",
     "Measured 3-6 player cost; budgets remain provisional"
-  ]
+  ],
+  "native_research": {
+    "snapshot": "1.30.164289",
+    "finding": "No supported live Chernarus terrain-whitening interface found in installed vanilla scripts/config. Snowfall does not establish white ground; no new assets or world switch authored. White ground remains unavailable offline.",
+    "inspected": [
+      "3_Game/Weather.c:156,192,308-333: snowfall phenomenon, thresholds and snowflake size only",
+      "3_Game/Global/World.c:137-162: documented postprocess material/camera effects, no terrain replacement setter",
+      "3_Game/SurfaceInfo.c:1-79: surface lookup/properties, no ground texture mutation",
+      "installed worlds_chernarusplus.pbo config.bin/CfgWorlds/ChernarusPlus: CAWorld; binary configuration has no line numbers",
+      "installed surfaces.pbo config.bin/CfgSurfaces: cp_* surface definitions; static installed terrain, no inspected dynamic replacement port",
+      "installed worlds_chernarusplus.pbo config.bin: UsedTerrainMaterials references cp_broadleaf_*, cp_conifer_*, cp_grass, cp_dirt and cp_rock rvmats; OutsideTerrain and terrainNormalTexture reference static assets, not a seasonal script setter",
+      "installed surfaces.pbo config.bin/CfgSurfaces includes Snow as a static surface category; its existence does not provide a Chernarus ground replacement operation"
+    ],
+    "falling_leaves": "3_Game/Particles/ParticleList.c:399 TREE_FALLING_LEAF exists; native tree interaction effect, not an admitted seasonal emitter. No extra effect controller added.",
+    "one_time_log": "[HC Plan] HC-50 ... missing_part=native_terrain_whitening_unavailable native_snowfall=retained; runtime=PENDING",
+    "scope": "Research finding is bounded to inspected installed interfaces; not proof that every engine capability is absent."
+  }
 }
