@@ -1,0 +1,2793 @@
+{
+  "version": 1,
+  "note": "Offline review candidates; no native acceptance. See enforce_perf.py for approximation limits.",
+  "findings": [
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Atmosphere/c2_AtmosConfig.c",
+      "line": 43,
+      "symbol": "HCc2SeasonTuning.HCLoad",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWeatherDaysModule.OnTick -> ChernarusPlusData.HCTickWeatherDays -> HCWeatherDays.HCSeasonFog -> HCSeasonVisualPolicy.HCFog -> HCc2SeasonTuning.HCGet -> HCc2SeasonTuning.HCLoad",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Atmosphere/c2_AtmosConfig.c",
+      "line": 250,
+      "symbol": "HCc2PresentationConfig.HCLoad",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCEnvSound.Update -> HCc2PresentationConfig.HCGet -> HCc2PresentationConfig.HCLoad",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 21,
+      "symbol": "HCGroupIO.HCReadRaw",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCSignsOfLife.OnTick -> HCHearthConfig.HCGet -> HCGroupIO.Read -> HCGroupIO.HCReadRaw",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 23,
+      "symbol": "HCGroupIO.HCReadRaw",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCSignsOfLife.OnTick -> HCHearthConfig.HCGet -> HCGroupIO.Read -> HCGroupIO.HCReadRaw",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 32,
+      "symbol": "HCGroupIO.WriteNew",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save -> HCGroupIO.WriteNew",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 34,
+      "symbol": "HCGroupIO.WriteNew",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save -> HCGroupIO.WriteNew",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupIO.c",
+      "line": 36,
+      "symbol": "HCGroupIO.WriteNew",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save -> HCGroupIO.WriteNew",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
+      "line": 79,
+      "symbol": "HCJsonFields.KeyMatchesAt",
+      "key": "key.Get#1",
+      "message": "key.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
+      "line": 85,
+      "symbol": "HCJsonFields.KeyMatchesAt",
+      "key": "key.Get#2",
+      "message": "key.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/3_Game/World/HCAILimits.c",
+      "line": 142,
+      "symbol": "HCAILimits.GroupSize",
+      "key": "rowId.Get#1",
+      "message": "rowId.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 38,
+      "symbol": "HCWorldRuntimeConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSaveScheduler.OnTick -> HCWorldRuntimeConfig.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminLootMap.c",
+      "line": 184,
+      "symbol": "HCAdminLootMap.HCAckInt",
+      "key": "notice.Get#1",
+      "message": "notice.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
+      "line": 329,
+      "symbol": "HCAdminModule.HCStartLootMap",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCAdminModule.OnTick -> HCAdminModule.HCDispatch -> HCAdminModule.HCStartLootMap",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 413,
+      "symbol": "HCAdminTeleport.HCMove",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCAdminModule.OnTick -> HCAdminModule.HCDispatch -> HCAdminModule.HCCommand -> HCAdminTeleport.HCMove",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 413,
+      "symbol": "HCAdminTeleport.HCMove",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCAdminModule.OnTick -> HCAdminModule.HCDispatch -> HCAdminModule.HCCommand -> HCAdminTeleport.HCMove",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c",
+      "line": 53,
+      "symbol": "HCHearthConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSignsOfLife.OnTick -> HCHearthConfig.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c",
+      "line": 114,
+      "symbol": "HCHearthFires.HCEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSignsOfLife.OnTick -> HCSignsOfLife.SelectHouses -> HCSignsOfLife.IsLit -> HCHearthFires.HCHasBurning -> HCHearthFires.HCEnabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Atmosphere/HCSignsOfLife.c",
+      "line": 24,
+      "symbol": "HCSignsConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSignsOfLife.OnTick -> HCSignsConfig.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCBaseRaid.c",
+      "line": 89,
+      "symbol": "HCBaseRaid.HCEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIBaseRaid.HCStep -> HCBaseRaid.HCEnabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
+      "line": 100,
+      "symbol": "HCGCCampGroupConfig.Get",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCCampModule.OnTick -> HCGCCampGroupConfig.Get",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampProbes.c",
+      "line": 15,
+      "symbol": "HCCampProbes.HCEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCCampModule.HCStepClaim -> HCCampProbes.HCEnabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampProbes.c",
+      "line": 51,
+      "symbol": "HCCampProbes.HCVisitorsEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCAdminVisitorParty.HCVisitStep -> HCCampProbes.HCVisitorsEnabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampTheft.c",
+      "line": 100,
+      "symbol": "HCCampTheft.HCEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCCampModule.HCStepEncounter -> HCCampModule.StepCamp -> HCCampTheft.Step -> HCCampTheft.HCEnabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 32,
+      "symbol": "HCProfileDefaults.ReadText",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.ReadText",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 33,
+      "symbol": "HCProfileDefaults.ReadText",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.ReadText",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 36,
+      "symbol": "HCProfileDefaults.ReadText",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.ReadText",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 45,
+      "symbol": "HCProfileDefaults.WriteText",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.WriteText",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 47,
+      "symbol": "HCProfileDefaults.WriteText",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout -> HCProfileDefaults.WriteText",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 62,
+      "symbol": "HCProfileDefaults.PrepareParents",
+      "key": "relative.Get#1",
+      "message": "relative.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c",
+      "line": 64,
+      "symbol": "HCProfileDefaults.PrepareParents",
+      "key": "relative.Substring#1",
+      "message": "relative.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 265,
+      "symbol": "HCItemCompatibilityAudit.SafeRunId",
+      "key": "runId.Get#1",
+      "message": "runId.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Debug/HCPerfSnapshotSave.c",
+      "line": 119,
+      "symbol": "HCPerfSnapshotSave.HCQuote",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationNative.c",
+      "line": 29,
+      "symbol": "HCEcologyMigrationQualification.LocalAcceptanceOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigrationQualification.Admitted -> HCEcologyMigrationQualification.LocalAcceptanceOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationStore.c",
+      "line": 115,
+      "symbol": "HCEcologyMigrationStore.Save",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Enroll -> HCEcologyMigration.EnrollOwned -> HCEcologyMigration.Persist -> HCEcologyMigrationStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
+      "line": 111,
+      "symbol": "HCEcologyNative.HCHabitatCount",
+      "key": "text.IndexOfFrom#1",
+      "message": "text.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
+      "line": 137,
+      "symbol": "HCEcologyNative.HCHabitatKey",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
+      "line": 143,
+      "symbol": "HCEcologyNative.HCHabitatKey",
+      "key": "text.Substring#2",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
+      "line": 148,
+      "symbol": "HCEcologyNative.HCHabitatKey",
+      "key": "text.IndexOfFrom#1",
+      "message": "text.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 8,
+      "symbol": "HCEcologyRuntimeIO.Read",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.Read",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 11,
+      "symbol": "HCEcologyRuntimeIO.Read",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.Read",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 20,
+      "symbol": "HCEcologyRuntimeIO.Write",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCEcologyRuntime.StageSave -> HCEcologyRuntime.Finish -> HCEcologyRuntime.HCWriteCheckpoint -> HCEcologyRuntimeStore.Save -> HCEcologyRuntimeIO.Write",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 22,
+      "symbol": "HCEcologyRuntimeIO.Write",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCEcologyRuntime.StageSave -> HCEcologyRuntime.Finish -> HCEcologyRuntime.HCWriteCheckpoint -> HCEcologyRuntimeStore.Save -> HCEcologyRuntimeIO.Write",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 31,
+      "symbol": "HCEcologyRuntimeIO.WriteRaw",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.WriteRaw",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 33,
+      "symbol": "HCEcologyRuntimeIO.WriteRaw",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCEcologyRuntimeStore.HCStepSave -> HCEcologyRuntimeIO.WriteRaw",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 40,
+      "symbol": "HCEcologyRuntimeIO.WriteNew",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCEcologyRuntime.StageSave -> HCEcologyRuntime.Finish -> HCEcologyRuntime.HCWriteCheckpoint -> HCEcologyRuntimeStore.Save -> HCEcologyRuntimeIO.WriteNew",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 134,
+      "symbol": "HCEcologyRuntimeStore.HCStepSave",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCEcologyRuntimeStore.HCStepSave",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 154,
+      "symbol": "HCEcologyRuntimeStore.HCStepSave",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCEcologyRuntimeStore.HCStepSave",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "line": 259,
+      "symbol": "HCEcologyRuntimeStore.Save",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCEcologyRuntime.StageSave -> HCEcologyRuntime.Finish -> HCEcologyRuntime.HCWriteCheckpoint -> HCEcologyRuntimeStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 23,
+      "symbol": "HCEventJournalIO.Ensure",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventRewardLedger.Start -> HCEventJournalIO.Names -> HCEventJournalIO.Ensure",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 24,
+      "symbol": "HCEventJournalIO.Ensure",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventRewardLedger.Start -> HCEventJournalIO.Names -> HCEventJournalIO.Ensure",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 25,
+      "symbol": "HCEventJournalIO.Ensure",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventRewardLedger.Start -> HCEventJournalIO.Names -> HCEventJournalIO.Ensure",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 53,
+      "symbol": "HCEventJournalIO.Exists",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew -> HCEventJournalIO.Exists",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 57,
+      "symbol": "HCEventJournalIO.Read",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew -> HCEventJournalIO.Read",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 59,
+      "symbol": "HCEventJournalIO.Read",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew -> HCEventJournalIO.Read",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 67,
+      "symbol": "HCEventJournalIO.WriteNew",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 69,
+      "symbol": "HCEventJournalIO.WriteNew",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventJournalIO.WriteNew",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 73,
+      "symbol": "HCEventJournalIO.Remove",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCCreate -> HCEventRewardLedger.Commit -> HCEventRewardLedger.Start -> HCEventJournalIO.Remove",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventQualification.c",
+      "line": 13,
+      "symbol": "HCEventQualification.LocalAcceptanceOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventRoster.Build -> HCEventQualification.Admitted -> HCEventQualification.LocalAcceptanceOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 175,
+      "symbol": "HCEventCacheSpawner.HCPhysicalEnabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventWorldBinding.Bind -> HCEventWorldBinding.BindCandidate -> HCEventWorldBinding.BindCache -> HCEventCacheSpawner.Create -> HCEventCacheSpawner.Spawn -> HCEventCacheSpawner.HCPhysicalEnabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventSitesGate.c",
+      "line": 14,
+      "symbol": "HCEventSitesGate.LocalAcceptanceOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventRoster.Build -> HCEventSitesGate.Admitted -> HCEventSitesGate.LocalAcceptanceOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
+      "line": 61,
+      "symbol": "HCNativeIncidentSource.HCReady",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCNativeIncidentLease.HCStep -> HCNativeIncidentLease.HCPresent -> HCNativeIncidentSource.HCReady",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c",
+      "line": 35,
+      "symbol": "HCW38SituationPolicy.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCNativeIncidentLease.HCStep -> HCNativeIncidentLease.HCPresent -> HCNativeIncidentSource.HCReady -> HCW38SituationPolicy.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 103,
+      "symbol": "HCForageConfig.Get",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCForageModule.OnTick -> HCForageModule.HCPosition -> HCForageConfig.Get",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
+      "line": 93,
+      "symbol": "HCDeathPins.HCReadState",
+      "key": "oldId.IndexOf#1",
+      "message": "oldId.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
+      "line": 95,
+      "symbol": "HCDeathPins.HCReadState",
+      "key": "oldId.Substring#1",
+      "message": "oldId.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "line": 180,
+      "symbol": "HCGroupStore.Save",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "line": 180,
+      "symbol": "HCGroupStore.Save",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "line": 181,
+      "symbol": "HCGroupStore.Save",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "line": 181,
+      "symbol": "HCGroupStore.Save",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "line": 182,
+      "symbol": "HCGroupStore.Save",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "line": 182,
+      "symbol": "HCGroupStore.Save",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCGroupPins.OnTick -> HCGroupService.HCPinsDiscover -> HCGroupService.Commit -> HCGroupStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 255,
+      "symbol": "HCInfectedRoomCatalog.ValidJsonKeys",
+      "key": "content.Get#1",
+      "message": "content.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 271,
+      "symbol": "HCInfectedRoomCatalog.ValidJsonKeys",
+      "key": "content.Get#2",
+      "message": "content.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 273,
+      "symbol": "HCInfectedRoomCatalog.ValidJsonKeys",
+      "key": "content.Get#3",
+      "message": "content.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 277,
+      "symbol": "HCInfectedRoomCatalog.ValidJsonKeys",
+      "key": "content.Substring#1",
+      "message": "content.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 514,
+      "symbol": "HCInfectedRoomCatalog.ProductionToken",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 678,
+      "symbol": "HCInfectedRoomCatalog.ProductionBuildLabel",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 823,
+      "symbol": "HCInfectedRoomCatalog.ProductionJsonText",
+      "key": "content.Substring#1",
+      "message": "content.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 155,
+      "symbol": "HCInfectedQualification.NativePackRoutesOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Move -> HCInfectedQualification.NativePackRoutesAdmitted -> HCInfectedQualification.NativePackRoutesOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 182,
+      "symbol": "HCInfectedQualification.InvestigationOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Choose -> HCInfectedQualification.InvestigationAdmitted -> HCInfectedQualification.InvestigationOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 209,
+      "symbol": "HCInfectedQualification.SupplementaryChainsOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Choose -> HCInfectedQualification.SupplementaryChainsAdmitted -> HCInfectedQualification.SupplementaryChainsOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 263,
+      "symbol": "HCInfectedQualification.HordeStimulusRoutesOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCInfectedModule.FinishSweep -> HCInfectedModule.RetargetCohorts -> HCEcologyMigration.SubmitCohort -> HCEcologyMigration.Submit -> HCEcologyMigration.SubmitOwned -> HCEcologyMigrationNative.Move -> HCInfectedQualification.HordeStimulusRoutesAdmitted -> HCInfectedQualification.HordeStimulusRoutesOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 543,
+      "symbol": "HCInfectedStore.ReadBounded",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInfectedModule.OnTick -> HCInfectedStore.Save -> HCInfectedStore.ReadBounded",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 547,
+      "symbol": "HCInfectedStore.ReadBounded",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInfectedModule.OnTick -> HCInfectedStore.Save -> HCInfectedStore.ReadBounded",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 769,
+      "symbol": "HCInfectedStore.Save",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInfectedModule.OnTick -> HCInfectedStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "line": 772,
+      "symbol": "HCInfectedStore.Save",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCInfectedModule.OnTick -> HCInfectedStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 144,
+      "symbol": "HCCellarSampler.HCStart",
+      "key": "definition.BuildingClass.IndexOf#1",
+      "message": "definition.BuildingClass.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 453,
+      "symbol": "HCCellarSampler.OnTick",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCCellarSampler.OnTick",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 52,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredRead",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorCatalog.GetFor -> HCInteriorMeasuredCatalog.MeasuredEnsureLoaded -> HCInteriorMeasuredCatalog.MeasuredRead",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 58,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredRead",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorCatalog.GetFor -> HCInteriorMeasuredCatalog.MeasuredEnsureLoaded -> HCInteriorMeasuredCatalog.MeasuredRead",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 152,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredText",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 172,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredIdentifier",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 196,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredPortablePath",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 206,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredPortablePath",
+      "key": "value.Get#2",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 245,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredPortablePath",
+      "key": "stem.Substring#1",
+      "message": "stem.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 246,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredPortablePath",
+      "key": "stem.Get#1",
+      "message": "stem.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 267,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredDecimal",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 923,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredSources",
+      "key": "left.Get#1",
+      "message": "left.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 924,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredSources",
+      "key": "right.Get#1",
+      "message": "right.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 1482,
+      "symbol": "HCInteriorMeasuredCatalog.MeasuredEnsureLoaded",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorCatalog.GetFor -> HCInteriorMeasuredCatalog.MeasuredEnsureLoaded",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 153,
+      "symbol": "HCInteriorPackIndex.HCRead",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRead",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 160,
+      "symbol": "HCInteriorPackIndex.HCRead",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInteriorPackIndex.HCStep -> HCInteriorPackIndex.HCRead",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c",
+      "line": 131,
+      "symbol": "HCInteriorRules.PlacementOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorRules.PlacementAdmitted -> HCInteriorRules.PlacementOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c",
+      "line": 136,
+      "symbol": "HCInteriorRules.SearchOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCInteriorRules.SearchOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 194,
+      "symbol": "HCInteriorStore.IsHeld",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorStore.IsHeld",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 230,
+      "symbol": "HCInteriorStore.RecoverSite",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorStore.RecoverSite",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 231,
+      "symbol": "HCInteriorStore.RecoverSite",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorStore.RecoverSite",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "line": 232,
+      "symbol": "HCInteriorStore.RecoverSite",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplatePlacement.Place -> HCInteriorsModule.PlaceCandidate -> HCInteriorStore.RecoverSite",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
+      "line": 712,
+      "symbol": "HCInteriorTemplates.LegacyConflict",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCInteriorTemplates.HCLoadStep -> HCInteriorTemplates.LegacyConflict",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplates.c",
+      "line": 1113,
+      "symbol": "HCInteriorsModule.OnTick",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
+      "line": 25,
+      "symbol": "HCLeadPolicy.SoloGroup",
+      "key": "identityId.Substring#1",
+      "message": "identityId.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
+      "line": 386,
+      "symbol": "HCLeadStore.HCCheckpointStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCLeadSaveJob.HCStep -> HCLeadStore.HCCheckpointStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c",
+      "line": 104,
+      "symbol": "HCRadioDefaults.Get",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCRadioChatter.OnTick -> HCRadioDefaults.Tuned -> HCRadioDefaults.Get",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 76,
+      "symbol": "HCSearchHouseJournal.SupplyKnown",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.SupplyKnown",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 86,
+      "symbol": "HCSearchHouseJournal.TombstonePath",
+      "key": "supplyId.Get#1",
+      "message": "supplyId.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 137,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 139,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 141,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 144,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 145,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 146,
+      "symbol": "HCSearchHouseJournal.Open",
+      "key": "FileExist#6",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 201,
+      "symbol": "HCSearchHouseJournal.Recover",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 202,
+      "symbol": "HCSearchHouseJournal.Recover",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 203,
+      "symbol": "HCSearchHouseJournal.Recover",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore -> HCSearchHouseJournal.Recover",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 239,
+      "symbol": "HCSearchHouseJournal.DeleteIfPresent",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.Compact -> HCSearchHouseJournal.FinishCompaction -> HCSearchHouseJournal.DeleteIfPresent",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 240,
+      "symbol": "HCSearchHouseJournal.DeleteIfPresent",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.Compact -> HCSearchHouseJournal.FinishCompaction -> HCSearchHouseJournal.DeleteIfPresent",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 312,
+      "symbol": "HCSearchHouseJournal.Restore",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 316,
+      "symbol": "HCSearchHouseJournal.Restore",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 318,
+      "symbol": "HCSearchHouseJournal.Restore",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 318,
+      "symbol": "HCSearchHouseJournal.Restore",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
+      "line": 319,
+      "symbol": "HCSearchHouseJournal.Restore",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCSearchHouseJournal.Open -> HCSearchHouseJournal.Restore",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 57,
+      "symbol": "HCSearchLimits.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchRefreshModule.OnTick -> HCSearchLimits.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 195,
+      "symbol": "HCSearchRetirementPolicy.Fingerprint",
+      "key": "supplyId.Get#1",
+      "message": "supplyId.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 261,
+      "symbol": "HCSearchRetirementStore.Open",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.PruneLegacyTombstones -> HCSearchHouseJournal.EnsureRetirement -> HCSearchRetirementStore.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 355,
+      "symbol": "HCSearchRetirementStore.PruneLegacy",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCInteriorsModule.OnTick -> HCSearchHouses.CompactSettled -> HCSearchHouseJournal.PruneLegacyTombstones -> HCSearchRetirementStore.PruneLegacy",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 384,
+      "symbol": "HCSearchRefreshPolicy.HCIntervalFor",
+      "key": "siteId.Get#1",
+      "message": "siteId.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 462,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 464,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 464,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 465,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 466,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 468,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 476,
+      "symbol": "HCSearchRefreshStore.Save",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCSearchRefreshModule.OnTick -> HCSearchRefreshStore.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRules.c",
+      "line": 10,
+      "symbol": "HCSearchRules.TextValid",
+      "key": "value.Get#1",
+      "message": "value.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 25,
+      "symbol": "HCProgressionConfig.Get",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCProgressionModule.OnTick -> HCProgressionConfig.Get",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 268,
+      "symbol": "HCProgressionModule.HCValidState",
+      "key": "row.CharacterKey.Get#1",
+      "message": "row.CharacterKey.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/HCSceneChains.c",
+      "line": 444,
+      "symbol": "HCSceneChainStore.SaveStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCScenesModule.HCStepRoutine -> HCSceneChainStore.SaveStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 234,
+      "symbol": "HCGapcodeStoryIndex.HCStep",
+      "key": "FGets#1",
+      "message": "FGets reachable via HCGapcodeStoryIndex.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 334,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 334,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#2",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 334,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#3",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 334,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#4",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 336,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#5",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 339,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#6",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 339,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#7",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 339,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#8",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 339,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Get#9",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 341,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 343,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.Substring#2",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 346,
+      "symbol": "HCTapedPackMounts.ReceiptBoolTyped",
+      "key": "text.IndexOfFrom#1",
+      "message": "text.IndexOfFrom scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 364,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 367,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#2",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 369,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#3",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 372,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#4",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 377,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#5",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 377,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#6",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 377,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#7",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 377,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#8",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 378,
+      "symbol": "HCTapedPackMounts.ReceiptKeysUnescaped",
+      "key": "text.Get#9",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 404,
+      "symbol": "HCTapedPackMounts.DateNumber",
+      "key": "date.Get#1",
+      "message": "date.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c",
+      "line": 34,
+      "symbol": "HCVehicleFlipConfig.Get",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCVehicleFlipModule.OnTick -> HCVehicleFlipConfig.Get",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 50,
+      "symbol": "HCAtmosphereQualification.LocalOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.LocalOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 83,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#1",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 87,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#2",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 88,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tail.IndexOf#1",
+      "message": "tail.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 102,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#3",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 107,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#4",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 113,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#5",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 115,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#6",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 119,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tag.Substring#7",
+      "message": "tag.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 120,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tail.IndexOf#2",
+      "message": "tail.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 123,
+      "symbol": "HCAtmosphereQualification.HCXmlAttribute",
+      "key": "tail.Substring#1",
+      "message": "tail.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 158,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 159,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#1",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 165,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "text.Substring#2",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 166,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#2",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 168,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#3",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 174,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#4",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 176,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#5",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 182,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#6",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 184,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.Substring#1",
+      "message": "rest.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 187,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.IndexOf#7",
+      "message": "rest.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 190,
+      "symbol": "HCAtmosphereQualification.DisabledXmlRoot",
+      "key": "rest.Substring#2",
+      "message": "rest.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 208,
+      "symbol": "HCAtmosphereQualification.DelegatedWeather",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.DelegatedWeather",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 211,
+      "symbol": "HCAtmosphereQualification.DelegatedWeather",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.DelegatedWeather",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereQualification.c",
+      "line": 219,
+      "symbol": "HCAtmosphereQualification.DelegatedWeather",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCInfectedModule.OnTick -> HCAlertChain.ProcessPending -> HCAtmosphereRelay.RangeAtSource -> HCAtmosphereQualification.Enabled -> HCAtmosphereQualification.DelegatedWeather",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/Weather/HCWeatherConfig.c",
+      "line": 68,
+      "symbol": "HCWeatherConfig.HCLoad",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWeatherDaysModule.OnTick -> ChernarusPlusData.HCTickWeatherDays -> HCAtmospherePolicy.IsNight -> HCWeatherConfig.HCGet -> HCWeatherConfig.HCLoad",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c",
+      "line": 51,
+      "symbol": "HCPerfConfig.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCDebugSnapshotModule.OnTick -> HCPerfConfig.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 94,
+      "symbol": "HCCacheMoveJournal.Open",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCInteriorsModule.OnTick -> HCSearchBinding.TemplatesComplete -> HCSearchHouses.ReportReadiness -> HCSearchHouses.OpenJournal -> HCCacheMoveJournal.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+      "line": 188,
+      "symbol": "HCSettlementDecay.Initialize",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSettlementDecay.OnTick -> HCSettlementDecay.Initialize",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 342,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 357,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 360,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 374,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 376,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 376,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 377,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 383,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 383,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 384,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c",
+      "line": 394,
+      "symbol": "HCStagedSaveImage.HCStepImage",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCLeadModule.OnTick -> HCLeadStore.Save -> HCStagedSaveImage.Finish -> HCStagedSaveImage.HCStepImage",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
+      "line": 175,
+      "symbol": "HCWorldIncidentPolicy.HCGet",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCEcosystemStep -> HCWorldIncidents.HCPublish -> HCWorldIncidents.HCAdd -> HCWorldIncidentPolicy.HCGet",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
+      "line": 260,
+      "symbol": "HCWorldIncidents.HCOff",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWildlifeProviders.HCStep -> HCWildlifeProviders.HCObserve -> HCWildlifeProviders.HCClueDependency -> HCWorldIncidents.HCOff",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 323,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 325,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 331,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 331,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 332,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 334,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 334,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 335,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "line": 336,
+      "symbol": "HCWorldMaterializer.HCWriteCustody",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCXMaterializerBridge.OnTick -> HCWorldMaterializer.Next -> HCWorldMaterializer.HCClaim -> HCWorldMaterializer.HCSaveCustody -> HCWorldMaterializer.HCWriteCustody",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldModule.c",
+      "line": 390,
+      "symbol": "HCWorldModule.HCScanDamage",
+      "key": "fact.Kind.IndexOf#1",
+      "message": "fact.Kind.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 52,
+      "symbol": "HCWorldStore.Read",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCWorldStore.Read",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 55,
+      "symbol": "HCWorldStore.Read",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCWorldStore.Read",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 65,
+      "symbol": "HCWorldStore.Write",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAILocalitySave.HCStep -> HCWorldStore.Write",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 67,
+      "symbol": "HCWorldStore.Write",
+      "key": "FPrint#1",
+      "message": "FPrint reachable via HCXAILocalitySave.HCStep -> HCWorldStore.Write",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 84,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 92,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Get#2",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 92,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Get#3",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 92,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Get#4",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 92,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Get#5",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 93,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Get#6",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 95,
+      "symbol": "HCWorldStore.KeysAllowed",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "line": 235,
+      "symbol": "HCWorldStore.SaveStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCWorldModule.HCStepRoutine -> HCWorldStore.SaveStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/4_World/World/auditpick_Policy.c",
+      "line": 19,
+      "symbol": "HCPickPolicy.Enabled",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCScavengeTrip.HCStep -> HCScavengeInventory.HCRunHold -> HCPickRunner.HCRun -> HCPickPolicy.Enabled",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c",
+      "line": 81,
+      "symbol": "HCAdminCard.HCReadValue",
+      "key": "limit.Get#1",
+      "message": "limit.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCInfoLayers.c",
+      "line": 81,
+      "symbol": "HCInfoEventSites.NumberText",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 73,
+      "symbol": "HCHints.Open",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 75,
+      "symbol": "HCHints.Open",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 77,
+      "symbol": "HCHints.Open",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 80,
+      "symbol": "HCHints.Open",
+      "key": "FileExist#4",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 82,
+      "symbol": "HCHints.Open",
+      "key": "FileExist#5",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 91,
+      "symbol": "HCHints.Open",
+      "key": "FileExist#6",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Open",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 109,
+      "symbol": "HCHints.Save",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 111,
+      "symbol": "HCHints.Save",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 111,
+      "symbol": "HCHints.Save",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 112,
+      "symbol": "HCHints.Save",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 115,
+      "symbol": "HCHints.Save",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 118,
+      "symbol": "HCHints.Save",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via MissionGameplay.OnUpdate -> HCClientPresentation.HCUpdate -> HCHints.Update -> HCHints.Save",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
+      "line": 78,
+      "symbol": "HCW38SituationRuntime.HCReady",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCReady -> HCW38SituationRuntime.HCReady",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
+      "line": 137,
+      "symbol": "HCW38SituationRuntime.HCProfileOn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCSelect -> HCW38SituationRuntime.HCSelect -> HCW38SituationRuntime.HCProfileOn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
+      "line": 138,
+      "symbol": "HCW38SituationRuntime.HCProfileOn",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCSelect -> HCW38SituationRuntime.HCSelect -> HCW38SituationRuntime.HCProfileOn",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCW38SituationRuntime.c",
+      "line": 327,
+      "symbol": "HCW38SituationRuntime.HCSignals",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCSituationDirector.HCStepRow -> HCXAIRaidAdapter.HCBegin -> HCW38SituationRuntime.HCBegin -> HCW38SituationRuntime.HCSignals",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 62,
+      "symbol": "HCXAICaravanRoads.HCLine",
+      "key": "FGets#1",
+      "message": "FGets reachable via HCXAICaravanRoads.HCStep -> HCXAICaravanRoads.HCLoadNode -> HCXAICaravanRoads.HCLine",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c",
+      "line": 79,
+      "symbol": "HCXAICaravanRoads.HCLoad",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCXAICaravanRoads.HCOpen -> HCXAICaravanRoads.HCLoad",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 53,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 65,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 69,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 70,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "DeleteFile#2",
+      "message": "DeleteFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 74,
+      "symbol": "HCXAIDefaults.ProvisionLoadout",
+      "key": "DeleteFile#3",
+      "message": "DeleteFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts -> HCXAIDefaults.ProvisionLoadout",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c",
+      "line": 83,
+      "symbol": "HCXAIDefaults.ProvisionLoadouts",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAIDefaults.ProvisionLoadouts",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 342,
+      "symbol": "HCXAIFormationRules.IsRoadSurface",
+      "key": "surface.IndexOf#1",
+      "message": "surface.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIQualification.c",
+      "line": 33,
+      "symbol": "HCXAIQualification.LocalAcceptanceOptIn",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIAdapter.Prerequisites -> HCXAIQualification.Admitted -> HCXAIQualification.LocalAcceptanceOptIn",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 254,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#1",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 259,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#2",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 261,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#3",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 265,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#4",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 265,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#5",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 265,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#6",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 265,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#7",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 266,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Get#8",
+      "message": "text.Get scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 274,
+      "symbol": "HCXAIRoleJson.HCArray",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 362,
+      "symbol": "HCXAILocalitySave.HCStep",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAILocalitySave.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 371,
+      "symbol": "HCXAILocalitySave.HCStep",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXAILocalitySave.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 374,
+      "symbol": "HCXAILocalitySave.HCStep",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCXAILocalitySave.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 381,
+      "symbol": "HCXAILocalitySave.HCStep",
+      "key": "CopyFile#2",
+      "message": "CopyFile reachable via HCXAILocalitySave.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 385,
+      "symbol": "HCXAILocalitySave.HCStep",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCXAILocalitySave.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 385,
+      "symbol": "HCXAILocalitySave.HCStep",
+      "key": "FileExist#3",
+      "message": "FileExist reachable via HCXAILocalitySave.HCStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 850,
+      "symbol": "HCXAISiteDirector.AdmitTransient",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCXMaterializerBridge.Offer -> HCXAISiteDirector.AdmitTransient",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1132,
+      "symbol": "HCXAISiteDirector.Observe",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.Observe",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1158,
+      "symbol": "HCXAISiteDirector.Reconcile",
+      "key": "groupName.Substring#1",
+      "message": "groupName.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1767,
+      "symbol": "HCXAISiteDirector.StepDiagnostic",
+      "key": "done.Contains#1",
+      "message": "done.Contains scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 1987,
+      "symbol": "HCXAISiteDirector.HCStepRespawns",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAISiteDirector.HCStepRespawns",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2008,
+      "symbol": "HCXAISiteDirector.HCRefreshDepleted",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAISiteDirector.HCStepRespawns -> HCXAISiteDirector.HCRefreshDepleted",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2043,
+      "symbol": "HCXAISiteDirector.RaidLocked",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIRoleActivities.OnTick -> HCXAIRoleActivities.HCStart -> HCXAISiteDirector.HCParty -> HCXAISiteDirector.RaidLocked",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2227,
+      "symbol": "HCXAISiteDirector.SaveCaches",
+      "key": "JsonFileLoader.SaveFile#1",
+      "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteDirector.SaveCaches",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2234,
+      "symbol": "HCXAISiteDirector.SaveRoutes",
+      "key": "JsonFileLoader.SaveFile#1",
+      "message": "JsonFileLoader.SaveFile reachable via HCXAISiteDirector.HCStepLocalities -> HCXAISiteDirector.SaveRoutes",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2288,
+      "symbol": "HCXAISiteDirector.LoadRoutes",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.LoadRoutes",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2298,
+      "symbol": "HCXAISiteDirector.LoadCaches",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.LoadCaches",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2309,
+      "symbol": "HCXAISiteDirector.LoadOwned",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.Observe -> HCXAISiteDirector.Reconcile -> HCXAISiteDirector.LoadOwned",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 25,
+      "symbol": "HCXAIStore.LoadJournal",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAIEncounters.Step -> HCXAIJournal.Open -> HCXAIStore.LoadJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 26,
+      "symbol": "HCXAIStore.LoadJournal",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAIEncounters.Step -> HCXAIJournal.Open -> HCXAIStore.LoadJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 31,
+      "symbol": "HCXAIStore.ReadJournal",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCXAIAdapter.OnTick -> HCXAIEncounters.Step -> HCXAIJournal.Open -> HCXAIStore.LoadJournal -> HCXAIStore.ReadJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 34,
+      "symbol": "HCXAIStore.ReadJournal",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCXAIAdapter.OnTick -> HCXAIEncounters.Step -> HCXAIJournal.Open -> HCXAIStore.LoadJournal -> HCXAIStore.ReadJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 47,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "FileExist#1",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIJournal.End -> HCXAIStore.SaveJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 55,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "JsonFileLoader.SaveFile#1",
+      "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIJournal.End -> HCXAIStore.SaveJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 58,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "CopyFile#1",
+      "message": "CopyFile reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIJournal.End -> HCXAIStore.SaveJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 61,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "DeleteFile#1",
+      "message": "DeleteFile reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIJournal.End -> HCXAIStore.SaveJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "line": 62,
+      "symbol": "HCXAIStore.SaveJournal",
+      "key": "FileExist#2",
+      "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAIAdapter.StepLease -> HCXAIAdapter.StepLeaseWork -> HCXAIJournal.End -> HCXAIStore.SaveJournal",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 759,
+      "symbol": "HCXAITactics.StepPending",
+      "key": "action.Contains#1",
+      "message": "action.Contains scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 173,
+      "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
+      "key": "OpenFile#1",
+      "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 178,
+      "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
+      "key": "ReadFile#1",
+      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
+      "native": false
+    },
+    {
+      "rule": "HC-P003",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 191,
+      "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
+      "key": "ReadFile#2",
+      "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
+      "native": false
+    }
+  ],
+  "review": [
+    {
+      "symbols": [
+        "HCc2SeasonTuning.HCLoad",
+        "HCc2PresentationConfig.HCLoad",
+        "HCWorldRuntimeConfig.HCGet"
+      ],
+      "assessment": "Conservative P003 candidates: lazy config caches make these loads one-time in normal use; the graph does not model initialized cache state."
+    },
+    {
+      "symbols": [
+        "HCGroupIO.WriteNew"
+      ],
+      "assessment": "Actionable P003 candidate: HCGroupPins.OnTick reaches HCPinsDiscover, Commit and HCGroupStore.Save; synchronous write/print remains outside the shared staged writer."
+    },
+    {
+      "symbols": [
+        "HCStagedSaveImage.HCStepImage"
+      ],
+      "assessment": "Actionable conditional P003 candidate only through Finish: HCLeadModule.OnTick reaches HCLeadStore.Save, which can drain an active image synchronously. Ordinary staged calls are cut at the writer boundary."
+    },
+    {
+      "symbols": [
+        "HCEcologyRuntimeStore.HCStepSave",
+        "HCEcologyRuntimeIO.Read",
+        "HCEcologyRuntimeIO.WriteRaw"
+      ],
+      "assessment": "Conservative P003 candidates: custom ecology phase guards do one read/write per stage, but are not the shared HCStagedSaveImage boundary. No branch feasibility or latency claim."
+    },
+    {
+      "symbols": [
+        "HCJsonFields.KeyMatchesAt",
+        "HCAILimits.GroupSize",
+        "HCPerfSnapshotSave.HCQuote"
+      ],
+      "assessment": "Likely low-risk P001 candidates: intended key/id/diagnostic strings, with no local small-length proof. Caller intent is not a static size bound."
+    },
+    {
+      "symbols": [
+        "HCInfectedRoomCatalog.ValidJsonKeys",
+        "HCEcologyNative.HCHabitatCount"
+      ],
+      "assessment": "Actionable P001 review candidates: raw JSON/XML string scans remain inside loops. The 65536-character room JSON cap exceeds the 1 KB window threshold; native cost still needs measurement."
+    },
+    {
+      "symbols": [
+        "HCInteriorTemplatesStrict"
+      ],
+      "assessment": "Historical validation: 37e68fb4 parent reports cursor.Content.Get in IntegerToken; current file has zero findings, including its clamped strided CopyText bulk copy. Hex length is bounded by all resolved authored calls passing 32."
+    }
+  ]
+}
