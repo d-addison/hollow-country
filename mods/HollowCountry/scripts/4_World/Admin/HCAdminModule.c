@@ -162,6 +162,7 @@ class HCAdminModule : HCModule
         if (!HCAuthorized(sender)) { HCRefused(sender); return false; }
         if (command == "status") { HCStatus(sender, ticket); return true; }
         if (HCAdminWire.HCIsLootMap(command)) { return HCStartLootMap(sender, command, ticket); }
+        if (command == "tp" || command == "tplist" || command == "tprefresh") { return HCCommand(sender, command, value, ticket); }
         return HCCommand(sender, command, value, ticket);
     }
 

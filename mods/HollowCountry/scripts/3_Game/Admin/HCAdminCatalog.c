@@ -91,6 +91,9 @@ class HCAdminCatalog
         HCSection("time", "Time & Weather", "Adjust HC escalation and weather profiles. Native time of day is unchanged.");
         HCSection("map", "Map", "Inspect the latest snapshot. Request one from Overview; toggle layers below.");
         // id, section, label, help, read-only, at-my-position, integer, min, max, default, unit
+        HCAdd("tp", "overview", "Teleport for testing", "Admin only: choose an index from tplist; safe ground or refusal.", false, false, true, 0, 255, 0, "destination");
+        HCAdd("tplist", "overview", "Teleport destinations", "Read the server destination snapshot; value selects its page.", true, false, true, 0, 255, 0, "page");
+        HCAdd("tprefresh", "overview", "Refresh destinations", "Rebuild the server snapshot; teleport waits until complete.", true, false, false, 0, 0, 0, "");
         HCAdd("status", "overview", "Module status", "Inspect bounded metrics for every running HC module.", true, false, false, 0, 0, 0, "");
         HCAdd("kit", "overview", "Kit availability", "List each command's availability and admission reason.", true, false, false, 0, 0, 0, "");
         HCAdd("list", "overview", "State near me", "Inspect nearby infected, heat, drops, forage and decaying towns.", true, true, false, 0, 0, 0, "");

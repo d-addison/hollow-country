@@ -47,7 +47,7 @@ class CatalogContracts(unittest.TestCase):
         text = CATALOG.read_text()
         for section in ('overview', 'infected', 'ai', 'world', 'economy', 'time', 'map'):
             self.assertIn('HCSection("' + section + '"', text)
-        self.assertEqual({'status','kit','list','snapshot'}, {e.id for e in entries() if e.read_only})
+        self.assertEqual({'status','kit','list','snapshot','tplist','tprefresh'}, {e.id for e in entries() if e.read_only})
         for entry in entries():
             self.assertTrue(entry.label and entry.help)
             self.assertLessEqual(entry.lo, entry.default)
@@ -61,7 +61,8 @@ class CatalogContracts(unittest.TestCase):
         memory = re.search(r'shots < (\d+) \|\| shots > (\d+)', directors)
         code = re.search(r'code < (\d+) \|\| code > (\d+)', weather)
         self.assertEqual({'day': tuple(map(int,day.groups())), 'memory': tuple(map(int,memory.groups())),
-                          'weather': tuple(map(int,code.groups())), 'camptier': (0, 3)}, values)
+                          'weather': tuple(map(int,code.groups())), 'camptier': (0, 3),
+                          'tp': (0, 255), 'tplist': (0, 255)}, values)
 
     def test_authored_clamp_handles_both_boundaries(self):
         fn = compile_authored(CATALOG, 'HCAdminCommand', 'HCClamp', base_scope(), modded=False)

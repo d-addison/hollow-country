@@ -585,3 +585,151 @@ Offline TDD evidence (synthetic collaborators and source checks only):
 - Final full GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v`
   → `Ran 5884 tests in 271.781s`, `OK (skipped=1, expected failures=3)`.
   The skip/expected failures remain existing pending work, not runtime acceptance.
+
+## Admin-only test teleport (w67-admintp)
+
+This explicit owner test tool moves only the allowlisted sender returned by
+`HCAdminModule.HCPlayer(sender)`. It never moves AI or another player. It is
+admitted unverified and defaults on; gameplay movement rules remain applicable
+to gameplay systems. Native placement, collision and replication acceptance is
+pending.
+
+Use the existing HC admin menu Overview cards:
+
+| Command | Value | Behavior |
+| :--- | :--- | :--- |
+| `tplist` | Page, 0..255 | Reads the server-built snapshot, returning at most `PageSize` lines as `index: name`. Page values clamp to the available pages. No coordinates or player identities are accepted from the client. |
+| `tp` | Destination index, 0..255 | Clamps again on the server to the actual snapshot size. Refuses during catalog construction or if no tested ground candidate is available. Moves only the requesting live admin. |
+| `tprefresh` | None | Explicitly rebuilds the destination snapshot over bounded core ticks, incorporating newly recognised camps/holdouts. Teleport refuses until rebuilding completes. Indices stay fixed between refreshes; run `tplist` again after refreshing. |
+
+The snapshot includes the first waypoint of HC-authored Expansion AI sites,
+recognised camp/claim encounter anchors, holdout house anchors and stock
+`NameCityCapital`/`NameCity`/`NameVillage` localities. Localities use the same
+CfgWorlds Names read pattern as `HCGroupPlaces.NativeNames`, with a retained
+cursor instead of a synchronous scan. Sites use the operator's
+`$profile:HollowCountry/expansion-ai-sites.json`, falling back to the existing
+`$mission:hollow-country/ai/sites.json`. These are authored destinations, not a
+claim of currently active AI. Sites are listed first, then camps, holdouts and
+localities, up to `MaxDestinations`; the Names scan examines the first
+`MaxNameEntries` entries. Refresh samples current camps/holdouts; it does not
+reload site policy. Restart after changing site policy.
+
+There is no public read-only active-situation position accessor on
+`HCSituationDirector` in this base. The conditional nearest-active-situation
+entry is therefore omitted; no private director state, body scan or AI knowledge
+is fabricated. No new provider, mission data or module slot is required.
+
+The existing allowlist, server RPC handler, ticket replay checks, per-admin
+one-second command cadence and single-command core-tick queue are authoritative.
+Unauthorized RPCs retain the anonymous `cmd=request` refusal before decoding.
+`tp` also rechecks server authority, authorization, `EnableAdminMap`,
+`HCOperatorControls`, both disable files and player state at execution. Vehicle
+occupancy, unconsciousness and restraint refuse. Only the sender's live player
+is resolved; there is no target-player argument.
+
+`HCFindGround` examines at most `SearchAttempts` candidates, starting at the
+anchor then testing cardinal offsets in `SearchStepM` rings. Every candidate
+uses `HCTickWork().HCTake(1)` and the cooperative `HCPerfSlices`/`HCWorkBudget`
+guard. Exhaustion refuses without moving. Ground placement uses
+`GetGame().SurfaceY(x,z) + GroundOffsetM`, strict world bounds with clearance,
+sea/pond rejection, five terrain-height samples and a native collision box
+excluding only the requesting player. An obstructed building anchor is never
+used as a fallback. This bounds source work; it cannot prove collision-box
+behavior, clear ground, safe streaming or replication in DayZ.
+
+Controls default on. Opt out with
+`$profile:HollowCountry/acceptance/AdminTeleport.disable`,
+`acceptance/AdminControls.disable` or `EnableAdminMap=false`.
+Teleport checks the disable files at execution; restart after removing a file
+that disabled startup. The automatically created owning config DTO is
+`$profile:HollowCountry/admin-teleport.json`. Missing JSON fields retain the
+listed defaults through `HCJsonFields`; invalid values refuse configuration.
+Recovery uses the shared JSON store intent/backup guards. Stop the server before
+editing this file, then restart.
+
+| Config field | Default | Accepted range |
+| :--- | :--- | :--- |
+| `Version` | 1 | 1 |
+| `ConfigBytes` | 4096 | 4096 (fixed bootstrap schema cap) |
+| `SiteBytes` | 262144 | 4096..1048576 bytes |
+| `Enabled` | true | boolean |
+| `MaxDestinations` | 256 | 1..256 |
+| `MaxNameEntries` | 512 | 1..2048 |
+| `RowsPerTick` | 8 | 1..32 |
+| `PageSize` | 32 | 1..64 |
+| `SearchAttempts` | 16 | 1..64 |
+| `SearchStepM` | 4 | 1..25 m |
+| `GroundOffsetM` | 0.2 | 0.05..1 m |
+| `ClearanceWidthM` | 1 | 0.5..3 m |
+| `ClearanceHeightM` | 2 | 1.8..4 m |
+| `MaxSlopeDeltaM` | 0.4 | 0.1..1 m |
+| `BoundaryMarginM` | 2 | 1..10 m |
+
+The 256 destination and 64 reply-line ceilings are protocol safety limits.
+Numeric tuning lives in this owning DTO; it does not add HCSettings registry
+fields. Effective readiness is derived through `HCGetOperationalStatus` and
+`HCModuleReadiness.HCDerive`: catalog construction or a real config/site fault
+makes the running AdminMap owner degraded; a successfully built catalog permits
+ready with native acceptance pending. A missing native verdict never blocks it.
+An explicitly disabled teleport leaves the existing transport available.
+
+Native API evidence is recorded at the top of `HCAdminTeleport.c`, using the
+installed `scripts-1.30.164289` cache. In particular,
+`3_Game/Entities/Object.c:294` declares `SetPosition`, and
+`4_World/Plugins/PluginBase/PluginDeveloper/DeveloperTeleport.c:141-143` uses the
+server player's native `SetPosition` path. `3_Game/Global/Game.c:1176` declares
+`SurfaceY`, `:1196-1197` declare water tests, `:1333` declares `IsBoxColliding`,
+and `3_Game/Global/World.c:82` supplies world size. No Expansion API is called
+and no Expansion source is copied.
+
+### w67 spec, plan, tasks and behavioral evidence
+
+Requirement: an authorized admin can inspect bounded destination indices and
+jump to a checked ground candidate for testing; every invalid authority/state,
+off switch, unavailable snapshot or failed ground search leaves the player
+unmoved. Plan: reuse admin ingress and generic catalog picker, build the snapshot
+incrementally from existing sources, derive status, then use native sender-only
+placement. Source/test/doc tasks are complete; native acceptance tasks are open.
+
+`tests/unit/test_w67_admintp.py` executes authored methods with explicit synthetic
+natives. It covers non-admin refusal, vehicle/unconscious/restraint refusal,
+server destination clamp, safe-Y placement, disable switches, pending/empty
+catalogs, unsafe ground, configuration defaults/ranges/zero-fill, shared-budget
+refusal, incremental construction and the existing authorized dispatch.
+
+RED command:
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_w67_admintp -v`
+against the initial unimplemented handler produced `FAILED (failures=4)`;
+actual lines included
+`AssertionError: Lists differ: [10, 17.2, 20] != [0, 0, 0]` and
+`AssertionError: Tuples differ: (False, -1, 'non-admin') != (False, -1, 'unimplemented')`.
+The same command now passes the implemented behavior (13 tests).
+
+The existing `test_admin_ui` has two old exact-set expectations outside this
+worker's file scope. Integration must extend
+`CatalogContracts.test_sections_and_metadata`'s read-only set with `tplist` and
+`tprefresh`, and `test_value_ranges_match_server_clamps_and_validation`'s value
+map with `'tp': (0, 255), 'tplist': (0, 255)`. These assertions are preserved;
+their failure reflects intentionally expanded catalog metadata. The existing
+catalog/dispatch equality test already passes. No menu value-picker change is
+needed.
+
+### w67 native checklist (pending)
+
+Boot DayZDiag and a normal packaged server with matching clients. Grep
+`feature=AdminTeleport`, `runtime=PENDING`, `[HC AdminTeleport]`,
+`[HC Admin] cmd=tplist`, `[HC Admin] cmd=tprefresh`, `[HC Admin] cmd=tp dest=`
+and `SCRIPT (E)`. The teleport result is
+`[HC Admin] cmd=tp dest=<index> ok|refused reason=<reason>`; it includes no player
+name, account identifier or destination name. `tplist` names destinations only
+in the authorized reply, not in the server log.
+
+With two clients, verify an allowlisted admin can list several pages, refresh
+and reach town, AI site, camp and holdout areas on clear terrain. Verify snapshot
+building, water, a building obstruction, steep ground, world-edge candidates,
+vehicle occupancy, unconsciousness, restraint and each opt-out refuse with no
+movement. Confirm raw negative/oversized indices clamp server-side and existing
+cadence/replay protections still apply. Confirm the second player's position and
+all AI remain unchanged; observe loading, collision and network replication.
+Record these results before accepting runtime behavior. No DayZ result is
+established by the synthetic suite.
