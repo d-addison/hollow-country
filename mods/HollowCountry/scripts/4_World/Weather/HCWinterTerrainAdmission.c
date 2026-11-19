@@ -36,7 +36,7 @@ class HCWinterTerrainAdmission
         string line = "[HC Plan] HC-50 white_terrain=" + state + " dependency=none boundary=stopped-server-restart";
         line = line + " season=" + season + " reason=" + reason;
         line = line + " refusal=DYNAMIC_TERRAIN_API_UNPROVEN";
-        return line + " effective=off admitted=0 observed=unknown runtime=PENDING";
+        return line + " effective=off admitted=0 observed=unknown runtime=PENDING missing_part=native_terrain_whitening_unavailable native_snowfall=retained";
     }
 
     static void HCReport(HCVisualSeasons seasons)

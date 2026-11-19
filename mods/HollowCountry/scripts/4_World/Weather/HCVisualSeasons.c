@@ -25,7 +25,8 @@ class HCVisualSeasonConfig
 
     bool HCValid()
     {
-        if (SchemaVersion != 1 || PhaseSeconds != 604800) { return false; }
+        // Four phases must fit the existing 2,000,000,000-second clock envelope.
+        if (SchemaVersion != 1 || PhaseSeconds < 1 || PhaseSeconds > 500000000) { return false; }
         if (CheckpointSeconds < 1 || CheckpointSeconds > 300) { return false; }
         if (MaxUncheckpointedSeconds < CheckpointSeconds + 10 || MaxUncheckpointedSeconds > 600) { return false; }
         return MaxClockDeltaSeconds >= 1 && MaxClockDeltaSeconds <= 30;

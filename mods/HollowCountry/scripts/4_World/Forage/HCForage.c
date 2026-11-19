@@ -1,13 +1,16 @@
 // HC-12 / #150: finite reclaimable records, native supply retained.
-// Supplemental spawning uses the existing surface, geometry and 30m distance
-// vetoes. Distance is not a visibility guarantee. Two-client pop-in/native
+// Shared sight native evidence: Ecology/HCEcologyMigrationNative.c:1-14
+// (Object.c:238; human.c:1417; Global/DayZPhysics.c:199).
+// Supplemental spawning uses existing surface/geometry/distance vetoes and
+// HCEcologyMigrationNative.PointHidden for every observer. Two-client pop-in/native
 // generator coexistence remains PENDING and never refuses all candidates.
 // No new distances: all existing cell/geometry/exclusion values retained.
 // 1_Core/proto/EnScript.c:470 RemoveOrdered; shared budgets/cache/save native evidence
 // is in Core/HCUnitBudget.c and World/HCWorkBudget.c.
 // W5 #129/#130. Bound per 10s tick: maintain <=4 of <=40 nodes by cursor;
 // cache GetPlayers once (refuse spawning above 16), inspect one player's one
-// candidate, <=40 node lookups/counts, <=16 distance vetoes, one geometry query,
+// candidate, <=40 node lookups/counts, <=16 shared sight tests (<=96 rays),
+// <=16 distance vetoes, one geometry query,
 // <=1 spawn; creation reservations use bounded 16384-byte stores. No map scan.
 // Pickup only marks dirty; routine checkpoints wait >=60s, Stop flushes. Shutdown
 // touches <=40 authored item handles. Off: return before allocating any data.
@@ -24,6 +27,11 @@
 // :3377 SetLifetime; 4_World/Entities/ItemBase.c:3906 OnInventoryEnter;
 // 4_World/Entities/ItemBase/Edible_Base/{CaninaBerry,SambucusBerry,
 // BoletusMushroom,MacrolepiotaMushroom}.c:1 vanilla item classes.
+// W43 #202: Edible_Base/{AmanitaMushroom,AuriculariaMushroom,
+// CraterellusMushroom,PsilocybeMushroom}.c:1; Gear/Food/MushroomBase.c:3-44.
+// Installed stock Chernarus db/types.xml:2545-2555,6486-6495 (nominal=0);
+// db/events.xml:925-1044 has none of these four children. No native CE
+// generator modified; existing EnableForage preference opts out.
 // W6 #129: Edible_Base/Cannabis.c:1,3,13,18,23-28 (native edible herb,
 // no cooking, fruit/decay, ActionEat/ActionForceFeed); 1_Core/proto/EnMath.c:38
 // RandomInt(min inclusive, max exclusive). Installed addons/gear_food.pbo
@@ -38,7 +46,8 @@
 // Chernarus only; all placement/replication/CE persistence requires native tests.
 // HC-33: runtime uses the existing June berry/herb table in every season.
 // Calendar/HCVisualSeasons never gates supply; native generators retain ALL
-// orchard fruit and mushrooms (including unknown poison/food-stage semantics).
+// orchard fruit and five stock mushrooms. Four otherwise absent vanilla
+// mushrooms use the same supplemental slot; poison/food-stage semantics are native.
 // The legacy seasonal selector remains available, but no runtime date is read.
 // No ActionPickBerry hook: installed Actions/Interact/ActionPickBerry.c:9,39-53
 // is deprecated and its server completion is commented out.
@@ -138,11 +147,11 @@ class HCForageModule : HCModule
         string line = "[HC Plan] HC-12 forage live=" + live.ToString() + " records=" + records.ToString() + " deferred=" + m_Deferred.ToString();
         Print(line + " state=" + state + " reason=" + reason + " runtime=PENDING");
         // Authored route dispositions, NOT admitted/observed native generators.
-        // 8 stock flora + 5 essential-use families; 3 HC supplements; 4 missing
-        // acquisition routes + 1 unsupported generator-control request.
+        // 8 stock flora + 5 essential-use families; 7 HC supplements; one
+        // unsupported generator-control request. Four routes admitted unverified.
         string routeState = state;
         if (state == "pending") { routeState = "on"; }
-        Print("[HC Plan] HC-33 native_routes=13 hc_routes=3 unresolved=5 counts=authored admitted=0 observed=0 state=" + routeState + " reason=" + reason + " runtime=PENDING");
+        Print("[HC Plan] HC-33 native_routes=13 hc_routes=7 unresolved=1 counts=authored admitted=4 observed=0 state=" + routeState + " reason=" + reason + " runtime=PENDING");
         if (state == "pending")
         {
             Print("[HC Refusal] HC-33 native_generator_lifecycle_unexposed; no generator control or orchard grant; runtime=PENDING");
@@ -239,7 +248,7 @@ class HCForageModule : HCModule
         m_SaveUtc = now;
         m_Healthy = true;
         s_HCInstance = this;
-        m_Status.HCPublish("ready", "existing_placement_checks");
+        m_Status.HCPublish("ready", "existing_placement_and_shared_sight_checks_runtime_pending");
         HCReceipt("pending", "visibility_and_native_generator_coexistence");
     }
 
@@ -338,7 +347,14 @@ class HCForageModule : HCModule
         {
             if (slot == 2)
             {
-                if (Math.RandomInt(0, 10) == 0) { return "Cannabis"; }
+                int floraRoll = Math.RandomInt(0, 10);
+                if (floraRoll == 0) { return "Cannabis"; }
+                // Four vanilla classes absent from active Chernarus generators.
+                // Same finite slot, cap, reservation and exact-handle custody.
+                if (floraRoll == 1) { return "AmanitaMushroom"; }
+                if (floraRoll == 2) { return "AuriculariaMushroom"; }
+                if (floraRoll == 3) { return "CraterellusMushroom"; }
+                if (floraRoll == 4) { return "PsilocybeMushroom"; }
             }
         }
         if (month >= 6 && month <= 8)
@@ -370,10 +386,16 @@ class HCForageModule : HCModule
         float slopeZ = GetGame().SurfaceY(position[0], position[2] + 1);
         if (Math.AbsFloat(slopeX - position[1]) > 0.3) { return false; }
         if (Math.AbsFloat(slopeZ - position[1]) > 0.3) { return false; }
-        foreach (Man observer : m_Players)
+        array<Man> observers = m_Players;
+        foreach (Man observer : observers)
         {
             if (!observer) { return false; }
             if (vector.DistanceSq(observer.GetPosition(), position) < 900) { return false; }
+            PlayerBase viewer = PlayerBase.Cast(observer);
+            if (!viewer) { return false; }
+            // Shared native head/cover test; unknown/vehicle observers veto.
+            // Reuse its existing ranges and bounded six-ray policy, no new limits.
+            if (!HCEcologyMigrationNative.PointHidden(viewer, null, position)) { return false; }
         }
         vector center = position + "0 0.2 0";
         return !GetGame().IsBoxCollidingGeometry(center, "0 0 0", "0.3 0.3 0.3", ObjIntersect.View, ObjIntersect.Geom, m_Exclude);
@@ -489,7 +511,8 @@ class HCForageModule : HCModule
         {
             // Fixed berry/herb content table, independent of calendar and visual
             // seasons. Never select the legacy autumn mushroom supplement:
-            // those classes already belong to native trajectory generators.
+            // those classes already belong to native trajectory generators. The four
+            // additional slot-2 classes have no active Chernarus child.
             type = HCSeasonalType(6, m_SlotCursor);
             if (m_PlayerCursor >= m_Players.Count()) { m_PlayerCursor = 0; }
             PlayerBase player = PlayerBase.Cast(m_Players[m_PlayerCursor]);
