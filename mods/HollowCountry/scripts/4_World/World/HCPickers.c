@@ -158,6 +158,10 @@ class HCScavengeDefaults
 class HCScavengeState
 {
     int Version = 1;
+    // #201 additive receipt fields: absent in V1 journals = no theft attempts.
+    // Retained when terminal trips rearm; restart never resets the daily debit.
+    int HCTheftDay;
+    int HCTheftAttempts;
     string Phase = "idle";
     string PartyId;
     string RouteId;
@@ -320,6 +324,35 @@ class HCPickerSurvey
 // provider port (an Expansion group walk): the base refuses it and names that refusal.
 class HCScavengeInventory
 {
+    // #201 server-only live camp guard; never restored or serialized handles.
+    ref HCCampRecord HCTheftCamp;
+    HCCampModule HCTheftOwner;
+
+    bool HCTheftNear(EntityAI crate)
+    {
+        if (!HCLive() || !crate) { return false; }
+        float range = Defaults.TransferRangeMeters;
+        if (Survey && Survey.ArrivalRangeMeters < range) { range = Survey.ArrivalRangeMeters; }
+        return vector.DistanceSq(Actor.GetPosition(), crate.GetPosition()) <= range * range;
+    }
+
+    // #201 same bounded cargo envelope as surveyed stock; unsafe cargo does
+    // not hide a later eligible real item. No recursive or recreated stock.
+    ItemBase HCTheftFirstItem(EntityAI crate)
+    {
+        if (!Survey || !crate || !crate.GetInventory()) { return null; }
+        CargoBase cargo = crate.GetInventory().GetCargo();
+        if (!cargo) { return null; }
+        int count = cargo.GetItemCount();
+        if (count > Survey.MaxCargoScan) { count = Survey.MaxCargoScan; }
+        for (int theftIndex = 0; theftIndex < count; theftIndex++)
+        {
+            ItemBase stock = ItemBase.Cast(cargo.GetItem(theftIndex));
+            if (HCCampTheft.SafeItem(stock) && stock.IsTakeable() && HCSearchSupplyRegistry.PersistentId(stock) != "") { return stock; }
+        }
+        return null;
+    }
+
     PlayerBase Actor;
     EntityAI Source;
     EntityAI Home;
@@ -486,6 +519,8 @@ class HCScavengeInventory
 
     void HCClear()
     {
+        this.HCTheftCamp = null;
+        this.HCTheftOwner = null;
         Actor = null;
         Source = null;
         Home = null;
@@ -513,6 +548,45 @@ class HCScavengeTrip
         if (phase != "idle" && phase != "leaving" && phase != "acquiring" && phase != "returning" && phase != "depositing" && phase != "returned" && phase != "lost" && phase != "quarantined") { return; }
         m_Ready = true;
         HCRestore();
+    }
+
+    // #201: substitute only an observed local source before the first debit.
+    // The existing HCStep owns acquire/return intents and the same-item TakeToDst.
+    // One item per trip is the existing structural custody ceiling.
+    string HCTheftPickup(HCCampModule owner, HCCampRecord camp, ItemBase crate, int now, int dailyLimit)
+    {
+        if (!m_Ready || m_Busy || !m_State || !m_IO) { return "THEFT_PICKER_UNAVAILABLE"; }
+        if (m_State.Phase != "leaving" || m_IO.HCTheftCamp) { return "THEFT_NO_EMPTY_TRAVELLING_PARTY"; }
+        if (!m_IO.HCPartyCurrent(m_State) || !m_IO.HCLive()) { return "THEFT_PARTY_LEASE_LOST"; }
+        if (!m_IO.HCTheftNear(crate)) { return "THEFT_NO_PARTY_NEAR_CAMP"; }
+        if (!HCCampTheft.HCAllowed(owner, camp, crate)) { return "THEFT_ATTENDED_OR_OBSERVED"; }
+        if (crate == m_IO.Home) { return "THEFT_SOURCE_IS_HOME"; }
+        int today = now / 86400;
+        if (now < 1 || today < m_State.HCTheftDay) { return "THEFT_CLOCK_ROLLBACK"; }
+        if (m_State.HCTheftAttempts < 0 || dailyLimit < 1) { return "THEFT_DAILY_CAP"; }
+        if (today == m_State.HCTheftDay && m_State.HCTheftAttempts >= dailyLimit) { return "THEFT_DAILY_CAP"; }
+        ItemBase stock = m_IO.HCTheftFirstItem(crate);
+        if (!HCCampTheft.SafeItem(stock)) { return "THEFT_SAFE_STOCK_ABSENT"; }
+        string sourceId = HCSearchSupplyRegistry.PersistentId(crate);
+        string itemId = HCSearchSupplyRegistry.PersistentId(stock);
+        if (sourceId == "" || itemId == "") { return "THEFT_PERSISTENT_ID_ABSENT"; }
+        // Two stores cannot be atomic with Hive. A partial barrier spends the
+        // opportunity conservatively; never roll back/replay a native transfer.
+        camp.LastTheft = now;
+        if (!owner.Commit(now)) { return "THEFT_CAMP_STORE_UNAVAILABLE"; }
+        if (today != m_State.HCTheftDay) { m_State.HCTheftAttempts = 0; }
+        m_State.HCTheftDay = today;
+        m_State.HCTheftAttempts = m_State.HCTheftAttempts + 1;
+        m_IO.Source = crate;
+        m_IO.Item = stock;
+        m_IO.HCTheftCamp = camp;
+        m_IO.HCTheftOwner = owner;
+        m_State.SourceId = sourceId;
+        m_State.ItemId = itemId;
+        m_State.CargoOwner = sourceId;
+        if (!HCCheckpoint()) { return "THEFT_JOURNAL_UNCERTAIN"; }
+        HCStep();
+        return "";
     }
 
     bool HCCheckpoint()
