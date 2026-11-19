@@ -1420,8 +1420,15 @@ class ShippedDefaultsTests(unittest.TestCase):
         self.files[path] = text
         return True
 
-    def test_shipped_sites_policy_and_loadouts_are_byte_identical_to_the_mission_sources(self):
-        self.assertEqual((AI / 'sites.json').read_bytes(), (self.DEFAULTS / 'expansion-ai-sites.json').read_bytes())
+    def test_shipped_legacy_policy_fixture_upgrades_new_fields_and_loadouts_match(self):
+        # #168 worker owns mission policy only. Upgrade the read-only legacy
+        # fixture with the new defaults; lead must regenerate the packaged mirror.
+        from tools.package.ai_patrols import POLICY_DEFAULTS
+        shipped = json.loads((self.DEFAULTS / 'expansion-ai-sites.json').read_text())
+        for key in ('RaidCooldownFloorSeconds', 'ActivationRadiusScale',
+                    'MaxSignalWorkPerSecond', 'MaxBetrayalRows', 'BetrayalRetentionSeconds'):
+            shipped.setdefault(key, POLICY_DEFAULTS[key])
+        self.assertEqual(json.loads((AI / 'sites.json').read_text()), shipped)
         names = {s['Loadout'] for s in json.loads((AI / 'sites.json').read_text())['Sites']}
         self.assertTrue(names)
         for name in names:

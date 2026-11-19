@@ -54,7 +54,7 @@ class MaterializerSmoke(unittest.TestCase):
         self.assertEqual('', director.BudgetProblem(4, None))  # exact 8/2 fits
         # Deferred members reserve their full group cap; pending transients
         # reserve both bodies and a site even before a native group exists.
-        pending = N(Transient=True, Completed=False,
+        pending = N(Transient=True, Completed=False, Materialized=False,
                     Site=N(NumberOfAIMax=4), Patrol=None)
         director.m_States.Insert(pending)
         self.assertNotEqual('', director.BudgetProblem(1, None))

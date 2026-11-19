@@ -52,6 +52,7 @@ def read_json(path):
     except (UnicodeError, RecursionError) as exc:
         raise ValueError('invalid-json') from exc
     need(type(result) is dict, 'object-required')
+    validate_policy(result)
     return result
 
 
@@ -179,7 +180,22 @@ HOUSE_PREFIXES = ('Land_House_', 'Land_Village_')
 LOOT_PREFIXES = HOUSE_PREFIXES + ('Land_HouseBlock_', 'Land_Tenement_')
 POLICY_DEFAULTS = dict(SchemaVersion=1, WorldName='chernarusplus', BuildVersion='1.30.164289',
                        ObserverPolicy='native-eai', MaxActiveAI=72, MaxActiveSites=15, MinPlayerDistance=200.0,
-                       LineOfSightRange=1000.0, MaxLegLength=400.0, CacheClearRadius=300.0)
+                       LineOfSightRange=1000.0, MaxLegLength=400.0, CacheClearRadius=300.0,
+                       RaidCooldownFloorSeconds=0, ActivationRadiusScale=0.0,
+                       MaxSignalWorkPerSecond=8, MaxBetrayalRows=128, BetrayalRetentionSeconds=172800)
+
+
+def validate_policy(policy):
+    """Validate operator overrides; zero/missing preserves legacy runtime defaults."""
+    need(type(policy) is dict, 'object-required')
+    floor = policy.get('RaidCooldownFloorSeconds', 0)
+    need(type(floor) is int and (floor == 0 or 1800 <= floor <= 604800),
+         'RaidCooldownFloorSeconds must be 0 or 1800..604800')
+    scale = policy.get('ActivationRadiusScale', 0)
+    need(type(scale) in (int, float) and math.isfinite(scale)
+         and (scale == 0 or .5 <= scale <= 2.),
+         'ActivationRadiusScale must be 0 or 0.5..2.0')
+
 KIND_DEFAULTS = {
     'patrol': dict(Loadout='HollowCountry_Patrol', NumberOfAI=2, NumberOfAIMax=5, Behaviour='LOOP', Speed='WALK',
                    ActivationRadius=650.0, DespawnSeconds=600, RespawnSeconds=2700),
@@ -331,6 +347,7 @@ def generate_sites(pos_text, proto_text, spec=None):
     spec = SITE_SPEC if spec is None else spec
     rows, floors = stock_positions(pos_text), stock_floors(proto_text)
     policy = dict(POLICY_DEFAULTS)
+    validate_policy(policy)
     sites = [patrol_site(s, rows) for s in spec.get('patrols', [])]
     sites += [scavenger_site(s, rows, policy['MaxLegLength']) for s in spec.get('scavengers', [])]
     sites += [holdout_site(s, rows, floors) for s in spec.get('holdouts', [])]

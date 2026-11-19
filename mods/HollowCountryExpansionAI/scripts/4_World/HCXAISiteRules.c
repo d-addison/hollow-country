@@ -73,6 +73,8 @@ class HCXAISiteRules
         if (!HCXAIRules.Finite(p.LineOfSightRange) || p.LineOfSightRange < 200 || p.LineOfSightRange > 1500) { return "LineOfSightRange must be 200..1500"; }
         if (!HCXAIRules.Finite(p.MaxLegLength) || p.MaxLegLength < 50 || p.MaxLegLength > 600) { return "MaxLegLength must be 50..600"; }
         if (!HCXAIRules.Finite(p.CacheClearRadius) || p.CacheClearRadius < 100 || p.CacheClearRadius > 1000) { return "CacheClearRadius must be 100..1000"; }
+        if (p.RaidCooldownFloorSeconds != 0 && (p.RaidCooldownFloorSeconds < 1800 || p.RaidCooldownFloorSeconds > 604800)) { return "RaidCooldownFloorSeconds must be 0 or 1800..604800"; }
+        if (!HCXAIRules.Finite(p.ActivationRadiusScale) || (p.ActivationRadiusScale != 0 && (p.ActivationRadiusScale < 0.5 || p.ActivationRadiusScale > 2.0))) { return "ActivationRadiusScale must be 0 or 0.5..2.0"; }
         if (!p.Sites || p.Sites.Count() < 1 || p.Sites.Count() > 64) { return "1..64 sites are required"; }
         int index = 0;
         while (index < p.Sites.Count())

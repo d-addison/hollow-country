@@ -356,13 +356,13 @@ class SharedSpawnPaths(unittest.TestCase):
         env = dict(adapter.env)
         env['HCXAISiteDirector'] = N(Active=lambda: N(SpawnProblemFor=lambda p: '',
                                                     Spawned=lambda p: spawned.append(p)))
-        env['synthetic_spawn'] = lambda patrol: setattr(patrol, 'm_Group', N())
+        env['synthetic_spawn'] = lambda patrol: setattr(patrol, 'm_Group', N(Count=lambda: 1))
         env['synthetic_suffix'] = lambda key: key[10:]
         policy = Authored(source, env)
         def attempt(key, size, transient=False):
             patrol = N(m_Group=None, m_HCFinished=False, m_HCLive=False,
                        m_HCSiteId=key, m_HCTransient=transient, m_HCGroupMax=size,
-                       m_HCNextBudgetLogMs=0)
+                       m_HCNextBudgetLogMs=0, m_NumberOfAI=size, m_HCPendingMembers=0)
             patrol.HCRefuseBudget = lambda: policy.call('HCRefuseBudget', patrol)
             policy.call('Spawn', patrol)
             return patrol
