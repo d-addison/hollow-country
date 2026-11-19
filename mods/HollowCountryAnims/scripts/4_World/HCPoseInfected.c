@@ -1,12 +1,11 @@
 // Hollow Country posed infected: server-side request hook for the HCMasterControl pose layer.
 // Experimental: compiled and played by nobody yet; native and two-client acceptance pending.
 //
-// Audit #121: admission is by SHIPPED ASSETS (HCPostureAdmission.HCCanEnter). The sit pair
-// ships, so pose 1 is admitted unverified; pose 2 (flat sleeper), 3 (lying riser) and
-// 4 (feed_kneel) keep refusing, once per change, until their clips and graph states exist
-// (exact asset spec: docs/ANIMATION_PIPELINE.md). The adapter is already pose-generic: one
-// command, one int, per-pose rise length (HCPostureAdmission.HCRiseSeconds), no re-pose
-// while a rise is playing, and the Variety wake paths reach it through HCVarietyPoseWake.
+// Issue #225: all four pose pairs have source generators and graph states. Admission
+// remains owned by HCPostureAdmission; the lead must apply the exact scope-boundary
+// patch in docs/ANIMATION_PIPELINE.md. No runtime verdict is implied by authoring.
+// One synchronized command, pose int and HCPoseFrom identify the get-up being left.
+// No re-pose while rising; Variety wake paths still reach HCVarietyPoseWake.
 // EEInit submits one request synchronously; no retained CallLater callback can
 // outlive deletion. Pose 0 remains cleanup.
 // A scripted command holds the infected still and sends the synchronized graph command
@@ -56,6 +55,9 @@ class HCPoseCommand extends DayZInfectedCommandScript
 
 	protected void HCSend(int pose)
 	{
+		int leaving = 0;
+		if (m_HCSent > 0) { leaving = m_HCSent; }
+		PreAnim_SetInt(m_HCOwner.HCPoseFromVariable(), leaving);
 		PreAnim_SetInt(m_HCOwner.HCPoseVariable(), pose);
 		PreAnim_CallCommand(m_HCOwner.HCPoseCommandId(), pose, 0);
 		m_HCSent = pose;
@@ -78,7 +80,7 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		}
 		int wanted = m_HCOwner.HCWantedPose();
 		m_HCResend += pDt;
-		if (wanted != m_HCSent || m_HCResend > RESEND_SECONDS)
+		if (wanted != m_HCSent || m_HCResend > HCPoseCommand.RESEND_SECONDS)
 		{
 			int leaving = m_HCSent;
 			HCSend(wanted);
@@ -108,15 +110,18 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	static string s_HCLastRefusal;     // print-once-per-change refusal reason
 	protected int m_HCPoseCmd = -1;
 	protected int m_HCPoseVar = -1;
+	protected int m_HCPoseFromVar = -1;
 
-	//! Server: only modes with verified admission may acquire a pose slot.
+	//! Server: only authored modes admitted by the shared owner may acquire a slot.
 	bool HCRequestPose(int pose)
 	{
 		if (!g_Game.IsServer() || !IsAlive())
 			return false;
+		if (pose != 0 && HCInfectedVariety.HCPosesOptedOut())
+			return false;
 		if (pose != 0 && !HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose)))
 			return HCRefusePose(pose);
-		if (pose != 0 && m_HCRising)
+		if (pose != 0 && (m_HCRising || (m_HCStarted && pose != m_HCPose)))
 			return false;   // finish the get-up (interruption safety); never snap into a new pose
 		if (pose == m_HCPose)
 			return true;
@@ -137,7 +142,7 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			m_HCHolding = true;
 		}
 		m_HCPose = pose;
-		Print("[HollowCountryAnims] pose request pose=" + pose.ToString() + " posed=" + s_HCPosed.ToString());
+		Print("[HollowCountryAnims] pose request pose=" + pose.ToString() + " posed=" + s_HCPosed.ToString() + " runtime=PENDING");
 		return true;
 	}
 
@@ -189,6 +194,13 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		return m_HCPoseVar;
 	}
 
+	int HCPoseFromVariable()
+	{
+		if (m_HCPoseFromVar < 0)
+			m_HCPoseFromVar = GetAnimInterface().BindVariableInt("HCPoseFrom");
+		return m_HCPoseFromVar;
+	}
+
 	protected void HCRelease()
 	{
 		if (m_HCHolding)
@@ -222,12 +234,12 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		{
 			// Our command finished its get-up or was replaced by a vanilla command.
 			HCRelease();
-			Print("[HollowCountryAnims] pose released posed=" + s_HCPosed.ToString());
+			Print("[HollowCountryAnims] pose released posed=" + s_HCPosed.ToString() + " runtime=PENDING");
 			return false;
 		}
 		StartCommand_ScriptInst(HCPoseCommand);
 		m_HCStarted = true;
-		Print("[HollowCountryAnims] pose command started pose=" + m_HCPose.ToString());
+		Print("[HollowCountryAnims] pose command started pose=" + m_HCPose.ToString() + " runtime=PENDING");
 		return true;
 	}
 
