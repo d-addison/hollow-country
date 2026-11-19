@@ -441,6 +441,27 @@ class HCXAISiteDirector : Managed
     protected int m_LocalityNextPendingLogAt;
     protected bool m_LocalityRefused;
     protected string m_LocalityStatus = "off";
+    protected string m_CoverageFault;
+    protected int m_LocalitiesWithoutSites;
+    protected ref HCOperationalStatus m_OperationalStatus = new HCOperationalStatus;
+
+    // Cached owner state only: status reads never inspect players or patrols.
+    HCOperationalStatus HCGetOperationalStatus()
+    {
+        if (m_Phase == "wait" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
+        {
+            m_OperationalStatus.HCPublish("requested", "sites_" + m_Phase);
+        }
+        else if (m_Phase == "refused" || m_Phase == "off")
+        {
+            m_OperationalStatus.HCPublish("refused", "sites_policy_or_provider_unavailable");
+        }
+        else
+        {
+            HCModuleReadiness.HCDerive(m_OperationalStatus, m_Phase == "run", "", m_CoverageFault, "site_owner_running_routes_qualify_incrementally");
+        }
+        return m_OperationalStatus;
+    }
 
     static HCXAISiteDirector Active() { return s_Active; }
     string Phase() { return m_Phase; }
@@ -475,14 +496,26 @@ class HCXAISiteDirector : Managed
     {
         if (!FileExist(LOCALITIES))
         {
-            Print(this.HCLocalitySummary() + " refusal=catalog_missing legacy_sites_retained");
-            return true;
+            // Reuse the complete site policy as a bounded fallback queue. No
+            // locality positions or routes are invented when the pack is absent.
+            m_CoverageFault = "LOCALITY_CATALOG_MISSING_POLICY_QUEUE_RETAINED";
+            Print("[HC Coverage] " + m_CoverageFault + " runtime=PENDING");
+            m_Localities = new HCXAILocalityCatalog();
+            m_Localities.WorldName = m_Policy.WorldName;
         }
         string error;
-        if (!JsonFileLoader<HCXAILocalityCatalog>.LoadData(HCWorldStore.Read(LOCALITIES), m_Localities, error)) { m_LocalityStatus = "refused:catalog_unreadable"; return false; }
+        if (FileExist(LOCALITIES))
+        {
+            string catalogText = HCWorldStore.Read(LOCALITIES);
+            if (!JsonFileLoader<HCXAILocalityCatalog>.LoadData(catalogText, m_Localities, error) || !m_Localities) { m_LocalityStatus = "refused:catalog_unreadable"; return false; }
+            if (!HCJsonFields.Has(catalogText, "Enabled")) { m_Localities.Enabled = true; }
+        }
+        // Empty fallback catalog is populated from actual authored site IDs.
+        if (!FileExist(LOCALITIES) && !this.HCReconcileLocalitySites()) { return false; }
         string problem = HCXAISiteRules.HCLocalityProblem(m_Localities, m_Policy);
         if (problem != "") { m_LocalityStatus = "refused:" + problem; return false; }
-        Print(HCV2Admission.Line("HC-18", m_Localities.Enabled, "locality-route-observer", false));
+        if (FileExist("$profile:HollowCountry/acceptance/locality-route-observer.disable")) { m_Localities.Enabled = false; }
+        Print(HCV2Admission.Line("HC-18", m_Localities.Enabled, "locality-route-observer", false) + " runtime=PENDING");
         if (!HCV2Admission.Admitted(m_Localities.Enabled))
         {
             m_Localities = null;
@@ -490,6 +523,11 @@ class HCXAISiteDirector : Managed
             return true;
         }
         if (!this.HCReconcileLocalitySites()) { m_LocalityStatus = "refused:catalog_drift_capacity"; return false; }
+        if (m_LocalitiesWithoutSites > 0)
+        {
+            m_CoverageFault = "LOCALITY_AUTHORED_SITE_DATA_MISSING";
+            Print("[HC Coverage] " + m_CoverageFault + " localities=" + m_LocalitiesWithoutSites.ToString() + " existing_routes_retained=1 runtime=PENDING");
+        }
         m_LocalitySave = new HCXAILocalitySave();
         if (!m_LocalitySave.HCLoad(m_Localities.WorldName)) { m_LocalityStatus = "refused:rotation_quarantined"; return false; }
         foreach (HCXAILocality locality : m_Localities.Localities)
@@ -530,6 +568,7 @@ class HCXAISiteDirector : Managed
     protected bool HCReconcileLocalitySites()
     {
         int unknown = 0;
+        m_LocalitiesWithoutSites = 0;
         foreach (HCXAILocality locality : m_Localities.Localities)
         {
             int siteIndex = locality.SiteIds.Count() - 1;
@@ -543,6 +582,7 @@ class HCXAISiteDirector : Managed
                 if (!known) { locality.SiteIds.RemoveOrdered(siteIndex); unknown++; }
                 siteIndex--;
             }
+            if (locality.SiteIds.Count() == 0) { m_LocalitiesWithoutSites++; }
         }
         if (unknown > 0) { Print("[HC Plan] HC-18 catalog_unknown_site skipped=" + unknown.ToString() + " operator policy retained runtime=PENDING"); }
         int syntheticIndex = 0;
@@ -593,6 +633,7 @@ class HCXAISiteDirector : Managed
         m_LocalitySave = null;
         m_Localities = null;
         m_LocalityStatus = "off:rotation_fault_legacy_sites_retained";
+        m_CoverageFault = "LOCALITY_ROTATION_FAULT_LEGACY_SITES_RETAINED";
         foreach (HCXAISiteState retained : m_States) { retained.LocalityId = ""; }
         if (m_Phase == "run" || m_Phase == "bind" || m_Phase == "qualify" || m_Phase == "create")
         {
@@ -625,6 +666,7 @@ class HCXAISiteDirector : Managed
             row.RetryAt = now + HCXAISiteRules.HCRetrySeconds(m_Localities);
             row.Refusal = "route_not_reviewed";
             if (locality.Island) { row.Refusal = "island_access_route_unreviewed"; }
+            if (locality.SiteIds.Count() == 0) { row.Refusal = "authored_site_data_missing"; }
             int tries = 0;
             while (tries < locality.SiteIds.Count() && selected.Count() < slots)
             {
@@ -647,6 +689,8 @@ class HCXAISiteDirector : Managed
         if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { this.HCLocalityFault(); return; }
         if (selected.Count() == 0)
         {
+            // Missing authored rows were diagnosed once at boot, not per lap.
+            if (locality.SiteIds.Count() == 0) { return; }
             if (row.LastSelected == rotation.SelectionSerial && now >= m_LocalityNextPendingLogAt)
             {
                 m_LocalityNextPendingLogAt = now + 300;
@@ -669,12 +713,16 @@ class HCXAISiteDirector : Managed
         if (m_LocalitySave.Fault) { this.HCLocalityFault(); return; }
         int now = ExpansionStatic.GetTimestamp(true);
         if (now < 1 || now > 2146878847) { this.HCLocalityFault(); return; }
-        m_LocalityUnits.HCReset(4);
-        m_LocalityWork.HCReset(4);
+        // HC_WORK_AI_SITES is the lead-owned shared consumer integration.
+        // Reserve candidate work separately from maintenance. Otherwise four
+        // armed controllers consume every local unit and prevent page growth.
+        m_LocalityUnits.HCReset(HCXAISiteDirector.WORK_PER_TICK + HCXAISiteRules.HCAttemptsPerTick(m_Localities));
+        m_LocalityWork.HCReset(HCXAISiteDirector.WORK_PER_TICK);
         int visited = 0;
         int count = m_States.Count();
-        while (visited < count && m_States.Count() > 0 && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
+        while (visited < count && visited < HCXAISiteDirector.WORK_PER_TICK && m_States.Count() > 0 && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
         {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
             if (m_LocalityCursor >= m_States.Count()) { m_LocalityCursor = 0; }
             HCXAISiteState state = m_States[m_LocalityCursor];
             visited++;
@@ -709,6 +757,7 @@ class HCXAISiteDirector : Managed
             m_LocalityCursor++;
             if (state.Failed || state.Patrol) { continue; }
             m_LocalityUnits.HCCharge(63); // same shared path-probe weight
+            HCServer.HCTickWork().HCCharge(63);
             bool createFailed = false;
             if (!state.Bound) { this.Bind(state); }
             else if (!state.Qualified)
@@ -736,6 +785,7 @@ class HCXAISiteDirector : Managed
         if (now < m_LocalityNextAttemptAt) { return; }
         while (attempts < HCXAISiteRules.HCAttemptsPerTick(m_Localities) && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
         {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
             this.HCTryLocality(now);
             attempts++;
             if (m_LocalityRefused) { return; }
@@ -909,7 +959,10 @@ class HCXAISiteDirector : Managed
         string missionSites = "$mission:hollow-country/ai/sites.json";
         if (FileExist(missionSites)) { shippedSites = missionSites; }
         HCXAIRespawnDefaults.HCEnsure(HCXAIDefaults.SitesFile(), shippedSites);
-        HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", HCXAIDefaults.Shipped() + "expansion-ai-localities.json");
+        string shippedLocalities = HCXAIDefaults.Shipped() + "expansion-ai-localities.json";
+        string missionLocalities = "$mission:hollow-country/ai/localities.json";
+        if (FileExist(missionLocalities)) { shippedLocalities = missionLocalities; }
+        HCXAIRespawnDefaults.HCEnsure("expansion-ai-localities.json", shippedLocalities);
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-formations.json", HCXAIDefaults.Shipped() + "expansion-ai-formations.json");
         HCXAIRespawnDefaults.HCEnsure("expansion-ai-tactics.json", HCXAIDefaults.Shipped() + "expansion-ai-tactics.json");
         m_Policy = HCXAISiteDirector.LoadPolicy();
@@ -1036,7 +1089,7 @@ class HCXAISiteDirector : Managed
         {
             HCSaveScheduler.HCRegister(m_LocalitySave);
             m_Phase = "run";
-            m_LocalityStatus = "ready";
+            m_LocalityStatus = this.HCGetOperationalStatus().HCState();
             Print(this.HCLocalitySummary());
             return;
         }

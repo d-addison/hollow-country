@@ -40,7 +40,8 @@ class HCXAISiteRules
     }
     static HCXAILocalityCoverage HCCoverage(HCXAILocalityRotation rotation, string id)
     {
-        foreach (HCXAILocalityCoverage row : rotation.Rows)
+        array<ref HCXAILocalityCoverage> coverageRows = rotation.Rows;
+        foreach (HCXAILocalityCoverage row : coverageRows)
         {
             if (row.LocalityId == id) { return row; }
         }
@@ -65,7 +66,8 @@ class HCXAISiteRules
     {
         string oldest;
         int pendingSince = 2147483647;
-        foreach (HCXAILocalityCoverage row : rotation.Rows)
+        array<ref HCXAILocalityCoverage> coverageRows = rotation.Rows;
+        foreach (HCXAILocalityCoverage row : coverageRows)
         {
             if (row.Pending && row.PendingSinceSerial < pendingSince)
             {
@@ -83,13 +85,16 @@ class HCXAISiteRules
         if (catalog.SelectionIntervalSeconds < 0 || catalog.SelectionIntervalSeconds > 3600 || catalog.OpportunitySeconds < 0 || catalog.OpportunitySeconds > 86400 || catalog.RetrySeconds < 0 || catalog.RetrySeconds > 86400) { return "catalog_time_budget"; }
         array<string> ids = new array<string>();
         array<string> sites = new array<string>();
-        foreach (HCXAILocality locality : catalog.Localities)
+        array<ref HCXAILocality> catalogRows = catalog.Localities;
+        foreach (HCXAILocality locality : catalogRows)
         {
             if (!locality || !HCXAIRules.Token(locality.Id) || locality.Id.Length() > 48 || ids.Find(locality.Id) >= 0) { return "catalog_locality_id"; }
             ids.Insert(locality.Id);
-            if (!locality.SiteIds || locality.SiteIds.Count() > 8) { return "catalog_site_budget"; }
-            foreach (string siteId : locality.SiteIds)
+            if (!locality.SiteIds || locality.SiteIds.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return "catalog_site_budget"; }
+            array<string> localitySites = locality.SiteIds;
+            foreach (string siteId : localitySites)
             {
+                if (!HCXAIRules.Token(siteId) || siteId.Length() > 48 || sites.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return "catalog_site_budget"; }
                 if (sites.Find(siteId) >= 0) { return "catalog_duplicate_site"; }
                 sites.Insert(siteId);
             }
