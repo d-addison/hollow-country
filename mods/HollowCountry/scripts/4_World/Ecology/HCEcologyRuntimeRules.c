@@ -24,6 +24,22 @@ class HCEcologyRuntimeRules
 	static const int STAGE_SAMPLE = 2;
 	static const int STAGE_PROBE = 3;
 	static const int STAGE_SAVE = 4;
+	// HC-29 cooperative targets, provisional until HC-64 target-load profiling.
+	// Native scripts-1.30.164289: 1_Core/proto/EnMath.c:413 Round.
+	static const int PRUNE_ROWS_PER_TICK = 32;
+	static const int SAMPLE_ROWS_PER_TICK = 32;
+	static const int SLICE_MS = 4;
+
+	static int ElapsedUs(int ticks, float ticksPerMs)
+	{
+		// Raw TickCount units have no documented duration. Refuse conversion
+		// until the existing sampler has supplied a valid observed calibration.
+		if (ticks < 0 || !Finite(ticksPerMs) || ticksPerMs < 0.01 || ticksPerMs > 100000) { return -1; }
+		float elapsed = ticks;
+		elapsed = elapsed * 1000 / ticksPerMs;
+		if (!Finite(elapsed) || elapsed > 2147483000) { return -1; }
+		return Math.Round(elapsed);
+	}
 
 	static bool Finite(float value)
 	{

@@ -28,9 +28,15 @@ def translated(text, name, env, owner, member=False):
 def environment():
     data = (ROOT / "3_Game/Ecology/HCEcologyRuntimeData.c").read_text()
     env = dict(EArray=EArray, len=len, str=str, Print=lambda s: None)
+    # HC-29 explicit synthetic ports for newly referenced global services.
+    env["HCEcologySaveJob"] = lambda: SimpleNamespace(HCDirty=False, HCInFlight=False,
+        HCFailed=lambda: False, HCBind=lambda *args: None, HCDetach=lambda: None)
+    env["HCSaveScheduler"] = SimpleNamespace(HCFlush=lambda job: job is None)
+    env["HCWorkBudget"] = synthetic_work_budget
+    env["TickCount"] = lambda prior: 0
     from tests.unit.build_identity_support import translate as build_identity
     env["HCBuildIdentity"] = build_identity()
-    env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max)
+    env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Round=round)
     # Count-only fixture pin: runtime reuses the existing 3_Game cohort ceiling.
     limits = (ROOT / "3_Game/Ecology/HCEcologyData.c").read_text()
     env["HCEcologyLimits"] = SimpleNamespace(ACTORS=int(re.search(r'ACTORS = (\d+);', limits)[1]))
@@ -55,6 +61,11 @@ def environment():
     for name,value in re.findall(r"static const int (\w+) = (\d+);",text):
         setattr(rules,name,int(value))
     return env
+
+
+def synthetic_work_budget():
+    """Explicit always-available clock port; HC-29 owns deadline exhaustion checks."""
+    return SimpleNamespace(HCReset=lambda *args: None, HCContinue=lambda: True)
 
 
 def unit_budget():
@@ -205,7 +216,7 @@ class EcologyStoreBehaviorTests(unittest.TestCase):
         self.state=self.e["HCEcologyCheckpoint"]()
         self.state.WorldName="synthetic-world";self.state.SessionId="session-a";self.state.Revision=1
         self.state.Version=1;self.state.Samples=self.state.PathQueries=0
-        self.store=SimpleNamespace(m_Root="owned",m_World="synthetic-world",m_Session="session-a",m_Revision=0,m_Fault=False)
+        self.store=SimpleNamespace(m_Root="owned",m_World="synthetic-world",m_Session="session-a",m_Revision=0,m_Fault=False,m_SavePhase=0)
         def write(path,text,limit):
             self.trace.append(("write",path))
             if self.fail=="image" and path.endswith("state-synthetic-world.json"):
@@ -258,7 +269,7 @@ class EcologyStoreBehaviorTests(unittest.TestCase):
 class EcologyStoreRestartBehaviorTests(unittest.TestCase):
     def setUp(self):
         self.e=environment();self.files={};self.saved=[];self.trace=[]
-        self.store=SimpleNamespace(m_Root="owned",m_World="",m_Session="",m_Revision=0,m_Fault=False)
+        self.store=SimpleNamespace(m_Root="owned",m_World="",m_Session="",m_Revision=0,m_Fault=False,m_SavePhase=0)
         def decode(text):
             try:
                 fields=json.loads(text)
@@ -327,7 +338,7 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.runtime=SimpleNamespace(m_Actors=EArray(),m_Resources=EArray(),m_Intents=EArray(),
               m_ActorCursor=0,m_ResourceCursor=0,m_Session="session-a",m_Settings=self.cfg,
               m_Policy=SimpleNamespace(WorldName="synthetic-world"),
-              m_Units=unit_budget(),m_CycleExamined=0,m_CycleQueries=0,m_ProbeDone=False)
+              m_Units=unit_budget(),m_Work=synthetic_work_budget(),m_CycleExamined=0,m_CycleQueries=0,m_ProbeDone=False)
         class Handle:
             def __init__(self,point,kind):self.point=point;self.kind=kind;self.alive=True
             def GetPosition(self):return self.point
@@ -460,8 +471,8 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.runtime=SimpleNamespace(m_Running=True,m_Collecting=True,m_LastTick=100,m_LastNow=100,m_LastSave=100,m_Intents=EArray(),
             m_Actors=EArray(),m_Resources=EArray(),m_Session="session-a",m_Settings=self.e["HCEcologyRuntimeSettings"](),
             m_Policy=SimpleNamespace(WorldName="synthetic-world"),m_State=SimpleNamespace(),
-            m_Checkpoint=self.e["HCEcologyCheckpoint"](),m_Dirty=False,m_ActorSample=0,m_ResourceSample=0,
-            m_Stage=0,m_CycleSamples=0,m_CycleExamined=0,m_CycleQueries=0,m_ProbeDone=False)
+            m_Checkpoint=self.e["HCEcologyCheckpoint"](),m_Dirty=False,m_ActorSample=0,m_ResourceSample=0,m_SampleActorTurn=True,
+            m_Stage=0,m_CycleSamples=0,m_CycleExamined=0,m_CycleQueries=0,m_ProbeDone=False,m_SaveJob=None,m_Units=unit_budget(),m_Work=synthetic_work_budget())
         self.runtime.m_Checkpoint.Version=1
         self.runtime.m_Checkpoint.Samples=self.runtime.m_Checkpoint.PathQueries=0
         self.authority=True;self.world="synthetic-world"
@@ -472,6 +483,7 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
             self.queries.append(now);self.runtime.m_ProbeDone=True;return 0
         self.runtime.ProbeCohort=probe_slice
         self.runtime.Checkpoint=lambda:self.writes.append("save") or True
+        self.runtime.HCWriteCheckpoint=self.runtime.Checkpoint
         self.e["HCEcologyNative"]=SimpleNamespace(Authority=lambda:self.authority,Capabilities=lambda:SimpleNamespace(ProviderAvailable=False))
         self.e["GetGame"]=lambda:SimpleNamespace(GetWorldName=lambda:self.world)
         self.commits=[];self.schedules=[]
@@ -676,7 +688,7 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
     def test_invalid_start_closes_prestart_cohort_without_stopping_live_duplicate(self):
         source=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
         for running in (False,True):
-            runtime=SimpleNamespace(m_Running=running,Begin=lambda *args:False,Finish=lambda:self.stops.append("stop"))
+            runtime=SimpleNamespace(m_StartupMaxTicks=0,m_Running=running,Begin=lambda *args:False,Finish=lambda:self.stops.append("stop"))
             self.e["HCEcologyRuntime"]=SimpleNamespace(Instance=lambda:runtime)
             start=translated(source,"Start",self.e,"HCEcologyRuntime")
             self.assertFalse(start(None,"synthetic-world","session-b"))
@@ -841,14 +853,14 @@ class EcologyScaleSmoke(unittest.TestCase):
         runtime = SimpleNamespace(m_Actors=EArray(SimpleNamespace(Live=point(0.), Serial=i, LocalId="session-a:%d" % i) for i in range(1, 5)),
             m_Resources=EArray(SimpleNamespace(Live=point(1000.), Serial=i, LocalId="session-a:%d" % i) for i in range(5, 9)),
             m_Intents=EArray(), m_ActorCursor=0, m_ResourceCursor=0, m_Session="session-a", m_Settings=cfg,
-            m_Policy=SimpleNamespace(WorldName="synthetic-world"), m_Units=unit_budget(),
+            m_Policy=SimpleNamespace(WorldName="synthetic-world"), m_Units=unit_budget(),m_Work=synthetic_work_budget(),
             m_CycleExamined=0, m_CycleQueries=0, m_ProbeDone=False)
         pairs = []
         self.e["vector"].DistanceSq = lambda a, b: pairs.append((a[0], b[0])) or 1000000.
         self.e["HCEcologyNative"] = SimpleNamespace(SampleResource=lambda r: 1, ProbePath=lambda *a: None)
         # Shrink the slice to 5 units so the 16-pair cohort needs several slices (synthetic).
         self.e["HCEcologyRuntimeRules"] = SimpleNamespace(PAIRS_PER_TICK=512, PROBES_PER_TICK=2,
-            PROBE_UNITS_PER_TICK=5, PROBE_PAIR_UNITS=1, PROBE_PATH_UNITS=256, Capacity=self.rules.Capacity)
+            PROBE_UNITS_PER_TICK=5, SLICE_MS=4, PROBE_PAIR_UNITS=1, PROBE_PATH_UNITS=256, Capacity=self.rules.Capacity)
         probe = translated(self.source, "ProbeCohort", self.e, "HCEcologyRuntime", True)
         self.assertEqual(0, probe(runtime, 100))
         self.assertEqual(5, len(pairs))

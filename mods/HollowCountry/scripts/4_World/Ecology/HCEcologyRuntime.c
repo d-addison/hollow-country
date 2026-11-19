@@ -10,15 +10,12 @@
 // Registry ceilings: HCEcologyRuntimeRules.REGISTRY_ACTORS (256) and
 // REGISTRY_RESOURCES (2048), fixed, sized for the shipped vanilla CE cohort;
 // settings MaxActors/MaxResources bound only the per-tick batch/policy (<=32).
-// Issue #138: one observation CYCLE (every TickMs) is split into stages and the module tick runs
-// exactly ONE stage per call, so no HC tick does a full pass: PRUNE (cleanup <=256+2048 bindings and
-// <=8 intents), SAMPLE (<=SampleSlice actors + resources, policy), PROBE x2 (<=PROBE_UNITS_PER_TICK
-// work units per tick from the shared core HCUnitBudget: 1 per distance-only pair, PROBE_PATH_UNITS
-// per native path probe; a cycle still examines <=PAIRS_PER_TICK (512) pairs and issues <=
-// min(MaxPathQueries, PROBES_PER_TICK=2) probes, the cursors resume where the last slice stopped) and
-// SAVE (the checkpoint, only once per minute). The cycle period is max(TickMs, stage ticks).
-// Hooks flag bound entities, so EEInit never scans for
-// duplicates and EEDelete of unbound items never scans. No population/player scan.
+// HC-29: one stage per tick; pruning retains a reverse cursor and shared
+// unit/time caps. Probe cursors and the existing small sample windows remain.
+// Routine checkpoints use HCSaveScheduler; only startup/shutdown are barriers.
+// N1: Game.c:914 GetTickTime, :1535 GetTime; EnSystem.c:106 TickCount.
+// EnMath.c:553/566 Min/Max; EnScript.c:380/399/463 Count/Get/Remove.
+// Raw callback, startup, admission and save maxima are cached independently.
 class HCEcologyLiveBinding
 {
 	EntityAI Live;
@@ -54,6 +51,7 @@ class HCEcologyRuntime
 	// Rotating sample windows over the registries; independent of the pairing cursors.
 	protected int m_ActorSample;
 	protected int m_ResourceSample;
+	protected bool m_SampleActorTurn = true;
 	protected string m_Session;
 	// Cycle stage machine (HCEcologyRuntimeRules.STAGE_*) and the totals one cycle carries between stages.
 	protected int m_Stage;
@@ -62,6 +60,22 @@ class HCEcologyRuntime
 	protected int m_CycleQueries;
 	protected bool m_ProbeDone;
 	protected ref HCUnitBudget m_Units = new HCUnitBudget;
+	protected ref HCWorkBudget m_Work = new HCWorkBudget;
+	protected ref HCEcologySaveJob m_SaveJob;
+	protected int m_PruneKind;
+	protected int m_PruneCursor = -1;
+	protected int m_Visited;
+	protected int m_Deferred;
+	protected int m_CallbackMaxTicks = -1;
+	protected int m_StartupMaxTicks = -1;
+	protected int m_AdmissionMaxTicks = -1;
+	protected int m_SaveMaxTicks = -1;
+	protected int m_LastElapsedTicks;
+	protected int m_ReportAfter;
+	protected float m_TicksPerMs;
+
+	// Passive sampler/debug lookup: never allocates or observes native state.
+	static HCEcologyRuntime HCPeek() { return s_Instance; }
 
 	static HCEcologyRuntime Instance()
 	{
@@ -75,8 +89,11 @@ class HCEcologyRuntime
 	static bool Register(EntityAI entity, bool actor)
 	{
 		HCEcologyRuntime runtime = Instance();
-		if (!runtime || !entity) { return false; }
-		return runtime.Add(entity, actor);
+		if (!runtime || !entity || !runtime.m_Collecting) { return false; }
+		int callbackStart = TickCount(0);
+		bool added = runtime.Add(entity, actor);
+		runtime.m_CallbackMaxTicks = Math.Max(runtime.m_CallbackMaxTicks, TickCount(callbackStart));
+		return added;
 	}
 
 	// Called when the service will not start (disabled or rejected): releases
@@ -84,11 +101,13 @@ class HCEcologyRuntime
 	static void CloseCollection()
 	{
 		if (s_Instance) { s_Instance.CloseCohort(); }
+		else { Print("[HC Plan] HC-29 state=off visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING"); }
 	}
 
 	void CloseCohort()
 	{
 		if (m_Running) { return; }
+		if (m_Collecting) { Print("[HC Plan] HC-29 state=off visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING"); }
 		m_Collecting = false;
 		m_Actors.Clear();
 		m_Resources.Clear();
@@ -96,8 +115,10 @@ class HCEcologyRuntime
 
 	static void Unregister(EntityAI entity)
 	{
-		if (!s_Instance || !entity) { return; }
+		if (!s_Instance || !entity || !s_Instance.m_Collecting) { return; }
+		int callbackStart = TickCount(0);
 		s_Instance.Remove(entity);
+		s_Instance.m_CallbackMaxTicks = Math.Max(s_Instance.m_CallbackMaxTicks, TickCount(callbackStart));
 	}
 
 	bool Add(EntityAI entity, bool actor)
@@ -183,13 +204,20 @@ class HCEcologyRuntime
 	{
 		HCEcologyRuntime runtime = Instance();
 		if (!runtime) { return false; }
+		int startupStart = TickCount(0);
 		bool started = runtime.Begin(settings, worldName, session);
-		if (!started && !runtime.m_Running) { runtime.Finish(); }
+		runtime.m_StartupMaxTicks = Math.Max(runtime.m_StartupMaxTicks, TickCount(startupStart));
+		if (!started && !runtime.m_Running)
+		{
+			Print("[HC Plan] HC-29 state=refused reason=start_admission visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING");
+			runtime.Finish();
+		}
 		return started;
 	}
 
 	bool Begin(HCEcologyRuntimeSettings settings, string worldName, string session)
 	{
+		int admissionStart = TickCount(0);
 		if (m_Running || session == m_Session) { return false; }
 		worldName = HCBuildIdentity.CanonicalWorld(worldName);
 		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(worldName, GetGame().GetWorldName())) { return false; }
@@ -200,6 +228,7 @@ class HCEcologyRuntime
 		if (!HCEcologyRuntimeRules.SettingsValid(settings))
 		{
 			Print("[HC Ecology] invalid or unreadable settings; admission rejected");
+			Print("[HC Plan] HC-29 state=refused reason=invalid_settings visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING");
 			return false;
 		}
 		// Freeze caller-owned scalar preferences through the bounded native codec.
@@ -218,6 +247,7 @@ class HCEcologyRuntime
 			Print("[HC Ecology] retained cohort exceeds configured bounds; admission rejected");
 			return false;
 		}
+		m_AdmissionMaxTicks = Math.Max(m_AdmissionMaxTicks, TickCount(admissionStart));
 		m_Store = new HCEcologyRuntimeStore;
 		m_Checkpoint = m_Store.Open(worldName, session);
 		if (!m_Checkpoint)
@@ -225,6 +255,8 @@ class HCEcologyRuntime
 			Print("[HC Ecology] checkpoint unavailable; observation service rejected");
 			return false;
 		}
+		m_SaveJob = new HCEcologySaveJob;
+		m_SaveJob.HCBind(this, m_Store);
 		m_Session = session;
 		// EEInit may have registered handles before the session was admitted.
 		BindLocalIds();
@@ -246,8 +278,15 @@ class HCEcologyRuntime
 		m_LastSave = m_LastTick;
 		m_ActorCursor = 0;
 		m_ResourceCursor = 0;
+		m_PruneKind = 0;
+		m_PruneCursor = -1;
+		m_ReportAfter = 0;
 		m_ActorSample = 0;
 		m_ResourceSample = 0;
+		m_SampleActorTurn = true;
+		m_Visited = 0;
+		m_Deferred = 0;
+		m_TicksPerMs = 0;
 		m_Dirty = false;
 		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
 		m_CycleSamples = 0;
@@ -258,17 +297,32 @@ class HCEcologyRuntime
 		m_Collecting = true;
 		m_Running = true;
 		Print("[HC Ecology] observation/path adapter started; native brains preserved");
+		Print("[HC Plan] HC-29 state=on visited=0 deferred=0 save_phase=0 elapsed_us=-1 reason=invalid_calibration migration=unsupported; runtime=PENDING");
 		return true;
 	}
 
 	static void Tick(int nowMs)
 	{
-		if (s_Instance) { s_Instance.Pump(nowMs); }
+		if (!s_Instance || !s_Instance.m_Running) { return; }
+		int tickStart = TickCount(0);
+		s_Instance.m_Visited = 0;
+		s_Instance.Pump(nowMs);
+		s_Instance.m_LastElapsedTicks = TickCount(tickStart);
+		s_Instance.HCReport(nowMs);
 	}
 
 	void Pump(int nowMs)
 	{
 		if (!m_Running) { return; }
+		if (m_SaveJob && m_SaveJob.HCFailed())
+		{
+			m_Running = false;
+			Finish();
+			return;
+		}
+		// Scheduler completion clears HCDirty; a newer counter mutation may have
+		// occurred during its frozen snapshot. Rearm it on the next cheap tick.
+		if (m_SaveJob && m_Dirty) { m_SaveJob.HCDirty = true; }
 		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(m_Policy.WorldName, GetGame().GetWorldName()))
 		{
 			Finish();
@@ -286,6 +340,8 @@ class HCEcologyRuntime
 			if (!HCEcologyRuntimeRules.TickDue(nowMs, m_LastTick, m_Settings.TickMs)) { return; }
 			m_LastTick = nowMs;
 			m_Stage = HCEcologyRuntimeRules.STAGE_PRUNE;
+			m_PruneKind = 0;
+			m_PruneCursor = m_Resources.Count() - 1;
 			m_CycleSamples = 0;
 			m_CycleExamined = 0;
 			m_CycleQueries = 0;
@@ -300,40 +356,87 @@ class HCEcologyRuntime
 
 	void StagePrune(int nowMs)
 	{
-		RemoveFrom(m_Actors, null);
-		RemoveFrom(m_Resources, null);
-		int i = m_Intents.Count() - 1;
-		while (i >= 0)
+		m_Units.HCReset(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK);
+		m_Work.HCReset(HCEcologyRuntimeRules.PRUNE_ROWS_PER_TICK, HCEcologyRuntimeRules.SLICE_MS);
+		int visited = 0;
+		// Capture a reverse window at cycle start. New registrations cannot
+		// extend this pass indefinitely; deletions normalize the next cursor.
+		while (m_PruneKind < 3)
 		{
-			if (!HCEcologyRuntimeRules.IntentValid(m_Intents.Get(i), m_Policy.WorldName, m_Session, nowMs, m_Settings.Radius)) { m_Intents.Remove(i); }
-			i--;
+			array<ref HCEcologyLiveBinding> entries = m_Resources;
+			if (m_PruneKind == 1) { entries = m_Actors; }
+			int count = entries.Count();
+			if (m_PruneKind == 2) { count = m_Intents.Count(); }
+			m_PruneCursor = Math.Min(m_PruneCursor, count - 1);
+			if (m_PruneCursor < 0)
+			{
+				m_PruneKind++;
+				if (m_PruneKind == 1) { m_PruneCursor = m_Actors.Count() - 1; }
+				if (m_PruneKind == 2) { m_PruneCursor = m_Intents.Count() - 1; }
+				continue;
+			}
+			// Always allow the first bounded row; then consult both shared caps.
+			if (visited > 0 && !m_Work.HCContinue()) { break; }
+			if (!m_Units.HCTake(1)) { break; }
+			int index = m_PruneCursor;
+			m_PruneCursor--;
+			visited++;
+			if (m_PruneKind == 2)
+			{
+				if (!HCEcologyRuntimeRules.IntentValid(m_Intents.Get(index), m_Policy.WorldName, m_Session, nowMs, m_Settings.Radius)) { m_Intents.Remove(index); }
+				continue;
+			}
+			HCEcologyLiveBinding binding = entries.Get(index);
+			if (!binding || !binding.Live)
+			{
+				if (binding) { ForgetIntents(binding.LocalId); }
+				entries.Remove(index);
+			}
 		}
+		m_Visited = visited;
+		m_Deferred = Math.Max(0, m_PruneCursor + 1);
+		if (m_PruneKind == 0) { m_Deferred += m_Actors.Count() + m_Intents.Count(); }
+		if (m_PruneKind == 1) { m_Deferred += m_Intents.Count(); }
+		if (m_PruneKind < 3) { return; }
 		m_Stage = HCEcologyRuntimeRules.STAGE_SAMPLE;
 	}
 
 	void StageSample(int nowMs)
 	{
-		int i;
 		HCEcologyObservationBatch batch = new HCEcologyObservationBatch;
 		batch.WorldName = m_Policy.WorldName;
 		batch.SessionId = m_Session;
 		batch.ObservedAtMs = nowMs;
-		// Each tick samples at most SampleSlice actors and SampleSlice resources, starting
-		// at a cursor that advances by the window, so every entry is reached in turn and
-		// the batch (and its quadratic validation) stays small however full the cohorts are.
 		int actorTotal = m_Actors.Count();
-		int actorTake = Math.Min(actorTotal, m_Settings.SampleSlice);
-		if (actorTotal > 0) { m_ActorSample = m_ActorSample % actorTotal; }
-		i = 0;
-		while (i < actorTake)
+		int resourceTotal = m_Resources.Count();
+		int actorTake = Math.Min(actorTotal, Math.Min(m_Settings.SampleSlice, m_Settings.MaxActors));
+		int resourceTake = Math.Min(resourceTotal, Math.Min(m_Settings.SampleSlice, m_Settings.MaxResources));
+		int actors = 0;
+		int resources = 0;
+		int visited = 0;
+		m_Units.HCReset(HCEcologyRuntimeRules.SAMPLE_ROWS_PER_TICK);
+		m_Work.HCReset(HCEcologyRuntimeRules.SAMPLE_ROWS_PER_TICK, HCEcologyRuntimeRules.SLICE_MS);
+		// Alternate the two registries, retaining the NEXT row and turn before
+		// native observation. Even a one-row time slice reaches both over time.
+		while (actors < actorTake || resources < resourceTake)
 		{
-			HCEcologyLiveBinding actorBinding = m_Actors.Get((m_ActorSample + i) % actorTotal);
-			HCEcologyActorObservation observed = HCEcologyNative.SampleActor(actorBinding.Live, actorBinding.LocalId, nowMs);
-			if (observed) { batch.Actors.Insert(observed); }
-			// Native pond presence is observed at this live position only; no
-			// invented shore point, drinking access or reachability is inferred.
-			if (observed)
+			if (visited > 0 && !m_Work.HCContinue()) { break; }
+			if (!m_Units.HCTake(1)) { break; }
+			bool actorTurn = m_SampleActorTurn;
+			if (actors >= actorTake) { actorTurn = false; }
+			if (resources >= resourceTake) { actorTurn = true; }
+			m_SampleActorTurn = !actorTurn;
+			visited++;
+			if (actorTurn)
 			{
+				m_ActorSample = m_ActorSample % actorTotal;
+				HCEcologyLiveBinding actorBinding = m_Actors.Get(m_ActorSample);
+				m_ActorSample = (m_ActorSample + 1) % actorTotal;
+				actors++;
+				if (!actorBinding || !actorBinding.Live) { continue; }
+				HCEcologyActorObservation observed = HCEcologyNative.SampleActor(actorBinding.Live, actorBinding.LocalId, nowMs);
+				if (!observed) { continue; }
+				batch.Actors.Insert(observed);
 				vector point = actorBinding.Live.GetPosition();
 				bool pondHere = GetGame().SurfaceIsPond(point[0], point[2]);
 				if (pondHere && batch.Zones.Count() < m_Settings.MaxResources)
@@ -341,26 +444,20 @@ class HCEcologyRuntime
 					HCEcologyZoneObservation pond = Zone("pond:" + observed.Id, HCEcologyResource.WATER, nowMs);
 					batch.Zones.Insert(pond);
 				}
+				continue;
 			}
-			i++;
-		}
-		if (actorTotal > 0) { m_ActorSample = (m_ActorSample + actorTake) % actorTotal; }
-		int resourceTotal = m_Resources.Count();
-		int resourceTake = Math.Min(resourceTotal, m_Settings.SampleSlice);
-		if (resourceTotal > 0) { m_ResourceSample = m_ResourceSample % resourceTotal; }
-		i = 0;
-		while (i < resourceTake && batch.Zones.Count() < m_Settings.MaxResources)
-		{
-			HCEcologyLiveBinding resourceBinding = m_Resources.Get((m_ResourceSample + i) % resourceTotal);
+			m_ResourceSample = m_ResourceSample % resourceTotal;
+			HCEcologyLiveBinding resourceBinding = m_Resources.Get(m_ResourceSample);
+			m_ResourceSample = (m_ResourceSample + 1) % resourceTotal;
+			resources++;
+			if (!resourceBinding || !resourceBinding.Live) { continue; }
 			int kind = HCEcologyNative.SampleResource(resourceBinding.Live);
-			if (kind != 0)
+			if (kind != 0 && batch.Zones.Count() < m_Settings.MaxResources)
 			{
 				HCEcologyZoneObservation zone = Zone(resourceBinding.LocalId, kind, nowMs);
 				batch.Zones.Insert(zone);
 			}
-			i++;
 		}
-		if (resourceTotal > 0) { m_ResourceSample = (m_ResourceSample + resourceTake) % resourceTotal; }
 		// Consume the existing policy with genuine observations and explicit
 		// absent movement capability. No eligibility lists are fabricated:
 		// resource presence is not sensory eligibility.
@@ -382,6 +479,8 @@ class HCEcologyRuntime
 			code = HCEcologyRules.Commit(m_State, m_Policy, directives, receipts, nowMs, capabilities);
 		}
 		m_CycleSamples = batch.Actors.Count();
+		m_Visited = visited;
+		m_Deferred = Math.Max(0, actorTotal + resourceTotal - m_Visited);
 		m_Stage = HCEcologyRuntimeRules.STAGE_PROBE;
 	}
 
@@ -404,7 +503,7 @@ class HCEcologyRuntime
 		if (nowMs - m_LastSave >= 60000) { m_Stage = HCEcologyRuntimeRules.STAGE_SAVE; }
 	}
 
-	// The checkpoint write gets a module tick of its own.
+	// The checkpoint request gets a module tick; IO runs in the shared scheduler.
 	void StageSave(int nowMs)
 	{
 		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
@@ -463,8 +562,15 @@ class HCEcologyRuntime
 		// The unit budget is consulted BEFORE each pair, so the cursors always name the NEXT
 		// unexamined pair when this slice yields, and the next module tick resumes there.
 		m_Units.HCReset(HCEcologyRuntimeRules.PROBE_UNITS_PER_TICK);
+		m_Work.HCReset(HCEcologyRuntimeRules.PROBE_UNITS_PER_TICK, HCEcologyRuntimeRules.SLICE_MS);
+		int visited = 0;
 		while (m_CycleExamined < pairLimit && m_CycleQueries + queries < queryLimit)
 		{
+			if (visited > 0 && !m_Work.HCContinue())
+			{
+				m_ProbeDone = false;
+				break;
+			}
 			if (!m_Units.HCTake(HCEcologyRuntimeRules.PROBE_PAIR_UNITS))
 			{
 				m_ProbeDone = false;
@@ -473,6 +579,7 @@ class HCEcologyRuntime
 			HCEcologyLiveBinding actor = m_Actors.Get(m_ActorCursor);
 			HCEcologyLiveBinding resource = m_Resources.Get(m_ResourceCursor);
 			m_CycleExamined++;
+			visited++;
 			m_ResourceCursor++;
 			if (m_ResourceCursor >= resourceCount)
 			{
@@ -498,12 +605,81 @@ class HCEcologyRuntime
 			HCEcologyRouteIntent intent = HCEcologyNative.ProbePath(actor.Live, resource.Live, actorId, resourceId, kind, m_Settings, m_Policy.WorldName, m_Session, nowMs);
 			if (intent) { m_Intents.Insert(intent); }
 		}
+		m_Visited = visited;
+		m_Deferred = Math.Max(0, pairLimit - m_CycleExamined);
 		m_CycleQueries = m_CycleQueries + queries;
 		if (m_CycleExamined >= pairLimit || m_CycleQueries >= queryLimit) { m_ProbeDone = true; }
 		return queries;
 	}
 
+	// Routine save request is constant work. Registration is lead-owned.
 	bool Checkpoint()
+	{
+		if (!m_Dirty) { return true; }
+		if (!m_SaveJob || m_SaveJob.HCFailed()) { return false; }
+		m_SaveJob.HCDirty = true;
+		return true;
+	}
+
+	HCEcologySaveJob HCGetSaveJob() { return m_SaveJob; }
+	bool HCIsRunning() { return m_Running; }
+	int HCCallbackTicks() { return m_CallbackMaxTicks; }
+	int HCStartupTicks() { return m_StartupMaxTicks; }
+	int HCAdmissionTicks() { return m_AdmissionMaxTicks; }
+	int HCSaveTicks() { return m_SaveMaxTicks; }
+	int HCVisited() { return m_Visited; }
+	int HCDeferred() { return m_Deferred; }
+	int HCSavePhase()
+	{
+		if (!m_Store) { return 0; }
+		return m_Store.HCPhase();
+	}
+	// Consume once after forwarding these raw maxima to SampleCost; HC-25 can
+	// cache the forwarded values without running another observation/IO pass.
+	void HCResetCostTicks()
+	{
+		m_CallbackMaxTicks = -1;
+		m_StartupMaxTicks = -1;
+		m_AdmissionMaxTicks = -1;
+		m_SaveMaxTicks = -1;
+	}
+	void HCSetCalibration(float ticksPerMs) { m_TicksPerMs = ticksPerMs; }
+	void HCRecordSaveTicks(int ticks) { m_SaveMaxTicks = Math.Max(m_SaveMaxTicks, ticks); }
+
+	void HCReport(int nowMs)
+	{
+		if (nowMs < m_ReportAfter) { return; }
+		if (!HCEcologyRuntimeRules.ClockValid(nowMs)) { return; }
+		m_ReportAfter = nowMs + 60000;
+		int elapsedUs = HCEcologyRuntimeRules.ElapsedUs(m_LastElapsedTicks, m_TicksPerMs);
+		int phase = HCSavePhase();
+		string reason = "observed_clock";
+		if (elapsedUs < 0) { reason = "invalid_calibration"; }
+		string state = "on";
+		if (!m_Running) { state = "refused"; }
+		Print("[HC Plan] HC-29 visited=" + m_Visited.ToString() + " deferred=" + m_Deferred.ToString() + " save_phase=" + phase.ToString() + " elapsed_us=" + elapsedUs.ToString() + " state=" + state + " reason=" + reason + "; runtime=PENDING");
+	}
+
+	HCEcologyCheckpoint HCSnapshot()
+	{
+		if (!m_Dirty || !m_Checkpoint) { return null; }
+		HCEcologyCheckpoint snapshot = new HCEcologyCheckpoint;
+		snapshot.Version = m_Checkpoint.Version;
+		snapshot.WorldName = m_Checkpoint.WorldName;
+		snapshot.SessionId = m_Checkpoint.SessionId;
+		snapshot.Revision = m_Checkpoint.Revision + 1;
+		snapshot.Samples = m_Checkpoint.Samples;
+		snapshot.PathQueries = m_Checkpoint.PathQueries;
+		return snapshot;
+	}
+
+	void HCSaved(HCEcologyCheckpoint snapshot)
+	{
+		m_Checkpoint.Revision = snapshot.Revision;
+		m_Dirty = m_Checkpoint.Samples != snapshot.Samples || m_Checkpoint.PathQueries != snapshot.PathQueries;
+	}
+
+	bool HCWriteCheckpoint()
 	{
 		if (!m_Dirty) { return true; }
 		HCEcologyCheckpoint next = new HCEcologyCheckpoint;
@@ -534,7 +710,17 @@ class HCEcologyRuntime
 		m_Running = false;
 		m_Collecting = false;
 		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
-		if (wasRunning) { Checkpoint(); }
+		if (wasRunning)
+		{
+			bool flushed = HCSaveScheduler.HCFlush(m_SaveJob);
+			// Counters may advance during an in-flight snapshot. Finish the
+			// continuation first, then synchronously persist only that delta.
+			if (flushed) { HCWriteCheckpoint(); }
+		}
+		if (m_SaveJob) { m_SaveJob.HCDetach(); }
+		m_SaveJob = null;
+		m_TicksPerMs = 0;
+		m_Deferred = 0;
 		m_Dirty = false;
 		m_Intents.Clear();
 		m_Actors.Clear();
