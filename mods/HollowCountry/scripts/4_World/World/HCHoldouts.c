@@ -202,7 +202,7 @@ class HCHoldouts : HCModule
     protected bool m_WaitReported;
     protected bool m_CatalogDirty;
     protected ref HCHoldoutSaveJob m_SaveJob;
-    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
+    protected ref HCWorkBudget m_WorkBudget = new HCPerfSlices("Holdouts");
     // Runtime diagnostics only, bounded by AILimits.MaxHoldouts.
     protected ref map<string, string> m_PublishRefusals = new map<string, string>;
 
@@ -676,6 +676,8 @@ class HCHoldouts : HCModule
             m_Dirty = true;
             m_CatalogDirty = true;
             m_SaveJob.HCDirty = true;
+            // Operator-off shared dispatch keeps this owner's durable path.
+            if (!HCPerfConfig.HCGet().EnableSharedSaves) { HCFlushCatalog(); }
         }
     }
 
@@ -870,8 +872,6 @@ class HCHoldouts : HCModule
     {
         if (!m_Ready || !HCWorldModule.Get()) return;
         m_Elapsed += deltaTime;
-        if (m_Elapsed < 10) return;
-        m_Elapsed = 0;
         if (!HCInteriorTemplates.Loaded())
         {
             if (!m_WaitReported) Print("[HollowCountry] V2 holdouts waiting for authored covered template houses");
@@ -881,7 +881,11 @@ class HCHoldouts : HCModule
         if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_template_changed"); HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
         FillCatalog();
         if (m_CatalogDirty) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
-        if (!m_Ready || Count() == 0) { return; }
+        // Catalog gets a small slice each module tick. Camp simulation retains
+        // its original cadence, so shrinking the slice does not delay discovery
+        // by another factor of ten.
+        if (!m_Ready || Count() == 0 || m_Elapsed < 10) { return; }
+        m_Elapsed = 0;
         if (m_Next >= Count()) m_Next = 0;
         m_CampUnits.HCReset(1);
         m_WorkBudget.HCReset(1);

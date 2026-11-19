@@ -1,6 +1,7 @@
 // W5 #122. Per core tick: at most ONE Describe (<=64 emitted points, <=8
 // routes of <=64 vertices); cursor over <=24 contributors. Every 20 s begin
-// a new cycle; final tick serializes <=1024 points/128 routes, <=1MiB JSON.
+// a new cycle; completed captures encode/promote over eight separate ticks
+// (<=1024 points/128 routes, <=1MiB JSON).
 // Off: no arrays, contributors, file I/O or Describe calls allocated by module.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:914 GetTickTime, :931
 // GetWorld, :934 GetWorldName, :1120 IsServer; Global/World.c:28 GetDate.
@@ -23,6 +24,7 @@ class HCDebugSnapshotModule : HCModule
     protected float m_Elapsed;
     protected float m_LastLog;
     protected ref HCDebugSnapshot m_Snapshot;
+    protected ref HCPerfSnapshotSave m_Save;
     protected ref array<ref HCDebugContributor> m_Builtins;
 
     override string GetName() { return "DebugSnapshot"; }
@@ -99,6 +101,20 @@ class HCDebugSnapshotModule : HCModule
     {
         if (!m_Running || !(deltaTime > 0)) { return; }
         m_Elapsed += deltaTime;
+        // A completed capture, four encodes and each verified file phase get
+        // separate ticks. HCStep failure preserves .tmp/.bak and refuses once.
+        if (m_Save)
+        {
+            int result = m_Save.HCStep();
+            if (result == HCSaveJob.STEP_FAILED) { m_Save = null; HCRefuse(); return; }
+            if (result == HCSaveJob.STEP_DONE)
+            {
+                HCReportSaved(m_Save.HCBytes());
+                m_Save = null;
+                m_Snapshot = null;
+            }
+            return;
+        }
         if (!m_Snapshot)
         {
             if (m_Elapsed < 20) { return; }
@@ -108,8 +124,12 @@ class HCDebugSnapshotModule : HCModule
             m_Snapshot = new HCDebugSnapshot(worldTime);
         }
         if (!m_Snapshot.HCCaptureNext()) { return; }
-        int bytes;
-        if (!HCDebugJsonStore.HCSave(PATH, m_Snapshot.HCDocument(), MAX_BYTES, bytes)) { HCRefuse(); return; }
+        m_Save = new HCPerfSnapshotSave;
+        m_Save.HCBind(PATH, m_Snapshot.HCDocument(), MAX_BYTES);
+    }
+
+    protected void HCReportSaved(int bytes)
+    {
         float now = GetGame().GetTickTime();
         if (!m_Logged || now - m_LastLog >= 600)
         {
@@ -117,12 +137,19 @@ class HCDebugSnapshotModule : HCModule
             m_LastLog = now;
             m_Logged = true;
         }
-        m_Snapshot = null;
     }
 
     override void OnStop()
     {
         m_Running = false;
+        // Once intent exists, complete it before discarding the document. Before
+        // intent, dropping this read-only diagnostic capture cannot lose world state.
+        if (m_Save && !HCSaveScheduler.HCFlush(m_Save))
+        {
+            m_Refusal = "snapshot_shutdown_store_fault";
+            Print("[HC PerfControl] DebugSnapshot shutdown save failed; preserve intent runtime=PENDING");
+        }
+        m_Save = null;
         m_Snapshot = null;
         if (m_Builtins)
         {
