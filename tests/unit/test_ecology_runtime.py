@@ -31,7 +31,7 @@ def environment():
     # HC-29 explicit synthetic ports for newly referenced global services.
     env["HCEcologySaveJob"] = lambda: SimpleNamespace(HCDirty=False, HCInFlight=False,
         HCFailed=lambda: False, HCBind=lambda *args: None, HCDetach=lambda: None)
-    env["HCSaveScheduler"] = SimpleNamespace(HCFlush=lambda job: job is None)
+    env["HCSaveScheduler"] = SimpleNamespace(HCFlush=lambda job: job is None, HCRegister=lambda job: None, HCUnregister=lambda job: None)
     env["HCWorkBudget"] = synthetic_work_budget
     env["TickCount"] = lambda prior: 0
     from tests.unit.build_identity_support import translate as build_identity

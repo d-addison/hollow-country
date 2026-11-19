@@ -152,7 +152,7 @@ class EcologyBudgetBehavior(unittest.TestCase):
         owner.m_Checkpoint.Samples=12  # newer mutations must survive frozen snapshot completion
         scheduler=(ROOT/'4_World/World/HCWorkBudget.c').read_text()
         flush=translated(scheduler,'HCFlush',env,'HCSaveScheduler')
-        env['HCSaveScheduler']=NS(HCFlush=flush)
+        env['HCSaveScheduler']=NS(HCFlush=flush, HCRegister=lambda job: None, HCUnregister=lambda job: None)  # explicit synthetic registry port
         source=(ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
         bind(source,('Finish',),owner,env,'HCEcologyRuntime')
         # Authored Finish resumes the in-flight job, then writes the remaining scalar delta.
@@ -229,3 +229,29 @@ class EcologyBudgetBehavior(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EcologySaveJobWiring(unittest.TestCase):
+    """Static source contract for the HC-29 lead wiring; native scheduling stays unobserved."""
+
+    def setUp(self):
+        self.source = (ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
+
+    def method(self, name):
+        start = self.source.index('\t' + name + '(') if ('\t' + name + '(') in self.source else self.source.index(name + '(')
+        return self.source[start:self.source.index('\n\t}', start)]
+
+    def test_the_routine_save_job_is_registered_once_bound_and_unregistered_on_every_finish(self):
+        start = self.source.index('m_SaveJob.HCBind(this, m_Store);')
+        self.assertIn('HCSaveScheduler.HCRegister(m_SaveJob);', self.source[start:start + 300])
+        finish = self.method('void Finish')
+        self.assertLess(finish.index('HCSaveScheduler.HCFlush(m_SaveJob)'),
+                        finish.index('HCSaveScheduler.HCUnregister(m_SaveJob);'))
+        self.assertLess(finish.index('HCSaveScheduler.HCUnregister(m_SaveJob);'), finish.index('m_SaveJob.HCDetach();'))
+        self.assertEqual(1, self.source.count('HCSaveScheduler.HCRegister('))
+
+    def test_no_statement_carries_more_than_nine_plus_operators(self):
+        import re
+        for number, line in enumerate(self.source.splitlines(), 1):
+            code = re.sub(r'"(?:\\.|[^"\\])*"', '""', line.split('//')[0])
+            self.assertLessEqual(code.count('+') - 2 * code.count('++'), 9, 'HCEcologyRuntime.c:%d' % number)
