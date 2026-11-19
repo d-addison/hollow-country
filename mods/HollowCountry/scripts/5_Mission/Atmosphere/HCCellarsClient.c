@@ -1,4 +1,5 @@
-// W5 #60 fallback: no measured Chernarus cellar volumes exist in this worktree.
+// HC-31: the W5 depth heuristic is retained but disabled by shared admission.
+// No measured/qualified cellar receipt exists; native underground remains owner.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:287 GetProfileString,
 // :931 GetWorld, :944 GetPlayer, :1125 IsDedicatedServer, :1176 SurfaceY;
 // Entities/Object.c:287 GetPosition, :517 IsAlive; Entities/Man.c:37
@@ -61,6 +62,7 @@ class HCCellarsClient
 
     void HCSample(float timeslice)
     {
+        if (!HCCellarAdmission.HCAdmitted()) { return; }
         m_Elapsed = m_Elapsed + timeslice;
         if (m_Elapsed < 0.25) { return; }
         m_Elapsed = 0;
@@ -108,6 +110,11 @@ modded class MissionGameplay
         super.OnInit();
         if (GetGame().IsDedicatedServer()) { return; }
         if (!HCCellarsClient.HCPreferenceEnabled()) { return; }
+        if (!HCCellarAdmission.HCAdmitted())
+        {
+            Print("[HC Plan] HC-31 client state=refused refused=" + HCCellarAdmission.HCReason() + " runtime=PENDING");
+            return;
+        }
         m_HCCellars = new HCCellarsClient;
     }
 

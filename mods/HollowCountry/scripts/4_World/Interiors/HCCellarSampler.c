@@ -17,7 +17,7 @@
 //
 // OFF: no tick, scan, buffers, DTO allocation or IO beyond admission marker check.
 // ON: each core tick handles ONE of: a 128m tile query (<=4096 returned objects,
-// overflow aborts); <=16 cursor objects (<=64 class comparisons each); <=3
+// overflowing tiles stay pending); <=16 cursor objects (<=64 class comparisons each); <=3
 // seed columns (<=21 rays); <=4 validation points (<=12 rays + 2 stair rays);
 // or one class summary. At most ONE building is active. 25 seed columns and
 // 9 validation points/building; native query cost and budgets remain unmeasured.
@@ -62,17 +62,38 @@ class HCCellarSampler : HCModule
     protected int m_SkippedTiles;
     protected bool m_Summarizing;
     protected bool m_Running;
+    protected int m_MeasuredClasses;
+    protected ref HCUnitBudget m_Units;
+    protected ref HCWorkBudget m_Work;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     override string GetName() { return "CellarSampler"; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+
+    protected void HCReceipt(string state, string reason)
+    {
+        m_Status.HCPublish(state, reason);
+        int pending = 0;
+        if (m_Data && m_Data.Classes) { pending = m_Data.Classes.Count(); }
+        string counts = " cellar_measured=" + m_MeasuredClasses.ToString() + " admitted=0 pending=" + pending.ToString();
+        Print("[HC Cellars] HC-31 sampler" + counts + " state=" + state + " refused=" + reason + " runtime=PENDING");
+    }
 
     override bool IsEnabled(HCSettings settings)
     {
-        return GetGame().IsServer() && FileExist(MARKER);
+        bool requested = GetGame().IsServer() && FileExist(MARKER);
+        if (!requested) { HCReceipt("off", "measurement_marker_absent_or_not_server"); }
+        return requested;
     }
 
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings)) { return; }
+        if (!HCStart()) { HCReceipt("refused", "measurement_input_or_store_invalid"); }
+    }
+
+    protected bool HCStart()
+    {
         string path = "$mission:hollow-country/cellars/classes.json";
         if (FileExist("$profile:HollowCountry/cellar-classes.json"))
         {
@@ -81,65 +102,76 @@ class HCCellarSampler : HCModule
         if (!HCV2ThreatStore<HCCellarSamplerData>.CanOpen(OUTPUT))
         {
             Print("[HC Cellars] sampler refused: preserve measured JSON, .tmp and .bak; recover store first");
-            return;
+            return false;
         }
         if (!HCGroupJson<HCCellarSamplerData>.Load(path, 32768, m_Data))
         {
             Print("[HC Cellars] sampler refused: missing or invalid authored class list " + path);
-            return;
+            return false;
         }
         string worldName = GetGame().GetWorldName();
         worldName.ToLower();
         if (worldName != "chernarusplus" || m_Data.WorldName != worldName)
         {
             Print("[HC Cellars] sampler refused: ChernarusPlus class list required");
-            return;
+            return false;
         }
         if (m_Data.SchemaVersion != 1 || !m_Data.Classes)
         {
             Print("[HC Cellars] sampler refused: schema/classes invalid");
-            return;
+            return false;
         }
-        if (m_Data.Classes.Count() < 1 || m_Data.Classes.Count() > 64) { return; }
+        if (!m_Data.TriggerDefaults) { return false; }
+        if (!(m_Data.TriggerDefaults.StairEnvelopePaddingMeters > 0) || m_Data.TriggerDefaults.StairEnvelopePaddingMeters > 64) { return false; }
+        if (!(m_Data.TriggerDefaults.BreadcrumbRadiusMeters > 0) || m_Data.TriggerDefaults.BreadcrumbRadiusMeters > 64) { return false; }
+        if (m_Data.Classes.Count() < 1 || m_Data.Classes.Count() > 64) { return false; }
         for (int classIndex = 0; classIndex < m_Data.Classes.Count(); classIndex++)
         {
             HCCellarSamplerClass definition = m_Data.Classes[classIndex];
-            if (!definition || !definition.Instances) { return; }
-            if (definition.BuildingClass.IndexOf("Land_") != 0) { return; }
+            if (!definition || !definition.Instances) { return false; }
+            if (definition.BuildingClass.IndexOf("Land_") != 0) { return false; }
             for (int priorIndex = 0; priorIndex < classIndex; priorIndex++)
             {
-                if (m_Data.Classes[priorIndex].BuildingClass == definition.BuildingClass) { return; }
+                if (m_Data.Classes[priorIndex].BuildingClass == definition.BuildingClass) { return false; }
             }
             // Reject result files accidentally used as authored inputs.
-            if (definition.Instances.Count() > 0 || definition.SampleCount != 0) { return; }
+            if (definition.Instances.Count() > 0 || definition.SampleCount != 0) { return false; }
             if (definition.StairsMeasured)
             {
                 for (int stairAxis = 0; stairAxis < 3; stairAxis++)
                 {
                     bool topFinite = definition.StairTop[stairAxis] > -64 && definition.StairTop[stairAxis] < 64;
                     bool bottomFinite = definition.StairBottom[stairAxis] > -64 && definition.StairBottom[stairAxis] < 64;
-                    if (!topFinite || !bottomFinite) { return; }
+                    if (!topFinite || !bottomFinite) { return false; }
                 }
-                if (definition.StairTop[1] - definition.StairBottom[1] < 0.75) { return; }
+                if (definition.StairTop[1] - definition.StairBottom[1] < 0.75) { return false; }
             }
         }
         m_WorldSize = GetGame().GetWorld().GetWorldSize();
-        if (m_WorldSize < 128 || m_WorldSize > 32768) { return; }
+        if (m_WorldSize < 128 || m_WorldSize > 32768) { return false; }
         m_Data.Complete = false;
-        if (!HCV2ThreatStore<HCCellarSamplerData>.Save(OUTPUT, m_Data, 4194304)) { return; }
+        if (!HCV2ThreatStore<HCCellarSamplerData>.Save(OUTPUT, m_Data, 4194304)) { return false; }
         m_Objects = new array<Object>;
         m_Cargos = new array<CargoBase>;
         m_Hits = new set<Object>;
+        m_Units = new HCUnitBudget;
+        m_Work = new HCWorkBudget;
         m_Running = true;
+        HCReceipt("ready", "measurement_only_native_stair_route_unobserved");
         Print("[HC Cellars] sampler enabled tiles=128m object_budget=16 ray_budget=24 runtime=PENDING");
+        return true;
     }
 
     protected void HCAbort(string reason)
     {
         m_Running = false;
         m_House = null;
+        m_Instance = null;
+        m_Row = null;
         if (m_Objects) { m_Objects.Clear(); }
         if (m_Cargos) { m_Cargos.Clear(); }
+        if (m_Hits) { m_Hits.Clear(); }
+        HCReceipt("refused", reason);
         Print("[HC Cellars] sampler aborted: " + reason + "; require complete output without .tmp before generation");
     }
 
@@ -250,6 +282,31 @@ class HCCellarSampler : HCModule
 
     protected void HCRecord(bool eligible, string reason)
     {
+        // Probe success is geometry evidence only. Check BOTH authored anchors
+        // before incrementing acceptance or touching a class box. Never mutate
+        // class StairsMeasured because another instance may still fit its anchors.
+        m_Instance.GeometryMeasured = eligible;
+        if (eligible)
+        {
+            m_Row.SampleCount = m_Row.SampleCount + 9;
+            if (!m_Row.StairsMeasured)
+            {
+                eligible = false;
+                reason = "stair_anchors_unmeasured";
+            }
+            else
+            {
+                bool anchors = HCStairPoint(m_Row.StairTop);
+                if (anchors) { anchors = HCStairPoint(m_Row.StairBottom); }
+                m_Instance.StairAnchorsValid = anchors;
+                if (!anchors)
+                {
+                    eligible = false;
+                    reason = "stair_anchor_probe_failed";
+                }
+                else { reason = "native_stair_route_unobserved"; }
+            }
+        }
         m_Instance.Eligible = eligible;
         m_Instance.Reason = reason;
         if (eligible)
@@ -268,14 +325,7 @@ class HCCellarSampler : HCModule
                 }
                 if (!HCVolumeValid(m_Row.BoxMin, m_Row.BoxMax)) { m_Row.Inconsistent = true; }
             }
-            m_Row.SampleCount = m_Row.SampleCount + 9;
             m_Row.AcceptedInstances = m_Row.AcceptedInstances + 1;
-            if (m_Row.StairsMeasured)
-            {
-                bool anchors = HCStairPoint(m_Row.StairTop);
-                if (anchors) { anchors = HCStairPoint(m_Row.StairBottom); }
-                if (!anchors) { m_Row.StairsMeasured = false; }
-            }
         }
         m_House = null;
         m_Instance = null;
@@ -288,6 +338,7 @@ class HCCellarSampler : HCModule
         {
             for (int checkWork = 0; checkWork < 4; checkWork++)
             {
+                if (!m_Work.HCContinue() || !m_Units.HCTake(5)) { return; }
                 if (!HCCheckPoint(m_Check)) { m_Check = -1; return; }
                 m_Check = m_Check + 1;
                 if (m_Check == 9) { HCRecord(true, "nine-point rectangular candidate; runtime pending"); return; }
@@ -296,6 +347,7 @@ class HCCellarSampler : HCModule
         }
         for (int seedWork = 0; seedWork < 3; seedWork++)
         {
+            if (!m_Work.HCContinue() || !m_Units.HCTake(7)) { return; }
             if (m_Seed >= 25) { HCRecord(false, "no validated below-ground-floor rectangular volume"); return; }
             bool found = HCSeedBox(m_Seed);
             m_Seed = m_Seed + 1;
@@ -349,11 +401,25 @@ class HCCellarSampler : HCModule
             {
                 summary.Confidence = summary.AcceptedInstances / (summary.Instances.Count() * 1.0);
             }
+            summary.Disposition = "pending";
+            summary.Reason = "native_survey_pending";
+            if (summary.SampleCount > 0)
+            {
+                m_MeasuredClasses = m_MeasuredClasses + 1;
+                summary.Reason = "native_stair_route_unobserved";
+            }
+            if (summary.Inconsistent)
+            {
+                summary.Disposition = "refused";
+                summary.Reason = "inconsistent_measured_boxes";
+            }
+            Print("[HC Plan] HC-31 task=" + summary.SurveyTask + " class=" + summary.BuildingClass + " state=" + summary.Disposition + " refused=" + summary.Reason + " runtime=PENDING");
             Print("[HC Cellars] measured class=" + summary.BuildingClass + " instances=" + summary.Instances.Count().ToString() + " box=" + summary.BoxMin.ToString() + ":" + summary.BoxMax.ToString());
             Print("[HC Cellars] score class=" + summary.BuildingClass + " confidence=" + summary.Confidence.ToString() + " samples=" + summary.SampleCount.ToString() + " stairs=" + summary.StairsMeasured.ToString());
             return;
         }
         m_Data.Complete = true;
+        m_Data.SkippedTiles = m_SkippedTiles;
         if (!HCV2ThreatStore<HCCellarSamplerData>.Save(OUTPUT, m_Data, 4194304))
         {
             HCAbort("JSON save/readback failed; preserve .tmp and .bak");
@@ -362,6 +428,8 @@ class HCCellarSampler : HCModule
         m_Running = false;
         m_Objects.Clear();
         m_Cargos.Clear();
+        m_Hits.Clear();
+        HCReceipt("off", "measurement_complete_native_stair_route_unobserved");
         Print("[HC Cellars] sampler done skipped_tiles=" + m_SkippedTiles.ToString());
     }
 
@@ -369,10 +437,17 @@ class HCCellarSampler : HCModule
     {
         if (!m_Running) { return; }
         if (!FileExist(MARKER)) { HCAbort("measurement marker removed"); return; }
-        if (m_Summarizing) { HCSummaryTick(); return; }
+        m_Units.HCReset(24);
+        m_Work.HCReset(24);
+        if (m_Summarizing)
+        {
+            if (m_Work.HCContinue() && m_Units.HCTake(24)) { HCSummaryTick(); }
+            return;
+        }
         if (m_House) { HCProbeTick(); return; }
         if (!m_QueryLoaded)
         {
+            if (!m_Work.HCContinue() || !m_Units.HCTake(24)) { return; }
             m_Objects.Clear();
             m_Cargos.Clear();
             vector center = Vector(m_TileX + 64, 0, m_TileZ + 64);
@@ -395,6 +470,7 @@ class HCCellarSampler : HCModule
         }
         for (int objectWork = 0; objectWork < 16; objectWork++)
         {
+            if (!m_Work.HCContinue() || !m_Units.HCTake(1)) { return; }
             if (m_ObjectCursor >= m_Objects.Count())
             {
                 m_QueryLoaded = false;
@@ -424,6 +500,28 @@ class HCCellarSampler : HCModule
     override void OnStop()
     {
         if (m_Running) { HCAbort("mission stopped before completion"); }
+        m_House = null;
+        m_Instance = null;
+        m_Row = null;
+        m_Data = null;
+        m_Objects = null;
+        m_Cargos = null;
+        m_Hits = null;
+        m_Units = null;
+        m_Work = null;
+        m_WorldSize = 0;
+        m_TileX = 0;
+        m_TileZ = 0;
+        m_ObjectCursor = 0;
+        m_Seed = 0;
+        m_Check = -1;
+        m_InstanceCount = 0;
+        m_Summary = 0;
+        m_QueryLoaded = false;
+        m_SkippedTiles = 0;
+        m_Summarizing = false;
+        m_MeasuredClasses = 0;
+        m_Status.HCPublish("off", "sampler_stopped");
     }
 }
 

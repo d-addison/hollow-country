@@ -8,12 +8,19 @@ class HCCellarSamplerInstance
     float Yaw;
     bool Eligible;
     string Reason;
+    bool GeometryMeasured;
+    bool StairAnchorsValid;
+    // Local review selection only; sampler never sets this. Not runtime acceptance.
+    bool SliceSelected;
 }
 
 class HCCellarSamplerClass
 {
     string BuildingClass;
     string Model;
+    string SurveyTask;
+    string Disposition = "pending";
+    string Reason = "native_survey_pending";
     // Operator-surveyed local player-height points ON the actual stairs.
     // Default false: geometry probes cannot identify a staircase reliably.
     bool StairsMeasured;
@@ -28,11 +35,22 @@ class HCCellarSamplerClass
     ref array<ref HCCellarSamplerInstance> Instances = new array<ref HCCellarSamplerInstance>;
 }
 
+// HC-31: existing generator distances moved to authored configuration. Local
+// room-scale extents, far below the ~1000m native network/hearing reference.
+// No default guessed volume or automatic route recognition.
+class HCCellarTriggerDefaults
+{
+    float StairEnvelopePaddingMeters;
+    float BreadcrumbRadiusMeters;
+}
+
 class HCCellarSamplerData
 {
     int SchemaVersion;
     string WorldName;
     bool Complete;
     string Method = "ground-floor-owner-rays-3x3-clearance-v1";
+    int SkippedTiles;
+    ref HCCellarTriggerDefaults TriggerDefaults;
     ref array<ref HCCellarSamplerClass> Classes;
 }

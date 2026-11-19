@@ -13,6 +13,8 @@ Undo while stopped: --rollback --mission <isolated-mission>
 
 No guessed stairs: annotate the sampler's class list with local StairTop and
 StairBottom after inspecting the actual stairs, set StairsMeasured=true, rerun.
+HC-31: explicitly select at most two measured instances with SliceSelected=true
+in an external review copy. This permits native rehearsal only; admitted stays 0.
 Confidence is a probe coverage score, not a calibrated probability or approval.
 Generated instance coordinates and receipts stay outside every repository.
 """
@@ -31,6 +33,8 @@ TRIGGER_FILE = 'cfgundergroundtriggers.json'
 MAX_TRIGGERS = 4096
 MAX_BYTES = 4 * 1024 * 1024
 MIN_CONFIDENCE = 0.85
+MAX_SLICE_SPACES = 2
+DEFAULTS_FILE = overlays.ROOT / 'mission/hollow-country/cellars/classes.json'
 
 
 def number(value, bound=100000):
@@ -72,6 +76,13 @@ def trigger(comment, center, size, yaw, accommodation, crumbs):
             'AmbientSoundSet': '', 'Breadcrumbs': crumbs}
 
 
+def instance_refusal(instance):
+    reason = instance.get('Reason') or 'instance_probe_unmeasured_or_refused'
+    if not isinstance(reason, str) or len(reason) > 128:
+        return 'instance_probe_unmeasured_or_refused'
+    return reason
+
+
 def generate(measured, threshold=MIN_CONFIDENCE):
     threshold = number(threshold, 1)
     if not MIN_CONFIDENCE <= threshold < 1:
@@ -85,25 +96,93 @@ def generate(measured, threshold=MIN_CONFIDENCE):
     classes = measured.get('Classes')
     if not isinstance(classes, list) or not 1 <= len(classes) <= 64:
         raise ValueError('1..64 measured classes required')
-    report = {'runtime': 'PENDING', 'threshold': threshold, 'generated': 0, 'skipped': []}
+    defaults = measured.get('TriggerDefaults')
+    if not isinstance(defaults, dict):
+        raise ValueError('authored TriggerDefaults required; no guessed distances')
+    padding = number(defaults.get('StairEnvelopePaddingMeters'), 64)
+    radius = number(defaults.get('BreadcrumbRadiusMeters'), 64)
+    # Do not let a local override expand this first slice beyond its authored
+    # defaults. These existing distances live only in the feature configuration.
+    limits = load(DEFAULTS_FILE)['TriggerDefaults']
+    if not 0 < padding <= limits['StairEnvelopePaddingMeters']:
+        raise ValueError('stair envelope padding exceeds authored first-slice limit')
+    if not 0 < radius <= limits['BreadcrumbRadiusMeters']:
+        raise ValueError('breadcrumb radius exceeds authored first-slice limit')
+    report = {'package': 'HC-31', 'runtime': 'PENDING', 'state': 'off',
+              'threshold': threshold, 'generated': 0, 'admitted': 0,
+              'cellar_measured': 0, 'pending': len(classes), 'selected': 0,
+              'classes': [], 'skipped': [], 'refused': 'native_stair_route_unobserved'}
     entries, seen_classes, seen_instances = [], set(), set()
+    instance_count = 0
     for row in classes:
         if not isinstance(row, dict):
             raise ValueError('class measurement must be an object')
         name = row.get('BuildingClass')
-        if not isinstance(name, str) or not name.startswith('Land_') or name in seen_classes:
+        if not isinstance(name, str) or not name.startswith('Land_') or len(name) > 128 or name in seen_classes:
             raise ValueError('unique Land_ class required')
         seen_classes.add(name)
+        instances = row.get('Instances', [])
+        if not isinstance(instances, list):
+            raise ValueError('bounded instance list required')
+        instance_count += len(instances)
+        if instance_count > 8192 or any(not isinstance(i, dict) for i in instances):
+            raise ValueError('bounded instance list required')
+        task = row.get('SurveyTask', '')
+        if not isinstance(task, str) or len(task) > 64:
+            raise ValueError('bounded survey task ID required')
+        disposition = {'class': name, 'task': task,
+                       'state': 'pending', 'reason': 'native_survey_pending'}
+        report['classes'].append(disposition)
+        if any(i.get('GeometryMeasured') is True for i in instances):
+            report['cellar_measured'] += 1
+            disposition['reason'] = 'native_stair_route_unobserved'
         reason = ''
-        if number(row.get('Confidence', 0), 1) <= threshold:
+        if measured.get('SkippedTiles', 0) != 0:
+            reason = 'incomplete_survey_skipped_tiles'
+        elif row.get('Inconsistent') is True:
+            reason = 'inconsistent_measured_boxes'
+            disposition['state'] = 'refused'
+        elif not instances:
+            reason = 'native_survey_pending'
+        elif number(row.get('Confidence', 0), 1) <= threshold:
             reason = 'confidence below or equal to threshold'
         elif row.get('SampleCount', 0) < 9:
             reason = 'fewer than nine geometric samples'
         elif row.get('StairsMeasured') is not True:
             reason = 'stair anchors unmeasured; no guessed transition'
         if reason:
+            disposition['reason'] = reason
             report['skipped'].append({'class': name, 'reason': reason})
+            # A class gate must not hide the actual failed stair samples that
+            # lowered its confidence in the first place.
+            for instance in instances:
+                if instance.get('Eligible') is not True:
+                    report['skipped'].append({'class': name, 'reason': instance_refusal(instance),
+                                              'position': instance.get('Position')})
             continue
+        # No missing-field acceptance, nor class-level promotion of every map
+        # instance. Eligible here means probe candidate, NEVER runtime admission.
+        selected = []
+        for instance in instances:
+            reason = ''
+            if instance.get('Eligible') is not True:
+                reason = instance_refusal(instance)
+            elif instance.get('GeometryMeasured') is not True:
+                reason = 'instance_geometry_unmeasured'
+            elif instance.get('StairAnchorsValid') is not True:
+                reason = 'stair_anchor_probe_failed_or_unmeasured'
+            elif instance.get('SliceSelected') is not True:
+                reason = 'native_slice_selection_pending'
+            if reason:
+                report['skipped'].append({'class': name, 'reason': reason,
+                                          'position': instance.get('Position')})
+                continue
+            selected.append(instance)
+        if not selected:
+            continue
+        report['selected'] += len(selected)
+        if report['selected'] > MAX_SLICE_SPACES:
+            raise ValueError('HC-31 permits at most two selected spaces; no partial output')
         low, high = vec(row['BoxMin'], 64), vec(row['BoxMax'], 64)
         center, size = box(low, high)
         top, bottom = vec(row['StairTop'], 64), vec(row['StairBottom'], 64)
@@ -111,26 +190,19 @@ def generate(measured, threshold=MIN_CONFIDENCE):
             raise ValueError(name + ': stairs must descend at least 0.75m')
         if not all(low[i] <= bottom[i] <= high[i] for i in range(3)):
             raise ValueError(name + ': stair bottom must meet the measured inner box')
-        # Thin envelope around the actual stair endpoints, overlapping the inner
-        # at the bottom. No enlargement of the dark room into upper floors.
-        outer_low = [min(top[i], bottom[i]) - 0.75 for i in range(3)]
-        outer_high = [max(top[i], bottom[i]) + 0.75 for i in range(3)]
+        # Bounded endpoint envelope overlaps the inner at the bottom. Exterior,
+        # connected-room and upper-floor spill still need native qualification.
+        outer_low = [min(top[i], bottom[i]) - padding for i in range(3)]
+        outer_high = [max(top[i], bottom[i]) + padding for i in range(3)]
         outer_center, outer_size = box(outer_low, outer_high)
-        instances = row.get('Instances')
-        if not isinstance(instances, list) or len(instances) > 8192:
-            raise ValueError('bounded instance list required')
-        for instance in instances:
-            if instance.get('Eligible', True) is not True:
-                report['skipped'].append({'class': name, 'reason': 'instance probe rejected',
-                                          'position': instance.get('Position')})
-                continue
+        for instance in selected:
             origin, yaw = vec(instance['Position']), number(instance['Yaw'], 360)
             identity = (name, *origin)
             if identity in seen_instances:
                 raise ValueError('duplicate measured instance')
             seen_instances.add(identity)
             crumbs = [{'Position': world(point, origin, yaw), 'EyeAccommodation': eye,
-                       'UseRaycast': False, 'Radius': 3, 'LightLerp': light,
+                       'UseRaycast': False, 'Radius': radius, 'LightLerp': light,
                        'Comment': 'HC measured stair ' + label}
                       for point, eye, light, label in ((top, 1, False, 'top'), (bottom, 0, True, 'bottom'))]
             entries.append(trigger('HC cellar transition ' + name, world(outer_center, origin, yaw),
@@ -139,6 +211,8 @@ def generate(measured, threshold=MIN_CONFIDENCE):
             if len(entries) > MAX_TRIGGERS:
                 raise ValueError('native carrier index cap 4096 exceeded; no partial output')
     report['generated'] = len(entries)
+    if entries:
+        report['state'] = 'rehearsal_only'
     return {'Triggers': entries}, report
 
 
@@ -157,29 +231,56 @@ def generate_files(measured_path, out, threshold):
         raise ValueError('generated cellar files must never enter a repository')
     if overlays.safe(str(measured_path) + '.tmp').exists():
         raise ValueError('interrupted measurement store: preserve .tmp and recover before generation')
-    payload, report = generate(load(measured_path), threshold)
+    measured_bytes = overlays.read(measured_path, MAX_BYTES)
+    payload, report = generate(json.loads(measured_bytes, parse_constant=reject), threshold)
     if out.exists():
         raise ValueError('output directory exists; choose a new external directory')
+    encoded = (json.dumps(payload, indent=2, allow_nan=False) + '\n').encode()
+    report['payload_sha256'] = overlays.sha(encoded)
+    report['measurement_sha256'] = overlays.sha(measured_bytes)
+    report_encoded = (json.dumps(report, indent=2, allow_nan=False) + '\n').encode()
+    if max(len(encoded), len(report_encoded)) > MAX_BYTES:
+        raise ValueError('generated cellar payload/report exceeds byte budget')
     out.mkdir(parents=True)
-    for name, data in ((TRIGGER_FILE, payload), ('cellar-trigger-report.json', report)):
-        with (out / name).open('x', encoding='utf-8') as stream:
-            json.dump(data, stream, indent=2, allow_nan=False)
-            stream.write('\n')
+    with (out / TRIGGER_FILE).open('xb') as stream:
+        stream.write(encoded)
+    with (out / 'cellar-trigger-report.json').open('xb') as stream:
+        stream.write(report_encoded)
     for skipped in report['skipped']:
         print('[HC Cellars] skipped class=' + skipped['class'] + ' reason=' + skipped['reason'])
     print('[HC Cellars] generated triggers=' + str(report['generated']) + ' runtime=PENDING')
+    print('[HC Plan] HC-31 cellar_measured=' + str(report['cellar_measured'])
+          + ' admitted=0 pending=' + str(report['pending'])
+          + ' state=' + report['state'] + ' refused=native_stair_route_unobserved runtime=PENDING')
 
 
 def install_plan(generated, mission, baseline=None):
     mission = overlays.mission_target(mission)
     generated = overlays.safe(Path(generated) / TRIGGER_FILE)
-    additions = load(generated).get('Triggers')
-    if not isinstance(additions, list) or not additions:
+    generated_bytes = overlays.read(generated, MAX_BYTES)
+    receipt_path = generated.parent / 'cellar-trigger-report.json'
+    receipt_bytes = overlays.read(receipt_path, MAX_BYTES)
+    receipt = json.loads(receipt_bytes, parse_constant=reject)
+    if not isinstance(receipt, dict) or receipt.get('package') != 'HC-31':
+        raise ValueError('HC-31 rehearsal report required')
+    if receipt.get('payload_sha256') != overlays.sha(generated_bytes):
+        raise ValueError('generated trigger hash drift')
+    if receipt.get('runtime') != 'PENDING' or receipt.get('admitted') != 0 or receipt.get('state') != 'rehearsal_only':
+        raise ValueError('rehearsal report cannot claim runtime admission')
+    payload = json.loads(generated_bytes, parse_constant=reject)
+    if not isinstance(payload, dict):
+        raise ValueError('generated trigger object required')
+    additions = payload.get('Triggers')
+    if not isinstance(additions, list) or len(additions) not in (2, 4):
         raise ValueError('no generated triggers to install')
+    if receipt.get('generated') != len(additions) or receipt.get('selected') != len(additions) // 2:
+        raise ValueError('first-slice report counts disagree')
     # Only our exact generated format is admitted; preserve native stock rows.
     required = set(trigger('', [0, 0, 0], [1, 1, 1], 0, 0, []))
     for row in additions:
-        if set(row) != required or not row['Comment'].startswith('HC cellar '):
+        if not isinstance(row, dict) or set(row) != required:
+            raise ValueError('unexpected generated trigger format')
+        if not isinstance(row['Comment'], str) or not row['Comment'].startswith('HC cellar '):
             raise ValueError('unexpected generated trigger format')
         vec(row['Position'])
         vec(row['Orientation'], 360)
@@ -190,7 +291,8 @@ def install_plan(generated, mission, baseline=None):
     if before is None and baseline is None:
         raise ValueError('mission has no trigger file: supply --native-baseline to preserve the native fallback')
     source = path if before is not None else overlays.safe(baseline)
-    stock = load(source)
+    source_bytes = before if before is not None else overlays.read(source)
+    stock = json.loads(source_bytes, parse_constant=reject)
     if not isinstance(stock, dict) or not isinstance(stock.get('Triggers'), list):
         raise ValueError('native baseline needs a Triggers array')
     if len(stock['Triggers']) + len(additions) > MAX_TRIGGERS:
@@ -201,8 +303,9 @@ def install_plan(generated, mission, baseline=None):
         raise ValueError('merged trigger file exceeds receipt byte budget')
     return {'mission': str(mission), 'files': {TRIGGER_FILE: encoded},
             'before': {TRIGGER_FILE: before}, 'sources': {
-                str(source): overlays.sha(overlays.read(source)),
-                str(generated): overlays.sha(overlays.read(generated))}}
+                str(source): overlays.sha(source_bytes),
+                str(generated): overlays.sha(generated_bytes),
+                str(receipt_path): overlays.sha(receipt_bytes)}}
 
 
 def main(argv=None):

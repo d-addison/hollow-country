@@ -1,128 +1,230 @@
-# W6 #60 measured cellar darkness
+# HC-31 — First measured cellar slice
 
-Source implementation and packaging only. No measured cellar coordinates ship.
-The W5 client darkness fallback remains unchanged and yields to native underground
-presence. A default install runs no sampler and installs no underground triggers.
+Source/package implementation for #60 / #151 access, FR-011 and NFR-003.
+Runtime acceptance pending. All 28 queued classes are **pending native survey**;
+there are **zero observed measured classes and zero admitted spaces** in this
+handoff. No coordinates, measured boxes, game assets or native receipts ship.
+Two representative stair-connected spaces still need measurement and native
+qualification; the other 26 retain their individual `HC31-01`…`HC31-28` survey
+IDs in `classes.json`. Selecting two spaces never promotes a class or its peers.
 
-The authored class list covers 28 candidate vanilla Residential/Houses models.
-Class/model strings were checked against the local installed-config cache
-(`structures_residential.pbo`, vanilla) without copying any configs or assets.
-They are survey candidates, not confirmed cellar classes. The model path is
-checked again through runtime `ConfigGetText` before probing each instance.
+The current worktree omits `docs/SPECIFICATION.md` and
+`docs/specs/001-survival-overhaul/{spec,plan,tasks}.md`. Their reference copies in
+the lead checkout were read without edits. Active-session decisions supersede
+those older documents. HC-11 owns consolidated spec → plan → task integration;
+this guide records the HC-31 slice and unfinished native tasks. Shared interfaces
+follow `docs/RUNTIME_IMPLEMENTATION_CONTRACT.md`.
 
-The local specifications are absent in this dispatched worktree. Read-only
-reference copies of `docs/SPECIFICATION.md` and
-`docs/specs/001-survival-overhaul/{spec,plan,tasks}.md` were inspected in the main
-checkout. Current
-W6 owner decisions take precedence. Trace: #60, FR-011, NFR-001/003/005/006;
-shared interfaces follow `docs/RUNTIME_IMPLEMENTATION_CONTRACT.md`.
+## Implemented behavior
 
-## Specification, plan and task disposition
+- Failed stair anchors produce `Eligible: false`,
+  `Reason: stair_anchor_probe_failed`, and **no AcceptedInstances increment**.
+  A failed instance never rewrites class-level authored `StairsMeasured`.
+- `GeometryMeasured` records nine successful geometric checks;
+  `StairAnchorsValid` records owner-hit floors below both surveyed endpoints.
+  Neither proves that stairs or connected rooms are walkable. Missing anchors
+  remain `stair_anchors_unmeasured`. Class dispositions remain pending, or
+  refused for inconsistent boxes, with a reason and retained survey task.
+- The sampler uses its retained tile/object/seed/check/summary cursors with
+  HCUnitBudget (24 units/tick) and HCWorkBudget. One query/summary costs the
+  entire slice; a seed costs 7 units; a validation point reserves 5 units,
+  including possible final anchor checks; a cursor object costs 1 unit.
+  Existing caps still limit work to 16 objects, 3 seeds or 4 validation points.
+- Admission is marker-only diagnostic work, independent of furnishing. No
+  second HC-24 pack reader or schema is introduced; HCInteriorPackIndex and
+  its schema-2 leaf interface/schema-3 paged index remain owned by HC-24.
+  No player query, furniture, inventory, door, RPC or live trigger mutation occurs.
+- HCGetOperationalStatus returns cached HC-1 status. `ready` means only that
+  the diagnostic sampler started; the Cellars module itself stays `refused`.
+  Every HC-31 receipt keeps `admitted=0` and
+  `runtime=PENDING`. Off ticks perform no query or IO. Stop clears buffers and
+  resets cursors. Interrupted outputs remain incomplete and require recovery.
+- HCCellarsModule emits one HC-31 count receipt per start, alongside its retained
+  V2 preference diagnostic. Pending is the validated authored class-list count;
+  measured counts distinct known classes with explicit instance `GeometryMeasured`
+  in completed, zero-skipped-tile output. Scores, anchors and selection do not
+  imply measured geometry or qualification. Missing output means zero measured;
+  malformed, interrupted, duplicate/unknown classes or oversized input report
+  `measurement_counts_unavailable`. Counts remain zero where unavailable; a
+  validated authored pending count is retained. HC-1 caches the same refusal.
+  The sampler uses `[HC Cellars] HC-31 sampler` for its separate lifecycle counts.
+- Shared 3_Game HCCellarAdmission stays closed with
+  `native_cellar_qualification_pending`. The retained client depth heuristic
+  checks it before allocation and before sampling. Local preference and server
+  EnableAmbientLife cannot open it; HCVisualActive stays false and the native
+  underground lighting/audio path remains owner. No new settings RPC is added.
+- Generation requires explicit `Eligible`, `GeometryMeasured`,
+  `StairAnchorsValid` and `SliceSelected` booleans on each selected instance.
+  Missing evidence fails closed. At most **two spaces / four native triggers**
+  may be generated or installed. Skipped tiles refuse generation, rather than
+  overstating survey coverage. Reports retain every input class and instance
+  refusal, independently of the selected slice.
+- The existing verified intent/backup/copy/readback store and optional overlay
+  receipt/rollback protocol are reused. The generated report binds the trigger
+  payload and reviewed measurement by SHA-256; install binds the report as a
+  source too. Drift refuses. No rename/fsync guarantee is claimed.
 
-- [x] Write one synthetic generator/overlay smoke, record actual RED, implement,
-  then record GREEN. Offline JSON checks are not engine evidence.
-- [x] Reuse the module registry, core tick and shared verified JSON store. Enumerate
-  tiles by cursor, probe at most one building at a time and intersect class boxes.
-- [x] Author a standard-library generator using the installed underground schema,
-  two triggers per eligible instance, world-space stair breadcrumbs and a hard
-  4,096-carrier cap including existing stock rows.
-- [x] Reuse optional overlay receipts/backups for merge, drift refusal, rollback
-  and export stripping. Add only the authored class list and this guide to the
-  package allowlist. The existing bundle installer copies the JSON at its mission
-  path; no shared core hook is needed.
-- [ ] Identify actual cellar classes/rooms with the native sampler and review its
-  boxes. Confidence is a coverage ratio, not acceptance or a statistical guarantee.
-- [ ] Survey real stair endpoints. Automatic identification is deliberately skipped:
-  collision rays cannot reliably distinguish the actual usable stair route. The
-  generator reports missing anchors and emits no triggers for those classes.
-- [ ] Windows native compile, DayZDiag, normal signed PBO/server, two-client
-  day/night, exterior/upper-floor, torch/NVG, entry/exit, death/rejoin and restart
-  checks. Native underground also owns sound attenuation and presence; verify
-  those effects. Production enablement and target-load budgets remain pending.
+## Native API evidence and refusal
 
-## Local measurement run (lead)
+Installed read-only source root:
+`~/.cache/hollow-country/native-scripts/scripts-1.30.164289/`.
 
-1. Land source and compile normally on Windows. Install the authored mission overlay
-   so `hollow-country/cellars/classes.json` exists inside the actual mission. The
-   existing private handoff/bundle installer includes it; for a direct local
-   rehearsal, copying that authored file to the same mission-relative path is enough.
-2. With the server stopped, create the empty marker
-   `<profiles>/HollowCountry/measure-cellars`. Start the local server. No client is
-   needed to author or execute the sampler, though native ray/map availability
-   must be checked in its actual server run.
-3. Wait for `[HC Cellars] sampler done`. The scan is intentionally spread over
-   many core ticks. The loader gets buildings in 128m tiles, processes at most
-   16 returned objects/tick, then up to 3 seed columns (21 rays) or 4 validation
-   points (12 rays, plus at most 2 anchor rays)/tick. Native query allocations
-   cannot be capped by this API: results over 4,096 abort before cursor work.
-   Global bounds are 8,192 instances, 64 classes and a 4 MiB JSON store. Initial
-   incomplete and final complete images each use the existing store, once each.
+- N16 `3_Game/Entities/Object.c:370` collision bounds; `:873–874` model/world
+  transforms; `3_Game/Global/DayZPhysics.c:130–144,199` owner-hit geometry rays.
+  These expose geometry, **no automatic traversable-stair/connected-room proof**.
+  Named refusal: `native_stair_route_unobserved`.
+- N13 `3_Game/UndergroundAreaLoader.c:69–99` JSON DTOs; `:105–132` mission/world
+  fallback selection; `:147–176` native carrier creation and sync.
+- `4_World/Entities/ScriptedEntities/Triggers/UndergroundTrigger.c:10` indices
+  0…4095; `:90–118` full Size extents and native trigger types; `:164–186`
+  client entry/exit. `4_World/Classes/UndergroundHandlerClient.c:203–277` consumes
+  world-space stair breadcrumbs. Lighting/audio remain native responsibilities.
+- `4_World/Plugins/PluginBase/PluginUndergroundTriggerManager.c:1` is guarded
+  by DIAG_DEVELOPER; it is a diagnostic authoring tool, not a production API
+  for identifying stairs. No dependency on it is compiled into this sampler.
+- Existing sampler header cites query, transforms, IO and scalar APIs.
+  HCWorkBudget cites `3_Game/Global/Game.c:914` for the cooperative time guard.
+
+## Native survey and rehearsal (lead)
+
+1. Compile exact source with DayZDiag, then a normal signed PBO/server. Install
+   the authored mission overlay at `hollow-country/cellars/classes.json`.
+   Default installation has no marker and no additional underground triggers.
+2. With server stopped, create `<profiles>/HollowCountry/measure-cellars`.
+   On a fresh profile with the shipped class list, expect exactly one
+   `[HC Plan] HC-31 cellar_measured=0 admitted=0 pending=28 state=refused refused=native_cellar_qualification_pending runtime=PENDING`.
+   HC-1 must report `module=Cellars state=refused` with that refusal reason.
+   The independent sampler should report `[HC Cellars] HC-31 sampler` with
+   `state=ready` and `refused=measurement_only_native_stair_route_unobserved`.
+   A client with its local preference on should report
+   `[HC Plan] HC-31 client state=refused refused=native_cellar_qualification_pending runtime=PENDING`.
+   These are expected diagnostics, not observed logs.
+3. Wait for `[HC Cellars] sampler done`. A retained 128m tile scan queries a
+   91m radius and owns origins using half-open tile bounds. Results over 4,096
+   objects/cargos skip the tile and increment SkippedTiles; no full-coverage claim
+   follows. Global caps: 8,192 instances, 64 classes, 4 MiB JSON, one active house.
+   Native query allocations and serialization cannot be preempted; performance
+   budgets remain provisional for 3–6 players.
 4. Inspect `<profiles>/HollowCountry/cellars-measured.json`. Only `Complete: true`
-   is usable. Remove the marker before the next server start to avoid rerunning.
-   Interrupted runs leave an incomplete output; interrupted store promotions leave
-   `.tmp` for manual recovery, never silently revert to `.bak`.
-5. A seed first measures an upward-facing, owner-hit ground floor near terrain
-   height, then probes below that measured floor. It requires the cellar floor,
-   ceiling and all four walls to hit that same building. Nine points check flat
-   floor, ceiling and unobstructed center rays. Successful instance boxes intersect
-   into one class box. Rejected instances stay listed as `Eligible: false`.
-   Different room selections can make a class inconsistent and prevent generation.
-6. For reviewed cellar classes, copy the ORIGINAL authored class list to
-   `<profiles>/HollowCountry/cellar-classes.json` (do not use the output JSON).
-   Add local, player-height `StairTop` and `StairBottom` vectors at the actual
-   stairs and set `StairsMeasured: true`. Bottom must be inside the reviewed room
-   box and top must be at least 0.75m higher. Probe checks only confirm a floor
-   below those authored anchors; they do not prove stair reachability. Rerun the
-   sampler with the marker present. The profile override is local and never ships.
+   and `SkippedTiles: 0` may reach generation. A seed requires owner-hit ground
+   floor, lower floor, ceiling and four walls; nine points require flat floor,
+   ceiling and clear center rays. Class boxes intersect successful instances;
+   incompatible intersections refuse generation. This is one rectangular room
+   candidate, not a connected-room topology or exhaustive enterability census.
+5. Survey real stair endpoints. Copy the ORIGINAL authored list, preserving
+   all 28 survey tasks and TriggerDefaults, to
+   `<profiles>/HollowCountry/cellar-classes.json`. Set local player-height
+   StairTop/StairBottom and StairsMeasured only after manual measurement.
+   Bottom must meet the measured room; top must be at least the existing 0.75m
+   higher. Rerun. Endpoint floor rays do not establish a usable walking route.
+6. Remove the marker. Preserve raw measurements externally. In an external
+   review copy of the completed output, mark `SliceSelected: true` on at most
+   two explicitly reviewed instances representing different stair/room layouts.
+   Do not edit eligibility to bypass a refused sample. Missing measurements mean
+   no selection, no generated trigger and no class-name enterability inference.
 
-## Generation, install and rollback
-
-From the repository, with output outside any repository:
+## Generation, installation and rollback
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m tools.audit.cellar_triggers --measured /external/profiles/HollowCountry/cellars-measured.json --out /external/cellar-candidate
-```
-
-`cfgundergroundtriggers.json` contains full `Size` extents and yaw-oriented boxes.
-The outer stair envelope uses two world-space breadcrumbs and `UseLinePointFade`;
-the inner box uses `EyeAccommodation: 0` and no breadcrumbs. No custom carrier,
-RPC or client-owned state is introduced. Confidence must be strictly greater
-than 0.85 by default; `--min-confidence` can raise that threshold. The sibling
-`cellar-trigger-report.json` reports excluded classes and rejected instances.
-Both files are local build output and must never enter source control or bundles.
-
-Stop the server before installation or rollback:
-
-```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m tools.audit.cellar_triggers --measured /external/reviewed-cellars.json --out /external/cellar-candidate
 PYTHONDONTWRITEBYTECODE=1 python3 -m tools.audit.cellar_triggers --install /external/cellar-candidate --mission /external/mission
 PYTHONDONTWRITEBYTECODE=1 python3 -m tools.audit.cellar_triggers --rollback --mission /external/mission
 ```
 
-If the mission has no trigger file, installation requires
-`--native-baseline /external/installed-world/cfgundergroundtriggers.json`, read
-from the installed Chernarus data. This prevents masking the native fallback.
-Existing trigger rows retain their indices and bytes are backed up under
-`hollow-country-cellars/receipt.json`; install and rollback refuse drift. Restart
-after either operation. Bundle export restores the pre-overlay bytes in memory
-and removes the cellar receipt and generated additions. Do not use generic bundle
-rollback to remove this separate local overlay: use the cellar rollback first.
+Stop the server before installation or rollback; restart after either operation.
+If the mission lacks cfgundergroundtriggers.json, install requires
+`--native-baseline /external/installed-world/cfgundergroundtriggers.json`.
+Existing native rows and indices remain first, with the combined 4,096 cap.
+Rollback restores the exact previous bytes (or absence), including after using
+an external native baseline. The managed receipt is
+`hollow-country-cellars/receipt.json`. Bundle export strips this local overlay
+and restores the original bytes; use cellar rollback before generic rollback.
+Generated files, coordinates and receipts remain external/private.
 
-Native references: installed `scripts-1.30.164289/3_Game/UndergroundAreaLoader.c`
-69–99 (DTO), 105–132 (loader), 156–169 (carriers);
-`4_World/Entities/ScriptedEntities/Triggers/UndergroundTrigger.c` 10 (index cap),
-90–118 (size/type), 164–186 (entry/exit);
-`4_World/Classes/UndergroundHandlerClient.c` 203–277 (world stair breadcrumbs).
-The sampler header cites every native query, transform, raycast and file API.
+The generator emits a bounded yaw-oriented room and a stair endpoint envelope,
+world-space breadcrumbs, UseLinePointFade and native EyeAccommodation. Confidence
+must exceed 0.85, but remains a probe ratio, never runtime qualification.
+`cellar-trigger-report.json` lists all classes, pending/refused reasons, selected
+count, generated count and hashes; `admitted` remains zero throughout rehearsal.
+Install requires the matching HC-31 report, so legacy candidates must be resampled.
 
-## Limits and runtime evidence still needed
+No new distances were introduced. Two existing generator distances moved into
+`TriggerDefaults` in classes.json: StairEnvelopePaddingMeters = **0.75m** and
+BreadcrumbRadiusMeters = **3m**. They are room-scale fractions (0.00075 and 0.003)
+of the approximately **1000m** native network bubble / rifle hearing reference,
+not visibility/hearing extensions. Overrides may shrink them; generation refuses
+expansion beyond the authored limits. All other sampler distances are unchanged.
 
-This produces one conservative rectangular room candidate per building instance,
-not complete connected-cellar topology. The terrain-adjacent ground-floor search
-band, model-space collision bounds, normal direction, geometry-LOD ray ownership,
-coarse 5x5 seed grid and nine-point clearance must be verified in the native run.
-Unusual entrances, slopes, tilted buildings, missed rooms or mismatched models
-are rejected or can be missed; confidence does not establish coverage of all
-Chernarus cellar designs. Stair-envelope spill into adjacent rooms or upper
-floors and actual lighting/eye-accommodation behavior need visual inspection.
-Only reviewed measurements should be installed for testing. Nothing observed in
-DayZ yet.
+## Acceptance still pending
+
+For each of the two selected spaces, retain exact source/PBO/mission/config and
+installed dependency hashes, raw logs and two-client receipts externally. Walk
+stairs in both directions, connected rooms, outside and upstairs by day and night;
+check torch, NVG, native audio, death/rejoin and restart. Verify no effect spill,
+no door/path blockage, no script/CE errors and native lighting/audio fallback.
+Exercise marker-off ticks, mid-scan marker removal, stop/restart, interrupted store
+recovery, overlay removal and byte-exact rollback. No production enablement until
+DayZDiag AND normal PBO/server AND both clients pass. The other 26 remain native
+survey/access tasks; absence of a probe result is pending coverage, not exclusion.
+
+## TDD receipt and remaining integration
+
+Round 2 focused command (run RED, then GREEN):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_v2_optional_overlays -v
+```
+
+Actual RED: `Ran 4 tests`, `FAILED (failures=2)`:
+`AssertionError: 0 != 1 : cellar startup must publish one measured-count receipt`;
+legacy smoke printed `authored TriggerDefaults required; no guessed distances`
+and failed with `AssertionError: 2 != 0`.
+Actual GREEN: same command, `Ran 4 tests`, `OK`.
+A further focused RED (`test_hc_cellars -v` with the same environment) recorded
+`AssertionError: False is not true : sampler must not duplicate the module startup receipt`;
+the combined focused command then returned `Ran 4 tests`, `OK` again.
+
+Final guard commands:
+
+```sh
+rg -l -i cellar tests/unit
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_enforce_lint test_v2_optional_overlays test_package test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
+python3 -B -m tools.validate.enforce_lint --no-native
+```
+
+The search returned test_hc_cellars, test_enforce_lint and
+test_v2_optional_overlays. Actual GREEN: `Ran 120 tests`, `OK (skipped=1)`;
+the existing Windows PowerShell execution check belongs to Windows CI.
+Actual lint GREEN: `enforce_lint: pass findings=124 new=0 stale=0 native=no`.
+No lint baseline additions or removals were necessary.
+
+The existing single HC-31 behavioral test now also executes authored startup,
+counting, cached HC-1 status, off/stop handling, repeat-start suppression,
+interrupted/invalid/duplicate/unknown measurement refusal and closed client
+initialization/sampling using explicit synthetic DTO/native IO ports. It retains
+the stair failure, work budgets and generator/rollback checks from round 1.
+The legacy overlay smoke supplies all four evidence booleans and synthetic
+TriggerDefaults explicitly, retaining native DTO/overlay/rollback assertions.
+No evidence requirement was relaxed. Offline evidence only.
+
+Completed integration: HCCellarsModule status/receipt and retained registration;
+shared admission and client allocation/sample guards; legacy synthetic fixture.
+No edits to HCModule.c, config.cpp or furnishing readers are needed.
+
+Remaining lead integration: HC-11 retains consolidated spec → plan → task
+integration. No worker source edits remain deferred to the lead. Native survey,
+qualification protocol/receipts, DayZDiag, normal PBO/server and two-client
+acceptance remain pending as listed above. A future qualification protocol must
+identify individual spaces; class ancestry, SampleCount, Eligible, selection and
+HCV2Admission.Admitted(preference) must never promote an entire class.
+
+Startup inputs reuse HCGroupJson/HCGroupIO with a 32 KiB authored-list limit and
+its existing 1 MiB shared measurement-read cap, 64 classes and 8,192 instances.
+Larger measurement JSON is refused for startup counts; no automatic fallback to
+backup or partial file occurs. The sampler's configured serialization ceiling
+remains 4 MiB, but shared HCGroupIO currently caps actual reads/writes at 1 MiB;
+this shared framework limit is outside HC-31 ownership and is not native-tested.
+Framework reused: HCOperationalStatus/HC-1, HCGroupJson/HCGroupIO,
+HCV2Admission diagnostic, HCUnitBudget/HCWorkBudget, verified store and reversible
+overlay protocol. HCCellarAdmission is the only new admission policy; it adds no
+scheduler, RPC, geometry controller or distances. Nothing observed in DayZ yet.
