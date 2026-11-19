@@ -137,14 +137,35 @@ class HCWorldStore
     {
         m_Data = null;
         m_Fresh = false;
-        // No fresh epoch, cargo or completion-history reset on missing/corrupt
-        // durable state. A new installation also needs explicit provisioning.
         if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
-        if (!Prepare() || FileExist(m_Temp) || !FileExist(m_Path) || !ReadCurrent())
+        m_Fault = false;
+        if (!Prepare()) { return Fault(); }
+        if (FileExist(m_Temp) || (!FileExist(m_Path) && FileExist(m_Backup)))
+        {
+            m_Fault = true;
+            return HCPersistenceDisposition.HCQuarantine("world", "world_interrupted_pair");
+        }
+        if (!FileExist(m_Path))
+        {
+            m_Data = HCWorldData.Fresh(HCWorldClock.UTC());
+            m_Fresh = true;
+            return m_Data != null;
+        }
+        if (!ReadCurrent())
         {
             m_Data = null;
             m_Fault = true;
-            return HCPersistenceDisposition.HCQuarantine("world_missing_corrupt_or_interrupted");
+            return HCPersistenceDisposition.HCQuarantine("world", "world_parse_or_schema_failure");
+        }
+        if (FileExist(m_Backup))
+        {
+            HCWorldData previous = Decode(Read(m_Backup));
+            if (!previous || previous.Meta.Epoch != m_Data.Meta.Epoch || previous.Meta.LastTick > m_Data.Meta.LastTick)
+            {
+                m_Data = null;
+                m_Fault = true;
+                return HCPersistenceDisposition.HCQuarantine("world", "world_backup_damage_or_revision_regression");
+            }
         }
         return true;
     }
@@ -155,7 +176,7 @@ class HCWorldStore
     bool Fault()
     {
         m_Fault = true;
-        HCPersistenceDisposition.HCQuarantine("world_save_failed");
+        HCRecoveryGate.HCClose("world");
         Print("[HollowCountry] V2 world save failed; files preserved; writes suspended");
         return false;
     }

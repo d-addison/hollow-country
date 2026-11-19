@@ -114,10 +114,11 @@ class HCEscalationClock : HCModule
         return PressureAtDay(axis, Day());
     }
 
-    protected void Fail()
+    protected void Fail(bool damaged = false)
     {
         m_Healthy = false;
-        HCPersistenceDisposition.HCQuarantine("escalation_schema_clock_or_store_fault");
+        HCRecoveryGate.HCClose("escalation");
+        if (damaged) { HCPersistenceDisposition.HCQuarantine("escalation", "escalation_schema_or_interrupted_pair"); }
         m_Operational.HCPublish("refused", "recovery_or_clock_fault");
         if (s_Instance == this) s_Instance = null;
         Print("[HollowCountry] V2 escalation disabled: UTC/schema/world/persistence fault; preserve escalation.json, .tmp and .bak");
@@ -126,31 +127,44 @@ class HCEscalationClock : HCModule
     protected bool Valid(int nowUtc)
     {
         if (!m_State || m_State.Version != 1 || m_State.WorldName != GetGame().GetWorldName()) return false;
-        return m_State.EpochUtc > 0 && m_State.SavedUtc >= m_State.EpochUtc && nowUtc >= m_State.SavedUtc;
+        return m_State.EpochUtc > 0 && m_State.SavedUtc >= m_State.EpochUtc;
     }
 
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || s_Instance) return;
-        if (!HCPersistenceDisposition.HCAdmitStore("escalation")) { Fail(); return; }
+        HCPersistenceDisposition.HCStartStore("escalation");
+        if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("escalation")) { Fail(); return; }
         Print(HCV2Admission.Line("Escalation", true, "none", true));
         m_NowUtc = HCGroupClock.Utc();
-        if (m_NowUtc < 1 || !HCV2ThreatStore<HCEscalationState>.CanOpen(PATH)) { Fail(); return; }
+        if (m_NowUtc < 1) { Fail(); return; }
+        if (FileExist(PATH + ".tmp") || (!FileExist(PATH) && FileExist(PATH + ".bak"))) { Fail(true); return; }
+        if (!HCV2ThreatStore<HCEscalationState>.CanOpen(PATH)) { Fail(); return; }
         if (FileExist(PATH))
         {
-            if (!HCV2ThreatStore<HCEscalationState>.Load(PATH, 2048, m_State) || !Valid(m_NowUtc)) { Fail(); return; }
+            if (!HCV2ThreatStore<HCEscalationState>.Load(PATH, 2048, m_State) || !Valid(m_NowUtc)) { Fail(true); return; }
+            if (m_NowUtc < m_State.SavedUtc) { Fail(); return; }
+            if (FileExist(PATH + ".bak"))
+            {
+                HCEscalationState previous;
+                if (!HCGroupJson<HCEscalationState>.Load(PATH + ".bak", 2048, previous) || !previous) { Fail(true); return; }
+                if (previous.Version != 1 || previous.WorldName != m_State.WorldName || previous.EpochUtc < 1 || previous.SavedUtc < previous.EpochUtc || previous.SavedUtc > m_State.SavedUtc) { Fail(true); return; }
+            }
         }
         else
         {
-            // Missing durable epoch is not an empty successful recovery.
-            Fail();
-            return;
+            m_State = new HCEscalationState;
+            m_State.Version = 1;
+            m_State.WorldName = GetGame().GetWorldName();
+            m_State.EpochUtc = m_NowUtc;
+            m_State.SavedUtc = m_NowUtc;
         }
         m_Healthy = true;
-        m_Operational.HCPublish("ready", "operator_paired_restore");
+        m_Operational.HCPublish("ready", "files_validated_runtime_pending");
         s_Instance = this;
         m_SaveJob = new HCEscalationSaveJob;
         m_SaveJob.Owner = this;
+        if (!FileExist(PATH)) { m_SaveJob.HCDirty = true; }
         HCSaveScheduler.HCRegister(m_SaveJob);
         Report();
     }
@@ -175,7 +189,7 @@ class HCEscalationClock : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Healthy) return;
-        if (!HCRecoveryGate.HCReady()) { Fail(); return; }
+        if (!HCRecoveryGate.HCReady("escalation")) { Fail(); return; }
         int nowUtc = HCGroupClock.Utc();
         if (nowUtc < m_NowUtc) { Fail(); return; }
         m_NowUtc = nowUtc;
@@ -184,7 +198,7 @@ class HCEscalationClock : HCModule
 
     bool HCFlushRoutine()
     {
-        if (!m_Healthy) { return false; }
+        if (!m_Healthy || !HCRecoveryGate.HCReady("escalation")) { return false; }
         if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) { Fail(); return false; }
         return true;
     }
@@ -206,6 +220,7 @@ class HCEscalationClock : HCModule
             }
         }
         HCSaveScheduler.HCUnregister(m_SaveJob);
+        HCPersistenceDisposition.HCStopStore("escalation");
         m_Operational.HCPublish("off", "stopped");
         m_Healthy = false;
         if (s_Instance == this) { s_Instance = null; }
