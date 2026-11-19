@@ -671,7 +671,19 @@ class HCAITrade : HCModule
     }
     override string GetName() { return "AITrade"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
-    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        // Preserve operator-off and transaction/provider refusals. A loaded
+        // journal alone cannot make the service operational without its world
+        // owner; derive recovery on each status poll like FactionConflict.
+        bool started = m_Trade != null && m_Trade.m_Enabled && m_Trade.m_Ready;
+        string state = m_Status.HCState();
+        if (!started || (state != "ready" && state != "degraded")) { return m_Status; }
+        string fault = "";
+        if (!HCWorldModule.Get()) { fault = "world_owner_unavailable"; }
+        HCModuleReadiness.HCDerive(m_Status, started, "", fault, m_StatusReason);
+        return m_Status;
+    }
 
     override void OnStart(HCSettings settings)
     {
@@ -724,6 +736,7 @@ class HCAITrade : HCModule
         // Operator opt-out: acceptance/ai_trade_emote_ack.disable in the profile.
         string admission = "[HC Plan] HC-35 emote_ack=admitted unverified gate=TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED";
         Print(admission + " opt_out=acceptance/ai_trade_emote_ack.disable runtime=PENDING");
+        m_StatusReason = "awaiting_provider_bind";
         if (m_Trade.m_State.Phase != "quarantined") { m_Status.HCPublish("ready", "awaiting_provider_bind"); }
         else { m_Status.HCPublish("refused", m_Trade.m_State.Refusal); }
         m_Trade.HCLog();
