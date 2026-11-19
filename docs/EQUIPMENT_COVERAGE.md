@@ -25,6 +25,86 @@ The dispatched HC-22 specification/plan/task brief and active owner decisions
 supply this slice's design input. HC-11 owns integration into the consolidated
 Banso trace; no missing experiment is marked accepted here.
 
+## W46 follow-up: cabinet membership and building refusals (#152 / #199)
+
+Implemented source: the runtime action now asks the existing preview RPC/cache
+for a cabinet **instance** known to the server's binding service. Original sites
+require a healthy economy; configured refresh sites also require their live
+refresh provider. An identical decorative cabinet, including one at the same
+pose, cannot borrow the cached reply. The server retains all geometry, lock,
+finite-supply, revisit and journal checks before transfer. The cache and sender
+throttle keep their existing caps. Positive cabinet replies expire using the
+existing three-second retry interval; the last positive remains usable while
+renewing so renewal cannot cancel the six-second action. A negative reply removes
+the prompt. Empty replies keep the existing 60-second retry. Existing EnableInteriors/EnableSearch settings and interior_search.disable
+remain the operator opt-outs. No setting, distance, work limit or module slot is
+added. Two-client replication and native action acceptance remain pending.
+
+The furnishing follow-up logs each admitted pack's named class refusal through
+HCServer.HCTickWork/HCTakeFor using the existing search-maintenance consumer.
+The cursor resumes after budget refusal and prints once per pack pin. It reads
+the loaded class rows, so clearance/path/door failures do not disable unrelated
+search or furnishing. Existing HCGetOperationalStatus continues to derive pack
+readiness; no new code publishes a constant ready state. Grep:
+
+```text
+[HC Search Cabinets] site-known RPC listening; server binding required runtime=PENDING
+[HC Interiors] building=<class> furnishing_refused=<reason> search=<disposition> runtime=PENDING
+```
+
+No additional layout is claimed qualified. The reviewed source database
+`tools/package/interior_prop_boxes.json` contains zero Props. Native sampler
+runs 110–114 and 120 and the installed template pack exist locally, but the
+strict authored-theme builder still requires measured furniture boxes. Building
+room/path measurements cannot substitute for those boxes or a door/stair
+clearance verdict. The frozen legacy pack has one evidenced house pose and no
+measured catalog. Its evidence file and the template builder/assembler are
+outside W46 ownership. Pack hashes are retained rather than hand-editing an
+invalid generated manifest. The per-class runtime refusal is the safe fallback;
+additional furniture remains open for the placement owner.
+
+The 17 floor proposals are **not enabled in this checkout**. The unchanged
+generator rejects admitting their native crafted/deloot flags with
+`HC22_UNQUALIFIED_FLOOR_FLAGS`; changing only this worker's ledger would break
+all contextual-pilot generation. W46 requested ownership of the tooling and
+has not received that scope extension. A concrete integration patch is staged
+for the lead at `.banso-writer/loot-floor-admission.patch` (not a committed
+artifact). It changes only:
+
+1. `tools/package/datamined_items.py`: admit the exact shipped 17 proposals
+   through a fixed allowlist and whole-row equality check, retaining all native
+   flags. Altered/unreviewed crafted/deloot proposals still refuse.
+2. `config/loot-dispositions.json`: for those 17 classes only, set
+   route=native-floor, floor_admitted=true, refusal=null; retain pending-native
+   eligibility and append the owner's unverified-admission evidence.
+3. `tests/unit/test_datamined_items.py`: update the two old refusal/count tests
+   to 55 admitted / zero refused; retain the altered-bandana flag rejection.
+
+The proposed admission retains nominal/min 2/1 for the 13 leather proposals and
+TortillaBag_Desert, and 3/1 for the three DrysackBag colours: nominal 37 / min 17
+additional proposals before HC-9, total nominal 133 across 55 rows. No flag is
+cleared to manufacture native floor eligibility. In particular, ordinary floor
+acquisition with crafted/deloot flags remains runtime=PENDING; native testing
+must establish whether another native physical route is needed. The existing
+`--no-datamined` opt-out still removes the additions.
+
+`tests/unit/test_loot_w46.py::FloorAdmissionIntegrationFixture` applies that
+exact policy to a **local fixture copy** of the tool and ledger over an explicit
+synthetic stock mission. It verifies 55 finite proposals, stock-identical flags,
+operator opt-out, installation and byte-exact rollback. This passing fixture is
+not production integration or DayZ evidence. The existing refusal tests remain
+unchanged in the checkout because its production policy remains unchanged.
+No source outside W46's assigned files/new Loot-prefixed sources was edited.
+
+Native follow-up: compile with DayZDiag, boot the normal PBO/server, then use two
+clients at a configured original and refresh-pilot cabinet. Confirm that only
+bound cabinets offer Search storage, both clients respect custody/locks, a
+restart preserves depletion, disabled search removes grants, and an unavailable
+provider produces no prompt. Check furnishing refusal classes individually;
+open doors and use stairs at every subsequently qualified placement. The 17
+floor rows require separate acquisition, finite world-count and rollback tests
+after the lead integrates their patch.
+
 ## Small inputs and accounting
 
 [loot-dispositions.json](../config/loot-dispositions.json) records each selected
@@ -399,3 +479,43 @@ there are no remaining failed behavioral checks.
 Commit message supplied to the Banso writer in `.banso-writer/commit-message`:
 `fix(economy): test HC-22 supply and bind installs to ledger policy`.
 No staging, commit or publication was performed by this worker.
+
+## W46 verification record
+
+RED before cabinet implementation:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 -v
+```
+
+Actual failure: `AttributeError: type object 'HCSearchPreviewSites' has no attribute 'PilotKey'`;
+`Ran 4 tests`, `FAILED (errors=4)`. Before the refusal reporter was authored,
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46.InteriorCoverage -v`
+failed with `AssertionError: False is not true : missing bounded per-building furnishing refusal reporter`.
+The subsequent behavioral reporter fixture verifies cursor resumption, covered-row
+skips, print-once behavior and pack-revision reset.
+
+GREEN final focused source/readers/common-brief command:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_search_economy_houses tests.unit.test_v1_combined_rpc tests.unit.test_enforce_lint tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+python3 -B -m tools.validate.enforce_lint --no-native
+```
+
+The isolated lead patch was also applied with `patch -p1` under a temporary
+directory, then its updated `UsefulSupply` suite ran against copied tool/ledger
+modules: `Ran 12 tests`, `OK`. No worker-owned or unowned production file was
+changed by that rehearsal. This is additional fixture coverage, not a claim
+that the 17-route integration has landed.
+
+A renewal regression was caught before its fix with:
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46.CabinetSites.test_pilot_request_round_trip_is_instance_bound_and_expires -v`.
+Actual RED: `AssertionError: False is not true : refreshing membership must not cancel a six-second search`.
+The corrected cache retains its positive membership during renewal and drops it
+on a negative reply; the fixture covers the full six-second action window.
+
+Final W46 results: the focused command above ran **149 tests, OK**;
+`enforce_lint: pass findings=1 new=0 stale=0 native=no`.
+No setting was changed, so settings-registry validation was not required.
+No new mission data file, module slot or shared package registration is needed.
+Nothing observed in DayZ yet.
