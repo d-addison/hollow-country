@@ -43,7 +43,7 @@ class PickerWalk(unittest.TestCase):
         legs = method('HCPickerRoute', 'HCLegPoints', fields=('Waypoints','HomeIndex','SourceIndex'))
         route.HCLegPoints = lambda returning, points: legs(route, returning, points)
         identity = N(HCRouteId=lambda: 'route:synthetic')
-        port = N(Actor=actor, Survey=N(MaxWaypoints=4, HCFind=lambda key: route), LeaseId='lease',
+        port = N(Defaults=N(PartyCooldownSeconds=900), Actor=actor, Survey=N(MaxWaypoints=4, HCFind=lambda key: route), LeaseId='lease',
                  m_Group=None, m_PreviousPoints=EArray(), m_PreviousBehavior=0,
                  m_WalkRefusal='', HCLive=lambda: True)
         scope = dict(eAIBase=N(Cast=lambda value: value), eAIWaypointBehavior=N(ONCE=3),
@@ -79,14 +79,19 @@ class PickerWalk(unittest.TestCase):
                 port, group, calls, raw, patrol = self.fixture()
                 self.assertTrue(port.HCWalk(False))
                 calls.clear()
-                trip = N(m_IO=port, m_Ready=True, m_State=N(Phase=phase, CargoOwner='source'),
-                         m_Store=N(Save=lambda row: saved), HCLog=lambda: None)
+                receipts = []
+                trip = N(m_IO=port, m_Ready=True, HCLogTripBoundary=lambda saved: None,
+                         m_State=N(Phase=phase, CargoOwner='source', NextTripAt=0),
+                         m_Store=N(Save=lambda row: (receipts.append(row.NextTripAt), saved)[1]), HCLog=lambda: None)
                 checkpoint = method('HCScavengeTrip', 'HCCheckpoint', members=('HCLog',))
                 run = compile_authored(WALK, 'HCScavengeTrip', 'HCCheckpoint',
                                        base_scope(HCXAIPickerWalk=N(Cast=lambda io: io),
+                                                  ExpansionStatic=N(GetTimestamp=lambda utc: 1000),
                                                   **{'super': N(HCCheckpoint=lambda: checkpoint(trip))}),
-                                       modded=True)
+                                       modded=True, members=('HCLogTripBoundary',))
                 self.assertEqual(saved, run(trip))
+                self.assertEqual([1900 if phase in ('returned', 'lost', 'quarantined') else 0], receipts,
+                                 'cooldown must be in the durable terminal image before save')
                 terminal = phase in ('returned', 'lost', 'quarantined') or not saved
                 self.assertEqual(patrol if terminal else raw[1:3], group.points)
                 self.assertEqual(7 if terminal else 3, group.behavior)

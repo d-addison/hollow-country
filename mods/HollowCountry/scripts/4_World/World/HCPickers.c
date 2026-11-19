@@ -141,8 +141,8 @@ class HCCacheMoves
 // 4_World/Entities/ItemBase.c:3490 GetQuantity, :4372 IsTakeable;
 // 3_Game/Global/Game.c:1120 IsServer; gameplay.c:636 GetGame;
 // 1_Core/proto/EnConvert.c:210 DistanceSq; EnDebug.c:96 Print.
-// N17 is NOT an AI SDK. Installed Expansion source directory supplied for this
-// worker is absent. HCRouteReady needs the survey; HCWalk still refuses (no invented movement).
+// N17 is not an AI SDK. The optional Expansion addon binds the walk port;
+// its inspected API citations live there. The base walk still refuses safely.
 // All checkpoint writes are transaction barriers, synchronous verified store
 // writes. No periodic state changes/save job; no second scheduler is needed.
 class HCScavengeDefaults
@@ -150,6 +150,9 @@ class HCScavengeDefaults
     // Native search pickup is 2.5 m (HCSearchNativeSupply), 0.25% of the
     // approximately 1000 m network bubble/rifle report range. Not perception.
     float TransferRangeMeters = 2.5;
+    // One journal/port is the structural ceiling, even if raised by an operator.
+    int MaxConcurrentTrips = 1;
+    int PartyCooldownSeconds = 900;
 }
 
 class HCScavengeState
@@ -157,6 +160,8 @@ class HCScavengeState
     int Version = 1;
     string Phase = "idle";
     string PartyId;
+    string RouteId;
+    int NextTripAt;
     string CargoId;
     int Generation;
     string LeaseId;
@@ -527,10 +532,11 @@ class HCScavengeTrip
         if (!m_Ready || m_Busy || !m_State || m_State.Phase != "idle" || !m_IO) { return false; }
         if (!HCAIPartyIdentity.HCValid(identity) || lease == "" || sourceId == "" || actorId == "" || homeId == "" || itemId == "") { return false; }
         if (sourceId == homeId || actorId == sourceId || actorId == homeId) { return false; }
-        // No route is enabled in this source slice. Later provider qualification
-        // MUST bind these handles, the current identity and surveyed route here.
+        // The provider must bind real handles, the current lease and the exact
+        // surveyed route before this durable departure barrier.
         if (!m_IO.HCRouteReady(identity, lease)) { return false; }
         m_State.PartyId = identity.HCPartyId();
+        m_State.RouteId = identity.HCRouteId();
         m_State.CargoId = identity.HCCargoId();
         m_State.Generation = identity.HCGeneration();
         m_State.LeaseId = lease;
@@ -732,6 +738,37 @@ class HCPickers : HCModule
         return true;
     }
 
+    // HC-18 lifecycle entry, never a scheduler. The site keeps its per-party
+    // cooldown while materialised; the last terminal journal carries it across
+    // restart. A quarantined journal is never rearmed automatically.
+    string HCTryParty(HCAIPartyIdentity identity, string lease, PlayerBase actor, int now, int eligibleAt)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return "PICKER_NOT_SERVER"; }
+        if (!m_Trip || !m_Trip.m_Ready || !m_Trip.m_State || !m_Trip.m_IO || !m_Survey) { return "PICKER_NOT_READY"; }
+        if (!HCAIPartyIdentity.HCValid(identity) || lease == "" || !actor) { return "PICKER_IDENTITY_INVALID"; }
+        HCScavengeState row = m_Trip.m_State;
+        string phase = row.Phase;
+        if (phase == "quarantined") { return "PICKER_JOURNAL_QUARANTINED"; }
+        if (m_Trip.m_Busy || (phase != "idle" && phase != "returned" && phase != "lost")) { return "PICKER_TRIP_ACTIVE"; }
+        if (m_Trip.m_IO.Defaults.MaxConcurrentTrips < 1) { return "PICKER_GLOBAL_CAP"; }
+        HCPickerRoute route = m_Survey.HCFind(identity.HCRouteId());
+        if (!route) { return "PICKER_ROUTE_UNSURVEYED"; }
+        // Last terminal receipt may conservatively hold other parties too;
+        // never discard it early just to admit another lease.
+        if (now <= 0 || now < eligibleAt || now < row.NextTripAt) { return "PICKER_PARTY_COOLDOWN"; }
+        float arrival = m_Survey.ArrivalRangeMeters;
+        if (vector.DistanceSq(actor.GetPosition(), route.HCHomePoint()) > arrival * arrival) { return "PICKER_NOT_AT_HOME"; }
+        if (!HCServer.HCTickWork().HCTake(1)) { return "PICKER_WORK_BUDGET"; }
+        if (phase == "returned" || phase == "lost")
+        {
+            m_Trip.m_IO.HCClear();
+            row.Phase = "idle";
+            row.Refusal = "";
+            if (!m_Trip.HCCheckpoint()) { return "PICKER_JOURNAL_UNAVAILABLE"; }
+        }
+        return HCBeginSurveyed(identity, lease, actor);
+    }
+
     // Provider entry: begin the one journaled trip for this exact lease and a live actor.
     // Returns "" when the trip left, else the named refusal. One native bind + one journal write.
     string HCBeginSurveyed(HCAIPartyIdentity identity, string lease, PlayerBase actor)
@@ -763,7 +800,7 @@ class HCPickers : HCModule
     // w29-debugmap #194: read-only debug seam. One picker trip at most; a trip in
     // any phase but idle is listed (quarantined/lost ones have no position and the
     // layer counts them `unplaced`). Never steps, saves, scans houses or players.
-    // Runtime acceptance pending (the provider route is refused/unsurveyed).
+    // Runtime acceptance pending; the survey is design input, not runtime proof.
     int HCDebugPickerCount()
     {
         // m_Ready false = the journal is unavailable or invalid: no row, whatever the phase text.

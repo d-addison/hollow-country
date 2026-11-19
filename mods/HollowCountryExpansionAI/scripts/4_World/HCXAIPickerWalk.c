@@ -5,6 +5,7 @@
 // :251 SetWaypointBehaviour, :304 GetWaypointBehaviour;
 // 4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:234 GetGroup;
 // 3_Game/DayZExpansion_AI/Enums/AIenums.c:6 eAIWaypointBehavior.ONCE.
+// Expansion Core ExpansionStatic.c:1748 GetTimestamp (UTC seconds).
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :385 Clear,
 // :407 Insert. Other calls are existing HC ports. Runtime acceptance PENDING.
 // Preserve the existing party's patrol, never create a second group. Each leg
@@ -81,12 +82,39 @@ class HCXAIPickerWalk : HCScavengeInventory
 }
 
 // Observe the existing durable trip boundary, including native reentrant loss.
-// No new base interface, polling observer, save, inventory owner or reset/replay.
+// No polling observer, extra save, inventory owner or cargo replay.
 modded class HCScavengeTrip
 {
+    protected string m_HCPickerLoggedPhase;
+
+    void HCLogTripBoundary(bool saved)
+    {
+        if (!m_State || m_HCPickerLoggedPhase == m_State.Phase) { return; }
+        m_HCPickerLoggedPhase = m_State.Phase;
+        string phase = m_State.Phase;
+        string boundary = "";
+        if (saved && phase == "leaving") { boundary = "start"; }
+        if (phase == "returned" || phase == "lost" || phase == "quarantined") { boundary = "end"; }
+        if (boundary == "") { return; }
+        string line = "[HC Pickers] trip=" + boundary + " party=" + m_State.PartyId;
+        line += " route=" + m_State.RouteId + " outcome=" + phase;
+        Print(line + " reason=" + m_State.Refusal + " runtime=PENDING");
+    }
+
     override bool HCCheckpoint()
     {
+        // UTC seconds, same existing clock as the site's raid journal. Stamp
+        // before the durable terminal barrier; old V1 receipts zero-fill safely.
+        if (m_State && m_IO)
+        {
+            string terminal = m_State.Phase;
+            if (terminal == "returned" || terminal == "lost" || terminal == "quarantined")
+            {
+                m_State.NextTripAt = ExpansionStatic.GetTimestamp(true) + m_IO.Defaults.PartyCooldownSeconds;
+            }
+        }
         bool saved = super.HCCheckpoint();
+        HCLogTripBoundary(saved);
         HCXAIPickerWalk walkPort = HCXAIPickerWalk.Cast(m_IO);
         if (walkPort && m_State)
         {
