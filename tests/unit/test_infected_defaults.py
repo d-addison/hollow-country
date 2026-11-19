@@ -47,7 +47,8 @@ def authored(filename, signature, context, **namespace):
         elif token.startswith("for "): token += ":"
         elif token == "else": token += ":"
         lines.append("    " * indent + token)
-    scope = dict(vars(context), **namespace)
+    # Existing scalar-default fixtures use already-normalized tuning.
+    scope = dict(HCNormalizeTunables=lambda: None, **vars(context), **namespace)
     exec(compile("\n".join(lines), filename, "exec"), scope)
     return scope["run"](context)
 

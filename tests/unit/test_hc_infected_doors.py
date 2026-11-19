@@ -14,6 +14,7 @@ RED after adding four protected doors ahead of index 34: same command,
 GREEN: same command -> Ran 5 tests, OK.
 Native APIs cited in HCInfectedDoors.c; runtime acceptance pending.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 from pathlib import Path
 import re
 from types import MethodType, SimpleNamespace as N
@@ -97,10 +98,10 @@ class BoundedBuildingDoors(unittest.TestCase):
         self.queries = []
         def query(position, radius, objects, proxies):
             self.queries.append(radius)
-            objects.extend(self.buildings if radius == self.policy.WATCH_RADIUS else [self.infected])
+            objects.extend(self.buildings if radius == tuning_fixture().Get().Doors.WatchRadius else [self.infected])
         self.game = N(IsServer=lambda: True, GetTickTime=lambda: 0., GetObjectsAtPosition3D=query)
         policy_text = (DOORS / "HCInfectedDoorPolicy.c").read_text()
-        scalar_env = dict(HCInfectedDoorPolicy=self.policy, DayZInfectedConstants=MINDS,
+        scalar_env = dict(HCInfectedTuning=tuning_fixture(), HCInfectedDoorPolicy=self.policy, DayZInfectedConstants=MINDS,
                           Math=N(Min=min, Max=max))
         for name in ("HeavyClass", "Kind", "Pursuing", "PlayerQualifies", "Expired"):
             setattr(self.policy, name, scalar(policy_text, name, scalar_env, "HCInfectedDoorPolicy"))
@@ -111,7 +112,7 @@ class BoundedBuildingDoors(unittest.TestCase):
                     m_OpenNeeded=8, m_HitsNeeded=5, m_CooldownUntil=0., m_VisitedAt=-1.)
             obj.HCAdvance = MethodType(advance, obj)
             return obj
-        env = dict(HCInfectedDoorPolicy=self.policy, GetGame=lambda: self.game,
+        env = dict(HCInfectedTuning=tuning_fixture(), HCInfectedDoorPolicy=self.policy, GetGame=lambda: self.game,
                    HCPerfPlayers=N(HCGet=lambda: self.players),
                    Building=N(Cast=lambda value: value if isinstance(value, SyntheticBuilding) else None),
                    Bunker=N(Cast=lambda value: value if value.protected else None),

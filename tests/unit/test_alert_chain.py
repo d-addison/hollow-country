@@ -2,6 +2,7 @@
 
 No hearing range, audibility, perception or engine behavior is established here.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import re
 from types import SimpleNamespace as NS
 import unittest
@@ -47,7 +48,7 @@ def chain(server=True, geometry=True):
         context.geometry_calls.append(args)
         return geometry
     context.ClearGeometry = clear_geometry
-    scope = dict(HCAtmosphereRelay=NS(RangeAtSource=lambda radius, source: radius),
+    scope = dict(HCInfectedTuning=tuning_fixture(), HCAtmosphereRelay=NS(RangeAtSource=lambda radius, source: radius),
                  HCInfectedPolicy=NS(**policy_functions()),
                  HCInfectedClue=SyntheticClue, HCAlertRoot=root,
                  HCAlertEmission=lambda: NS(Scanned=0),

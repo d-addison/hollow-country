@@ -1,4 +1,5 @@
 """Small authored-policy smoke checks with synthetic days/heat, never DayZ evidence."""
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import math
 from pathlib import Path
 from types import SimpleNamespace as NS
@@ -12,7 +13,7 @@ WORLD = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts/4_Worl
 
 class V2EscalationSmoke(unittest.TestCase):
     def test_escalation_curves_are_monotone_capped_inputs_only(self):
-        scope = {"Math": NS(Clamp=lambda v, lo, hi: max(lo, min(hi, v)))}
+        scope = {"HCInfectedTuning": tuning_fixture(), "Math": NS(Clamp=lambda v, lo, hi: max(lo, min(hi, v)))}
         curve = compile_method("../World/HCEscalationClock.c", "static float Curve(",
                                "day, week, fortnight, cap", scope)
         scope["HCEscalationClock"] = NS(Curve=lambda *a: curve(None, *a))
@@ -30,7 +31,7 @@ class V2EscalationSmoke(unittest.TestCase):
         self.assertIn('HCV2Admission.Line("Escalation", true, "none", true)', source)
 
     def test_memory_fades_in_three_days_and_scales_existing_cohort_within_caps(self):
-        scope = {"Math": NS(Clamp=lambda v, lo, hi: max(lo, min(hi, v)),
+        scope = {"HCInfectedTuning": tuning_fixture(), "Math": NS(Clamp=lambda v, lo, hi: max(lo, min(hi, v)),
                             Min=min, Max=max, Round=lambda v: math.floor(v + .5))}
         decay = compile_method("HCInfectedMemory.c", "static float Decayed(",
                                "heat, elapsed", scope)

@@ -205,10 +205,10 @@ class HCInfectedDoorsModule : HCModule
     protected void WatchAround(PlayerBase player)
     {
         vector origin = player.GetPosition();
-        float radiusSq = HCInfectedDoorPolicy.WATCH_RADIUS * HCInfectedDoorPolicy.WATCH_RADIUS;
+        float radiusSq = HCInfectedTuning.Get().Doors.WatchRadius * HCInfectedTuning.Get().Doors.WatchRadius;
         m_Objects.Clear();
         m_Proxies.Clear();
-        GetGame().GetObjectsAtPosition3D(origin, HCInfectedDoorPolicy.WATCH_RADIUS, m_Objects, m_Proxies);
+        GetGame().GetObjectsAtPosition3D(origin, HCInfectedTuning.Get().Doors.WatchRadius, m_Objects, m_Proxies);
         int inspected = Math.Min(m_Objects.Count(), HCInfectedDoorPolicy.MAX_OBJECTS_PER_QUERY);
         int buildings = 0;
         int watched = 0;
@@ -252,7 +252,7 @@ class HCInfectedDoorsModule : HCModule
         foreach (HCInfectedDoorScan existing : m_Scans)
         {
             if (existing.m_Building != building) { continue; }
-            existing.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+            existing.m_WatchUntil = m_Clock + HCInfectedTuning.Get().Doors.WatchSeconds;
             return existing;
         }
         if (m_Scans.Count() >= HCInfectedDoorPolicy.MAX_BUILDING_CURSORS)
@@ -262,7 +262,7 @@ class HCInfectedDoorsModule : HCModule
         }
         HCInfectedDoorScan created = new HCInfectedDoorScan;
         created.m_Building = building;
-        created.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+        created.m_WatchUntil = m_Clock + HCInfectedTuning.Get().Doors.WatchSeconds;
         m_Scans.Insert(created);
         return created;
     }
@@ -286,7 +286,7 @@ class HCInfectedDoorsModule : HCModule
         {
             if (existing.m_Building != building || existing.m_Index != doorIndex) { continue; }
             existing.m_Player = player;
-            existing.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+            existing.m_WatchUntil = m_Clock + HCInfectedTuning.Get().Doors.WatchSeconds;
             return true;
         }
         if (m_Doors.Count() >= HCInfectedDoorPolicy.MAX_DOORS)
@@ -298,9 +298,9 @@ class HCInfectedDoorsModule : HCModule
         created.m_Building = building;
         created.m_Index = doorIndex;
         created.m_Player = player;
-        created.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
-        created.m_OpenNeeded = Math.RandomIntInclusive(HCInfectedDoorPolicy.OPEN_MIN_SECONDS, HCInfectedDoorPolicy.OPEN_MAX_SECONDS);
-        created.m_HitsNeeded = Math.RandomIntInclusive(HCInfectedDoorPolicy.HITS_MIN, HCInfectedDoorPolicy.HITS_MAX);
+        created.m_WatchUntil = m_Clock + HCInfectedTuning.Get().Doors.WatchSeconds;
+        created.m_OpenNeeded = Math.RandomIntInclusive(HCInfectedTuning.Get().Doors.OpenMinSeconds, HCInfectedTuning.Get().Doors.OpenMaxSeconds);
+        created.m_HitsNeeded = Math.RandomIntInclusive(HCInfectedTuning.Get().Doors.HitsMin, HCInfectedTuning.Get().Doors.HitsMax);
         m_Doors.Insert(created);
         return true;
     }
@@ -321,7 +321,7 @@ class HCInfectedDoorsModule : HCModule
     protected void VisitDoors()
     {
         int visited = 0;
-        float hotSince = m_Clock - HCInfectedDoorPolicy.GRACE;
+        float hotSince = m_Clock - HCInfectedTuning.Get().Doors.Grace;
         // Hot pressure first so a sustained push is not starved by the cursor.
         for (int hotIndex = 0; hotIndex < m_Doors.Count(); hotIndex++)
         {
@@ -424,7 +424,7 @@ class HCInfectedDoorsModule : HCModule
         vector doorPos = building.GetDoorSoundPos(doorIndex);
         m_Objects.Clear();
         m_Proxies.Clear();
-        GetGame().GetObjectsAtPosition3D(doorPos, HCInfectedDoorPolicy.DOOR_RADIUS, m_Objects, m_Proxies);
+        GetGame().GetObjectsAtPosition3D(doorPos, HCInfectedTuning.Get().Doors.DoorRadius, m_Objects, m_Proxies);
         int inspected = Math.Min(m_Objects.Count(), HCInfectedDoorPolicy.MAX_OBJECTS_PER_QUERY);
         int candidates = 0;
         int kind = HCInfectedDoorPolicy.KIND_NONE;

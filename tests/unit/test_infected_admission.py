@@ -5,6 +5,7 @@ when preference AND an explicit server-only qualification are both true. The
 translator executes authored Enforce bodies on explicit synthetic fixtures. It
 is not an Enforce compiler and never establishes DayZ runtime behavior.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import re
 from types import SimpleNamespace as NS
 import unittest
@@ -113,6 +114,7 @@ def translate(filename, signature, bound, fields=(), statics=(), **namespace):
         lines.append("    " * indent + token)
     code = "\n".join(lines)
     code = re.sub(r"__S(\d+)__", lambda m: repr(strings[int(m[1])][1:-1]), code)
+    namespace.setdefault("HCInfectedTuning", tuning_fixture())
     scope = dict(namespace, Array=Array, Math=NS(Min=min, Max=max))
     scope.setdefault("STATICS", NS())
     exec(compile(code, filename + ":" + signature, "exec"), scope)
@@ -706,7 +708,9 @@ class StartedModule:
             CivilianVariants=Array(), MilitaryVariants=Array(), **overrides)
         self.profiles = NS(ValidateMap=lambda *x: True, NativeBuildSupported=lambda x: x == "1.30.164289",
             ContactGuardQualified=lambda: False, ContactGuardAdmitted=lambda: False, LogUnsupportedSubstitutions=lambda config: None)
-        is_valid = translate("HCInfectedState.c", "bool IsValid(", (), fields=tuple(vars(self.config)),
+        # Existing lifecycle fixture supplies already-normalized default tuning.
+        self.config.HCNormalizeTunables = lambda: None
+        is_valid = translate("HCInfectedState.c", "bool IsValid(", ("HCNormalizeTunables",), fields=tuple(vars(self.config)),
             HCInfectedProfiles=self.profiles)
         self.config.IsValid = lambda: is_valid(self.config)
         self.ctx = NS(m_HCOwnerStatus=NS(HCPublish=lambda *args: None), Instance=None, m_FailedCohorts=Array(), m_State=None, m_Healthy=False, m_Dirty=False, m_Admission=admission(),

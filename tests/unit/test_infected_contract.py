@@ -3,6 +3,7 @@
 The restricted translator tests shipped decisions, not a duplicate Python model.
 It is deliberately not an Enforce compiler or evidence about native DayZ AI.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 import json
 import math
 from pathlib import Path
@@ -22,7 +23,10 @@ UNSHIELD = str.maketrans({"\x00": ";", "\x01": "{", "\x02": "}"})
 def policy_functions(filename="HCInfectedPolicy.c", **collaborators):
     source = (SOURCE / filename).read_text()
     source = re.sub(r"//[^\n]*", "", source)
-    namespace = dict(collaborators)
+    tuning = tuning_fixture()
+    # Flatten only the config access seam for this restricted legacy translator.
+    source = source.replace("HCInfectedTuning.Get()", "C1Config").replace("HCInfectedTuning.Variety()", "C1Variety")
+    namespace = dict(HCInfectedTuning=tuning, C1Config=tuning.Get(), C1Variety=tuning.Variety(), **collaborators)
     pattern = r"static (?:bool|int|float|string|void) (\w+)\(([^)]*)\)\s*\{"
     for match in re.finditer(pattern, source):
         depth, end = 1, match.end()

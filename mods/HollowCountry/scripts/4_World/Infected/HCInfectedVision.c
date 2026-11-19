@@ -84,10 +84,10 @@ class HCInfectedVisionPolicy
     {
         if (!Finite(visibilityCoef) || visibilityCoef <= 0)
             return 1.0;
-        if (visibilityCoef < 0.6)
-            return 0.6;
-        if (visibilityCoef > 1.3)
-            return 1.3;
+        if (visibilityCoef < HCInfectedTuning.Get().Vision.FactorMin)
+            return HCInfectedTuning.Get().Vision.FactorMin;
+        if (visibilityCoef > HCInfectedTuning.Get().Vision.FactorMax)
+            return HCInfectedTuning.Get().Vision.FactorMax;
         return visibilityCoef;
     }
 
@@ -97,14 +97,14 @@ class HCInfectedVisionPolicy
     {
         if (!Finite(hour) || hour < 0 || hour >= 24.0)
             return 0;
-        if (hour >= 21.0)
+        if (hour >= HCInfectedTuning.Get().Vision.NightStart)
             return 1.0;
-        if (hour < 5.0)
+        if (hour < HCInfectedTuning.Get().Vision.DawnStart)
             return 1.0;
-        if (hour >= 19.0)
-            return (hour - 19.0) / 2.0;
-        if (hour < 7.0)
-            return (7.0 - hour) / 2.0;
+        if (hour >= HCInfectedTuning.Get().Vision.DuskStart)
+            return (hour - HCInfectedTuning.Get().Vision.DuskStart) / (HCInfectedTuning.Get().Vision.NightStart - HCInfectedTuning.Get().Vision.DuskStart);
+        if (hour < HCInfectedTuning.Get().Vision.DawnEnd)
+            return (HCInfectedTuning.Get().Vision.DawnEnd - hour) / (HCInfectedTuning.Get().Vision.DawnEnd - HCInfectedTuning.Get().Vision.DawnStart);
         return 0;
     }
 
@@ -113,8 +113,8 @@ class HCInfectedVisionPolicy
         if (!Finite(nightness) || nightness <= 0)
             return 1.0;
         if (nightness >= 1.0)
-            return 0.75;
-        return 1.0 - 0.25 * nightness;
+            return HCInfectedTuning.Get().Vision.DarkFactor;
+        return 1.0 - (1.0 - HCInfectedTuning.Get().Vision.DarkFactor) * nightness;
     }
 
     static float LightFactor(float lit, float nightness)
@@ -122,10 +122,10 @@ class HCInfectedVisionPolicy
         if (!Finite(lit) || lit < 0.5)
             return 1.0;
         if (!Finite(nightness) || nightness <= 0)
-            return 1.1;
+            return HCInfectedTuning.Get().Vision.LightDay;
         if (nightness >= 1.0)
-            return 1.5;
-        return 1.1 + 0.4 * nightness;
+            return HCInfectedTuning.Get().Vision.LightNight;
+        return HCInfectedTuning.Get().Vision.LightDay + HCInfectedTuning.Get().Vision.LightNightIncrement * nightness;
     }
 
     static float Factor(float visibilityCoef, float hour, float lit)
@@ -134,10 +134,10 @@ class HCInfectedVisionPolicy
         float factor = ClothingFactor(visibilityCoef) * DarknessFactor(nightness) * LightFactor(lit, nightness);
         if (!Finite(factor))
             return 1.0;
-        if (factor < 0.6)
-            return 0.6;
-        if (factor > 1.3)
-            return 1.3;
+        if (factor < HCInfectedTuning.Get().Vision.FactorMin)
+            return HCInfectedTuning.Get().Vision.FactorMin;
+        if (factor > HCInfectedTuning.Get().Vision.FactorMax)
+            return HCInfectedTuning.Get().Vision.FactorMax;
         return factor;
     }
 }

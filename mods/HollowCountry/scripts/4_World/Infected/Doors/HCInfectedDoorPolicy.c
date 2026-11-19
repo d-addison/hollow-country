@@ -5,7 +5,7 @@
 // EntityAI.IsZombieMilitary (3_Game/Entities/EntityAI.c:744), overridden true
 // for soldier/patrol/NBC grey+white classes in 4_World/Entities/Creatures/
 // Infected/ZombieMaleBase.c. Crawling is ZombieBase.IsCrawling (ZombieBase.c:1090).
-// All parameters are plain constants; provisional until observed in DayZ.
+// Behaviour parameters use HCInfectedConfig.Doors; defaults remain provisional.
 //
 // Variant mapping:
 //  - weak (KIND_NONE): crawlers and dead infected; never pressure a door.
@@ -35,25 +35,13 @@ class HCInfectedDoorPolicy
     static const int LOCK_PROTECTED = 2;
 
     // Common: rolled seconds of sustained pressure before opening.
-    static const int OPEN_MIN_SECONDS = 6;
-    static const int OPEN_MAX_SECONDS = 10;
     // Heavy: rolled hit count, minimum seconds between hits.
-    static const int HITS_MIN = 4;
-    static const int HITS_MAX = 6;
-    static const float HIT_INTERVAL = 1.5;
     // Pressure is "sustained": a gap longer than GRACE seconds resets it, and
     // one visit never adds more than MAX_STEP seconds.
-    static const float GRACE = 3.0;
-    static const float MAX_STEP = 2.0;
     // Seconds a door is left alone after an infected opened/broke it.
-    static const float COOLDOWN = 45.0;
     // Seconds a door stays watched after a player was last seen near it.
-    static const float WATCH_SECONDS = 10.0;
 
     // Geometry (metres).
-    static const float WATCH_RADIUS = 8.0;
-    static const float NEAR_RADIUS = 2.5;
-    static const float DOOR_RADIUS = 2.0;
 
     // Bounds.
     static const int MAX_DOORS = 64;
@@ -101,9 +89,9 @@ class HCInfectedDoorPolicy
     // and (infected - door). Negative means opposite sides of the door point.
     static bool PlayerQualifies(float distanceSq, float facing)
     {
-        float watchSq = HCInfectedDoorPolicy.WATCH_RADIUS * HCInfectedDoorPolicy.WATCH_RADIUS;
+        float watchSq = HCInfectedTuning.Get().Doors.WatchRadius * HCInfectedTuning.Get().Doors.WatchRadius;
         if (!(distanceSq <= watchSq)) { return false; }
-        float nearSq = HCInfectedDoorPolicy.NEAR_RADIUS * HCInfectedDoorPolicy.NEAR_RADIUS;
+        float nearSq = HCInfectedTuning.Get().Doors.NearRadius * HCInfectedTuning.Get().Doors.NearRadius;
         if (distanceSq <= nearSq) { return true; }
         return facing < 0;
     }
@@ -147,7 +135,7 @@ class HCInfectedDoorPressure
     {
         if (now < m_CooldownUntil) { return HCInfectedDoorPolicy.ACTION_NONE; }
         float step = now - m_LastHot;
-        if (step > HCInfectedDoorPolicy.GRACE)
+        if (step > HCInfectedTuning.Get().Doors.Grace)
         {
             m_Pressure = 0;
             m_Hits = 0;
@@ -160,19 +148,19 @@ class HCInfectedDoorPressure
         if (lockState == HCInfectedDoorPolicy.LOCK_PROTECTED) { return HCInfectedDoorPolicy.ACTION_NONE; }
         if (kind == HCInfectedDoorPolicy.KIND_COMMON && lockState != HCInfectedDoorPolicy.LOCK_NONE) { return HCInfectedDoorPolicy.ACTION_NONE; }
         m_LastHot = now;
-        m_Pressure = m_Pressure + Math.Min(step, HCInfectedDoorPolicy.MAX_STEP);
+        m_Pressure = m_Pressure + Math.Min(step, HCInfectedTuning.Get().Doors.MaxStep);
         if (kind == HCInfectedDoorPolicy.KIND_COMMON)
         {
             if (m_Pressure < m_OpenNeeded) { return HCInfectedDoorPolicy.ACTION_NONE; }
-            m_CooldownUntil = now + HCInfectedDoorPolicy.COOLDOWN;
+            m_CooldownUntil = now + HCInfectedTuning.Get().Doors.Cooldown;
             m_Pressure = 0;
             return HCInfectedDoorPolicy.ACTION_OPEN;
         }
         if (now < m_NextHit) { return HCInfectedDoorPolicy.ACTION_NONE; }
         m_Hits = m_Hits + 1;
-        m_NextHit = now + HCInfectedDoorPolicy.HIT_INTERVAL;
+        m_NextHit = now + HCInfectedTuning.Get().Doors.HitInterval;
         if (m_Hits < m_HitsNeeded) { return HCInfectedDoorPolicy.ACTION_HIT; }
-        m_CooldownUntil = now + HCInfectedDoorPolicy.COOLDOWN;
+        m_CooldownUntil = now + HCInfectedTuning.Get().Doors.Cooldown;
         m_Hits = 0;
         m_Pressure = 0;
         if (lockState == HCInfectedDoorPolicy.LOCK_BREAKABLE) { return HCInfectedDoorPolicy.ACTION_BREAK; }

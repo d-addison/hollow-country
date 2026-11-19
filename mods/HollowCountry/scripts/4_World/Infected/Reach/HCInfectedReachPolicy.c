@@ -69,7 +69,7 @@ class HCInfectedReachPolicy
 
     static bool Elevated(float vertical)
     {
-        return vertical >= 0.8 && vertical <= 2.3;
+        return vertical >= HCInfectedTuning.Get().Reach.ElevatedMin && vertical <= HCInfectedTuning.Get().Reach.ElevatedMax;
     }
 
     // Vanilla keeps precedence: the reach strike only fills the gap where the
@@ -102,15 +102,15 @@ class HCInfectedReachPolicy
 
     static int VaultType(float height)
     {
-        if (height < 0.8 || height > 2.0)
+        if (height < HCInfectedTuning.Get().Reach.VaultMin || height > HCInfectedTuning.Get().Reach.VaultMax)
         {
             return -1;
         }
-        if (height <= 1.1)
+        if (height <= HCInfectedTuning.Get().Reach.VaultLow)
         {
             return 1;
         }
-        if (height <= 1.6)
+        if (height <= HCInfectedTuning.Get().Reach.VaultHigh)
         {
             return 2;
         }
@@ -119,7 +119,7 @@ class HCInfectedReachPolicy
 
     static bool MayVault(float height, float horizontal, float facing, bool platformAhead, float now, float nextVault, int concurrent, bool retired)
     {
-        if (retired || !platformAhead || now < nextVault || concurrent >= 4)
+        if (retired || !platformAhead || now < nextVault || concurrent >= HCInfectedTuning.Get().Reach.VaultConcurrent)
         {
             return false;
         }
@@ -127,7 +127,7 @@ class HCInfectedReachPolicy
         {
             return false;
         }
-        return horizontal <= 1.6 && Math.AbsFloat(facing) <= 25;
+        return horizontal <= HCInfectedTuning.Get().Reach.VaultHorizontal && Math.AbsFloat(facing) <= HCInfectedTuning.Get().Reach.VaultFacing;
     }
 
     static bool VaultLanded(float startY, float nowY)
@@ -148,11 +148,11 @@ class HCInfectedReachPolicy
         {
             return false;
         }
-        if (vertical < 0.8)
+        if (vertical < HCInfectedTuning.Get().Reach.ElevatedMin)
         {
             return false;
         }
-        return sinceHit >= 6 && sinceAdmit >= 6;
+        return sinceHit >= HCInfectedTuning.Get().Reach.UnreachableQuietSeconds && sinceAdmit >= HCInfectedTuning.Get().Reach.UnreachableQuietSeconds;
     }
 
     // RETREAT walks away until 3 m or 3 s, CIRCLE walks a tangent for 2 s,

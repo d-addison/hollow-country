@@ -55,17 +55,17 @@ class HCInfectedMemory
     static float Decayed(float heat, int elapsed)
     {
         if (elapsed < 0) return 0;
-        return Math.Clamp(heat, 0, 1) * Math.Clamp(1.0 - elapsed / 259200.0, 0, 1);
+        return Math.Clamp(heat, 0, 1) * Math.Clamp(1.0 - elapsed / HCInfectedTuning.Get().Memory.DecaySeconds, 0, 1);
     }
 
     static int CohortSizeAtHeat(float heat, int available)
     {
-        return Math.Min(available, 3 + Math.Round(3 * Math.Clamp(heat, 0, 1)));
+        return Math.Min(available, HCInfectedTuning.Get().Memory.CohortBase + Math.Round(HCInfectedTuning.Get().Memory.CohortHeat * Math.Clamp(heat, 0, 1)));
     }
 
     static int ResponseLimitAtHeat(float heat)
     {
-        return 6 + Math.Round(6 * Math.Clamp(heat, 0, 1));
+        return HCInfectedTuning.Get().Memory.ResponseBase + Math.Round(HCInfectedTuning.Get().Memory.ResponseHeat * Math.Clamp(heat, 0, 1));
     }
 
     static bool Active()
@@ -199,8 +199,8 @@ class HCInfectedMemory
         if (!HCInfectedStore.ValidPosition(pos)) return 0;
         int nowUtc = s_Instance.Now(false);
         if (nowUtc < 1) return 0;
-        int x = Math.Floor(pos[0] / 500.0);
-        int z = Math.Floor(pos[2] / 500.0);
+        int x = Math.Floor(pos[0] / HCInfectedTuning.Get().Memory.CellMetres);
+        int z = Math.Floor(pos[2] / HCInfectedTuning.Get().Memory.CellMetres);
         HCInfectedMemoryCell cell = s_Instance.Find(x, z);
         if (!cell) return 0;
         return Decayed(cell.Value, nowUtc - cell.UpdatedUtc);
@@ -222,8 +222,8 @@ class HCInfectedMemory
         if (m_RecordUtc != nowUtc) { m_RecordUtc = nowUtc; m_RecordCount = 0; }
         if (m_RecordCount >= 32) return;
         m_RecordCount++;
-        int x = Math.Floor(pos[0] / 500.0);
-        int z = Math.Floor(pos[2] / 500.0);
+        int x = Math.Floor(pos[0] / HCInfectedTuning.Get().Memory.CellMetres);
+        int z = Math.Floor(pos[2] / HCInfectedTuning.Get().Memory.CellMetres);
         HCInfectedMemoryCell cell = Find(x, z);
         if (!cell)
         {
@@ -247,7 +247,7 @@ class HCInfectedMemory
             cell.UpdatedUtc = nowUtc;
             m_State.Cells.Insert(cell);
         }
-        cell.Value = Math.Clamp(Decayed(cell.Value, nowUtc - cell.UpdatedUtc) + 0.35 * loudness, 0, 1);
+        cell.Value = Math.Clamp(Decayed(cell.Value, nowUtc - cell.UpdatedUtc) + HCInfectedTuning.Get().Memory.LoudnessGain * loudness, 0, 1);
         cell.UpdatedUtc = nowUtc;
         m_Dirty = true;
     }
@@ -385,7 +385,7 @@ modded class Weapon_Base
         if (!GetGame().IsServer() || IsKindOf("Archery_Base")) return;
         float loudness = 1;
         ItemBase suppressor = GetAttachedSuppressor();
-        if (suppressor && !suppressor.IsDamageDestroyed()) loudness = 0.15;
+        if (suppressor && !suppressor.IsDamageDestroyed()) loudness = HCInfectedTuning.Get().Memory.SuppressedLoudness;
         HCInfectedMemory.Record(GetPosition(), loudness);
         if (loudness >= 1) { HCInfectedVarietyModule.HCRecordShot(GetPosition()); }
     }

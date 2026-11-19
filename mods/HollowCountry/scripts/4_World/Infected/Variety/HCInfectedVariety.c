@@ -41,8 +41,28 @@ class HCInfectedVarietyConfig
     float AutomaticIntervalSeconds = 600;
     ref array<ref HCInfectedVarietySite> Sites = new array<ref HCInfectedVarietySite>;
 
+    ref HCC1GroupScaling GroupScaling = new HCC1GroupScaling;
+    ref HCC1Variety Variety = new HCC1Variety;
+    protected static bool s_HCTuningInvalidLogged;
+
+    void HCNormalizeTunables()
+    {
+        HCC1Range.s_Invalid = false;
+        if (!GroupScaling) { GroupScaling = new HCC1GroupScaling; }
+        if (!Variety) { Variety = new HCC1Variety; }
+        GroupScaling.Normalize();
+        Variety.Normalize();
+        if (HCC1Range.s_Invalid && !s_HCTuningInvalidLogged)
+        {
+            s_HCTuningInvalidLogged = true;
+            Print("[HC Variety] tunables=invalid_fields_defaulted runtime=PENDING");
+        }
+        HCInfectedTuning.SetVariety(this);
+    }
+
     bool HCValid()
     {
+        HCNormalizeTunables();
         if (SchemaVersion != 1 || !Sites || Sites.Count() < 1 || Sites.Count() > MaxSites) { return false; }
         if (MaxSites < 1 || MaxSites > 64 || GroupMembers < 1 || GroupMembers > MaxFreshBodies || MaxFreshBodies > 3) { return false; }
         if (!(CorridorRangeMetres > 0 && CorridorRangeMetres <= 80 && MaxMigrationMetres >= CorridorRangeMetres && MaxMigrationMetres <= 480)) { return false; }
@@ -123,6 +143,25 @@ class HCInfectedVariety
             HCRefuse(s_Fault);
             return false;
         }
+        // Optional operator tuning profile uses the same owner DTO. Only the
+        // two tuning blocks override authored site data; never clone live sites.
+        string tuningText;
+        string tuningPath = "$profile:HollowCountry/infected-variety.json";
+        if (FileExist(tuningPath))
+        {
+            HCInfectedVarietyConfig tuningConfig;
+            if (!HCInfectedStore.ReadBounded(tuningPath, tuningText) || !JsonFileLoader<HCInfectedVarietyConfig>.LoadData(tuningText, tuningConfig, error) || !tuningConfig)
+            {
+                HCRefuse("variety_tuning_invalid_json_defaults_retained");
+            }
+            else
+            {
+                tuningConfig.HCNormalizeTunables();
+                config.GroupScaling = tuningConfig.GroupScaling;
+                config.Variety = tuningConfig.Variety;
+            }
+        }
+        config.HCNormalizeTunables();
         s_Config = config;
         return true;
     }

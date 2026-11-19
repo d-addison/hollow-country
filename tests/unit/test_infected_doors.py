@@ -7,6 +7,7 @@ DayZ AI, door replication, door sounds or native noise perception.
 A separate module because the concurrent infected capability worker owns
 test_infected_variants.py / admission tests.
 """
+from tests.unit.test_c1_infectedcfg import tuning_fixture
 from pathlib import Path
 from types import SimpleNamespace as N
 import math
@@ -35,7 +36,7 @@ class InfectedDoorSmoke(unittest.TestCase):
         self.assertTrue(POLICY.is_file(), 'missing authored #136 HCInfectedDoorPolicy.c')
         text = POLICY.read_text()
         policy = constants(text)
-        env = dict(HCInfectedDoorPolicy=policy, DayZInfectedConstants=MINDS,
+        env = dict(HCInfectedTuning=tuning_fixture(), HCInfectedDoorPolicy=policy, DayZInfectedConstants=MINDS,
                    Math=N(Min=min, Max=max, AbsFloat=abs, Floor=math.floor))
         for name in ('HeavyClass', 'Kind', 'Pursuing', 'PlayerQualifies', 'Expired'):
             setattr(policy, name, translate(text, name, env, 'HCInfectedDoorPolicy'))
