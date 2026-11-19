@@ -83,8 +83,8 @@ def translate(source, class_name, env, self_obj=None, only=None):
                 continue
             token = re.sub(r'new array<[^;]*?>\(\)', 'EArray()', token)
             token = re.sub(r'new (\w+)(?:\(\))?', r'\1()', token)
-            token = re.sub(r'^(?:ref\s+)?(?:int|float|bool|string|vector|[A-Z]\w*(?:<[^>]*>)?)\s+(\w+)\s*=', r'\1 =', token)
-            bare = re.fullmatch(r'(?:ref\s+)?(?:int|float|bool|string|vector|[A-Z]\w*(?:<[^>]*>)?)\s+(\w+)', token)
+            token = re.sub(r'^(?:ref\s+)?(?:array<[^>]*>|int|float|bool|string|vector|[A-Z]\w*(?:<[^>]*>)?)\s+(\w+)\s*=', r'\1 =', token)
+            bare = re.fullmatch(r'(?:ref\s+)?(?:array<[^>]*>|int|float|bool|string|vector|[A-Z]\w*(?:<[^>]*>)?)\s+(\w+)', token)
             if bare and not token.startswith('return'):
                 token = bare[1] + ' = None'
             for field in fields:

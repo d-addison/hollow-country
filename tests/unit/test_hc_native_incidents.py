@@ -8,6 +8,10 @@ TDD command: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unitte
 Actual RED: AssertionError: True is not false : reappearing incident poisoned durable history
 Actual lifecycle RED: AssertionError: 'closed' != 'leased' : live wreck alone does not prove a live native incident
 GREEN: Ran 1 test ... OK (synthetic policy execution only).
+
+Round 2 (#147): replace obsolete mint/permanent-refusal expectations with
+existing physical stock and shared live-provider ports. Preserve finite stock,
+no-refill, same-handle, no-delete and admission assertions. All fixtures synthetic.
 """
 import copy
 import re
@@ -169,17 +173,34 @@ class NativeIncidentBehavior(unittest.TestCase):
             refused.owner.HCStep()
             self.assertFalse(refused.owner.HCBorrow('synthetic-party-lease'))
             self.assertEqual([], refused.calls, 'off/unsupported does no scan or disk work')
-        # Execute shipping CE provider: native API cannot associate loose loot
-        # with a DE identity; no boolean qualification from clients/config.
-        env = {}
-        translate((EVENTS/'HCNativeIncidentLease.c').read_text(), 'HCNativeIncidentSource', env)
-        self.assertFalse(env['HCReady'](N()))
-        self.assertIsNone(env['HCObserve'](N()))
-        self.assertFalse(env['HCPresent'](N(), N()))
-        self.assertFalse(env['HCContains'](N(), N(), N()))
-        self.assertEqual('CE_INCIDENT_LIFECYCLE_UNEXPOSED', env['HCRefusal'](N()))
-        provider = N(**{name: MethodType(env[name], N()) for name in
-                       ('HCReady', 'HCRefusal', 'HCObserve', 'HCPresent', 'HCContains')})
+        # Shipping CE callback registry, synthetic native cargo and server ports.
+        registry = N(s_Crashes=EArray(), s_AdmissionPrinted=False,
+                     s_StockPendingPrinted=False, s_Cursor=0)
+        env = dict(FileExist=lambda path: False, GetGame=lambda: N(IsServer=lambda: True),
+                   HCW38SituationPolicy=N(HCGet=lambda: N(MaxIncidents=64, MaxIncidentItems=16)),
+                   HCV2Admission=N(Line=lambda *args: 'synthetic admission runtime=PENDING'),
+                   Print=lambda line: None, registry=registry, CrashBase=N(Cast=lambda value: value))
+        source = (EVENTS/'HCNativeIncidentLease.c').read_text()
+        for field in vars(registry):
+            source = source.replace(field, 'registry.' + field)
+        translate(source, 'HCNativeIncidentSource', env)
+        provider = N()
+        for name in ('HCReady', 'HCRefusal', 'HCObserve', 'HCPresent', 'HCContains'):
+            setattr(provider, name, MethodType(env[name], provider))
+        self.assertTrue(provider.HCReady())
+        self.assertIsNone(provider.HCObserve(), 'admitted callback source invents no incident')
+        anchor = N(IsPendingDeletion=lambda: False)
+        self.assertFalse(provider.HCPresent(anchor), 'unregistered anchor is not CE provenance')
+        env['HCRegister'](anchor)
+        self.assertTrue(provider.HCPresent(anchor))
+        item = N(IsPendingDeletion=lambda: False, IsRuined=lambda: False,
+                 GetHierarchyRootPlayer=lambda: None, GetHierarchyParent=lambda: anchor)
+        self.assertTrue(provider.HCContains(anchor, item))
+        item.GetHierarchyParent = lambda: None
+        self.assertFalse(provider.HCContains(anchor, item), 'nearby loose loot is never attributed')
+        env['HCRemove'](anchor)
+        self.assertFalse(provider.HCPresent(anchor))
+        self.assertEqual('CE_CRASH_CALLBACK_PENDING', provider.HCRefusal())
         env['HCNativeIncidentSource'] = lambda: provider
         translate((EVENTS/'HCEventNativeObserver.c').read_text(), 'HCEventNativeObserver', env,
                   only=('HCIncidentSource',))
@@ -188,9 +209,8 @@ class NativeIncidentBehavior(unittest.TestCase):
                   only=('BindNativeIncident',))
         integration = fixture(enabled=False)
         integration.owner.m_Opened = False
-        self.assertFalse(env['BindNativeIncident'](integration.owner, observer, True))
-        self.assertEqual([], integration.calls)
-        self.assertTrue(any('CE_INCIDENT_LIFECYCLE_UNEXPOSED' in line for line in integration.logs))
+        self.assertTrue(env['BindNativeIncident'](integration.owner, observer, True))
+        self.assertEqual(['load'], integration.calls)
         self.assertTrue(any('HC-41 native_incident=synthetic-wreck-1 lease=leased stock_owner=native' in line
                             and 'runtime=PENDING' in line for line in run.logs))
 

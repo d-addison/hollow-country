@@ -12,6 +12,10 @@ Actual TDD record (2026-11-17):
   RED:   Ran 35 tests ... FAILED (failures=1, errors=33); the sources, data files and
          the RewardCache field did not exist (FileNotFoundError for HCEventSitesGate.c, etc.).
   GREEN: Ran 38 tests ... OK after the Enforce sources, sites.json and reward-pool.json landed.
+
+Round 2 (#147): replace obsolete mint/permanent-refusal expectations with
+existing physical stock and shared live-provider ports. Preserve finite stock,
+no-refill, same-handle, no-delete and admission assertions. All fixtures synthetic.
 """
 import copy
 import hashlib
@@ -94,6 +98,7 @@ class FakeGame:
     def __init__(self, io=None, server=True):
         self.server = server
         self.io = io
+        self.stock = []  # Explicit existing native stock; never populated by a query.
         self.created = []
         self.deleted = []
         self.height = 7.0
@@ -131,9 +136,24 @@ class FakeGame:
         self.created.append(cache)
         return cache
 
+    def GetObjectsAtPosition3D(self, anchor, radius, objects, proxies):
+        objects.extend(self.stock)
+
     def ObjectDelete(self, obj):
         obj.deleted = True
         self.deleted.append(obj)
+
+
+def physical_cache(position, kind="SmallProtectorCase", items=("Rag",)*4):
+    cache = Handle(identity="", position=list(position), kind=kind)
+    cache.contents = []
+    for name in items:
+        item = Handle(identity="", position=list(position), kind=name)
+        item.parent = cache
+        cache.contents.append(item)
+    cargo = N(GetItemCount=lambda: len(cache.contents), GetItem=lambda i: cache.contents[i])
+    cache.GetInventory = lambda: N(GetCargo=lambda: cargo)
+    return cache
 
 
 def pool(entries, caches=3, per_cache=4):
@@ -159,6 +179,10 @@ class Fixture(unittest.TestCase):
         self.e["HCEventTarget"] = lambda: N(MissionId="", Item=None, DeliveryContainer=None, Presence=None, Infected=None)
         self.e["HCEventRewardIO"] = FakeIO
         self.e["HCEventSitesGate"] = N(Admitted=lambda: True)
+        self.e["HCW38SituationPolicy"] = N(HCGet=lambda: N(PhysicalScanObjects=64, PhysicalScanCargo=16))
+        self.e["HCServer"] = N(HCTickWork=lambda: N(HCTake=lambda cost: True))
+        self.e["FileExist"] = lambda path: False
+        self.e["HCV2Admission"] = N(Line=lambda *args: "synthetic admission runtime=PENDING")
 
     def gate(self, env=None):
         env = env if env is not None else dict(self.e)
@@ -451,22 +475,17 @@ class CacheSpawner(Fixture):
         mission = [m for m in self.e["HCEventRoster"].Build(site, True) if m.Family == 1][0]
         return cls, mission
 
-    def test_cache_is_created_once_after_the_journal_with_nonpersistent_flags(self):
+    def test_existing_cache_is_bound_by_same_handle_without_minting(self):
         cls, mission = self.spawner()
-        target = cls.Create(mission)
-        self.assertIsNotNone(target)
-        cache = target.Item
-        self.assertEqual("SmallProtectorCase", cache.kind)
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
+        for _ in range(2):
+            target = cls.Create(mission)
+            self.assertIs(cache, target.Item)
+            self.assertIs(cache, target.Presence)
         self.assertEqual(4, len(cache.contents))
-        self.assertTrue(cache.flags & 8388608, "ECE_NOPERSISTENCY_WORLD: the container itself is not saved in the world")
-        self.assertTrue(cache.flags & 1060)
-        self.assertEqual(self.game.height, cache.position[1], "placed on the server-sampled surface")
-        self.assertEqual(mission.Source[0], cache.position[0])
-        self.assertEqual(mission.Source[2], cache.position[2])
-        order = [entry[0] for entry in self.io.log]
-        self.assertLess(order.index("write"), order.index("create"), "journal BEFORE creation")
-        self.assertIsNone(cls.Create(mission), "second request for the same site and boot creates nothing")
-        self.assertEqual(1, len(self.game.created))
+        self.assertEqual([], self.io.log, "native stock needs no mint journal")
+        self.assertEqual([], self.game.created, "repeated references never duplicate loot")
 
     def test_gate_server_and_mission_checks_precede_any_journal_or_spawn(self):
         cls, mission = self.spawner()
@@ -486,48 +505,53 @@ class CacheSpawner(Fixture):
         self.assertEqual([], self.io.log)
         self.assertEqual([], self.game.created)
 
-    def test_unobservable_terrain_height_is_refused_before_any_journal_write(self):
+    def test_existing_stock_does_not_depend_on_spawn_terrain(self):
         cls, mission = self.spawner()
-        self.game.height = mission.Source[1] + 40.0
-        self.assertIsNone(cls.Create(mission))
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
+        for height in (mission.Source[1] + 40.0, float('nan')):
+            self.game.height = height
+            self.assertIs(cache, cls.Create(mission).Item, "existing stock requires no placement")
         self.assertEqual([], self.io.log)
         self.assertEqual([], self.game.created)
-        self.game.height = float('nan')
-        self.assertIsNone(cls.Create(mission))
-        self.game.height = mission.Source[1] + 2.0
-        self.assertIsNotNone(cls.Create(mission), "a refused height does not spend the grant")
 
-    def test_journal_failure_creates_nothing(self):
+    def test_physical_stock_needs_no_reward_journal(self):
         cls, mission = self.spawner()
         self.io.fail_write = True
-        self.assertIsNone(cls.Create(mission))
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
+        self.assertIs(cache, cls.Create(mission).Item)
+        self.assertEqual([], self.io.log)
         self.assertEqual([], self.game.created)
 
-    def test_failed_creation_spends_the_grant_and_never_retries_into_a_duplicate(self):
+    def test_absent_stock_never_retries_into_a_duplicate(self):
         cls, mission = self.spawner()
-        self.game.create_ok = False
-        self.assertIsNone(cls.Create(mission))
-        self.game.create_ok = True
-        self.assertIsNone(cls.Create(mission))
+        for _ in range(3):
+            self.assertIsNone(cls.Create(mission), "missing stock never mints a replacement")
+        self.assertEqual([], self.game.created)
+        self.assertEqual([], self.io.log)
+
+    def test_empty_native_cache_is_never_deleted_or_refilled(self):
+        cls, mission = self.spawner()
+        cache = physical_cache(mission.Source, items=())
+        self.game.stock.append(cache)
+        for _ in range(3):
+            self.assertIsNone(cls.Create(mission))
+        self.assertEqual([], cache.contents, "empty stock never refills")
+        self.assertEqual([], self.game.deleted, "native owner retains empty container")
         self.assertEqual([], self.game.created)
 
-    def test_cache_with_no_content_is_deleted_and_partial_content_is_kept_and_logged(self):
+    def test_discard_never_deletes_borrowed_native_stock(self):
         cls, mission = self.spawner()
-        self.game.cargo_ok = False
-        self.assertIsNone(cls.Create(mission))
-        self.assertEqual(1, len(self.game.deleted))
-        self.assertTrue(self.game.deleted[0].deleted)
-
-    def test_discard_only_removes_an_untouched_server_cache(self):
-        cls, mission = self.spawner()
-        cache = cls.Create(mission).Item
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
+        self.assertIs(cache, cls.Create(mission).Item)
         cache.owner = Handle()
         cls.Discard(cache)
         self.assertEqual([], self.game.deleted, "never delete what a player holds")
         cache.owner = None
         cls.Discard(cache)
-        self.assertEqual([cache], self.game.deleted)
-
+        self.assertEqual([], self.game.deleted, "native owner also retains untouched stock")
 
 class ObjectiveAdapters(Fixture):
     """Reach-the-site and recover-the-cache through the real authored observer and binding."""
@@ -536,6 +560,7 @@ class ObjectiveAdapters(Fixture):
         self.f = runtime_tests.NativeObservationTests()
         self.f.setUp()
         self.f.e.update({k: v for k, v in self.e.items() if k in (
+            "HCW38SituationPolicy", "HCServer", "FileExist", "HCV2Admission",
             "HCEventSitesGate", "HCEventRewardIO", "ECE_PLACE_ON_SURFACE", "ECE_NOPERSISTENCY_WORLD", "ECE_NOLIFETIME")})
         self.f.e["Print"] = self.logs.append
         self.f.e["native_int"] = self.e["native_int"]
@@ -577,10 +602,12 @@ class ObjectiveAdapters(Fixture):
         load("HCEventRewardCache.c", "HCEventCacheSpawner", self.e)
         binder = load("HCEventWorldBinding.c", "HCEventWorldBinding", self.e)
         observer = self.f.o
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
         self.assertTrue(binder.Bind(observer, mission))
         self.assertTrue(binder.Bind(observer, mission), "rebind reuses the registered cache")
-        self.assertEqual(1, len(self.game.created))
-        cache = self.game.created[0]
+        self.assertEqual([], self.game.created)
+        self.assertIs(cache, observer.Target(mission.Id).Item)
         self.assertTrue(observer.Ready(mission))
         run = self.f.run
         run.Objective = mission
@@ -593,7 +620,7 @@ class ObjectiveAdapters(Fixture):
         cache.owner = Handle(identity="outsider")
         self.assertIsNone(observer.Observe(run, self.f.player, 102), "someone else's cache is not recovery")
 
-    def test_bind_refuses_without_gate_or_when_the_ledger_refuses(self):
+    def test_bind_refuses_without_site_gate_or_with_physical_stock_opt_out(self):
         mission = self.missions()[1]
         io = FakeIO()
         ledger = self.ledger(io=io)
@@ -601,13 +628,19 @@ class ObjectiveAdapters(Fixture):
         self.e["HCEventRewards"].Ledger = staticmethod(lambda: ledger)
         load("HCEventRewardCache.c", "HCEventCacheSpawner", self.e)
         binder = load("HCEventWorldBinding.c", "HCEventWorldBinding", self.e)
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
         self.e["HCEventSitesGate"] = N(Admitted=lambda: False)
         self.assertFalse(binder.Bind(self.f.o, mission))
         self.assertEqual([], self.game.created)
         self.e["HCEventSitesGate"] = N(Admitted=lambda: True)
-        io.fail_write = True
+        self.e["FileExist"] = lambda path: path.endswith("w38_rewards.disable")
         self.assertFalse(binder.Bind(self.f.o, mission))
         self.assertEqual([], self.game.created)
+        self.e["FileExist"] = lambda path: False
+        self.assertTrue(binder.Bind(self.f.o, mission))
+        self.assertIs(cache, self.f.o.Target(mission.Id).Item)
+        self.assertEqual([], self.game.deleted)
 
     def test_cache_missions_fail_closed_with_an_already_full_target_table(self):
         mission = self.missions()[1]
@@ -618,12 +651,16 @@ class ObjectiveAdapters(Fixture):
         load("HCEventRewardCache.c", "HCEventCacheSpawner", self.e)
         binder = load("HCEventWorldBinding.c", "HCEventWorldBinding", self.e)
         observer = self.f.o
+        cache = physical_cache(mission.Source)
+        self.game.stock.append(cache)
         for index in range(32):
             filler = Handle(identity="", kind="Filler%d" % index)
             filler.GetHierarchyParent = lambda: None
             self.assertTrue(observer.RegisterTarget("filler-%d" % index, filler))
         self.assertFalse(binder.Bind(observer, mission))
-        self.assertEqual(1, len(self.game.deleted), "an unregistered cache is removed, never left as loot")
+        self.assertEqual([], self.game.deleted, "registration failure never deletes native stock")
+        self.assertEqual([], self.game.created)
+        self.assertEqual(4, len(cache.contents))
 
 
 class BindDiagnosticTests(unittest.TestCase):
@@ -729,18 +766,19 @@ class SourceContracts(unittest.TestCase):
 
     def test_cache_creation_uses_only_the_verified_native_calls(self):
         text = self.source("HCEventRewardCache.c")
-        for token in ("GetGame().CreateObjectEx(", "CreateEntityInCargo(", "ECE_NOPERSISTENCY_WORLD", "GetGame().SurfaceY("):
+        for token in ("GetObjectsAtPosition3D(", "GetCargo()", "GetItemCount()"):
             self.assertIn(token, text)
         for forbidden in ("SetPosition", "SetOrientation", "CallLater", "GetPlayers", "ECE_DYNAMIC_PERSISTENCY",
                           "RPC", "ScriptRPC", "CreateInInventory"):
             self.assertNotIn(forbidden, text)
-        self.assertEqual(1, text.count("CreateObjectEx("))
+        for forbidden in ("CreateObjectEx(", "CreateEntityInCargo(", "ObjectDelete(", "SetQuantity("):
+            self.assertNotIn(forbidden, text)
 
     def test_cache_comment_does_not_overclaim_persistence(self):
         text = self.source("HCEventRewardCache.c")
         self.assertNotIn("cannot leave a persisted duplicate", text)
         self.assertIn("player takes are ordinary loot", text)
-        self.assertIn("ECE_NOPERSISTENCY_CHAR", text)
+        self.assertIn("native persistence remains authoritative", text)
 
     def test_ledger_has_no_engine_creation_and_never_parses_game_state(self):
         text = self.source("HCEventRewards.c")
