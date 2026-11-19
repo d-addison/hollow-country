@@ -346,7 +346,7 @@ class PickerOperationRegressions(unittest.TestCase):
         status = N(HCPublish=lambda state, reason: publications.append((state, reason)),
                    HCState=lambda: publications[-1][0] if publications else "unknown",
                    HCReason=lambda: publications[-1][1] if publications else "owner_state_unknown")
-        port = N(Actor=object(), Source=object(), Home=object(), Item=object(), LeaseId="active-lease")
+        port = N(Actor=object(), Source=object(), Home=object(), Item=object(), LeaseId="active-lease", HCWalkRefusal=lambda: "")
         def clear():
             effects.append("clear")
             for key in ("Actor", "Source", "Home", "Item"):
