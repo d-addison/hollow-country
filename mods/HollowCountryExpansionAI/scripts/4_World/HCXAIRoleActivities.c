@@ -10,6 +10,8 @@
 // Classes/eAIGroup.c:671 GetFaction, :1123 IsInCombat, :1139 GetMember,
 // :1185 Count; Entities/AI/eAIBase.c:1936 TargetCount, :1941 GetTarget,
 // :2028 GetThreatToSelf (LOS-aware); Classes/eAITarget.c:214 GetEntity.
+// Classes/eAIGroup.c:222 GetWaypoints, :251 SetWaypointBehaviour,
+// :304 GetWaypointBehaviour.
 // Providers own routes, reservations, combat, custody and physical inventory.
 // Spec -> plan -> tasks: tests/unit/test_w70_roleplan.py. runtime=PENDING.
 class HCXAIRoleRule
@@ -393,12 +395,48 @@ class HCXAIRoleActivities : HCModule
     protected int m_LeaseCursor;
     protected string m_Fault;
     protected bool m_RaidMissingLogged;
+    protected string m_DirectorState = "requested";
+    protected string m_DirectorReason = "ROLE_SITE_OWNER_PENDING";
+    protected string m_OwnerLog;
+
+    protected void HCObserveSiteOwner(HCXAISiteDirector director)
+    {
+        m_DirectorState = "requested";
+        m_DirectorReason = "ROLE_SITE_OWNER_MISSING";
+        if (director)
+        {
+            HCOperationalStatus siteStatus = director.HCGetOperationalStatus();
+            m_DirectorState = siteStatus.HCState();
+            m_DirectorReason = siteStatus.HCReason();
+        }
+        string signature = m_DirectorState + ":" + m_DirectorReason;
+        if (signature == m_OwnerLog) { return; }
+        m_OwnerLog = signature;
+        Print("[HC Roles] site_owner state=" + m_DirectorState + " reason=" + m_DirectorReason + " runtime=PENDING");
+    }
+
+    protected bool HCHasGroupLease(eAIGroup group)
+    {
+        array<ref HCXAIRoleLease> activeLeases = m_Leases;
+        foreach (HCXAIRoleLease activeLease : activeLeases)
+        {
+            if (activeLease.Group == group) { return true; }
+        }
+        return false;
+    }
 
     override string GetName() { return "AIRoles"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override HCOperationalStatus HCGetOperationalStatus()
     {
-        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Fault, "", "role_policy_loaded_cursor_armed");
+        if (m_Running && m_DirectorState != "ready")
+        {
+            string ownerState = "requested";
+            if (m_DirectorState == "refused" || m_DirectorState == "off" || m_DirectorState == "degraded") { ownerState = "degraded"; }
+            m_Status.HCPublish(ownerState, m_DirectorReason);
+            return m_Status;
+        }
+        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Fault, "", "role_policy_loaded_site_owner_running");
         return m_Status;
     }
 
@@ -504,6 +542,8 @@ class HCXAIRoleActivities : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !m_Config) { return; }
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        this.HCObserveSiteOwner(director);
         // One expiry per tick, independent of the director retaining a state.
         // This bounds release work and prevents retired groups leaking slots.
         if (m_Leases.Count() > 0)
@@ -520,7 +560,6 @@ class HCXAIRoleActivities : HCModule
             }
             else { m_LeaseCursor++; }
         }
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director || director.Phase() != "run") { return; }
         array<ref HCXAISiteState> states = director.States();
         if (!states || states.Count() < 1) { return; }
@@ -542,7 +581,7 @@ class HCXAIRoleActivities : HCModule
             int now = HCWorldClock.UTC();
             if (!state.Site || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive) { continue; }
             eAIGroup group = state.Patrol.m_Group;
-            if (!group || group.Count() < 1) { continue; }
+            if (!group || group.Count() < 1 || this.HCHasGroupLease(group)) { continue; }
             if (group.IsInCombat()) { state.HCW70DangerUntil = now + m_Config.DangerMemorySeconds; }
             // Never steal a reserved route/cargo controller. Native combat
             // remains free to act during every role lease.
@@ -550,7 +589,6 @@ class HCXAIRoleActivities : HCModule
             HCPickers pickerOwner = HCPickers.Get();
             HCScavengeTrip liveTrip;
             if (pickerOwner) { liveTrip = pickerOwner.HCTrip(); }
-            if (liveTrip && liveTrip.m_Busy) { continue; }
             if (liveTrip && liveTrip.m_State && liveTrip.m_State.LeaseId == state.ProposalId)
             {
                 string tripPhase = liveTrip.m_State.Phase;
