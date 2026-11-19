@@ -82,72 +82,16 @@ class HCCampTheft
         return null;
     }
 
+    protected static bool s_HCScavengeRefusal;
+
     static void Step(HCCampModule module, HCCampRecord camp, HCCampScan scan, int now)
     {
-        if (!module || !camp || !scan || HCEscalationClock.Day() < 1 || !HCWorldModule.Get()) return;
-        if (HCEscalationClock.Pressure("raiders") < 0.7 || !Due(now, camp.LastTheft) || module.NearMembers(camp, 300) != 0) return;
-        if (!HCObserverTransitionGate.CanTransition(camp.Position, 500)) return;
-        // Cheap check first: no crate means no destination search (up to 18 observer queries).
-        if (!scan.Crates || scan.Crates.Count() == 0) return;
-        string cacheId;
-        EntityAI destination = Destination(camp.Position, cacheId);
-        if (!destination) return;
-        // An invalid journal actor id would fault the shared cache-move journal
-        // used by pickers and dead drops; refuse the theft instead.
-        string actorId = camp.Id + "-to-" + cacheId;
-        if (!HCSearchRules.TextValid(actorId, 128)) return;
-        int moved;
-        bool charged;
-        HCCacheMoves mover = HCCacheMoves.Shared();
-        // Scan supplied by the bounded camp scanner: <=8 crates, <=32 items
-        // per crate. Two attempted journal moves at most, including failures.
-        int attempts;
-        bool ambiguous;
-        foreach (ItemBase crate : scan.Crates)
-        {
-            if (attempts >= 2 || ambiguous) break;
-            if (!Candidate(crate, camp, now, true, true) && !charged) continue;
-            // After the persisted cooldown reservation, recheck storage safety.
-            // Split checks: long mixed ||-chains crashed the native server (shelters, compile 152).
-            if (!HCLockTable.CampUnlocked(crate) || crate.IsRuined()) { continue; }
-            if (crate.GetHierarchyParent() || crate.GetHierarchyRootPlayer()) continue;
-            vector crateNow = crate.GetPosition();
-            if (vector.DistanceSq(crateNow, camp.Position) > 144) continue;
-            CargoBase cargo = crate.GetInventory().GetCargo();
-            if (!cargo || cargo.GetItemCount() > 32) continue;
-            array<string> allowed = new array<string>;
-            for (int itemIndex = 0; itemIndex < cargo.GetItemCount(); itemIndex++)
-            {
-                EntityAI item = cargo.GetItem(itemIndex);
-                if (!SafeItem(item)) continue;
-                string supplyId = HCSearchSupplyRegistry.PersistentId(item);
-                if (HCDeadDrops.TheftAllowed(crate, supplyId)) allowed.Insert(supplyId);
-            }
-            if (allowed.Count() == 0) continue;
-            if (!charged)
-            {
-                // Reserve cooldown BEFORE any callback; a crash never retries
-                // this theft. Individual items have immutable claim/attempt/result.
-                camp.LastTheft = now;
-                if (!module.Commit(now)) return;
-                charged = true;
-            }
-            while (attempts < 2 && HCLockTable.CampUnlocked(crate))
-            {
-                int phase = mover.TakeOne(crate, destination, actorId, allowed);
-                attempts++;
-                if (phase == 2) moved++;
-                // 0/4 are terminal no-ops. 3 is ambiguous: stop, never replay.
-                if (phase == 3) ambiguous = true;
-                if (phase != 2) break;
-            }
-        }
-        if (!charged) return;
-        if (moved > 0)
-        {
-            module.Fact(camp, "STOLEN", 1); // supplies went missing at the fact's place
-            module.Tell(camp, "Someone has been through your crates");
-        }
-        Print("[HollowCountry] V2 camps theft camp=" + camp.Id + " items=" + moved.ToString() + " cache=" + cacheId);
+        // HC-34: pressure and unattended crates are not a carrier or a route.
+        // The previous source -> distant cache transfer is retired. Players
+        // retain normal native inventory theft. AI theft must travel through
+        // the same admitted HC-10 party and single-custody round trip.
+        if (!module || !camp || s_HCScavengeRefusal) { return; }
+        s_HCScavengeRefusal = true;
+        Print("[HC Plan] HC-34 party=camp-theft phase=refused cargo_owner=native-source state=refused count=0 refusal=ABSTRACT_THEFT_RETIRED runtime=PENDING");
     }
 }

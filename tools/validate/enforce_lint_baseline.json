@@ -373,15 +373,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
-      "symbol": "HCPickers.OnStart",
-      "key": "if (!m_Store.Save(m_State)) return;",
-      "count": 1,
-      "line_at_review": 261,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCLightingClient.c",
       "symbol": "HCLightingClient.Start",
       "key": "if (m_HCRunning || !m_HCLighting) return;",
