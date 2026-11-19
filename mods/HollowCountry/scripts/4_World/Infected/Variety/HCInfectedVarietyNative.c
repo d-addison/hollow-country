@@ -46,10 +46,10 @@ modded class ZombieBase
 
     bool HCVarietySleep(float now, bool permitted)
     {
-        // One attempt per existing native entity, including refusal. Repeated
-        // calls cannot extend a hold or restart a completed/dead actor.
+        // Only a started hold consumes this entity's single rest. Refusals
+        // retry through HC-14's existing bounded cursor/cadence; no new loop.
+        // Repeated calls cannot extend a hold or restart a completed actor.
         if (m_HCVarietyTriedDormant) { return false; }
-        m_HCVarietyTriedDormant = true;
         if (!GetGame().IsServer() || !HCInfectedVarietyModule.VarietyActive()) { return false; }
         if (!HCPostureAdmission.HCCanEnter("native_crawler_idle") || !(now >= 0)) { return false; }
         if (!permitted || !IsAlive() || !IsCrawling() || IsBeingBackstabbed()) { return false; }
@@ -58,6 +58,7 @@ modded class ZombieBase
         AIAgent agent = GetAIAgent();
         if (!agent) { return false; }
         agent.SetKeepInIdle(true);
+        m_HCVarietyTriedDormant = true;
         m_HCVarietyDormant = true;
         m_HCVarietySleepUntil = now + 60;
         return true;
@@ -182,18 +183,32 @@ modded class HCInfectedVarietyModule
         }
         if (!m_HCPostures) { m_HCPostures = new HCPostureAdmission; }
         m_HCPostures.HCStart(m_Variety);
-        // The module also owns group scaling: posture off must not label that
-        // running service off. These are observed owner states, not wake proof.
-        m_HCVarietyStatus.HCPublish("ready", "variety_or_scaling_owner_running_rest_wake_unverified");
-        if (m_Variety && !VarietyActive())
+        HCRefreshVarietyStatus();
+    }
+
+    // O(1) on the existing lifecycle tick; no scan, config IO, experiment or
+    // callback. Startup order can change VarietyActive after our OnStart.
+    // Publish once per observed transition; HC-1 getters remain passive.
+    void HCRefreshVarietyStatus()
+    {
+        if (!m_Running) { return; }
+        string state = "ready";
+        string reason = "group_scaling_owner_running_postures_off";
+        if (m_Variety)
         {
-            m_HCVarietyStatus.HCPublish("degraded", "infected_owner_unavailable_rest_wake_unverified");
+            state = "refused";
+            reason = "rest_wake_native_proof_pending";
+            if (!VarietyActive()) { reason = "infected_owner_unavailable_rest_wake_unverified"; }
         }
+        if (m_HCVarietyStatus.HCState() == state && m_HCVarietyStatus.HCReason() == reason) { return; }
+        m_HCVarietyStatus.HCPublish(state, reason);
     }
 
     override void OnTick(float deltaTime)
     {
         super.OnTick(deltaTime);
+        if (!m_Running) { return; }
+        HCRefreshVarietyStatus();
         if (m_HCPostures) { m_HCPostures.HCSlice(); }
     }
 

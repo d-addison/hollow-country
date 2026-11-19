@@ -10,7 +10,9 @@ class HCInfectedReachPolicy
     // HC-47 / #121. Legacy scalar experiments below are retained for traceability,
     // but callers must consume these effective flags. A sampled floor/navmesh
     // point or room anchor is not a traversal/landing/damage receipt.
-    static bool HCExtendedReachSupported() { return false; }
+    static const bool HC_LEG_STRIKES_ENABLED = false;
+    static const string HC_LEG_STRIKES_REFUSAL = "native_geometry_unqualified";
+    static bool HCExtendedReachSupported() { return HCInfectedReachPolicy.HC_LEG_STRIKES_ENABLED; }
     static bool HCForcedMovementSupported() { return false; }
 
     // Existing LineCheck endpoint defaults, not a new sensing/reach range.
@@ -54,7 +56,8 @@ class HCInfectedReachPolicy
             return "[HC Plan] HC-47 reach=off vision=" + vision + " refusals=0 runtime=PENDING";
         }
         string line = "[HC Plan] HC-47 reach=refused vision=" + vision + " refusals=3";
-        line = line + " extra_reach=native_geometry_unqualified forced_movement=traversal_unqualified";
+        line = line + " extra_reach=" + HCInfectedReachPolicy.HC_LEG_STRIKES_REFUSAL;
+        line = line + " forced_movement=traversal_unqualified";
         return line + " rooms=" + HCInfectedRoomCatalog.HCThreatRoomReason() + " runtime=PENDING";
     }
 
