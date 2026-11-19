@@ -576,6 +576,175 @@ def tree(root):
     return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
 
+class UsefulSupply(Base):
+    """HC-22 behavior on an explicitly SYNTHETIC mission; no native CE evidence."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'source'
+        stock_mission(self.root, self.rows)
+        self.pilot = profile() | {'name': 'contextual-pilot'}
+        self.before = tree(self.root)
+
+    def generate(self, **kwargs):
+        return economy.generate(self.root, self.pilot, **kwargs)
+
+    def stage(self, files):
+        stage = Path(self.tmp.name) / 'delta'
+        manifest = json.loads(files['delta-manifest.json'])
+        manifest['files'] = {n: economy.sha(b) for n, b in files.items() if n != 'delta-manifest.json'}
+        files['delta-manifest.json'] = economy.encode(manifest)
+        economy.write_delta(stage, files)
+        return stage
+
+    def refuse_install(self, files, code):
+        with self.assertRaisesRegex(ValueError, code):
+            economy.install_delta(self.stage(files), self.root)
+        self.assertEqual(self.before, tree(self.root))
+
+    def test_pilot_emits_three_bandanas_and_seventeen_named_floor_refusals(self):
+        files = self.generate()
+        emitted = economy._unique(ET.fromstring(files['ce/types.xml']))
+        expected = {
+            **{family + '_' + colour: ('unresolved', 'HC22_CRAFTED_FLOOR_UNPROVEN')
+               for family in ('LeatherJacket', 'LeatherShoes', 'LeatherHat')
+               for colour in ('Natural', 'Beige', 'Brown', 'Black')},
+            'LeatherShirt_Natural': ('unresolved', 'HC22_CRAFTED_FLOOR_UNPROVEN'),
+            **{'DrysackBag_' + c: ('native-craft', 'HC22_CRAFTED_FLOOR_UNPROVEN')
+               for c in ('Green', 'Orange', 'Yellow')},
+            'TortillaBag_Desert': ('native-carrier', 'HC22_EVENT_CARRIER_UNQUALIFIED')}
+        report = json.loads(files['economy-report.json'])['supply']
+        self.assertEqual({r['class']: (r['route'], r['reason']) for r in report['refusals']}, expected)
+        self.assertFalse(set(expected) & set(emitted))
+        for name in ('Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'):
+            self.assertEqual(emitted[name].findtext('nominal'), '5')
+            self.assertEqual({n.get('name') for n in emitted[name].findall('usage')}, {'Town', 'Village'})
+        self.assertEqual((report['authored'], report['admitted'], report['observed']), (55, 38, 0))
+        self.assertEqual(report['runtime_acceptance'], 'pending')
+        self.assertEqual(report['dispositions_sha256'], economy.sha(dm.SUPPLY_DATA.read_bytes()))
+        self.assertEqual(json.loads(files['delta-manifest.json'])['supply_new_type_classes'],
+                         ['Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'])
+
+    def test_report_counts_floor_refusals_by_route_and_reason(self):
+        report = json.loads(self.generate()['economy-report.json'])['supply']
+        self.assertNotIn('unresolved', report)
+        self.assertEqual(report['floor_refused'], 17)
+        self.assertEqual(report['refused_by_route'], {'unresolved': 13, 'native-craft': 3, 'native-carrier': 1})
+        self.assertEqual(report['refused_by_reason'],
+                         {'HC22_CRAFTED_FLOOR_UNPROVEN': 16, 'HC22_EVENT_CARRIER_UNQUALIFIED': 1})
+        off = self.generate(include_datamined=False)
+        report = json.loads(off['economy-report.json'])['supply']
+        self.assertEqual((report['state'], report['admitted'], report['floor_refused']), ('off', 0, 0))
+        self.assertEqual(report['refused_by_route'], {})
+        self.assertEqual(report['refused_by_reason'], {})
+        self.assertEqual(json.loads(off['delta-manifest.json'])['supply_new_type_classes'], [])
+
+    def test_install_refuses_rehashed_bandana_nominal_drift(self):
+        files = self.generate()
+        types = ET.fromstring(files['ce/types.xml'])
+        types.find("type[@name='Bandana_Blue']/nominal").text = '2'
+        files['ce/types.xml'] = ET.tostring(types)
+        self.refuse_install(files, 'HC22_NEW_TYPE_DRIFT')
+
+    def test_install_refuses_bandana_already_in_stock_in_any_case(self):
+        for spelling in ('Bandana_Blue', 'BANDANA_BLUE', 'bandana_blue'):
+            with self.subTest(spelling=spelling):
+                (self.root / 'db/types.xml').write_bytes(self.before['db/types.xml'])
+                files = self.generate()
+                stock = ET.fromstring(self.before['db/types.xml'])
+                row = dm.reviewed_supply_type('Bandana_Blue')
+                row.set('name', spelling)
+                stock.append(row)
+                (self.root / 'db/types.xml').write_bytes(ET.tostring(stock))
+                # SYNTHETIC manifest is rehashed to exercise the row guard beyond source-drift refusal.
+                manifest = json.loads(files['delta-manifest.json'])
+                manifest['sources'] = {n: economy.sha(b) for n, b in economy.snapshot(self.root).items()}
+                files['delta-manifest.json'] = economy.encode(manifest)
+                before = tree(self.root)
+                with self.assertRaisesRegex(ValueError, 'HC22_NEW_TYPE_ALREADY_IN_STOCK'):
+                    economy.install_delta(self.stage(files), self.root)
+                self.assertEqual(before, tree(self.root))
+                shutil.rmtree(Path(self.tmp.name) / 'delta')
+        (self.root / 'db/types.xml').write_bytes(self.before['db/types.xml'])
+
+    def test_install_refuses_unreviewed_supply_permission(self):
+        files = self.generate()
+        manifest = json.loads(files['delta-manifest.json'])
+        manifest['supply_new_type_classes'].append('Iceaxe')
+        files['delta-manifest.json'] = economy.encode(manifest)
+        self.refuse_install(files, 'HC22_NEW_TYPE_NOT_REVIEWED')
+
+    def test_generate_refuses_row_without_disposition(self):
+        ledger = dm.load_supply_dispositions()
+        ledger['entries'] = [e for e in ledger['entries'] if e['class'] != 'Bandana_Blue']
+        with mock.patch.object(dm, 'load_supply_dispositions', return_value=ledger):
+            with self.assertRaisesRegex(ValueError, 'HC22_MISSING_DISPOSITION: Bandana_Blue'):
+                self.generate()
+        self.assertEqual(self.before, tree(self.root))
+
+    def test_generate_refuses_floor_admission_with_crafted_or_deloot_flags(self):
+        for flags in ('001010', '001001'):
+            rows = copy.deepcopy(self.rows)
+            next(r for r in rows if r['class'] == 'Bandana_Blue')['flags'] = flags
+            with self.subTest(flags=flags), mock.patch.object(dm, 'load_rows', return_value=rows):
+                with self.assertRaisesRegex(ValueError, 'HC22_UNQUALIFIED_FLOOR_FLAGS: Bandana_Blue'):
+                    self.generate()
+        self.assertEqual(self.before, tree(self.root))
+
+    def test_other_profile_retains_legacy_rows_without_reading_supply_ledger(self):
+        with mock.patch.object(dm, 'SUPPLY_DATA', Path(self.tmp.name) / 'absent-ledger.json'):
+            files = economy.generate(self.root, profile())
+            report = json.loads(files['economy-report.json'])
+            self.assertNotIn('supply', report)
+            self.assertEqual(report['datamined']['classes'], sorted(
+                r['class'] for r in self.rows if r['stock'] == 'present'))
+            self.assertEqual(json.loads(files['delta-manifest.json'])['supply_new_type_classes'], [])
+            economy.install_delta(self.stage(files), self.root)
+            economy.rollback(self.root)
+        self.assertEqual(self.before, tree(self.root))
+
+    def test_install_checks_only_named_new_type_not_unrelated_proposals(self):
+        stage = self.stage(self.generate())
+        # SYNTHETIC unrelated proposal has no ledger decision; it must not affect named bandana checks.
+        rows = copy.deepcopy(self.rows)
+        rows.append(dict(rows[0], **{'class': 'SyntheticUnrelatedProposal'}))
+        with mock.patch.object(dm, 'load_rows', return_value=rows):
+            economy.install_delta(stage, self.root)
+            economy.rollback(self.root)
+        self.assertEqual(self.before, tree(self.root))
+
+    def test_install_refuses_rehashed_report_with_wrong_or_missing_ledger_digest(self):
+        for digest in ('0' * 64, None, 'missing digest', 'missing supply'):
+            with self.subTest(digest=digest):
+                files = self.generate()
+                report = json.loads(files['economy-report.json'])
+                if digest == 'missing digest':
+                    report['supply'].pop('dispositions_sha256')
+                elif digest == 'missing supply':
+                    report.pop('supply')
+                else:
+                    report['supply']['dispositions_sha256'] = digest
+                files['economy-report.json'] = economy.encode(report)
+                self.refuse_install(files, 'HC22_DISPOSITIONS_HASH_MISMATCH')
+                shutil.rmtree(Path(self.tmp.name) / 'delta')
+
+    def test_install_refuses_changed_ledger_even_when_decisions_are_unchanged(self):
+        files = self.generate()
+        ledger = Path(self.tmp.name) / 'ledger.json'
+        ledger.write_bytes(dm.SUPPLY_DATA.read_bytes() + b'\n')
+        with mock.patch.object(dm, 'SUPPLY_DATA', ledger):
+            self.refuse_install(files, 'HC22_DISPOSITIONS_HASH_MISMATCH')
+
+    def test_missing_ledger_refuses_generate_and_install_with_named_error(self):
+        files = self.generate()
+        with mock.patch.object(dm, 'SUPPLY_DATA', Path(self.tmp.name) / 'absent-ledger.json'):
+            for enabled in (True, False):
+                with self.subTest(enabled=enabled), self.assertRaisesRegex(ValueError, 'HC22_DISPOSITIONS_MISSING'):
+                    self.generate(include_datamined=enabled)
+            self.refuse_install(files, 'HC22_DISPOSITIONS_MISSING')
+
+
 class EconomyIntegration(Base):
     """economy.generate emits the rows; economy.install accepts exactly their mutable fields."""
 

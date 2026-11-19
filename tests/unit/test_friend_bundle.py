@@ -183,6 +183,30 @@ class FriendBundleTests(unittest.TestCase):
             cwd=self.out, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_exported_economy_install_refuses_missing_repo_only_supply_ledger(self):
+        """SYNTHETIC HC-22 delta: exported tools must name the missing ledger before importing repo-only tools."""
+        import subprocess
+        import sys
+        from tools.package import datamined_items, economy
+        from tests.unit.test_datamined_items import stock_mission, profile
+        source = self.tmp / 'synthetic-supply'
+        stock_mission(source, datamined_items.load_rows())
+        stage = self.tmp / 'synthetic-supply-delta'
+        economy.write_delta(stage, economy.generate(source, profile() | {'name': 'contextual-pilot'}))
+        before = economy.snapshot(source)
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        self.assertFalse((self.out / 'config/loot-dispositions.json').exists())
+        result = subprocess.run([sys.executable, '-B', '-I', '-c',
+            'import sys; sys.path.insert(0, sys.argv[1]); from tools.package import economy; '
+            'economy.install_delta(sys.argv[2], sys.argv[3])', str(self.out), str(stage), str(source)],
+            cwd=self.out, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('ValueError: HC22_DISPOSITIONS_MISSING', result.stderr)
+        self.assertNotIn('FileNotFoundError', result.stderr)
+        self.assertEqual(before, economy.snapshot(source))
+        self.assertFalse((source / economy.MANAGED).exists())
+
     def test_mission_copy_keeps_config_and_drops_storage_rollback_and_logs(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)

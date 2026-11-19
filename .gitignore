@@ -107,3 +107,4 @@ Thumbs.db
 
 # Interior template pack is derived from vanilla mapgroupproto/census; injected at package time, never committed.
 mods/HollowCountry/data/defaults/templates/
+!/docs/EQUIPMENT_COVERAGE.md
