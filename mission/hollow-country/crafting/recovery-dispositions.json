@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-recovery-dispositions",
+  "wp": "HC-30",
+  "trace": {
+    "spec": "HC-30 task brief: native-first useful material recovery; HC-4 integrity and HC-22 supply dependencies",
+    "plan": "Approve two exact finite rag recoveries; reuse native cloth/stick routes; refuse unverified source/material proposals",
+    "task": "HC-30 source/package slice; lead owns deterministic registration and startup validation/receipt wiring",
+    "required_spec_paths": "docs/SPECIFICATION.md and docs/specs/001-survival-overhaul/spec.md absent from assigned checkout",
+    "supply_dispositions": "config/loot-dispositions.json (HC-22, consumed unchanged)",
+    "supply_policy": "tools/package/economy.py (consumed unchanged); no CE/floor supply admission added"
+  },
+  "runtime_acceptance": "pending",
+  "production_enablement": "pending-native-qualification",
+  "registration": "pending-lead-integration",
+  "manifest_role": "Authored disposition/evidence metadata, not a runtime recipe loader or an accepted native receipt",
+  "authored_counts": {"recoveries": 2, "native_reused": 3, "refused": 3},
+  "observed_crafts": 0,
+  "distances_added": [],
+  "native_snapshot": "1.30.164289",
+  "queue": {
+    "candidate_count": 2001,
+    "remaining_count": null,
+    "owners": ["HC-22", "HC-33"],
+    "status": "pending-identity-complete-review; this slice does not close or subtract from the whole queue"
+  },
+  "shared_policy": {
+    "authority": "Native PluginRecipesManager/RecipeBase, HC-4 server completion guard and live HCCraftingGate",
+    "custody": "Owned, empty, loose source and tool; no worn item, attachment, cargo contents, shared or ground source",
+    "condition": "Reject ruined source/tool; output health is 0.75 of source snapshot",
+    "wetness_agents": "Inherit source wetness and agents; no clean/dry/sterile output guarantee",
+    "other_properties": "Do not copy quantity, energy, food stage or ammunition from source",
+    "yield": "One Rag only after validated allocation; native full-stack and replacement inheritance disabled",
+    "tool_wear": 5,
+    "tool_policy": "HC-4 HCSalvageTools KitchenKnife selector; 36 inspected native cutting alternatives, not ancestry matching",
+    "animation_units": 2,
+    "cycle_policy": "Selected edges terminate at Rag; inspected registered native recipes produce neither Fabric nor Teddy classes. No reverse edge admitted by this slice.",
+    "native_overlap": "Positive effective source ragQuantity refuses HC registration and completion; retain native CraftRag",
+    "off": "HC crafting setting gates HC completions; reused vanilla routes retain their native behavior"
+  },
+  "entries": [
+    {
+      "id": "teddy-rag",
+      "route": "hc-recovery",
+      "recipe": "HCRecoverTeddyRag",
+      "sources": ["Bear_Beige", "Bear_Dark", "Bear_Pink", "Bear_White"],
+      "source_units": 1,
+      "source_debit": "destroy-one-empty-singleton",
+      "outputs": [{"class": "Rag", "quantity": 1}],
+      "evidence": [
+        "Installed DayZServer/addons/gear_containers.pbo config.bin: four public Bear colours inherit Bear_ColorBase, teddybear model, no declared ragQuantity or quantity capacity",
+        "4_World/Entities/ItemBase/Container_Base/EN5C_Bear_ColorBase.c:1-30: actual native class names and container ancestry",
+        "4_World/Classes/Recipes/Recipes/CraftRag.c:68,90-94,104: Inventory_Base source with positive effective ragQuantity; Rags_craft is a sound category",
+        "Installed DayZServer/addons/gear_consumables.pbo config.bin: Rag scope=2, varQuantityMax=6; no assets copied"
+      ],
+      "admission": "pending-lead-preflight-and-native-qualification"
+    },
+    {
+      "id": "fabric-rag",
+      "route": "hc-recovery",
+      "recipe": "HCRecoverFabricRag",
+      "sources": ["Fabric"],
+      "source_units": 1,
+      "source_debit": "native-quantity-minus-one; preserve-remainder",
+      "outputs": [{"class": "Rag", "quantity": 1}],
+      "evidence": [
+        "Installed DayZServer/addons/gear_camping.pbo config.bin: Fabric scope=2, varQuantityInit=1, varQuantityMax=4; no declared ragQuantity",
+        "4_World/Entities/ItemBase/Gear/Crafting/crafting.c:109-120: native Fabric repair/attachment actions",
+        "4_World/Classes/Recipes/RecipeBase.c:373-425: quantity debit through AddQuantity with destruction on exhaustion",
+        "4_World/Classes/Recipes/Recipes/CraftRag.c:90-94: positive effective ragQuantity would use native route instead"
+      ],
+      "admission": "pending-lead-preflight-and-native-qualification"
+    },
+    {
+      "id": "native-cloth-rags",
+      "route": "native-reuse",
+      "recipe": "CraftRag",
+      "sources": [],
+      "source_selection": "Native Inventory_Base matching with positive effective ragQuantity; do not invent eligible garment classes",
+      "quantity": "Native source ragQuantity and Rag stack capacity; no HC yield override",
+      "evidence": ["4_World/Classes/Recipes/Recipes/CraftRag.c:68-125", "4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:125"],
+      "hc_registration": false,
+      "property_acceptance": "pending-native; native implementation retained, not certified by this disposition"
+    },
+    {
+      "id": "native-broom-sticks",
+      "route": "native-reuse",
+      "recipe": "SplitBroom",
+      "sources": ["Broom", "Broom_Birch"],
+      "quantity": "Native WoodenStick and LongWoodenStick results; full-quantity/property transfer effects remain native acceptance work",
+      "evidence": ["4_World/Classes/Recipes/Recipes/SplitBroom.c:27-33,78-100,104-130", "4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:66"],
+      "hc_registration": false,
+      "property_acceptance": "pending-native; no HC duplicate recipe"
+    },
+    {
+      "id": "native-long-stick-split",
+      "route": "native-reuse",
+      "recipe": "SplitLongWoodenStick",
+      "sources": ["LongWoodenStick", "SharpWoodenStick"],
+      "quantity": "Native WoodenStick quantity=3; no HC yield override",
+      "evidence": ["4_World/Classes/Recipes/Recipes/SplitLongWoodenStick.c:27-33,78-87,92-103", "4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:65"],
+      "hc_registration": false,
+      "property_acceptance": "pending-native; no HC duplicate recipe"
+    },
+    {
+      "id": "unverified-mallet",
+      "route": "refused",
+      "candidate": "WoodenMallet",
+      "refusal": "HC30_SOURCE_CLASS_UNVERIFIED",
+      "reason": "Not established by inspected native scripts or gear_tools/weapons_melee configs; no source class guessed or registered"
+    },
+    {
+      "id": "unverified-black-hockey-stick",
+      "route": "refused",
+      "candidate": "HockeyStick_Black",
+      "refusal": "HC30_SOURCE_CLASS_UNVERIFIED",
+      "reason": "Not established in inspected native scripts or weapons_melee config; no assumed colour alias"
+    },
+    {
+      "id": "hockey-material",
+      "route": "refused",
+      "candidate": "HockeyStick",
+      "refusal": "HC30_MATERIAL_UNPROVEN",
+      "reason": "Public installed weapons_melee class/model exists, but model path alone proves neither wooden material nor an attainable supply route; defer to HC-22/33"
+    }
+  ],
+  "pending_native_scenarios": [
+    "Exact-source DayZDiag compile/boot; no script or CE errors; verify preflight and bounded HC-30 receipt after lead wiring",
+    "Normal signed PBO/server: each exact Teddy colour and Fabric with each registered cutting tool; exact source/PBO/mission/config/dependency hashes",
+    "Fabric stack of four yields one Rag and remainder three; stack of one exhausts once; empty/fractional-under-one refused",
+    "Full hands/inventory allocation and fallback, failed allocation, cancellation, source/tool removal and simultaneous completion",
+    "Owned-empty-loose restriction including Teddy cargo, nested cargo, attachments, worn/ground/shared/corpse inputs",
+    "Ruined source/tool refusal; dirty and wet inputs preserve agents/wetness and reduce health; native disinfection remains separate",
+    "Two-client race/replication: one source unit debited once and one output; reconnect and server stop/restart never replay or refund",
+    "Explicit HC crafting off and stop/restart cleanup; no custom scan/save loop; reused vanilla routes remain native",
+    "Positive effective ragQuantity chooses the existing native route and logs HC30_NATIVE_RAG_ROUTE; no HC duplicate conversion"
+  ]
+}
