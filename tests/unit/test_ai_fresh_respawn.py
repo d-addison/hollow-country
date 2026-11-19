@@ -272,12 +272,14 @@ class RespawnCoastalAdapterTests(unittest.TestCase):
         authored = Authored(source, env)
         seen = [False]
         owner = N(m_Policy=N(MinPlayerDistance=200), m_Phase='run', m_RingCandidates=8,
+                  m_RingDegrees=0.0, m_RingGround=None,
                   m_Players=A([N(GetIdentity=lambda: True, IsAlive=lambda: True,
                                  GetPosition=lambda: [5000, 0, 5000])]),
                   HCRefreshPlayers=lambda: None, NearestPlayer=lambda pos: 1,
                   GroundSample=lambda point, radius: point,
                   HCRingRouteProblem=lambda start, end: '',
                   MemberProblemFor=lambda point: 'observer' if seen[0] else '')
+        owner.HCRingPickProblem = lambda *args: authored.call('HCRingPickProblem', owner, *args)
         patrol = N(m_HCTransient=False, m_HCKind='patrol', m_Group=None,
                    m_Position=[5000, 0, 5100])
         self.assertEqual('', authored.call('HCPrepareRingSpawn', owner, patrol))
@@ -293,6 +295,14 @@ class RespawnCoastalAdapterTests(unittest.TestCase):
         owner.HCRingRouteProblem = lambda start, end: 'spawn_ring_route_unreachable'
         self.assertEqual('spawn_ring_route_unreachable', authored.call('HCPrepareRingSpawn', owner, patrol))
         self.assertEqual(original, patrol.m_Position)
+        # A refused candidate moves the next search start, so a stationary observer
+        # is not offered the same rejected point forever (review P2).
+        first = owner.m_RingDegrees
+        self.assertGreater(first, 0)
+        self.assertLess(first, 360)
+        authored.call('HCPrepareRingSpawn', owner, patrol)
+        self.assertNotEqual(first, owner.m_RingDegrees)
+        self.assertLess(owner.m_RingDegrees, 360)
         self.assertIn('director.HCPrepareRingSpawn(this)', source.split('override bool CanSpawn()', 1)[1])
 
 class RespawnRegistryTests(unittest.TestCase):

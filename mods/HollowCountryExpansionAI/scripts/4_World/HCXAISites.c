@@ -415,6 +415,9 @@ class HCXAISiteDirector : Managed
     protected int m_CacheCursor;
     protected int m_RespawnCursor;
     protected int m_RingCandidates;
+    // Ring search start angle; advanced past each rejected candidate so a
+    // stationary observer does not get the same refused point forever.
+    protected float m_RingDegrees;
     protected int m_Ticks;
     protected int m_LastActiveAI = -1;
     protected bool m_Diagnostic;
@@ -1738,9 +1741,25 @@ class HCXAISiteDirector : Managed
         }
         if (ringObservers.Count() == 0) { return "spawn_ring_search_unavailable"; }
         if (!HCServer.HCTickWork().HCTake(m_RingCandidates)) { return "spawn_ring_work_pending"; }
-        HCPerceptionRingPick pick = HCPerceptionRing.HCFindLand(centre, 0, ringObservers, m_RingCandidates);
+        HCPerceptionRingPick pick = HCPerceptionRing.HCFindLand(centre, m_RingDegrees, ringObservers, m_RingCandidates);
         if (pick.Reason != "") { return pick.Reason; }
         HCServer.HCTickWork().HCCharge(1);
+        string ringProblem = this.HCRingPickProblem(pick, centre, ringObservers, original);
+        if (ringProblem != "")
+        {
+            // Step past the refused candidate (half a slot interleaves the next pass).
+            m_RingDegrees = m_RingDegrees + 360.0 * (pick.Attempts + 0.5) / m_RingCandidates;
+            while (m_RingDegrees >= 360.0) { m_RingDegrees = m_RingDegrees - 360.0; }
+            return ringProblem;
+        }
+        patrol.m_Position = m_RingGround;
+        return "";
+    }
+
+    protected vector m_RingGround;
+
+    protected string HCRingPickProblem(HCPerceptionRingPick pick, vector centre, array<vector> ringObservers, vector original)
+    {
         vector ground = this.GroundSample(pick.Position, HCPerceptionRing.HCGet().SpawnMarginMeters);
         if (ground == vector.Zero || !HCPerceptionRing.HCClearOfObservers(ground, ringObservers)) { return "spawn_ring_ground_unavailable"; }
         if (vector.Distance(ground, centre) > HCPerceptionRing.HCSpawnMax()) { return "spawn_ring_ground_outside_band"; }
@@ -1749,7 +1768,7 @@ class HCXAISiteDirector : Managed
         string observerProblem = this.MemberProblemFor(ground);
         if (observerProblem != "") { return observerProblem; }
         // No actor exists here. Provider owns the eventual fresh spawn.
-        patrol.m_Position = ground;
+        m_RingGround = ground;
         return "";
     }
 
