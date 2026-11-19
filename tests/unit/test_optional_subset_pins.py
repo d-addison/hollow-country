@@ -18,7 +18,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tools.package import snafu_optional as sf, tactical_flava_optional as tf
+from tools.package import hash_cache, snafu_optional as sf, tactical_flava_optional as tf
 from tests.unit import test_snafu_optional as sf_fixture
 from tests.unit import test_tactical_flava_optional as tf_fixture
 from tests.unit.test_pbo_config import klass, pbo, rap
@@ -142,6 +142,192 @@ class SubsetPins(unittest.TestCase):
         self.assertEqual(drift['status'], 'unverified')
         names = [p for p in drift['install']['problems'] if p.startswith('HC61_SUBSET_PIN_DRIFT')]
         self.assertIn('HC61_SUBSET_PIN_DRIFT:SynRifle', names)
+
+
+def with_dependency_pins(allow, report):
+    """Keep subset pins and ALSO record the whole-PBO pins (what the real allowlists carry)."""
+    out = copy.deepcopy(allow)
+    out['hc61']['dependency_pins'] = [{k: row[k] for k in ('name', 'size', 'sha256')}
+                                      for row in report['install']['pbos']]
+    return out
+
+
+class DependencyUpdateWarning(unittest.TestCase):
+    """#183 P2 a: a whole-PBO change with unchanged pinned classes is a named warning, not a failure."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+        patcher = mock.patch.dict(os.environ, {'HC_HASH_CACHE_DIR': str(self.root / 'cache')})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _sf_pinned(self):
+        install = self.root / 'sf'
+        sf_fixture.build_install(install)
+        allow = sf_fixture.allowlist(*sf_fixture.GOOD)
+        first = sf.verify_install(install, allow)  # no hc61 block: whole-PBO rows carry sha256
+        return install, with_dependency_pins(pinned(allow, first), first)
+
+    def test_snafu_unchanged_dependency_has_no_warning(self):
+        install, allow = self._sf_pinned()
+        report = sf.verify_install(install, allow)
+        self.assertEqual(report['status'], 'verified', report['install']['problems'])
+        self.assertEqual(report['install']['warnings'], [])
+        self.assertFalse(report['dependency_changed'])
+
+    def test_snafu_whole_pbo_change_with_same_pinned_classes_warns_and_names_the_pbo(self):
+        install, allow = self._sf_pinned()
+        sf_rewrite(install, sf_configs(extra={'SynUnrelated': klass('Rifle_Base', scope=2)}))
+        report = sf.verify_install(install, allow)
+        self.assertEqual(report['install']['problems'], [])
+        self.assertEqual(report['status'], 'verified')
+        self.assertEqual(report['install']['warnings'], ['HC61_DEPENDENCY_UPDATED:Synth_Guns.pbo'])
+        self.assertTrue(report['dependency_changed'])
+        # The warning does not block generation from a verified report.
+        sf_fixture.patch_roster(self, self.root)
+        mission = self.root / 'mission'
+        mission.mkdir()
+        tf_fixture.mission(mission)
+        sf.generate(mission, allow, report)
+
+    def test_snafu_pinned_class_change_still_fails_and_names_class_and_pbo(self):
+        install, allow = self._sf_pinned()
+        sf_rewrite(install, sf_configs(wood_ammo='SynAmmoB'))
+        report = sf.verify_install(install, allow)
+        self.assertEqual(report['status'], 'unverified')
+        self.assertIn('HC61_SUBSET_PIN_DRIFT:SynWood', report['install']['problems'])
+        self.assertEqual(report['install']['warnings'], ['HC61_DEPENDENCY_UPDATED:Synth_Guns.pbo'])
+
+    def test_tactical_flava_whole_pbo_change_warns_without_failing(self):
+        install = self.root / 'tf'
+        tf_fixture.build_install(install)
+        allow = tf_fixture.allowlist(*tf_fixture.good())
+        first = tf.verify_install(install, allow, vanilla=tf_fixture.VANILLA)
+        allow = with_dependency_pins(pinned(allow, first), first)
+        same = tf.verify_install(install, allow, vanilla=tf_fixture.VANILLA)
+        self.assertEqual(same['install']['warnings'], [])
+        update = tf_fixture.TEXT_A.replace('class SynHidden: Rifle_Base { scope = 0;',
+                                           'class SynHidden: Rifle_Base { scope = 0; ignored = 1;')
+        tf_fixture.build_install(self.root / 'tf2', text=update)
+        os.replace(self.root / 'tf2/addons/syn_a.pbo', install / 'addons/syn_a.pbo')
+        report = tf.verify_install(install, allow, vanilla=tf_fixture.VANILLA)
+        self.assertEqual(report['status'], 'verified', report['install']['problems'])
+        self.assertEqual(report['install']['warnings'], ['HC61_DEPENDENCY_UPDATED:syn_a.pbo'])
+        self.assertTrue(report['dependency_changed'])
+        changed = tf_fixture.TEXT_A.replace('chamberableFrom[] = {"Ammo_545x39","Ammo_545x39Tracer"};',
+                                            'chamberableFrom[] = {"Ammo_545x39"};')
+        tf_fixture.build_install(self.root / 'tf3', text=changed)
+        os.replace(self.root / 'tf3/addons/syn_a.pbo', install / 'addons/syn_a.pbo')
+        drift = tf.verify_install(install, allow, vanilla=tf_fixture.VANILLA)
+        self.assertEqual(drift['status'], 'unverified')
+        self.assertIn('HC61_SUBSET_PIN_DRIFT:SynRifle', drift['install']['problems'])
+
+    def test_a_removed_or_added_pbo_is_named_in_the_warning(self):
+        install, allow = self._sf_pinned()
+        allow['hc61']['dependency_pins'].append({'name': 'Gone.pbo', 'size': 5, 'sha256': 'a' * 64})
+        report = sf.verify_install(install, allow)
+        self.assertEqual(report['install']['warnings'], ['HC61_DEPENDENCY_UPDATED:Gone.pbo'])
+        self.assertEqual(report['status'], 'verified')
+
+    def test_cli_prints_the_warning(self):
+        install, allow = self._sf_pinned()
+        sf_rewrite(install, sf_configs(extra={'SynUnrelated': klass('Rifle_Base', scope=2)}))
+        allow_path = self.root / 'allow.json'
+        allow_path.write_bytes(json.dumps(allow).encode())
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            sf.main(['verify', '--install', str(install), '--allowlist', str(allow_path),
+                     '--out', str(self.root / 'report.json')])
+        self.assertIn('install warning: HC61_DEPENDENCY_UPDATED:Synth_Guns.pbo', printed.getvalue())
+
+
+class HashCache(unittest.TestCase):
+    """#183 P2 b: PBO hashes are cached by (absolute path, size, mtime_ns) under ~/.cache, never in the repo."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+        self.cache = self.root / 'cache'
+        self.file = self.root / 'a.pbo'
+        self.file.write_bytes(b'one')
+        os.utime(self.file, ns=(10 ** 9, 10 ** 9))  # old mtime: outside the racy-write guard
+
+    def _count(self):
+        real = hash_cache._hash_file
+        calls = []
+
+        def counting(path):
+            calls.append(path)
+            return real(path)
+        return calls, mock.patch.object(hash_cache, '_hash_file', counting)
+
+    def test_second_call_hits_the_cache(self):
+        calls, patch = self._count()
+        with patch:
+            first = hash_cache.cached_sha256(self.file, self.cache)
+            second = hash_cache.cached_sha256(self.file, self.cache)
+        self.assertEqual(first, second)
+        self.assertEqual(len(calls), 1)
+
+    def test_size_or_mtime_change_rehashes(self):
+        calls, patch = self._count()
+        with patch:
+            before = hash_cache.cached_sha256(self.file, self.cache)
+            self.file.write_bytes(b'one!')
+            os.utime(self.file, ns=(10 ** 9, 10 ** 9))
+            after_size = hash_cache.cached_sha256(self.file, self.cache)
+            self.file.write_bytes(b'two!')  # same size as before, different mtime_ns
+            os.utime(self.file, ns=(2 * 10 ** 9, 2 * 10 ** 9))
+            after_mtime = hash_cache.cached_sha256(self.file, self.cache)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(len({before, after_size, after_mtime}), 3)
+
+    def test_corrupt_or_wrong_shape_cache_is_ignored_not_fatal(self):
+        self.cache.mkdir()
+        want = hash_cache._hash_file(self.file)
+        for junk in (b'{not json', b'[]', b'{"schema": 1, "entries": {"x": 5}}', b'\xff\xfe'):
+            (self.cache / hash_cache.CACHE_FILE).write_bytes(junk)
+            self.assertEqual(hash_cache.cached_sha256(self.file, self.cache), want)
+        # A poisoned entry for this file with a wrong digest shape is not trusted either.
+        st = self.file.stat()
+        entry = {str(self.file.absolute()): {'size': st.st_size, 'mtime_ns': st.st_mtime_ns, 'sha256': 'zz'}}
+        (self.cache / hash_cache.CACHE_FILE).write_text(json.dumps({'schema': 1, 'entries': entry}))
+        self.assertEqual(hash_cache.cached_sha256(self.file, self.cache), want)
+
+    def test_unwritable_cache_directory_is_not_fatal(self):
+        blocker = self.root / 'blocker'
+        blocker.write_bytes(b'file, not a directory')
+        self.assertEqual(hash_cache.cached_sha256(self.file, blocker / 'sub'), hash_cache._hash_file(self.file))
+
+    def test_a_file_modified_just_now_is_not_cached(self):
+        fresh = self.root / 'fresh.pbo'
+        fresh.write_bytes(b'fresh')
+        calls, patch = self._count()
+        with patch:
+            hash_cache.cached_sha256(fresh, self.cache)
+            hash_cache.cached_sha256(fresh, self.cache)
+        self.assertEqual(len(calls), 2)
+
+    def test_default_cache_lives_under_home_cache_not_the_repo(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('HC_HASH_CACHE_DIR', None)
+            directory = hash_cache.cache_dir()
+        self.assertEqual(directory, Path.home() / '.cache' / 'hollow-country' / 'pbo-hash')
+
+    def test_verify_uses_the_cache_for_whole_pbo_hashes(self):
+        install = self.root / 'sf'
+        sf_fixture.build_install(install)
+        for pbo_path in (install / 'Addons').glob('*.pbo'):
+            os.utime(pbo_path, ns=(10 ** 9, 10 ** 9))
+        allow = sf_fixture.allowlist(*sf_fixture.GOOD)
+        calls, patch = self._count()
+        with patch, mock.patch.dict(os.environ, {'HC_HASH_CACHE_DIR': str(self.cache)}):
+            sf.verify_install(install, allow)
+            sf.verify_install(install, allow)
+        self.assertEqual(len(calls), len(list((install / 'Addons').glob('*.pbo'))))
 
 
 PIN_SCOPE_SENTENCE = ('Subset pins hash only the parsed fields (scope, model, ammo, count, magazines, '

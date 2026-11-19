@@ -36,7 +36,7 @@ except ImportError:  # run as a script
     from tools.package import xml_text
     from tools.package import xml_text
 
-from tools.package import ce_extensions
+from tools.package import ce_extensions, hash_cache
 
 ALLOWLIST_PATH = Path(__file__).with_name('snafu_allowlist.json')
 WORKSHOP_ID = '2443122116'
@@ -164,16 +164,13 @@ def validate_allowlist(allowlist):
 # HC-61 uses HC-21's whole-family arithmetic through a narrow projection. Optics and
 # adapter items count as support items; no script/controller or engine API is added.
 def _pbo_sha256(path):
-    """Whole-file hash, used only for legacy whole-PBO pins.
+    """Whole-file hash, used for whole-PBO pins and for the dependency-update warning.
 
-    Not cached: a (size, mtime) cache can return a stale digest when a file is rewritten within the
-    filesystem timestamp tick. Subset-pinned allowlists (hc61.class_pins) never hash whole PBOs.
+    Cached by (absolute path, size, mtime_ns) under ~/.cache/hollow-country/pbo-hash (tools/package/hash_cache.py):
+    a size/mtime change re-hashes, a corrupt cache is ignored, and a file modified in the last couple of
+    seconds is never stored, so a same-tick rewrite cannot return a stale digest (#183).
     """
-    digest = hashlib.sha256()
-    with path.open('rb') as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b''):
-            digest.update(block)
-    return digest.hexdigest()
+    return hash_cache.cached_sha256(path)
 
 
 SUBSET_PIN_SCOPE = ('Subset pins hash only the parsed fields (scope, model, ammo, count, magazines, '
@@ -210,12 +207,38 @@ def subset_pins(allowlist, merged):
 
 def subset_pin_hint():
     return ('  hint: copy the report subset_pins object into allowlist hc61.class_pins to pin the '
-            'used subset (then dependency_pins may be []); whole-PBO pins fail on every Workshop update.\n  '
+            'used subset; with them a Workshop update only warns (HC61_DEPENDENCY_UPDATED) when the pinned classes are '
+            'unchanged, whereas whole-PBO pins alone fail on every update.\n  '
             + SUBSET_PIN_SCOPE)
 
 
 def _subset_pinned(allowlist):
     return isinstance(allowlist.get('hc61'), dict) and allowlist['hc61'].get('class_pins') is not None
+
+
+def _needs_whole_hash(allowlist):
+    """Whole-PBO hashes are needed for legacy pins, or for the update warning when a subset-pinned
+    allowlist still records dependency_pins. Subset pins with dependency_pins=[] never hash PBOs."""
+    if not _subset_pinned(allowlist):
+        return True
+    return bool(allowlist['hc61'].get('dependency_pins'))
+
+
+def dependency_warnings(allowlist, listed):
+    """#183: with subset pins, a whole-PBO change is a named WARNING (it never fails verify); a pinned
+    class change is still a problem from _check_pins. One HC61_DEPENDENCY_UPDATED:<pbo> per changed,
+    added or removed PBO, compared with the recorded dependency_pins by name, size and sha256."""
+    if not _subset_pinned(allowlist):
+        return []
+    expected = {row['name']: row for row in allowlist['hc61'].get('dependency_pins') or []}
+    if not expected:
+        return []
+    actual = {row['name']: row for row in listed}
+    changed = set(expected) ^ set(actual)
+    for name in set(expected) & set(actual):
+        if any(actual[name].get(key) != expected[name].get(key) for key in ('size', 'sha256')):
+            changed.add(name)
+    return ['HC61_DEPENDENCY_UPDATED:' + name for name in sorted(changed)]
 
 
 def _family_policy(allowlist):
@@ -556,7 +579,7 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
         if published != WORKSHOP_ID:
             problems.append('publishedid-mismatch')
     merged, duplicates, models, listed = _load_addons(root, problems, max_pbos,
-                                                      whole_hash=not _subset_pinned(allowlist))
+                                                      whole_hash=_needs_whole_hash(allowlist))
     vendor = _vendor_names(root, problems)
     terms = _terms(root, allowlist['rights'])
     if not terms['present']:
@@ -565,6 +588,7 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
         problems.append('terms-changed-since-review')
     class_hashes = subset_pins(allowlist, merged)
     _check_pins(allowlist, listed, problems, class_hashes)
+    warnings = dependency_warnings(allowlist, listed)
     entries = allowlist['entries']
     state, classes = {}, {}
     for entry in sorted(entries, key=lambda e: e['kind'] == 'weapon'):  # items before the weapons using them
@@ -576,8 +600,9 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
     ok = not problems and counts['verified'] == len(classes)
     return {'schema': 1, 'kind': 'snafu-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
-            'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
-            'subset_pins': class_hashes, 'subset_pins_scope': SUBSET_PIN_SCOPE,
+            'install': {'name': root.name, 'publishedid': published, 'problems': problems,
+                        'warnings': warnings, 'pbos': listed},
+            'dependency_changed': bool(warnings), 'subset_pins': class_hashes, 'subset_pins_scope': SUBSET_PIN_SCOPE,
             'allowlist': allowlist, 'terms': terms, 'classes': dict(sorted(classes.items())), 'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers/config.bin, vendor types, terms hash',
             'subset': {'authored_weapons': sum(e['kind'] == 'weapon' for e in allowlist['entries']),
@@ -928,6 +953,8 @@ def main(argv=None):
                 print(f'  {row["status"]:10} {name} {" ".join(row["reasons"])}')
             for problem in report['install']['problems']:
                 print(f'  install problem: {problem}')
+            for warning in report['install']['warnings']:
+                print(f'  install warning: {warning}')
             if report['status'] == 'verified' and not _subset_pinned(allowlist):
                 print(subset_pin_hint())
             return

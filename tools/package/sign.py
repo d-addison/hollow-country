@@ -17,6 +17,22 @@ except ImportError:
     import pbo
 
 
+# Wine's own diagnostics, never the checker's. Exact prefixes only; a line that does not start with one
+# of these (including `err:` lines and anything the checker prints) still reaches the refusal regex.
+#   wine client error:<hex>: ...   (e.g. "wine client error:11c: sendmsg: Socket operation on non-socket")
+#   wine: ...                      (e.g. "wine: Unhandled page fault ...")
+#   [<hex>:]fixme:<channel>: ...   (Wine debug channel fixme lines)
+WINE_NOISE_PATTERNS = (r'wine client error:[0-9a-fA-F]+: .*', r'wine: .*',
+                       r'(?:[0-9a-fA-F]{4,}:)?fixme:[A-Za-z0-9_.-]+:.*')
+_WINE_NOISE = re.compile('|'.join('(?:%s)' % p for p in WINE_NOISE_PATTERNS))
+REFUSAL_PATTERN = r'wrong|not found|not loaded|No signature|deprecated|error'
+
+
+def strip_wine_noise(text):
+    """Drop only whole lines that are Wine's own noise (WINE_NOISE_PATTERNS) from the refusal text."""
+    return '\n'.join(line for line in text.splitlines() if not _WINE_NOISE.fullmatch(line.strip()))
+
+
 def sign_and_verify(source, tools, private, public, output, runner=subprocess.run):
     source, tools, private, public, output = [Path(p).absolute() for p in (source, tools, private, public, output)]
     for path in (source, tools, private, public, output):
@@ -53,7 +69,7 @@ def sign_and_verify(source, tools, private, public, output, runner=subprocess.ru
     (output / 'verification.log').write_text(text, encoding='utf-8')
     # Do not infer success from exit=0 or silence; require a positive result.
     if (check_log.returncode or not re.search(r'^Signature .+ is OK\s*$', text, re.MULTILINE)
-            or re.search(r'wrong|not found|not loaded|No signature|deprecated|error', text, re.IGNORECASE)):
+            or re.search(REFUSAL_PATTERN, strip_wine_noise(text), re.IGNORECASE)):
         raise ValueError('DSCheckSignatures did not positively verify; release remains gated')
     if dest.read_bytes() != source_bytes:
         raise ValueError('PBO changed during signing')

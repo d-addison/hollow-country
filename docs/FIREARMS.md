@@ -474,6 +474,14 @@ listed ammunition is in `chamberableFrom` and (for SNAFU ammunition) has a defin
 level checks: `meta.cpp` `publishedid`, at least one PBO, terms hash. Result per class is `verified`,
 `missing` (not defined) or `unverified` (defined, check failed, with reasons).
 
+Dependency updates (#183): with `hc61.class_pins`, a Workshop update that changes whole PBOs but leaves every
+pinned class unchanged does not fail `verify`. If `dependency_pins` are still recorded, each changed, added or
+removed PBO is listed as `install warning: HC61_DEPENDENCY_UPDATED:<pbo>` (also in the report as
+`install.warnings` and `dependency_changed: true`); a pinned-class change still fails with
+`HC61_SUBSET_PIN_DRIFT:<class>`. Whole-PBO hashes are cached by absolute path, size and mtime_ns in
+`~/.cache/hollow-country/pbo-hash/` (override `HC_HASH_CACHE_DIR`); a corrupt cache is ignored, and a file
+modified in the last two seconds is not cached. Nothing observed in DayZ yet.
+
 `generate` refuses unless the report is for this exact allowlist hash, has no install problems, a matching
 terms hash and every class individually `verified`. It writes complete new `types.xml` entries (flags and
 category set from our own template, usage/value from the allowlist) into the separate managed folder

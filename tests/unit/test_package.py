@@ -362,6 +362,52 @@ class PackageBehavior(unittest.TestCase):
                 sign.sign_and_verify(unknown, root / 'tools', private, public, root / 'other', runner=fake_run)
             self.assertFalse((root / 'other').exists())
 
+    def _wine_noise_check(self, checker_stdout, checker_stderr=''):
+        """Run sign_and_verify with a fake checker that prints the given text (synthetic, no real tools)."""
+        from tools.package import sign
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            source = root / 'synthetic.pbo'
+            source.write_bytes(pbo.pack({'config.cpp': b'class Synthetic {};'}))
+            private = root / 'test.biprivatekey'
+            public = root / 'test.bikey'
+            private.write_text('SYNTHETIC-NOT-A-KEY')
+            public.write_text('SYNTHETIC-NOT-A-KEY')
+            tools = root / 'tools/Bin/DsUtils'
+            tools.mkdir(parents=True)
+            for name in ['DSSignFile.exe', 'DSCheckSignatures.exe']:
+                (tools / name).write_text('SYNTHETIC-NOT-EXECUTABLE')
+
+            def fake_run(argv, **kwargs):
+                if argv[0].endswith('DSSignFile.exe'):
+                    Path(argv[2] + '.test.bisign').write_text('SYNTHETIC-NOT-A-SIGNATURE')
+                    return Mock(returncode=0, stdout='', stderr='')
+                return Mock(returncode=0, stdout=checker_stdout, stderr=checker_stderr)
+            return sign.sign_and_verify(source, root / 'tools', private, public, root / 'signed', runner=fake_run)
+
+    def test_wine_client_noise_does_not_refuse_a_positive_signature(self):
+        noise = 'wine client error:11c: sendmsg: Socket operation on non-socket\n'
+        report = self._wine_noise_check('Signature synthetic.pbo.test.bisign is OK\n', noise)
+        self.assertEqual(report['status'], 'signed-development')
+        report = self._wine_noise_check(noise + 'wine: Unhandled page fault\n0024:fixme:ntdll:NtQuerySystemInformation x\n'
+                                        'Signature synthetic.pbo.test.bisign is OK\n')
+        self.assertEqual(report['runtime_acceptance'], 'pending')
+
+    def test_a_real_checker_error_still_refuses_next_to_wine_noise(self):
+        noise = 'wine client error:11c: sendmsg: Socket operation on non-socket\n'
+        for text in ('Signature synthetic.pbo.test.bisign is OK\nerror: key not loaded\n',
+                     'Signature synthetic.pbo.test.bisign is OK\nSignature other.pbo.test.bisign is wrong\n',
+                     'Signature synthetic.pbo.test.bisign is OK\nA real error happened\n'):
+            with self.assertRaises(ValueError, msg=text):
+                self._wine_noise_check(noise + text)
+
+    def test_wine_noise_alone_without_the_positive_line_still_refuses(self):
+        noise = 'wine client error:11c: sendmsg: Socket operation on non-socket\n'
+        with self.assertRaises(ValueError):
+            self._wine_noise_check(noise)
+        with self.assertRaises(ValueError):
+            self._wine_noise_check('', noise + 'wine: noise\n')
+
     def test_animation_addon_prefix_is_packable_and_verifiable(self):
         self.assertIn('HollowCountryAnims', pbo.PREFIXES)
         blob = pbo.pack({'config.cpp': b'class Synthetic {};'}, prefix='HollowCountryAnims')
