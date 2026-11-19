@@ -58,6 +58,8 @@ class WreckSupply(unittest.TestCase):
         class Status:
             def HCPublish(self, state, reason):
                 self.state, self.reason = state, reason
+            def HCReason(self):
+                return self.reason
         env = dict(HCModule=object, EArray=SyntheticArray, HMap=HMap, find_out=find_out,
                    SyntheticArray=SyntheticArray, SyntheticTransform=lambda: [None] * 4,
                    GetGame=lambda: game, Print=logs.append, tostr=str, native_hash=lambda key: 0,
@@ -72,7 +74,9 @@ class WreckSupply(unittest.TestCase):
                    HCShelterCatalog=N(Count=lambda: 6, CandidateCount=lambda: 5),
                    HCV2Admission=N(Line=lambda *args: 'synthetic-admission'),
                    HCV2Gates=N(Qualified=lambda gate: False),
-                   HCBuildIdentity=N(SameWorld=lambda a, b: a == b))
+                   HCBuildIdentity=N(SameWorld=lambda a, b: a == b),
+                   HCRefusal=N(BUSY='busy', SERVICE='service', SALVAGE='salvage_unavailable',
+                               CAPACITY='capacity', SESSION='session_changed'))
         def create(location, kind, flags, rotation):
             if not create_ok[0]:
                 return None
@@ -89,7 +93,7 @@ class WreckSupply(unittest.TestCase):
         policy.Allowed = lambda *args: True  # geometry/authority need DayZ tests
         methods = ('Enroll', 'Debit', 'CanStart', 'Begin', 'Continuing', 'Complete', 'End',
                    'IsEnabled', 'HCReport', 'Fault', 'OnStart', 'OnStop', 'OnTick', 'Purge',
-                   'HCGetOperationalStatus')
+                   'HCGetOperationalStatus', 'HCRefuseStart', 'HCRefuseBegin')
         for code in MethodsTranslator(source, 'HCWreckSalvageModule', methods).classes():
             exec(code, env)
         owner = env['HCWreckSalvageModule']

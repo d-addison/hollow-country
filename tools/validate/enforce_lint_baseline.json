@@ -40,51 +40,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCDrysackSafety.c",
-      "symbol": "ActionDeCraftDrysackBag.OnFinishProgressServer",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 30,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCNativeCraftingSafety.c",
-      "symbol": "RecipeBase.PerformRecipe",
-      "key": "return;",
-      "count": 2,
-      "line_at_review": 301,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c",
-      "symbol": "HCSalvageRecipe.ApplyModificationsIngredients",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 393,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c",
-      "symbol": "HCSalvageRecipe.ApplyModificationsResults",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 384,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c",
-      "symbol": "HCSalvageRecipe.PerformRecipe",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 328,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
       "symbol": "HCEventModule.OnStart",
       "key": "if (!HCEventQualification.Admitted()) { return; }",
@@ -247,42 +202,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
-      "symbol": "HCWreckSalvageModule.Begin",
-      "key": "if (!data || data.Completed || !CanStart(data.m_Player, data.m_Target, data.m_MainItem)) return;",
-      "count": 1,
-      "line_at_review": 331,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
-      "symbol": "HCWreckSalvageModule.Begin",
-      "key": "if (m_Sessions.Count() >= 16) return;",
-      "count": 1,
-      "line_at_review": 333,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
-      "symbol": "HCWreckSalvageModule.Begin",
-      "key": "if (session == data || session.Key == key || session.m_Player == data.m_Player) return;",
-      "count": 1,
-      "line_at_review": 337,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
-      "symbol": "HCWreckSalvageModule.OnStart",
-      "key": "if (!Load()) return;",
-      "count": 1,
-      "line_at_review": 271,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Weather/HCAtmosphereLifecycle.c",
       "symbol": "HCServer.Start",
       "key": "return;",
@@ -333,69 +252,6 @@
       "key": "if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }",
       "count": 1,
       "line_at_review": 98,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(worldName, GetGame().GetWorldName())) { return false; }",
-      "count": 1,
-      "line_at_review": 195,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (!HCEcologyRuntimeRules.ClockValid(nowMs)) { return false; }",
-      "count": 1,
-      "line_at_review": 198,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (!HCEcologyRuntimeRules.Token(worldName) || !HCEcologyRuntimeRules.Token(session)) { return false; }",
-      "count": 1,
-      "line_at_review": 196,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (!JsonFileLoader<HCEcologyRuntimeSettings>.LoadData(text, m_Settings, error)) { return false; }",
-      "count": 1,
-      "line_at_review": 210,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (!JsonFileLoader<HCEcologyRuntimeSettings>.MakeData(settings, text, error)) { return false; }",
-      "count": 1,
-      "line_at_review": 208,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (m_Running || session == m_Session) { return false; }",
-      "count": 1,
-      "line_at_review": 193,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
-      "symbol": "HCEcologyRuntime.Begin",
-      "key": "if (text.Length() > 2048) { return false; }",
-      "count": 1,
-      "line_at_review": 209,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
@@ -657,24 +513,6 @@
       "key": "return false;",
       "count": 1,
       "line_at_review": 782,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
-      "symbol": "HCWreckSalvageModule.CanStart",
-      "key": "if (!GetGame() || !GetGame().IsServer() || !m_Active || m_Busy || !player || !player.GetIdentity()) return false;",
-      "count": 1,
-      "line_at_review": 312,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
-      "symbol": "HCWreckSalvageModule.CanStart",
-      "key": "if (!HCWreckSalvage.Allowed(player, target, item)) return false;",
-      "count": 1,
-      "line_at_review": 313,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {

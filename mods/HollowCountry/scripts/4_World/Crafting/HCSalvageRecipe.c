@@ -205,6 +205,8 @@ class HCSalvageRecipe extends RecipeBase
     protected string m_HCToolType;
     protected float m_HCWear;
     protected bool m_HCOutputReady;
+    // Reason the latest commit could not use its spawned results; reported once by PerformRecipe.
+    protected string m_HCRefusal;
     protected bool m_HCRuinedOnly;
     protected float m_HCSourceHealth;
     protected float m_HCSourceWet;
@@ -325,10 +327,17 @@ class HCSalvageRecipe extends RecipeBase
         if (!player || !item1 || !item2)
             return;
         if (!m_HCCommitGuard.TryEnter())
+        {
+            HCCraftRefusal.Refuse(player, item1, HCRefusal.BUSY);
             return;
+        }
         m_HCOutputReady = false;
+        m_HCRefusal = "";
         super.PerformRecipe(item1, item2, player);
         m_HCOutputReady = false;
+        // Set by the Apply* steps when the spawned results were unusable.
+        if (m_HCRefusal != "")
+            HCCraftRefusal.Refuse(player, item1, m_HCRefusal);
         m_HCCommitGuard.Release();
     }
 
@@ -381,7 +390,10 @@ class HCSalvageRecipe extends RecipeBase
     override void ApplyModificationsResults(ItemBase sorted[], array<ItemBase> results, ItemBase result, PlayerBase player)
     {
         if (!m_HCOutputReady)
+        {
+            m_HCRefusal = HCRefusal.SALVAGE;
             return;
+        }
         super.ApplyModificationsResults(sorted, results, result, player);
         if (!OutputsMatch(results, true))
             DiscardOutputs(results);
@@ -390,7 +402,10 @@ class HCSalvageRecipe extends RecipeBase
     override void ApplyModificationsIngredients(ItemBase sorted[], PlayerBase player)
     {
         if (!m_HCOutputReady)
+        {
+            m_HCRefusal = HCRefusal.SALVAGE;
             return;
+        }
         super.ApplyModificationsIngredients(sorted, player);
     }
 

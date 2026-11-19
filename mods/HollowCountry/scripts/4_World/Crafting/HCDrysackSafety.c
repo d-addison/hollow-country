@@ -26,8 +26,16 @@ modded class ActionDeCraftDrysackBag
     {
         if (!GetGame() || !GetGame().IsServer() || !action_data)
             return;
-        if (m_HCFinishing || !HCValidDrysack(action_data.m_MainItem, action_data.m_Player))
+        if (m_HCFinishing)
+        {
+            HCCraftRefusal.ActionRefuse(action_data, HCRefusal.BUSY);
             return;
+        }
+        if (!HCValidDrysack(action_data.m_MainItem, action_data.m_Player))
+        {
+            HCCraftRefusal.ActionRefuse(action_data, HCCraftRefusal.INPUTS);
+            return;
+        }
         m_HCFinishing = true;
         ItemBase source = action_data.m_MainItem;
         string outputType = "WaterproofBag_" + source.ConfigGetString("color");
@@ -41,6 +49,7 @@ modded class ActionDeCraftDrysackBag
             if (ropeResult)
                 ropeResult.Delete();
             m_HCFinishing = false;
+            HCCraftRefusal.ActionRefuse(action_data, HCCraftRefusal.OUTPUT);
             return;
         }
         // N3 4_World/Static/MiscGameplayFunctions.c:271,296,319:

@@ -1,3 +1,35 @@
+// Stable refusal reasons for craft commit points. Codes reuse HCRefusal where one
+// fits; the rest name the two craft-specific causes. Reports go through the bounded
+// HCRefusalReport window (one log line + one message per player and reason).
+class HCCraftRefusal
+{
+    static const string INPUTS = "craft_inputs_invalid";
+    static const string OUTPUT = "craft_output_unavailable";
+
+    static string Message(string reason)
+    {
+        if (reason == HCRefusal.BUSY)
+            return "Another craft is still finishing; try again in a moment.";
+        if (reason == HCCraftRefusal.INPUTS)
+            return "Those items cannot be used for that right now.";
+        if (reason == HCCraftRefusal.OUTPUT)
+            return "The result could not be created right now.";
+        if (reason == HCRefusal.SALVAGE)
+            return "The salvage result could not be created right now.";
+        return "Crafting is unavailable right now.";
+    }
+
+    static void Refuse(PlayerBase player, Object subject, string reason)
+    {
+        HCRefusalReport.RefusalMessage(player, reason, subject, HCCraftRefusal.Message(reason));
+    }
+
+    static void ActionRefuse(ActionData data, string reason)
+    {
+        HCRefusalReport.ActionRefusalMessage(data, reason, HCCraftRefusal.Message(reason));
+    }
+}
+
 // Surgical guards around the existing registered native instances. No new native
 // registration, replacement recipe, synthetic inventory state or yield rewrite.
 class HCNativeCraftingSafety
@@ -371,10 +403,18 @@ modded class RecipeBase
             super.PerformRecipe(item1, item2, player);
             return;
         }
-        if (!GetGame() || !GetGame().IsServer() || !m_HCNativeCommitGuard)
+        if (!GetGame() || !GetGame().IsServer())
             return;
+        if (!m_HCNativeCommitGuard)
+        {
+            HCCraftRefusal.Refuse(player, item1, HCRefusal.SERVICE);
+            return;
+        }
         if (!m_HCNativeCommitGuard.TryEnter())
+        {
+            HCCraftRefusal.Refuse(player, item1, HCRefusal.BUSY);
             return;
+        }
         if (CheckRecipe(item1, item2, player))
         {
             float sourceHealth = item1.GetHealth01("", "");
@@ -411,6 +451,7 @@ modded class RecipeBase
             else
             {
                 HCNativeCraftingSafety.DiscardNativeOutputs(nativeResults);
+                HCCraftRefusal.Refuse(player, item1, HCCraftRefusal.OUTPUT);
             }
         }
         m_HCNativeCommitGuard.Release();
