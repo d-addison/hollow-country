@@ -18,6 +18,9 @@ class HCTerritoryOutcomeRow
     string LeftCargo;
     string RightCargo;
     int Generation;
+    // Missing legacy keys zero-fill safely: historical receipts are not replayed.
+    int TerritoryEpoch;
+    bool TerritoryApplied;
     ref array<bool> LeftDead = new array<bool>;
     ref array<bool> RightDead = new array<bool>;
     int LeftSurvivors = -1;
@@ -161,4 +164,100 @@ class HCFactionCombatPort
     // admitted route/actor connection. An arbitrary remote patrol is refused.
     bool HCOwns(string lease, string faction, Object actor, string placeId, string survey) { return false; }
     bool HCDisengaged(string encounter) { return false; }
+    bool HCOffer(string placeId, string leftFaction, string rightFaction) { return false; }
+    bool HCActiveAt(string placeId) { return false; }
+}
+
+// #146 data-only policy. Holdings are finite claims, never body or loot grants.
+// Native EnScript.c:380 Count, :394 Find, :407 Insert, :463 Remove.
+class HCConflictPolicy
+{
+    static bool HCOpposed(HCWorldFaction left, HCWorldFaction right, string cell)
+    {
+        if (!left || !right || left.Id == right.Id || left.Strength < 1 || right.Strength < 1) { return false; }
+        if (left.Hostile.Find(right.Id) < 0 || right.Hostile.Find(left.Id) < 0) { return false; }
+        return left.Territory.Find(cell) >= 0 && right.Territory.Find(cell) >= 0;
+    }
+
+    static string HCWinner(HCWorldFaction left, HCWorldFaction right)
+    {
+        if (left.Strength > right.Strength) { return left.Id; }
+        if (right.Strength > left.Strength) { return right.Id; }
+        return "";
+    }
+
+    static bool HCTransfer(HCWorldFaction winner, HCWorldFaction loser, string cell)
+    {
+        if (!winner || !loser || winner == loser || winner.Strength < 1) { return false; }
+        int lost = loser.Territory.Find(cell);
+        if (lost < 0) { return false; }
+        if (winner.Territory.Find(cell) < 0)
+        {
+            if (winner.Territory.Count() >= HCWorldLimits.TERRITORY) { return false; }
+            winner.Territory.Insert(cell);
+        }
+        loser.Territory.Remove(lost);
+        return true;
+    }
+}
+
+class HCConflictPlaceStamp
+{
+    string Id;
+    int At;
+}
+
+// Separate durable quota intent: a crash may consume an opportunity, never
+// refund one. Rolling world facts cannot grant additional daily outcomes.
+class HCConflictQuota
+{
+    int Version = 1;
+    int Day = -1;
+    int Count;
+    ref array<ref HCConflictPlaceStamp> Rows = new array<ref HCConflictPlaceStamp>;
+
+    static bool HCValid(HCConflictQuota data, string encoded)
+    {
+        if (!data || data.Version != 1 || data.Day < -1 || data.Count < 0 || data.Count > 8) { return false; }
+        if (!data.Rows || data.Rows.Count() > HCWorldLimits.PLACES) { return false; }
+        if (encoded != "")
+        {
+            if (!HCJsonFields.Every(encoded, "Day", 1) || !HCJsonFields.Every(encoded, "Count", 1)) { return false; }
+            if (!HCJsonFields.Every(encoded, "At", 3)) { return false; }
+        }
+        array<string> ids = new array<string>;
+        array<ref HCConflictPlaceStamp> rows = data.Rows;
+        foreach (HCConflictPlaceStamp row : rows)
+        {
+            if (!row || !HCWorldLimits.Token(row.Id) || row.At < 1 || ids.Find(row.Id) >= 0) { return false; }
+            ids.Insert(row.Id);
+        }
+        return true;
+    }
+
+    static bool HCReserve(HCConflictQuota data, HCConflictConfig config, string place, int now)
+    {
+        if (!data || !config || !config.Enabled || now < 1 || !HCWorldLimits.Token(place)) { return false; }
+        int day = Math.Floor(now / HCWorldLimits.DAY);
+        if (day < data.Day) { return false; }
+        if (day == data.Day && data.Count >= config.MaxDailyOutcomes) { return false; }
+        HCConflictPlaceStamp stamp;
+        array<ref HCConflictPlaceStamp> rows = data.Rows;
+        foreach (HCConflictPlaceStamp prior : rows)
+        {
+            if (prior.Id == place) { stamp = prior; break; }
+        }
+        if (stamp && (now <= stamp.At || now - stamp.At < config.CooldownSeconds)) { return false; }
+        if (!stamp)
+        {
+            if (rows.Count() >= HCWorldLimits.PLACES) { return false; }
+            stamp = new HCConflictPlaceStamp;
+            stamp.Id = place;
+            rows.Insert(stamp);
+        }
+        if (day != data.Day) { data.Day = day; data.Count = 0; }
+        data.Count++;
+        stamp.At = now;
+        return true;
+    }
 }

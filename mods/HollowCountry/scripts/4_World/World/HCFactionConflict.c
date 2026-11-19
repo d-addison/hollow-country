@@ -10,7 +10,7 @@
 // provider or an unsurveyed pair is a wait (HCDecline, logged once per reason), never a
 // refusal; only store faults and contradictory actor state refuse.
 // Persistence delegates
-// entirely to HCEncounterStore (HCHoldouts.c:28); no new save scheduler.
+// to HCEncounterStore (HCHoldouts.c:28) and the world checkpoint; no new scheduler.
 // Deaths reach HC-16 through its existing real EEKilled hook, never a second
 // debit from this journal. Native targeting/disengage/cargo acceptance PENDING.
 class HCConflictReadiness
@@ -42,6 +42,11 @@ class HCFactionConflict : HCModule
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected bool m_Healthy;
+    protected string m_Refusal;
+    protected ref HCConflictConfig m_ConflictConfig;
+    protected int m_OutcomeCursor;
+    protected ref HCEncounterStore<HCConflictQuota> m_QuotaStore;
+    protected ref HCConflictQuota m_Quota;
     protected string m_Declined;
     protected string m_StatusReason;
     protected bool m_ProviderLogged;
@@ -50,7 +55,13 @@ class HCFactionConflict : HCModule
     protected ref HCUnitBudget m_CallbackUnits = new HCUnitBudget;
 
     override string GetName() { return "FactionConflict"; }
-    override HCOperationalStatus HCGetOperationalStatus() { return m_Operational; }
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        string fault = "";
+        if (s_Active && m_Healthy && !HCWorldModule.Get()) { fault = "world_owner_unavailable"; }
+        HCModuleReadiness.HCDerive(m_Operational, s_Active && m_Healthy, m_Refusal, fault, m_StatusReason);
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override void OnStart(HCSettings settings)
     {
@@ -63,11 +74,21 @@ class HCFactionConflict : HCModule
         }
         if (!GetGame() || !GetGame().IsServer()) { HCRefuse("SERVER_AUTHORITY_REQUIRED"); return; }
         Print(HCV2Admission.Line("FactionConflict", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
+        m_Refusal = "";
+        m_ConflictConfig = HCConflictConfig.HCLoad();
+        if (!m_ConflictConfig) { HCRefuse("CONFLICT_CONFIG_INVALID"); return; }
+        if (!m_ConflictConfig.Enabled) { m_Operational.HCPublish("off", "conflict_operator_off"); return; }
+        m_QuotaStore = new HCEncounterStore<HCConflictQuota>("faction-conflict-quota");
+        HCConflictQuota freshQuota = new HCConflictQuota;
+        m_Quota = m_QuotaStore.Load(freshQuota, "Rows");
+        string quotaText = m_QuotaStore.HCTakeLoadedText();
+        if (!HCConflictQuota.HCValid(m_Quota, quotaText)) { HCRefuse("CONFLICT_QUOTA_INVALID"); return; }
         s_Active = true;
         s_WorkNow = -1;
         s_Instance = this;
         m_Store = new HCEncounterStore<HCTerritoryOutcomeData>("faction-outcomes");
-        m_Outcomes = m_Store.Load(new HCTerritoryOutcomeData, "Rows");
+        HCTerritoryOutcomeData freshOutcomes = new HCTerritoryOutcomeData;
+        m_Outcomes = m_Store.Load(freshOutcomes, "Rows");
         m_Healthy = HCTerritoryOutcomes.HCValid(m_Outcomes);
         string loadedText = m_Store.HCTakeLoadedText();
         // A row missing a survivor key zero-fills to 0 and reads as NONE_REMAIN (#188).
@@ -88,12 +109,17 @@ class HCFactionConflict : HCModule
         m_StatusReason = "awaiting_provider_bind";
         m_Operational.HCPublish("ready", "awaiting_provider_bind");
         HCLog(null, "ready", "AWAITING_SURVEYED_PAIR");
+        string raidReason = HCCampRaidActors.HCGet().HCRefusal();
+        Print("[HC Plan] HC-37 raids=delegated_to_HC39 reason=" + raidReason + " runtime=PENDING");
+        Print("[HC Plan] HC-37 camp_population_outcome=owner_required data_pressure=enabled runtime=PENDING");
     }
 
     // Derives the ready reason from the real port/pair state; publishes only on change.
     void HCRefreshStatus()
     {
         if (!s_Active || !m_Healthy) { return; }
+        HCServiceWorld();
+        if (!m_Healthy) { return; }
         if (!m_ProviderLogged)
         {
             m_ProviderLogged = true;
@@ -111,6 +137,46 @@ class HCFactionConflict : HCModule
         HCLog(m_Current, "ready", reason);
     }
 
+    protected void HCServiceWorld()
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!world || !m_ConflictConfig) { return; }
+        // Replay one durable observed result before producing any new fight.
+        if (m_OutcomeCursor < m_Outcomes.Rows.Count())
+        {
+            HCTerritoryOutcomeRow outcome = m_Outcomes.Rows[m_OutcomeCursor];
+            if (outcome.TerritoryEpoch > 0 && !outcome.TerritoryApplied && outcome.LeftSurvivors >= 0)
+            {
+                if (!world.HCConflictObserved(outcome, m_ConflictConfig)) { HCDecline("TERRITORY_PUBLICATION_PENDING"); return; }
+                outcome.TerritoryApplied = true;
+                if (!HCSave()) { return; }
+            }
+            m_OutcomeCursor++;
+            return;
+        }
+        if (m_Current)
+        {
+            if (m_Current.TerritoryEpoch == 0)
+            {
+                m_Current.TerritoryEpoch = HCWorldClock.UTC();
+                HCSave();
+                return;
+            }
+            HCFinishObserved(m_Current.Id);
+            return;
+        }
+        world.HCConflictStep(m_ConflictConfig, s_CombatPort);
+    }
+
+    static bool HCReserveDataOutcome(string place, int now)
+    {
+        if (!s_Active || !s_Instance || !s_Instance.m_Healthy) { return false; }
+        if (!HCConflictQuota.HCReserve(s_Instance.m_Quota, s_Instance.m_ConflictConfig, place, now)) { return false; }
+        if (s_Instance.m_QuotaStore.Save(s_Instance.m_Quota)) { return true; }
+        s_Instance.HCRefuse("CONFLICT_QUOTA_STORE_UNCERTAIN");
+        return false;
+    }
+
     override void OnStop()
     {
         s_Active = false;
@@ -124,6 +190,11 @@ class HCFactionConflict : HCModule
         m_RightActors.Clear();
         m_ActorCursor = 0;
         m_Healthy = false;
+        m_Refusal = "";
+        m_ConflictConfig = null;
+        m_Quota = null;
+        m_QuotaStore = null;
+        m_OutcomeCursor = 0;
         m_StatusReason = "";
         m_Declined = "";
         m_ProviderLogged = false;
@@ -153,6 +224,11 @@ class HCFactionConflict : HCModule
 
     protected bool HCRefuse(string reason)
     {
+        if (m_Declined == reason) { return false; }
+        m_Declined = reason;
+        m_Refusal = reason;
+        m_Healthy = false;
+        s_Active = false;
         m_Operational.HCPublish("refused", reason);
         HCLog(m_Current, "refused", reason);
         return false;
@@ -292,7 +368,7 @@ class HCFactionConflict : HCModule
 
     override void OnTick(float deltaTime)
     {
-        if (!s_Active || !m_Healthy) { return; }
+        if (!s_Active || !m_Healthy || !(deltaTime > 0)) { return; }
         HCRefreshStatus();
         if (!m_Current || !(deltaTime > 0)) { return; }
         m_Units.HCReset(1);
@@ -390,6 +466,7 @@ class HCFactionConflict : HCModule
         m_StatusReason = "observed_pair_outcome_committed";
         m_Operational.HCPublish("ready", "observed_pair_outcome_committed");
         HCLog(m_Current, "ready", "CARGO_TRANSFER_UNVERIFIED");
+        m_OutcomeCursor = 0;
         m_Current = null;
         m_LeftActors.Clear();
         m_RightActors.Clear();
@@ -469,5 +546,258 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCFactionConflict);
+    }
+}
+
+// Native EnSystem.c:397 FileExist; all I/O delegates to existing verified HC stores.
+// Named operator policy, default ON; absent scalar keys refuse instead of
+// accepting JsonFileLoader zero-fill. The shared verified JSON store owns I/O.
+class HCConflictConfig
+{
+    // Lead reserves this consumer in HCUnitBudget (shared-file edit report).
+    static const int WORK_CONSUMER = 6;
+    int Version = 1;
+    bool Enabled = true;
+    float FarMeters = 1500;
+    int CooldownSeconds = 604800;
+    int MaxDailyOutcomes = 2;
+    int MaxPlayers = 64;
+    float PressureMeters = 120;
+    bool ResolveEqualStrength = true;
+
+    static HCConflictConfig HCLoad()
+    {
+        string path = "$profile:HollowCountry/faction-conflict.json";
+        if (!HCV2ThreatStore<HCConflictConfig>.CanOpen(path)) { return null; }
+        HCConflictConfig config;
+        if (!FileExist(path))
+        {
+            config = new HCConflictConfig;
+            if (!HCV2ThreatStore<HCConflictConfig>.Save(path, config, 4096)) { return null; }
+        }
+        string encoded;
+        if (!HCGroupIO.Read(path, 4096, encoded)) { return null; }
+        if (!HCJsonFields.Every(encoded, "Version", 1) || !HCJsonFields.Every(encoded, "Enabled", 1)) { return null; }
+        if (!HCJsonFields.Every(encoded, "FarMeters", 1) || !HCJsonFields.Every(encoded, "CooldownSeconds", 1)) { return null; }
+        if (!HCJsonFields.Every(encoded, "MaxDailyOutcomes", 1) || !HCJsonFields.Every(encoded, "MaxPlayers", 1)) { return null; }
+        if (!HCJsonFields.Every(encoded, "ResolveEqualStrength", 1) || !HCJsonFields.Every(encoded, "PressureMeters", 1)) { return null; }
+        if (!HCV2ThreatStore<HCConflictConfig>.Load(path, 4096, config)) { return null; }
+        if (config.Version != 1 || config.FarMeters < 1500 || config.FarMeters > 15000) { return null; }
+        if (config.CooldownSeconds < 86400 || config.CooldownSeconds > HCWorldLimits.FACT_LIFETIME) { return null; }
+        if (config.MaxDailyOutcomes < 1 || config.MaxDailyOutcomes > 8 || config.MaxPlayers < 1 || config.MaxPlayers > HCLODPolicy.MAX_PLAYERS) { return null; }
+        if (config.PressureMeters < 1 || config.PressureMeters > config.FarMeters) { return null; }
+        return config;
+    }
+}
+
+// Ledger owner extension: no new module, clock, entity or inventory owner.
+// Native snapshot: Object.c:287 GetPosition; Man.c:21 GetIdentity;
+// Object.c:517 IsAlive; EnConvert.c:210 vector.DistanceSq;
+// EnScript.c:380/394/407/463 arrays; EnSystem.c:397 FileExist;
+// Game.c:1120 IsServer, gameplay.c:636 GetGame. All other calls are HC ports.
+modded class HCWorldModule
+{
+    protected int m_ConflictPlace;
+    protected int m_ConflictLeft;
+    protected int m_ConflictRight = 1;
+    protected int m_ConflictFrame = -1;
+
+    // False on unknown, invalid or over-cap roster: uncertainty stays near.
+    bool HCConflictFar(HCWorldPlace place, HCConflictConfig config)
+    {
+        array<Man> observers = HCPerfPlayers.HCGet();
+        if (observers.Count() > config.MaxPlayers) { return false; }
+        foreach (Man observer : observers)
+        {
+            if (!observer) { return false; }
+            if (!observer.GetIdentity()) { continue; }
+            vector position = observer.GetPosition();
+            if (!HCWorldLimits.Position(position)) { return false; }
+            // Dead players still count as viewers. Horizontal distance only.
+            position[1] = 0;
+            vector anchor = place.Position;
+            anchor[1] = 0;
+            if (vector.DistanceSq(position, anchor) <= config.FarMeters * config.FarMeters) { return false; }
+        }
+        return true;
+    }
+
+    protected bool HCConflictBudget(HCConflictConfig config, string place, int now)
+    {
+        int day = HCWorldClock.Day(m_Data, now);
+        int count = 0;
+        array<ref HCWorldFact> facts = m_Data.Facts;
+        foreach (HCWorldFact fact : facts)
+        {
+            if (fact.At > now) { continue; }
+            if (fact.Kind != "faction_clash" && fact.Kind != "camp_infected_pressure") { continue; }
+            if (fact.PlaceId == place && now - fact.At < config.CooldownSeconds) { return false; }
+            if (HCWorldClock.Day(m_Data, fact.At) == day) { count++; }
+        }
+        return count < config.MaxDailyOutcomes;
+    }
+
+    // Never abstract a site while an HC-10 lease owns real actors there.
+    protected bool HCConflictLeased(string place)
+    {
+        HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
+        if (!materializer) { return false; }
+        int total = materializer.HCDebugProposalCount();
+        for (int leaseIndex = 0; leaseIndex < total; leaseIndex++)
+        {
+            HCDebugProposalRow lease = materializer.HCDebugProposal(leaseIndex);
+            if (lease && lease.PlaceId == place && lease.State == "claimed") { return true; }
+        }
+        return false;
+    }
+
+    // One place/pair per core tick, persistent round-robin cursor. No global
+    // scans for bodies, targeting override, spawn, loot or simulated casualties.
+    void HCConflictStep(HCConflictConfig config, HCFactionCombatPort port)
+    {
+        if (!m_Running || !m_Data || !config || !config.Enabled || !HCRecoveryGate.HCReady("world")) { return; }
+        int frame = GetGame().GetTime(); // native Game.c:1535
+        if (frame == m_ConflictFrame) { return; }
+        m_ConflictFrame = frame;
+        HCUnitBudget shared = HCServer.HCTickWork();
+        if (!shared.HCTakeFor(HCConflictConfig.WORK_CONSUMER, 1)) { return; }
+        int now = HCWorldClock.UTC();
+        if (now < m_Data.Meta.Epoch || m_Data.Places.Count() < 1 || m_Data.Factions.Count() < 2) { return; }
+        if (m_ConflictPlace >= m_Data.Places.Count()) { m_ConflictPlace = 0; }
+        if (m_ConflictRight >= m_Data.Factions.Count())
+        {
+            m_ConflictLeft++;
+            m_ConflictRight = m_ConflictLeft + 1;
+        }
+        if (m_ConflictLeft >= m_Data.Factions.Count() - 1) { m_ConflictLeft = 0; m_ConflictRight = 1; }
+        HCWorldPlace place = m_Data.Places[m_ConflictPlace];
+        HCWorldFaction left = m_Data.Factions[m_ConflictLeft];
+        HCWorldFaction right = m_Data.Factions[m_ConflictRight];
+        m_ConflictPlace++;
+        if (m_ConflictPlace >= m_Data.Places.Count()) { m_ConflictRight++; }
+        if (!HCConflictBudget(config, place.Id, now)) { return; }
+        string cell = HCFactionConflict.Cell(place.Position);
+        bool far = HCConflictFar(place, config);
+        if (!HCConflictPolicy.HCOpposed(left, right, cell))
+        {
+            if (far && !HCConflictLeased(place.Id)) { HCConflictPressure(place, cell, now, config); }
+            return;
+        }
+        if (!far)
+        {
+            if (port) { port.HCOffer(place.Id, left.Id, right.Id); }
+            return;
+        }
+        if (HCConflictLeased(place.Id) || (port && port.HCActiveAt(place.Id))) { return; }
+        string winner = HCConflictPolicy.HCWinner(left, right);
+        if (winner == "" && config.ResolveEqualStrength)
+        {
+            winner = left.Id;
+            if ((HCWorldClock.Day(m_Data, now) + m_ConflictPlace) % 2 == 1) { winner = right.Id; }
+        }
+        if (!HCFactionConflict.HCReserveDataOutcome(place.Id, now)) { return; }
+        if (!AddFact("faction_clash", place.Id, 1)) { return; }
+        if (winner == left.Id) { HCConflictPublish(left, right, place, cell); }
+        if (winner == right.Id) { HCConflictPublish(right, left, place, cell); }
+        Print("[HC Plan] HC-37 data_outcome place=" + place.Id + " winner=" + winner + " bodies=0 loot=0 runtime=PENDING");
+    }
+
+    protected void HCConflictPublish(HCWorldFaction winner, HCWorldFaction loser, HCWorldPlace place, string cell)
+    {
+        if (!HCConflictPolicy.HCTransfer(winner, loser, cell)) { return; }
+        m_Dirty = true;
+        AddFact(winner.Id + "_pushed_" + loser.Id, place.Id, 2);
+    }
+
+    // Pressure is remembered data, never a fabricated infected body or an
+    // authority to delete a funded camp. Camp owner retains bodies and stock.
+    protected void HCConflictPressure(HCWorldPlace place, string cell, int now, HCConflictConfig config)
+    {
+        HCInfectedModule infected = HCInfectedModule.Instance;
+        if (!infected) { return; }
+        int pressure = infected.HCConflictPressureAt(place.Position, config.PressureMeters);
+        if (pressure < 1) { return; }
+        array<ref HCWorldHoldout> camps = m_Data.Holdouts;
+        foreach (HCWorldHoldout camp : camps)
+        {
+            if (camp.PlaceId != place.Id) { continue; }
+            if (!HCFactionConflict.HCReserveDataOutcome(place.Id, now)) { return; }
+            AddFact("camp_infected_pressure", place.Id, 1);
+            AddFact("holdout_alert", place.Id, 1);
+            string outcome = "camp_holds";
+            if (camp.Occupants == 0)
+            {
+                HCWorldFaction holder = m_Data.Faction(camp.FactionId);
+                if (holder)
+                {
+                    int claim = holder.Territory.Find(cell);
+                    if (claim >= 0) { holder.Territory.Remove(claim); m_Dirty = true; }
+                }
+                outcome = "empty_camp_claim_falls";
+            }
+            Print("[HC Plan] HC-37 infected_pressure place=" + place.Id + " outcome=" + outcome + " runtime=PENDING");
+            return;
+        }
+    }
+
+    // Observed player/AI kills are included by the existing real death hook.
+    // This does not debit population twice. Absolute holding removal is safe
+    // on replay; the world checkpoint precedes the journal applied receipt.
+    bool HCConflictObserved(HCTerritoryOutcomeRow row, HCConflictConfig config)
+    {
+        if (!m_Running || !HCRecoveryGate.HCReady("world") || m_Store.SaveInFlight()) { return false; }
+        HCWorldPlace place = m_Data.Place(row.PlaceId);
+        if (!place || !HCConflictFar(place, config)) { return false; }
+        HCWorldFaction left = m_Data.Faction(row.LeftFaction);
+        HCWorldFaction right = m_Data.Faction(row.RightFaction);
+        if (!left || !right) { return false; }
+        string cell = HCFactionConflict.Cell(place.Position);
+        if (row.State == "LEFT_REMAINS") { HCConflictPublish(left, right, place, cell); }
+        if (row.State == "RIGHT_REMAINS") { HCConflictPublish(right, left, place, cell); }
+        return HCFlushRoutine();
+    }
+
+    void HCConflictDebug(HCDebugSnapshot snapshot)
+    {
+        if (!m_Running || !m_Data) { return; }
+        array<ref HCWorldPlace> places = m_Data.Places;
+        array<ref HCWorldFaction> factions = m_Data.Factions;
+        foreach (HCWorldPlace place : places)
+        {
+            string holders = "";
+            string cell = HCFactionConflict.Cell(place.Position);
+            foreach (HCWorldFaction faction : factions)
+            {
+                if (faction.Territory.Find(cell) >= 0) { holders += faction.Id + " "; }
+            }
+            snapshot.AddPoint("territories", place.Id, place.Position, place.Name, holders);
+        }
+    }
+}
+
+class HCConflictDebugContributor : HCDebugContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (world) { world.HCConflictDebug(snapshot); }
+    }
+}
+
+// Read-only finite infected-owner seam. Never adopts, routes or kills an actor.
+// Native Object.c:287 GetPosition, :517 IsAlive; EnConvert.c:210 DistanceSq.
+modded class HCInfectedModule
+{
+    int HCConflictPressureAt(vector position, float radius)
+    {
+        if (!m_Healthy || m_Actors.Count() > HCLODPolicy.MAX_TRACKED) { return -1; }
+        int count = 0;
+        array<ref HCInfectedActor> actors = m_Actors;
+        foreach (HCInfectedActor actor : actors)
+        {
+            if (!actor || !actor.InfectedEntity || !actor.InfectedEntity.IsAlive()) { continue; }
+            if (vector.DistanceSq(position, actor.InfectedEntity.GetPosition()) <= radius * radius) { count++; }
+        }
+        return count;
     }
 }
