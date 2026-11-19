@@ -1,116 +1,291 @@
-# Firearms roster, datamine census and optional SNAFU subset (issue #30)
+# Firearm-family scarcity (HC-21; historical #12/#30)
 
-Status: offline tooling and proposals only. Nothing here is enabled in production, nothing was observed
-in DayZ, and every count is a proposal for 3-6 players. Static file checks never establish game behaviour.
-The v1 test candidate spawns the datamined rows below at rare counts; each one is marked
-`acceptance: pending-local` until the owner accepts it (or switches it off) in a local session.
+Status: source/package candidate only, **runtime acceptance pending**. This work implements the HC-21
+specification in the active worker brief: preserve active native families, share scarcity across skins,
+and account for loose, boxed and tracer ammunition. The 2026-11-18 owner direction supersedes older
+per-class doubling and curated-only exclusions. No production promotion or runtime observations are claimed.
 
-Owner decision for #30: a curated, minimal wood-stock and conventional-modern vanilla roster; a datamine
-of unfinished or non-spawning vanilla weapons proposed as candidates only; and an allowlisted subset of
-SNAFU Weapons as an optional dependency. Nothing futuristic.
+The requested `docs/SPECIFICATION.md` and `docs/specs/001-survival-overhaul/spec.md` are absent from this
+checkout. The binding task brief provides spec → plan → task scope here; HC-11 owns reconciliation into
+shared Banso artifacts. No missing spec or experiment is marked accepted.
 
-## 1. Curated vanilla roster
+<!-- HC21-GENERATED-BEGIN -->
+## Current authored family policy
 
-`tools/package/firearms_roster.json` is the curated class list (the only firearm data committed).
-`tools/package/firearms.py` turns it into a minimal Central Economy delta:
+Generated from `tools/package/firearms_roster.json`: 78 weapon classes, 53 weapon families, 50 magazine classes and 47 ammo sources (loose, boxed, tracer and specialist).
 
+Weapon nominal ceiling: **565**; with datamined rows omitted: **515**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
+
+| Family | Nominal / min cap | Explicit member shares (nominal / min) |
+| --- | --- | --- |
+| AK101 | 4 / 2 | `AK101` 4/2 |
+| AK74 | 6 / 4 | `AK74` 6/4 |
+| AKM | 4 / 2 | `AKM` 4/2 |
+| AKS74U | 8 / 5 | `AKS74U` 8/5 |
+| ASVAL | 3 / 2 | `ASVAL` 3/2 |
+| Aug | 1 / 1 | `Aug` 1/1 |
+| AugShort | 4 / 3 | `AugShort` 4/3 |
+| B95 | 10 / 6 | `B95` 6/4; `B95_Black` 2/1; `B95_Green` 2/1 |
+| CZ527 | 26 / 18 | `CZ527` 10/8; `CZ527_Woodland` 8/6; `CZ527_Camo` 2/1; `CZ527_Green` 2/1; `CZ527_desert` 2/1; `CZ527_winter` 2/1 |
+| CZ550 | 14 / 12 | `CZ550` 14/12 |
+| CZ61 | 5 / 4 | `CZ61` 5/4 |
+| CZ75 | 8 / 6 | `CZ75` 8/6 |
+| Colt1911 | 16 / 12 | `Colt1911` 12/9; `Engraved1911` 4/3 |
+| Crossbow | 13 / 7 | `Crossbow_Autumn` 5/3; `Crossbow_Black` 5/3; `Crossbow_Wood` 3/1 |
+| Deagle | 25 / 20 | `Deagle` 21/17; `Deagle_Gold` 4/3 |
+| Derringer_Grey | 20 / 15 | `Derringer_Grey` 20/15 |
+| FAL | 2 / 1 | `FAL` 2/1 |
+| FAMAS | 8 / 6 | `FAMAS` 8/6 |
+| FNX45 | 6 / 4 | `FNX45` 6/4 |
+| Glock19 | 12 / 10 | `Glock19` 12/10 |
+| Izh18 | 28 / 22 | `Izh18` 28/22 |
+| Izh18Shotgun | 20 / 16 | `Izh18Shotgun` 20/16 |
+| Izh43Shotgun | 16 / 12 | `Izh43Shotgun` 16/12 |
+| LeeEnfield | 12 / 8 | `LeeEnfield` 12/8 |
+| LongHorn | 25 / 20 | `LongHorn` 25/20 |
+| Luger | 6 / 4 | `Luger` 6/4 |
+| M14 | 2 / 1 | `M14` 2/1 |
+| M16A2 | 4 / 2 | `M16A2` 4/2 |
+| M4A1 | 1 / 1 | `M4A1` 1/1 |
+| M79 | 3 / 1 | `M79` 3/1 |
+| MKII | 30 / 27 | `MKII` 30/27 |
+| MP18 | 4 / 2 | `MP18` 4/2 |
+| MP5K | 6 / 4 | `MP5K` 6/4 |
+| Magnum | 10 / 8 | `Magnum` 9/7; `Magnum_Gold` 1/1 |
+| Makarov | 16 / 12 | `MakarovIJ70` 14/11; `MakarovPB` 2/1 |
+| Mosin9130 | 34 / 24 | `Mosin9130` 22/16; `Mosin9130_Woodland` 8/6; `Mosin9130_Black` 2/1; `Mosin9130_Winter` 2/1 |
+| Mp133Shotgun | 8 / 6 | `Mp133Shotgun` 8/6 |
+| P1 | 12 / 10 | `P1` 12/10 |
+| PM73Rak | 5 / 4 | `PM73Rak` 5/4 |
+| PP19 | 14 / 11 | `PP19` 14/11 |
+| R12 | 6 / 5 | `R12` 6/5 |
+| Repeater | 16 / 12 | `Repeater` 16/12 |
+| Ruger1022 | 12 / 8 | `Ruger1022` 12/8 |
+| SKS | 18 / 12 | `SKS` 8/4; `SKS_Woodland` 6/4; `SKS_Black` 1/1; `SKS_Desert` 1/1; `SKS_Green` 1/1; `SKS_Winter` 1/1 |
+| SSG82 | 12 / 10 | `SSG82` 12/10 |
+| SV98 | 2 / 1 | `SV98` 2/1 |
+| SVD | 6 / 3 | `SVD_Wooden` 2/1; `SVD` 4/2 |
+| Saiga | 4 / 2 | `Saiga` 4/2 |
+| Scout | 6 / 4 | `Scout` 1/1; `Scout_Chernarus` 5/3 |
+| UMP45 | 12 / 10 | `UMP45` 12/10 |
+| VSS | 6 / 4 | `VSS` 6/4 |
+| Vikhr | 4 / 2 | `Vikhr` 4/2 |
+| Winchester70 | 10 / 6 | `Winchester70` 6/4; `Winchester70_Black` 2/1; `Winchester70_Green` 2/1 |
+
+### Cartridge ceilings
+
+Each nominal/min is multiplied by `unit_rounds`: native pile maximum or box resource count. Detachable magazines have separate item budgets; loaded rounds and carrier throughput remain unmeasured.
+
+| Ammo family | Nominal / min maximum cartridges | Sources |
+| --- | --- | --- |
+| Ammo_12gaPellets | 600 / 440 | `Ammo_12gaPellets` 45/33 × 10; `AmmoBox_00buck_10rnd` 15/11 × 10 |
+| Ammo_12gaRubberSlug | 400 / 340 | `AmmoBox_12gaRubberSlug_10Rnd` 12/10 × 10; `Ammo_12gaRubberSlug` 28/24 × 10 |
+| Ammo_12gaSlug | 560 / 390 | `Ammo_12gaSlug` 41/29 × 10; `AmmoBox_12gaSlug_10Rnd` 15/10 × 10 |
+| Ammo_22 | 3000 / 2150 | `Ammo_22` 31/22 × 50; `AmmoBox_22_50Rnd` 29/21 × 50 |
+| Ammo_308Win | 800 / 520 | `Ammo_308Win` 16/11 × 20; `AmmoBox_308WinTracer_20Rnd` 4/2 × 20; `AmmoBox_308Win_20Rnd` 8/5 × 20; `Ammo_308WinTracer` 12/8 × 20 |
+| Ammo_357 | 960 / 700 | `Ammo_357` 29/21 × 20; `AmmoBox_357_20Rnd` 19/14 × 20 |
+| Ammo_380 | 2100 / 1540 | `Ammo_380` 45/33 × 35; `AmmoBox_380_35rnd` 15/11 × 35 |
+| Ammo_40mm_Chemgas | 5 / 3 | `Ammo_40mm_Chemgas` 5/3 × 1 |
+| Ammo_40mm_Explosive | 8 / 5 | `Ammo_40mm_Explosive` 8/5 × 1 |
+| Ammo_40mm_Smoke_Black | 15 / 8 | `Ammo_40mm_Smoke_Black` 15/8 × 1 |
+| Ammo_40mm_Smoke_Green | 15 / 8 | `Ammo_40mm_Smoke_Green` 15/8 × 1 |
+| Ammo_40mm_Smoke_Red | 15 / 8 | `Ammo_40mm_Smoke_Red` 15/8 × 1 |
+| Ammo_40mm_Smoke_White | 15 / 8 | `Ammo_40mm_Smoke_White` 15/8 × 1 |
+| Ammo_45ACP | 1250 / 875 | `Ammo_45ACP` 35/25 × 25; `AmmoBox_45ACP_25rnd` 15/10 × 25 |
+| Ammo_545x39 | 560 / 300 | `Ammo_545x39` 9/5 × 20; `AmmoBox_545x39Tracer_20Rnd` 4/2 × 20; `AmmoBox_545x39_20Rnd` 6/3 × 20; `Ammo_545x39Tracer` 9/5 × 20 |
+| Ammo_556x45 | 800 / 520 | `Ammo_556x45` 16/11 × 20; `AmmoBox_556x45Tracer_20Rnd` 4/2 × 20; `AmmoBox_556x45_20Rnd` 9/6 × 20; `Ammo_556x45Tracer` 11/7 × 20 |
+| Ammo_762x39 | 1200 / 820 | `Ammo_762x39` 27/19 × 20; `AmmoBox_762x39Tracer_20Rnd` 4/2 × 20; `AmmoBox_762x39_20Rnd` 9/6 × 20; `Ammo_762x39Tracer` 20/14 × 20 |
+| Ammo_762x54 | 960 / 700 | `Ammo_762x54` 23/17 × 20; `AmmoBox_762x54Tracer_20Rnd` 4/3 × 20; `AmmoBox_762x54_20Rnd` 8/6 × 20; `Ammo_762x54Tracer` 13/9 × 20 |
+| Ammo_9x19 | 1500 / 1075 | `Ammo_9x19` 40/29 × 25; `AmmoBox_9x19_25rnd` 20/14 × 25 |
+| Ammo_9x39 | 440 / 220 | `AmmoBox_9x39AP_20Rnd` 3/1 × 20; `AmmoBox_9x39_20Rnd` 4/2 × 20; `Ammo_9x39` 9/5 × 20; `Ammo_9x39AP` 6/3 × 20 |
+| Ammo_HuntingBolt | 125 / 90 | `Ammo_HuntingBolt` 25/18 × 5 |
+
+### Formerly off-roster positives
+
+All 32 are retained explicitly. `keep-native-budget` preserves their native route; skin members share the family ceiling. `review-native-budget` preserves SV98 while refusing functional acceptance.
+
+| Class | Disposition | Family |
+| --- | --- | --- |
+| `AK101` | keep-native-budget | AK101 |
+| `AKS74U` | keep-native-budget | AKS74U |
+| `ASVAL` | keep-native-budget | ASVAL |
+| `Aug` | keep-native-budget | Aug |
+| `AugShort` | keep-native-budget | AugShort |
+| `CZ550` | keep-native-budget | CZ550 |
+| `CZ61` | keep-native-budget | CZ61 |
+| `Crossbow_Autumn` | keep-native-budget | Crossbow |
+| `Crossbow_Black` | keep-native-budget | Crossbow |
+| `Crossbow_Wood` | keep-native-budget | Crossbow |
+| `Deagle` | keep-native-budget | Deagle |
+| `Deagle_Gold` | keep-native-budget | Deagle |
+| `Derringer_Grey` | keep-native-budget | Derringer_Grey |
+| `Engraved1911` | keep-native-budget | Colt1911 |
+| `FAL` | keep-native-budget | FAL |
+| `FAMAS` | keep-native-budget | FAMAS |
+| `LongHorn` | keep-native-budget | LongHorn |
+| `M14` | keep-native-budget | M14 |
+| `M4A1` | keep-native-budget | M4A1 |
+| `M79` | keep-native-budget | M79 |
+| `MKII` | keep-native-budget | MKII |
+| `Magnum_Gold` | keep-native-budget | Magnum |
+| `PM73Rak` | keep-native-budget | PM73Rak |
+| `PP19` | keep-native-budget | PP19 |
+| `R12` | keep-native-budget | R12 |
+| `SSG82` | keep-native-budget | SSG82 |
+| `SV98` | review-native-budget | SV98 |
+| `Scout` | keep-native-budget | Scout |
+| `Scout_Chernarus` | keep-native-budget | Scout |
+| `UMP45` | keep-native-budget | UMP45 |
+| `VSS` | keep-native-budget | VSS |
+| `Vikhr` | keep-native-budget | Vikhr |
+
+Named pending refusals:
+
+- `HC21_NATIVE_WORLD_CAP_UNOBSERVED`
+- `HC21_CARRIER_SUPPLY_UNMEASURED`
+- `HC21_LOADED_MAGAZINE_ROUNDS_UNMEASURED`
+- `HC21_AI_AMMO_RUNTIME_PENDING`
+- `HC21_SV98_FUNCTION_PENDING`
+- `HC21_NATIVE_CLASS_COVERAGE_UNQUALIFIED`
+
+<!-- HC21-GENERATED-END -->
+
+## Generator and supply semantics
+
+`python3 -m tools.package.firearms summary` regenerates the marked summary above from the validated roster.
+The policy file contains authored class names, budgets and route metadata, not native config bodies or assets.
+Both generators call the same `roster_items`/`family_totals` policy. Generation refuses over-cap shares,
+unknown positive ammo/box/magazine rows, missing effective compatible ammo/magazines and missing declared
+native carrier references. `check_effective_support` repeats family validation immediately before install,
+so a rehashed staged recolour cannot bypass the family cap. Native weapon identification still depends on
+the separately inspected class/config evidence; unknown future weapon ancestry requires re-audit.
+
+```sh
+python3 -m tools.package.firearms generate --source <stock-mission-copy> --out <fresh-delta-dir>
+python3 -m tools.package.firearms generate --with-items --source <stock-mission-copy> --out <fresh-delta-dir>
+python3 -m tools.package.firearms generate --no-datamined --source <stock-mission-copy> --out <fresh-delta-dir>
 ```
-python3 -m tools.package.firearms generate --source <stock mission copy> --out <new delta dir>
-python3 -m tools.package.firearms install  --delta <delta dir> --target <stopped private mission copy>
-python3 -m tools.package.firearms rollback --target <that mission copy>
+
+Weapon and magazine families use item counts. Ammo families use maximum cartridge equivalents:
+`sum(nominal * unit_rounds)` and `sum(min * unit_rounds)`. Boxes, tracer and AP rows take shares from their
+existing loose-round allowance; they do not add a second allowance. Native `quantmin/quantmax`, flags,
+categories, cost, placement, loading, firing, repair and restock semantics are retained. Magazines retain
+separate item caps; actual filled-magazine rounds and attached/carrier throughput remain pending measurement.
+The empty `AmmoBox` storage container is not an ammunition box and remains native container loot.
+
+Family caps describe configured CE replenishment proposals, **not hard world inventory caps**: native
+hoarding/player/cargo flags remain unchanged. There is no new aggregate CE controller, scavenging injector,
+AI refill path, telemetry loop or save system. The general HC-9 boost consumes the expanded roster exclusion
+set; all named ammo, magazine and weapon rows remain excluded. Runtime actor inventories must still debit
+finite real ammunition; this package cannot establish that behavior.
+
+PB/IJ70 now share 16 (14 + 2), and CZ527 skins share 26 (10 + 8 + four shares of 2). Winchester and B95
+skins each share 10. These numerical splits are provisional for 3–6 players. Engraved/gold variants share
+their base firearm ceiling. No new distances are introduced.
+
+### Native parts and carrier routes
+
+Declared M4/AK/FAL attachment routes reuse the stock `cfgspawnabletypes.xml` entries with positive chances.
+They are useful native assembly routes, not newly imposed firing prerequisites. The generator creates no
+loose parts and does not copy carrier definitions onto parent-derived recolours. `AugOptic` and Magnum
+cylinder/ejector (including gold parts) remain native integral/default assembly metadata, never new CE loot.
+Ordinary clones use donor fields plus the explicit nominal/min share, reusing stock spelling case-insensitively.
+SV98's existing compatible CE magazine is retained, but the older config census flags incomplete evidence;
+its spawn/load/fire/unload/repair acceptance remains explicitly refused pending functional evidence.
+
+Read-only installed evidence inspected for this change (all paths relative to
+`~/.cache/hollow-country/native-scripts/scripts-1.30.164289/`):
+
+- `4_World/Entities/ItemBase/Magazine/Magazine.c:68-88`: native cartridge counts and server mutations.
+- `4_World/Entities/Firearms/Weapon_Base.c:324-326,1262-1266`: native chamber/firing checks.
+- `4_World/Entities/Firearms/AutomaticRifle/AUG.c:68-76`: short AUG's native optic assembly.
+- `4_World/Entities/Firearms/Pistol/Magnum.c:179-195,404-413`: native cylinder/ejector assembly.
+- `4_World/Entities/Core/Inherited/InventoryItem.c:1147-1153`: native box action registration.
+- `4_World/Classes/UserActionsComponent/Actions/Continuous/ActionUnpackBox.c:40-94`: server-side
+  `CfgVehicles/Resources` lookup and replacement with configured cartridge count.
+- `3_Game/CE/CentralEconomy.c:746`: native CE API declaration; no aggregate firearm-family cap API
+  is invoked or inferred from this interface.
+
+Installed `weapons_ammunition.pbo` configs were read with the existing bounded PBO reader: `CfgMagazines/count`
+provides pile maxima, and each `CfgVehicles/AmmoBox_*/Resources/<ammo>/value` matches the declared box rounds.
+Native carrier references were checked read-only against the installed stock mission. Neither check runs DayZ.
+
+## Exact lead integration (outside this worker's files)
+
+No HCModule, registration or config.cpp edit is required. Two existing economy seams need serialized edits:
+
+1. In `tools/package/economy.py`, inside `install`, replace
+   `expected_new = datamined_items.reviewed_new_type(reviewed_name, stock)` with a local
+   `from tools.package import firearms` and `expected_new = firearms.reviewed_type(reviewed_name, stock)`.
+   Keep the independent reviewed-parent allowlist, exact full-row comparison, class permission checks,
+   usage validation and rejection paths. Update the old error text to
+   `new class must exactly clone its reviewed parent with the authored family share`.
+   The old installer currently rejects this candidate's valid parent-derived shares. Do not install until
+   this integration and its tamper/rollback regression checks pass.
+2. In `economy.generate`, immediately after `changed, rows, totals = firearms.roster_items(...)`, call
+   `firearms.check_family_routes(source, roster, rows)` so the direct economy CLI has the same carrier
+   admission gate as both firearms entry points. `totals` already contains families, ceilings, policy hash,
+   named refusals and distinct pending native admission/observation counts.
+3. HC-62 wires the composed content receipt through `HCServer.c` and `HCOperationalContributors.c`.
+   Consume `report["firearms"]["totals"]` (or standalone `report["totals"]`), including `policy_sha256`,
+   `family_count`, `family_budget`, `boost`, `operational_state`, `admitted_families` and `observed_families`.
+   The delta manifest already hashes the composed report and exact source inputs. Hash/qualify the carrier
+   mission files with the mission receipt. Do not convert null native counts into observed successes.
+
+Proposed bounded boot diagnostic after this lead integration, **not observed output**:
+
+```text
+[HC Plan] HC-21 firearms families=53 budget=565 boost=excluded state=authored-runtime-pending admitted=pending observed=pending runtime=PENDING
 ```
 
-- Generate reads installed stock `types.xml`, copies each rostered type verbatim and changes only
-  `nominal`, `min`, `lifetime`, `restock`, `usage` and `value`. Flags, cost and quantities stay stock.
-  Only changed entries are written, to the managed folder `hollow-country/ce/types.xml`, registered by one
-  `<ce folder>` line in `cfgeconomycore.xml`. No placement files are touched.
-- Install refuses the Steam path, symlinks, drifted stock and any candidate that changes a field outside
-  the allowed set. Rollback restores `cfgeconomycore.xml` byte for byte (tested, including on a copy of the
-  real stock files).
-- `economy.install(..., mutable=...)` keeps its usage-only default. `firearms install` and `rollback` are the
-  same single installer as `economy install` and `rollback` (see section 3b): a roster delta installed alone
-  or composed with the profile and the datamined items is installed once with per-class permissions.
+Legacy `tests/unit/test_firearms_roster.py` assertions must follow the new owner scope: replace the 449
+per-class-double expectation with the generated 565 family ceiling (off: 515); preserve MKII's native 30;
+remove formerly omitted active native classes from the old banned set. For synthetic missions exercising
+the shipped roster, write explicit positive native-carrier fixtures from each weapon's declared
+`native-carrier` parts. Set synthetic existing datamined rows to nominal/min 0/0 in both
+`ReviewedNewTypes.setUp` and the committed-roster switch fixture; retain 51/39 only for non-datamined
+donors. In `ReviewedNewTypes`, construct the expected donor row with the entry's explicit
+nominal/min instead of fixed 25/19, and expect the CZ527_Desert alias share 2. Keep tamper/flags/placement,
+case-duplicate and byte-exact rollback assertions. The source-size limit still holds (policy below 60 kB).
+Those existing tests are read-only in this package; their superseded assertions are not silently weakened.
 
-Roster: 37 weapons (12 conventional modern, 15 wood-stock vanilla-spawning and 10 datamined wood-stock
-rows), 18 magazines and 12 ammunition types. Owner decision 2026-11-17: scarcity is "double generous, 2x for
-now". Weapon nominals total 342 (306 without the datamined rows; the first proposal was 164), no weapon
-exceeds nominal 28, and the min/nominal ratios of the first proposal are kept. Each entry carries a role
-(`wood` or `modern`), a tier (`common`, `uncommon`, `rare`) and a justification.
+## HC-21 behavioral evidence and remaining native work
 
-Final weapon counts (nominal / min):
+One explicitly synthetic behavioral test exercises both authored generators, caps, effective support,
+carrier admission, the HC-9 boost exclusion and the datamined off path:
 
-| Class | Role | Tier | Nominal / min | Note |
-| --- | --- | --- | --- | --- |
-| `Mosin9130` | wood | common | 24 / 18 | |
-| `Mosin9130_Woodland` | wood | uncommon | 10 / 6 | |
-| `SKS` | wood | uncommon | 12 / 8 | |
-| `SKS_Woodland` | wood | rare | 6 / 4 | |
-| `Izh18` | wood | common | 28 / 22 | |
-| `Izh18Shotgun` | wood | common | 20 / 16 | |
-| `Izh43Shotgun` | wood | uncommon | 16 / 12 | |
-| `Repeater` | wood | uncommon | 16 / 12 | |
-| `Winchester70` | wood | uncommon | 10 / 8 | |
-| `CZ527` | wood | common | 16 / 12 | |
-| `CZ527_Woodland` | wood | uncommon | 10 / 8 | |
-| `B95` | wood | uncommon | 10 / 8 | |
-| `Mp133Shotgun` | wood | uncommon | 8 / 6 | |
-| `Magnum` | wood | uncommon | 10 / 8 | |
-| `AKM` | wood | rare | 4 / 2 | |
-| `Colt1911` | modern | uncommon | 16 / 12 | |
-| `MakarovIJ70` | modern | common | 16 / 12 | |
-| `P1` | modern | common | 12 / 10 | |
-| `Glock19` | modern | uncommon | 12 / 10 | |
-| `FNX45` | modern | rare | 6 / 4 | |
-| `CZ75` | modern | uncommon | 8 / 6 | |
-| `Ruger1022` | modern | common | 12 / 8 | |
-| `M16A2` | modern | rare | 4 / 2 | |
-| `AK74` | modern | rare | 6 / 4 | |
-| `MP5K` | modern | rare | 6 / 4 | |
-| `Saiga` | modern | rare | 4 / 2 | |
-| `SVD` | modern | rare | 4 / 2 | |
-| `LeeEnfield` | wood | uncommon | 12 / 8 | datamined, `acceptance: pending-local` |
-| `MP18` | wood | rare | 4 / 2 | datamined, `acceptance: pending-local` |
-| `Luger` | wood | rare | 6 / 4 | datamined, `acceptance: pending-local` |
-| `SKS_Black`, `SKS_Desert`, `SKS_Green`, `SKS_Winter` | wood | rare | 2 / 1 each | datamined, `acceptance: pending-local` |
-| `Mosin9130_Black`, `Mosin9130_Winter` | wood | rare | 2 / 1 each | datamined, `acceptance: pending-local` |
-| `SVD_Wooden` | wood | rare | 2 / 1 | datamined, `acceptance: pending-local` |
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_firearm_families -v
+```
 
-Magazines and ammunition are scaled by the same factor. The datamined magazines `Mag_LeeEnfield_10Rnd`
-(8 / 4), `Mag_MP18_Drum32Rnd` (4 / 2) and `Mag_Luger_8Rnd` (8 / 4) carry the same marker.
+Actual RED: `AssertionError: {...32 classes...} is not false : positive off-roster firearms bypass scarcity`.
+Extending the same test to rehashed staged cap inflation also produced actual RED:
+`AssertionError: ValueError not raised`. After implementation, the command reports `Ran 1 test` / `OK`.
+Final focused verification:
 
-### Datamined rows and the single switch
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_firearm_families test_script_syntax test_enforce_locals test_script_identifiers test_hygiene -v
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_datamined_items test_friend_bundle test_tactical_flava_optional test_snafu_optional test_firearm_census -v
+```
 
-Owner decision 2026-11-17: datamined vanilla guns (stock nominal 0 or absent: Lee-Enfield, MP18, Luger and
-the finished skin variants) spawn at rare counts in the v1 test candidate. Each such roster entry has
-`"datamined": true` and `"acceptance": "pending-local"` (the two fields must appear together, and a
-non-datamined weapon may not depend on a datamined magazine). The generated report lists every such class
-under `datamined` with its `acceptance`.
+Actual GREEN: 54 tests / OK and 239 tests / OK, respectively. The read-only legacy command
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_firearms_roster -v`
+ran 36 tests and reported `FAILED (failures=2, errors=15)`: superseded MKII/per-class count and active-class
+exclusion assertions, plus missing synthetic carrier fixtures. The exact follow-up edits are listed above;
+that suite is not claimed passing. The independent installer half-parent expectation also still needs the
+listed shared integration, even after fixing those fixtures.
 
-One switch turns them all off: `--no-datamined` on `firearms generate` (API: `generate(...,
-include_datamined=False)`). The delta is then built from the non-datamined rows only, so the owner can accept
-or drop them in the local session without editing the roster. Accepting a row means changing its marker after
-local spawn, fire and ammo trials; nothing here records that acceptance.
+This is offline policy evidence only. Read-only generation against installed stock succeeds with candidates
+on and off; native behavior and aggregate/carrier/world counts remain unobserved.
 
-Nine finished variants that are absent from stock `types.xml` (`MakarovPB`, `Winchester70_Black`,
-`Winchester70_Green`, `B95_Black`, `B95_Green`, `CZ527_Camo`, `CZ527_Green`, `CZ527_desert`,
-`CZ527_winter`) stay under `deferred_datamined`. The generator only overrides stock entries (install refuses
-a class that stock does not define), so enabling them needs a new-type-entry install path; that is deferred.
+Lead native acceptance: exact-source DayZDiag compile/boot, then normal signed PBO/server; no script or CE
+errors; source/PBO/mission/config/dependency hashes; receipt/off-path/stop/restart checks. For every retained
+family, spawn/load/fire/unload/repair, acquire/restock/hoard, consume finite AI ammo and verify persistence.
+Use two clients for inventory/attachment presentation. SV98 requires its own functional evidence before
+acceptance. No production enablement, server deployment or publication is authorized by this document.
 
-### Optics extension point
-
-Both `firearms_roster.json` and `snafu_allowlist.json` carry `"optics": {"status":
-"deferred-pending-owner-decision", "entries": []}`. Validation accepts the block only in exactly that empty
-form, so no optic can be added by accident; a later owner decision extends the schema (and the validators)
-deliberately. No optic is rostered or allowlisted now.
-
-### Install and rollback hardening
-
-Install and rollback treat every managed or staging path (`core.backup`, `core.next`, `receipt.json`,
-`ce/types.xml`, `verification.json`) as hostile until checked: it must be a regular file (not a symlink,
-FIFO or directory), have `st_nlink == 1` and resolve inside the mission. Staging files are unlinked and
-created fresh (`O_EXCL`, `O_NOFOLLOW`), then moved into place with `os.replace`, so a hard link to an outside
-file is never written through. Unexpected entries in the managed folder refuse rollback. Tests assert the
-outside file stays byte for byte identical.
+The remaining optional-pack evidence below is historical research and pending qualification. It is retained
+for rights/support traceability; HC-21 neither re-verifies dependencies nor changes their admission.
 
 ## 2. Datamine census
 
@@ -135,13 +310,13 @@ The tool refuses any output directory inside a Git checkout. The 2026-11-17 run 
 | event-only | 0 |
 | unknown | 0 |
 
-141 weapon classes plus 69 abstract scope-0 bases. Two classes are flagged as suspected unfinished
-(`SV98`, `DartGun`) and are not proposed.
+141 weapon classes plus 69 abstract scope-0 bases. Two classes were flagged as suspected unfinished (`SV98`, `DartGun`). HC-21 now retains the existing
+SV98 CE budget with an explicit review disposition; functional evidence is still pending. DartGun remains unproposed.
 
 Datamined classes enabled at rare counts, pending local acceptance: `LeeEnfield`, `MP18`, `Luger`, `SKS_Black`,
-`SKS_Desert`, `SKS_Green`, `SKS_Winter`, `Mosin9130_Black`, `Mosin9130_Winter` and `SVD_Wooden` (see section 1).
-The nine variants missing from stock types remain deferred (`deferred_datamined`); `MakarovPB` also needs its
-magazine added. Every datamined candidate needs spawn, firing and ammo trials on a local server with one client.
+`SKS_Desert`, `SKS_Green`, `SKS_Winter`, `Mosin9130_Black`, `Mosin9130_Winter` and `SVD_Wooden` (see the generated family policy).
+The nine parent-derived variants and the PB magazine are now authored as pending-local candidates under
+family budgets; they are no longer deferred. Case aliases reuse existing CE rows. Every datamined candidate needs native spawn, firing and ammo trials; inventory/attachment presentation requires two clients.
 
 ## 3. Optional SNAFU Weapons subset
 
@@ -376,9 +551,8 @@ near-vanilla AK and M4A1 families, the grenades, other optics and NVGs, armour a
 adapter is therefore in the allowlist as an attachment-only entry (nominal 0, `fits: [TF_M14_STD]`, and
 `optic_requires: [TF_M14_Adapter]` on the rifle). `TF_M1A_Black` has no adapter slot and takes optics directly.
 `TF_M24` has no `weaponOptics` slot, so the Elcan `fits` lists are `TF_AK74M`, `TF_M1A_Black`, `TF_M14_STD`.
-Gap: the generated delta has no `cfgspawnabletypes`, so a spawned `TF_M14_STD` has no adapter and no optic.
-TF's own spawnabletypes pre-attaches the adapter with chance 1.0; a spawnabletypes follow-up is needed before
-M14 optics are obtainable.
+Current source correction: `tactical_flava_optional._spawnable_types` authors the adapter pre-attachment.
+The earlier missing-spawnabletypes gap is closed in source; native assembly and optics acceptance remain pending.
 
 ### Script-risk census (unobserved at runtime)
 
@@ -454,13 +628,13 @@ vanilla keybind overlap.
 - No native/local acceptance for any roster or SNAFU entry: normal PBO/server load, CE spawn and error
   trials, firing and ammo acceptance per weapon, 3-6 player counts.
 - Every datamined row (`acceptance: pending-local`) needs local acceptance before any production use, or the
-  owner switches them off with `--no-datamined`. The nine variants missing from stock types are not enabled.
-- The 2x counts are a deliberate owner choice for now; the effective spawn totals are unobserved.
+  owner switches them off with `--no-datamined`. The nine parent-derived weapon variants are authored in the candidate; none has native functional acceptance.
+- Ordinary loot keeps the owner's approximately 2x target. Firearm family caps and ammo ceilings are separate provisional budgets; effective spawn totals are unobserved.
 - The roster nominals are proposals; effective CE merging and world totals are unobserved.
 - The SNAFU class list rests on one version (1.28.1); the verifier must be re-run on the real server copy.
 - Signed packaging of the roster/SNAFU deltas and signature handling for a signed server are pending.
 - The census can see no event-only classes from files; event/carrier activity at runtime is unobserved.
 - Offline checks never establish DayZ behaviour; no two-client behaviour was exercised.
 - Tactical Flava: rights review pending (no licence file); the script-risk census and collision check are static
-  and the local-session checks above are unrun; M14 optics need a spawnabletypes pre-attach; all numbers are
+  and the local-session checks above are unrun; the authored M14 adapter pre-attach needs native acceptance; all numbers are
   proposals and no runtime acceptance exists.
