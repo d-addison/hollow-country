@@ -1,0 +1,102 @@
+// HC-14 bounded content admission receipt, not a gameplay/CE controller.
+// Lead calls Check once per module start and retains the result; HC-62 emits
+// HCPlanLine through the fixed content status path. No per-actor/tick logging.
+// Source metadata and config readiness never prove a CE spawn or client asset.
+// Native evidence: installed scripts-1.30.164289, relative paths below:
+// 3_Game/Global/Game.c:449 ConfigGetText, :539 ConfigGetInt,
+// :612 ConfigIsExisting, :942 GetVersion, :1120 IsServer, :1437 IsKindOf.
+// 3_Game/gameplay.c:636 GetGame (server-owned startup context only).
+// 1_Core/proto/EnConvert.c:30 int.ToString.
+// N8 ZombieBase.c:113 returns false for IsZombieMilitary; civilian clerk base
+// inherits it. ZombieFemaleBase.c:139-152 soldier/eastSoldier return true.
+// Config ancestry here cannot establish the method result on a live actor.
+// N10 3_Game/CE/CentralEconomy.c:379-495 offers creation/debug operations;
+// :710-717 diagnostics do not return active event-child configuration. None
+// are invoked. Refuse live CE observation/mutation rather than invent an API.
+class HCNativeVariantAdmission
+{
+    int Authored = 6;
+    int ConfigVerified;
+    int ConfigRefused;
+    // The unresolved stock UrbanB_BlueBright spelling is NOT renamed to C.
+    int Unresolved = 1;
+    bool Preference;
+    string State = "off";
+    string Refusal = "CE_RUNTIME_DISABLE_UNAVAILABLE";
+
+    static HCNativeVariantAdmission Check(bool preference)
+    {
+        HCNativeVariantAdmission receipt = new HCNativeVariantAdmission;
+        receipt.Preference = HCV2Admission.Admitted(preference);
+        if (!receipt.Preference) { return receipt; }
+        receipt.HCInspect();
+        return receipt;
+    }
+
+    // HCV2 admission reports the preference and unqualified experiment. The
+    // separate receipt below reports actual config checks and CE uncertainty.
+    string HCAdmissionLine()
+    {
+        return HCV2Admission.Line("NativeInfectedVariants", Preference, "HC-14-N8-N10", false);
+    }
+
+    string HCPlanLine()
+    {
+        string line = "[HC Plan] HC-14 native_variants=" + Authored.ToString() + " unresolved=" + Unresolved.ToString() + " population_delta=0";
+        line = line + " state=" + State + " scope=config_only authored=" + Authored.ToString();
+        line = line + " config_verified=" + ConfigVerified.ToString() + " config_refused=" + ConfigRefused.ToString();
+        line = line + " ce_admitted=unknown observed=unknown refusal=" + Refusal;
+        line = line + " ce_observation=refused:CE_EVENT_INTROSPECTION_UNAVAILABLE";
+        return line + " seasonal=refused:LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED runtime=PENDING";
+    }
+
+    protected void HCInspect()
+    {
+        State = "refused";
+        Refusal = "SERVER_CONTEXT_REQUIRED";
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        string build;
+        GetGame().GetVersion(build);
+        Refusal = "NATIVE_BUILD_UNSUPPORTED";
+        if (!HCInfectedProfiles.NativeBuildSupported(build)) { return; }
+        Refusal = "none";
+        // Exactly six inspected base-addon appearances, no config-tree scan.
+        // Expected models/profiles mirror variants.json's selected entries.
+        HCInspectCandidate("ZmbF_ClerkFat_Black", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
+        HCInspectCandidate("ZmbF_ClerkFat_BluePattern", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
+        HCInspectCandidate("ZmbF_ClerkFat_GreyPattern", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
+        HCInspectCandidate("ZmbF_ClerkFat_White", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
+        HCInspectCandidate("ZmbF_ArmyOfficer", "ZmbF_SoldierNormal_Base", "\\DZ\\characters\\zombies\\ArmyOfficer_fat_f.p3d", "InfectedSoldier_Officer");
+        HCInspectCandidate("ZmbF_eastSoldier_Normal_Navy", "ZmbF_eastSoldier_Base", "dz\\characters\\zombies\\eastSoldier_normal_Navy_f.p3d", "InfectedMSoldier");
+        if (ConfigVerified != Authored || ConfigRefused != 0) { return; }
+        State = "ready";
+        // Ready means inspected config only. CE consumption, entitlement on
+        // both clients and all model/audio/native transition trials are pending.
+        Refusal = "CE_EVENT_INTROSPECTION_UNAVAILABLE";
+    }
+
+    protected void HCInspectCandidate(string typeName, string nativeBase, string expectedModel, string expectedProfile)
+    {
+        string path = "CfgVehicles " + typeName;
+        string model;
+        string agentProfile;
+        string dlcTag;
+        string failure = "none";
+        if (!GetGame().ConfigIsExisting(path)) { failure = "NATIVE_CLASS_MISSING"; }
+        else if (GetGame().ConfigGetInt(path + " scope") != 2) { failure = "NATIVE_SCOPE_NOT_PUBLIC"; }
+        else if (!GetGame().IsKindOf(typeName, nativeBase)) { failure = "NATIVE_PROFILE_ANCESTRY_MISMATCH"; }
+        else if (!GetGame().ConfigGetText(path + " model", model) || model != expectedModel) { failure = "NATIVE_MODEL_MISMATCH"; }
+        else if (!GetGame().ConfigGetText(path + " aiAgentTemplate", agentProfile) || agentProfile != expectedProfile) { failure = "NATIVE_AGENT_PROFILE_MISMATCH"; }
+        else if (GetGame().ConfigIsExisting(path + " DLC"))
+        {
+            if (!GetGame().ConfigGetText(path + " DLC", dlcTag) || dlcTag != "") { failure = "NATIVE_DLC_TAG_UNVERIFIED"; }
+        }
+        if (failure != "none")
+        {
+            ConfigRefused++;
+            if (Refusal == "none") { Refusal = failure + ":" + typeName; }
+            return;
+        }
+        ConfigVerified++;
+    }
+}
