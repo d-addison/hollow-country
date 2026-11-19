@@ -8,6 +8,7 @@
 // 3_Game/gameplay.c:747 GetWorldLighting; 2_GameLib/tools.c:61 CallLater, :65 Remove;
 // 3_Game/PPEManager/PPERequesterBank.c:42 REQ_UNDERGROUND, :236 IsRequesterRunning;
 // 4_World/Entities/ManBase/PlayerBase.c:2848 GetUndergroundPresence;
+// :3925 IsUnconscious; 3_Game/Entities/Object.c:517 IsAlive;
 // 4_World/Classes/UndergroundHandlerClient.c:39 loads native table, :315-326
 // keeps its requester alive until exit fade/handler teardown, :329-341 lerp;
 // 5_Mission/mission/missionGameplay.c:102 OnInit, :266 OnMissionFinish;
@@ -30,6 +31,10 @@ class HCLightingClient
     protected string m_HCLoggedName = "";
     protected float m_HCLoggedWeight = -1;
     protected float m_HCLogSeconds = 60;
+    // HC-51 shares the existing 3-second callback; one scalar item, no scan,
+    // save job or cursor. Off/underground/death cleanup never waits on a budget.
+    protected ref HCUnitBudget m_HCSeasonUnits = new HCUnitBudget;
+    protected ref HCWorkBudget m_HCSeasonWork = new HCWorkBudget;
 
     void HCLightingClient(WorldLighting lighting)
     {
@@ -93,6 +98,19 @@ class HCLightingClient
             LogChange("native_underground", 0);
             return;
         }
+        if (!viewer.IsAlive() || viewer.IsUnconscious())
+        {
+            Restore();
+            LogChange("viewer_inactive", 0);
+            return;
+        }
+        m_HCSeasonUnits.HCReset(1);
+        m_HCSeasonWork.HCReset(1);
+        if (!m_HCSeasonUnits.HCTake(1) || !m_HCSeasonWork.HCContinue())
+        {
+            Restore();
+            return;
+        }
         float hour = GetGame().GetDayTime();
         float cloud = GetGame().GetWeather().GetOvercast().GetActual();
         float rain = GetGame().GetWeather().GetRain().GetActual();
@@ -100,6 +118,16 @@ class HCLightingClient
         float daylight = HCLightingBlend.Daylight(hour);
         string desired = HCLightingBlend.Name(hour, cloud, rain, fog);
         float target = HCLightingBlend.Weight(hour, cloud, rain, fog);
+        // HC-51: one bounded server snapshot, no local phase extrapolation or
+        // second table/lerp writer. Stronger existing weather/dusk presentation
+        // keeps precedence. The same fade-to-zero swap below handles seasons.
+        string season = HCSeasonVisualClient.HCGetPhase();
+        float seasonalWeight = HCLightingBlend.HCSeasonWeight(season, hour);
+        if (seasonalWeight > target)
+        {
+            desired = HCLightingBlend.HCSeasonName(season, hour);
+            target = seasonalWeight;
+        }
         // Native seasonal night can begin before the weather policy's 20:00.
         // Review P1: also require the sun to be up and clear of the horizon, so no
         // table can lift twilight or night above vanilla. World.c:50,52; Environment.c:685.

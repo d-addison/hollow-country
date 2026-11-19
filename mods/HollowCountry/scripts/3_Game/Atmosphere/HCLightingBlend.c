@@ -4,6 +4,19 @@
 // Native delivery is isolated in 5_Mission/Atmosphere/HCLightingClient.c.
 class HCLightingBlend
 {
+    // HC-51 reuses closed authored tables through the SAME client owner. No
+    // seasonal overlay at night; existing weather grades retain precedence.
+    static string HCSeasonName(string phase, float hour)
+    {
+        if (HCLightingBlend.Daylight(hour) <= 0) { return "vanilla"; }
+        return HCSeasonVisualPolicy.HCGradeName(phase);
+    }
+
+    static float HCSeasonWeight(string phase, float hour)
+    {
+        return HCLightingBlend.Daylight(hour) * HCSeasonVisualPolicy.HCGradeWeight(phase);
+    }
+
     static float Unit(float value)
     {
         if (value != value || value < 0) return 0;
