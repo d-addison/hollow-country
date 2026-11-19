@@ -6,8 +6,14 @@ Spec -> plan -> task: HC-34 waited on `HC34_PROVIDER_SOURCE_MISSING_ROUTE_UNSURV
 opposite waypoint, thresholds copied from the sites file). Nothing is invented and nothing here observes DayZ:
 the authored Enforce bodies run over explicit SYNTHETIC fakes through the repo's syntax-only translators.
 
-TDD receipt (same command for RED and GREEN):
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_pickers_survey -v
+Round 1 TDD receipt (2026-11-19; same command for RED and GREEN):
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_pickers_survey test_hc_scavenge -v
+RED: Ran 23 tests; FAILED (failures=9, errors=8).
+Actual failure lines include:
+  AssertionError: Tuples differ: ('refused', 'HC34_JOURNAL_UNAVAILABLE') != ('ready', 'journal_and_survey_loaded')
+  AttributeError: 'NoneType' object has no attribute 'Count'
+  Rejected-start tuple comparison: + (None, None, None, None, '')
+GREEN: Ran 23 tests; OK. Synthetic execution only; runtime acceptance pending.
 """
 import copy
 import json
@@ -19,6 +25,7 @@ from types import SimpleNamespace as N
 
 from tests.unit import test_debug_map_layers as layers
 from tests.unit.test_admin_test_kit import base_scope
+from tests.unit.test_hc_scavenge import bind
 from tests.unit.test_group_server import EArray
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -139,6 +146,33 @@ class SurveyValidation(unittest.TestCase):
         )
         for reason, mutate in cases:
             self.assertEqual(reason, self.survey(mutate).HCRefusal(), reason)
+
+
+    def test_missing_or_null_collections_and_elements_are_named_refusals(self):
+        # Explicit synthetic JSON zero-fill: absent ref fields become null in Enforce.
+        for missing in (False, True):
+            for target, expected in (("routes", "PICKER_SURVEY_EMPTY"),
+                                     ("route", "PICKER_ROUTE_ID_INVALID"),
+                                     ("waypoints", "PICKER_ROUTE_WAYPOINTS"),
+                                     ("point", "PICKER_ROUTE_POINT_INVALID"),
+                                     ("following", "PICKER_ROUTE_POINT_INVALID")):
+                with self.subTest(target=target, missing=missing):
+                    data = json.loads(SURVEY.read_text())
+                    owner, key = data, "Routes"
+                    if target == "route":
+                        data["Routes"][0] = None
+                    elif target in ("point", "following"):
+                        data["Routes"][0]["Waypoints"][int(target == "following")] = None
+                    else:
+                        if target == "waypoints":
+                            owner, key = data["Routes"][0], "Waypoints"
+                        if missing:
+                            owner.pop(key)
+                        else:
+                            owner[key] = None
+                        # Model native missing-field zero-fill, not Python attribute errors.
+                        owner.setdefault(key, None)
+                    self.assertEqual(expected, refusal(to_ns(data)))
 
 
 class SurveyLookupAndLegs(unittest.TestCase):
@@ -275,7 +309,9 @@ class PickersModuleReadiness(unittest.TestCase):
 
     def readiness(self, trip_ready, survey, refusal="PICKER_SURVEY_UNAVAILABLE"):
         published = []
-        status = N(HCPublish=lambda state, reason: published.append((state, reason)))
+        status = N(HCPublish=lambda state, reason: published.append((state, reason)),
+                   HCState=lambda: published[-1][0] if published else "unknown",
+                   HCReason=lambda: published[-1][1] if published else "owner_state_unknown")
         run = method("HCPickers", "HCPublishReadiness")
         receiver = N(m_Trip=N(m_Ready=trip_ready) if trip_ready is not None else None, m_Survey=survey,
                      m_SurveyRefusal=refusal, m_Status=status)
@@ -300,6 +336,89 @@ class PickersModuleReadiness(unittest.TestCase):
         self.assertEqual(1, self.source.count("[HC Pickers] provider walk=unbound"))
         self.assertIn("HCWalkRefusal", self.source)
         self.assertNotIn('HCPublish("ready"', self.source.replace("m_Status.HCPublish(\"ready\", \"journal_and_survey_loaded\")", ""))
+
+
+class PickerOperationRegressions(unittest.TestCase):
+    """Authored module and trip methods over synthetic ports/journals; no DayZ evidence."""
+
+    def fixture(self):
+        publications, effects = [], []
+        status = N(HCPublish=lambda state, reason: publications.append((state, reason)),
+                   HCState=lambda: publications[-1][0] if publications else "unknown",
+                   HCReason=lambda: publications[-1][1] if publications else "owner_state_unknown")
+        port = N(Actor=object(), Source=object(), Home=object(), Item=object(), LeaseId="active-lease")
+        def clear():
+            effects.append("clear")
+            for key in ("Actor", "Source", "Home", "Item"):
+                setattr(port, key, None)
+            port.LeaseId = ""
+        def bind_port(*args):
+            clear()
+            effects.append("bind")
+            return False
+        port.HCClear, port.HCBindSurveyed = clear, bind_port
+        trip = N(m_IO=port, m_Ready=True, m_Busy=False,
+                 m_State=N(Phase="idle", LeaseId="active-lease", CargoOwner="source", Refusal=""),
+                 m_Store=N(Save=lambda row: False), HCLog=lambda: None)
+        bind(PICKERS.read_text(), "HCScavengeTrip", trip, ("HCCheckpoint",), {})
+        budget = N(HCReset=lambda cap: effects.append("budget"), HCTake=lambda cost: True,
+                   HCContinue=lambda: True)
+        module = N(m_Trip=trip, m_Survey=N(HCFind=lambda route: object()), m_SurveyRefusal="",
+                   m_Status=status, m_Units=budget, m_WorkBudget=budget)
+        for name in ("HCPublishReadiness", "HCBeginSurveyed", "OnTick"):
+            run = method("HCPickers", name, members=("HCPublishReadiness",),
+                         HCAIPartyIdentity=N(HCValid=lambda identity: True),
+                         HCSearchSupplyRegistry=N(PersistentId=lambda entity: "id"))
+            setattr(module, name, (lambda r: lambda *args: r(module, *args))(run))
+        return module, publications, effects
+
+    def test_rejected_start_preserves_all_handles_and_leases_without_binding(self):
+        for phase, busy in (("leaving", False), ("returning", False), ("idle", True),
+                            ("acquiring", True), ("returned", False), (None, False)):
+            with self.subTest(phase=phase, busy=busy):
+                module, published, effects = self.fixture()
+                trip, port = module.m_Trip, module.m_Trip.m_IO
+                trip.m_Busy = busy
+                trip.m_State.Phase = phase
+                if phase is None:
+                    trip.m_State = None
+                before = tuple(getattr(port, key) for key in ("Actor", "Source", "Home", "Item", "LeaseId"))
+                state_before = copy.deepcopy(trip.m_State)
+                result = module.HCBeginSurveyed(N(HCRouteId=lambda: "route"), "replacement-lease", object())
+                self.assertNotEqual("", result)
+                self.assertEqual(before, tuple(getattr(port, key) for key in ("Actor", "Source", "Home", "Item", "LeaseId")))
+                self.assertEqual(state_before, trip.m_State)
+                self.assertEqual([], effects, "rejected start must do no binding or budget work")
+
+    def test_tick_checkpoint_failure_refreshes_status_before_later_early_returns(self):
+        module, published, effects = self.fixture()
+        module.HCPublishReadiness()
+        module.m_Trip.m_State.Phase = "leaving"
+        module.m_Trip.HCStep = module.m_Trip.HCCheckpoint
+        module.OnTick(1.0)
+        self.assertFalse(module.m_Trip.m_Ready)
+        self.assertEqual([("ready", "journal_and_survey_loaded"),
+                          ("refused", "HC34_JOURNAL_UNAVAILABLE")], published)
+        module.OnTick(1.0)
+        module.HCPublishReadiness()
+        self.assertEqual(2, len(published), "unchanged status must not be republished")
+
+    def test_tick_refreshes_a_failure_observed_before_its_early_return(self):
+        module, published, effects = self.fixture()
+        module.HCPublishReadiness()
+        module.m_Trip.HCCheckpoint()
+        module.OnTick(1.0)
+        self.assertEqual(("refused", "HC34_JOURNAL_UNAVAILABLE"), published[-1])
+        self.assertEqual([], effects)
+
+    def test_begin_checkpoint_failure_refreshes_status(self):
+        module, published, effects = self.fixture()
+        module.HCPublishReadiness()
+        module.m_Trip.m_IO.HCBindSurveyed = lambda *args: True
+        module.m_Trip.HCLeave = lambda *args: module.m_Trip.HCCheckpoint()
+        self.assertEqual("PICKER_LEAVE_REFUSED", module.HCBeginSurveyed(
+            N(HCRouteId=lambda: "route"), "lease", object()))
+        self.assertEqual(("refused", "HC34_JOURNAL_UNAVAILABLE"), published[-1])
 
 
 if __name__ == "__main__":
