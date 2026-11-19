@@ -7,6 +7,7 @@ class HCGroupStore
     protected ref HCGroupSettings m_Settings;
     protected int m_Latest;
     protected bool m_Fault;
+    protected bool m_HCDamaged;
 
     bool Fault()
     {
@@ -85,16 +86,23 @@ class HCGroupStore
             found = FindNextFile(handle, filename, attr);
         }
         CloseFindFile(handle);
-        if (!valid || highestIntent < 1 || highestIntent != highestImage || highestImage != highestCommit) return Fault();
+        if (valid && count == 0)
+        {
+            state = new HCGroupState;
+            state.WorldName = GetGame().GetWorldName();
+            state.Revision = 1;
+            return Save(state);
+        }
+        if (!valid || highestIntent < 1 || highestIntent != highestImage || highestImage != highestCommit) { m_HCDamaged = true; return Fault(); }
         string imageText;
-        if (!HCGroupIO.Read(PathFor("state_", highestImage), settings.MaxStoreBytes, imageText)) return Fault();
+        if (!HCGroupIO.Read(PathFor("state_", highestImage), settings.MaxStoreBytes, imageText)) { m_HCDamaged = true; return Fault(); }
         string error;
         HCGroupReceipt receipt;
         HCGroupReceipt intentReceipt;
-        if (!HCGroupJson<HCGroupReceipt>.Load(PathFor("commit_", highestCommit), 1024, receipt) || !HCGroupJson<HCGroupReceipt>.Load(PathFor("intent_", highestIntent), 1024, intentReceipt) || !receipt || !intentReceipt) return Fault();
-        if (!JsonFileLoader<HCGroupState>.LoadData(imageText, state, error) || !HCGroupRules.StateValid(state, settings, GetGame().GetWorldName())) return Fault();
-        if (receipt.Version != 1 || intentReceipt.Version != 1 || receipt.WorldName != state.WorldName || intentReceipt.WorldName != state.WorldName || intentReceipt.Revision != receipt.Revision || intentReceipt.Length != receipt.Length || intentReceipt.Hash != receipt.Hash) return Fault();
-        if (!HCGroupRules.LatestComplete(highestIntent, highestImage, highestCommit, receipt.Revision, state.Revision, receipt.Length, imageText.Length(), receipt.Hash, imageText.Hash())) return Fault();
+        if (!HCGroupJson<HCGroupReceipt>.Load(PathFor("commit_", highestCommit), 1024, receipt) || !HCGroupJson<HCGroupReceipt>.Load(PathFor("intent_", highestIntent), 1024, intentReceipt) || !receipt || !intentReceipt) { m_HCDamaged = true; return Fault(); }
+        if (!JsonFileLoader<HCGroupState>.LoadData(imageText, state, error) || !HCGroupRules.StateValid(state, settings, GetGame().GetWorldName())) { m_HCDamaged = true; return Fault(); }
+        if (receipt.Version != 1 || intentReceipt.Version != 1 || receipt.WorldName != state.WorldName || intentReceipt.WorldName != state.WorldName || intentReceipt.Revision != receipt.Revision || intentReceipt.Length != receipt.Length || intentReceipt.Hash != receipt.Hash) { m_HCDamaged = true; return Fault(); }
+        if (!HCGroupRules.LatestComplete(highestIntent, highestImage, highestCommit, receipt.Revision, state.Revision, receipt.Length, imageText.Length(), receipt.Hash, imageText.Hash())) { m_HCDamaged = true; return Fault(); }
         HCGroupRules.MigrateExplorers(state);
         state.Invitations.Clear();
         m_Latest = state.Revision;

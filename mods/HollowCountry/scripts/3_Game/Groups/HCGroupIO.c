@@ -53,61 +53,74 @@ class HCGroupJson<Class T>
     }
 }
 
-// HC-28: lowest-layer durable/transient/native policy; 3_Game must not see
-// 4_World recovery DTOs. HCPersistenceDisposition fills this bounded gate before
-// admission. Existing group intent/image/commit revision validation is retained.
-// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397,417,425,443,462
-// FileExist/OpenFile/ReadFile/CloseFile/FPrint (above); EnString.c:199,240
-// Length/IndexOf and :223 Hash; EnDebug.c:96 Print. Readback is not fsync.
+// HC-28: per-store, session-local admission gates in the lowest script layer.
+// Native scripts-1.30.164289: EnSystem.c:397,417,425,443,462 (IO above);
+// EnString.c:199,240 Length/IndexOf; EnDebug.c:96 Print. No engine oracle.
 class HCRecoveryGate
 {
-    protected static bool s_Admitted;
+    protected static bool s_World;
+    protected static bool s_Escalation;
+    protected static bool s_Groups;
+    protected static bool s_WorldDamaged;
+    protected static bool s_EscalationDamaged;
+    protected static bool s_GroupsDamaged;
     protected static int s_Generation;
     protected static int s_Quarantine;
     protected static string s_Reason = "not_loaded";
-    protected static string s_GroupPath;
-    protected static int s_GroupLength;
-    protected static int s_GroupHash;
-    protected static bool s_GroupOpened;
 
     static void HCReset()
     {
-        s_Admitted = false;
+        s_World = false;
+        s_Escalation = false;
+        s_Groups = false;
+        s_WorldDamaged = false;
+        s_EscalationDamaged = false;
+        s_GroupsDamaged = false;
         s_Generation = 0;
-        s_Quarantine = 3;
+        s_Quarantine = 0;
         s_Reason = "not_loaded";
-        s_GroupPath = "";
-        s_GroupLength = 0;
-        s_GroupHash = 0;
-        s_GroupOpened = false;
     }
 
-    static void HCAdmit(int generation, string groupPath, int length, int checksum)
+    static void HCAdmit(int generation)
     {
         s_Generation = generation;
-        s_GroupPath = groupPath;
-        s_GroupLength = length;
-        s_GroupHash = checksum;
-        s_GroupOpened = false;
-        s_Admitted = true;
-        s_Quarantine = 0;
-        s_Reason = "operator_paired_restore";
+        s_World = true;
+        s_Escalation = true;
+        s_Groups = true;
+        s_Reason = "files_validate_independently";
     }
 
-    static bool HCRefuse(string reason)
+    static bool HCReady(string name)
     {
-        // Latch the first refusal and emit once; later feature failures must
-        // not obscure the native mismatch or create a per-tick log flood.
-        if (!s_Admitted && s_Reason != "not_loaded") { return false; }
-        // Fixed three high-risk stores, not a growing list of corrupt files.
-        s_Admitted = false;
-        s_Quarantine = 3;
-        s_Reason = reason;
-        Print("[HC Plan] HC-28 generation=" + s_Generation.ToString() + " recovery=quarantined quarantine=3 state=refused reason=" + s_Reason + " runtime=PENDING");
+        if (name == "world") { return s_World; }
+        if (name == "escalation") { return s_Escalation; }
+        if (name == "groups") { return s_Groups; }
         return false;
     }
 
-    static bool HCReady() { return s_Admitted; }
+    static void HCClose(string name)
+    {
+        if (name == "world") { s_World = false; }
+        if (name == "escalation") { s_Escalation = false; }
+        if (name == "groups") { s_Groups = false; }
+    }
+
+    static bool HCRefuse(string name, string reason)
+    {
+        HCClose(name);
+        bool reported = true;
+        if (name == "world") { reported = s_WorldDamaged; s_WorldDamaged = true; }
+        if (name == "escalation") { reported = s_EscalationDamaged; s_EscalationDamaged = true; }
+        if (name == "groups") { reported = s_GroupsDamaged; s_GroupsDamaged = true; }
+        if (!reported)
+        {
+            s_Quarantine++;
+            s_Reason = reason;
+            Print("[HC Plan] HC-28 store=" + name + " recovery=quarantined reason=" + reason + " files=preserved runtime=PENDING");
+        }
+        return false;
+    }
+
     static int HCGeneration() { return s_Generation; }
     static int HCQuarantined() { return s_Quarantine; }
     static string HCReason() { return s_Reason; }
@@ -120,36 +133,22 @@ class HCRecoveryGate
         return "unknown_refused";
     }
 
-    static bool HCProtected(string path)
+    static string HCStoreFor(string path)
     {
-        return path.IndexOf("$profile:HollowCountry/Groups/state/") == 0 || path.IndexOf("$profile:HollowCountry/world.json") == 0 || path.IndexOf("$profile:HollowCountry/escalation.json") == 0;
+        if (path.IndexOf("$profile:HollowCountry/Groups/state/") == 0) { return "groups"; }
+        if (path.IndexOf("$profile:HollowCountry/world.json") == 0) { return "world"; }
+        if (path.IndexOf("$profile:HollowCountry/escalation.json") == 0) { return "escalation"; }
+        return "";
     }
 
     static bool HCAllowRead(string path)
     {
-        if (!HCProtected(path)) { return true; }
-        return s_Admitted;
+        string name = HCStoreFor(path);
+        return name == "" || HCReady(name);
     }
 
-    static bool HCAllowWrite(string path)
-    {
-        if (!HCProtected(path)) { return true; }
-        if (!s_Admitted) { return false; }
-        // Missing group directory must never silently mint revision 1. Existing
-        // highest state has to pass the paired baseline before any group write.
-        if (path.IndexOf("$profile:HollowCountry/Groups/state/") == 0 && !s_GroupOpened) { return HCRefuse("group_baseline_not_opened"); }
-        return true;
-    }
-
-    static bool HCReadImage(string path, string text)
-    {
-        if (!HCProtected(path)) { return true; }
-        if (!s_Admitted) { return false; }
-        if (path.IndexOf("$profile:HollowCountry/Groups/state/state_") == 0 && !s_GroupOpened)
-        {
-            if (path != s_GroupPath || text.Length() != s_GroupLength || text.Hash() != s_GroupHash) { return HCRefuse("group_generation_mismatch"); }
-            s_GroupOpened = true;
-        }
-        return true;
-    }
+    static bool HCAllowWrite(string path) { return HCAllowRead(path); }
+    // Image/revision validation belongs to the actual store. Restore hashes
+    // are checked once by HCLoad, never pinned across normal gameplay saves.
+    static bool HCReadImage(string path, string text) { return HCAllowRead(path); }
 }

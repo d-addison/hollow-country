@@ -39,3 +39,56 @@ class HCGroupModule extends HCModule
         m_Service = null;
     }
 }
+
+// HC-28 wraps the existing service lifecycle. The base methods remain the
+// native RPC attach/detach owner; this link owns only recovery admission.
+modded class HCGroupModule
+{
+    override void OnStart(HCSettings settings)
+    {
+        HCPersistenceDisposition.HCStartStore("groups");
+        if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("groups"))
+        {
+            Print("[HC Plan] HC-28 store=groups state=refused runtime=PENDING");
+            return;
+        }
+        super.OnStart(settings);
+        if (!m_Service) { HCRecoveryGate.HCClose("groups"); }
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        if (HCRecoveryGate.HCReady("groups")) { super.OnTick(deltaTime); }
+        if (m_Service && !HCGroupService.Get()) { HCRecoveryGate.HCClose("groups"); }
+    }
+
+    override void OnStop()
+    {
+        super.OnStop();
+        HCPersistenceDisposition.HCStopStore("groups");
+    }
+}
+
+// Keep the existing immutable group revision protocol and its local m_Fault
+// quarantine. Close only this IO gate immediately on any store refusal; the
+// original store owns parse/partial/revision diagnostics and preserves files.
+modded class HCGroupStore
+{
+    override bool Fault()
+    {
+        if (m_HCDamaged) { HCRecoveryGate.HCRefuse("groups", "groups_parse_partial_or_revision_regression"); }
+        else { HCRecoveryGate.HCClose("groups"); }
+        return super.Fault();
+    }
+}
+
+// Service stops may originate in RPC/clock validation, outside module Stop.
+// Flush the healthy discovery batch before closing its own write gate.
+modded class HCGroupService
+{
+    override void Stop()
+    {
+        super.Stop();
+        HCRecoveryGate.HCClose("groups");
+    }
+}

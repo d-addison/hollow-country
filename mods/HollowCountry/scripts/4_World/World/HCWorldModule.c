@@ -42,6 +42,12 @@ class HCWorldModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (m_Running || !IsEnabled(settings)) { return; }
+        HCPersistenceDisposition.HCStartStore("world");
+        if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("world"))
+        {
+            Print("[HC Plan] HC-28 store=world state=refused runtime=PENDING");
+            return;
+        }
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("World", true, "EXP-P1", HCV2Gates.Qualified("EXP-P1")));
@@ -50,6 +56,7 @@ class HCWorldModule : HCModule
         int now = HCWorldClock.UTC();
         if (now < 1)
         {
+            HCRecoveryGate.HCClose("world");
             Print("[HollowCountry] V2 world unavailable: unsupported UTC clock");
             return;
         }
@@ -83,7 +90,7 @@ class HCWorldModule : HCModule
 
     override void OnTick(float deltaTime)
     {
-        if (!m_Running || !(deltaTime > 0)) { return; }
+        if (!m_Running || !HCRecoveryGate.HCReady("world") || !(deltaTime > 0)) { return; }
         // Long stalls never produce a burst of catch-up steps or saves.
         float elapsed = deltaTime;
         if (elapsed > 60) { elapsed = 60; }
@@ -107,7 +114,7 @@ class HCWorldModule : HCModule
 
     override void OnStop()
     {
-        if (!m_Running) { return; }
+        if (!m_Running) { HCPersistenceDisposition.HCStopStore("world"); return; }
         s_Instance = null;
         m_Running = false;
         // A staged checkpoint already in flight finishes first (its snapshot is valid); changes made
@@ -116,6 +123,7 @@ class HCWorldModule : HCModule
         if (m_Dirty) { m_SaveJob.HCDirty = true; }
         HCSaveScheduler.HCFlush(m_SaveJob);
         HCSaveScheduler.HCUnregister(m_SaveJob);
+        HCPersistenceDisposition.HCStopStore("world");
     }
 
     bool HCFlushRoutine()
