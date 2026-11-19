@@ -130,6 +130,8 @@ class CoreFixture:
         self.game = N(IsServer=lambda: True, GetTickTime=lambda: self.now)
         self.game.GetCallQueue = lambda category: N(CallLater=self.schedule, Remove=self.remove)
         self.env = dict(GetGame=lambda: self.game, Print=self.profile.logs.append,
+                        # SYNTHETIC HC-30 collaborator; real receipt paths run in test_hc_recovery_integrity.
+                        HCCommonRecoveryPolicy=N(HCReport=lambda enabled, admitted: None),
                         HCEventConfiguration=lambda: N(Load=lambda: N(Enabled=True)),
                         HCGroupStore=N(LoadSettings=lambda: N(Enabled=True)),
                         HCEventEcologyRuntimeIO=N(Settings=lambda: N(Enabled=True)),
@@ -284,6 +286,8 @@ class CombinedWorkTests(unittest.TestCase):
             craft_source = craft_source.replace(old, new)
         siphon_lifecycle = []  # Explicit synthetic collaborator for crafting hooks.
         craft_env = dict(HCCraftingGate=craft, HCCraftingNativeChecks=N(Run=lambda: True),
+                         HCCommonRecoveryPolicy=N(HCValidateRegistered=lambda: True,
+                                                  HCReport=lambda enabled, admitted: None),
                          HCActionSiphonFuel=N(
                              ProductionStart=lambda enabled: siphon_lifecycle.append(('start', enabled)),
                              ProductionStop=lambda: siphon_lifecycle.append(('stop', None))),

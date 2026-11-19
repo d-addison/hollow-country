@@ -27,17 +27,28 @@ class HCCraftingGate
 class HCCraftingModule extends HCModule
 {
     override string GetName() { return "Crafting"; }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableCrafting; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool enabled = settings && settings.EnableCrafting;
+        // Core reads admission once and skips OnStart for a disabled module.
+        if (!enabled)
+            HCCommonRecoveryPolicy.HCReport(false, false);
+        return enabled;
+    }
 
     override void OnStart(HCSettings settings)
     {
         HCCraftingGate.m_Started = false;
         HCCraftingGate.m_Validated = false;
-        if (!GetGame() || !GetGame().IsServer() || !IsEnabled(settings))
+        if (!GetGame() || !GetGame().IsServer() || !settings || !settings.EnableCrafting)
+        {
+            HCCommonRecoveryPolicy.HCReport(false, false);
             return;
-        HCCraftingGate.m_Validated = HCCraftingNativeChecks.Run();
+        }
+        HCCraftingGate.m_Validated = HCCraftingNativeChecks.Run() && HCCommonRecoveryPolicy.HCValidateRegistered();
         HCCraftingGate.m_Started = HCCraftingGate.m_Validated;
-        HCActionSiphonFuel.ProductionStart(IsEnabled(settings) && HCCraftingGate.m_Validated);
+        HCActionSiphonFuel.ProductionStart(HCCraftingGate.m_Validated);
+        HCCommonRecoveryPolicy.HCReport(true, HCCraftingGate.m_Validated);
         if (!HCCraftingGate.m_Validated)
             Print("[HollowCountry] Crafting native definition/config checks FAILED; salvage disabled");
         else
