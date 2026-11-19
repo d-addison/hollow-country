@@ -244,8 +244,9 @@ class HCSituationDirector
             HCSituationState row = m_State.Stories.HCFirstSurvivor;
             if (row && (row.Phase == "intent" || row.Phase == "active"))
             {
-                if (!m_Fault) { HCFinish("unknown"); }
-                m_Actors.HCEnd(row);
+                bool ended = false;
+                if (!m_Fault) { ended = HCFinish("unknown"); }
+                if (!ended) { m_Actors.HCEnd(row); }
             }
         }
         m_Enabled = false;

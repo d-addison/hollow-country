@@ -23,7 +23,7 @@
 // 1_Core/proto/EnDebug.c:96 Print; 3_Game/DayZGame.c:4076 GetDayZGame; gameplay.c:636 GetGame.
 // 5_Mission/mission/missionGameplay.c:102,266,287 OnInit/OnMissionFinish/OnUpdate.
 // Existing project ports: HCGroupIO (bounded read/write with readback).
-// Read-only inputs.xml: UAHollowCountryEvents = kO. Group gameplay uses UAMapToggle.
+// Group gameplay uses UAMapToggle; the retired event input is no longer bound.
 // First hour means accumulated playtime since this client first sees this character.
 // API presence is source evidence only; native compile, reconnect and EXP-POL-1 pending.
 class HCHintState

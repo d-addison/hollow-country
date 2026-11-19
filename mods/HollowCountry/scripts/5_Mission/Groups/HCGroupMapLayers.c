@@ -130,7 +130,6 @@ class HCGroupMapLayers
         HCEventClient events = HCEventClient.Get();
         if (!events || !events.Fresh())
         {
-            mHCEvents.AddItem("Missions: waiting for fresh known events", null, 0);
             return;
         }
         HCEventPublicView known = events.GetView();

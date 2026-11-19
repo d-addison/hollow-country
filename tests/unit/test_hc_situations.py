@@ -168,10 +168,25 @@ class SituationBehavior(unittest.TestCase):
         stopped.owner.HCStep(100)
         stopped.owner.HCClose()
         self.assertEqual('unknown', stopped.images[-1].Stories.HCFirstSurvivor.Outcome)
+        self.assertEqual(1, sum(call[0] == 'end' for call in stopped.calls),
+                         'close releases the actor binding exactly once')
         stop_count = len(stopped.calls)
         stopped.owner.HCStep(101)
         stopped.owner.HCClose()
         self.assertEqual(stop_count, len(stopped.calls), 'stop is idempotent and off does no work')
+        # Failed closure barriers still release the observation binding once.
+        # No durable success or actor outcome is inferred from the failure.
+        for fault_before_close in (False, True):
+            uncertain = director_fixture()
+            uncertain.owner.HCOffer(uncertain.state.Chains[0])
+            uncertain.owner.HCStep(100)
+            uncertain.owner.m_Fault = fault_before_close
+            uncertain.owner.m_Store.Save = lambda state: False
+            uncertain.owner.HCClose()
+            self.assertTrue(uncertain.owner.m_Fault)
+            self.assertFalse(uncertain.owner.m_Enabled)
+            self.assertEqual(1, sum(call[0] == 'end' for call in uncertain.calls))
+            self.assertEqual('active', uncertain.images[-1].Stories.HCFirstSurvivor.Phase)
         off = director_fixture(enabled=False)
         off.owner.HCStep(100)
         self.assertFalse(off.owner.HCOffer(off.state.Chains[0]))
