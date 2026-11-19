@@ -6,6 +6,25 @@
 // IDs are reconciliation ports for the core ledger, never HCWorld types.
 class HCXFactions
 {
+    // HC-37 finite boundary mapping for the server outcome adapter. Unknown
+    // provider factions never acquire a ledger identity or become opponents.
+    // No change to native targeting, HC-5 surrender/warning/betrayal priority.
+    static string HCWorldId(string id)
+    {
+        if (id == "Locals") { return "locals"; }
+        if (id == "Volunteers") { return "volunteers"; }
+        if (id == "Scavengers") { return "scavengers"; }
+        if (id == "Raiders") { return "raiders"; }
+        if (id == "Travellers") { return "travellers"; }
+        return "";
+    }
+
+    static bool HCEncounterPair(string left, string right)
+    {
+        if (!Known(left) || !Known(right)) { return false; }
+        return Relation(left, right) == -1;
+    }
+
     static bool Known(string id)
     {
         return id == "Locals" || id == "Volunteers" || id == "Scavengers" || id == "Raiders" || id == "Travellers";
