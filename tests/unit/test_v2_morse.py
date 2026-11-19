@@ -18,11 +18,12 @@ class MorseSmoke(unittest.TestCase):
             self.assertEqual(expected, allowed(None, now, last, count))
         root = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts"
         source = (root / "4_World/Leads/HCMorseClues.c").read_text()
-        self.assertIn("rpc.Send(player, HCMorseRpc.CLUE, true, identity)", source)
-        self.assertIn("radio.IsReceiving()", source)
-        self.assertIn("GetQuickBarEntity", source)
-        self.assertIn("HCEventDirector.Terminal(record.Status)", source)
-        self.assertIn('ledger.AddFact("morse_lead", place, 0)', source)
+        # HC-20 folds Morse into environmental radio: no holder RPC, no event
+        # director coupling, no module registration, an explicit off status.
+        self.assertNotIn("rpc.Send(", source)
+        self.assertNotIn("HCEventDirector", source)
+        self.assertNotIn("Register(new HCMorseClues)", source)
+        self.assertIn('m_Status.HCPublish("off", "folded_into_radio")', source)
 
 
 if __name__ == "__main__":
