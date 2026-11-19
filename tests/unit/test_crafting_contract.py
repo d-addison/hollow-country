@@ -130,17 +130,23 @@ class CraftingContractTests(unittest.TestCase):
                         queue.append(nxt)
         self.assertGreater(len(seen), 50)
 
-    def test_registration_is_identical_and_unconditional_on_both_peers(self):
+    def test_registration_is_identical_on_both_peers_with_only_config_preflight_guards(self):
         path = CRAFTING / "HCRecipeRegistration.c"
         self.assertTrue(path.exists(), "native client/server registration required")
         source = path.read_text()
         self.assertIn("modded class PluginRecipesManager", source)
         self.assertIn("override void RegisterRecipies()", source)
-        self.assertNotRegex(source, r'\bif\s*\(')
+        self.assertNotRegex(source, r'IsServer\(|IsClient\(|HCSettings|EnableCrafting|HCCraftingGate')
         registrations = re.findall(r'RegisterRecipe\(new ((?:HCRecover|HCSalvage)\w+)\);', source)
-        self.assertEqual(Counter(p['class'] for p in self.fixture['pilots']), Counter(registrations))
+        common = ['HCRecoverTeddyRag', 'HCRecoverFabricRag']
+        self.assertEqual(Counter([p['class'] for p in self.fixture['pilots']] + common), Counter(registrations))
+        for name in common:
+            self.assertRegex(source, r'if \(HCCommonRecoveryPolicy\.HCPreflight\("' + name +
+                             r'"\)\)\s*RegisterRecipe\(new ' + name + r'\);')
+        self.assertEqual(2, len(re.findall(r'\bif\s*\(', source)))
         positions = [source.index("super.RegisterRecipies();")]
         positions += [source.index("RegisterRecipe(new " + p["class"] + ");") for p in self.fixture["pilots"]]
+        positions += [source.index('RegisterRecipe(new ' + name + ');') for name in common]
         self.assertEqual(sorted(positions), positions)
 
     def test_native_server_only_commit_and_explicit_recipe_fields(self):

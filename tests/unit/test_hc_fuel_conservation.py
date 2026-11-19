@@ -379,6 +379,9 @@ class RoundTwoTests(unittest.TestCase):
         service = world.ns["HCActionSiphonFuel"]
         context = dict(GetGame=lambda: world.game, HCCraftingGate=gate,
                        HCCraftingNativeChecks=NS(Run=lambda: valid),
+                       # SYNTHETIC HC-30 collaborator; its real validation/report has focused coverage.
+                       HCCommonRecoveryPolicy=NS(HCValidateRegistered=lambda: True,
+                                                 HCReport=lambda enabled, admitted: None),
                        HCActionSiphonFuel=NS(ProductionStart=lambda preference: calls.append(preference),
                                             ProductionStop=service.ProductionStop), Print=world.prints.append)
         context.update(HCModule=object, tostr=lambda value: value.ToString())

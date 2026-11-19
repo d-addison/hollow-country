@@ -227,6 +227,8 @@ class ClaimReviewBehavior(unittest.TestCase):
         events = []
         recipes = re.findall(r'RegisterRecipe\(new (\w+)\)', source)
         env = dict(super=NS(RegisterRecipies=lambda: events.append('native')),
+                   # SYNTHETIC HC-30 config admission; this test owns construction removal only.
+                   HCCommonRecoveryPolicy=NS(HCPreflight=lambda name: True),
                    UnregisterRecipe=lambda name: events.append(name), RegisterRecipe=lambda recipe: None)
         env.update({name: lambda: object() for name in recipes})
         run(source, 'RegisterRecipies', NS(), env)

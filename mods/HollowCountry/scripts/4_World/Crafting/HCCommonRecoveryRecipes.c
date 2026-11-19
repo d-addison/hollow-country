@@ -1,4 +1,4 @@
-// HC-30: two approved recoveries. Registration/startup wiring belongs to lead.
+// HC-30: two approved recoveries, registered by deterministic config preflight.
 // Native references below are relative to scripts-1.30.164289 (N3 unless noted).
 // RecipeBase.c:159-168,198 defines ingredient/result registration;
 // :373-425 debits quantities or destroys inputs, :479-539 owns completion.
@@ -53,12 +53,12 @@ class HCCommonRecoveryPolicy
             return false;
         if (!GetGame().ConfigIsExisting("CfgVehicles Rag") || GetGame().ConfigGetInt("CfgVehicles Rag scope") != 2)
         {
-            Print("[HC Plan] HC-30 refusal=HC30_RESULT_CONFIG_MISSING recipe=" + recipeName);
+            Print("[HollowCountry] HC-30 refusal=HC30_RESULT_CONFIG_MISSING recipe=" + recipeName);
             return false;
         }
         if (GetGame().ConfigGetFloat("CfgVehicles Rag varQuantityMax") < 1)
         {
-            Print("[HC Plan] HC-30 refusal=HC30_RESULT_CAPACITY recipe=" + recipeName);
+            Print("[HollowCountry] HC-30 refusal=HC30_RESULT_CAPACITY recipe=" + recipeName);
             return false;
         }
         for (int i = 0; i < count; i++)
@@ -66,23 +66,23 @@ class HCCommonRecoveryPolicy
             string path = "CfgVehicles " + HCCommonRecoveryPolicy.HCSourceAt(recipeName, i);
             if (!GetGame().ConfigIsExisting(path) || GetGame().ConfigGetInt(path + " scope") != 2)
             {
-                Print("[HC Plan] HC-30 refusal=HC30_SOURCE_CONFIG_MISSING recipe=" + recipeName);
+                Print("[HollowCountry] HC-30 refusal=HC30_SOURCE_CONFIG_MISSING recipe=" + recipeName);
                 return false;
             }
             if (GetGame().ConfigGetFloat(path + " ragQuantity") > 0)
             {
-                Print("[HC Plan] HC-30 refusal=HC30_NATIVE_RAG_ROUTE recipe=" + recipeName);
+                Print("[HollowCountry] HC-30 refusal=HC30_NATIVE_RAG_ROUTE recipe=" + recipeName);
                 return false;
             }
             float capacity = GetGame().ConfigGetFloat(path + " varQuantityMax");
             if (recipeName == "HCRecoverFabricRag" && capacity < 1)
             {
-                Print("[HC Plan] HC-30 refusal=HC30_SOURCE_QUANTITY_DRIFT recipe=" + recipeName);
+                Print("[HollowCountry] HC-30 refusal=HC30_SOURCE_QUANTITY_DRIFT recipe=" + recipeName);
                 return false;
             }
             if (recipeName == "HCRecoverTeddyRag" && capacity > 0)
             {
-                Print("[HC Plan] HC-30 refusal=HC30_SOURCE_QUANTITY_DRIFT recipe=" + recipeName);
+                Print("[HollowCountry] HC-30 refusal=HC30_SOURCE_QUANTITY_DRIFT recipe=" + recipeName);
                 return false;
             }
         }
@@ -92,7 +92,7 @@ class HCCommonRecoveryPolicy
             string toolPath = "CfgVehicles " + HCSalvageTools.ToolAt("KitchenKnife", toolIndex);
             if (!GetGame().ConfigIsExisting(toolPath) || GetGame().ConfigGetInt(toolPath + " scope") != 2)
             {
-                Print("[HC Plan] HC-30 refusal=HC30_TOOL_CONFIG_MISSING recipe=" + recipeName);
+                Print("[HollowCountry] HC-30 refusal=HC30_TOOL_CONFIG_MISSING recipe=" + recipeName);
                 return false;
             }
         }
@@ -150,7 +150,7 @@ class HCCommonRecoveryPolicy
         return HCCommonRecoveryPolicy.HCCheckDefinition(recipe, recipeName);
     }
 
-    // Lead calls from HCCraftingModule.OnStart after HC-4 Run succeeds and
+    // HCCraftingModule.OnStart calls after HC-4 Run succeeds and
     // before setting HCCraftingGate.m_Started; existing audit ports stay intact.
     // GetPlugin: 4_World/Plugins/PluginManager.c:327; native class/ID lookup:
     // Plugins/PluginBase/PluginRecipesManager.c:470-475; HC-4 validates ID too.
@@ -191,9 +191,6 @@ class HCCommonRecoveryPolicy
         refused = refused + 2 - recoveries;
         string state = "refused";
         if (recoveries == 2 && nativeReused == 3) state = "ready";
-        Print("[HC Plan] HC-30 refusal=HC30_SOURCE_CLASS_UNVERIFIED candidate=WoodenMallet");
-        Print("[HC Plan] HC-30 refusal=HC30_SOURCE_CLASS_UNVERIFIED candidate=HockeyStick_Black");
-        Print("[HC Plan] HC-30 refusal=HC30_MATERIAL_UNPROVEN candidate=HockeyStick");
         Print(string.Format("[HC Plan] HC-30 recoveries=%1 native_reused=%2 refused=%3 state=%4 authored=2 observed=0 runtime=PENDING", recoveries, nativeReused, refused, state));
     }
 }

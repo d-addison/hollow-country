@@ -21,5 +21,12 @@ modded class PluginRecipesManager
         RegisterRecipe(new HCRecoverRuinedLargeLeather);
         RegisterRecipe(new HCRecoverRuinedBatWood);
         RegisterRecipe(new HCRecoverRuinedNailedBat);
+        // Native PluginRecipesManagerBase.c:11,17-18 accepts RecipeBase/new X;
+        // PluginRecipesManager.c:443-453 stores that instance and assigns its ID.
+        // Identical config-only preflight/order on every peer, never settings.
+        if (HCCommonRecoveryPolicy.HCPreflight("HCRecoverTeddyRag"))
+            RegisterRecipe(new HCRecoverTeddyRag);
+        if (HCCommonRecoveryPolicy.HCPreflight("HCRecoverFabricRag"))
+            RegisterRecipe(new HCRecoverFabricRag);
     }
 }

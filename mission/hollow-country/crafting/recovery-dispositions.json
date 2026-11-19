@@ -5,14 +5,14 @@
   "trace": {
     "spec": "HC-30 task brief: native-first useful material recovery; HC-4 integrity and HC-22 supply dependencies",
     "plan": "Approve two exact finite rag recoveries; reuse native cloth/stick routes; refuse unverified source/material proposals",
-    "task": "HC-30 source/package slice; lead owns deterministic registration and startup validation/receipt wiring",
+    "task": "HC-30 source/package slice and round-2 integration: deterministic guarded registration, startup validation and one admission receipt",
     "required_spec_paths": "docs/SPECIFICATION.md and docs/specs/001-survival-overhaul/spec.md absent from assigned checkout",
     "supply_dispositions": "config/loot-dispositions.json (HC-22, consumed unchanged)",
     "supply_policy": "tools/package/economy.py (consumed unchanged); no CE/floor supply admission added"
   },
   "runtime_acceptance": "pending",
   "production_enablement": "pending-native-qualification",
-  "registration": "pending-lead-integration",
+  "registration": "source-wired-config-preflight; native-qualification-pending",
   "manifest_role": "Authored disposition/evidence metadata, not a runtime recipe loader or an accepted native receipt",
   "authored_counts": {"recoveries": 2, "native_reused": 3, "refused": 3},
   "observed_crafts": 0,
@@ -53,7 +53,7 @@
         "4_World/Classes/Recipes/Recipes/CraftRag.c:68,90-94,104: Inventory_Base source with positive effective ragQuantity; Rags_craft is a sound category",
         "Installed DayZServer/addons/gear_consumables.pbo config.bin: Rag scope=2, varQuantityMax=6; no assets copied"
       ],
-      "admission": "pending-lead-preflight-and-native-qualification"
+      "admission": "source-wired-config-preflight; native-qualification-pending"
     },
     {
       "id": "fabric-rag",
@@ -69,7 +69,7 @@
         "4_World/Classes/Recipes/RecipeBase.c:373-425: quantity debit through AddQuantity with destruction on exhaustion",
         "4_World/Classes/Recipes/Recipes/CraftRag.c:90-94: positive effective ragQuantity would use native route instead"
       ],
-      "admission": "pending-lead-preflight-and-native-qualification"
+      "admission": "source-wired-config-preflight; native-qualification-pending"
     },
     {
       "id": "native-cloth-rags",
@@ -125,7 +125,7 @@
     }
   ],
   "pending_native_scenarios": [
-    "Exact-source DayZDiag compile/boot; no script or CE errors; verify preflight and bounded HC-30 receipt after lead wiring",
+    "Exact-source DayZDiag compile/boot; no script or CE errors; verify preflight and exactly one HC-30 plan receipt per boot",
     "Normal signed PBO/server: each exact Teddy colour and Fabric with each registered cutting tool; exact source/PBO/mission/config/dependency hashes",
     "Fabric stack of four yields one Rag and remainder three; stack of one exhausts once; empty/fractional-under-one refused",
     "Full hands/inventory allocation and fallback, failed allocation, cancellation, source/tool removal and simultaneous completion",
