@@ -1,6 +1,6 @@
-// Fixed owned paths; bounded parsing and readback, no globbing, fallback, rename
-// or claimed fsync. An interrupted overwrite leaves pending-<world>.json: next admission
-// fails closed and preserves both files for operator recovery.
+// Fixed owned paths; bounded parsing and readback, no globbing or claimed fsync.
+// Startup archives leftover pending bytes before admitting the promoted image.
+// Invalid images and failed quarantine remain refused; no pending-image replay.
 class HCEcologyRuntimeIO
 {
 	static string Read(string path, int limit)
@@ -142,8 +142,28 @@ class HCEcologyRuntimeStore
 		if (!FileExist(m_Root) && !MakeDirectory(m_Root)) { return null; }
 		// Keyed by world: another map's checkpoint never blocks or is touched.
 		string imagePath = m_Root + "/state-" + worldName + ".json";
+		string pendingName = "pending-" + worldName + ".json";
+		string pendingPath = m_Root + "/" + pendingName;
+		bool pending = FileExist(pendingPath);
+		if (pending)
+		{
+			// HC-28 logical rename: verified archive before removing the active name.
+			// No native rename exists. EnSystem.c:528/531 DeleteFile/CopyFile;
+			// HCGroupClock.Utc uses EnSystem.c:76/100 UTC time/date.
+			int now = HCGroupClock.Utc();
+			string suffix = ".quarantined-" + now.ToString();
+			bool archived = false;
+			if (now > 0) { archived = HCPersistenceDisposition.HCArchive(pendingPath, suffix, 2048); }
+			if (!archived || !DeleteFile(pendingPath) || FileExist(pendingPath))
+			{
+				m_Fault = true;
+				Print("[HC Ecology] state=refused reason=pending_quarantine_failed runtime=PENDING");
+				return null;
+			}
+			pending = false;
+			Print("[HC Ecology] recovery=quarantined reason=leftover_pending path=" + pendingName + suffix + " runtime=PENDING");
+		}
 		bool image = FileExist(imagePath);
-		bool pending = FileExist(m_Root + "/pending-" + worldName + ".json");
 		HCEcologyCheckpoint prior;
 		bool valid = false;
 		if (image)
