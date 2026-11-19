@@ -1,20 +1,13 @@
-// Native: 3_Game/Global/Game.c:703 CreateObjectEx, :705 ObjectDelete, :1120 IsServer,
-// :1176 SurfaceY; 3_Game/CE/CentralEconomy.c:30 ECE_NOLIFETIME, :31 ECE_NOPERSISTENCY_WORLD,
-// :38 ECE_PLACE_ON_SURFACE; 3_Game/Systems/Inventory/Inventory.c:143 CreateEntityInCargo;
-// 4_World/Entities/ItemBase/Gear/Containers/containers.c SmallProtectorCase : Container_Base.
-// Barrel_ColorBase.c:15 starts closed, :87 Open, :512 requires open cargo;
-// EntityAI.c:3064 SetSynchDirty (net-sync state), ItemBase.c:4124 virtual Open.
-// Server-created once per site and session, AFTER the grant is journaled by HCEventRewardLedger.
-// ECE_NOPERSISTENCY_WORLD (3_Game/CE/CentralEconomy.c:31 "do not save this object in world") only
-// means the case container is not saved in the world. It does not cover character persistence
-// (ECE_NOPERSISTENCY_CHAR, :32, deliberately not set: a case a player holds is theirs). Items a
-// player takes are ordinary loot and may persist on a character across a restart while the new
-// boot replenishes its per-session allowance; that overlap is accepted and bounded by the cap.
-// The case keeps ECE_NOLIFETIME and is never deleted by this module once registered, so loot
-// a player has dropped is never destroyed. Case cargo capacity is UNOBSERVED: a partial fill is
-// kept and logged, an empty case is deleted. Local acceptance of creation is PENDING.
-// Same journal/spawner protocol, separate finite allowance so the three supply
-// cases keep their existing budget. Two barrels, six mission items per boot.
+// #147 physical spoils: expose existing CE/camp stock in place. No item mint,
+// move, quantity write, grant prompt or deletion. Taking loot is native inventory.
+// Items a player takes are ordinary loot; native persistence remains authoritative.
+// Native scripts-1.30.164289: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D,
+// :1120 IsServer; Entities/Object.c:215 IsPendingDeletion, :287 GetPosition;
+// Entities/EntityAI.c:882/885 hierarchy; Inventory.c:138 GetCargo;
+// 3_Game/Systems/Inventory/Cargo.c:28 GetItemCount, :33 GetItem;
+// Object.c:467 GetType; EnConvert.c:210 DistanceSq; EnScript.c:380/407 Count/Insert.
+// Existing journal API remains for older callers; this path never replenishes
+// an allowance on restart. A real container can be referenced twice, never cloned.
 class HCEventPoliceRewardIO : HCEventRewardIO
 {
     void HCEventPoliceRewardIO()
@@ -54,7 +47,8 @@ class HCEventCacheSpawner
             pool.Entries.Insert(HCEventRewardPools.Entry("SodaCan_Cola", 2));
             pool.Entries.Insert(HCEventRewardPools.Entry("MetalWire", 2));
             s_PoliceLedger = new HCEventRewardLedger;
-            s_PoliceLedger.Configure(new HCEventPoliceRewardIO, pool);
+            HCEventPoliceRewardIO policeIO = new HCEventPoliceRewardIO;
+            s_PoliceLedger.Configure(policeIO, pool);
         }
         return s_PoliceLedger;
     }
@@ -86,9 +80,8 @@ class HCEventCacheSpawner
         if (!HCEventRuntimePolicy.MissionValid(mission, mission.WorldName)) { return null; }
         return Spawn(mission, mission.Source, mission.ItemClass, false);
     }
-    // Shared native creation path for both allowances; every creation is journaled.
-    // Ready/observation use a 3D radius around Source; refuse before any journal write
-    // when the point would not stay observable. Returns vector.Zero on refusal.
+    // Legacy terrain helper retained for caller compatibility. Physical stock
+    // lookup never materializes at this point or alters its native owner.
     static vector SpawnPosition(HCEventMission mission, vector anchor, bool police)
     {
         float height = GetGame().SurfaceY(anchor[0], anchor[2]);
@@ -122,70 +115,86 @@ class HCEventCacheSpawner
     }
     static HCEventTarget Spawn(HCEventMission mission, vector anchor, string containerClass, bool police)
     {
-        vector position = SpawnPosition(mission, anchor, police);
-        if (position == vector.Zero) { return null; }
-        HCEventRewardPlan plan;
-        if (police) { plan = PoliceLedger().Commit(mission.SiteId); }
-        else { plan = HCEventRewards.Ledger().Commit(mission.SiteId); }
-        if (!plan) { return null; }
-        int flags = ECE_PLACE_ON_SURFACE | ECE_NOPERSISTENCY_WORLD | ECE_NOLIFETIME;
-        Object created = GetGame().CreateObjectEx(containerClass, position, flags);
-        ItemBase cache = ItemBase.Cast(created);
-        if (!cache)
+        if (!mission || !GetGame() || !GetGame().IsServer()) { return null; }
+        if (!HCEventSitesGate.Admitted()) { return null; }
+        if (!HCPhysicalEnabled()) { return null; }
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        if (!policy) { return null; }
+        if (!HCServer.HCTickWork().HCTake(8)) { return null; }
+        array<Object> nearby = new array<Object>;
+        array<CargoBase> proxies = new array<CargoBase>;
+        GetGame().GetObjectsAtPosition3D(anchor, mission.Radius, nearby, proxies);
+        int remaining = policy.PhysicalScanObjects;
+        foreach (Object candidate : nearby)
         {
-            if (created) { GetGame().ObjectDelete(created); }
-            Print("[HC Events] reward cache creation failed; grant stays spent for this session");
-            return null;
-        }
-        if (police)
-        {
-            // Native barrel cargo admission requires an open lid. Synchronize the
-            // new container's state; no synthetic audio/action or forced player move.
-            cache.Open();
-            cache.SetSynchDirty();
-        }
-        int made = 0;
-        foreach (string className : plan.Items)
-        {
-            ItemBase cargo = null;
-            if (cache.GetInventory()) { cargo = ItemBase.Cast(cache.GetInventory().CreateEntityInCargo(className)); }
-            if (cargo)
+            if (remaining <= 0) { break; }
+            remaining = remaining - 1;
+            ItemBase cache = ItemBase.Cast(candidate);
+            if (!HCPhysicalStock(cache) || cache.GetType() != containerClass) { continue; }
+            if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
+            if (police)
             {
-                made = made + 1;
-                if (police)
+                CargoBase cargo = cache.GetInventory().GetCargo();
+                int count = cargo.GetItemCount();
+                if (count > policy.PhysicalScanCargo) { count = policy.PhysicalScanCargo; }
+                int index = 0;
+                while (index < count)
                 {
-                    int family = HCEventFamily.RECOVERY;
-                    if (className == "SodaCan_Cola") { family = HCEventFamily.DELIVERY; }
-                    if (className == "MetalWire") { family = HCEventFamily.STATIC_SALVAGE; }
+                    ItemBase item = ItemBase.Cast(cargo.GetItem(index));
+                    index = index + 1;
+                    if (!item || item.IsRuined()) { continue; }
+                    int family = 0;
+                    if (item.GetType() == "BandageDressing") { family = HCEventFamily.RECOVERY; }
+                    if (item.GetType() == "SodaCan_Cola") { family = HCEventFamily.DELIVERY; }
+                    if (item.GetType() == "MetalWire") { family = HCEventFamily.STATIC_SALVAGE; }
+                    if (family == 0) { continue; }
+                    string targetId = mission.SiteId + "-" + family.ToString();
+                    if (PoliceTarget(targetId)) { continue; }
                     HCEventTarget supply = new HCEventTarget;
-                    supply.MissionId = mission.SiteId + "-" + family.ToString();
-                    supply.Item = cargo;
+                    supply.MissionId = targetId;
+                    supply.Item = item;
                     supply.DeliveryContainer = cache;
-                    if (!s_PoliceTargets) { s_PoliceTargets = new array<ref HCEventTarget>(); }
+                    if (!s_PoliceTargets) { s_PoliceTargets = new array<ref HCEventTarget>; }
                     s_PoliceTargets.Insert(supply);
                 }
             }
+            HCEventTarget result = new HCEventTarget;
+            result.MissionId = mission.Id;
+            result.Item = cache;
+            result.Presence = cache;
+            return result;
         }
-        int wanted = plan.Items.Count();
-        if (made < 1)
-        {
-            GetGame().ObjectDelete(cache);
-            Print("[HC Events] reward cache held no content; removed, grant stays spent for this session");
-            return null;
-        }
-        Print("[HC Events] reward cache created site " + mission.SiteId + " items " + made.ToString() + "/" + wanted.ToString());
-        HCEventTarget result = new HCEventTarget;
-        result.MissionId = mission.Id;
-        result.Item = cache;
-        result.Presence = cache;
-        return result;
+        HCPhysicalPending();
+        return null;
     }
-    // Only for a cache that could not be registered; never for one a player may hold.
-    static void Discard(ItemBase cache)
+
+    protected static bool s_PhysicalPendingPrinted;
+    protected static bool s_PhysicalAdmissionPrinted;
+    static bool HCPhysicalEnabled()
     {
-        if (cache && !cache.IsPendingDeletion() && !cache.GetHierarchyRootPlayer() && !cache.GetHierarchyParent())
+        bool enabled = !FileExist("$profile:HollowCountry/acceptance/w38_rewards.disable");
+        if (!s_PhysicalAdmissionPrinted)
         {
-            GetGame().ObjectDelete(cache);
+            s_PhysicalAdmissionPrinted = true;
+            Print(HCV2Admission.Line("PhysicalSpoils", enabled, "w38_rewards", false) + " runtime=PENDING");
         }
+        return enabled;
     }
+
+    static void HCPhysicalPending()
+    {
+        if (s_PhysicalPendingPrinted) { return; }
+        s_PhysicalPendingPrinted = true;
+        Print("[HC Events] physical_stock=waiting EXISTING_CE_CAMP_STOCK_PENDING runtime=PENDING");
+    }
+
+    static bool HCPhysicalStock(ItemBase cache)
+    {
+        if (!cache || cache.IsPendingDeletion() || cache.IsRuined()) { return false; }
+        if (cache.GetHierarchyRootPlayer() || cache.GetHierarchyParent() || !cache.GetInventory()) { return false; }
+        CargoBase cargo = cache.GetInventory().GetCargo();
+        return cargo && cargo.GetItemCount() > 0;
+    }
+    // Borrowed physical stock always stays with its native owner.
+    static void Discard(ItemBase cache) {}
 }

@@ -161,7 +161,7 @@ class HCSituationDirector
         if (m_Rows.Count() >= HCSituationLimits.MAX_PROFILE_ROWS || HCFind(profile)) { return; }
         HCSituationProfileRow slot = new HCSituationProfileRow;
         slot.Profile = profile;
-        slot.Enabled = profile == "survivor";
+        slot.Enabled = true;
         m_Rows.Insert(slot);
     }
 
@@ -366,7 +366,6 @@ class HCSituationDirector
         if (row.Phase == "pending")
         {
             if (slot.Attempted) { return; }
-            slot.Attempted = true;
             slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
             if (!slot.Actors.HCReady())
             {
@@ -389,6 +388,7 @@ class HCSituationDirector
                 }
                 return;
             }
+            slot.Attempted = true;
             row.Lease = lease;
             row.Phase = "intent";
             if (slot.Profile == "survivor") { m_Effective = "ready"; m_Reason = "observed_actor_port_ready"; }
@@ -410,6 +410,19 @@ class HCSituationDirector
         if (now < m_State.LastNow || now > 999000000) { return; }
         m_Units.HCReset(1);
         m_Work.HCReset(1);
+        // A live provider may settle after HC-19's one startup offer. Revisit
+        // one of its bounded retained chains; unused profiles alone can write.
+        // Closed history is never refilled and an unready port performs no save.
+        bool needsOffer = false;
+        array<ref HCSituationProfileRow> waitingRows = m_Rows;
+        foreach (HCSituationProfileRow waiting : waitingRows)
+        {
+            if (waiting.Enabled && !waiting.Opportunity) { needsOffer = true; }
+        }
+        if (needsOffer && m_State.Chains && m_State.Chains.Count() > 0)
+        {
+            HCOffer(m_State.Chains[m_Cursor % m_State.Chains.Count()]);
+        }
         // Find one retained nonterminal row; bounded by the five-profile cap.
         // Empty/off rows cost no actor calls; survivor-only cadence is unchanged.
         for (int index = 0; index < m_Rows.Count(); index++)

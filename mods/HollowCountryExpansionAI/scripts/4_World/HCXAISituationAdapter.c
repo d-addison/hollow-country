@@ -1,24 +1,11 @@
-// HC-38: deliberately no new Expansion/engine calls. The two pinned installed
-// ai/core source roots in the worker brief were absent during authoring.
-// Native dayzplayer.c/DayZPlayerImplement.c are NOT an AI placement/action SDK.
-// Existing HCXAIEncounters bind patrol kills, not an independently threatened
-// survivor; HCXAICampRoutine requests cannot establish rescue or safe egress.
-// Therefore source/package support stops at a named admission refusal.
-//
-// Lead binds this through HCSituationActors.HCBind(new HCXAISituationAdapter)
-// in HCXAIAdapter.OnStart; clears it on stop. No registry insertion or tick.
-// To replace this refusal: inspect permitted pinned Expansion sources, qualify
-// an existing HC-10 lease + survivor/threat ownership, verified placement and
-// a bounded emote-only action. Keep native death/departure observation separate
-// from requested actions. No new actor/cargo, player task or reward controller.
+// #147: shared live-party implementation and native/provider citations are
+// in HCW38SituationRuntime.c. HC-38 owns intent/save/history; HC-10 owns bodies.
 class HCXAISituationAdapter : HCSituationActorPort
 {
-    override string HCRefusal()
-    {
-        return "SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED";
-    }
-    override bool HCReady() { return false; }
-    override string HCSelect(HCSituationState opportunity) { return ""; }
-    override bool HCBegin(HCSituationState opportunity) { return false; }
-    override string HCObserve(HCSituationState opportunity) { return ""; }
+    override bool HCReady() { return HCW38SituationRuntime.HCReady(); }
+    override string HCRefusal() { return HCW38SituationRuntime.HCReason(); }
+    override string HCSelect(HCSituationState opportunity) { return HCW38SituationRuntime.HCSelect(opportunity); }
+    override bool HCBegin(HCSituationState opportunity) { return HCW38SituationRuntime.HCBegin(opportunity); }
+    override string HCObserve(HCSituationState opportunity) { return HCW38SituationRuntime.HCObserve(opportunity); }
+    override void HCEnd(HCSituationState opportunity) { HCW38SituationRuntime.HCEnd(opportunity); }
 }

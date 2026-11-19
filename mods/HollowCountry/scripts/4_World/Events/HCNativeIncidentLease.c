@@ -26,11 +26,85 @@ class HCNativeIncidentReceipt
 // before overriding this port; nearby loose loot and CEItemProfile do not.
 class HCNativeIncidentSource
 {
-    bool HCReady() { return false; }
-    string HCRefusal() { return "CE_INCIDENT_LIFECYCLE_UNEXPOSED"; }
-    HCNativeIncidentReceipt HCObserve() { return null; }
-    bool HCPresent(EntityAI anchor) { return false; }
-    bool HCContains(EntityAI anchor, ItemBase item) { return false; }
+    // CE callback provenance, never class/position inference. Native:
+    // 4_World/Entities/Building/CrashBase.c:14 EEOnCECreate, :45 EEDelete;
+    // EntityAI.c:1414 EEOnCECreate; Inventory.c:138 GetCargo;
+    // 3_Game/Systems/Inventory/Cargo.c:28 GetItemCount, :33 GetItem.
+    // Stock belongs only through direct native cargo ancestry. Vanilla crash
+    // loot usually lies on the ground: that missing attribution stays explicit.
+    protected static ref array<CrashBase> s_Crashes = new array<CrashBase>;
+    protected static bool s_AdmissionPrinted;
+    protected static bool s_StockPendingPrinted;
+    protected static int s_Cursor;
+
+    static void HCRegister(CrashBase crash)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !crash) { return; }
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        if (!policy) { return; }
+        if (s_Crashes.Find(crash) < 0 && s_Crashes.Count() < policy.MaxIncidents) { s_Crashes.Insert(crash); }
+    }
+
+    static void HCRemove(CrashBase crash)
+    {
+        int index = s_Crashes.Find(crash);
+        if (index >= 0) { s_Crashes.Remove(index); }
+    }
+
+    bool HCReady()
+    {
+        bool enabled = !FileExist("$profile:HollowCountry/acceptance/w38_incidents.disable");
+        if (!GetGame() || !GetGame().IsServer() || !enabled || !HCW38SituationPolicy.HCGet()) { return false; }
+        if (!s_AdmissionPrinted)
+        {
+            s_AdmissionPrinted = true;
+            Print(HCV2Admission.Line("NativeIncidents", enabled, "w38_incidents", false) + " runtime=PENDING");
+            s_StockPendingPrinted = true;
+            Print("[HC Situations] CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING anchor_observation=ready runtime=PENDING");
+        }
+        return true;
+    }
+    string HCRefusal() { return "CE_CRASH_CALLBACK_PENDING"; }
+    HCNativeIncidentReceipt HCObserve()
+    {
+        if (!HCReady() || s_Crashes.Count() == 0) { return null; }
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        s_Cursor = s_Cursor % s_Crashes.Count();
+        CrashBase crash = s_Crashes[s_Cursor];
+        s_Cursor++;
+        if (!HCPresent(crash)) { return null; }
+        HCNativeIncidentReceipt receipt = new HCNativeIncidentReceipt;
+        receipt.Anchor = crash;
+        if (crash.GetInventory())
+        {
+            CargoBase cargo = crash.GetInventory().GetCargo();
+            if (cargo)
+            {
+                int count = cargo.GetItemCount();
+                if (count > policy.MaxIncidentItems) { return null; }
+                for (int index = 0; index < count; index++)
+                {
+                    ItemBase item = ItemBase.Cast(cargo.GetItem(index));
+                    if (HCContains(crash, item)) { receipt.Stock.Insert(item); }
+                }
+            }
+        }
+        if (receipt.Stock.Count() == 0 && !s_StockPendingPrinted)
+        {
+            s_StockPendingPrinted = true;
+            Print("[HC Situations] CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING anchor_observation=ready runtime=PENDING");
+        }
+        return receipt;
+    }
+    bool HCPresent(EntityAI anchor)
+    {
+        CrashBase crash = CrashBase.Cast(anchor);
+        return crash && !crash.IsPendingDeletion() && s_Crashes.Find(crash) >= 0;
+    }
+    bool HCContains(EntityAI anchor, ItemBase item)
+    {
+        return anchor && item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && item.GetHierarchyParent() == anchor;
+    }
 }
 
 class HCNativeIncidentRow
@@ -152,7 +226,8 @@ class HCNativeIncidentLease
         }
         m_Source = source;
         m_Store = new HCEncounterStore<HCNativeIncidentState>("hc41-native-incidents");
-        m_State = m_Store.Load(new HCNativeIncidentState, "Rows");
+        HCNativeIncidentState initialState = new HCNativeIncidentState;
+        m_State = m_Store.Load(initialState, "Rows");
         if (!HCValid(m_State)) { m_Fault = true; m_Source = null; return HCRefuse("NATIVE_INCIDENT_STATE_INVALID"); }
         m_Enabled = true;
         // Hive and journal are not one transaction. Never rebind live intents
@@ -185,6 +260,7 @@ class HCNativeIncidentLease
             if (prior.Id == incidentId) { return HCRefuse("NATIVE_INCIDENT_ALREADY_LEASED"); }
         }
         if (!receipt.Stock || receipt.Stock.Count() > 16) { return HCRefuse("NATIVE_INCIDENT_STOCK_OVERFLOW"); }
+        if (receipt.Stock.Count() == 0) { return HCRefuse("NATIVE_INCIDENT_STOCK_PENDING"); }
         HCNativeIncidentRow row = new HCNativeIncidentRow;
         row.Id = incidentId;
         row.LeaseId = partyLease;
@@ -214,7 +290,7 @@ class HCNativeIncidentLease
 
     protected bool HCStockLive(EntityAI anchor, ItemBase item)
     {
-        return item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && !item.GetHierarchyParent() && m_Source.HCContains(anchor, item);
+        return item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && (!item.GetHierarchyParent() || item.GetHierarchyParent() == anchor) && m_Source.HCContains(anchor, item);
     }
 
     protected bool HCPresent()
@@ -284,5 +360,20 @@ class HCNativeIncidentLease
         m_Effective = "off";
         if (m_Fault) { m_Effective = "refused"; }
         HCReport();
+    }
+}
+
+// Observe only actual CE creation, preserving native smoke/sound/lifetime.
+modded class CrashBase
+{
+    override void EEOnCECreate()
+    {
+        super.EEOnCECreate();
+        HCNativeIncidentSource.HCRegister(this);
+    }
+    override void EEDelete(EntityAI parent)
+    {
+        HCNativeIncidentSource.HCRemove(this);
+        super.EEDelete(parent);
     }
 }
