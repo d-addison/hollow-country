@@ -142,6 +142,11 @@ class SiteGeneratorTests(unittest.TestCase):
 
     def test_shipped_sites_are_the_generator_output_shape(self):
         shipped = json.loads((ROOT / 'mission/hollow-country/ai/sites.json').read_text())
+        # HC-43 adds authored candidate metadata beside the unchanged live
+        # generator policy; these rows are not admitted routes or native proof.
+        manifest = shipped.pop('HC43')
+        self.assertEqual(('HC-43', 'pending_integration', 'PENDING'),
+                         (manifest['Package'], manifest['State'], manifest['Runtime']))
         self.assertEqual(set(shipped), set(ai_patrols.generate_sites(self.pos, self.proto, self.spec)))
         self.assertLessEqual(len((ROOT / 'mission/hollow-country/ai/sites.json').read_bytes()), 65536)
         authored_checkpoints = {'checkpoint-komarovo-east', 'checkpoint-novaya-south'}
