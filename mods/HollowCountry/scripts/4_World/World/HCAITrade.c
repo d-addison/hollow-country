@@ -844,6 +844,19 @@ class HCTradeLossBarrier
 // changes BOTH already-funded allocations; no direct world-ledger alias escapes.
 modded class HCHoldouts
 {
+    bool HCTradeCanDebit(string leftHome, string rightHome)
+    {
+        if (!m_Ready || !m_State || leftHome == rightHome) { return false; }
+        bool leftReady = false;
+        bool rightReady = false;
+        array<ref HCHoldoutRow> homes = m_State.Rows;
+        foreach (HCHoldoutRow candidate : homes)
+        {
+            if (candidate.Ledger.Id == leftHome && candidate.Camp.Allocated) { leftReady = true; }
+            if (candidate.Ledger.Id == rightHome && candidate.Camp.Allocated) { rightReady = true; }
+        }
+        return leftReady && rightReady;
+    }
     bool HCTradeDebit(string leftHome, string rightHome, int debit)
     {
         if (!m_Ready || !m_State || leftHome == rightHome || debit < 1) { return false; }
