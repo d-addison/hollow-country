@@ -12,6 +12,9 @@
 // EnMath.c:553,566,540 Min/Max/Clamp; EnMath3D.c:18 Vector;
 // EnString.c:171,199 ToLower/Length; EnConvert.c:30,123 ToString/vector.Zero;
 // EnSystem.c:397 FileExist; EnDebug.c:96 Print.
+// 3_Game/Global/Game.c:923 GetObjectsAtPosition (horizontal circle);
+// 3_Game/Entities/Object.c:370 GetCollisionBox, :642 IsBuilding, :874 WorldToModel;
+// Entities/Building.c:267 IsBuilding override. No geometry/world mutation.
 // JSON and core budgets reuse their owners' native citations. No Expansion API.
 // MaxDestinations <=256 and PageSize <=64 are wire/schema ceilings. Configurable
 // work uses HCTickWork plus HCPerfSlices; no new module or budget consumer slot.
@@ -21,6 +24,9 @@ class HCAdminTeleportConfig
     int ConfigBytes = 4096;
     int SiteBytes = 262144;
     bool Enabled = true;
+    bool IncludeActiveSituations = true;
+    float BuildingQueryRadiusM = 100;
+    int MaxBuildingObjects = 128;
     int MaxDestinations = 256;
     int MaxNameEntries = 512;
     int RowsPerTick = 8;
@@ -38,6 +44,9 @@ class HCAdminTeleportConfig
         if (HCJsonFields.Has(encoded, "ConfigBytes")) { ConfigBytes = decoded.ConfigBytes; }
         if (HCJsonFields.Has(encoded, "SiteBytes")) { SiteBytes = decoded.SiteBytes; }
         if (HCJsonFields.Has(encoded, "Version")) { Version = decoded.Version; }
+        if (HCJsonFields.Has(encoded, "IncludeActiveSituations")) { IncludeActiveSituations = decoded.IncludeActiveSituations; }
+        if (HCJsonFields.Has(encoded, "BuildingQueryRadiusM")) { BuildingQueryRadiusM = decoded.BuildingQueryRadiusM; }
+        if (HCJsonFields.Has(encoded, "MaxBuildingObjects")) { MaxBuildingObjects = decoded.MaxBuildingObjects; }
         if (HCJsonFields.Has(encoded, "Enabled")) { Enabled = decoded.Enabled; }
         if (HCJsonFields.Has(encoded, "MaxDestinations")) { MaxDestinations = decoded.MaxDestinations; }
         if (HCJsonFields.Has(encoded, "MaxNameEntries")) { MaxNameEntries = decoded.MaxNameEntries; }
@@ -56,6 +65,8 @@ class HCAdminTeleportConfig
     {
         if (!(ConfigBytes == 4096)) { return false; }
         if (!(SiteBytes >= 4096 && SiteBytes <= 1048576)) { return false; }
+        if (!(BuildingQueryRadiusM >= 25 && BuildingQueryRadiusM <= 500)) { return false; }
+        if (!(MaxBuildingObjects >= 1 && MaxBuildingObjects <= 512)) { return false; }
         if (!(Version >= 1 && Version <= 1)) { return false; }
         if (!(MaxDestinations >= 1 && MaxDestinations <= 256)) { return false; }
         if (!(MaxNameEntries >= 1 && MaxNameEntries <= 2048)) { return false; }
@@ -96,6 +107,7 @@ class HCAdminTeleport
     protected ref HCAdminTeleportConfig m_Config;
     protected ref array<ref HCAdminTeleportDestination> m_Destinations = new array<ref HCAdminTeleportDestination>;
     protected ref HCAdminTeleportSites m_Sites;
+    protected ref HCEventRuntimeState m_EventSnapshot;
     protected ref HCWorkBudget m_Work = new HCPerfSlices("AdminTeleport");
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Enabled;
@@ -185,6 +197,7 @@ class HCAdminTeleport
     {
         if (!m_Enabled || !m_CatalogStarted) { return false; }
         m_Destinations.Clear();
+        m_EventSnapshot = null;
         m_Stage = 0;
         m_Cursor = 0;
         m_Complete = false;
@@ -201,6 +214,40 @@ class HCAdminTeleport
             if (m_Destinations.Count() >= m_Config.MaxDestinations) { m_Complete = true; return; }
             if (m_Stage == 0)
             {
+                HCWorldIncidents incidents;
+                if (m_Config.IncludeActiveSituations) { incidents = HCWorldIncidents.HCGet(); }
+                if (m_Config.IncludeActiveSituations && incidents && incidents.HCActive() && m_Cursor < incidents.HCCount())
+                {
+                    HCWorldIncident incident = incidents.HCRowAt(m_Cursor);
+                    m_Cursor = m_Cursor + 1;
+                    if (!incident || incidents.HCGone(incident)) { continue; }
+                    if (incident.ExpiresAt > 0 && incident.ExpiresAt <= HCWorldIncidents.HCNowSeconds()) { continue; }
+                    if (incident.Position != vector.Zero) { HCAdd("Incident " + incident.Kind, incident.Position); }
+                    continue;
+                }
+            }
+            else if (m_Stage == 1)
+            {
+                // Clone once per catalogue refresh, never mutate the runtime/store.
+                if (m_Config.IncludeActiveSituations && m_Cursor == 0)
+                {
+                    HCEventModule events = HCEventModule.Get();
+                    if (events && events.Runtime()) { m_EventSnapshot = events.Runtime().Snapshot(); }
+                }
+                if (m_Config.IncludeActiveSituations && m_EventSnapshot && m_EventSnapshot.Runs && m_Cursor < m_EventSnapshot.Runs.Count())
+                {
+                    HCEventRun run = m_EventSnapshot.Runs[m_Cursor];
+                    m_Cursor = m_Cursor + 1;
+                    if (run && run.Phase == HCEventRunPhase.ACTIVE && run.Objective && run.Objective.Source != vector.Zero)
+                    {
+                        HCAdd("Event " + run.Objective.Id, run.Objective.Source);
+                    }
+                    continue;
+                }
+                m_EventSnapshot = null;
+            }
+            else if (m_Stage == 2)
+            {
                 if (m_Sites && m_Cursor < m_Sites.Sites.Count())
                 {
                     HCAdminTeleportSite site = m_Sites.Sites[m_Cursor];
@@ -209,7 +256,7 @@ class HCAdminTeleport
                     continue;
                 }
             }
-            else if (m_Stage == 1)
+            else if (m_Stage == 3)
             {
                 HCCampModule camps = HCCampModule.Get();
                 if (camps && m_Cursor < camps.HCEncounterCount())
@@ -220,7 +267,7 @@ class HCAdminTeleport
                     continue;
                 }
             }
-            else if (m_Stage == 2)
+            else if (m_Stage == 4)
             {
                 HCHoldouts homes = HCHoldouts.Get();
                 if (homes && m_Cursor < homes.Count())
@@ -231,7 +278,7 @@ class HCAdminTeleport
                     continue;
                 }
             }
-            else if (m_Stage == 3)
+            else if (m_Stage == 5)
             {
                 if (m_Cursor < m_NameCount)
                 {
@@ -275,6 +322,29 @@ class HCAdminTeleport
         return true;
     }
 
+    // Query and examine only; result count is capped before script iteration.
+    // The padded local X/Z envelope deliberately excludes covered courtyards too.
+    bool HCOutsideBuildings(vector placed)
+    {
+        array<Object> nearby = new array<Object>;
+        array<CargoBase> proxies = new array<CargoBase>;
+        GetGame().GetObjectsAtPosition(placed, m_Config.BuildingQueryRadiusM, nearby, proxies);
+        if (nearby.Count() > m_Config.MaxBuildingObjects || proxies.Count() > 0) { return false; }
+        for (int obstacleIndex = 0; obstacleIndex < nearby.Count(); obstacleIndex++)
+        {
+            Object obstacle = nearby[obstacleIndex];
+            if (!obstacle || !obstacle.IsBuilding()) { continue; }
+            vector bounds[2];
+            if (!obstacle.GetCollisionBox(bounds)) { return false; }
+            vector localPoint = obstacle.WorldToModel(placed);
+            float padding = m_Config.ClearanceWidthM * 2;
+            if (!(bounds[0][0] <= bounds[1][0] && bounds[0][2] <= bounds[1][2])) { return false; }
+            if (!(localPoint[0] == localPoint[0] && localPoint[2] == localPoint[2])) { return false; }
+            if (localPoint[0] >= bounds[0][0] - padding && localPoint[0] <= bounds[1][0] + padding && localPoint[2] >= bounds[0][2] - padding && localPoint[2] <= bounds[1][2] + padding) { return false; }
+        }
+        return true;
+    }
+
     vector HCGround(vector candidate, PlayerBase player)
     {
         float size = GetGame().GetWorld().GetWorldSize();
@@ -293,6 +363,7 @@ class HCAdminTeleport
         high = Math.Max(high, y);
         if (!(y >= 0 && y < size && high - low <= m_Config.MaxSlopeDeltaM)) { return vector.Zero; }
         vector placed = Vector(x, y + m_Config.GroundOffsetM, z);
+        if (!HCOutsideBuildings(placed)) { return vector.Zero; }
         vector center = Vector(x, high + m_Config.GroundOffsetM + m_Config.ClearanceHeightM / 2, z);
         vector extent = Vector(width, m_Config.ClearanceHeightM, width);
         array<Object> excluded = new array<Object>;
