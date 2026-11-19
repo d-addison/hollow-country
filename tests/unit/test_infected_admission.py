@@ -707,7 +707,7 @@ class StartedModule:
         self.ctx.Quarantine = lambda reason: self.events.append(("quarantine", reason))
         self.ctx.IsEnabled = lambda settings: settings.EnableInfected
         self.Admission = Admission
-        self.settings = NS(EnableInfected=True, EnableHordes=hordes, EnableAlertChains=True,
+        self.settings = NS(EnableInfected=True, EnableInfectedVariety=True, EnableHordes=hordes, EnableAlertChains=True,
             MaxTickWorkItems=work, MaxActiveHordes=2, MaxActiveHordeMembers=24,
             InfectedBindRadius=30, MaxBindQueriesPerTick=2)
         def fresh():
@@ -746,6 +746,9 @@ class StartedModule:
             MakeDirectory=lambda *args: None, FileExist=lambda *args: False,
             JsonFileLoader=NS(SaveFile=lambda *args: True), HCInfectedAdmission=self.Admission,
             HCInfectedProfiles=self.profiles, HCInfectedPolicy=self.policies,
+            # Synthetic content-admission boundary; no native config/CE evidence.
+            HCNativeVariantAdmission=NS(Check=lambda preference: NS(Preference=preference,
+                HCAdmissionLine=lambda: "[HC test] synthetic native variants; runtime=PENDING")),
             HCInfectedClock=NS(UtcSeconds=lambda: self.clock[0]), HCHordeSweep=SweepFixture,
             HCHordeRecovery=NS(Reconcile=lambda *a: False), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
             HCInfectedRoomCatalog=NS(Clear=lambda: None, EnsureProductionLoaded=lambda: False, ConfigureBinding=lambda radius, queries: True, BeginTick=lambda: None), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
