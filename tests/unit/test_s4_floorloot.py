@@ -172,6 +172,29 @@ class FloorPolicyAdmission(unittest.TestCase):
         self.assertTrue(accepts(floor, row), 'fallback must preserve Hammer eligibility')
         self.assertEqual(receipt['counts']['floor_policy']['kept_without_shelf_room'], 1)
 
+    def test_newly_admitted_broom_demand_does_not_cancel_displaced_hammer(self):
+        from tools.package import loot_floor_policy as policy
+        doc = policy.parse_policy(policy_bytes())
+        # Synthetic review fixture: the floor initially admits only the nominal-1 Hammer.
+        types = (b'<types><type name="Hammer"><nominal>1</nominal><category name="tools"/></type>'
+                 b'<type name="Broom"><nominal>10</nominal><category name="tools"/>'
+                 b'<tag name="floor"/></type></types>')
+        rewritten_types, rows = policy.retag_types(types, doc)
+        proto = ('<prototype><group name="G" lootmax="1">'
+                 '<container name="lootFloor" lootmax="1"><category name="tools"/>'
+                 '<tag name="shelves"/>' + point(0) + '</container>'
+                 '<container name="shelf" lootmax="0"><category name="tools"/>'
+                 '<tag name="shelves"/>' + point(1) + '</container></group></prototype>').encode()
+        output, counts = policy.rebalance_proto(proto, [rows], doc)
+        floor, shelf = ET.fromstring(output).find('group').findall('container')
+        rewritten_rows = {t.get('name'): t for t in ET.fromstring(rewritten_types)}
+        self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (1, 1, 0))
+        self.assertEqual((floor.get('lootmax'), shelf.get('lootmax')), ('0', '1'))
+        self.assertTrue(accepts(floor, rewritten_rows['Broom']))
+        self.assertFalse(accepts(floor, rewritten_rows['Hammer']))
+        self.assertTrue(accepts(shelf, rewritten_rows['Hammer']))
+        self.assertEqual((counts['slots_before'], counts['slots_after']), (1, 1))
+
     def test_rounding_a_rare_displacement_to_zero_does_not_remove_eligibility(self):
         path = self.mission / 'mapgroupproto.xml'
         path.write_text('<prototype><group name="Rare" lootmax="1">'

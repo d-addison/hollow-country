@@ -348,17 +348,17 @@ def rebalance_proto(data, rows_by_file, policy, preserve=None):
         for c in floors:
             tags_after = {t for t in c['tags'] if t != shelf_tag} | {floor_tag}
             before = _accepted(table, c['cats'], frozenset(c['tags']), 'before')
-            after = _accepted(table, c['cats'], frozenset(tags_after), 'after')
             if before <= 0:
                 continue  # draws nothing from the types: no slots to displace, nothing to rewrite
             report['floor_containers'] += 1
-            share = (before - after) / before
-            slots = min(c['lootmax'], len(c['ys']), group_max)  # the CE never spawns more than the container has points
-            need = int(math.floor(slots * share + 0.5))
-            report['floor_nonclothing_slots_before'] += slots * share
             displaced_names = {name for name, (cat, old, new, nominal, usages) in table.items()
                                if nominal > 0 and cat in c['cats'] and (not old or old & set(c['tags']))
                                and new and not new & tags_after}
+            # Newly admitted rows do not replace demand from rows that lost floor eligibility.
+            share = sum(table[name][3] for name in displaced_names) / before
+            slots = min(c['lootmax'], len(c['ys']), group_max)  # the CE never spawns more than the container has points
+            need = int(math.floor(slots * share + 0.5))
+            report['floor_nonclothing_slots_before'] += slots * share
             # A replacement must admit every displaced row; otherwise retain the stock floor.
             # This deliberately conservative allocation cannot count a books-only slot for a tool.
             compatible = [all(table[name][0] in receiver['cats']
