@@ -27,13 +27,8 @@ modded class HCInteriorsModule
         // Even a missing pilot file must not prevent additive pack admission.
         HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
         HCInteriorTemplates.EnsureLoaded(m_Config, settings.MaxPropsPerInterior);
-        HCInteriorTemplatePlacement.Place(this, settings, m_Objects, -1);
-        if (HCInteriorTemplates.Loaded())
-        {
-            s_Instance = this;
-            if (!FileExist("$profile:HollowCountry/interiors.json")) { Print("[HC Interiors] legacy pilot absent; template path in use"); }
-        }
-        HCSearchBinding.TemplatesComplete(this);
+        // HC-24: the staged pack tick places and reports search readiness once the load finishes
+        // (loaded or refused); reporting here would latch templates_loaded=0 before the load.
     }
 
 

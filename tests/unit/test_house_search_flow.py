@@ -35,7 +35,10 @@ ACTION = SCRIPTS / '4_World/Interiors/HCInteriorAction.c'
 
 
 def member(path, name):
-    source = path.read_text()
+    return member_text(path.read_text(), name)
+
+
+def member_text(source, name):
     match = re.search(r'\b(?:static |override )?\w+ ' + name + r'\([^)]*\)\s*\{', source)
     if not match:
         raise AssertionError('missing authored method ' + name)
@@ -230,11 +233,18 @@ class ServerFlowTests(unittest.TestCase):
             env['RoomLogPort'].Log()
             self.assertEqual(expected, len(logs), reason)
 
-    def test_template_start_reports_after_installing_owner_and_pilot_absence(self):
-        text = member(TEMPLATES, 'OnStart')
-        self.assertIn('HCSearchBinding.TemplatesComplete(this)', text)
-        self.assertLess(text.index('s_Instance = this'), text.index('HCSearchBinding.TemplatesComplete(this)'))
-        self.assertIn('legacy pilot absent; template path in use', text)
+    def test_template_pack_tick_reports_after_installing_owner_and_pilot_absence(self):
+        # HC-24 review P2-1: the staged pack load finishes in a later tick, so OnStart must not
+        # report readiness (ReportReadiness latches the first templates_loaded/armed line).
+        start = member(TEMPLATES, 'OnStart')
+        self.assertNotIn('HCSearchBinding.TemplatesComplete(this)', start)
+        self.assertNotIn('HCInteriorTemplatePlacement.Place(', start)
+        source = (SCRIPTS / '4_World/Interiors/HCInteriorTemplates.c').read_text()
+        bridge = source[source.index('protected bool m_PackLoading;'):]
+        tick = member_text(bridge, 'OnTick')
+        self.assertIn('HCSearchBinding.TemplatesComplete(this)', tick)
+        self.assertLess(tick.index('s_Instance = this'), tick.index('HCSearchBinding.TemplatesComplete(this)'))
+        self.assertIn('legacy pilot absent; template path in use', tick)
 
     def test_absent_pilot_returns_quietly_but_present_invalid_pilot_is_an_error(self):
         for present in (False, True):

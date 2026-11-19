@@ -847,8 +847,9 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         module=NS(s_Instance=None,m_Config=None,m_Objects=EArray(),IsEnabled=lambda cfg:True,
                   LegacyStart=lambda cfg:events.append(('legacy',)))
         self.invoke_extension('OnStart',module,settings,events=events)
-        self.assertEqual([('legacy',),('load',None,5),('place',)],events)
-        self.assertIs(module,module.s_Instance)
+        # HC-24: placement and the owner install move to the staged pack tick (HCInteriorTemplates.c).
+        self.assertEqual([('legacy',),('load',None,5)],events)
+        self.assertIsNone(module.s_Instance)
 
     def test_legacy_placement_also_obeys_overall_cap(self):
         calls=[]
