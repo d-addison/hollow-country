@@ -279,7 +279,15 @@ class HCLeadStore
         if (text == "" || !JsonFileLoader<HCLeadData>.LoadData(text, value, error)) { return null; }
         // A legacy ledger has no record of already destroyed/expired clues.
         // Admit only facts observed AFTER migration; never invent old history.
-        if (!hasTraceVersion) { value.TraceAfter = HCWorldClock.UTC(); }
+        // Native JsonFileLoader leaves a missing int at 0, not its declared
+        // initializer (boot 057: legacy image faulted at=decode_traces_invalid).
+        // A legacy image therefore gets the current trace schema stamped here.
+        if (!hasTraceVersion && value)
+        {
+            value.TraceVersion = 1;
+            value.TraceAfter = HCWorldClock.UTC();
+            if (!value.Traces) { value.Traces = new array<ref HCTraceReceipt>(); }
+        }
         m_FaultAt = "decode_rows";
         if (value && !value.Traces) { m_FaultAt = "decode_traces_missing"; }
         if (value && value.Traces && !HCTraceValid(value)) { m_FaultAt = "decode_traces_invalid"; }

@@ -308,6 +308,28 @@ class CausalTraces(unittest.TestCase):
         legacy.store.Data = legacy.store.m_Data = legacy_data
         self.assertIsNone(legacy.notes.Create('scene-legacy', [0,0,0], legacy.offer()))
         self.assertEqual([], legacy.created)
+        # Boot 057 (2026-11-18, local friend-local-1): the native JSON loader left the missing
+        # TraceVersion int at 0, not its declared initializer, so a pre-HC-44 leads.json faulted
+        # "at=decode_traces_invalid" and suspended Leads/Radio/Notes/BodyStories. Model that
+        # observed zero-fill explicitly; the migration must stamp the current trace schema.
+        zero = Fixture(); zero_encode = zero.storage_port()
+        native_decode = zero.env['NativeDecode']
+        def zero_filled(text):
+            value = native_decode(text)
+            raw = json.loads(text)
+            if value is not None and 'TraceVersion' not in raw: value.TraceVersion = 0
+            if value is not None and 'TraceAfter' not in raw: value.TraceAfter = 0
+            return value
+        zero.env['NativeDecode'] = zero_filled
+        old_zero = json.loads(zero_encode(zero.store.Data))
+        for key in ('TraceVersion', 'TraceAfter', 'Traces'): del old_zero[key]
+        migrated = zero.store.Decode(json.dumps(old_zero))
+        self.assertIsNotNone(migrated, 'legacy leads.json must migrate, not fault the store')
+        self.assertEqual(1, migrated.TraceVersion)
+        self.assertEqual(zero.now, migrated.TraceAfter)
+        self.assertEqual([], list(migrated.Traces))
+        current = json.loads(zero_encode(zero.store.Data)); current['TraceVersion'] = 0
+        self.assertIsNone(zero.store.Decode(json.dumps(current)), 'a written trace schema stays exact')
         # Staged routine writes serialize/read/commit; only commit creates intent.
         x.store.HCRequestCheckpoint()
         self.assertEqual(1, x.store.HCCheckpointStep())
