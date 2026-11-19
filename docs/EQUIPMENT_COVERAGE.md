@@ -10,12 +10,12 @@ unused-item rows and their new-type permissions. Existing stock remains intact.
 
 | Requirement / dependency | Implemented slice | Acceptance / follow-up |
 | --- | --- | --- |
-| HC-22 useful clothing/storage | 55 authored and admitted candidate rows; zero floor refusals | Every newly admitted family needs native equip/store/repair/restart |
+| HC-22 useful clothing/storage | 59 authored and admitted candidate rows; zero floor refusals | Every newly admitted family needs native equip/store/repair/restart |
 | HC-4/9 native supply, ordinary loot about 2x | 21 additional usage-only contextual entries; existing HC-9 multiplier unchanged | Observe acquisition and world counts with one client; capacity remains provisional |
 | HC-21 firearm scarcity/support | Existing roster, family accounting and firearm new-type permissions unchanged | Reuse its qualification gates |
 | HC-28 recovery | Reuse existing economy staged delta, receipt, backup, collision checks and rollback | Stop/restart and exact package rollback pending |
 | Native water/meds/sharpening | Native vessels, purification, IV ingredients, emergency meds, Whetstone and repair-kit routes | Contents, potability, consumption, quantities and persistence pending |
-| Leather/crafted/derived flags | 17 exact floor overrides clear crafted; TortillaBag_Desert also clears deloot | Named recipe/eligibility work remains open |
+| Leather/crafted/derived flags | 21 exact floor overrides clear crafted; TortillaBag_Desert also clears deloot | Named recipe/eligibility work remains open |
 | 2,001 candidate review | Explicit queue in loot-dispositions.json; remaining count unknown | Identity-complete review is pending; these 131 decisions are not 131 qualified candidates |
 | No seasonal cold / native armour | `extra_cold=0`; native insulation/protection unchanged | No new thermal requirement |
 
@@ -67,24 +67,25 @@ outside W46 ownership. Pack hashes are retained rather than hand-editing an
 invalid generated manifest. The per-class runtime refusal is the safe fallback;
 additional furniture remains open for the placement owner.
 
-The 17 floor proposals are enabled in the integrated `contextual-pilot`
-generator. Exactly the reviewed DrysackBag colours, 13 leather rows and
-TortillaBag_Desert emit `crafted=0`; TortillaBag_Desert also emits `deloot=0`.
+The 21 floor proposals are enabled in the integrated `contextual-pilot`
+generator. Exactly the reviewed DrysackBag colours, 13 leather rows, four
+LeatherGloves colours and TortillaBag_Desert emit `crafted=0`; TortillaBag_Desert also emits `deloot=0`.
 The source manifest retains stock flags for stock validation. Other profiles
 retain those flags, and unrelated proposals cannot obtain this exception.
 The installer compares the entire flags node against stock with only those
 specific changes, retaining count flags, quantities, cost and other protected
 fields. It does not add flags to the general mutable-field set.
 
-The 17 rows retain nominal/min 2/1 for the 13 leather rows and TortillaBag_Desert,
-and 3/1 for the three DrysackBag colours: nominal 37 / min 17 before HC-9.
-All 55 proposals total nominal 133 before HC-9. Generation and installation
+The 21 rows retain nominal/min 2/1 for the 13 leather rows and TortillaBag_Desert,
+and 3/1 for the three DrysackBag colours, plus 1/1 for four LeatherGloves colours:
+nominal 41 / min 21 before HC-9.
+All 59 proposals total nominal 137 before HC-9. Generation and installation
 remain repo-only, using the staged economy workflow below. Regenerate an older
 staged delta to include these floor flags. `--no-datamined` removes the additions.
 Stock files are never rewritten, and rollback restores the mission byte-exactly.
 
 `tests/unit/test_loot_w46.py::FloorAdmissionIntegration` runs the integrated
-generator over an explicit synthetic stock mission. It checks all 55 rows,
+generator over an explicit synthetic stock mission. It checks all 59 rows,
 exact flag changes, finite budgets, opt-out, installation and byte-exact rollback.
 It no longer rewrites an obsolete copy of generator source. These tests establish
 package behavior only; ordinary CE acquisition remains runtime=PENDING.
@@ -94,9 +95,10 @@ client at a configured original and refresh-pilot cabinet. Confirm that only
 bound cabinets offer Search storage, the connected client respects custody/locks, a
 restart preserves depletion, disabled search removes grants, and an unavailable
 provider produces no prompt. Check furnishing refusal classes individually;
-open doors and use stairs at every subsequently qualified placement. The 17
+open doors and use stairs at every subsequently qualified placement. The 21
 floor rows require separate acquisition, finite world-count and rollback tests
-using the regenerated overlay.
+using the regenerated overlay. Bundle verification is offline evidence only;
+DayZDiag and normal PBO/server acceptance remain pending.
 
 ## Small inputs and accounting
 
@@ -116,12 +118,12 @@ also distinct from the plan's 2,001-candidate queue. Raw inputs stay external.
 
 The generator reuses the essential-route parser, stock budget validator,
 `datamined_items` row/config parser and the single economy delta. In the
-`economy-report.json` supply section, `authored=55`, `admitted=55`,
+`economy-report.json` supply section, `authored=59`, `admitted=59`,
 `floor_refused=0`, `observed=0`, `extra_cold=0`; admission counts XML proposals,
-not CE observations. The 55 rows total nominal 133 **before HC-9**. Counts are
+not CE observations. The 59 rows total nominal 137 **before HC-9**. Counts are
 configuration budgets, not simultaneous loot or supply measured in play.
 `refused_by_route` and `refused_by_reason` are empty for these proposals.
-The broader ledger separately retains twelve unresolved leather definitions,
+The broader ledger separately retains eight unresolved leather definitions,
 water contents uncertainty and stock/craft supply. These counts are not a
 complete census and do not accept missing native experiments.
 
@@ -138,9 +140,13 @@ Stock, extension and cross-source duplicate/case collisions remain refused.
 
 Economy generation/installation is **repo-only**: run from the private checkout
 with `config/loot-dispositions.json` available. Portable PBO handoffs and friend
-bundles omit this policy ledger and do not support HC-22 economy installation.
-The smaller packaging fix deliberately retains those export lists. If the ledger
-is absent, HC-22 generation (including `--no-datamined`) or installation refuses
+bundles omit this policy ledger and do not support standalone HC-22 economy
+installation. The bundle builder regenerates the contextual-pilot delta with the
+release firearms roster in the private checkout, after rolling back the CE stack
+on scratch. It exports the fresh pre-boost XML and matching core registration,
+and refuses generation failures or an exported types mismatch. The friend
+installer merges this overlay and applies HC-9 once. The export lists still omit
+the policy ledger. If the ledger is absent, HC-22 generation (including `--no-datamined`) or installation refuses
 with `HC22_DISPOSITIONS_MISSING`; no target data is written. Existing non-pilot
 profiles do not read this ledger. Ordinary friend-bundle installation remains
 separate from the optional economy delta workflow.
@@ -213,6 +219,10 @@ All purposes retain native wear/use/repair/cargo qualification as pending.
 | `LeatherHat_Brown` | native clothing / visual variant | Hunting / Village | 2 / 1 |
 | `LeatherHat_Black` | native clothing / visual variant | Hunting / Village | 2 / 1 |
 | `LeatherShirt_Natural` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherGloves_Natural` | native clothing / visual variant | Hunting / Village | 1 / 1 |
+| `LeatherGloves_Beige` | native clothing / visual variant | Hunting / Village | 1 / 1 |
+| `LeatherGloves_Brown` | native clothing / visual variant | Hunting / Village | 1 / 1 |
+| `LeatherGloves_Black` | native clothing / visual variant | Hunting / Village | 1 / 1 |
 | `DrysackBag_Green` | cargo pack | Coast / Village | 3 / 1 |
 | `DrysackBag_Orange` | cargo pack | Coast / Village | 3 / 1 |
 | `DrysackBag_Yellow` | cargo pack | Coast / Village | 3 / 1 |
@@ -220,17 +230,17 @@ All purposes retain native wear/use/repair/cargo qualification as pending.
 
 ## Floor flag overrides and unknown eligibility
 
-The 17 rows above use ordinary floor flags in the candidate overlay. Only their
+The 21 reviewed rows use ordinary floor flags in the candidate overlay. Only their
 `crafted` flag may clear; only TortillaBag_Desert may also clear `deloot`.
 The other four count flags remain stock-identical. No name-based exception
 exists in the route audit: it counts only usages whose actual XML flags permit
 floor supply. Multiple stock/overlay definitions still contribute only common
 routes because CE merge order remains unobserved.
 
-LeatherPants and LeatherStorageVest (Natural/Beige/Brown/Black), plus
-LeatherGloves in those four colours, retain
-`HC22_LEATHER_RECIPE_UNESTABLISHED`. Crafted config/category, a public
-definition or a suggestive name does not establish an active clothing recipe.
+LeatherPants and LeatherStorageVest (Natural/Beige/Brown/Black) retain
+`HC22_CRAFTED_CATEGORY_NO_RECIPE`. LeatherGloves in those four colours are
+admitted floor proposals with nominal/min 1/1 each. Crafted config/category, a
+public definition or a suggestive name does not establish an active clothing recipe.
 Craft-owner work must establish a real route; none is invented here.
 TortillaBag_Desert emits `deloot=0` in the named pilot overlay; actual floor
 acquisition and finite replenishment remain unqualified.
@@ -243,8 +253,9 @@ Actual bandana acquisition and outfit balance remain unmeasured.
 ## Water, medical and finite craft routes
 
 `WaterBottle` remains an uncategorised native/carrier item; the existing route
-checker still reports its floor route unresolved. The ledger names
-`HC22_WATER_CONTENTS_UNOBSERVED`. A vessel count never counts as drinkable water.
+checker still reports its floor route unresolved. The ledger records
+`native-carrier` with no refusal; water contents remain unobserved. A vessel
+count never counts as drinkable water.
 `PurificationTablets` gains Village; Canteen retains Hunting/Military; the rare
 FilteringBottle proposal retains Medic/Hunting. Read quantity, liquid type,
 agents, health and actual location on the server when qualifying these routes.
@@ -285,7 +296,7 @@ No new Enforce API call is authored by this content/tooling slice.
 | N3 | `4_World/Classes/Recipes/Recipes/CraftDrysackBag.c:23-55` ingredients, consumed inputs, colour-derived result and empty-bag condition; `PluginRecipesManagerBase.c:160` registration. `4_World/Classes/UserActionsComponent/Actions/Continuous/ActionDeCraftDrysackBag.c:37-54` server-side empty-container decraft. |
 | N3 repair | `4_World/Plugins/PluginBase/PluginRepairing.c:92-128` health/kit checks; `4_World/Classes/Recipes/Recipes/SharpenMelee.c:27,67-94` Whetstone plus native repair handler; `RepairWithSewingKit.c:61-66` and `RepairWithLeatherSewingKit.c:61-66` item-specific crafting eligibility. |
 | N3 meds | `4_World/Classes/Recipes/Recipes/PurifyWater.c:27-44,70-78`; `CraftSalineBagIV.c:27-46`; `CraftBloodBagIV.c:27-46`; `PluginRecipesManagerBase.c:91-105,166-167` native registrations. |
-| N10 | `3_Game/CE/CentralEconomy.c:310` SpawnAnalyze and `:394` SpawnLoot are diagnostic/native spawning declarations, not an eligibility getter or proof of normal CE acquisition. No new spawning call is introduced. Only the 17 reviewed HC-22 floor rows override crafted/deloot as described above. |
+| N10 | `3_Game/CE/CentralEconomy.c:310` SpawnAnalyze and `:394` SpawnLoot are diagnostic/native spawning declarations, not an eligibility getter or proof of normal CE acquisition. No new spawning call is introduced. Only the 21 reviewed HC-22 floor rows override crafted/deloot as described above. |
 
 ## Lead integration (HC-62; reserved shared files)
 
@@ -303,7 +314,7 @@ The lead must make this exact integration through its bounded manifest path:
    `mods/HollowCountry/scripts/4_World/Operations/HCOperationalContributors.c`
    (not yet present at this base), add the fixed content entry and one bounded
    diagnostic. Expected candidate fields for this source are:
-   `[HC Plan] HC-22 supply admitted=55 floor_refused=0 extra_cold=0 state=on authored=55 observed=0 runtime=PENDING`.
+   `[HC Plan] HC-22 supply admitted=59 floor_refused=0 extra_cold=0 state=on authored=59 observed=0 runtime=PENDING`.
    Off (`--no-datamined`) must report `state=off admitted=0 floor_refused=0`.
    Missing/drifted manifest must report `state=refused admitted=0` with a named
    manifest/hash refusal. Do not hard-code these counts as native observations.

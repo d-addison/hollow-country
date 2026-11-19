@@ -39,7 +39,7 @@ from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
-from tools.package import loot_boost, map_overlay, xml_text
+from tools.package import economy, loot_boost, map_overlay, xml_text
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
@@ -464,6 +464,30 @@ def readme(items, template, addon):
     return '\r\n'.join(lines)
 
 
+def fresh_economy(mission):
+    """Regenerate the release delta on a rolled-back scratch mission, never the source."""
+    try:
+        profile = json.loads(overlays.read(SOURCE / 'economy-profiles/contextual-pilot.json'))
+        roster = json.loads(overlays.read(lts.ROOT / lts.FIREARMS_ROSTER))
+        with tempfile.TemporaryDirectory(prefix='hc-bundle-economy-') as directory:
+            scratch = Path(directory) / 'mission'
+            shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
+            # Reverse the local CE stack. Each existing installer validates its
+            # receipts/backups; missing or drifted evidence refuses the export.
+            for writer in (map_overlay, loot_boost, overlays, ce_coverage, travel,
+                           tactical_flava_optional, snafu_optional, economy):
+                if (scratch / writer.MANAGED).exists():
+                    writer.rollback(scratch)
+            baseline = overlays.read(scratch / 'cfgeconomycore.xml')
+            files = economy.generate(scratch, profile, include_datamined=True, roster=roster,
+                                     include_roster_datamined=True)
+            delta = Path(directory) / 'delta'
+            economy.write_delta(delta, files)
+            return {name: overlays.read(delta / name) for name in files}, baseline
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise Refused('HC-22 economy regeneration failed: %s' % error) from error
+
+
 def build(args):
     out = Path(args.out)
     if out.exists() or out.is_symlink():
@@ -516,6 +540,15 @@ def build(args):
     for rel, data in unboosted.items():
         if rel in authored:
             authored[rel] = data
+    # Installed CE is a snapshot, not authored input. Regenerate after undoing
+    # the local boost so the friend's installer applies its multiplier once.
+    economy_files, economy_core = fresh_economy(mission)
+    for rel in list(authored):
+        if rel.startswith('hollow-country/ce/'):
+            del authored[rel]
+    for rel, data in economy_files.items():
+        if rel not in ('delta-manifest.json', 'economy-report.json'):
+            authored['hollow-country/' + rel] = data
     # An older install's generated XML (for example the economy delta) carries ElementTree's single-quoted
     # declaration, which CF's XML reader rejects (#168): rewrite it to the double-quoted form on export.
     for rel, data in list(authored.items()):
@@ -532,6 +565,15 @@ def build(args):
     plan += [('mission-overlay/' + rel, data) for rel, data in sorted(authored.items())]
     m_drop += len(m_keep) - len(authored.keys() & clean.keys())
     core = overlays.xml(clean['cfgeconomycore.xml'], 'economycore')
+    for node in list(core.findall('ce')):
+        if node.get('folder') == economy.MANAGED + '/ce':
+            core.remove(node)
+    core.extend(overlays.xml(economy_files['cfgeconomycore.append.xml'], 'economycore'))
+    core_defaults = {n.get('name'): n for n in core.findall('defaults/default')}
+    for name, patch in json.loads(economy_files['core-defaults.patch.json']).items():
+        if name not in core_defaults:
+            raise Refused('HC-22 economy default missing in export core: ' + name)
+        core_defaults[name].set('value', patch['after'])
     changes = []
     for node in core.findall('ce'):
         folder = node.get('folder', '')
@@ -539,9 +581,8 @@ def build(args):
                                                                                    snafu_optional.MANAGED, tactical_flava_optional.MANAGED)):
             node.tail = None
             changes.append({'before': None, 'after': ET.tostring(node, encoding='unicode').strip()})
-    backup = mission / 'hollow-country/core.backup'
-    if backup.exists():
-        old_core = overlays.xml(overlays.read(backup), 'economycore')
+    if economy_core:
+        old_core = overlays.xml(economy_core, 'economycore')
         for node in core.findall('defaults/*'):
             old = next((n for n in old_core.findall('defaults/*')
                         if n.tag == node.tag and n.get('name') == node.get('name')), None)
@@ -642,6 +683,10 @@ def build(args):
             else:
                 shutil.copyfile(source, target)
             rows.append({'path': dest, 'sha256': hashlib.sha256(target.read_bytes()).hexdigest()})
+        expected, _ = fresh_economy(mission)
+        exported = stage / 'mission-overlay/hollow-country/ce/types.xml'
+        if overlays.read(exported) != expected['ce/types.xml']:
+            raise Refused('HC-22 exported economy types differ from fresh generation')
         data = {'schema': 1, 'mission': mission.name, 'files': sorted(rows, key=lambda r: r['path']),
                 'profile_defaults': defaults,
                 'excluded': {'mission': m_drop, 'profiles': p_drop}}
