@@ -30,6 +30,13 @@ class HCWeatherDaysModule : HCModule
 
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
 
+    // Read-only season phase for other server systems; -1 when weather is not owned.
+    int HCSeasonPhaseCode()
+    {
+        if (!m_Data) { return -1; }
+        return m_Data.HCSeasonPhaseCode();
+    }
+
     protected void HCUpdateOperationalStatus()
     {
         if (!m_Data) { return; }
