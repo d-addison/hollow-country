@@ -3,7 +3,8 @@
 Each fixture starts with a valid committed image, then changes ONE owned file.
 The three damage cuts are mid-document truncation, invalid JSON, and zero bytes.
 Stale .tmp siblings are never adopted; stores may refuse or ignore them while
-retaining depletion/reservations. Pending ecology markers always block startup.
+retaining depletion/reservations. A nonempty pending ecology marker is archived
+(#172) and the promoted image loads; an empty one still blocks startup.
 These tests do not prove native parser behavior, disk durability or DayZ restart.
 """
 import copy
@@ -369,7 +370,17 @@ def pending_case(factory, mode):
                               'stale_temp': text}[mode]
         if mode == 'stale_temp': f.files[f.pending + '.tmp'] = '{stale'
         before = copy.deepcopy(f.files)
-        self.assertFalse(f.restart())
+        if factory is EcologyFiles and mode != 'zero':
+            # #172: nonempty leftover pending bytes are archived, then the promoted image loads.
+            self.assertTrue(f.restart())
+            self.assertNotIn(f.pending, f.files)
+            archived = [k for k in f.files if k.startswith(f.pending + '.quarantined-')]
+            self.assertEqual(1, len(archived))
+            self.assertEqual(before[f.pending], f.files[archived[0]])
+            for key, value in before.items():
+                if key != f.pending: self.assertEqual(value, f.files[key])
+            return
+        self.assertFalse(f.restart())  # empty pending (unarchivable) or migration: fail closed
         self.assertEqual(before, f.files)
     return test
 
