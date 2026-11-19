@@ -1,0 +1,178 @@
+"""H1 helicopters: pending Workshop dependency plus the provider-optional HC policy.
+
+Synthetic fixtures only. The authored Enforce bodies run through the admin test
+kit's statement-level adapter with explicit fake collaborators; nothing here
+establishes DayZ, Expansion or Workshop behaviour (runtime acceptance pending).
+"""
+import copy
+import json
+import re
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace as NS
+
+from tests.unit.test_admin_test_kit import Cell, base_scope, compile_authored, strip_comments
+from tests.unit.test_group_server import EArray
+from tools.setup import workshop_sync as ws
+
+ROOT = Path(__file__).resolve().parents[2]
+MANIFEST = ROOT / "tools/setup/workshop_mods.json"
+POLICY = ROOT / "mods/HollowCountry/scripts/4_World/Vehicles/HCHeliPolicy.c"
+VEHICLES_ID = "2291785437"
+LICENSED_ID = "2116157322"
+
+
+class S(str):
+    """Synthetic Enforce string: only the Length() the bodies call."""
+    def Length(self):
+        return len(self)
+
+
+def manifest():
+    return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+
+class PendingDependency(unittest.TestCase):
+    def test_helicopter_provider_is_pending_not_active(self):
+        data = manifest()
+        pending = {m["id"]: m for m in data.get("pending_mods", [])}
+        self.assertIn(VEHICLES_ID, pending)
+        self.assertIn(LICENSED_ID, pending)
+        active = {m["id"] for m in data["mods"]}
+        self.assertFalse({VEHICLES_ID, LICENSED_ID} & active, "install tools must not fetch it before the owner subscribes")
+        # The active manifest still loads unchanged for friend/local installs.
+        loaded = ws.load_manifest(MANIFEST)
+        self.assertNotIn("@Expansion-Vehicles", [m["folder"] for m in loaded["mods"]])
+
+    def test_promoted_entries_validate_and_load_between_core_and_ai(self):
+        data = manifest()
+        promoted = copy.deepcopy(data)
+        promoted["mods"] = data["mods"] + data["pending_mods"]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "workshop_mods.json"
+            path.write_text(json.dumps(promoted), encoding="utf-8")
+            loaded = ws.load_manifest(path)
+        order = [m["folder"] for m in loaded["mods"]]
+        core, ai = order.index("@Expansion-Core"), order.index("@Expansion-AI")
+        self.assertLess(core, order.index("@Expansion-Licensed"))
+        self.assertLess(order.index("@Expansion-Licensed"), order.index("@Expansion-Vehicles"))
+        self.assertLess(order.index("@Expansion-Vehicles"), ai)
+        for mod in data["pending_mods"]:
+            self.assertEqual(("client", "pve_patrols", False), (mod["side"], mod["group"], mod["publish"]))
+        self.assertFalse([f for f in order if f.startswith("@Expansion") and "Animations" in f], "Expansion-Animations is not allowed")
+
+
+class ConfigValidity(unittest.TestCase):
+    FIELDS = ("Version", "ProviderPatch", "VehicleClasses", "MaxTracked", "WorldCap", "MaxTypeCache", "SpawnFuelMaxFraction")
+
+    def config(self, **change):
+        values = dict(Version=1, ProviderPatch=S("DayZExpansion_Vehicles_Scripts"),
+                      VehicleClasses=EArray([S("Expansion_Helicopter")]), MaxTracked=16,
+                      WorldCap=4, MaxTypeCache=128, SpawnFuelMaxFraction=0.1)
+        values.update(change)
+        registry = NS(HCFind=lambda key: False, HCValid=lambda key, value: True)
+        fn = compile_authored(POLICY, "HCHeliPolicyConfig", "HCValid", base_scope(HCOperatorSettingsRegistry=registry),
+                              modded=False, fields=self.FIELDS)
+        return fn(NS(**values))
+
+    def test_defaults_are_valid(self):
+        self.assertTrue(self.config())
+
+    def test_out_of_range_values_are_refused(self):
+        nan = float("nan")
+        for change in (dict(Version=2), dict(MaxTracked=0), dict(MaxTracked=65), dict(WorldCap=-1),
+                       dict(WorldCap=17), dict(MaxTypeCache=0), dict(SpawnFuelMaxFraction=0.36),
+                       dict(SpawnFuelMaxFraction=-0.01), dict(SpawnFuelMaxFraction=nan),
+                       dict(ProviderPatch=S("")), dict(VehicleClasses=EArray([])),
+                       dict(VehicleClasses=EArray([S("")])), dict(VehicleClasses=None)):
+            with self.subTest(change=change):
+                self.assertFalse(self.config(**change))
+
+    def test_registry_rows_apply_once_mirrored(self):
+        seen = []
+        registry = NS(HCFind=lambda key: True, HCValid=lambda key, value: seen.append(key) or key != "Helicopters.WorldCap")
+        fn = compile_authored(POLICY, "HCHeliPolicyConfig", "HCValid", base_scope(HCOperatorSettingsRegistry=registry),
+                              modded=False, fields=self.FIELDS)
+        self.assertFalse(fn(NS(Version=1, ProviderPatch=S("P"), VehicleClasses=EArray([S("C")]), MaxTracked=16,
+                               WorldCap=4, MaxTypeCache=128, SpawnFuelMaxFraction=0.1)))
+        self.assertIn("Helicopters.WorldCap", seen)
+
+
+class PolicyDecisions(unittest.TestCase):
+    def fn(self, name):
+        return compile_authored(POLICY, "HCHeliPolicy", name, base_scope(), modded=False)
+
+    def test_vehicle_class_match_is_exact(self):
+        match = self.fn("HCClassMatch")
+        classes = EArray(["Expansion_Helicopter"])
+        self.assertTrue(match(None, classes, "Expansion_Helicopter"))
+        self.assertFalse(match(None, classes, "Expansion_Car"))
+        self.assertFalse(match(None, classes, ""))
+        self.assertFalse(match(None, None, "Expansion_Helicopter"))
+
+    def test_spawn_fuel_is_capped_to_the_policy_fraction(self):
+        excess = self.fn("HCExcessFuel")
+        self.assertAlmostEqual(25.0, excess(None, 100.0, 0.35, 0.1))
+        self.assertEqual(0, excess(None, 100.0, 0.05, 0.1))
+        self.assertEqual(0, excess(None, 0.0, 0.5, 0.1))
+
+    def test_tracking_is_bounded_and_idempotent(self):
+        admit = self.fn("HCAdmit")
+        tracked = EArray([])
+        a, b, c = object(), object(), object()
+        self.assertEqual(0, admit(None, tracked, a, 2))
+        self.assertEqual(1, admit(None, tracked, a, 2))
+        self.assertEqual(0, admit(None, tracked, b, 2))
+        self.assertEqual(2, admit(None, tracked, c, 2))
+        self.assertEqual([a, b], list(tracked))
+        self.assertEqual(3, admit(None, tracked, None, 2))
+
+    def test_status_is_derived_never_fixed(self):
+        derive = self.fn("HCDerive")
+        cases = [
+            ((False, True, True, True, 0, 4, 0), "off", "helicopters_not_started"),
+            ((True, False, True, True, 0, 4, 0), "off", "operator_disabled"),
+            ((True, True, False, True, 0, 4, 0), "refused", "HELI_CONFIG_INVALID"),
+            ((True, True, True, False, 0, 4, 0), "off", "HELI_PROVIDER_NOT_LOADED"),
+            ((True, True, True, True, 3, 4, 1), "degraded", "HELI_TRACK_CAP"),
+            ((True, True, True, True, 5, 4, 0), "degraded", "HELI_OVER_WORLD_CAP"),
+            ((True, True, True, True, 4, 4, 0), "ready", "provider_loaded_policy_active_runtime_pending"),
+        ]
+        for args, state, reason in cases:
+            with self.subTest(args=args):
+                cell = Cell()
+                self.assertEqual(state, derive(None, *args, cell))
+                self.assertEqual(reason, cell.value)
+
+
+class SourceContract(unittest.TestCase):
+    def setUp(self):
+        self.text = POLICY.read_text(encoding="utf-8")
+        self.code = re.sub(r'"(?:\\.|[^"\\])*"', '""', strip_comments(self.text))
+
+    def test_no_provider_symbol_so_base_mod_loads_without_it(self):
+        self.assertNotRegex(self.code, r"\bExpansion\w*")
+        self.assertNotRegex(self.code, r"#ifdef")
+
+    def test_admission_opt_out_and_pending_wording(self):
+        self.assertIn('HCV2Admission.Line("Helicopters"', self.text)
+        self.assertIn('"$profile:HollowCountry/acceptance/helicopters.disable"', self.text)
+        self.assertIn("overflight=pending_flight_api runtime=PENDING", self.text)
+        self.assertIn('HCEncounterStore<HCHeliPolicyConfig>("helicopters")', self.text)
+        self.assertNotIn('HCPublish("ready"', self.text)
+        self.assertIn('HCOperationalContributors.HCRegisterOwner("Helicopters")', self.text)
+
+    def test_vehicle_hooks_chain_super_first(self):
+        self.assertRegex(self.code, r"override void EEInit\(\)\s*\{\s*super\.EEInit\(\);\s*HCHeliPolicy\.HCTrack\(this\);")
+        self.assertRegex(self.code, r"override void EEOnCECreate\(\)\s*\{\s*super\.EEOnCECreate\(\);\s*HCHeliPolicy\.HCSpawnFuel\(this\);")
+        self.assertRegex(self.code, r"override void EEDelete\(EntityAI parent\)\s*\{\s*HCHeliPolicy\.HCUntrack\(this\);\s*super\.EEDelete\(parent\);")
+
+    def test_no_banned_text(self):
+        lowered = self.text.lower()
+        for banned in ("snafu", "tactical" + "flava", "2646817942", "2291785308", "2792982069", VEHICLES_ID, LICENSED_ID):
+            self.assertNotIn(banned, lowered)
+
+
+if __name__ == "__main__":
+    unittest.main()
