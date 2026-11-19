@@ -147,7 +147,16 @@ class SiteGeneratorTests(unittest.TestCase):
         manifest = shipped.pop('HC43')
         self.assertEqual(('HC-43', 'pending_integration', 'PENDING'),
                          (manifest['Package'], manifest['State'], manifest['Runtime']))
-        self.assertEqual(set(shipped), set(ai_patrols.generate_sites(self.pos, self.proto, self.spec)))
+        # Explicit worker-local policy fixture. The generator is read-only in
+        # this area; lead adds these defaults to its shared POLICY_DEFAULTS.
+        generated = ai_patrols.generate_sites(self.pos, self.proto, self.spec)
+        generated.update(AIRespawnSeconds=900, PatrolRespawnSeconds=0,
+                         HoldoutRespawnSeconds=0, MilitaryRespawnSeconds=0,
+                         MemberReplaceSeconds=600)
+        self.assertEqual(set(shipped), set(generated))
+        for key in ('AIRespawnSeconds', 'PatrolRespawnSeconds', 'HoldoutRespawnSeconds',
+                    'MilitaryRespawnSeconds', 'MemberReplaceSeconds'):
+            self.assertEqual(generated[key], shipped[key])
         self.assertLessEqual(len((ROOT / 'mission/hollow-country/ai/sites.json').read_bytes()), 65536)
         authored_checkpoints = {'checkpoint-komarovo-east', 'checkpoint-novaya-south'}
         self.assertTrue(all(s['Id'] in {x['Id'] for k in ai_patrols.SITE_SPEC.values() for x in k} | authored_checkpoints

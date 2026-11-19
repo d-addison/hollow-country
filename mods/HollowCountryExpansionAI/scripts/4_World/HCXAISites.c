@@ -34,6 +34,7 @@
 modded class HCXAIOwnedRow
 {
     int ClearedAt = 0;
+    bool PartialRaid = false;
 }
 class HCXAISiteSpawnConfig : ExpansionAIDynamicSpawnBase
 {
@@ -169,9 +170,23 @@ class HCXAISitePatrol : eAIDynamicPatrol
         if (m_HCPendingMembers < 0) { m_HCPendingMembers = 0; }
         super.SpawnAI_Deferred(i);
     }
+    // Expansion Classes/eAIGroup.c:1041 RemoveDeceased(int), :1123 IsInCombat;
+    // Classes/Patrols/eAIDynamicPatrol.c:29,46 public respawn clock fields.
+    // RemoveDeceased only removes the record;
+    // ClearAI at :1240 otherwise deletes bodies and their physical inventory.
+    void HCPreserveBodies()
+    {
+        if (!m_Group) { return; }
+        int bodyCount = m_Group.DeceasedCount();
+        while (bodyCount > 0)
+        {
+            bodyCount--;
+            m_Group.RemoveDeceased(bodyCount);
+        }
+    }
     override void Despawn(bool deferDespawnUntilLoosingAggro = false)
     {
-        if (m_Group && !HCXAISiteRules.DespawnAllowed(m_Group.IsInCombat(), m_Group.m_ForcePatrolDespawn)) { return; }
+        if (m_Group && m_Group.Count() > 0 && !HCXAISiteRules.DespawnAllowed(m_Group.IsInCombat(), m_Group.m_ForcePatrolDespawn)) { return; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         // Check every live member, not just the place/leader. Forced provider
         // retirement cannot make a transient disappear in front of an observer.
@@ -196,11 +211,14 @@ class HCXAISitePatrol : eAIDynamicPatrol
         // return when a player comes back, so its gear is never duplicated.
         bool raided = wasLive && !intact;
         if (raided && director) { director.RecordCleared(this); }
+        this.HCPreserveBodies();
         super.Despawn(false);
         m_HCPendingMembers = 0;
         m_HCLive = false;
         if (!m_HCTransient && !m_Group) { HCAIBudget.Release("site:" + m_HCSiteId); }
-        if (intact) { m_TimeSinceLastSpawn = m_RespawnTime; }
+        // The persisted death epoch is the respawn clock; native audience
+        // retirement must not add another full cooldown after it.
+        if (intact || raided) { m_TimeSinceLastSpawn = m_RespawnTime; }
         if (wasLive && director) { director.Despawned(this, intact); }
     }
     override void OnUpdate()
@@ -392,6 +410,7 @@ class HCXAISiteDirector : Managed
     protected string m_Phase = "wait";
     protected int m_Cursor;
     protected int m_CacheCursor;
+    protected int m_RespawnCursor;
     protected int m_Ticks;
     protected int m_LastActiveAI = -1;
     protected bool m_Diagnostic;
@@ -907,6 +926,8 @@ class HCXAISiteDirector : Managed
         {
             this.HCLocalityFault();
         }
+        Print(HCV2Admission.Line("AIFreshRespawn", !FileExist("$profile:HollowCountry/acceptance/ai-respawn.disable"), "EXP-P2", HCV2Gates.Qualified("EXP-P2")) + " runtime=PENDING");
+        Print("[HC Expansion AI] fresh respawn policy full=" + m_Policy.AIRespawnSeconds.ToString() + "s member=" + m_Policy.MemberReplaceSeconds.ToString() + "s mode=fresh-group runtime=PENDING");
         int count = m_Policy.Sites.Count();
         Print("[HC Expansion AI] sites policy accepted: " + count.ToString() + " sites; waiting for Expansion AI settings");
         if (m_Policy.RaidCooldownFloorSeconds > 0) { Print("[HC Expansion AI] raid cooldown floor " + m_Policy.RaidCooldownFloorSeconds.ToString() + "s (operator)"); }
@@ -1569,7 +1590,7 @@ class HCXAISiteDirector : Managed
         config.MaxDistRadius = this.HCActivationRadius(site, state.Transient);
         config.DespawnRadius = config.MaxDistRadius + 100;
         config.DespawnTime = site.DespawnSeconds;
-        config.RespawnTime = HCXAISiteDirector.RaidCooldown(site, m_Policy.RaidCooldownFloorSeconds);
+        config.RespawnTime = HCXAISiteDirector.HCRespawnDelay(site, m_Policy);
         if (state.Transient) { config.RespawnTime = -1; }
         config.MinSpreadRadius = 0;
         config.MaxSpreadRadius = 0;
@@ -1643,6 +1664,7 @@ class HCXAISiteDirector : Managed
         if (m_GroupScaling) { this.HCRefreshGroupFactor(); }
         if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.SaveOwned(); }
         this.StepTransients();
+        this.HCStepRespawns();
         this.StepCache();
         if (m_Diagnostic) { this.StepDiagnostic(); }
         if (m_Ticks % 60 != 0) { return; }
@@ -1769,6 +1791,11 @@ class HCXAISiteDirector : Managed
     }
     void Spawned(HCXAISitePatrol patrol)
     {
+        if (!patrol.m_HCTransient)
+        {
+            HCXAIOwnedRow freshRow = this.OwnershipRow(patrol.m_HCSiteId);
+            if (freshRow) { freshRow.ClearedAt = 0; freshRow.PartialRaid = false; }
+        }
         foreach (HCXAISiteState spawnedState : m_States)
         {
             if (!spawnedState.Transient || spawnedState.Patrol != patrol || spawnedState.Materialized) { continue; }
@@ -1791,15 +1818,76 @@ class HCXAISiteDirector : Managed
     }
     static int RaidCooldown(HCXAISite site, int operatorFloor = 0)
     {
-        // Shared by provider timing and the raid journal. Legacy/zero policy
-        // keeps six-hour/seven-day floors; an explicit operator floor replaces
-        // both. The site's longer RespawnSeconds always wins.
-        int minimum = 21600;
-        bool military = site.Id.Length() >= 4 && site.Id.Substring(0, 4) == "mil-";
-        if (site.Kind == "holdout" || military) { minimum = 604800; }
-        if (operatorFloor > 0) { minimum = operatorFloor; }
-        if (site.RespawnSeconds > minimum) { return site.RespawnSeconds; }
+        int minimum = site.RespawnSeconds;
+        if (operatorFloor > minimum) { minimum = operatorFloor; }
         return minimum;
+    }
+    static int HCRespawnDelay(HCXAISite site, HCXAISitePolicy policy)
+    {
+        int seconds = policy.AIRespawnSeconds;
+        if (seconds == 0) { seconds = site.RespawnSeconds; }
+        if (site.Kind == "patrol" && policy.PatrolRespawnSeconds > 0) { seconds = policy.PatrolRespawnSeconds; }
+        if (site.Kind == "holdout" && policy.HoldoutRespawnSeconds > 0) { seconds = policy.HoldoutRespawnSeconds; }
+        bool military = site.Id.Length() >= 4 && site.Id.Substring(0, 4) == "mil-";
+        if (military && policy.MilitaryRespawnSeconds > 0) { seconds = policy.MilitaryRespawnSeconds; }
+        if (policy.RaidCooldownFloorSeconds > seconds) { seconds = policy.RaidCooldownFloorSeconds; }
+        return seconds;
+    }
+    int HCDeathDelay(HCXAISite site, HCXAIOwnedRow row)
+    {
+        if (row.PartialRaid && m_Policy.MemberReplaceSeconds > 0) { return m_Policy.MemberReplaceSeconds; }
+        return HCXAISiteDirector.HCRespawnDelay(site, m_Policy);
+    }
+    protected void HCStepRespawns()
+    {
+        if (!m_Policy || m_States.Count() == 0 || FileExist("$profile:HollowCountry/acceptance/ai-respawn.disable")) { return; }
+        int checked = 0;
+        while (checked < HCXAISiteDirector.WORK_PER_TICK && checked < m_States.Count())
+        {
+            if (m_RespawnCursor >= m_States.Count()) { m_RespawnCursor = 0; }
+            HCXAISiteState respawnState = m_States[m_RespawnCursor];
+            int cost = 1;
+            if (respawnState.Patrol) { cost += respawnState.Patrol.m_HCGroupMax; }
+            if (!HCServer.HCTickWork().HCTake(cost)) { return; }
+            m_RespawnCursor++;
+            checked++;
+            if (respawnState.Patrol) { this.HCRefreshDepleted(respawnState.Patrol); }
+        }
+    }
+    // SpawnAI is private (eAIDynamicPatrol.c:376); deferred spawning at :681
+    // uses the live formation, which cannot satisfy an independent spawn ring.
+    // Retire an unseen depleted group, then use native fresh-group Spawn/loadout.
+    // Work is bounded by the already reserved group size (AILimits ceiling).
+    void HCRefreshDepleted(HCXAISitePatrol patrol)
+    {
+        if (!m_Policy || m_Phase != "run" || !m_OwnedSaved || patrol.m_HCTransient || !patrol.m_Group || patrol.m_HCPendingMembers > 0) { return; }
+        if (FileExist("$profile:HollowCountry/acceptance/ai-respawn.disable")) { return; }
+        int surviving = patrol.m_Group.Count();
+        // A wiped native group can retain its last combat flag: there is no
+        // living actor whose combat needs protecting or can clear that flag.
+        if (surviving >= patrol.m_NumberOfAI || (surviving > 0 && patrol.m_Group.IsInCombat())) { return; }
+        HCXAIOwnedRow deathRow = this.OwnershipRow(patrol.m_HCSiteId);
+        if (!deathRow || deathRow.ClearedAt <= 0) { return; }
+        int now = ExpansionStatic.GetTimestamp(true);
+        array<ref HCXAISiteState> freshStates = m_States;
+        foreach (HCXAISiteState freshState : freshStates)
+        {
+            if (freshState.Patrol != patrol) { continue; }
+            if (now < deathRow.ClearedAt || now - deathRow.ClearedAt < this.HCDeathDelay(freshState.Site, deathRow)) { return; }
+            int liveIndex = 0;
+            while (liveIndex < patrol.m_Group.Count())
+            {
+                DayZPlayerImplement liveMember = patrol.m_Group.GetMember(liveIndex);
+                if (liveMember && this.MemberProblemFor(liveMember.GetPosition()) != "") { return; }
+                liveIndex++;
+            }
+            patrol.Despawn();
+            // The durable death epoch has already served the delay. Avoid a
+            // second native timer after safe retirement. CanSpawn still checks
+            // journal, budget, provider, ring and visibility on every attempt.
+            if (!patrol.m_Group) { patrol.m_TimeSinceLastSpawn = patrol.m_RespawnTime; }
+            return;
+        }
     }
     bool RaidLocked(HCXAISite site, int now)
     {
@@ -1808,7 +1896,8 @@ class HCXAISiteDirector : Managed
         {
             if (raidRow.SiteId != site.Id || raidRow.ClearedAt == 0) { continue; }
             if (now < raidRow.ClearedAt) { return true; }
-            return now - raidRow.ClearedAt < HCXAISiteDirector.RaidCooldown(site, m_Policy.RaidCooldownFloorSeconds);
+            if (FileExist("$profile:HollowCountry/acceptance/ai-respawn.disable")) { return true; }
+            return now - raidRow.ClearedAt < this.HCDeathDelay(site, raidRow);
         }
         return false;
     }
@@ -1832,15 +1921,23 @@ class HCXAISiteDirector : Managed
         foreach (HCXAISiteState killedState : m_States)
         {
             if (killedState.Transient || !killedState.Patrol) { continue; }
-            if (killedState.Patrol.m_Group == killedGroup) { this.RecordCleared(killedState.Patrol); return; }
+            if (killedState.Patrol.m_Group == killedGroup)
+            {
+                this.RecordCleared(killedState.Patrol, true);
+                return;
+            }
         }
     }
-    void RecordCleared(HCXAISitePatrol patrol)
+    void RecordCleared(HCXAISitePatrol patrol, bool death = false)
     {
         if (!m_Owned || patrol.m_HCTransient) { return; }
         HCXAIOwnedRow clearedRow = this.OwnershipRow(patrol.m_HCSiteId);
         if (!clearedRow) { m_OwnedSaved = false; return; }
+        // Despawn must never restart the death timer. A new kill updates the
+        // epoch; callback runs before native death cleanup (HCXStance).
+        if (!death && clearedRow.ClearedAt > 0) { return; }
         clearedRow.ClearedAt = ExpansionStatic.GetTimestamp(true);
+        clearedRow.PartialRaid = death && patrol.m_Group && patrol.m_Group.Count() > 1;
         this.SaveOwned();
         Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " cleared-at=" + clearedRow.ClearedAt.ToString() + " saved=" + m_OwnedSaved.ToString());
     }
@@ -2009,7 +2106,9 @@ class HCXAISiteDirector : Managed
         }
         string error;
         MakeDirectory("$profile:HollowCountry");
-        m_OwnedSaved = JsonFileLoader<HCXAIOwnership>.SaveFile(HCXAISiteDirector.OWNED, m_Owned, error);
+        // Shared verified intent/backup/copy store: an interrupted promotion
+        // quarantines the epoch rather than silently resetting a raid timer.
+        m_OwnedSaved = HCV2ThreatStore<HCXAIOwnership>.Save(HCXAISiteDirector.OWNED, m_Owned, HCWorldStore.MAX_BYTES);
         if (!m_OwnedSaved) { Print("[HC Expansion AI] ownership save refused: " + error + "; new spawns and cache seeds held"); }
         return m_OwnedSaved;
     }
@@ -2031,6 +2130,10 @@ class HCXAISiteDirector : Managed
         string error;
         HCXAISitePolicy policy;
         if (!JsonFileLoader<HCXAISitePolicy>.LoadData(data, policy, error) || !policy) { return null; }
+        // JsonFileLoader zero-fills absent scalars. Missing respawn policy
+        // gets the short defaults; explicit zero intentionally inherits sites.
+        if (!HCJsonFields.Has(data, "AIRespawnSeconds")) { policy.AIRespawnSeconds = 900; }
+        if (!HCJsonFields.Has(data, "MemberReplaceSeconds")) { policy.MemberReplaceSeconds = 600; }
         // Legacy JSON fields are retained for old profiles, with one authority.
         policy.MaxActiveAI = HCAILimits.Get().MaxActiveAI;
         policy.MaxActiveSites = HCAILimits.Get().MaxActiveSites;
@@ -2058,6 +2161,7 @@ class HCXAISiteDirector : Managed
     }
     static HCXAIOwnership LoadOwned()
     {
+        if (!HCV2ThreatStore<HCXAIOwnership>.CanOpen(HCXAISiteDirector.OWNED)) { return null; }
         if (!FileExist(HCXAISiteDirector.OWNED)) { return new HCXAIOwnership(); }
         string data = HCWorldStore.Read(HCXAISiteDirector.OWNED);
         if (data == "") { return null; }

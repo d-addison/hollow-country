@@ -151,6 +151,10 @@ class HCXAISiteRules
         if (!HCXAIRules.PositionValid(point, 64)) { return false; }
         return Math.AbsFloat(point[0]) <= 30 && Math.AbsFloat(point[1]) <= 12 && Math.AbsFloat(point[2]) <= 30;
     }
+    static bool HCRespawnTimerValid(int seconds)
+    {
+        return seconds == 0 || (seconds >= 60 && seconds <= 604800);
+    }
     static string PolicyProblem(HCXAISitePolicy p)
     {
         if (!p) { return "missing policy"; }
@@ -163,6 +167,8 @@ class HCXAISiteRules
         if (!HCXAIRules.Finite(p.LineOfSightRange) || p.LineOfSightRange < 200 || p.LineOfSightRange > 1500) { return "LineOfSightRange must be 200..1500"; }
         if (!HCXAIRules.Finite(p.MaxLegLength) || p.MaxLegLength < 50 || p.MaxLegLength > 600) { return "MaxLegLength must be 50..600"; }
         if (!HCXAIRules.Finite(p.CacheClearRadius) || p.CacheClearRadius < 100 || p.CacheClearRadius > 1000) { return "CacheClearRadius must be 100..1000"; }
+        if (!HCXAISiteRules.HCRespawnTimerValid(p.AIRespawnSeconds) || !HCXAISiteRules.HCRespawnTimerValid(p.PatrolRespawnSeconds) || !HCXAISiteRules.HCRespawnTimerValid(p.HoldoutRespawnSeconds)) { return "invalid respawn policy timer (0 or 60..604800)"; }
+        if (!HCXAISiteRules.HCRespawnTimerValid(p.MilitaryRespawnSeconds) || !HCXAISiteRules.HCRespawnTimerValid(p.MemberReplaceSeconds)) { return "invalid replacement policy timer (0 or 60..604800)"; }
         if (p.RaidCooldownFloorSeconds != 0 && (p.RaidCooldownFloorSeconds < 1800 || p.RaidCooldownFloorSeconds > 604800)) { return "RaidCooldownFloorSeconds must be 0 or 1800..604800"; }
         if (!HCXAIRules.Finite(p.ActivationRadiusScale) || (p.ActivationRadiusScale != 0 && (p.ActivationRadiusScale < 0.5 || p.ActivationRadiusScale > 2.0))) { return "ActivationRadiusScale must be 0 or 0.5..2.0"; }
         if (!p.Sites || p.Sites.Count() < 1 || p.Sites.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return "site catalog row budget exceeded"; }
@@ -198,7 +204,7 @@ class HCXAISiteRules
         if (!HCXAISiteRules.Among(s.Speed, "|WALK|JOG|")) { return "Speed must be WALK or JOG"; }
         if (!HCXAIRules.Finite(s.ActivationRadius) || s.ActivationRadius <= 0 || s.ActivationRadius > HCPerceptionRing.HCCeiling()) { return "ActivationRadius must be positive and within perception ceiling (effective radius includes spawn ring)"; }
         if (s.DespawnSeconds < 60 || s.DespawnSeconds > 3600) { return "DespawnSeconds must be 60..3600"; }
-        if (s.RespawnSeconds < 600 || s.RespawnSeconds > 86400) { return "RespawnSeconds must be 600..86400"; }
+        if (s.RespawnSeconds < 60 || s.RespawnSeconds > 604800) { return "RespawnSeconds must be 60..604800"; }
         if (s.Kind == "holdout") { return HCXAISiteRules.HoldoutProblem(s); }
         if (s.HouseClass != "" || s.CacheClass != "" || s.CacheLoot.Count() > 0 || s.LocalPoints.Count() > 0) { return "only holdouts own a house or a cache"; }
         if (!s.Waypoints || s.Waypoints.Count() < 2 || s.Waypoints.Count() > 8) { return "2..8 waypoints are required"; }

@@ -143,30 +143,34 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(0, patrol.m_HCPendingMembers)
         self.assertEqual([('transient group emptied before member spawn',)], reasons)
 
-    def test_raid_floor_defaults_override_respawn_and_lock_boundary(self):
+    def test_configured_raid_floor_and_short_respawn_lock_boundary(self):
         site = N(Id='mil-nwaf', Kind='patrol', RespawnSeconds=900)
-        self.assertEqual(604800, self.call('RaidCooldown', site))
+        self.assertEqual(site.RespawnSeconds, self.call('RaidCooldown', site))
         self.assertEqual(1800, self.call('RaidCooldown', site, 1800))
         site.RespawnSeconds = 7200
         self.assertEqual(7200, self.call('RaidCooldown', site, 1800))
         site.Id = 'police-synthetic'
-        self.assertEqual(21600, self.call('RaidCooldown', site))
+        self.assertEqual(site.RespawnSeconds, self.call('RaidCooldown', site))
         site.Kind = 'holdout'
-        self.assertEqual(604800, self.call('RaidCooldown', site))
+        self.assertEqual(site.RespawnSeconds, self.call('RaidCooldown', site))
         self.director.m_Owned = N(Rows=A([N(SiteId=site.Id, ClearedAt=100)]))
+        self.env['FileExist'] = lambda path: False
+        self.director.HCDeathDelay = lambda site, row: self.call('RaidCooldown', site, 1800)
         self.director.m_Policy.RaidCooldownFloorSeconds = 1800
         site.RespawnSeconds = 900
         self.assertTrue(self.call('RaidLocked', site, 1899))
         self.assertFalse(self.call('RaidLocked', site, 1900))
         self.assertEqual(100, self.director.m_Owned.Rows[0].ClearedAt)
         self.assertIn('raid cooldown floor ', self.source)
-        self.assertIn('HCXAISiteDirector.RaidCooldown(site, m_Policy.RaidCooldownFloorSeconds)', self.source)
+        self.assertIn('HCXAISiteDirector.HCRespawnDelay(site, m_Policy)', self.source)
 
     def test_spawn_log_is_exact_one_rounded_xz_line(self):
         patrol = self.patrol(1, 3)
         patrol.m_Position = (4621.51, 339.74, 10595.41)
         patrol.m_HCKind = 'patrol'
         self.director.SaveOwned = lambda: True
+        patrol.m_HCTransient = False
+        self.director.OwnershipRow = lambda site: N(ClearedAt=100, PartialRaid=True)
         self.call('Spawned', patrol)
         lines = [s for s in self.logs if 'Spawning ' in s]
         self.assertEqual(['[HC Expansion AI] Spawning 4 AI HC:mil-nwaf at 4622 10595'], lines)

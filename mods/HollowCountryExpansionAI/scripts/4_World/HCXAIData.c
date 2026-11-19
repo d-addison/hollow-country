@@ -158,7 +158,7 @@ class HCXAISite
     string Speed = "WALK";
     float ActivationRadius = 600;
     int DespawnSeconds = 600;
-    int RespawnSeconds = 3600;
+    int RespawnSeconds = 900;
     ref array<vector> Waypoints = new array<vector>();
     bool Checkpoint = false;
     bool Reviewed = false; // source review only, never runtime acceptance
@@ -183,7 +183,14 @@ class HCXAISitePolicy
     float LineOfSightRange = 1000;
     float MaxLegLength = 400;
     float CacheClearRadius = 300;
-    int RaidCooldownFloorSeconds = 0; // absent/zero retains the six-hour/seven-day floors
+    // Respawn policy block. Zero means inherit; AIRespawnSeconds=0 uses
+    // site.RespawnSeconds for legacy operator profiles. Shipped policy owns timing.
+    int AIRespawnSeconds = 900;
+    int PatrolRespawnSeconds = 0;
+    int HoldoutRespawnSeconds = 0;
+    int MilitaryRespawnSeconds = 0;
+    int MemberReplaceSeconds = 600; // zero inherits effective full-group delay
+    int RaidCooldownFloorSeconds = 0; // optional legacy operator minimum
     float ActivationRadiusScale = 0; // absent/zero means 1.0
     ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
 }
