@@ -11,6 +11,21 @@ from tests.unit import test_snafu_optional as sf_fixture
 from tests.unit import test_tactical_flava_optional as tf_fixture
 
 
+try:
+    from tests.unit import hash_cache_isolation
+except ImportError:  # run as a script from tests/unit
+    import hash_cache_isolation
+
+
+def setUpModule():
+    # #194: the whole-PBO hashing path reads/writes the hash cache; never the user's.
+    hash_cache_isolation.enter()
+
+
+def tearDownModule():
+    hash_cache_isolation.leave()
+
+
 class OptionalGear(unittest.TestCase):
     def test_optional_family_budget_pins_parts_and_rollback(self):
         with tempfile.TemporaryDirectory() as temporary:

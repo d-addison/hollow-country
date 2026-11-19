@@ -26,11 +26,23 @@ WINE_NOISE_PATTERNS = (r'wine client error:[0-9a-fA-F]+: .*', r'wine: .*',
                        r'(?:[0-9a-fA-F]{4,}:)?fixme:[A-Za-z0-9_.-]+:.*')
 _WINE_NOISE = re.compile('|'.join('(?:%s)' % p for p in WINE_NOISE_PATTERNS))
 REFUSAL_PATTERN = r'wrong|not found|not loaded|No signature|deprecated|error'
+# Decision (#194): `err:<channel>:` lines are Wine reporting a real fault (a missing DLL, a failed load,
+# a timed-out lock), so a generic one refuses the check even when it carries none of REFUSAL_PATTERN's
+# words. They are never filtered. A specific err: noise line may become a named WINE_NOISE_PATTERNS entry
+# only together with its exact sample line in tests/unit/test_package.py.
+WINE_ERR_LINE = re.compile(r'(?:[0-9a-fA-F]{4,}:)?err:[A-Za-z0-9_.-]+:.*')
 
 
 def strip_wine_noise(text):
     """Drop only whole lines that are Wine's own noise (WINE_NOISE_PATTERNS) from the refusal text."""
     return '\n'.join(line for line in text.splitlines() if not _WINE_NOISE.fullmatch(line.strip()))
+
+
+def refused_text(text):
+    """True when the checker output, after dropping only the named Wine noise, shows a refusal."""
+    kept = strip_wine_noise(text)
+    return bool(re.search(REFUSAL_PATTERN, kept, re.IGNORECASE)
+                or any(WINE_ERR_LINE.fullmatch(line.strip()) for line in kept.splitlines()))
 
 
 def sign_and_verify(source, tools, private, public, output, runner=subprocess.run):
@@ -69,7 +81,7 @@ def sign_and_verify(source, tools, private, public, output, runner=subprocess.ru
     (output / 'verification.log').write_text(text, encoding='utf-8')
     # Do not infer success from exit=0 or silence; require a positive result.
     if (check_log.returncode or not re.search(r'^Signature .+ is OK\s*$', text, re.MULTILINE)
-            or re.search(REFUSAL_PATTERN, strip_wine_noise(text), re.IGNORECASE)):
+            or refused_text(text)):
         raise ValueError('DSCheckSignatures did not positively verify; release remains gated')
     if dest.read_bytes() != source_bytes:
         raise ValueError('PBO changed during signing')

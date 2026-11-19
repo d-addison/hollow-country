@@ -63,6 +63,11 @@ class HCAdminLootMapLimits
     // How long the client keeps lootmap marks on its map after the reply.
     int ViewSeconds = 300;
     int CooldownSeconds = 30;
+    // Observed core tick cadence (ms) that sizes the ack budget is a running value, not
+    // one sample (#194): each new sample moves it by 1/ObservedTickDivisor of the gap,
+    // and a sample is clamped to ObservedTickMaxMs (the 300 s cadence bound).
+    int ObservedTickDivisor = 8;
+    int ObservedTickMaxMs = 300000;
 }
 
 class HCAdminLootType
@@ -184,6 +189,18 @@ class HCAdminLootMap
         }
         if (digits == 0) { return -1; }
         return value;
+    }
+
+    // Bounded running cadence for HCBudgetMs (#194): an exponentially weighted value, so one
+    // slow or fast tick moves it by 1/ObservedTickDivisor of the gap and never sets it.
+    // previousMs <= 0 means no sample yet: the first sample seeds the value.
+    static int HCSmoothTickMs(int previousMs, int sampleMs)
+    {
+        HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
+        int sample = Math.Min(Math.Max(sampleMs, 0), limits.ObservedTickMaxMs);
+        if (previousMs < 1) { return sample; }
+        int divisor = Math.Max(limits.ObservedTickDivisor, 1);
+        return (previousMs * (divisor - 1) + sample) / divisor;
     }
 
     // Server-side expected job deadline in ms for the ack: the job's tick cap times the

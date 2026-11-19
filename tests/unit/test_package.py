@@ -401,6 +401,29 @@ class PackageBehavior(unittest.TestCase):
             with self.assertRaises(ValueError, msg=text):
                 self._wine_noise_check(noise + text)
 
+    def test_generic_wine_err_lines_still_refuse_even_without_a_refusal_keyword(self):
+        # #194: only the named Wine noise patterns (wine client error / wine: / fixme:) are filtered.
+        # An `err:` line is Wine reporting a real fault (a missing DLL, a failed load, ...), so it
+        # fails the check even when it contains none of the checker's refusal words.
+        ok = 'Signature synthetic.pbo.test.bisign is OK\n'
+        for line in ('err:module:import_dll Loading library MSVCP140.dll failed (exception c0000135)\n',
+                     '0024:err:ntdll:RtlpWaitForCriticalSection section 0x7bc8a2b0 wait timed out\n',
+                     'err:ole:CoGetClassObject class {00000000-0000-0000-0000-000000000000} not registered\n'):
+            for stdout, stderr in ((line + ok, ''), (ok, line), (ok + line, '')):
+                with self.assertRaises(ValueError, msg=line):
+                    self._wine_noise_check(stdout, stderr)
+
+    def test_named_wine_noise_patterns_are_the_only_filtered_lines(self):
+        from tools.package import sign
+        samples = ('wine client error:11c: sendmsg: Socket operation on non-socket',
+                   'wine: Unhandled page fault on read access to 0000000000000000',
+                   '0024:fixme:ntdll:NtQuerySystemInformation info_class SYSTEM_PERFORMANCE_INFORMATION')
+        for line in samples:
+            self.assertEqual('', sign.strip_wine_noise(line), line)
+        for line in ('err:module:import_dll Loading library X.dll failed', '0024:err:ntdll:RtlpWait x',
+                     'Signature a.pbo is wrong', 'wine client error without the hex id'):
+            self.assertEqual(line, sign.strip_wine_noise(line), line)
+
     def test_wine_noise_alone_without_the_positive_line_still_refuses(self):
         noise = 'wine client error:11c: sendmsg: Socket operation on non-socket\n'
         with self.assertRaises(ValueError):
