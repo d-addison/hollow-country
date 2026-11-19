@@ -32,6 +32,16 @@ class HCSignsOfLifeEffect
     ref EffSwarmingFlies Flies;
     ref EffectSound Buzz;
 
+    int HCHandleCount()
+    {
+        int count = 0;
+        if (Lamp) { count = count + 1; }
+        if (Smoke) { count = count + 1; }
+        if (Flies) { count = count + 1; }
+        if (Buzz) { count = count + 1; }
+        return count;
+    }
+
     void Stop()
     {
         if (Lamp) Lamp.Destroy();
@@ -46,21 +56,15 @@ class HCSignsOfLifeEffect
     }
 }
 
-class HCSignsOfLifeClient
+// HC-27 control-plane cache: <=24 validated server positions, updated only
+// by incoming RPC. Retained while presentation is off so local re-enable uses
+// the latest snapshot. No timer, scan, audio or presentation update callback.
+// The mission coordinator alone owns/subscribes this cache and clears it at finish.
+class HCSignsOfLifeSnapshotClient
 {
-    protected ref array<ref HCSignsOfLifeEffect> m_Lit = new array<ref HCSignsOfLifeEffect>;
-    protected ref array<ref HCSignsOfLifeEffect> m_Smoke = new array<ref HCSignsOfLifeEffect>;
-    protected ref array<ref HCSignsOfLifeEffect> m_Flies = new array<ref HCSignsOfLifeEffect>;
-    protected float m_ScanClock = 10.0;
-    protected float m_CleanClock;
-    protected float m_LogClock = 10.0;
-    protected int m_LastLit = -1;
-    protected int m_LastSmoke = -1;
-    protected int m_LastFlies = -1;
-
     protected bool m_HoldoutSnapshot;
 
-    void HCSignsOfLifeClient()
+    void HCSignsOfLifeSnapshotClient()
     {
         HCSignsOfLife.ForceLit = new array<vector>;
         DayZGame.Event_OnRPC.Insert(HCReceiveHoldouts);
@@ -92,9 +96,27 @@ class HCSignsOfLifeClient
         if (!changed) { return; }
         m_HoldoutSnapshot = true;
         HCSignsOfLife.ForceLit = positions;
-        m_ScanClock = HCSignsOfLife.SCAN_SECONDS;
         Print("[HollowCountry] V2 client signs of life holdouts=" + count.ToString());
     }
+
+    void Stop()
+    {
+        DayZGame.Event_OnRPC.Remove(HCReceiveHoldouts);
+        HCSignsOfLife.ForceLit = null;
+    }
+}
+
+class HCSignsOfLifeClient
+{
+    protected ref array<ref HCSignsOfLifeEffect> m_Lit = new array<ref HCSignsOfLifeEffect>;
+    protected ref array<ref HCSignsOfLifeEffect> m_Smoke = new array<ref HCSignsOfLifeEffect>;
+    protected ref array<ref HCSignsOfLifeEffect> m_Flies = new array<ref HCSignsOfLifeEffect>;
+    protected float m_ScanClock = 10.0;
+    protected float m_CleanClock;
+    protected float m_LogClock = 10.0;
+    protected int m_LastLit = -1;
+    protected int m_LastSmoke = -1;
+    protected int m_LastFlies = -1;
 
     static bool FlySource(Object source)
     {
@@ -238,6 +260,16 @@ class HCSignsOfLifeClient
         handles.Clear();
     }
 
+    // HC-27 bounded owned-handle snapshot, no engine/world query.
+    int HCHandleCount()
+    {
+        int count = 0;
+        foreach (HCSignsOfLifeEffect lit : m_Lit) { count = count + lit.HCHandleCount(); }
+        foreach (HCSignsOfLifeEffect smoke : m_Smoke) { count = count + smoke.HCHandleCount(); }
+        foreach (HCSignsOfLifeEffect flies : m_Flies) { count = count + flies.HCHandleCount(); }
+        return count;
+    }
+
     void Clear()
     {
         ClearHandles(m_Lit);
@@ -263,34 +295,8 @@ class HCSignsOfLifeClient
     void Stop()
     {
         Clear();
-        DayZGame.Event_OnRPC.Remove(HCReceiveHoldouts);
-        HCSignsOfLife.ForceLit = null;
         m_LogClock = HCSignsOfLife.SCAN_SECONDS;
         Report();
-    }
-}
-
-modded class MissionGameplay
-{
-    protected ref HCSignsOfLifeClient m_HCSignsOfLife;
-
-    override void OnInit()
-    {
-        super.OnInit();
-        if (!GetGame().IsDedicatedServer()) m_HCSignsOfLife = new HCSignsOfLifeClient;
-    }
-
-    override void OnUpdate(float timeslice)
-    {
-        super.OnUpdate(timeslice);
-        if (m_HCSignsOfLife) m_HCSignsOfLife.HCTickEffects(timeslice);
-    }
-
-    override void OnMissionFinish()
-    {
-        if (m_HCSignsOfLife) m_HCSignsOfLife.Stop();
-        m_HCSignsOfLife = null;
-        super.OnMissionFinish();
     }
 }
 

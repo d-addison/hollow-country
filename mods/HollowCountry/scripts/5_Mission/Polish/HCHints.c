@@ -1,4 +1,4 @@
-// LC-T501 / EXP-POL-1. Client-local, default on; no server preference reads.
+// LC-T501 / EXP-POL-1. HC-27 coordinator owns effective settings and lifecycle.
 // Installed scripts-1.30.164289 native evidence (paths relative to that dump):
 // 3_Game/Client/Notifications/NotificationSystem.c:104,215 GetInstance/AddNotificationExtended.
 // 3_Game/DayZGame.c:2178 GetDatabaseID (native character id, also used by analytics at :1557).
@@ -203,30 +203,14 @@ class HCHints
         if (m_Stopped) return;
         m_Stopped = true;
         if (m_State && !m_Fault) Save();
+        // HC-27 inspected NotificationSystem.c:215-230 returns no handle;
+        // :239-263 owns expiration and deferred promotion. No public cancellation
+        // API exists. Do not purge native/other mods' notifications or fabricate
+        // a cancel. Future checks/saves stop now; existing notices expire natively.
+        if (m_Shown > 0)
+        {
+            Print("[HC Plan] HC-27 presentation=refused handles=0 off_callbacks=0 reason=hint_cancel_unsupported scope=hints native_expiry=retained runtime=PENDING");
+        }
         Print("[HollowCountry] V2 client hints shown=" + m_Shown.ToString());
-    }
-}
-
-modded class MissionGameplay
-{
-    protected ref HCHints m_HCPolishHints;
-
-    override void OnInit()
-    {
-        super.OnInit();
-        if (!GetGame().IsServer()) m_HCPolishHints = new HCHints;
-    }
-
-    override void OnUpdate(float timeslice)
-    {
-        super.OnUpdate(timeslice);
-        if (m_HCPolishHints) m_HCPolishHints.Update(timeslice);
-    }
-
-    override void OnMissionFinish()
-    {
-        if (m_HCPolishHints) m_HCPolishHints.Stop();
-        m_HCPolishHints = null;
-        super.OnMissionFinish();
     }
 }

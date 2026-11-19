@@ -13,6 +13,7 @@
 // :287 OnUpdate(float timeslice), :1119 IsControlDisabled.
 // 4_World/Entities/ManBase/PlayerBase.c:3925 IsUnconscious (guard also used
 // by existing 5_Mission/Groups/HCGroupGameplay.c:24-32).
+// 3_Game/PPEManager/Requesters/PPERequestPlatformsBase.c:44,53 Stop/IsRequesterRunning.
 // Four policy/PPE updates per second at most, no catch-up loop after a stall.
 // Grade defaults to K (unused in the four installed vanilla keyboard presets).
 class HCGradeSettingsClient
@@ -73,6 +74,7 @@ class HCGradeSettingsClient
                 NotificationSystem.AddNotificationExtended(3.0, "Hollow Country grade", m_Percent.ToString() + "%");
             }
         }
+        if (m_Percent == 0) { return; }
         m_Elapsed += timeslice;
         if (m_Elapsed < 0.25) { return; }
         m_Elapsed = 0.0;
@@ -118,6 +120,13 @@ class HCGradeSettingsClient
         Report();
     }
 
+    // HC-27: count only the HC requester; never stop native PPE requesters.
+    int HCHandleCount()
+    {
+        if (m_Requester && m_Requester.IsRequesterRunning()) { return 1; }
+        return 0;
+    }
+
     void Stop()
     {
         if (m_Requester && m_Requester.IsRequesterRunning()) { m_Requester.Stop(); }
@@ -136,35 +145,5 @@ class HCGradeSettingsClient
         Print("[HollowCountry] V2 client grade intensity=" + m_Percent.ToString() + "% requester=" + state);
         m_LastReportedPercent = m_Percent;
         m_LastReportedRunning = running;
-    }
-}
-
-modded class MissionGameplay
-{
-    protected ref HCGradeSettingsClient m_HCGradeSettings;
-
-    override void OnInit()
-    {
-        super.OnInit();
-        if (GetGame().IsDedicatedServer()) { return; }
-        m_HCGradeSettings = new HCGradeSettingsClient;
-        m_HCGradeSettings.Start();
-    }
-
-    override void OnUpdate(float timeslice)
-    {
-        super.OnUpdate(timeslice);
-        if (m_HCGradeSettings)
-        {
-            bool gradeInputAllowed = !IsControlDisabled() && !GetGame().GetUIManager().GetMenu();
-            m_HCGradeSettings.Update(timeslice, gradeInputAllowed);
-        }
-    }
-
-    override void OnMissionFinish()
-    {
-        if (m_HCGradeSettings) { m_HCGradeSettings.Stop(); }
-        m_HCGradeSettings = null;
-        super.OnMissionFinish();
     }
 }

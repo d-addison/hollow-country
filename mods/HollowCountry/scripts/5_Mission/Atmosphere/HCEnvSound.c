@@ -1,4 +1,4 @@
-// LC-T502 / EXP-POL-2. Client-local default on, independent of server preferences.
+// LC-T502 / EXP-POL-2. HC-27 coordinator owns effective settings and lifecycle.
 // Installed scripts-1.30.164289 native evidence (relative to that dump):
 // 3_Game/EffectManager.c:237 PlaySoundEnviroment(string,vector,float,float,bool),
 // :280 DestroyEffect stops/unregisters; 3_Game/Effects/EffectSound.c:878 SetSoundMaxVolume.
@@ -110,35 +110,17 @@ class HCEnvSound
         LogLayer(layer);
     }
 
+    int HCHandleCount()
+    {
+        if (m_Sound) { return 1; }
+        return 0;
+    }
+
     void Stop()
     {
         if (m_Stopped) return;
         m_Stopped = true;
         StopSound();
         LogLayer("quiet");
-    }
-}
-
-modded class MissionGameplay
-{
-    protected ref HCEnvSound m_HCPolishSound;
-
-    override void OnInit()
-    {
-        super.OnInit();
-        if (!GetGame().IsServer()) m_HCPolishSound = new HCEnvSound;
-    }
-
-    override void OnUpdate(float timeslice)
-    {
-        super.OnUpdate(timeslice);
-        if (m_HCPolishSound) m_HCPolishSound.Update(timeslice);
-    }
-
-    override void OnMissionFinish()
-    {
-        if (m_HCPolishSound) m_HCPolishSound.Stop();
-        m_HCPolishSound = null;
-        super.OnMissionFinish();
     }
 }
