@@ -1,5 +1,5 @@
 // Native 1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist, :528 DeleteFile;
-// 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove.
+// 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove; :852 map.Count.
 // 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :448 Get. Existing HCSearchJson owns JSON I/O.
 // Sparse active slots retain indices; bounded FIFO/archive tombstones prevent regrant.
 // HCSearchRetirementStore in HCSearchRefresh.c owns a maximum of 2048 exact
@@ -36,6 +36,7 @@ class HCSearchHouseJournal
     protected string m_Build;
     protected bool m_Open;
     protected bool m_Fault;
+    protected string m_LastRefusal;
     protected ref array<ref HCSearchHouseRow> m_Rows = new array<ref HCSearchHouseRow>;
     protected ref map<string, int> m_Supplies = new map<string, int>;
     protected ref map<string, int> m_Sites = new map<string, int>;
@@ -45,8 +46,15 @@ class HCSearchHouseJournal
     bool Fail(string reason)
     {
         m_Fault = true;
-        Print("[HC Search Houses] journal inactive: " + reason);
+        HCRefuse(reason);
         return false;
+    }
+
+    void HCRefuse(string reason)
+    {
+        if (m_LastRefusal == reason) { return; }
+        m_LastRefusal = reason;
+        Print("[HC Search Houses] journal inactive: " + reason + " runtime=PENDING");
     }
 
     bool Healthy() { return m_Open && !m_Fault; }
@@ -83,8 +91,12 @@ class HCSearchHouseJournal
 
     bool HasCapacity()
     {
+        if (!HCSearchLimits.HCGet().Healthy()) { return false; }
+        int liveEntries = m_Supplies.Count();
+        if (liveEntries >= HCSearchLimits.HCGet().JournalMaxEntries) { return false; }
         if (m_Rows.Count() < MAX_ENTRIES) { return true; }
-        foreach (HCSearchHouseRow available : m_Rows)
+        array<ref HCSearchHouseRow> availableRows = m_Rows;
+        foreach (HCSearchHouseRow available : availableRows)
         {
             if (!available) { return true; }
         }
@@ -94,7 +106,8 @@ class HCSearchHouseJournal
     bool SiteSettled(string siteId)
     {
         bool found;
-        foreach (HCSearchHouseRow pending : m_Rows)
+        array<ref HCSearchHouseRow> pendingRows = m_Rows;
+        foreach (HCSearchHouseRow pending : pendingRows)
         {
             if (!pending || pending.SiteId != siteId) { continue; }
             if (pending.Phase < 2) { return false; }
@@ -113,6 +126,7 @@ class HCSearchHouseJournal
     bool Open(string sourceId, string sourcePin, string worldName, string build)
     {
         if (m_Open || m_Fault || !GetGame().IsServer()) return false;
+        if (!HCSearchLimits.HCGet().Healthy()) { return Fail("search limits invalid"); }
         if (!HCSearchRules.TextValid(sourceId, 128) || !HCSearchRules.PinValid(sourcePin)) return Fail("invalid source id or pin");
         if (!HCSearchRules.TextValid(worldName, 128) || !HCSearchRules.TextValid(build, 64)) return Fail("invalid world or build");
         m_SourceId = sourceId;
@@ -257,7 +271,7 @@ class HCSearchHouseJournal
 
     bool PruneLegacyTombstones(int limit)
     {
-        if (!Healthy() || limit < 1 || limit > 32) { return false; }
+        if (!Healthy() || limit < 1 || limit > HCSearchLimits.HCGet().LegacyFilesPerMinute) { return false; }
         if (!EnsureRetirement()) { return false; }
         if (!m_Retired.PruneLegacy(this, limit)) { return Fail("legacy tombstone migration failed; preserve journal"); }
         return true;
@@ -326,7 +340,8 @@ class HCSearchHouseJournal
         // One pass over the rows (not one scan per row): a site is settled when all of its rows reached phase 2.
         array<string> settledSites = new array<string>;
         array<bool> settledFlags = new array<bool>;
-        foreach (HCSearchHouseRow restored : m_Rows)
+        array<ref HCSearchHouseRow> restoredRows = m_Rows;
+        foreach (HCSearchHouseRow restored : restoredRows)
         {
             if (!restored) { continue; }
             bool rowSettled = restored.Phase >= 2;

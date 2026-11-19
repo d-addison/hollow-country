@@ -1,3 +1,136 @@
+// W4 search limits: optional $profile:HollowCountry/search-limits.json, read once.
+// Partial legacy configs migrate in memory: only present, valid keys replace defaults.
+// State schemas retain their old read ceilings; lowering an admission cap never
+// drops cooldowns, transfer records or replay barriers. Byte/bucket constants below
+// are serialization/layout safety ceilings, not operator work/admission limits.
+// Native 1.30.164289: EnSystem.c:397 FileExist; JsonFileLoader.c:69 LoadData;
+// paths are 1_Core/proto/EnSystem.c and 3_Game/tools/JsonFileLoader.c.
+// HCGroupIO and HCV2ThreatStore own bounded IO and verified commit barriers.
+class HCSearchLimitsRegistry : HCOperatorSettingsRegistry
+{
+    protected static bool s_SearchRegistered;
+    static void HCSearchInit()
+    {
+        HCInit();
+        if (s_SearchRegistered) { return; }
+        s_SearchRegistered = true;
+        HCAdd("SearchLimits.RetryDelayMs", "int", 10000, 1000, 60000, "HCSearchLimits");
+        HCAdd("SearchLimits.RetryAttempts", "int", 3, 1, 12, "HCSearchLimits");
+        HCAdd("SearchLimits.RefreshRecordsPerMinute", "int", 32, 1, 32, "HCSearchLimits");
+        HCAdd("SearchLimits.RefreshMaxRecords", "int", 4096, 1, 4096, "HCSearchLimits");
+        HCAdd("SearchLimits.RefreshMinSeconds", "int", 172800, 60, 2592000, "HCSearchLimits");
+        HCAdd("SearchLimits.RefreshJitterSeconds", "int", 172800, 0, 2592000, "HCSearchLimits");
+        HCAdd("SearchLimits.JournalMaxEntries", "int", 4096, 1, 4096, "HCSearchLimits");
+        HCAdd("SearchLimits.RetirementRecentEntries", "int", 2048, 1, 2048, "HCSearchLimits");
+        HCAdd("SearchLimits.CompactRowsPerMinute", "int", 32, 1, 32, "HCSearchLimits");
+        HCAdd("SearchLimits.LegacyFilesPerMinute", "int", 32, 1, 32, "HCSearchLimits");
+    }
+}
+
+class HCSearchLimits
+{
+    int RetryDelayMs = 10000;
+    int RetryAttempts = 3;
+    int RefreshRecordsPerMinute = 32;
+    int RefreshMaxRecords = 4096;
+    int RefreshMinSeconds = 172800;
+    int RefreshJitterSeconds = 172800;
+    int JournalMaxEntries = 4096;
+    int RetirementRecentEntries = 2048;
+    int CompactRowsPerMinute = 32;
+    int LegacyFilesPerMinute = 32;
+    protected static ref HCSearchLimits s_Config;
+    protected bool m_Healthy = true;
+
+    bool Healthy() { return m_Healthy; }
+
+    static HCSearchLimits HCGet()
+    {
+        if (s_Config) { return s_Config; }
+        HCSearchLimitsRegistry.HCSearchInit();
+        s_Config = new HCSearchLimits;
+        string path = "$profile:HollowCountry/search-limits.json";
+        if (!HCV2ThreatStore<HCSearchLimits>.CanOpen(path))
+        {
+            s_Config.m_Healthy = false;
+        }
+        else if (FileExist(path))
+        {
+            string text;
+            string error;
+            HCSearchLimits decoded;
+            if (!HCGroupIO.Read(path, 4096, text) || !JsonFileLoader<HCSearchLimits>.LoadData(text, decoded, error) || !decoded)
+            {
+                s_Config.m_Healthy = false;
+            }
+            else { s_Config.HCApply(decoded, text); }
+        }
+        if (!s_Config.m_Healthy)
+        {
+            Print("[HC Search Limits] config refused; preserve search-limits.json and recovery evidence runtime=PENDING");
+        }
+        else
+        {
+            Print("[HC Search Limits] effective config loaded; missing keys use defaults runtime=PENDING");
+        }
+        return s_Config;
+    }
+
+    void HCApply(HCSearchLimits decoded, string text)
+    {
+        if (HCJsonFields.Has(text, "RetryDelayMs"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RetryDelayMs", decoded.RetryDelayMs)) { RetryDelayMs = decoded.RetryDelayMs; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "RetryAttempts"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RetryAttempts", decoded.RetryAttempts)) { RetryAttempts = decoded.RetryAttempts; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "RefreshRecordsPerMinute"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RefreshRecordsPerMinute", decoded.RefreshRecordsPerMinute)) { RefreshRecordsPerMinute = decoded.RefreshRecordsPerMinute; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "RefreshMaxRecords"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RefreshMaxRecords", decoded.RefreshMaxRecords)) { RefreshMaxRecords = decoded.RefreshMaxRecords; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "RefreshMinSeconds"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RefreshMinSeconds", decoded.RefreshMinSeconds)) { RefreshMinSeconds = decoded.RefreshMinSeconds; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "RefreshJitterSeconds"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RefreshJitterSeconds", decoded.RefreshJitterSeconds)) { RefreshJitterSeconds = decoded.RefreshJitterSeconds; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "JournalMaxEntries"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.JournalMaxEntries", decoded.JournalMaxEntries)) { JournalMaxEntries = decoded.JournalMaxEntries; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "RetirementRecentEntries"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.RetirementRecentEntries", decoded.RetirementRecentEntries)) { RetirementRecentEntries = decoded.RetirementRecentEntries; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "CompactRowsPerMinute"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.CompactRowsPerMinute", decoded.CompactRowsPerMinute)) { CompactRowsPerMinute = decoded.CompactRowsPerMinute; }
+            else { m_Healthy = false; }
+        }
+        if (HCJsonFields.Has(text, "LegacyFilesPerMinute"))
+        {
+            if (HCOperatorSettingsRegistry.HCValid("SearchLimits.LegacyFilesPerMinute", decoded.LegacyFilesPerMinute)) { LegacyFilesPerMinute = decoded.LegacyFilesPerMinute; }
+            else { m_Healthy = false; }
+        }
+    }
+}
+
 // Owner revisit request (2026-11-17), EnableWorld; related LC-NFR-02/03/04.
 // Search-state recovery only: old supply rows NEVER return to phase zero. Revisit
 // uses HCSearchHouses.Bind -> Provider.Collect -> RegisterOwned -> journal -> Transfer.
@@ -28,7 +161,7 @@
 // Store delegates to HCV2ThreatStore (verified temp/backup/readback barrier).
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :407 Insert,
 // :463 Remove; EnString.c:199 Length, :240 IndexOf, :448 Get;
-// EnScript.c:902 map.Set, :906 map.Remove, :917 map.Contains;
+// EnScript.c:852 map.Count, :857 map.Clear, :902 map.Set, :906 map.Remove, :917 map.Contains;
 // EnSystem.c:520 FindFile, :521 FindNextFile, :522 CloseFindFile, :528 DeleteFile.
 // Migration examines <=32 legacy files per minute; no directory scan per tick.
 class HCSearchRetirementEntry
@@ -67,7 +200,7 @@ class HCSearchRetirementPolicy
 
     static bool ArchiveContains(HCSearchRetirementState state, int fingerprint)
     {
-        int bucket = fingerprint % BUCKETS;
+        int bucket = fingerprint % HCSearchRetirementPolicy.BUCKETS;
         int mask = 1 << (fingerprint % 29);
         return (state.Archive[bucket] & mask) != 0;
     }
@@ -75,7 +208,8 @@ class HCSearchRetirementPolicy
     static bool Contains(HCSearchRetirementState state, string supplyId, int fingerprint)
     {
         if (ArchiveContains(state, fingerprint)) { return true; }
-        foreach (HCSearchRetirementEntry recent : state.Recent)
+        array<ref HCSearchRetirementEntry> recentRows = state.Recent;
+        foreach (HCSearchRetirementEntry recent : recentRows)
         {
             if (recent.SupplyId == supplyId) { return true; }
         }
@@ -85,10 +219,10 @@ class HCSearchRetirementPolicy
     static void Retain(HCSearchRetirementState state, string supplyId, int fingerprint)
     {
         if (Contains(state, supplyId, fingerprint)) { return; }
-        if (state.Recent.Count() >= MAX_RECENT)
+        while (state.Recent.Count() >= HCSearchLimits.HCGet().RetirementRecentEntries)
         {
             HCSearchRetirementEntry oldest = state.Recent[0];
-            int bucket = oldest.Fingerprint % BUCKETS;
+            int bucket = oldest.Fingerprint % HCSearchRetirementPolicy.BUCKETS;
             int mask = 1 << (oldest.Fingerprint % 29);
             int archived = state.Archive[bucket] | mask;
             state.Archive[bucket] = archived;
@@ -146,11 +280,13 @@ class HCSearchRetirementStore
         if (m_Data.Recent.Count() > HCSearchRetirementPolicy.MAX_RECENT) { return false; }
         if (m_Data.RecentCount != m_Data.Recent.Count()) { return false; }
         if (m_Data.Archive.Count() != HCSearchRetirementPolicy.BUCKETS) { return false; }
-        foreach (int archived : m_Data.Archive)
+        array<int> archivedRows = m_Data.Archive;
+        foreach (int archived : archivedRows)
         {
             if (archived < 0 || archived > 536870911) { return false; }
         }
-        foreach (HCSearchRetirementEntry entry : m_Data.Recent)
+        array<ref HCSearchRetirementEntry> entryRows = m_Data.Recent;
+        foreach (HCSearchRetirementEntry entry : entryRows)
         {
             if (!entry || !HCSearchRules.TextValid(entry.SupplyId, 64)) { return false; }
             if (entry.Fingerprint != HCSearchRetirementPolicy.Fingerprint(entry.SupplyId)) { return false; }
@@ -169,17 +305,20 @@ class HCSearchRetirementStore
     bool Retire(string supplyId)
     {
         if (Contains(supplyId)) { return true; }
-        bool evicted = m_Data.Recent.Count() == HCSearchRetirementPolicy.MAX_RECENT;
-        string oldestId;
-        if (evicted) { oldestId = m_Data.Recent[0].SupplyId; }
+        bool evicted = m_Data.Recent.Count() >= HCSearchLimits.HCGet().RetirementRecentEntries;
         HCSearchRetirementPolicy.Retain(m_Data, supplyId, HCSearchRetirementPolicy.Fingerprint(supplyId));
         m_Data.RecentCount = m_Data.Recent.Count();
         if (!HCV2ThreatStore<HCSearchRetirementState>.Save(m_Path, m_Data, MAX_BYTES)) { return false; }
-        if (evicted) { m_RecentIds.Remove(oldestId); }
+        if (evicted)
+        {
+            m_RecentIds.Clear();
+            array<ref HCSearchRetirementEntry> retainedEntries = m_Data.Recent;
+            foreach (HCSearchRetirementEntry retainedEntry : retainedEntries) { m_RecentIds.Set(retainedEntry.SupplyId, true); }
+        }
         m_RecentIds.Set(supplyId, true);
         if (evicted && !m_EvictionLogged)
         {
-            Print("[HC Search Houses] tombstone FIFO cap=2048 oldest archived; conservative replay barrier retained");
+            Print("[HC Search Houses] tombstone configured FIFO oldest archived; conservative replay barrier retained");
             m_EvictionLogged = true;
         }
         return true;
@@ -196,8 +335,10 @@ class HCSearchRetirementStore
         bool more = legacyName != "";
         bool ok = true;
         int examined = 0;
+        HCUnitBudget legacyWork = HCServer.HCTickWork();
         while (more && examined < limit)
         {
+            if (!legacyWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COMPACT, 1)) { break; }
             examined++;
             string legacyPath = m_Root + "/" + legacyName;
             HCSearchRecord legacy;
@@ -225,15 +366,25 @@ class HCSearchRefreshPolicy
     // clock, enumeration order, native hash sign and signed-int overflow.
     static int Interval(string siteId)
     {
+        HCSearchLimits limits = HCSearchLimits.HCGet();
+        return HCIntervalFor(siteId, limits.RefreshMinSeconds, limits.RefreshJitterSeconds);
+    }
+
+    // Historical version-1 timers used these exact bounds. Preserve their due
+    // decisions when migrating; newly searched sites take current operator policy.
+    static int HCLegacyInterval(string siteId) { return HCIntervalFor(siteId, 172800, 172800); }
+
+    static int HCIntervalFor(string siteId, int minimumSeconds, int jitterSeconds)
+    {
         string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-:+/=";
         int hash = 0;
         int index = 0;
         while (index < siteId.Length())
         {
-            hash = (hash * 31 + alphabet.IndexOf(siteId.Get(index)) + 1) % 172801;
+            hash = (hash * 31 + alphabet.IndexOf(siteId.Get(index)) + 1) % (jitterSeconds + 1);
             index++;
         }
-        return 172800 + hash;
+        return minimumSeconds + hash;
     }
 
     static bool Due(int searchedUtc, int nowUtc, int interval)
@@ -248,6 +399,7 @@ class HCSearchRefreshRow
     string Scope;
     string SiteId;
     int SearchedUtc;
+    int IntervalSeconds;
     bool Ready;
     // Once a pilot container enters the refresh path, its new finite rows own
     // subsequent actions. Never rewind its original immutable manifest/journal.
@@ -345,6 +497,7 @@ class HCSearchRefreshModule : HCModule
     protected int m_BatchLeft;
     protected bool m_BatchChanged;
     protected float m_Hour;
+    protected bool m_CompactPilot;
     protected string m_Refusal;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
@@ -361,7 +514,7 @@ class HCSearchRefreshModule : HCModule
         HCModuleReadiness.HCDerive(m_Operational, started, m_Refusal, fault, "refresh_state_loaded");
         return m_Operational;
     }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
+    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld && settings.EnableSearch; }
 
     static string Key(string scope, string siteId) { return scope + "/" + siteId; }
 
@@ -381,11 +534,14 @@ class HCSearchRefreshModule : HCModule
     {
         if (!m_State || m_State.Version != 1 || !m_State.Rows || m_State.Rows.Count() > MAX_RECORDS) return false;
         if (m_State.LastUtc < 1 || now < m_State.LastUtc) return false;
-        foreach (HCSearchRefreshRow row : m_State.Rows)
+        array<ref HCSearchRefreshRow> rowRows = m_State.Rows;
+        foreach (HCSearchRefreshRow row : rowRows)
         {
             if (!row || !HCSearchRules.TextValid(row.Scope, 256) || !HCSearchRules.TextValid(row.SiteId, 768)) return false;
             if (row.SearchedUtc < 1 || row.SearchedUtc > m_State.LastUtc || (row.Ready && !row.Revisited)) return false;
-            if (row.Ready && !HCSearchRefreshPolicy.Due(row.SearchedUtc, m_State.LastUtc, HCSearchRefreshPolicy.Interval(row.SiteId))) return false;
+            if (row.IntervalSeconds == 0) { row.IntervalSeconds = HCSearchRefreshPolicy.HCLegacyInterval(row.SiteId); }
+            if (row.IntervalSeconds < 60 || row.IntervalSeconds > 5184000) { return false; }
+            if (row.Ready && !HCSearchRefreshPolicy.Due(row.SearchedUtc, m_State.LastUtc, row.IntervalSeconds)) { return false; }
             string key = Key(row.Scope, row.SiteId);
             if (m_Index.Contains(key)) return false;
             m_Index.Set(key, m_Index.Count());
@@ -397,9 +553,11 @@ class HCSearchRefreshModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (s_Instance || !GetGame() || !GetGame().IsServer() || !IsEnabled(settings)) return;
+        if (!HCSearchLimits.HCGet().Healthy()) { m_Refusal = "search_limits_invalid"; return; }
         m_Settings = settings;
         m_Refusal = "";
-        Print(HCV2Admission.Line("LootRefresh", true, "none", true));
+        Print(HCV2Admission.Line("LootRefresh", true, "search_refresh", false) + " runtime=PENDING");
+        Print("[HC Search Refresh] bounded refresh and alternating journal maintenance scheduled runtime=PENDING");
         m_Store = new HCSearchRefreshStore;
         m_State = m_Store.Open();
         if (!Valid(HCGroupClock.Utc()))
@@ -429,7 +587,7 @@ class HCSearchRefreshModule : HCModule
         if (now < m_State.LastUtc) { m_Store.Fault(); return; }
         if (!row)
         {
-            if (m_State.Rows.Count() >= MAX_RECORDS && !RecycleReadyTimer()) { return; }
+            if (m_State.Rows.Count() >= HCSearchLimits.HCGet().RefreshMaxRecords) { return; }
             row = new HCSearchRefreshRow;
             row.Scope = scope;
             row.SiteId = siteId;
@@ -439,6 +597,7 @@ class HCSearchRefreshModule : HCModule
         }
         else if (row.Ready) m_Pending++;
         row.SearchedUtc = now;
+        row.IntervalSeconds = HCSearchRefreshPolicy.Interval(siteId);
         row.Ready = false;
         m_State.LastUtc = now;
         m_Store.Save(m_State);
@@ -497,7 +656,8 @@ class HCSearchRefreshModule : HCModule
         m_State.Rows.Remove(expiredIndex);
         m_Index.Clear();
         int timerIndex = 0;
-        foreach (HCSearchRefreshRow remaining : m_State.Rows)
+        array<ref HCSearchRefreshRow> remainingRows = m_State.Rows;
+        foreach (HCSearchRefreshRow remaining : remainingRows)
         {
             m_Index.Set(Key(remaining.Scope, remaining.SiteId), timerIndex);
             timerIndex++;
@@ -521,8 +681,14 @@ class HCSearchRefreshModule : HCModule
             // Discard excess dt rather than doing catch-up bursts. Cursor survives
             // batches; UTC still counts all real downtime between process boots.
             m_Minute = 0.0;
+            // Retirement previously had no caller. Alternate owners so a busy
+            // house journal cannot starve the pilot's replay-safe cleanup.
+            HCSearchHouses compactOwner = HCSearchBinding.Houses();
+            if (m_CompactPilot || !compactOwner) { compactOwner = m_Pilot; }
+            m_CompactPilot = !m_CompactPilot;
+            if (compactOwner) { compactOwner.CompactSettled(); }
             if (HCGroupClock.Utc() < m_State.LastUtc) { m_Store.Fault(); return; }
-            int limit = RECORDS_PER_MINUTE;
+            int limit = HCSearchLimits.HCGet().RefreshRecordsPerMinute;
             if (limit > m_Settings.MaxTickWorkItems) limit = m_Settings.MaxTickWorkItems;
             if (limit > m_State.Rows.Count()) limit = m_State.Rows.Count();
             m_BatchLeft = limit;
@@ -544,7 +710,7 @@ class HCSearchRefreshModule : HCModule
                 if (m_Next >= m_State.Rows.Count()) m_Next = 0;
                 if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_REFRESH, 1)) break;
                 HCSearchRefreshRow row = m_State.Rows[m_Next];
-                if (!row.Ready && HCSearchRefreshPolicy.Due(row.SearchedUtc, now, HCSearchRefreshPolicy.Interval(row.SiteId)))
+                if (!row.Ready && HCSearchRefreshPolicy.Due(row.SearchedUtc, now, row.IntervalSeconds))
                 {
                     row.Ready = true;
                     row.Revisited = true;
@@ -588,7 +754,8 @@ modded class HCSearchHouseJournal
 
     bool RefreshHasHistory(string siteId)
     {
-        foreach (HCSearchHouseRow history : m_Rows)
+        array<ref HCSearchHouseRow> historyRows = m_Rows;
+        foreach (HCSearchHouseRow history : historyRows)
         {
             if (history && history.SiteId == siteId && history.Phase != 0) { return true; }
         }
@@ -629,8 +796,12 @@ modded class HCSearchHouses
     {
         if (m_Busy || m_Sessions.Count() > 0 || !m_Journal || !m_Journal.Healthy()) { return; }
         int examined = 0;
-        int limit = Math.Min(m_Settings.MaxTickWorkItems, 32);
-        if (!m_Journal.PruneLegacyTombstones(limit)) { return; }
+        HCSearchLimits limits = HCSearchLimits.HCGet();
+        int limit = limits.CompactRowsPerMinute;
+        if (limit > m_Settings.MaxTickWorkItems) { limit = m_Settings.MaxTickWorkItems; }
+        int legacyLimit = limits.LegacyFilesPerMinute;
+        if (legacyLimit > m_Settings.MaxTickWorkItems) { legacyLimit = m_Settings.MaxTickWorkItems; }
+        if (!m_Journal.PruneLegacyTombstones(legacyLimit)) { return; }
         if (limit > m_Journal.Count()) { limit = m_Journal.Count(); }
         // Wave 13 (#138): each inspected row takes one shared core-tick unit; a refused request keeps
         // m_CompactNext and the next minute resumes there.
@@ -659,11 +830,13 @@ modded class HCSearchHouses
 
     bool SiteResident(string siteId)
     {
-        foreach (HCSearchHouseSlot activeSlot : m_Slots)
+        array<ref HCSearchHouseSlot> activeSlotRows = m_Slots;
+        foreach (HCSearchHouseSlot activeSlot : activeSlotRows)
         {
             if (activeSlot.Sites.Find(siteId) >= 0) { return true; }
         }
-        foreach (HCSearchHouseSlot detachedSlot : m_DetachedSlots)
+        array<ref HCSearchHouseSlot> detachedSlotRows = m_DetachedSlots;
+        foreach (HCSearchHouseSlot detachedSlot : detachedSlotRows)
         {
             if (detachedSlot.Sites.Find(siteId) >= 0) { return true; }
         }
@@ -716,7 +889,8 @@ class HCSearchRefreshPilotCatalog
     static void PinOriginal(HCSearchManifest manifest)
     {
         s_OriginalSupplies.Clear();
-        foreach (HCSearchEntry entry : manifest.Entries)
+        array<ref HCSearchEntry> entryRows = manifest.Entries;
+        foreach (HCSearchEntry entry : entryRows)
         {
             if (entry.SupplyId != "") s_OriginalSupplies.Insert(entry.SupplyId);
         }
@@ -753,7 +927,8 @@ modded class HCSearchBinding
         int index;
         while (index < m_Volumes.Count())
         {
-            foreach (HCInteriorSite site : m_Sites)
+            array<ref HCInteriorSite> siteRows = m_Sites;
+            foreach (HCInteriorSite site : siteRows)
             {
                 if (site.Id == m_Volumes[index].SiteId) HCSearchRefreshPilotCatalog.Remember(site, m_Volumes[index], m_Contexts[index]);
             }
