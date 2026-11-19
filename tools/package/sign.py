@@ -45,7 +45,7 @@ def refused_text(text):
                 or any(WINE_ERR_LINE.fullmatch(line.strip()) for line in kept.splitlines()))
 
 
-def sign_and_verify(source, tools, private, public, output, runner=subprocess.run):
+def sign_and_verify(source, tools, private, public, output, runner=subprocess.run, *, reject_diagnostics=True):
     source, tools, private, public, output = [Path(p).absolute() for p in (source, tools, private, public, output)]
     for path in (source, tools, private, public, output):
         if any(p.is_symlink() for p in (path, *path.parents)):
@@ -79,9 +79,16 @@ def sign_and_verify(source, tools, private, public, output, runner=subprocess.ru
     check_log = runner(commands[1], capture_output=True, text=True, shell=False, timeout=60)
     text = check_log.stdout + '\n' + check_log.stderr
     (output / 'verification.log').write_text(text, encoding='utf-8')
-    # Do not infer success from exit=0 or silence; require a positive result.
-    if (check_log.returncode or not re.search(r'^Signature .+ is OK\s*$', text, re.MULTILINE)
-            or refused_text(text)):
+    # Legacy callers retain their diagnostic policy. Release builds use exit status,
+    # signature existence and an OK result for this exact signature, without grepping diagnostics.
+    if reject_diagnostics:
+        positive = bool(re.search(r'^Signature .+ is OK\s*$', text, re.MULTILINE))
+    else:
+        positive = any(line.strip() == 'Signature ' + sig.name + ' is OK'
+                       or (line.strip().startswith('Signature ')
+                           and line.strip().replace('\\', '/').endswith('/' + sig.name + ' is OK'))
+                       for line in text.splitlines())
+    if check_log.returncode or not positive or (reject_diagnostics and refused_text(text)):
         raise ValueError('DSCheckSignatures did not positively verify; release remains gated')
     if dest.read_bytes() != source_bytes:
         raise ValueError('PBO changed during signing')

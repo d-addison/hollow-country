@@ -1,0 +1,236 @@
+"""Build signed release artifacts from an isolated commit, never the live checkout.
+
+Usage: python3 -B -m tools.release.release BUILD [--commit HEAD] [--allow-unpushed]
+Templates are an explicit external build input; only the disposable tree receives them.
+"""
+import argparse
+from contextlib import contextmanager
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+from tools.package.sign_wine import CACHE, sign
+
+ROOT = Path(__file__).resolve().parents[2]
+TEMPLATES = Path('/mnt/d/HollowCountryLocal/local-v1-test-1/profiles/HollowCountry/templates')
+ADDONS = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/Addons')
+
+
+def run(command, cwd=ROOT):
+    result = subprocess.run([str(arg) for arg in command], cwd=cwd, capture_output=True,
+                            text=True, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0'),
+                            timeout=1800)
+    if result.returncode:
+        # Child diagnostics can contain private identifiers or local absolute paths.
+        raise ValueError('Build command failed: ' + Path(str(command[0])).name)
+    return result.stdout
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def build_number(value):
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', value):
+        raise argparse.ArgumentTypeError('build number must contain only letters, digits, _ or -')
+    return value
+
+
+def resolve_commit(commit, allow_unpushed=False):
+    sha = run(['git', 'rev-parse', '--verify', '--end-of-options', commit + '^{commit}']).strip()
+    if not allow_unpushed:
+        run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'])
+    return sha
+
+
+def is_dirty(tree):
+    return bool(run(['git', 'status', '--porcelain', '--untracked-files=all'], tree).strip())
+
+
+@contextmanager
+def worktree(sha, number):
+    tree = CACHE / ('build-' + number)
+    if tree.exists() or tree.is_symlink():
+        raise ValueError('Build worktree already exists; inspect it before choosing another build number')
+    tree.parent.mkdir(parents=True, exist_ok=True)
+    run(['git', 'worktree', 'add', '--detach', tree, sha])
+    try:
+        if is_dirty(tree):
+            raise ValueError('Fresh build worktree is dirty')
+        yield tree
+    finally:
+        if is_dirty(tree):
+            print('Build worktree is dirty; retained at ~/.cache/hollow-country/build-' + number,
+                  file=sys.stderr)
+        else:
+            run(['git', 'worktree', 'remove', tree])
+
+
+def json_record_counts(value, prefix=''):
+    """Count every array by JSON pointer, including Sites rather than just top-level keys."""
+    counts = {}
+    if isinstance(value, list):
+        counts[prefix or '/'] = len(value)
+        for i, child in enumerate(value):
+            if isinstance(child, (dict, list)):
+                counts.update(json_record_counts(child, prefix + '/' + str(i)))
+    elif isinstance(value, dict):
+        for key, child in value.items():
+            token = str(key).replace('~', '~0').replace('/', '~1')
+            counts.update(json_record_counts(child, prefix + '/' + token))
+    return counts
+
+
+def source_json(tree):
+    rows = {}
+    # A superset of bundle inputs: all authored mission/config/default profile JSON.
+    for folder in ('mission', 'config', 'mods/HollowCountry/data/defaults',
+                   'mods/HollowCountryExpansionAI/data/defaults'):
+        for path in sorted((tree / folder).rglob('*.json')):
+            if path.is_symlink():
+                raise ValueError('Symlinked JSON source refused')
+            value = json.loads(path.read_bytes())
+            counts = json_record_counts(value)
+            rows[path.relative_to(tree).as_posix()] = {
+                'sha256': digest(path), 'record_counts': counts,
+                'records': len(value) if isinstance(value, (list, dict)) else 1}
+    return rows
+
+
+def copy_templates(source, dest):
+    if not source.is_dir() or source.is_symlink():
+        raise ValueError('Template input must be an existing directory')
+    if source.resolve().is_relative_to(dest.resolve()):
+        raise ValueError('Template source cannot be inside the injected destination')
+    rows = {}
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+    for path in sorted(source.rglob('*')):
+        if path.is_symlink():
+            raise ValueError('Symlinked template input refused')
+        if not path.is_file() or path.suffix != '.json' or path.name == 'receipt.json':
+            continue
+        rel = path.relative_to(source)
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        rows[rel.as_posix()] = digest(target)
+    if not rows:
+        raise ValueError('No template JSON files found')
+    return rows
+
+
+def build(args):
+    sha = resolve_commit(args.commit, args.allow_unpushed)
+    out = (args.out or Path('/mnt/d/HollowCountryLocal/signed-v1-' + args.build)).absolute()
+    if out.exists() or out.is_symlink():
+        raise ValueError('Release output already exists; choose a fresh directory')
+    # Refuse output/input placement that could modify the caller checkout.
+    if out.resolve().is_relative_to(ROOT) or out.resolve().is_relative_to(CACHE / ('build-' + args.build)):
+        raise ValueError('Release output must be outside the source/build worktree')
+    with worktree(sha, args.build) as tree, tempfile.TemporaryDirectory(prefix='hc-release-') as temp:
+        scratch = Path(temp)
+        target = tree / 'mods/HollowCountry/data/defaults/templates'
+        backup = scratch / 'original-templates'
+        if any(p.is_symlink() for p in (target, *target.parents)):
+            raise ValueError('Symlinked template destination refused')
+        had_templates = target.exists()
+        if had_templates:
+            shutil.copytree(target, backup, symlinks=True)
+        try:
+            sources = source_json(tree)
+            templates = copy_templates(args.templates.absolute(), target)
+            py = [sys.executable, '-B']
+            print('Packing pinned commit ' + sha, flush=True)
+            for mod, name, prefix in (
+                    ('HollowCountry', 'hollowcountry', 'HollowCountry'),
+                    ('HollowCountryExpansionAI', 'hollowcountryexpansionai', 'HollowCountryExpansionAI')):
+                pbo = scratch / (name + '.pbo')
+                run([*py, '-m', 'tools.package.pbo', 'pbo', '--prefix', prefix,
+                     '--addon', tree / 'mods' / mod, '--out', pbo], tree)
+                run([*py, '-m', 'tools.package.pbo', 'verify', '--prefix', prefix, pbo], tree)
+            print('Building animation addon', flush=True)
+            for script in ('build_infected_clips.py', 'build_anims_addon.py'):
+                run([*py, tree / 'tools/anim' / script, '--addons', args.addons.absolute(),
+                     '--out', scratch / 'anims'], tree)
+            shutil.copyfile(scratch / 'anims/addons/HollowCountryAnims.pbo',
+                            scratch / 'hollowcountryanims.pbo')
+            run([*py, '-m', 'tools.package.pbo', 'verify', '--prefix', 'HollowCountryAnims',
+                 scratch / 'hollowcountryanims.pbo'], tree)
+            stage = scratch / 'output'
+            stage.mkdir()
+            reports = {}
+            for name, mod, label in (('hollowcountry', 'HollowCountry', 'base'),
+                                     ('hollowcountryanims', 'HollowCountry', 'anims'),
+                                     ('hollowcountryexpansionai', 'HollowCountryExpansionAI', 'addon')):
+                print('Signing and verifying ' + name, flush=True)
+                signed = scratch / ('signed-' + label)
+                reports[label] = sign(scratch / (name + '.pbo'), signed)
+                for folder in ('addons', 'keys'):
+                    shutil.copytree(signed / folder, stage / ('@' + mod) / folder, dirs_exist_ok=True)
+                shutil.copyfile(signed / 'signing-report.json', stage / ('signing-report-' + label + '.json'))
+            for mod in ('HollowCountry', 'HollowCountryExpansionAI'):
+                for filename in ('mod.cpp', 'meta.cpp'):
+                    shutil.copyfile(tree / 'mods' / mod / filename, stage / ('@' + mod) / filename)
+            if any(p.suffix.lower() == '.biprivatekey' for p in stage.rglob('*')):
+                raise ValueError('Private key in release output refused')
+            shutil.rmtree(target)
+            if had_templates:
+                shutil.copytree(backup, target, symlinks=True)
+            if is_dirty(tree):
+                raise ValueError('Build changed tracked/untracked source outside template injection')
+            manifest = {
+                'schema': 1, 'build_number': args.build, 'commit': sha, 'dirty': False,
+                'tool_versions': {'python': platform.python_version(),
+                                  'git': run(['git', '--version']).strip(),
+                                  'wine': run(['/usr/lib/wine/wine64', '--version']).strip(),
+                                  'signing_tools': reports['base']['tools'],
+                                  'source_tools': {str(p): digest(tree / p) for p in (
+                                      'tools/package/pbo.py', 'tools/anim/build_infected_clips.py',
+                                      'tools/anim/build_anims_addon.py')},
+                                  'driver_tools': {p: digest(ROOT / p) for p in (
+                                      'tools/release/release.py', 'tools/package/sign.py',
+                                      'tools/package/sign_wine.py')}},
+                'files': {p.relative_to(stage).as_posix(): digest(p)
+                          for p in sorted(stage.rglob('*')) if p.is_file()},
+                'templates': templates, 'source_json': sources,
+                'signatures_verified': True, 'runtime_acceptance': 'pending'}
+            (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+            out.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(stage, out)
+            print('Release complete; all three signatures verified; BUILD_MANIFEST.json written')
+        finally:
+            # Undo only the explicit template injection; never force-remove a dirty worktree.
+            if target.exists():
+                shutil.rmtree(target)
+            if had_templates:
+                shutil.copytree(backup, target, symlinks=True)
+    return out
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('build', type=build_number)
+    parser.add_argument('--commit', default='HEAD')
+    parser.add_argument('--allow-unpushed', action='store_true')
+    parser.add_argument('--templates', type=Path, default=TEMPLATES)
+    parser.add_argument('--addons', type=Path, default=ADDONS)
+    parser.add_argument('--out', type=Path)
+    args = parser.parse_args(argv)
+    try:
+        build(args)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        parser.exit(1, 'Release failed; check commit ancestry, inputs, cached signing tools and retained worktree.\n')
+
+
+if __name__ == '__main__':
+    main()
