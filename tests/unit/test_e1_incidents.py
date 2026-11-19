@@ -542,7 +542,7 @@ def group(positions, route=(), masked=None, combat=False, faction='fa'):
 
 def lease_row():
     return N(Group=None, IncidentId=0, Response=EStr(''), Phase=EStr(''), Target=[0, 0, 0], Placed=0, Until=0,
-             Deadline=0, Saved=EArray(), Behavior='PATROL', Route=EArray(), Installed='PATROL')
+             Deadline=0, Saved=EArray(), Behavior='PATROL', Route=EArray(), Installed='PATROL', HoldSince=0)
 
 
 def response_row():
@@ -588,6 +588,7 @@ def responder(now=1000, rows=(), max_leases=2, sea=False, world_registry=None, b
                HCXFactions=N(Id=lambda faction: faction, HCWorldId=lambda value: value),
                HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda consumer, cost: budget)),
                HCUnitBudget=N(HC_WORK_INCIDENTS=17, HC_WORK_INCIDENT_RESPONSE=18),
+               HCXAIIncidentResponse=N(HOLD_WINDOWS=int(re.search(r'HOLD_WINDOWS = (\d+);', text(RESPONSE)).group(1))),
                HCXAIIncidentLease=lease_row,
                HCXAIIncidentCooldown=lambda: N(Group=None, Until=0))
     env.update(extra)
@@ -748,6 +749,25 @@ class ResponseBehavior(unittest.TestCase):
         self.assertEqual(0, len(run.m_Leases))
         self.assertEqual([[40, 0, 0], [-60, 0, 0]], [list(p) for p in crew.route], 'restored after the zone has retired')
         self.assertEqual('PATROL', crew.behaviour)
+
+    def test_a_permanent_gas_hold_frees_its_lease_slot_after_a_bounded_hold(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [-60, 0, 0]])
+        run.m_Policy.MaxLeases = 1
+        hold = run.pol.HCFindRow('avoid').HoldSeconds + 1
+        run.HCStep(lease.Deadline + 5)
+        self.assertEqual(1, len(run.m_Leases), 'a short hold still owns the group')
+        for tick in range(1, 40):
+            run.HCStep(1000 + tick * hold)
+        self.assertEqual(0, len(run.m_Leases), 'a zone that never retires cannot pin the lease slot forever')
+        self.assertEqual([], [list(p) for p in crew.route], 'releasing never puts the gas waypoints back')
+        self.assertEqual('HALT', crew.behaviour, 'the group stays halted once the lease lets go')
+        inside = group([[50, 0, 0]], route=[[60, 0, 0], [400, 0, 0]])
+        self.assertTrue(run.HCAccept(inside, [300, 0, 0], 1000 + 40 * hold), 'a group inside the gas gets the freed slot')
+
+    def test_route_ownership_compares_elevation_too(self):
+        run, crew, lease = self.vet_lease([[40, 0, 0], [400, 0, 0], [500, 0, 100]])
+        crew.route[1] = [crew.route[1][0], 25.0, crew.route[1][2]]
+        self.assertFalse(run.HCMine(lease), 'another controller raised a waypoint: the route is no longer ours')
 
     def test_abnormal_end_while_the_zone_is_live_never_restores_unsafe_waypoints(self):
         run, crew, lease = self.vet_lease([[40, 0, 0], [-60, 0, 0]])

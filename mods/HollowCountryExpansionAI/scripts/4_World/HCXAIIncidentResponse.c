@@ -175,6 +175,8 @@ class HCXAIIncidentLease
     // The exact route and behaviour this lease installed; a different live state means another controller owns the group.
     ref array<vector> Route = new array<vector>;
     eAIWaypointBehavior Installed;
+    // Time the group started holding outside a gas zone with no safe waypoint left (0 = not holding).
+    int HoldSince;
 }
 
 class HCXAIIncidentCooldown
@@ -723,19 +725,25 @@ class HCXAIIncidentResponse : HCModule
         if (!live || live.Count() != lease.Route.Count()) { return false; }
         for (int index = 0; index < live.Count(); index++)
         {
-            if (HCFlat(live[index], lease.Route[index]) >= 1.0) { return false; }
+            if (vector.DistanceSq(live[index], lease.Route[index]) >= 1.0) { return false; }
         }
         return lease.Group.GetWaypointBehaviour() == lease.Installed;
     }
 
+    // Holding windows (of the avoid rule's HoldSeconds) a gas hold may keep its lease slot before letting go.
+    static const int HOLD_WINDOWS = 4;
+
     // Gas with nothing safe left on the route: the group holds with an empty route (no waypoint is ever put
-    // back inside a live zone) and the lease stays open until the zone retires or a safe waypoint exists.
+    // back inside a live zone) and the lease stays open until the zone retires, a safe waypoint exists, or the
+    // bounded hold runs out. A zone that never retires cannot pin a lease slot; the group stays halted.
     bool HCHolding(HCXAIIncidentLease lease, HCWorldIncident row, HCXAIIncidentRow rule, int now)
     {
         if (lease.Response != "avoid" || !row || lease.Saved.Count() < 1) { return false; }
         array<vector> safe = new array<vector>();
         HCKeep(row, HCLead(lease.Group), lease.Saved, safe);
         if (safe.Count() > 0) { return false; }
+        if (lease.HoldSince < 1) { lease.HoldSince = now; }
+        if (now - lease.HoldSince >= HCXAIIncidentResponse.HOLD_WINDOWS * (rule.HoldSeconds + 1)) { return false; }
         if (lease.Phase != "vet")
         {
             lease.Group.ClearWaypoints();
@@ -784,6 +792,12 @@ class HCXAIIncidentResponse : HCModule
         for (int index = 0; index < route.Count(); index++)
         {
             lease.Group.AddWaypoint(route[index]);
+        }
+        if (route.Count() < 1 && zoneLive)
+        {
+            // Nothing safe to give back while the zone is live: leave the group halted, never walking an empty route.
+            lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
+            return;
         }
         lease.Group.SetWaypointBehaviour(lease.Behavior);
     }
