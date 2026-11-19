@@ -40,6 +40,10 @@ GREEN command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest
  tests.unit.test_event_sites tests.unit.test_event_police -v
 Native compilation, field/door clearance, actual cargo transitions and two-client
 replication remain PENDING; no missing engine experiment is accepted here.
+
+Round 2 (#147): replace obsolete mint/permanent-refusal expectations with
+existing physical stock and shared live-provider ports. Preserve finite stock,
+no-refill, same-handle, no-delete and admission assertions. All fixtures synthetic.
 """
 import copy
 from types import SimpleNamespace as N
@@ -90,46 +94,37 @@ class PoliceBinding(sites.Fixture):
         self.e['HCEventPoliceNav'] = N(Sample=sample)
         self.e['vector'].Zero = [0.0, 0.0, 0.0]
         self.missions = {m.Family: m for m in self.e['HCEventRoster'].Build(self.site, False)}
+        self.barrel = sites.physical_cache(self.site.Position, 'Barrel_Green',
+            ('BandageDressing', 'SodaCan_Cola', 'MetalWire'))
+        self.objects.append(self.barrel)
 
-    def test_native_barrel_starts_closed_and_must_be_opened_before_cargo(self):
-        original = self.game.CreateObjectEx
-        def closed_barrel(kind, position, flags):
-            cache = original(kind, position, flags)
-            cache.opened = False
-            cache.synced = False
-            cache.Open = lambda: setattr(cache, 'opened', True)
-            cache.SetSynchDirty = lambda: setattr(cache, 'synced', True)
-            cargo = cache.GetInventory().CreateEntityInCargo
-            cache.GetInventory = lambda: N(CreateEntityInCargo=lambda name:
-                cargo(name) if cache.opened else None)
-            return cache
-        self.game.CreateObjectEx = closed_barrel
+    def test_native_barrel_binding_does_not_write_inventory_state(self):
+        self.barrel.Open = lambda: self.fail('borrower must not alter native barrel state')
+        self.barrel.SetSynchDirty = lambda: self.fail('borrower must not write native state')
         self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
-        self.assertTrue(self.game.created[0].opened)
-        self.assertTrue(self.game.created[0].synced)
-        self.assertEqual(3, len(self.game.created[0].contents))
+        self.assertIs(self.barrel.contents[0], self.observer.Target(self.missions[1].Id).Item)
+        self.assertEqual(3, len(self.barrel.contents))
+        self.assertEqual([], self.game.created)
 
-    def test_empty_ce_binds_three_distinct_items_from_one_journaled_barrel(self):
+    def test_existing_ce_binds_three_distinct_items_from_same_barrel(self):
         for family in (1, 2, 4):
             mission = self.missions[family]
             self.assertTrue(self.binder.Bind(self.observer, mission), mission.Id)
             self.assertTrue(self.observer.Ready(mission), mission.Id)
-        self.assertEqual([], self.scans, 'police supplies do not depend on random CE')
-        self.assertEqual(1, len(self.game.created))
-        barrel = self.game.created[0]
-        self.assertEqual('Barrel_Green', barrel.kind)
-        self.assertCountEqual(['BandageDressing', 'SodaCan_Cola', 'MetalWire'], barrel.contents)
-        self.assertEqual([self.site.Position[0] + 6, self.game.height,
-                          self.site.Position[2] + 6], barrel.position)
-        self.assertEqual(6, self.nav_calls[0][1], 'outdoor navmesh point sampled near the anchor')
+        self.assertEqual(1, len(self.scans))
+        self.assertEqual([], self.game.created)
+        self.assertCountEqual(['BandageDressing', 'SodaCan_Cola', 'MetalWire'],
+            [item.kind for item in self.barrel.contents])
         targets = [self.observer.Target(self.missions[f].Id) for f in (1, 2, 4)]
         self.assertEqual(3, len({id(t.Item) for t in targets}))
-        self.assertIs(barrel, targets[1].DeliveryContainer)
-        self.assertEqual(1, len([n for n in self.spawner.PoliceLedger().m_IO.files if '-grant-' in n]))
+        for target in targets:
+            self.assertTrue(any(target.Item is item for item in self.barrel.contents))
+        self.assertIs(self.barrel, targets[1].DeliveryContainer)
         for _ in range(10):
             for family in (1, 2, 4):
                 self.assertTrue(self.binder.Bind(self.observer, self.missions[family]))
-        self.assertEqual(1, len(self.game.created))
+        self.assertEqual([], self.game.created)
+        self.assertEqual(3, len(self.barrel.contents))
 
     def test_police_objectives_require_carriage_or_attributed_delivery(self):
         player = runtime.Handle(position=list(self.site.Position))
@@ -152,24 +147,30 @@ class PoliceBinding(sites.Fixture):
             self.assertTrue(self.binder.Bind(self.observer, mission))
             self.assertIs(target, self.observer.Target(mission.Id), 'leased target is retained')
 
-    def test_two_sites_use_separate_grants_without_spending_supply_cache_pool(self):
+    def test_two_sites_bind_separate_native_stock_without_spending_cache_pool(self):
         ordinary = self.ledger()
         self.e['HCEventRewards'] = N(Ledger=lambda: ordinary)
+        barrels = []
         for site in self.e['HCEventSites'].ChernarusPlus():
-            self.game.height = site.Position[1] - 7
+            barrel = sites.physical_cache(site.Position, 'Barrel_Green',
+                ('BandageDressing', 'SodaCan_Cola', 'MetalWire'))
+            self.objects[:] = [barrel]
+            barrels.append(barrel)
             for mission in self.e['HCEventRoster'].Build(site, False):
                 if mission.Family in (1, 2, 4):
                     self.assertTrue(self.binder.Bind(self.observer, mission))
-        self.assertEqual(2, len(self.game.created))
+                    target = self.observer.Target(mission.Id)
+                    self.assertTrue(any(target.Item is item for item in barrel.contents))
+        self.assertIsNot(barrels[0], barrels[1])
+        self.assertEqual([], self.game.created)
         self.assertEqual(0, len(ordinary.m_Granted))
-        self.assertEqual(2, len(self.spawner.PoliceLedger().m_Granted))
+        self.assertEqual(0, len(self.spawner.PoliceLedger().m_Granted))
 
-    def test_failed_creation_stays_spent(self):
-        self.game.create_ok = False
-        self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
-        self.game.create_ok = True
-        for family in (1, 2, 4):
-            self.assertFalse(self.binder.Bind(self.observer, self.missions[family]))
+    def test_absent_native_stock_never_mints_replacement(self):
+        self.objects.clear()
+        for _ in range(3):
+            for family in (1, 2, 4):
+                self.assertFalse(self.binder.Bind(self.observer, self.missions[family]))
         self.assertEqual([], self.game.created)
 
     def test_disabled_gate_and_unreviewed_operator_changes_never_spawn(self):
@@ -180,92 +181,83 @@ class PoliceBinding(sites.Fixture):
         self.assertFalse(self.binder.Bind(self.observer, changed))
         self.assertEqual([], self.game.created)
 
-    def test_failed_journal_never_spawns(self):
+    def test_native_stock_binding_does_not_write_grant_journal(self):
         ledger = self.spawner.PoliceLedger()
-        self.game.io = ledger.m_IO
         ledger.m_IO.fail_write = True
-        self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertEqual([], ledger.m_IO.log)
         self.assertEqual([], self.game.created)
 
-    def test_bad_terrain_retries_keep_diagnostics_bounded_and_do_not_spend(self):
-        self.game.height = self.site.Position[1] + 40
+    def test_missing_stock_retries_keep_diagnostics_bounded(self):
+        self.objects.clear()
         for _ in range(5):
             self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
-        self.assertLessEqual(len(self.logs), 1)
+        self.assertLessEqual(sum('physical_stock=waiting' in line for line in self.logs), 1)
         self.assertEqual([], self.game.created)
-        self.game.height = self.site.Position[1] - 7
+        self.objects.append(self.barrel)
         self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
 
-    def test_station_origin_above_ground_places_on_outdoor_navmesh(self):
-        # Observed 2026-11-17 on the local server: police_supply_unavailable at both
-        # stations while the three ground-level caches spawned.
+    def test_existing_stock_is_not_repositioned_to_navmesh(self):
         for drop in (7, 11):
             self.setUp()
             self.game.height = self.site.Position[1] - drop
+            original = list(self.barrel.position)
             self.assertTrue(self.binder.Bind(self.observer, self.missions[1]), drop)
-            barrel = self.game.created[0]
-            self.assertLessEqual(self.e['vector'].DistanceSq(barrel.position, self.site.Position), 15 * 15)
+            self.assertEqual(original, self.barrel.position)
+            self.assertEqual([], self.nav_calls)
+            self.assertEqual([], self.game.created)
 
-    def test_ground_far_below_or_above_origin_refuses_without_spending(self):
-        for height in (self.site.Position[1] - 13, self.site.Position[1] + 4):
-            self.game.height = height
+    def test_stock_outside_site_radius_refuses_without_spending(self):
+        for offset in (-30, 30):
+            self.barrel.position = [self.site.Position[0], self.site.Position[1] + offset, self.site.Position[2]]
             self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
         self.assertEqual([], self.game.created)
-        self.assertEqual(0, len([n for n in self.spawner.PoliceLedger().m_IO.files if '-grant-' in n]))
+        self.assertEqual([], self.game.deleted)
+        self.assertEqual(0, len(self.spawner.PoliceLedger().m_Granted))
 
-    def test_navmesh_refusal_does_not_spend_and_retries(self):
-        self.nav_ok = False
+    def test_shared_budget_refuses_scan_and_allows_later_retry(self):
+        self.e['HCServer'] = N(HCTickWork=lambda: N(HCTake=lambda cost: False))
         for _ in range(3):
             self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertEqual([], self.scans)
         self.assertEqual([], self.game.created)
-        self.assertEqual(0, len([n for n in self.spawner.PoliceLedger().m_IO.files if '-grant-' in n]))
-        self.nav_ok = True
+        self.e['HCServer'] = N(HCTickWork=lambda: N(HCTake=lambda cost: True))
         self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
-        self.assertEqual(1, len(self.game.created))
+        self.assertEqual([], self.game.created)
 
-    def test_creation_follows_durable_grant_and_partial_cargo_never_refills(self):
-        ledger = self.spawner.PoliceLedger()
-        self.game.io = ledger.m_IO
-        original_create = self.game.CreateObjectEx
-        def partial(kind, position, flags):
-            cache = original_create(kind, position, flags)
-            original_cargo = cache.GetInventory().CreateEntityInCargo
-            cache.GetInventory = lambda: N(CreateEntityInCargo=lambda name:
-                None if name == 'MetalWire' else original_cargo(name))
-            return cache
-        self.game.CreateObjectEx = partial
+    def test_partial_native_cargo_never_refills(self):
+        self.barrel.contents.pop()
+        original = list(self.barrel.contents)
         self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
         self.assertTrue(self.binder.Bind(self.observer, self.missions[2]))
-        self.assertFalse(self.binder.Bind(self.observer, self.missions[4]))
-        before_create = self.game.io.log[:next(i for i, row in enumerate(self.game.io.log) if row[0] == 'create')]
-        self.assertIn(('write', '1-grant-1.txt'), before_create)
-        self.assertEqual(['BandageDressing', 'SodaCan_Cola'], self.game.created[0].contents)
-        self.assertIn('[HC Events] reward cache created site coastal-police-source items 2/3', self.logs)
         for _ in range(5):
             self.assertFalse(self.binder.Bind(self.observer, self.missions[4]))
-        self.assertEqual(1, len(self.game.created))
+        self.assertEqual(original, self.barrel.contents)
+        self.assertEqual([], self.game.created)
+        self.assertEqual([], self.game.deleted)
+        self.assertEqual(0, len(self.spawner.PoliceLedger().m_Granted))
 
-    def test_empty_cargo_is_removed_without_refill(self):
-        self.game.cargo_ok = False
-        self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
-        self.assertEqual(1, len(self.game.deleted))
-        self.game.cargo_ok = True
-        self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
-        self.assertEqual(1, len(self.game.created))
+    def test_empty_native_cargo_stays_without_deletion_or_refill(self):
+        self.barrel.contents.clear()
+        for _ in range(3):
+            self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertEqual([], self.game.deleted)
+        self.assertEqual([], self.game.created)
+        self.assertEqual([], self.barrel.contents)
 
     def test_registration_capacity_retry_and_missing_items_never_spawn_a_second_barrel(self):
         for i in range(32):
             self.assertTrue(self.observer.RegisterTarget('filler'+str(i), runtime.Handle()))
         mission = self.missions[1]
         self.assertFalse(self.binder.Bind(self.observer, mission))
-        self.assertEqual(1, len(self.game.created))
+        self.assertEqual([], self.game.created)
         self.observer.m_Targets.Remove(0)
         self.assertTrue(self.binder.Bind(self.observer, mission))
         target = self.observer.Target(mission.Id)
         target.Item.deleted = True
         self.assertTrue(self.binder.Bind(self.observer, mission))
         self.assertFalse(self.observer.Ready(mission))
-        self.assertEqual(1, len(self.game.created))
+        self.assertEqual([], self.game.created)
 
     def test_infected_late_population_chooses_nearest_and_stable_id_tie(self):
         mission = self.missions[7]

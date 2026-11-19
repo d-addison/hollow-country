@@ -186,6 +186,18 @@ class HCOperatorSettingsRegistry
         HCAdd("AILimits.MaxObservedAI", "int", 1024, 1, 8192, "HCAILimits");
         HCAdd("MaxFamiliarityRows", "int", 0, 0, 128, "HCSettings");
         HCAdd("SearchDensityScale", "float", 0, 0.5, 2, "HCSettings");
+        HCAdd("W38Situations.Version", "int", 1, 1, 1, "HCW38SituationPolicy");
+        HCAdd("W38Situations.ScanRows", "int", 8, 1, 32, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxConcurrent", "int", 1, 1, 1, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxThreats", "int", 3, 1, 6, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxMembers", "int", 6, 1, 6, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxRouteNodes", "int", 32, 2, 64, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxIncidents", "int", 64, 1, 64, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxIncidentItems", "int", 16, 1, 16, "HCW38SituationPolicy");
+        HCAdd("W38Situations.PhysicalScanObjects", "int", 64, 1, 128, "HCW38SituationPolicy");
+        HCAdd("W38Situations.PhysicalScanCargo", "int", 16, 1, 64, "HCW38SituationPolicy");
+        HCAdd("W38Situations.MaxRaidMeters", "float", 600, 1, 1000, "HCW38SituationPolicy");
+        HCAdd("W38Situations.ShelterMeters", "float", 20, 1, 50, "HCW38SituationPolicy");
         // END GENERATED SETTINGS REGISTRY
     }
 

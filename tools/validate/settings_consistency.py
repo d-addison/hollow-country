@@ -69,11 +69,12 @@ def check_consistency(*, registry=None, shipped=None, native=None):
     if errors: return errors
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
+    shipped_rules = {k: row for k, row in rules.items() if row['owner'] != 'HCW38SituationPolicy'}
     for label, image in images:
         values = flatten(image)
-        for key in sorted(values.keys() - rules.keys()): errors.append(f'{label}: unregistered key {key}')
-        for key in sorted(rules.keys() - values.keys()): errors.append(f'{label}: missing key {key}')
-        for key in values.keys() & rules.keys():
+        for key in sorted(values.keys() - shipped_rules.keys()): errors.append(f'{label}: unregistered key {key}')
+        for key in sorted(shipped_rules.keys() - values.keys()): errors.append(f'{label}: missing key {key}')
+        for key in values.keys() & shipped_rules.keys():
             default = rules[key]['default']
             if values[key] != default or type(values[key]) is not type(default):
                 errors.append(f'{label}: default differs for {key}')
@@ -105,6 +106,27 @@ def check_consistency(*, registry=None, shipped=None, native=None):
     for key, row in nested.items():
         if ai_defaults.get(key) != row['default'] or ai_ranges.get(key) != (row['min'], row['max']):
             errors.append(f'AILimits default/range differs for {key}')
+    # External owner policy uses its own optional profile JSON, not HCSettings.
+    policy_path = ROOT / 'mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c'
+    policy_source = policy_path.read_text()
+    policy_defaults = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (int|float) (\w+) = ([\d.]+);', policy_source, re.M)}
+    policy_rows = {key.removeprefix('W38Situations.'): row for key, row in rules.items()
+                   if row['owner'] == 'HCW38SituationPolicy'}
+    if set(policy_defaults) != set(policy_rows):
+        errors.append('W38Situations registry/native key set differs')
+    for key, row in policy_rows.items():
+        if policy_defaults.get(key) != (row['type'], row['default']):
+            errors.append(f'W38Situations default/type differs for {key}')
+        binding = f'HCOperatorSettingsRegistry.HCValid("W38Situations.{key}", policy.{key})'
+        if binding not in policy_source:
+            errors.append(f'W38Situations validation binding differs for {key}')
+        if row['min'] == row['max']:
+            bounds = [f"policy.{key} != {row['min']}"]
+        else:
+            bounds = [f"policy.{key} < {row['min']}", f"policy.{key} > {row['max']}"]
+        if any(bound not in policy_source for bound in bounds):
+            errors.append(f'W38Situations fallback bounds differ for {key}')
     return errors
 
 

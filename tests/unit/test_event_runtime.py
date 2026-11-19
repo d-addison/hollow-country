@@ -53,10 +53,10 @@ def translate(text, name, env, owner=None, member=False):
         if token == "}": indent -= 1; continue
         lowered = re.fullmatch(r"(\w+)\.ToLower\(\)", token)
         if lowered: token = lowered[1] + " = " + lowered[1] + ".lower()"  # Enforce mutates in place
-        token = re.sub(r"new array<[^;]+>\(\)", "EArray()", token)
+        token = re.sub(r"new array<[^;]+?>(?:\(\))?", "EArray()", token)
         token = re.sub(r"new (\w+)(?:\(\))?", r"\1()", token)
-        token = re.sub(r"\b(?:ref )?(?:array<[^;]+>|HCEvent\w+|PlayerBase|PlayerIdentity|ItemBase|EntityAI|Object|ZombieBase|typename|Class|int|float|bool|string|vector)\s+(?=\w+\s*=)", "", token)
-        bare = re.fullmatch(r"(?:ref )?(int|float|bool|string|vector|HCEvent\w+|PlayerBase|PlayerIdentity|ItemBase|Object|ZombieBase|typename|Class) (\w+)", token)
+        token = re.sub(r"\b(?:ref )?(?:array<[^;]+>|HCEvent\w+|HCW38SituationPolicy|CargoBase|PlayerBase|PlayerIdentity|ItemBase|EntityAI|Object|ZombieBase|typename|Class|int|float|bool|string|vector)\s+(?=\w+\s*=)", "", token)
+        bare = re.fullmatch(r"(?:ref )?(int|float|bool|string|vector|HCEvent\w+|HCW38SituationPolicy|CargoBase|PlayerBase|PlayerIdentity|ItemBase|Object|ZombieBase|typename|Class) (\w+)", token)
         if bare:
             token = bare[2] + " = " + {"int": "0", "float": "0.0", "bool": "False", "string": "''", "vector": "[0.,0.,0.]"}.get(bare[1], "None")
         token = token.replace("&&", " and ").replace("||", " or ")
@@ -85,6 +85,8 @@ def translate(text, name, env, owner=None, member=False):
         token = re.sub(r"([\w.]+)\.Substring\(0, (.+)\)", r"\1[:\2]", token)
         token = re.sub(r"([\w.]+)\.Substring\((\w+), (.+)\)", r"\1[\2:\2 + (\3)]", token)
         lines.append("    " * indent + token)
+    if len(lines) == 1:
+        lines.append("    pass")
     try:
         exec(compile("\n".join(lines), "authored-event:" + name, "exec"), env)
     except SyntaxError as exc:
@@ -140,6 +142,7 @@ class Handle:
     def GetPosition(self): return self.position
     def GetType(self): return self.kind
     def IsAlive(self): return self.alive
+    def GetInventory(self): return None  # Synthetic EntityAI without cargo.
     def IsPendingDeletion(self): return self.deleted
     def GetHierarchyRootPlayer(self): return self.owner
     def IsRuined(self): return self.ruined

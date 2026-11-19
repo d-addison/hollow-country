@@ -232,7 +232,7 @@ class ExpansionAdapterTests(unittest.TestCase):
             Open=lambda settings, port: self.calls.append(("caravan", "open")),
             Step=lambda: None, m_IO=None,
             HCClose=lambda: self.calls.append(("caravan", "close")))
-        # Synthetic registry boundaries; readiness/refusals execute shipping C bodies.
+        # Explicit synthetic shared runtime; the shipping adapters forward its state.
         self.situation_bindings = N(survivor=None, raid=None, camp_raid=None, transit=None)
         def bind_situation(key, port):
             setattr(self.situation_bindings, key, port)
@@ -241,8 +241,11 @@ class ExpansionAdapterTests(unittest.TestCase):
             HCBindRaid=lambda port: bind_situation('raid', port),
             HCBindTransit=lambda port: bind_situation('transit', port))
         self.env["HCCampRaidActors"] = N(HCBind=lambda port: bind_situation('camp_raid', port))
+        self.situation_runtime = N(ready=False)
         def situation_port(class_name):
-            authored = Authored((SCRIPTS / ('4_World/' + class_name + '.c')).read_text(), {})
+            authored = Authored((SCRIPTS / ('4_World/' + class_name + '.c')).read_text(), dict(HCW38SituationRuntime=N(
+                HCReady=lambda: self.situation_runtime.ready, HCReason=lambda: 'LIVE_PARTY_PENDING',
+                HCSelect=lambda row: '', HCBegin=lambda row: False, HCObserve=lambda row: '')))
             return N(**{name: (lambda *args, n=name: authored.call(n, None, *args))
                         for name in ('HCReady', 'HCRefusal', 'HCSelect', 'HCBegin', 'HCObserve')})
         for class_name in ('HCXAISituationAdapter', 'HCXAIRaidAdapter', 'HCXAITransitAdapter'):
@@ -841,12 +844,13 @@ class ExpansionAdapterTests(unittest.TestCase):
         ports = self.situation_bindings
         self.assertIsNotNone(ports.survivor, 'successful addon bind must install the survivor port')
         self.assertIs(ports.raid, ports.camp_raid, 'raid and column share the camp raid adapter')
-        for port, reason in ((ports.survivor, 'SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED'),
-                             (ports.raid, 'RAID_FOOT_ROUTE_COMBAT_CUSTODY_UNVERIFIED'),
-                             (ports.transit, 'TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED')):
+        for port in (ports.survivor, ports.raid, ports.transit):
             self.assertIsNotNone(port)
             self.assertFalse(port.HCReady())
-            self.assertEqual(reason, port.HCRefusal())
+            self.assertEqual('LIVE_PARTY_PENDING', port.HCRefusal())
+        self.situation_runtime.ready = True
+        for port in (ports.survivor, ports.raid, ports.transit):
+            self.assertTrue(port.HCReady(), 'adapter must not preserve the previous permanent refusal')
         lines = self.diagnostics()
         ready = [l for l in lines if "readiness" in l]
         self.assertIn("[HC Plan] HC-18 synthetic runtime=PENDING", lines)

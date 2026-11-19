@@ -551,5 +551,101 @@
     "min": 0.5,
     "max": 2,
     "owner": "HCSettings"
+  },
+  {
+    "key": "W38Situations.Version",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.ScanRows",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 32,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxConcurrent",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxThreats",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 6,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxMembers",
+    "type": "int",
+    "default": 6,
+    "min": 1,
+    "max": 6,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxRouteNodes",
+    "type": "int",
+    "default": 32,
+    "min": 2,
+    "max": 64,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxIncidents",
+    "type": "int",
+    "default": 64,
+    "min": 1,
+    "max": 64,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxIncidentItems",
+    "type": "int",
+    "default": 16,
+    "min": 1,
+    "max": 16,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.PhysicalScanObjects",
+    "type": "int",
+    "default": 64,
+    "min": 1,
+    "max": 128,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.PhysicalScanCargo",
+    "type": "int",
+    "default": 16,
+    "min": 1,
+    "max": 64,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.MaxRaidMeters",
+    "type": "float",
+    "default": 600,
+    "min": 1,
+    "max": 1000,
+    "owner": "HCW38SituationPolicy"
+  },
+  {
+    "key": "W38Situations.ShelterMeters",
+    "type": "float",
+    "default": 20,
+    "min": 1,
+    "max": 50,
+    "owner": "HCW38SituationPolicy"
   }
 ]
