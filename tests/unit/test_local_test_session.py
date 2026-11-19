@@ -2840,5 +2840,46 @@ class TemplateAndCoverage(SessionCase):
         self.assertEqual(before, self.tree(self.world))
 
 
+class CrossDeviceStaging(unittest.TestCase):
+    """#204: a managed write never moves a staging file across filesystems."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix='hc-xdev-'))
+        self.addCleanup(shutil.rmtree, self.root)
+        self.target = self.root / 'mission' / 'cfgweather.xml'
+        self.target.parent.mkdir()
+        self.target.write_bytes(b'stock')
+        self.state = self.root / 'state'
+        self.state.mkdir()
+
+    def test_cross_device_move_refuses_with_a_named_reason_and_unchanged_bytes(self):
+        import errno
+        def exdev(src, dst):
+            raise OSError(errno.EXDEV, 'Invalid cross-device link')
+        with mock.patch.object(lts.os, 'replace', side_effect=exdev):
+            with self.assertRaises(lts.Refused) as caught:
+                lts.replace_with(self.target, b'delegated', temp=self.state / 'weather.next')
+        self.assertIn('cross-device', str(caught.exception))
+        self.assertEqual(b'stock', self.target.read_bytes())
+        self.assertEqual([], [p.name for p in self.target.parent.iterdir() if p.name != 'cfgweather.xml'])
+        self.assertFalse((self.state / 'weather.next').exists())
+
+    def test_staging_on_another_device_uses_the_destination_directory(self):
+        moves = []
+        real_replace, real_stat = os.replace, os.stat
+        def record(src, dst):
+            moves.append((Path(src).parent, Path(dst).parent))
+            return real_replace(src, dst)
+        def stat(path, *args, **kwargs):
+            result = real_stat(path, *args, **kwargs)
+            if Path(path) == self.state:
+                return os.stat_result((result.st_mode, result.st_ino, result.st_dev + 1) + tuple(result)[3:])
+            return result
+        with mock.patch.object(lts.os, 'replace', side_effect=record), mock.patch.object(lts.os, 'stat', side_effect=stat):
+            lts.replace_with(self.target, b'delegated', temp=self.state / 'weather.next')
+        self.assertEqual(b'delegated', self.target.read_bytes())
+        self.assertEqual([(self.target.parent, self.target.parent)], moves)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -49,6 +49,7 @@ import argparse
 from functools import partial
 from types import SimpleNamespace
 import difflib
+import errno
 import hashlib
 import importlib
 import json
@@ -306,7 +307,13 @@ def replace_with(path, data, mode=0o600, temp=None):
     The temp file defaults to the same directory. Pass a temp inside the session state directory to keep
     a killed run from leaving stray files next to a managed file (the state directory is ours alone)."""
     path = absolute(path)
-    temporary = absolute(temp) if temp else path.with_name('.%s.hc-tmp-%d' % (path.name, os.getpid()))
+    temporary = absolute(temp) if temp else None
+    # #204: os.replace cannot move across filesystems (a state dir on C: and a mission on D:).
+    # A staging path on another device falls back to the destination directory.
+    if temporary is not None and not same_device(temporary.parent, path.parent):
+        temp, temporary = None, None
+    if temporary is None:
+        temporary = path.with_name('.%s.hc-tmp-%d' % (path.name, os.getpid()))
     if os.path.lexists(temporary):  # a leftover of a killed run inside our own state directory
         if temp is None or temporary.is_symlink() or not temporary.is_file():
             raise Refused('refusing to reuse an existing temp path: %s' % temporary)
@@ -314,13 +321,23 @@ def replace_with(path, data, mode=0o600, temp=None):
     write_new(temporary, data, mode)
     try:
         os.replace(temporary, path)
-    except BaseException:
+    except BaseException as exc:
         try:
             temporary.unlink()
         except OSError:
             pass
+        if isinstance(exc, OSError) and exc.errno == errno.EXDEV:
+            raise Refused('cross-device staging refused, target unchanged: %s' % path) from exc
         raise
     fsync_dir(path.parent)
+
+
+def same_device(left, right):
+    """True when both existing directories share one filesystem (unknown counts as different)."""
+    try:
+        return os.stat(left).st_dev == os.stat(right).st_dev
+    except OSError:
+        return False
 
 
 def mode_of(path):
