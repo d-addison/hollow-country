@@ -253,3 +253,80 @@ PBO and its existing flow is retained. Git metadata was not written; the writer
 commit message is set. DayZDiag, normal PBO/server/client loading, inventory fit,
 persistence/reconnect, nesting safety and balance at 3–6 players remain **pending**.
 Offline checks do not grant production acceptance.
+
+
+## HC-12 / HC-13 forage — round 2, 2026-11-18
+
+Spec: the owner's P1–P3 correction on `4f889bd` supersedes that commit's
+unconditional visibility refusal and calendar-independent content. The two
+AGENTS-named specs and their plan/tasks are absent from this worktree; the
+primary checkout copies were read as design input. Current session decisions
+remain authoritative. Source acceptance is distinct from native acceptance.
+
+Plan/tasks (source complete, runtime pending):
+
+- P1: restore default-open admission followed by the existing forest/water/slope,
+  geometry and 30m player-distance vetoes. Restore June–November herb chance,
+  summer SambucusBerry/CaninaBerry and autumn mushrooms/CaninaBerry. Log pending
+  visibility/native-generator coexistence once at Start; invent no engine API.
+  The synthetic Start/tick/spawn/pickup test reclaims an expired record at the
+  40-record cap, materializes an item, applies familiarity to refill delay,
+  rejects duplicate pickup rewards and verifies character death/new-life reset.
+- P2: archive the validated legacy image to `progression.v1.json` before
+  conversion. Carry scores into v2 only for a currently observed living account
+  with a nonzero native character ID. Emit one `[HC Plan]` line with
+  `rows_dropped` and `rows_mapped`; unmapped rows remain in the archive.
+  Archive failure leaves v1 untouched. Existing archives are never overwritten;
+  a v1/archive collision requires operator recovery before another migration.
+- P2: `GetPersistentID(0,0,0,0)`, unavailable character handles and empty identity
+  results earn no familiarity and create no shared row. The native method has
+  no success return; all-zero is treated as unknown. Log character-ID refusal
+  once per module Start. Allocation/reconnect/restart/death stability remains an
+  engine experiment even though the inspected API declares restart stability.
+- P2: pickups mark forage and familiarity dirty with no synchronous file I/O.
+  Routine checkpoints wait at least 60 seconds since the last successful save;
+  Stop flushes. Creation retains its pre-spawn durable reservation, and death
+  retains its synchronous familiarity tombstone barrier. Those barriers can
+  save sooner than a routine checkpoint. A crash before a pickup checkpoint
+  can retain the previous reservation timer and lose recent familiarity gains;
+  records never reconstruct picked items.
+- P3: optional `MaxFamiliarityRows` accepts 0..128; absent/0 resolves to 128.
+  Lower positive values evict oldest gain time first (zero-gain/dead rows use
+  their reset/decay epoch), preserving array/cursor order. Apply lowered caps to
+  loaded stores durably before admission and make room for new accounts.
+  Forage resets `m_Deferred` on Stop and every Start, including disabled Start.
+
+Actual RED, `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_forage_round2 -v`:
+
+- `AssertionError: 1 != 0 : eligible default candidate must materialize`
+- `AssertionError: '' != 'BoletusMushroom'`
+- `legacy rows must be archived before conversion` (archive missing)
+- `AssertionError: 3 != 4 : pickup must not synchronously save`
+- `AssertionError: 2 != 128` and `Unknown field MaxFamiliarityRows`
+- `AssertionError: 0 != 40 : Stop must reset deferred receipts`
+
+P1 GREEN with `tests.unit.test_hc_forage tests.unit.test_v2_world` appended:
+`Ran 6 tests`; `OK`. P2/P3 GREEN, same focused command: `Ran 7 tests`; `OK`.
+The identity-restart single-method RED was
+`AssertionError: 2 != 1 : a later Start gets one fresh bounded diagnostic`;
+after the reset fix, the full focused module GREEN was `Ran 8 tests`; `OK`.
+The seasonal expectations in test_v2_world and admin forage behavior are unchanged.
+
+Pending: DayZDiag compilation/boot, normal PBO/server tests, two-client placement,
+visibility/pop-in and replication, native generator coexistence, persistence-ID
+allocation/reconnect/restart/death, pickup/crash/restart and archive recovery,
+plus performance at 3–6 players. No production qualification is asserted.
+
+Final GREEN, exact requested selection:
+
+```sh
+mods=$(rg -l -e 'HCForage|forage|progression' tests/unit | sed 's#tests/unit/##;s#\.py##;s#^#tests.unit.#' | tr '\n' ' '); PYTHONDONTWRITEBYTECODE=1 python3 -m unittest $mods tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene
+```
+
+Result: `Ran 252 tests in 17.592s`; `OK`.
+`python3 -B -m tools.validate.enforce_lint --no-native`:
+`enforce_lint: pass findings=133 new=0 stale=0 native=no`.
+Additional settings/survival regressions: `python3 -B -m unittest tests.unit.test_runtime_settings tests.unit.test_survival_ideas -v`
+→ `Ran 12 tests`; `OK`. `git diff --check` passed. Changed Enforce files have
+at most 8 plus operators per statement. No commit/push or game execution was run;
+Banso's writer owns the eventual local commit.

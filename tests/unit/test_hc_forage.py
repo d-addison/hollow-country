@@ -24,8 +24,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/Forage/HCForage.c'
 
 
-def bind(path, cls, obj, env, names):
-    source = path.read_text()
+def bind(path, cls, obj, env, names, source=None):
+    if source is None:
+        source = path.read_text()
     match = re.search(r'(?:modded )?class ' + cls + r'\b[^\{]*\{', source)
     source = body(source, match.end())
     # Syntax only: extend the existing restricted port's accepted type names
@@ -36,6 +37,8 @@ def bind(path, cls, obj, env, names):
     source = re.sub(r'\bint (\w+) = ([^;\n]+/[^;\n]+);', r'int \1 = native_int(\2);', source)
     source = re.sub(r'HCV2ThreatStore<\w+>', 'HCV2ThreatStore', source)
     source = source.replace('s_HCInstance', 'native_static.Instance')
+    # Syntax-only nested else-if for the existing restricted translator.
+    source = re.sub(r"else if (\([^\n]+\))\s*\{([^{}]*)\}", r"else { if \1 {\2} }", source)
     source = rewrite_tostring(source)
     renamed_env = {re.sub(r'^(HC(?:Forage|Progression)\w*|HCSurvival\w*)$', r'HCEvent\1', k): v
                    for k, v in env.items()}
@@ -119,7 +122,9 @@ class ForageTravel(unittest.TestCase):
         self.assertIs(exact, selected.Item)
         module.HCObserveCollection(exact, player)
         self.assertIsNone(selected.Item)
-        self.assertTrue(saved, 'pickup cooldown must be durable before callback returns')
+        self.assertFalse(saved, 'pickup batches its cooldown update')
+        self.assertTrue(module.HCFlush())
+        self.assertTrue(saved, 'checkpoint must preserve the updated cooldown')
         self.assertEqual(selected.Spot.ReadyUtc, saved[-1].Spots[-1].ReadyUtc)
         ready = selected.Spot.ReadyUtc
         module.HCObserveCollection(exact, player)  # Re-drop never rewards or shortens cooldown.
@@ -137,12 +142,10 @@ class ForageTravel(unittest.TestCase):
         self.assertEqual(40, len(nodes))
         self.assertIn(protected[0], nodes)
         self.assertIn(protected[2], nodes)
-        # Supply selection must not depend on the native calendar month.
-        bind(SOURCE, 'HCForageModule', module, env, ('HCSeasonalType', 'HCVisibilityQualified', 'HCClearCandidate'))
-        self.assertFalse(module.HCClearCandidate((0, 0, 0)), 'unqualified visibility must refuse before engine queries')
-        self.assertTrue(module.HCSeasonalType(1, 0))
-        for month in range(1, 13):
-            self.assertEqual(module.HCSeasonalType(1, 0), module.HCSeasonalType(month, 0))
+        # Accepted seasonal table; placement is exercised through native ports in round 2.
+        bind(SOURCE, 'HCForageModule', module, env, ('HCSeasonalType',))
+        self.assertEqual('', module.HCSeasonalType(1, 0))
+        self.assertEqual('SambucusBerry', module.HCSeasonalType(6, 0))
 
 
 if __name__ == '__main__':

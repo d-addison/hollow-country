@@ -16,12 +16,14 @@ LIMITS = {'TickIntervalMs': (500, 10000), 'MaxTickWorkItems': (1, 256),
           'MaxFurnishedProps': (0, 2000), 'MaxBoundSearchSites': (1, 1024),
           'InfectedBindRadius': (5, 60), 'MaxBindQueriesPerTick': (1, 8)}
 
+OPTIONAL_LIMITS = {'MaxFamiliarityRows': (0, 128)}
+
 def validate_settings(value):
     if not isinstance(value, dict):
         return ['Settings must be a JSON object']
     expected = FLAGS | LIMITS.keys() | {'SchemaVersion'}
     errors = [f'Missing field {key}' for key in sorted(expected - value.keys())]
-    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS)]
+    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS - OPTIONAL_LIMITS.keys())]
     if type(value.get('SchemaVersion')) is not int or value.get('SchemaVersion') != 1:
         errors.append('Unsupported SchemaVersion')
     for key in sorted(FLAGS):
@@ -32,6 +34,9 @@ def validate_settings(value):
             errors.append(f'{key} must be boolean')
     for key, (low, high) in LIMITS.items():
         if type(value.get(key)) is not int or not low <= value[key] <= high:
+            errors.append(f'{key} must be an integer within {low}..{high}')
+    for key, (low, high) in OPTIONAL_LIMITS.items():
+        if key in value and (type(value[key]) is not int or not low <= value[key] <= high):
             errors.append(f'{key} must be an integer within {low}..{high}')
     for child, parent in [('EnableSearch', 'EnableInteriors'),
                           ('EnableHordes', 'EnableInfected'),
