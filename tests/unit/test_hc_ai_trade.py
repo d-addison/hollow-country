@@ -28,6 +28,9 @@ Loss/quantity uncertainty extension RED: ('quarantined', 'lost') != ('quarantine
 GREEN: same command, Ran 1 test, OK. Extends this one behavioral test with
 synthetic lifecycle/status/store/native-handle ports, never DayZ evidence.
 
+Wave 11 (#145 slot release), actual RED 2026-11-19 (same focused command):
+AssertionError: False is not true : terminal rolled_back journal must release the exchange slot
+GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_trade, Ran 1 test, OK.
 """
 from copy import deepcopy
 from pathlib import Path
@@ -59,7 +62,8 @@ class TradeBehavior(unittest.TestCase):
         recipe.TransferRangeMeters = 1000
         self.assertFalse(recipe.HCValid(), 'network bubble is not a transfer range')
         names = ('HCValidState', 'HCActive', 'HCCheckpoint', 'HCBegin', 'HCStep', 'HCMoveStep',
-                 'HCQuarantine', 'HCAbort', 'HCRestore', 'HCComplete', 'HCClose', 'HCLog')
+                 'HCQuarantine', 'HCAbort', 'HCRestore', 'HCComplete', 'HCClose', 'HCLog',
+                 'HCTerminal', 'HCReleaseSlot')
 
         def fixture(second=2, rollback=2, fail_write=0, interrupt=False, ready=True):
             # Exactly two pre-existing items; moves only change their owners.
@@ -105,7 +109,7 @@ class TradeBehavior(unittest.TestCase):
                    HCItemId=lambda left_side: 'left-item' if left_side else 'right-item',
                    HCActorId=lambda left_side: 'left' if left_side else 'right')
             trade = N(m_State=state, m_Store=N(Save=save), m_IO=io,
-                      m_Ready=True, m_Enabled=True, m_Busy=False, m_Reports=0,
+                      m_Ready=True, m_Enabled=True, m_Busy=False, m_Reports=0, m_Released=0,
                       m_Recipe=N(RecipeId='bandage-for-drink', TimeoutSeconds=120),
                       m_Status=N(HCPublish=lambda *args: None))
             env = dict(Print=logs.append, str=str, float=N(MAX=3.402823466e38),
@@ -142,9 +146,10 @@ class TradeBehavior(unittest.TestCase):
         self.assertEqual(('rolled_back', ['left', 'right']), (f.state.Phase, f.physical))
         self.assertEqual(['left', 'right', 'rollback'], f.moves)
         self.assertFalse(f.trade.HCComplete())
-        self.assertFalse(start(f))
         for now in range(106, 110): f.trade.HCStep(now)
         self.assertEqual(3, len(f.moves))
+        # #145 wave 11: a terminal (rolled_back) journal releases the single slot.
+        self.assertTrue(start(f), 'terminal rolled_back journal must release the exchange slot')
 
         # Happy path keeps both original item identities; no stock grant port.
         ok = fixture()
@@ -185,7 +190,8 @@ class TradeBehavior(unittest.TestCase):
                 count = len(f.moves)
                 f.trade.HCStep(221)
                 self.assertEqual(count, len(f.moves))
-                self.assertFalse(start(f))
+                # Quarantine (uncertain native state) keeps the slot; cancelled releases it.
+                self.assertEqual(f.state.Phase == 'cancelled', start(f))
 
         # Review P2 (lead): a timeout after the left item moved still returns that
         # same item (right refused before mutation), whether the timeout lands in
@@ -222,7 +228,7 @@ class TradeBehavior(unittest.TestCase):
             self.assertEqual([], f.moves)
             expected = 'rolled_back' if image.Phase == 'rolled_back' else 'quarantined'
             self.assertEqual(expected, f.trade.m_State.Phase)
-            self.assertFalse(start(f))
+            self.assertEqual(expected == 'rolled_back', start(f))
 
         stopped = fixture()
         start(stopped)
@@ -254,6 +260,56 @@ class TradeBehavior(unittest.TestCase):
             self.assertFalse(ok.trade.HCValidState(row), field)
         self.assertTrue(any('HC-35 trade=' in line and 'transfer=' in line and
                             'runtime=PENDING' in line for line in ok.logs))
+
+        # #145 wave 11 (HC-35 slot): cancelled/rolled_back/complete journals release the
+        # single exchange slot, persisted as idle before the next trade; quarantined never.
+        def cancelled():
+            c = fixture()
+            self.assertTrue(start(c))
+            c.trade.HCStep(220)
+            self.assertEqual('cancelled', c.state.Phase)
+            return c
+
+        c = cancelled()
+        saves = len(c.saved)
+        self.assertTrue(c.trade.HCBegin('left-lease', 'right-lease', 300))
+        self.assertEqual(('idle', ''), (c.saved[saves].Phase, c.saved[saves].Id))
+        self.assertEqual(('meeting', 300), (c.state.Phase, c.state.StartedAt))
+        self.assertTrue(any('slot released' in line and 'prior=cancelled' in line and
+                            'runtime=PENDING' in line for line in c.logs))
+        c = cancelled()
+        c.trade.m_IO.HCReady = lambda: False
+        saves = len(c.saved)
+        self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 300))
+        self.assertEqual((saves, 'cancelled'), (len(c.saved), c.state.Phase),
+                         'a refusing provider must not release or rewrite the journal')
+        c = fixture(fail_write=3)
+        self.assertTrue(start(c))
+        c.trade.HCStep(220)
+        self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 300))
+        self.assertEqual(('quarantined', 'TRADE_JOURNAL_UNCERTAIN'), (c.state.Phase, c.state.Refusal))
+        c = fixture()
+        self.assertTrue(start(c))
+        c.trade.HCQuarantine(EStr('TRADE_TEST_UNCERTAIN'))
+        saves = len(c.saved)
+        self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 300))
+        self.assertEqual((saves, 'quarantined'), (len(c.saved), c.state.Phase))
+        done = fixture()
+        self.assertTrue(start(done))
+        rendezvous(done)
+        done.trade.HCStep(101)
+        done.trade.HCStep(102)
+        self.assertEqual('complete', done.state.Phase)
+        done.physical[:] = ['left', 'right']  # the next exchange binds fresh, owner-checked items
+        self.assertTrue(done.trade.HCBegin('left-lease', 'right-lease', 300))
+        self.assertTrue(any('prior=complete' in line for line in done.logs))
+        loop = fixture()
+        for turn in range(20):
+            self.assertTrue(loop.trade.HCBegin('left-lease', 'right-lease', 100 + turn * 200))
+            loop.trade.HCStep(100 + turn * 200 + 150)
+            self.assertEqual('cancelled', loop.state.Phase)
+        self.assertEqual(16, len([line for line in loop.logs if 'slot released' in line]),
+                         'release log line is bounded at 16 per run')
 
         # Shipping provider refuses capabilities that cannot be inspected here.
         adapter = N()
