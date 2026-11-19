@@ -1,0 +1,117 @@
+{
+  "families": {
+    "VehicleOffroadHatchback": [
+      "Expansion_Landrover",
+      "Expansion_Landrover_Green",
+      "Expansion_Landrover_Yellow",
+      "ExpansionUAZ",
+      "ExpansionUAZ_Green",
+      "ExpansionUAZRoofless",
+      "ExpansionUAZCargo"
+    ],
+    "VehicleBoat": [
+      "ExpansionZodiacBoat",
+      "ExpansionUtilityBoat",
+      "ExpansionUtilityBoat_Green"
+    ],
+    "VehicleTruck01": [
+      "Truck_01_Covered",
+      "Truck_01_Covered_Blue",
+      "Truck_01_Covered_Orange",
+      "ExpansionBus",
+      "ExpansionBus_Blue",
+      "ExpansionBus_Red",
+      "ExpansionTractor",
+      "ExpansionTractor_Red",
+      "ExpansionTractor_Blue",
+      "ExpansionTractor_Green"
+    ],
+    "VehicleHCExpansionAir": [
+      "ExpansionGyrocopter",
+      "ExpansionBigGyrocopter",
+      "ExpansionHatchBird",
+      "ExpansionMh6",
+      "ExpansionUh1h",
+      "ExpansionMerlin"
+    ]
+  },
+  "newVehicles": [
+    "ExpansionBigGyrocopter",
+    "ExpansionBus",
+    "ExpansionBus_Blue",
+    "ExpansionBus_Red",
+    "ExpansionGyrocopter",
+    "ExpansionHatchBird",
+    "ExpansionMerlin",
+    "ExpansionMh6",
+    "ExpansionTractor",
+    "ExpansionTractor_Blue",
+    "ExpansionTractor_Green",
+    "ExpansionTractor_Red",
+    "ExpansionUAZ",
+    "ExpansionUAZCargo",
+    "ExpansionUAZRoofless",
+    "ExpansionUAZ_Green",
+    "ExpansionUh1h",
+    "ExpansionUtilityBoat",
+    "ExpansionUtilityBoat_Green",
+    "ExpansionZodiacBoat",
+    "Expansion_Landrover",
+    "Expansion_Landrover_Green",
+    "Expansion_Landrover_Yellow"
+  ],
+  "newParts": [
+    "ExpansionBusWheel",
+    "ExpansionBusWheelDouble",
+    "ExpansionHatchBirdDoors_CoDriver",
+    "ExpansionHatchBirdDoors_Driver",
+    "ExpansionHatchBirdHood",
+    "ExpansionHatchBirdTrunk",
+    "ExpansionHelicopterBattery",
+    "ExpansionHydraulicHoses",
+    "ExpansionIgniterPlug",
+    "ExpansionMerlinBackWheel",
+    "ExpansionMerlinFrontWheel",
+    "ExpansionTractorBackWheel",
+    "ExpansionTractorDoorsCodriver",
+    "ExpansionTractorDoorsDriver",
+    "ExpansionTractorFrontWheel",
+    "ExpansionUAZDoorCargo1",
+    "ExpansionUAZDoorCargo2",
+    "ExpansionUAZDoorCoDriver",
+    "ExpansionUAZDoorDriver",
+    "ExpansionUAZDoorHood",
+    "ExpansionUAZWheel",
+    "ExpansionUh1hDoor_1_1",
+    "ExpansionUh1hDoor_1_2",
+    "ExpansionUh1hDoor_2_1",
+    "ExpansionUh1hDoor_2_2",
+    "Expansion_Landrover_Codriverdoor",
+    "Expansion_Landrover_Driverdoor",
+    "Expansion_Landrover_Hood",
+    "Expansion_Landrover_Left",
+    "Expansion_Landrover_Right",
+    "Expansion_Landrover_Trunk",
+    "Expansion_Landrover_Wheel",
+    "Expansion_Mh6_Door_1_1",
+    "Expansion_Mh6_Door_1_2",
+    "Expansion_Mh6_Door_2_1",
+    "Expansion_Mh6_Door_2_2"
+  ],
+  "requirements": {
+    "CE_authority": "single event per vehicle type; zero loose-loot vehicle nominal/min; no scripted spawn or move",
+    "admission": "on by default; runtime=PENDING",
+    "unsupported": [
+      "Vehicle_ExpansionTT650",
+      "Vehicle_Expansion250N",
+      "Vehicle_ExpansionOldBike",
+      "Vehicle_ExpansionAn2"
+    ],
+    "excluded": [
+      "Vehicle_ExpansionC130J",
+      "ExpansionLHD"
+    ],
+    "placement": "existing stock family positions; merge vehexp-eventspawns.xml for air",
+    "acceptance": "normal PBO/server boot and two-client visibility/perception/flight/persistence checks pending"
+  }
+}

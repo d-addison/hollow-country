@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Merge this event by name into cfgeventspawns.xml; never replace the stock file. Sixteen candidate open-field points derived from installed Chernarus StaticHeliCrash positions, not an aircraft footprint survey. Other families retain their existing stock ground/coastal positions. runtime=PENDING. -->
+<eventposdef>
+  <event name="VehicleHCExpansionAir">
+    <zone smin="1" smax="3" dmin="3" dmax="5" r="45" />
+    <pos x="5016.493164" z="13341.447266" a="-1" />
+    <pos x="612.269104" z="14440.185547" a="-1" />
+    <pos x="1728.4823" z="10094.250977" a="-1" />
+    <pos x="7666.969726" z="11698.389649" a="-1" />
+    <pos x="4478.339844" z="12218.993164" a="-1" />
+    <pos x="5970.649902" z="9867.347656" a="-1" />
+    <pos x="1762.899292" z="12215.012695" a="-1" />
+    <pos x="1299.361694" z="9946.346679" a="-1" />
+    <pos x="6204.925293" z="8301.290039" a="-1" />
+    <pos x="1207.821045" z="5279.723144" a="-1" />
+    <pos x="410.191589" z="3820.056885" a="-1" />
+    <pos x="8006.187011" z="8178.071289" a="-1" />
+    <pos x="2509.957276" z="5827.195801" a="-1" />
+    <pos x="1650.721802" z="2355.52124" a="-1" />
+    <pos x="3121.659668" z="4410.962403" a="-1" />
+  </event>
+</eventposdef>

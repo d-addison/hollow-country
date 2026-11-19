@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- LC-T201/T205; EXP-T2/T4 pending. Damage is CE damage fraction, not remaining health. Global part rows also affect loose parts of the same class. Cars: 25% service parts; wheels 65% damaged / 20% ruined / 15% absent; panels 65% present and damaged. Motorbikes: 95% wheels, 65% plug, no added battery/radiator requirement. Native actions only. -->
+<!-- vehexp: authored repair probabilities, CE damage fractions. Expansion ground wheels 70%, service parts 35%, panels 65%; air service parts 25%, hull damage 30-65%. Ground fuel remains native CE random 0-35%; helicopter policy caps fuel at 10% and leaves missing-ignition salvage spawns empty. No scripted inventory spawning. runtime=PENDING. -->
 <spawnabletypes>
   <type name="CivilianSedan">
     <damage min="0.10" max="0.30" />
@@ -1142,5 +1142,722 @@
   </type>
   <type name="sedan_02_Door_1_1_Red">
     <damage min="0.55" max="0.90" />
+  </type>
+  <type name="Expansion_Landrover">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Driverdoor" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Codriverdoor" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Left" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Right" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Trunk" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Hood" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="Expansion_Landrover_Green">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Driverdoor" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Codriverdoor" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Left" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Right" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Trunk" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Hood" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="Expansion_Landrover_Yellow">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Wheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Driverdoor" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Codriverdoor" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Left" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Right" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Trunk" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Landrover_Hood" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionUAZ">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCoDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorHood" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCargo1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCargo2" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionUAZ_Green">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCoDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorHood" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCargo1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCargo2" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionUAZRoofless">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCoDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorHood" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCargo1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCargo2" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionUAZCargo">
+    <damage min=".10" max=".35" />
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorCoDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUAZDoorHood" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionBus">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheelDouble" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheelDouble" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="TruckBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="GlowPlug" chance="0.35" />
+    </attachments>
+  </type>
+  <type name="ExpansionBus_Blue">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheelDouble" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheelDouble" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="TruckBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="GlowPlug" chance="0.35" />
+    </attachments>
+  </type>
+  <type name="ExpansionBus_Red">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheelDouble" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionBusWheelDouble" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="TruckBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarRadiator" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="GlowPlug" chance="0.35" />
+    </attachments>
+  </type>
+  <type name="ExpansionTractor">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsCodriver" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionTractor_Red">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsCodriver" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionTractor_Blue">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsCodriver" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionTractor_Green">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="CarBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionTractorDoorsCodriver" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionZodiacBoat">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="TruckBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="GlowPlug" chance="0.35" />
+    </attachments>
+  </type>
+  <type name="ExpansionUtilityBoat">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="TruckBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="GlowPlug" chance="0.35" />
+    </attachments>
+  </type>
+  <type name="ExpansionUtilityBoat_Green">
+    <damage min=".15" max=".40" />
+    <attachments chance="1.00">
+      <item name="TruckBattery" chance="0.35" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="GlowPlug" chance="0.35" />
+    </attachments>
+  </type>
+  <type name="ExpansionGyrocopter">
+    <damage min=".30" max=".65" />
+    <attachments chance="1.00">
+      <item name="ExpansionHelicopterBattery" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.25" />
+    </attachments>
+  </type>
+  <type name="ExpansionBigGyrocopter">
+    <damage min=".30" max=".65" />
+    <attachments chance="1.00">
+      <item name="ExpansionHelicopterBattery" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="SparkPlug" chance="0.25" />
+    </attachments>
+  </type>
+  <type name="ExpansionHatchBird">
+    <damage min=".30" max=".65" />
+    <attachments chance="1.00">
+      <item name="HatchbackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="HatchbackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="HatchbackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="HatchbackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHelicopterBattery" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionIgniterPlug" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHydraulicHoses" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHatchBirdDoors_Driver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHatchBirdDoors_CoDriver" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHatchBirdHood" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHatchBirdTrunk" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionMh6">
+    <damage min=".30" max=".65" />
+    <attachments chance="1.00">
+      <item name="ExpansionHelicopterBattery" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionIgniterPlug" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHydraulicHoses" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Mh6_Door_1_1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Mh6_Door_1_2" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Mh6_Door_2_1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="Expansion_Mh6_Door_2_2" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionUh1h">
+    <damage min=".30" max=".65" />
+    <attachments chance="1.00">
+      <item name="ExpansionHelicopterBattery" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionIgniterPlug" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHydraulicHoses" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUh1hDoor_1_1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUh1hDoor_1_2" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUh1hDoor_2_1" chance="0.65" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionUh1hDoor_2_2" chance="0.65" />
+    </attachments>
+  </type>
+  <type name="ExpansionMerlin">
+    <damage min=".30" max=".65" />
+    <attachments chance="1.00">
+      <item name="ExpansionMerlinFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionMerlinFrontWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionMerlinBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionMerlinBackWheel" chance="0.70" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHelicopterBattery" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionIgniterPlug" chance="0.25" />
+    </attachments>
+    <attachments chance="1.00">
+      <item name="ExpansionHydraulicHoses" chance="0.25" />
+    </attachments>
+  </type>
+  <type name="ExpansionBusWheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionBusWheelDouble">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionHatchBirdDoors_CoDriver">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionHatchBirdDoors_Driver">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionHatchBirdHood">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionHatchBirdTrunk">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionHelicopterBattery">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionHydraulicHoses">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionIgniterPlug">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionMerlinBackWheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionMerlinFrontWheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionTractorBackWheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionTractorDoorsCodriver">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionTractorDoorsDriver">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionTractorFrontWheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUAZDoorCargo1">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUAZDoorCargo2">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUAZDoorCoDriver">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUAZDoorDriver">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUAZDoorHood">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUAZWheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUh1hDoor_1_1">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUh1hDoor_1_2">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUh1hDoor_2_1">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="ExpansionUh1hDoor_2_2">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Codriverdoor">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Driverdoor">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Hood">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Left">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Right">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Trunk">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Landrover_Wheel">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Mh6_Door_1_1">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Mh6_Door_1_2">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Mh6_Door_2_1">
+    <damage min="0.35" max="0.70" />
+  </type>
+  <type name="Expansion_Mh6_Door_2_2">
+    <damage min="0.35" max="0.70" />
   </type>
 </spawnabletypes>
