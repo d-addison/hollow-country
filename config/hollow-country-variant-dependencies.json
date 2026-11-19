@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "work_package": "HC-60",
+  "issues": [
+    121,
+    149,
+    150
+  ],
+  "status": "feasibility_shortlist",
+  "runtime_consumed": false,
+  "runtime_acceptance": "PENDING",
+  "production_enabled": false,
+  "trace": {
+    "input": ".banso-writer/inputs/task.md",
+    "depends_on": [
+      "HC-14",
+      "HC-15"
+    ],
+    "precedes": [
+      "HC-50 option selection",
+      "HC-62 dependency acquisition and package pins"
+    ],
+    "trace_owner": "HC-11",
+    "canonical_spec_trace": "pending_HC-11; required spec files absent from this checkout; lead checkout copies read as design input"
+  },
+  "policy": {
+    "native_first": true,
+    "dependency_only": true,
+    "network_performed": false,
+    "acquisition_performed": false,
+    "new_distances": [],
+    "new_gameplay_controller": false,
+    "missing_evidence_keeps_off": true,
+    "preference_is_not_qualification": true
+  },
+  "counts": {
+    "authored_candidates": 5,
+    "selected_native_classes": 8,
+    "research_workshop_classes": 2,
+    "admitted_candidates": 0,
+    "observed_candidates": null
+  },
+  "evidence": {
+    "native_scripts": "~/.cache/hollow-country/native-scripts/scripts-1.30.164289",
+    "stock_chernarus_events_sha256": "4089710dfa15515261167dc769206059b426ab9c7a28b06cb3af505195f869a6",
+    "hc14_manifest_sha256": "2817063b637e9e9be0950eb6e4e1d1c9135773d511bd75be4bf01b141ead132f",
+    "hc15_roster_sha256": "dd2d93857bb06952d12f81542c3ac708ea38a90a512db1a86c47b632c2ba1398",
+    "evidence_scope": "Static installed config/metadata and authored source only; no runtime observations"
+  },
+  "integration": {
+    "required_addons_edits": [],
+    "class_adapters": [],
+    "framework": [
+      "HCNativeVariantAdmission (reuse HC-14; no duplicate selection)",
+      "HCV2Admission (preference only; no qualification inferred)",
+      "tools/package/optional_overlays.py receipt (future install/rollback only)",
+      "HC-1/HC-25 fixed bounded content status path (HC-62 lead integration pending)",
+      "HCVisualSeasons (existing running-server clock; no terrain or second clock authored)"
+    ],
+    "diagnostic": {
+      "status": "PROPOSED_NOT_IMPLEMENTED_OR_OBSERVED",
+      "format": "[HC Plan] HC-60 variant_dependency=<id> admitted=<state> refused=<reason> authored=<count> admitted_count=<count> observed=<count_or_unknown> runtime=PENDING",
+      "initial_state": "off",
+      "authored_count": 5,
+      "admitted_count": 0,
+      "observed_count": null,
+      "owner": "HC-62"
+    }
+  },
+  "candidates": [
+    {
+      "id": "native-infected-hc14",
+      "category": "infected",
+      "kind": "native",
+      "selection": "selected_for_qualification",
+      "workshop_id": null,
+      "source": [
+        "mission/hollow-country/infected/variants.json",
+        "mods/HollowCountry/scripts/4_World/Infected/HCNativeVariantAdmission.c",
+        "installed:DayZServer/addons/characters_zombies.pbo!config.bin"
+      ],
+      "author": {
+        "name": "Bohemia Interactive",
+        "source": "installed DayZ base game; no third-party author claim"
+      },
+      "version": {
+        "game_build": "1.30.164289",
+        "addon": "addons/characters_zombies.pbo",
+        "addon_sha256": "93504400228b7e6b1913a78f9582a932d27bc9efc6990b7b82882b222ad1ed5e"
+      },
+      "rights": {
+        "actual_licence": "unknown",
+        "permission": "unknown",
+        "statement_source": null,
+        "dependency_only": true,
+        "copy_modify_repack": false,
+        "redistribution_authorized": false
+      },
+      "classes": [
+        {
+          "name": "ZmbF_ClerkFat_Black",
+          "config_parent": "ZmbF_ClerkFat_Base",
+          "script_base": "ZmbF_ClerkFat_Base -> ZombieFemaleBase -> ZombieBase",
+          "scope": 2,
+          "ai_agent_template": "InfectedFemale",
+          "patch": "DZ_Characters_Zombies",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "ZmbF_ClerkFat_BluePattern",
+          "config_parent": "ZmbF_ClerkFat_Base",
+          "script_base": "ZmbF_ClerkFat_Base -> ZombieFemaleBase -> ZombieBase",
+          "scope": 2,
+          "ai_agent_template": "InfectedFemale",
+          "patch": "DZ_Characters_Zombies",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "ZmbF_ClerkFat_GreyPattern",
+          "config_parent": "ZmbF_ClerkFat_Base",
+          "script_base": "ZmbF_ClerkFat_Base -> ZombieFemaleBase -> ZombieBase",
+          "scope": 2,
+          "ai_agent_template": "InfectedFemale",
+          "patch": "DZ_Characters_Zombies",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "ZmbF_ClerkFat_White",
+          "config_parent": "ZmbF_ClerkFat_Base",
+          "script_base": "ZmbF_ClerkFat_Base -> ZombieFemaleBase -> ZombieBase",
+          "scope": 2,
+          "ai_agent_template": "InfectedFemale",
+          "patch": "DZ_Characters_Zombies",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "ZmbF_ArmyOfficer",
+          "config_parent": "ZmbF_SoldierNormal_Base",
+          "script_base": "ZmbF_SoldierNormal_Base -> ZombieFemaleBase -> ZombieBase",
+          "scope": 2,
+          "ai_agent_template": "InfectedSoldier_Officer",
+          "patch": "DZ_Characters_Zombies",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "ZmbF_eastSoldier_Normal_Navy",
+          "config_parent": "ZmbF_eastSoldier_Base",
+          "script_base": "ZmbF_eastSoldier_Base -> ZombieFemaleBase -> ZombieBase",
+          "scope": 2,
+          "ai_agent_template": "InfectedMSoldier",
+          "patch": "DZ_Characters_Zombies",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        }
+      ],
+      "admission": {
+        "effective_state": "off",
+        "admitted": false,
+        "refused": "NATIVE_ENTITLEMENT_AND_RUNTIME_PENDING",
+        "runtime_acceptance": "PENDING",
+        "production_enabled": false,
+        "observed_classes": null
+      },
+      "compatibility": {
+        "expansion": "PENDING: native target/damage matrix with HCXAIAdapter; ancestry does not establish faction compatibility",
+        "hc_anims": "PENDING: no graph replacement requested; HC_ZmbM_Sitter is outside this selection",
+        "survivor_animations": "PENDING: installed metadata only; script/graph interactions not inspected",
+        "rag": "PENDING: installed metadata only; no compatibility or performance inference",
+        "normal_pbo_order": "Retain existing dependencies; no new requiredAddons or class adapter for this planning manifest"
+      },
+      "unresolved": [
+        "Native game use only; applicable installed licence/entitlement review pending; no redistribution permission asserted",
+        "HC-14 substitutions already authored; no additional CE rows, population or seasonal mutation here",
+        "Spawn, animation, audible movement, target/faction, damage, loot, two-client, restart and load acceptance pending"
+      ]
+    },
+    {
+      "id": "native-reindeer",
+      "category": "animal",
+      "kind": "native",
+      "selection": "selected_for_qualification",
+      "workshop_id": null,
+      "source": [
+        "mission/hollow-country/ecology/species.json",
+        "installed:DayZServer/addons/animals.pbo!rangifer_tarandus/config.bin",
+        "installed:DayZServer/addons/animals.pbo!rangifer_tarandus_fem/config.bin",
+        "installed:DayZServer/mpmissions/dayzOffline.chernarusplus/db/events.xml"
+      ],
+      "author": {
+        "name": "Bohemia Interactive",
+        "source": "installed DayZ base game; no third-party author claim"
+      },
+      "version": {
+        "game_build": "1.30.164289",
+        "addon": "addons/animals.pbo",
+        "addon_sha256": "3da205b245cfe0b136b61c360b53a4e158404addb478ed5d45f87545a059650f"
+      },
+      "rights": {
+        "actual_licence": "unknown",
+        "permission": "unknown",
+        "statement_source": null,
+        "dependency_only": true,
+        "copy_modify_repack": false,
+        "redistribution_authorized": false
+      },
+      "classes": [
+        {
+          "name": "Animal_RangiferTarandus",
+          "config_parent": "AnimalBase",
+          "script_base": "Animal_RangiferTarandus -> AnimalBase",
+          "scope": 2,
+          "ai_agent_template": "Herbivores_CervusElaphus",
+          "patch": "DZ_Animals_rangifer_tarandus",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "Animal_RangiferTarandusF",
+          "config_parent": "AnimalBase",
+          "script_base": "Animal_RangiferTarandusF -> Animal_RangiferTarandus -> AnimalBase",
+          "scope": 2,
+          "ai_agent_template": "Herbivores_CervusElaphusFem",
+          "patch": "DZ_Animals_rangifer_tarandus_feminam",
+          "dlc_tag": "not_declared_in_inspected_ancestry",
+          "runtime_acceptance": "PENDING"
+        }
+      ],
+      "admission": {
+        "effective_state": "off",
+        "admitted": false,
+        "refused": "NATIVE_ROSTER_ENTITLEMENT_AND_RUNTIME_PENDING",
+        "runtime_acceptance": "PENDING",
+        "production_enabled": false,
+        "observed_classes": null
+      },
+      "compatibility": {
+        "expansion": "PENDING: native target/damage matrix with HCXAIAdapter; ancestry does not establish faction compatibility",
+        "hc_anims": "PENDING: no graph replacement requested; HC_ZmbM_Sitter is outside this selection",
+        "survivor_animations": "PENDING: installed metadata only; script/graph interactions not inspected",
+        "rag": "PENDING: installed metadata only; no compatibility or performance inference",
+        "normal_pbo_order": "Both verified native patches require DZ_Animals; no adapter is authored. If a later addon derives classes, use the exact declaring patches before that addon.",
+        "brain": "Native deer agent templates only; herd/flee/destination/feeding/target compatibility is unobserved"
+      },
+      "unresolved": [
+        "Public config classes absent from inspected stock event children; this does not prove absence from live CE or custom missions",
+        "HC-15 allowlist lacks Animal_RangiferTarandus; owner must qualify before adding it",
+        "No habitat, CE event, population allocation, model/client entitlement or skinning qualification supplied",
+        "Config female parent is AnimalBase; script female parent is Animal_RangiferTarandus; preserve both findings",
+        "Native game licence/entitlement review and full runtime matrix pending"
+      ]
+    },
+    {
+      "id": "workshop-ambient-rabbits",
+      "category": "animal",
+      "kind": "workshop",
+      "selection": "research_only",
+      "workshop_id": "3114410963",
+      "source": [
+        "installed:Workshop/3114410963/meta.cpp",
+        "installed:Workshop/3114410963/mod.cpp",
+        "installed:Workshop/3114410963/Addons/Dayz_Rabbit.pbo!config.bin",
+        "installed:Workshop/3114410963/Addons/Dayz_Rabbit.pbo!ai/config.bin"
+      ],
+      "author": {
+        "name": "unknown",
+        "source": "installed meta.cpp/mod.cpp do not name an author",
+        "prior_reported_name": "Hunterz",
+        "prior_report_source": "docs/PROVENANCE_AND_LICENSES.md; secondary evidence only"
+      },
+      "version": {
+        "release": "unknown",
+        "metadata_timestamp": "5250968752062292930",
+        "meta_sha256": "2c52f18dfa0540792e7aa1252dc55cef0f7396fc5cd20ff9c67af02725ef28f6",
+        "mod_sha256": "e96989836ab47ca550ba0606dea1b399dde5043b0688603ad8c5fd9016c9e915",
+        "pbo_hashes": "HC-62_pending"
+      },
+      "rights": {
+        "actual_licence": "unknown",
+        "permission": "unknown",
+        "statement_source": null,
+        "dependency_only": true,
+        "copy_modify_repack": false,
+        "redistribution_authorized": false
+      },
+      "classes": [
+        {
+          "name": "Animal_Rabbit_Brown",
+          "config_parent": "Rabbit_Base",
+          "config_ancestor": "AnimalBase",
+          "scope": null,
+          "ai_agent_template": null,
+          "patch": "DayZ_Rabbit",
+          "runtime_acceptance": "PENDING"
+        },
+        {
+          "name": "Animal_Rabbit_Grey",
+          "config_parent": "Rabbit_Base",
+          "config_ancestor": "AnimalBase",
+          "scope": null,
+          "ai_agent_template": null,
+          "patch": "DayZ_Rabbit",
+          "runtime_acceptance": "PENDING"
+        }
+      ],
+      "admission": {
+        "effective_state": "off",
+        "admitted": false,
+        "refused": "RIGHTS_VERSION_STACK_UNKNOWN",
+        "runtime_acceptance": "PENDING",
+        "production_enabled": false,
+        "observed_classes": null
+      },
+      "compatibility": {
+        "expansion": "UNKNOWN: native-looking config ancestry is not a faction/target integration",
+        "hc_anims": "UNKNOWN: no infected graph interaction established",
+        "survivor_animations": "UNKNOWN: skeletonDefinitions in mod.cpp is not graph interoperability proof",
+        "rag": "UNKNOWN: shared server stack untested",
+        "brain": "UNKNOWN: RabbitAI patch name only; no inspected provider script/brain contract",
+        "normal_pbo_order": "UNKNOWN: DayZ_Rabbit and RabbitAI class names verified; requiredAddons order not inspected. No hard requirement added to either HC addon."
+      },
+      "unresolved": [
+        "Exact author/source and current Workshop licence/permission require separately authorized research",
+        "No licence statement in inspected permitted local metadata; old repository no-repack note is not permission",
+        "Metadata timestamp is not a release version; pin exact addon/signature hashes through HC-62",
+        "Only config class declarations inspected; no script, model, graph, public scope, agent template or skinning inspection",
+        "Rabbit_Base -> AnimalBase does not match HC-15 native hare allowlist by assertion; any roster expansion needs its owner",
+        "Existing optional overlay includes the whole animal pack; HC-60 does not install it or certify a rabbit-only extraction"
+      ],
+      "display_name": "Ambient Animals Pack"
+    },
+    {
+      "id": "workshop-infected-unidentified",
+      "category": "infected",
+      "kind": "research_slot",
+      "selection": "unresolved",
+      "workshop_id": null,
+      "source": [],
+      "author": {
+        "name": "unknown",
+        "source": "No permitted local infected-model Workshop source identified"
+      },
+      "version": {
+        "release": "unknown"
+      },
+      "rights": {
+        "actual_licence": "unknown",
+        "permission": "unknown",
+        "statement_source": null,
+        "dependency_only": true,
+        "copy_modify_repack": false,
+        "redistribution_authorized": false
+      },
+      "classes": [],
+      "admission": {
+        "effective_state": "off",
+        "admitted": false,
+        "refused": "NO_VERIFIED_SOURCE_OR_RIGHTS",
+        "runtime_acceptance": "PENDING",
+        "production_enabled": false,
+        "observed_classes": null
+      },
+      "compatibility": {
+        "expansion": "UNKNOWN",
+        "hc_anims": "UNKNOWN: must preserve native infected graph unless separately qualified",
+        "survivor_animations": "UNKNOWN",
+        "rag": "UNKNOWN",
+        "normal_pbo_order": "UNKNOWN; no addon/class adapter may be guessed"
+      },
+      "unresolved": [
+        "Future task must identify an author/Workshop source, actual terms and exact version before naming a recommendation",
+        "No third-party infected assets or scripts inspected; native HC-14 subset remains the first choice"
+      ]
+    },
+    {
+      "id": "winter-terrain-unidentified",
+      "category": "winter_terrain",
+      "kind": "research_slot",
+      "selection": "unresolved",
+      "workshop_id": null,
+      "source": [],
+      "author": {
+        "name": "unknown",
+        "source": "No permitted local Chernarus white-terrain dependency identified"
+      },
+      "version": {
+        "release": "unknown"
+      },
+      "rights": {
+        "actual_licence": "unknown",
+        "permission": "unknown",
+        "statement_source": null,
+        "dependency_only": true,
+        "copy_modify_repack": false,
+        "redistribution_authorized": false
+      },
+      "classes": [],
+      "admission": {
+        "effective_state": "off",
+        "admitted": false,
+        "refused": "NO_VERIFIED_TERRAIN_SOURCE_OR_RIGHTS",
+        "runtime_acceptance": "PENDING",
+        "production_enabled": false,
+        "observed_classes": null
+      },
+      "compatibility": {
+        "expansion": "UNKNOWN: routes, visibility and targets need exact terrain stack trials",
+        "hc_anims": "UNKNOWN: graph compatibility is not terrain compatibility",
+        "survivor_animations": "UNKNOWN",
+        "rag": "UNKNOWN: vehicle surfaces and traction need qualification",
+        "normal_pbo_order": "UNKNOWN; all clients require matching qualified dependency set; restart boundary is a proposal"
+      },
+      "unresolved": [
+        "HC-50 prerequisite remains open; this is not an identified Workshop product or recommendation",
+        "Author/source, Workshop ID, licence/permission, ChernarusPlus compatibility, exact version and load order unknown",
+        "No live terrain/material replacement API established in inspected N6 files",
+        "Evaluate a permitted dependency behind a stopped-server restart only after research; preserve world storage and HCVisualSeasons state",
+        "White terrain, surface/audio/visibility, CE/navmesh/doors, client parity, restart rollback and load all pending",
+        "No seasonal cold, clothing penalty, calendar manipulation or fallback claim that falling snow provides white terrain"
+      ]
+    }
+  ]
+}
