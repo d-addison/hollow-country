@@ -169,9 +169,14 @@ class HCInfectedModule : HCModule
         {
             variantMaps = m_Config.CivilianVariants.Count() == 4 && m_Config.MilitaryVariants.Count() == 4;
         }
-        if (m_Config.EnableVariantPolicies && !variantMaps)
+        bool emptyMaps = m_Config.CivilianVariants && m_Config.MilitaryVariants && m_Config.CivilianVariants.Count() == 0 && m_Config.MilitaryVariants.Count() == 0;
+        if (m_Config.EnableVariantPolicies && emptyMaps)
         {
-            Print("[HC Infected] variant preference enabled; explicit stance maps missing or invalid; native profiles retained");
+            Print("[HC Infected] variant preference enabled; no stance maps configured (default); native profiles used");
+        }
+        else if (m_Config.EnableVariantPolicies && !variantMaps)
+        {
+            Print("[HC Infected] variant preference enabled; explicit stance maps invalid (need 4 supported entries each); native profiles retained");
         }
         HCInfectedProfiles.LogUnsupportedSubstitutions(m_Config);
         if (m_Config.EnableContactGuard && !HCInfectedProfiles.ContactGuardAdmitted())
