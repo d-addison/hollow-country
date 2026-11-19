@@ -126,7 +126,10 @@ class HCCampRaidSituation
         line += " state=" + m_Effective + " refusal=" + m_Reason;
         string authored = "0";
         if (m_Authored == 2) { authored = "2"; }
-        Print(line + " authored=" + authored + " admitted=0 observed=0 count_cap=2 report_cap=16 runtime=PENDING");
+        string admitted = "0";
+        if (m_Status.HCState() == "ready") { admitted = "1"; }
+        line += " authored=" + authored + " admitted=" + admitted;
+        Print(line + " admission_scope=provider_or_preflight observed=0 count_cap=2 report_cap=16 runtime=PENDING");
     }
 
     HCOperationalStatus HCStatus()

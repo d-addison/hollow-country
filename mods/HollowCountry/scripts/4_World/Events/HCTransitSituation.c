@@ -125,7 +125,10 @@ class HCTransitSituation
         if (m_Authored == 2) { authored = "2"; }
         string line = "[HC Plan] HC-40 kind=" + kind + " lease=none phase=" + phase;
         line += " state=" + m_Effective + " refusal=" + m_Reason;
-        line += " authored=" + authored + " admitted=0 observed=0 count_cap=2 runtime=PENDING";
+        string admitted = "0";
+        if (m_Status.HCState() == "ready") { admitted = "1"; }
+        line += " authored=" + authored + " admitted=" + admitted;
+        line += " admission_scope=provider observed=0 count_cap=2 runtime=PENDING";
         Print("" + line);
     }
 
