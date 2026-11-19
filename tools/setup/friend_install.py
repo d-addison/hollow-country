@@ -423,6 +423,8 @@ class Analysis:
         self.own = []            # (rel, source, action, sha) for mod folders and keys
         self.stale = []          # relative paths of old signed files in our own mod folders
         self.profiles = []
+        self.holdouts_state = None
+        self.holdouts_moves = []
         self.launcher = None
         self.cfg = None          # dict(path, raw, new, changes)
         self.third = []          # dict(item, folder_exists, ours)
@@ -465,6 +467,7 @@ def analyze(ctx):
         for rel, source in bundle_walk(ctx.bundle, ctx.manifest, 'profiles'):
             action, sha = classify_file(ctx, rel, source)
             a.profiles.append((rel, source, action, sha))
+        a.holdouts_state, a.holdouts_moves = inspect_holdouts(ctx)
     if 'launcher' not in ctx.skip:
         source = ctx.bundle / 'start-server.bat'
         action, sha = classify_file(ctx, 'start-server.bat', source)
@@ -1191,6 +1194,45 @@ def do_overlays_map(ctx, mission, source, state):
     return 'done'
 
 
+# HCHoldoutState.Version and OnStart's Version check in
+# mods/HollowCountry/scripts/4_World/World/HCHoldouts.c (159, 261).
+# HCAICampLifecycle.c in that directory defines schema 2's finite funding pool.
+# Keep this in the installer: exported bundles contain PBOs, not script sources.
+FUNDED_HOLDOUT_VERSION = 2
+HOLDOUT_PATH = 'profiles/HollowCountry/holdouts.json'
+
+
+def inspect_holdouts(ctx):
+    """Classify the schema only; native canonical-image and resource checks remain pending."""
+    ws.check_no_symlink_below(ctx.server, HOLDOUT_PATH)
+    target = ctx.server / HOLDOUT_PATH
+    if not target.exists():
+        return 'absent', []
+    if not target.is_file():
+        raise Refused('holdouts_conflict', '%s is not a regular file' % HOLDOUT_PATH)
+    try:
+        data = json.loads(target.read_text(encoding='utf-8'))
+    except (ValueError, UnicodeError):
+        state = 'invalid JSON'
+    else:
+        version = data.get('Version') if isinstance(data, dict) else None
+        if type(version) is int and version == FUNDED_HOLDOUT_VERSION:
+            return 'funded', []
+        if type(version) is not int or version != 1:
+            return 'unsupported holdouts schema', []
+        state = 'legacy schema 1 (unfunded)'
+    moves = []
+    for suffix in ('', '.bak', '.tmp'):
+        rel = HOLDOUT_PATH + suffix
+        ws.check_no_symlink_below(ctx.server, rel)
+        path = ctx.server / rel
+        if path.exists():
+            if not path.is_file():
+                raise Refused('holdouts_conflict', '%s is not a regular file' % rel)
+            moves.append(rel)
+    return state, moves
+
+
 def plan_profiles(ctx, a):
     if 'profiles' in ctx.skip:
         return 'skipped', ['you asked to skip this step'], None
@@ -1199,10 +1241,31 @@ def plan_profiles(ctx, a):
     lines = ['profile files from the bundle: %s' % describe({k: v for k, v in counts.items() if k != 'drift'})]
     for rel, _s, _a, _h in kept:
         lines.append('kept %s (changed on the server since the last install; not overwritten)' % rel)
+    if a.holdouts_moves:
+        lines.append('holdouts: %s; preserve the old image so the mod can start fresh' % a.holdouts_state)
+        for rel in a.holdouts_moves:
+            lines.append('move to the backup folder: ' + rel)
+    elif a.holdouts_state == 'unsupported holdouts schema':
+        lines.append('unsupported holdouts schema; kept %s; inspect before starting the server' % HOLDOUT_PATH)
     todo = [r for r in a.profiles if r[2] in ('new', 'upgrade', 'confirm')]
-    if not todo:
+    if not todo and not a.holdouts_moves:
         return 'already-done', lines, None
-    return 'planned', lines, lambda: do_files(ctx, a.profiles)
+    return 'planned', lines, lambda: do_profiles(ctx, a)
+
+
+def do_profiles(ctx, a):
+    for rel in a.holdouts_moves:
+        target = ctx.server / rel
+        # Existing write-ahead mechanism copies exact bytes into this run's
+        # backup and journals the absent live target before removing it.
+        record_written(ctx, rel, None)
+        target.unlink()
+        ws.fsync_parent(target)
+        moved = ctx.receipt.setdefault('holdouts_moved', [])
+        if rel not in moved:
+            moved.append(rel)
+        ctx.receipt['files'].pop(rel, None)
+    return do_files(ctx, a.profiles)
 
 
 def do_files(ctx, rows):
@@ -1388,6 +1451,12 @@ def run_check(ctx):
         value = cfg_values(cfg.read_text(encoding='utf-8', errors='replace'), ['verifySignatures']).get('verifySignatures')
         result('verify_signatures', [] if value is not None and value.strip() == '2' else
                ['verify_signatures_off: verifySignatures should be 2'], 'verifySignatures = 2')
+    holdouts_state, _moves = inspect_holdouts(ctx)
+    result('holdouts', [] if holdouts_state in ('absent', 'funded') else
+           ['%s: %s; run the profiles step for legacy/invalid JSON, inspect other schemas by hand'
+            % (holdouts_state, HOLDOUT_PATH)],
+           'absent (fresh state allowed)' if holdouts_state == 'absent' else
+           'funded schema %d present; runtime acceptance pending' % FUNDED_HOLDOUT_VERSION)
     if 'overlays-map' not in ctx.skip:
         mission = map_mission(ctx)
         source, reason = map_source(ctx)

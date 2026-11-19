@@ -1,5 +1,12 @@
 """Guided friend installer: synthetic bundle, server, Workshop content and mission trees only.
 
+Issue #174 TDD RED, before implementing the holdouts migration:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_friend_install.HoldoutProfileTests.test_plan_only_names_each_existing_legacy_file_and_changes_nothing
+AssertionError: 'legacy' not found
+Ran 1 test in 0.053s; FAILED (failures=1)
+GREEN command: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_friend_install test_friend_bundle test_windows_bundle_apply
+GREEN: Ran 175 tests in 344.353s; OK
+
 Nothing here runs DayZ, steamcmd, a server or a network call; the Workshop download and the mission
 overlay apply are replaced by explicit fakes, and the server-process check is patched. It checks which
 files the installer plans, writes, backs up, refuses and leaves alone; it establishes nothing about DayZ
@@ -984,6 +991,200 @@ class ManifestAndConfigDriftTests(InstallerCase):
         before['serverDZ.cfg'] = sha(edited.encode())
         self.assertEqual(live_snapshot(self.server), before)
         self.assertIn('rolled back: the server is as it was before this run', err)
+
+
+class HoldoutProfileTests(InstallerCase):
+    """#174: authored JSON fixtures; no engine load or funded-state acceptance is implied."""
+
+    HOLDOUT = 'profiles/HollowCountry/holdouts.json'
+    # HCHoldoutState fields before HC-16: Version, TemplatePin, Rows. An explicit
+    # empty catalog is sufficient to reproduce the legacy refusal without game data.
+    LEGACY = b'{"Version":1,"TemplatePin":"synthetic-legacy-pin","Rows":[]}\r\n'
+    # HCHoldoutState / HCAICampPolicy / HCAICampResources, authored by hand from
+    # 4_World/World/HCHoldouts.c and HCAICampLifecycle.c. Not a native save image.
+    FUNDED = b'''{"Version":2,"CampPolicy":{"FoundingStock":48,"FoundingPopulation":12,
+"CampAllocation":24,"BivouacCost":1,"HouseholdCost":2,"StableCost":4,"HubCost":8,
+"GrowthSeconds":3600,"UpkeepSeconds":86400,"RaidLockoutSeconds":604800,
+"RoleSeconds":120,"RoutineRangeMeters":30,"ArrivalToleranceMeters":1},
+"Resources":{"Stock":48,"Population":12},"TemplatePin":"synthetic-funded-pin","Rows":[]}\n'''
+
+    def put_holdouts(self, image, companions=True):
+        rows = {self.HOLDOUT: image}
+        if companions:
+            rows.update({self.HOLDOUT + '.bak': b'SYNTHETIC prior backup\x00\r\n',
+                         self.HOLDOUT + '.tmp': b'{"Version":1,"Rows":['})
+        for rel, data in rows.items():
+            put(self.server, rel, data)
+        return rows
+
+    def test_plan_only_names_each_existing_legacy_file_and_changes_nothing(self):
+        rows = self.put_holdouts(self.LEGACY)
+        before = snapshot(self.tmp)
+        code, out, err = self.run_cli('--plan-only')
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('legacy', out.lower())
+        for rel in rows:
+            self.assertIn('move to the backup folder: ' + rel, out)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_legacy_moves_use_the_same_run_journal_and_relative_receipt_names(self):
+        rows = self.put_holdouts(self.LEGACY)
+        put(self.server, 'profiles/HollowCountry/pickers.json', b'UNRELATED STATE')
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        journals = list((self.server / fi.BACKUP_DIR).glob('*/' + fi.JOURNAL))
+        self.assertEqual(len(journals), 1, 'reuse the existing run, including its other steps')
+        journal = json.loads(journals[0].read_text())
+        entries = {row['path']: row for row in journal['entries']}
+        for rel, data in rows.items():
+            self.assertFalse((self.server / rel).exists(), rel)
+            self.assertEqual((journals[0].parent / rel).read_bytes(), data)
+            self.assertEqual(entries[rel]['kind'], 'file')
+            self.assertEqual(entries[rel]['written'][''], [None])
+        receipt = json.loads((self.server / fi.RECEIPT).read_text())
+        self.assertEqual(receipt['holdouts_moved'], list(rows))
+        self.assertNotIn(str(self.tmp), json.dumps(receipt))
+        self.assertEqual((self.server / 'profiles/HollowCountry/pickers.json').read_bytes(), b'UNRELATED STATE')
+        before = snapshot(self.tmp)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(snapshot(self.tmp), before, 'second apply must not rewrite or lose the move receipt')
+
+    def test_only_existing_files_are_moved_even_when_profiles_are_otherwise_done(self):
+        self.assertEqual(self.apply()[0], 0)
+        self.put_holdouts(self.LEGACY, companions=False)
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 7), 'done')
+        receipt = json.loads((self.server / fi.RECEIPT).read_text())
+        self.assertEqual(receipt['holdouts_moved'], [self.HOLDOUT])
+        self.assertFalse((self.server / self.HOLDOUT).exists())
+
+    def test_invalid_json_and_invalid_utf8_are_moved_with_their_companions(self):
+        for image in (b'{"Version":1,"Rows":[', b'\xff\xfeNOT JSON'):
+            with self.subTest(image=image):
+                rows = self.put_holdouts(image)
+                code, out, err = self.apply()
+                self.assertEqual(code, 0, out + err)
+                self.assertIn('invalid JSON', out)
+                for rel, data in rows.items():
+                    self.assertFalse((self.server / rel).exists(), rel)
+                    self.assertIn(data, [p.read_bytes() for p in
+                                        (self.server / fi.BACKUP_DIR).glob('*/' + rel)])
+
+    def test_funded_schema_and_companions_stay_byte_identical_without_new_backups(self):
+        self.assertEqual(self.apply()[0], 0)
+        self.put_holdouts(self.FUNDED)
+        before = snapshot(self.tmp)
+        code, out, err = self.run_cli('--plan-only')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 7), 'already-done')
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_absent_primary_does_not_move_orphan_companions(self):
+        self.assertEqual(self.apply()[0], 0)
+        put(self.server, self.HOLDOUT + '.bak', self.LEGACY)
+        before = snapshot(self.tmp)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_check_reports_absent_funded_legacy_invalid_and_unknown_images_read_only(self):
+        self.assertEqual(self.apply()[0], 0)
+        for image, expected in ((None, 'PASS'), (self.FUNDED, 'PASS'), (self.LEGACY, 'FAIL'),
+                                (b'{broken', 'FAIL'), (b'{"Version":99}', 'FAIL'),
+                                (b'{"Version":true}', 'FAIL'), (b'[]', 'FAIL')):
+            with self.subTest(image=image):
+                if image is not None:
+                    self.put_holdouts(image)
+                before = snapshot(self.tmp)
+                code, out, err = self.run_cli('--check')
+                self.assertEqual(code, 0 if expected == 'PASS' else 1, out + err)
+                self.assertRegex(out, expected + r'\s+holdouts\s+')
+                self.assertEqual(snapshot(self.tmp), before)
+
+    def test_unknown_schema_is_reported_but_never_moved(self):
+        self.assertEqual(self.apply()[0], 0)
+        self.put_holdouts(b'{"Version":99,"Rows":[]}')
+        before = snapshot(self.tmp)
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('unsupported holdouts schema', out)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_running_server_refuses_before_moving_legacy_state(self):
+        self.put_holdouts(self.LEGACY)
+        before = snapshot(self.tmp)
+        ws.server_running.return_value = True
+        code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('server_running', err)
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_skipping_profiles_leaves_legacy_state_and_companions_untouched(self):
+        rows = self.put_holdouts(self.LEGACY)
+        code, out, err = self.apply('--skip', 'profiles')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 7), 'skipped')
+        for rel, data in rows.items():
+            self.assertEqual((self.server / rel).read_bytes(), data)
+        # A skipped write step cannot hide incompatible state from --check.
+        code, out, err = self.run_cli('--check', '--skip', 'profiles')
+        self.assertEqual(code, 1, out + err)
+        self.assertRegex(out, r'FAIL\s+holdouts\s+')
+
+    def test_late_refusal_restores_all_moved_bytes_and_the_original_receipt(self):
+        self.assertEqual(self.apply()[0], 0)
+        rows = self.put_holdouts(self.LEGACY)
+        before = live_snapshot(self.server)
+        with mock.patch.dict(fi.PLANNERS, {'cfg': lambda ctx, a: (
+                'blocked', ['synthetic failure after profiles'], None)}):
+            code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(fi.ROLLBACK_OK, err)
+        self.assertEqual(live_snapshot(self.server), before)
+        for rel, data in rows.items():
+            self.assertEqual((self.server / rel).read_bytes(), data)
+
+    def test_interruption_after_each_move_recovers_original_bytes(self):
+        real_unlink = Path.unlink
+        for suffix in ('', '.bak', '.tmp'):
+            with self.subTest(suffix=suffix):
+                self.server = self.tmp / ('interrupted-' + (suffix or 'primary'))
+                self.make_server(self.server)
+                rows = self.put_holdouts(self.LEGACY)
+                before = live_snapshot(self.server)
+                target = self.server / (self.HOLDOUT + suffix)
+
+                def crash_after_unlink(path, *args, **kw):
+                    real_unlink(path, *args, **kw)
+                    if path == target:
+                        raise SystemExit('synthetic hard exit after holdouts move')
+
+                with mock.patch.object(Path, 'unlink', crash_after_unlink):
+                    with self.assertRaises(SystemExit):
+                        self.apply()
+                self.assertFalse(target.exists(), 'fixture must reach the move before crashing')
+                ctx = fi.Ctx(fi.build_parser().parse_args([]), io.StringIO(), None)
+                ctx.server = self.server
+                runs = fi.pending_runs(ctx)
+                self.assertEqual(len(runs), 1)
+                fi.recover_runs(ctx, runs)
+                self.assertEqual(live_snapshot(self.server), before)
+                for rel, data in rows.items():
+                    self.assertEqual((self.server / rel).read_bytes(), data)
+
+    def test_linked_companion_is_refused_without_moving_any_state(self):
+        self.put_holdouts(self.LEGACY, companions=False)
+        outside = put(self.tmp, 'outside.json', b'OUTSIDE')
+        try:
+            (self.server / (self.HOLDOUT + '.bak')).symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest('symlinks not permitted')
+        before = snapshot(self.tmp)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('symlink', err)
+        self.assertEqual(snapshot(self.tmp), before)
 
 
 class CheckTests(InstallerCase):
