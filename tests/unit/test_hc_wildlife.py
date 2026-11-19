@@ -762,6 +762,9 @@ class WildlifeBehavior(unittest.TestCase):
         self.assertTrue(any('AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN' in line for line in scene.logs))
         self.assertTrue(any('CARCASS_SPENT_EVICTION_UNPROVEN' in line for line in scene.logs),
                         'cap fallback has no named eviction refusal')
+        # A standing cap notice is a limit, not a refusal of the running service.
+        self.assertFalse(any('CARCASS_SPENT_EVICTION_UNPROVEN' in line and 'state=refused' in line
+                             for line in scene.logs), 'cap notice must not read as a refusal')
         self.assertTrue(any('HC-49 carcass=synthetic-story-1-carcass origin=observed supply=native_skinnable'
                             in line and 'runtime=PENDING' in line for line in scene.logs))
         # Manifest validation runs authored policy; no new distances or authored loot.

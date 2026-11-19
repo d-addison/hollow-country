@@ -274,7 +274,7 @@ class HCWildlifeScenes
         HCReport();
         Print("[HC Plan] HC-49 carcass=none origin=authored supply=pending state=refused refusal=AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN count=0 runtime=PENDING");
         int spentCap = HCWildlifeScenes.MAX_SPENT_CORPSES;
-        Print("[HC Plan] HC-49 state=refused refusal=CARCASS_SPENT_EVICTION_UNPROVEN spent_cap=" + spentCap.ToString() + " runtime=PENDING");
+        Print("[HC Plan] HC-49 limit=CARCASS_SPENT_EVICTION_UNPROVEN spent_cap=" + spentCap.ToString() + " runtime=PENDING");
         return true;
     }
 
