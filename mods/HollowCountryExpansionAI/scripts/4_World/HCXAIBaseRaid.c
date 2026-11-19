@@ -415,9 +415,14 @@ class HCAdminVisitorParty : HCXAIBaseRaid
     // the director's actual policy/settings lifecycle (HCXAISites.c:864-1006).
     override bool HCReady()
     {
-        // Native 1.30 boot 077 refused the inline `HCRefusal() == ""` ("Incompatible parameter '@c00'").
-        string refusal = HCRefusal();
-        return refusal == "";
+        // Native 1.30 boots 077/078 refused calling the own HCRefusal() override
+        // from here ("Incompatible parameter"); mirror its checks without the call.
+        if (!m_Healthy || !m_Config) { return false; }
+        if (!m_HCAdapter || HCXAIService.Adapter() != m_HCAdapter) { return false; }
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (!director || director != m_HCDirector) { return false; }
+        string phase = director.Phase();
+        return phase == "run";
     }
     override string HCRefusal()
     {
