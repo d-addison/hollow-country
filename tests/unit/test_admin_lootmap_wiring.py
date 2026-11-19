@@ -7,6 +7,12 @@ behaviour: the 1 km/500 m query cost stays unmeasured.
 
 RED (before the change): PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_admin_lootmap_wiring -v
 AssertionError: Missing authored method HCAdminLootMap.HCJobTickCap in HCAdminLootMap.c
+
+#191 (wave 10) RED, same command: AssertionError: Missing authored method
+HCAdminLootMap.HCClientWindowSeconds in HCAdminLootMap.c (ClientWiring build, FAILED
+failures=9, errors=1); the est_ticks window, floor/ceiling and the post-ack export
+failure final reply tests are in ClientWiring. The server half of the failure reply is in
+test_admin_lootmap (RED: AssertionError: 1 != 2).
 """
 import math
 from pathlib import Path
@@ -118,7 +124,9 @@ class ClientWiring(unittest.TestCase):
         wire.HCIsLootMap = compile_authored(WIRE, 'HCAdminWire', 'HCIsLootMap',
                                             base_scope(), modded=False, native_strings=EStr)
         wire_static = N(REQUEST=1, REPLY=2, HCIsLootMap=lambda command: wire.HCIsLootMap(wire, command))
-        loot = N(HCClientWaitSeconds=lambda: 1344,
+        window = statics(('HCJobTickCap', 'HCClientWaitSeconds', 'HCClientWindowSeconds', 'HCAckInt'), limits)
+        loot = N(HCClientWaitSeconds=window.HCClientWaitSeconds,
+                 HCClientWindowSeconds=window.HCClientWindowSeconds, HCAckInt=window.HCAckInt,
                  HCValidFilter=lambda name: bool(re.fullmatch(r'[A-Za-z0-9_]{1,96}', name)))
         self.env = base_scope(GetGame=lambda: game, HCAdminWire=wire_static, HCAdminLootMap=loot,
                          HCAdminLootMapLimits=lambda: limits,
@@ -192,7 +200,7 @@ class ClientWiring(unittest.TestCase):
         self.receive(c, self.reply(ticket, marks=0))  # the immediate ack
         self.assertFalse(c.m_Pending)  # menu and other commands work during the job
         self.assertEqual(ticket, c.m_LootTicket)
-        self.assertEqual(101.0 + 1344, c.m_LootUntil)
+        self.assertEqual(101.0 + self.ceiling(authored_limits()), c.m_LootUntil)
         self.assertEqual([], list(c.View.Marks) if c.View else [])  # no marks yet
         # Another admin command can be sent while the job runs.
         self.now = 110.0
@@ -212,6 +220,71 @@ class ClientWiring(unittest.TestCase):
         self.receive(c, self.reply(ticket, snapshot=True, marks=3))  # one final reply per job
         self.assertEqual(2, len(c.View.Marks))
 
+    @staticmethod
+    def ceiling(limits):
+        """Largest admitted job (MaxCells) at the budgeted tick plus the reply grace."""
+        units = limits.MaxItemsScanned + (limits.MatchRowUnits - 1) * limits.MaxMatches
+        ticks = limits.MaxCells + math.ceil(units / limits.MaxRowsPerStep) + 1
+        return math.ceil(ticks * limits.MaxTickIntervalMs / 1000) + limits.ReplyGraceSeconds
+
+    def ack(self, c, notice):
+        c.HCLootMap(EStr('Bandage'))
+        self.now = 101.0
+        self.receive(c, self.reply(self.sent[-1].Ticket, notice=notice, marks=0))
+        return self.sent[-1].Ticket
+
+    def test_client_window_is_sized_from_the_acks_est_ticks_and_tick_interval(self):
+        limits = authored_limits()
+        ceiling = self.ceiling(limits)
+        self.assertGreaterEqual(limits.MinClientWaitSeconds, limits.ReplyGraceSeconds)
+        c = self.build()
+        ticket = self.ack(c, '[HC Admin] cmd=lootmap result=ok reason=started ticket=1 est_ticks=100 cells=4 tick_ms=1000')
+        self.assertEqual(ticket, c.m_LootTicket)
+        self.assertEqual(101.0 + 100 + limits.ReplyGraceSeconds, c.m_LootUntil)  # not the largest-job ceiling
+        # A slower core tick scales the window: 100 ticks at 500 ms.
+        c = self.build()
+        self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=500')
+        self.assertEqual(101.0 + 50 + limits.ReplyGraceSeconds, c.m_LootUntil)
+        # Floor: a tiny job still waits MinClientWaitSeconds.
+        c = self.build()
+        self.ack(c, 'started ticket=1 est_ticks=2 cells=1 tick_ms=1000')
+        self.assertEqual(101.0 + limits.MinClientWaitSeconds, c.m_LootUntil)
+        # Ceiling: an estimate above the largest admitted job is clamped to it.
+        c = self.build()
+        self.ack(c, 'started ticket=1 est_ticks=999999 cells=4 tick_ms=1000')
+        self.assertEqual(101.0 + ceiling, c.m_LootUntil)
+        # Unreadable ack text falls back to the ceiling, never to a short wait.
+        c = self.build()
+        self.ack(c, '[HC Admin] cmd=lootmap result=ok reason=started')
+        self.assertEqual(101.0 + ceiling, c.m_LootUntil)
+
+    def test_session_and_ticket_expire_with_the_sized_window(self):
+        limits = authored_limits()
+        c = self.build()
+        self.ack(c, 'started ticket=1 est_ticks=10 cells=1 tick_ms=1000')
+        window = limits.MinClientWaitSeconds  # 10 + 30 s is below the floor
+        self.now = 101.0 + window - 1
+        self.assertTrue(c.HCValid())
+        self.now = 101.0 + window + 1
+        c.HCExpireLoot(self.now)
+        self.assertEqual(0, c.m_LootTicket)
+
+    def test_export_failure_after_the_ack_is_a_final_reply_the_client_consumes(self):
+        c = self.build()
+        ticket = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000')
+        self.assertEqual(ticket, c.m_LootTicket)
+        self.now = 130.0
+        failure = '[HC Admin] cmd=lootmap result=refused reason=lootmap_export_failed'
+        self.receive(c, self.reply(ticket, snapshot=True, notice=failure, marks=0))
+        self.assertEqual(0, c.m_LootTicket)  # no ~23 min "lootmap job running"
+        self.assertEqual(failure, c.Notice)
+        self.assertFalse(any('late reply' in line for line in self.printed))
+        # Old behaviour (Snapshot=false after the ack) is dropped by the client: kept for contrast.
+        c = self.build()
+        ticket = self.ack(c, 'started ticket=1 est_ticks=100 cells=4 tick_ms=1000')
+        self.receive(c, self.reply(ticket, snapshot=False, notice=failure, marks=0))
+        self.assertEqual(ticket, c.m_LootTicket)
+
     def test_refused_lootmap_request_is_not_tracked(self):
         c = self.build()
         c.HCLootMap(EStr('Bandage'))
@@ -227,7 +300,7 @@ class ClientWiring(unittest.TestCase):
         self.assertTrue(c.HCValid())
         c.HCExpireLoot(self.now)
         self.assertNotEqual(0, c.m_LootTicket)
-        self.now = 101.0 + 1344 + 1  # derived window over, no final reply
+        self.now = 101.0 + self.ceiling(authored_limits()) + 1  # derived window over, no final reply
         c.HCExpireLoot(self.now)
         self.assertEqual(0, c.m_LootTicket)
         self.assertTrue(any(row[0] == 'lootmap' and not row[1] and 'client-timeout' in row[2] for row in self.logged))

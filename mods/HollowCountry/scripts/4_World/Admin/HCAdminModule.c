@@ -41,9 +41,26 @@ class HCAdminModule : HCModule
     protected PlayerIdentity m_LootMapSender;
     protected int m_LootMapTicket;
     protected float m_LootMapAfter;
+    // HC-1 status the core reads after OnStart (#160): every start refusal publishes
+    // its reason here instead of returning silently.
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     override string GetName() { return "AdminMap"; }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableAdminMap; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool enabled = settings && settings.EnableAdminMap;
+        if (!enabled) { m_Status.HCPublish("off", "module_not_enabled"); }
+        return enabled;
+    }
+
+    // OnStart runs once per server start, so this one line per refusal is bounded.
+    // Never prints an admin ID.
+    protected void HCStartRefused(string reason)
+    {
+        m_Status.HCPublish("refused", reason);
+        Print("[HC Admin] allowlist refused: reason=" + reason + "; admin map off; IDs withheld");
+    }
 
     override void OnStart(HCSettings settings)
     {
@@ -53,25 +70,25 @@ class HCAdminModule : HCModule
             Print(HCV2Admission.Line("AdminMap", true, "W6-123-133", false));
             m_Printed = true;
         }
-        if (!HCV2ThreatStore<HCAdminAllowlist>.CanOpen(PATH)) { return; }
+        if (!HCV2ThreatStore<HCAdminAllowlist>.CanOpen(PATH)) { HCStartRefused("admin_allowlist_store_recovery_required"); return; }
         if (FileExist(PATH))
         {
-            if (!HCV2ThreatStore<HCAdminAllowlist>.Load(PATH, 4096, m_Admins)) { return; }
+            if (!HCV2ThreatStore<HCAdminAllowlist>.Load(PATH, 4096, m_Admins)) { HCStartRefused("admin_allowlist_load_failed"); return; }
         }
         else
         {
             m_Admins = new HCAdminAllowlist;
-            if (!HCV2ThreatStore<HCAdminAllowlist>.Save(PATH, m_Admins, 4096)) { return; }
+            if (!HCV2ThreatStore<HCAdminAllowlist>.Save(PATH, m_Admins, 4096)) { HCStartRefused("admin_allowlist_save_failed"); return; }
         }
-        if (!m_Admins || !m_Admins.PlainIds) { return; }
-        if (m_Admins.PlainIds.Count() > 32) { Print("[HC Admin] allowlist refused: count exceeds 32"); return; }
+        if (!m_Admins || !m_Admins.PlainIds) { HCStartRefused("admin_allowlist_missing_after_load"); return; }
+        if (m_Admins.PlainIds.Count() > 32) { HCStartRefused("admin_allowlist_count_exceeds_32"); return; }
         array<string> seen = new array<string>;
         for (int idIndex = 0; idIndex < m_Admins.PlainIds.Count(); idIndex++)
         {
             string plainId = m_Admins.PlainIds[idIndex];
             if (plainId == "" || plainId.Length() > 64 || seen.Find(plainId) >= 0)
             {
-                Print("[HC Admin] allowlist refused: invalid or duplicate entry; IDs withheld");
+                HCStartRefused("admin_allowlist_invalid_or_duplicate_entry");
                 m_Admins = null;
                 return;
             }
@@ -93,6 +110,7 @@ class HCAdminModule : HCModule
         m_DebugEnabled = settings.EnableDebugSnapshot;
         m_Running = true;
         DayZGame.Event_OnRPC.Insert(HCReceive);
+        m_Status.HCPublish("ready", "allowlist_loaded_native_acceptance_pending");
         Print("[HC Admin] allowlist count=" + m_Admins.PlainIds.Count().ToString() + "; native acceptance pending");
     }
 
@@ -193,7 +211,7 @@ class HCAdminModule : HCModule
         // one final marks RPC follows by this ticket (no automatic retries). If the
         // client session ends first the final reply is dropped client-side.
         string ack = "started ticket=" + ticket.ToString() + " est_ticks=" + job.HCMaxTicks().ToString();
-        ack += " cells=" + job.HCTotalCells().ToString() + " final_reply=by_ticket; query_cost=unmeasured";
+        ack += " cells=" + job.HCTotalCells().ToString() + " tick_ms=" + tickMs.ToString() + " final_reply=by_ticket; query_cost=unmeasured";
         HCReply(sender, ticket, "lootmap", true, ack);
         return true;
     }
@@ -213,7 +231,16 @@ class HCAdminModule : HCModule
         HCAdminLootDocument data = m_LootMap.HCDocument();
         if (!HCV2ThreatStore<HCAdminLootDocument>.Save(HCAdminLootMap.PATH, data, HCAdminLootMap.MAX_BYTES))
         {
-            HCReply(m_LootMapSender, m_LootMapTicket, "lootmap", false, "lootmap_export_failed");
+            // After the ack the client expects only the final reply by ticket, so the
+            // failure is that final reply (Snapshot=true): it clears the client ticket
+            // and shows the notice instead of being dropped as an unexpected reply.
+            string failureLine = "[HC Admin] cmd=lootmap result=refused reason=lootmap_export_failed";
+            Print("" + failureLine);
+            HCAdminReply failure = new HCAdminReply;
+            failure.Ticket = m_LootMapTicket;
+            failure.Snapshot = true;
+            failure.Notice = failureLine;
+            HCSend(m_LootMapSender, failure);
         }
         else
         {
@@ -451,6 +478,7 @@ class HCAdminModule : HCModule
     {
         if (m_Running) { DayZGame.Event_OnRPC.Remove(HCReceive); }
         m_Running = false;
+        m_Status.HCPublish("off", "server_stopped");
         m_Pending = null;
         m_Capture = null;
         m_PendingSender = null;

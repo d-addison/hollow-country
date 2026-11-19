@@ -276,8 +276,12 @@ class HCAdminClient
             // A refusal (including `lootmap_job_running`) leaves any running job tracked.
             if (!reply.Snapshot && HCAdminWire.HCIsLootMap(command) && reply.Notice.IndexOf("result=refused") < 0)
             {
+                // Window sized from the ack's est_ticks and tick_ms (floor and ceiling
+                // in HCClientWindowSeconds); an unreadable ack gets the ceiling.
+                int estTicks = HCAdminLootMap.HCAckInt(reply.Notice, "est_ticks=");
+                int tickMs = HCAdminLootMap.HCAckInt(reply.Notice, "tick_ms=");
                 m_LootTicket = reply.Ticket;
-                m_LootUntil = GetGame().GetTickTime() + HCAdminLootMap.HCClientWaitSeconds();
+                m_LootUntil = GetGame().GetTickTime() + HCAdminLootMap.HCClientWindowSeconds(estTicks, tickMs);
             }
         }
         // Log the received body before the snapshot reuses the previous status.

@@ -33,13 +33,17 @@ including `*`. The server rechecks sender authority before work and delivery.
 The server text registration is in `HCAdminModule`; the client sends it through
 `HCAdminClient.HCLootMap(filter)` (same bounded filter check, same 104-character
 wire limit). Like `snapshot`, the server answers at once with an ack (`started
-ticket=<n> est_ticks=<n> ... final_reply=by_ticket`) under the ordinary 10 s
+ticket=<n> est_ticks=<n> cells=<n> tick_ms=<n> final_reply=by_ticket`) under the ordinary 10 s
 request timeout, so the admin client is free for the whole job: other commands
 and reopening the menu work. A second `lootmap` while one runs is refused with
 `lootmap_job_running`. The final marks reply arrives later and is matched by
-the acked ticket; the client keeps its session and ticket for the derived job
-window (`HCAdminLootMap.HCClientWaitSeconds()`, job tick cap plus
-`ReplyGraceSeconds`) and then logs a client-timeout. If the session ends first
+the acked ticket; the client keeps its session and ticket for a window sized from
+the ack (`HCAdminLootMap.HCClientWindowSeconds`: `est_ticks` x `tick_ms` plus
+`ReplyGraceSeconds`, never below `MinClientWaitSeconds=60` and never above the
+largest-job ceiling `HCClientWaitSeconds()`; an unreadable ack gets the ceiling)
+and then logs a client-timeout. A failure after the ack (for example the final
+export write, `lootmap_export_failed`) is sent as that final ticketed reply, so the
+client clears its ticket and shows the notice at once. If the session ends first
 (`HCStop`), the client logs the dropped ticket and ignores the late final reply
 (the server may still finish and writes its export). The reply marks replace
 only the `lootmap` layer of the client map view and stay for `ViewSeconds`; a
@@ -89,8 +93,14 @@ not an atomic world snapshot.
 Job arithmetic (derived, not a wall-clock guess; `HCAdminLootMap.HCJobTickCap`):
 one sub-cell query per core tick, then rows until `MaxRowsPerStep=256` units are
 spent. A row whose class does not match costs 1 unit (one `GetType` compare, no
-cast); a match costs `MatchRowUnits=4`. Every tick ends at a sub-cell boundary or
-with the row budget spent, so `ticks <= cells + ceil((MaxItemsScanned +
+cast); a match costs `MatchRowUnits=4`. The row loop has its own wall-clock
+deadline, `RowDeadlineMs=4`, that starts after the native query, so a slow query
+(which cannot be preempted) never spends its own rows' deadline and a cell costs
+its query tick plus only the extra ticks its rows need. A tick therefore ends at
+the end of a sub-cell, with the row-unit budget spent, or (only if the rows
+themselves run past `RowDeadlineMs`, unmeasured) at that deadline; the last case is
+the one way the bound below can be exceeded, and it ends the job in the safe
+`job_tick_cap` refusal. So `ticks <= cells + ceil((MaxItemsScanned +
 (MatchRowUnits-1)*MaxMatches) / MaxRowsPerStep) + 1`. For Chernarus (15360 m):
 31 x 31 = 961 cells, `65536 + 3*8192 = 90112` units / 256 = 352 ticks, cap 1314
 ticks, which is 1314 s at the budgeted 1000 ms core tick (the former 256 cells at
@@ -101,8 +111,8 @@ Exceeding the tick cap refuses `job_tick_cap` with explicitly partial
 observations. Other limits: one global job, 4096 objects/proxy cargos per query,
 65536 scanned rows per job, 8192 matches, 32 classes, 1024 cells, 128 positions
 per reply/export, 30 seconds global request cooldown, 64 KiB export. The
-client wait is the largest admitted job (`MaxCells`) at the budgeted tick plus
-`ReplyGraceSeconds=30`. Position clipping keeps the observed counts and reports
+client wait ceiling is the largest admitted job (`MaxCells`) at the budgeted tick
+plus `ReplyGraceSeconds=30`; the actual window comes from the ack (above). Position clipping keeps the observed counts and reports
 the omitted position count. Other caps produce named refusals with explicitly
 partial observations. Count budgets use `HCUnitBudget` and `HCWorkBudget` with
 retained cursors. The start line names `query_cost=unmeasured`.
