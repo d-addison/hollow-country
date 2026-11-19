@@ -270,5 +270,53 @@ class ConfigAndSourceTests(Fixture):
             self.assertNotIn(name, POLICY.read_text() + REPAIR.read_text())
 
 
+class CommitProximityAndCustodyTests(Fixture):
+    def gate(self, member, worker, carrier, reach=16.0):
+        return self.P.HCCommitGate(member, worker, carrier, reach)
+
+    def test_commit_gate_allows_a_member_carrier_and_worker_in_range(self):
+        self.assertEqual(self.gate(True, 4.0, 9.0), "")
+
+    def test_a_carrier_outside_the_group_is_refused_even_next_to_the_car(self):
+        self.assertEqual(self.gate(False, 1.0, 1.0), "carfix_carrier_not_member")
+
+    def test_worker_who_walked_off_pauses_the_job_instead_of_committing(self):
+        self.assertEqual(self.gate(True, 400.0, 1.0), "carfix_pause_worker")
+
+    def test_distant_part_carrier_aborts_instead_of_pulling_the_part_across_the_map(self):
+        self.assertEqual(self.gate(True, 1.0, 900.0), "carfix_carrier_far")
+
+    def test_membership_is_judged_before_distance(self):
+        self.assertEqual(self.gate(False, 900.0, 900.0), "carfix_carrier_not_member")
+
+
+class SourceStructureTests(unittest.TestCase):
+    def setUp(self):
+        self.text = REPAIR.read_text()
+
+    def test_static_methods_qualify_kind_constants(self):
+        body = re.sub(r"static const int KIND_\w+ = \d+;", "", self.text)
+        self.assertEqual([], re.findall(r"(?<![\w.])KIND_\w+", body))
+
+    def test_foreach_iterates_only_plain_locals(self):
+        for source in (self.text, POLICY.read_text()):
+            for expr in re.findall(r"foreach\s*\([^:)]+:\s*([^)]+)\)", source):
+                self.assertRegex(expr.strip(), r"^[a-z]\w*$", expr)
+
+    def test_commits_revalidate_proximity_and_custody_through_the_policy_gate(self):
+        for method in ("HCCommit", "HCEngineStep"):
+            start = self.text.index("static string %s(" % method)
+            self.assertIn("HCCarrierGate(", self.text[start:start + 2500], method)
+        start = self.text.index("static string HCCarrierGate(")
+        self.assertIn("HCCommitGate(", self.text[start:start + 1200])
+        self.assertIn("GetGroup() == job.Group", self.text[start:start + 1200])
+        self.assertNotIn("!step.Item.GetHierarchyRootPlayer()", self.text)
+
+    def test_work_budget_uses_the_allocated_carfix_consumer(self):
+        self.assertIn("HCTakeFor(16,", self.text)
+        self.assertIn("HCUnitBudget.HC_WORK_CARFIX", self.text)
+        self.assertNotIn(".HCTake(", self.text)
+
+
 if __name__ == "__main__":
     unittest.main()
