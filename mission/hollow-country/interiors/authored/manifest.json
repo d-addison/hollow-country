@@ -1,0 +1,344 @@
+{
+  "schema": 1,
+  "kind": "hc53-authored-pack-source",
+  "work_package": "HC-53",
+  "world": "chernarusplus",
+  "build": "1.30.164289",
+  "runtime_acceptance": "pending",
+  "production_enabled": false,
+  "trace": {
+    "spec": "FR-003, FR-005, FR-006, FR-008, FR-011, FR-012; INT-01..04; LOOT-03",
+    "plan": "Consolidated coverage plan Wave 3 HC-53; consumes HC-24, HC-31 and reserved #138.",
+    "tasks": [
+      {
+        "id": "HC53-C1",
+        "result": "269 placed proxy rows / four pending dispositions / 167 separately unplaced"
+      },
+      {
+        "id": "HC53-C2",
+        "result": "15 family summaries / stock-coordinate strata / exact-name aliases"
+      },
+      {
+        "id": "HC53-C3",
+        "result": "8-class, bounded instance input; externally assembled provisional HC-24 pack"
+      },
+      {
+        "id": "HC53-NATIVE",
+        "result": "pending",
+        "queue": "coverage.json:placed[*].followup"
+      },
+      {
+        "id": "HC53-INTEGRATION",
+        "result": "pending",
+        "owner": "HC-62 / #138 / lead"
+      }
+    ],
+    "canonical_banso_link": "HC-11 must link this manifest into canonical spec/plan/tasks; those documents are absent from this worktree."
+  },
+  "documents": {
+    "coverage.json": "d991d8b7c4df0d807470374667d6cf84b4d8a6ee7c2dfee34401eaece618c8a1",
+    "authored/priority-buildings.json": "c211deaffd70854374d48d76870848a6a7bbc7b94916cb39b1b66f6c5bd5168c"
+  },
+  "repository_sources": {
+    "tools/package/interior_templates.py": "a0bc8aab75bbef3b6bfeff87af1747521bb89cf5a78135236cae641c9aa68254",
+    "tools/package/interior_catalog.py": "ec202cd2aedcf66b1de02bb3bf7076452c6dcf1c1887838fcfbf8230348afe31",
+    "tools/package/interior_prop_boxes.json": "e1a54452ebc02fa324eb2558efe136bf9943f430ac7a856a9f5b3d0b5715e81c",
+    "tools/package/interiors_profile.py": "43d01ce4827be7c3303f423bd4cad1f22cb5bde3b5604ba3b4bab8dbdec3e293",
+    "tools/package/search_context.py": "dab3827413358b3107b4aea45ee88886597881d3f0b26d8fc944f3acfca9897a",
+    "tools/setup/interior_sampler.py": "ea50b1640d6d4769517374eb1043614836b44dfd84e66fd0a32d438da8647549",
+    "tools/audit/interior_points.py": "6799838cbc6489c6ebe46bac4171f6c119e3240202cca5d6c4ac0526c94160b3",
+    "mission/hollow-country/cellars/classes.json": "8cd1a70bfae6637bfb33d8dd73422bb84045f3d1596f59bd605a75d794c52e6a",
+    "mission/hollow-country/interiors/pack.json": "850a25bac71ce08c5bb7a4a11b3325f8571f8882db62f29e1376e4fcc8d9f5ae",
+    "mission/hollow-country/interiors/pack-profile.json": "5957d59bd87e0428c4539c48edefda7015811b7b64d592a665d708347107934f",
+    "mission/hollow-country/interiors/evidence/house-candidates.json": "9ab3a86f4ca266e8f238b9d74ae4c1e5d705faba2124bb561ee08cd57d5a89fc"
+  },
+  "external_sources": [
+    {
+      "id": "stock-mapgroupproto.xml",
+      "external": true,
+      "sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+    },
+    {
+      "id": "stock-mapgrouppos.xml",
+      "external": true,
+      "sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+    },
+    {
+      "id": "stock-db/types.xml",
+      "external": true,
+      "sha256": "d477597418530c3e226fa18b296290eb9669210d9a37a301eaf7e3426e5e1040"
+    },
+    {
+      "id": "stock-cfgspawnabletypes.xml",
+      "external": true,
+      "sha256": "a6febfd92d16d5e573508916e5ae31081b80004ca62277d6570567244cf64cb2"
+    },
+    {
+      "id": "stock-cfglimitsdefinition.xml",
+      "external": true,
+      "sha256": "07f4dedfb53e97b6150eb2374c539604b5800b8ec4c4ae243e26419aa77d4d26"
+    },
+    {
+      "id": "sampler-110",
+      "external": true,
+      "sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+      "native_run_id": "e379bbcb8d9807f4db8e5506906b9ed6",
+      "placements": 64
+    },
+    {
+      "id": "sampler-111",
+      "external": true,
+      "sha256": "1909e463191da0d2bb0951d22e59c967da085eed5c248996334ea2a054a43aaa",
+      "native_run_id": "36ff0b0ccba51ba39459476f47e76b58",
+      "placements": 64
+    },
+    {
+      "id": "sampler-112",
+      "external": true,
+      "sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+      "native_run_id": "24e0a12d1f0bd7b529c776c37a88369b",
+      "placements": 64
+    },
+    {
+      "id": "sampler-113",
+      "external": true,
+      "sha256": "8693c0af6b66d348cbaf083aeae9a6612b70603faba5702a6cb352c041d681d3",
+      "native_run_id": "3d14714910a8102223a8b5df75466e2c",
+      "placements": 64
+    },
+    {
+      "id": "sampler-114",
+      "external": true,
+      "sha256": "bfe89d7daf7fb4649017a541d96051a1fbf361688834d904d59465d7114fc4c1",
+      "native_run_id": "90d7da570ceeb6625d19e97d9f676481",
+      "placements": 7
+    },
+    {
+      "id": "legacy-pack-027-index",
+      "external": true,
+      "sha256": "7373142424cf03b2ebc36bc3df4cfdca2ed89ff12dd51d216a4165229c20f6f1",
+      "state": "older_generator_pin_not_current_source"
+    }
+  ],
+  "current_build": {
+    "generator": "1346f092a5efeaf2cbfd306839975e9f019d1a5842b7c4103aaa4503c67374bb",
+    "manifest_sha256": "f17303116ffaa1534f1e7e4dd523893f49c0bba658feb50d4eb41e48ae980632",
+    "source_pins": {
+      "census-24e0a12d1f0bd7b529c776c37a88369b": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+      "census-36ff0b0ccba51ba39459476f47e76b58": "1909e463191da0d2bb0951d22e59c967da085eed5c248996334ea2a054a43aaa",
+      "census-3d14714910a8102223a8b5df75466e2c": "8693c0af6b66d348cbaf083aeae9a6612b70603faba5702a6cb352c041d681d3",
+      "census-90d7da570ceeb6625d19e97d9f676481": "bfe89d7daf7fb4649017a541d96051a1fbf361688834d904d59465d7114fc4c1",
+      "census-e379bbcb8d9807f4db8e5506906b9ed6": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
+      "generator": "1346f092a5efeaf2cbfd306839975e9f019d1a5842b7c4103aaa4503c67374bb",
+      "mapgrouppos": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+      "mapgroupproto": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6",
+      "search-generator": "dab3827413358b3107b4aea45ee88886597881d3f0b26d8fc944f3acfca9897a",
+      "types": "d477597418530c3e226fa18b296290eb9669210d9a37a301eaf7e3426e5e1040"
+    },
+    "parameters": {
+      "reach_source": "strict",
+      "min_agreement": 0.6,
+      "max_furnished": 1500
+    },
+    "counts": {
+      "classes": 263,
+      "templates": 231,
+      "provisional_search_classes": 229,
+      "provisional_room_classes": 64,
+      "furnish_rows": 739,
+      "furnish_props": 1500
+    }
+  },
+  "priority_pack": {
+    "external": true,
+    "index_sha256": "165e43718fe8f67a42c5c72d0dff131cc0e6e293686397f395054e2f985716b8",
+    "pack_id": "90d2c38678cdda9b71a659d9032dea25",
+    "source_pin": "39877c6dbe6de05ccb89931a147bc41894e257f6f4f1606066f377f6c6da513b",
+    "files": {
+      "templates/classes-000.json": "8cdf0613e34913901edaa4ca1b4192e9378d100d97536dc56c4d51a2bf5af07a",
+      "templates/furnish-000.json": "de5d48b317fff10425af2997c01ad32c7cc0e804f9b5ac451d2fda038e6bf639",
+      "templates/index.json": "165e43718fe8f67a42c5c72d0dff131cc0e6e293686397f395054e2f985716b8",
+      "templates/search-groups-000.json": "523dd838c4da261ff940a30114f1ceda3466cc836133599fddd43f94fb8e3e62",
+      "templates/search-groups-001.json": "e2ecfe213b7115d13f97aabb604d928aff764c6bb92e41e4bb67e0d5b8bf93a7",
+      "templates/search-groups-002.json": "dd0973b118e2e77717fae5ab41699524d77a632098dffc7afca9e8b3c67c5d40",
+      "templates/search-groups-003.json": "c6566f6358d8814d25a00e0cd9d2e43f2608f685f48ed8f6f1f0e5b5b3630ce0",
+      "templates/search-groups-004.json": "30a1d4fb10016ca4148b76824ebbe126bc3774965c59cefcf0e13adeee734421",
+      "templates/search-groups-005.json": "65c4e9f2bd878ed02df7cc3098cb3b9fe702968aaec8113a89c1ad9ad83997a4",
+      "templates/search-groups-006.json": "cefae895020a1ad9b96e39b8f40bd2ffea506cd90385fab4e47f6dc0479f6aa7",
+      "templates/search-groups-007.json": "4274248583ab2aeaf90ca5d5a3759279b0ea2bfd2313fc6fa720470d09904699",
+      "templates/search-groups-008.json": "4489f0a0bde917e25196457444399e97893c23df2e10edac7112dac0370b1640",
+      "templates/search-groups-009.json": "d530469b8040abe49a7f837bb1bb35ad8944f359cdbbda0fe0b2f072e1a03943",
+      "templates/search-groups-010.json": "945f8e34200da73bea178eca8ba87c580d41de1128ce5fa33aaa028c62744766",
+      "templates/search-groups-011.json": "d4e96111c2b5015c14f191c4c464dc5353b790093906cd655386b9b1131cdfa5",
+      "templates/search-groups-012.json": "4d249cce7bdd28e5784028c201875f72578c574b013a51aa95489880f801a997",
+      "templates/search-groups-013.json": "38d17b4dab18b8dfbc3a02077338ccb5125e74d7df5de043ad929193c63eab15",
+      "templates/search-groups-014.json": "5b97791821a2b03b5dd0b2bb4874168051ba0d3741ad1dedae573ef3a35b3b93",
+      "templates/search-groups-015.json": "dba68377952c7ea1e2035a32c3a656ef4e0b6a2318afe2ebd0ccc04b62bcf03f",
+      "templates/search-groups-016.json": "b4067da1d728c5d1c7f7cef3316cee82d71d120aedbebd4506da6680266e5c81",
+      "templates/search-groups-017.json": "9bd9a889e927fc34da8a9c0f15bdefb8da2140b379c2bb9d9adbccc3f9d115e7",
+      "templates/search-groups-018.json": "efb0f7380a076245ac0a39e448e81e2b6ae7f81324e48492c9d076247871df3c",
+      "templates/search-groups-019.json": "a121165b6852d7c12bdbc4884e1fad453136a4d7247ecd74e960ca014d0b9916",
+      "templates/t-0000.json": "c73c221d9841abe7cd6504641cb3f36d7b1126e8a1d8e9c00509b12645fd8fe3",
+      "templates/t-0001.json": "0f17e1d4160f6ef5854e87e2491de0cd31a516cb8a077cdaa7884c09bc848f48",
+      "templates/t-0002.json": "19d59dd4bb8331d70ef5d0a057f18e9f39a024e556335c5066325171062b0292",
+      "templates/t-0003.json": "0b65d2ef3a70373fcccc64f094d6adb2699f6a100eab54125fb58f64a9d2f629",
+      "templates/t-0004.json": "d35c208580650f0256c17026727e9ca5b40dc81830c842b4bb1bb627c6b6ce8e",
+      "templates/t-0005.json": "e83ffde65c46c93d6973303fc0b42c4357b2dbe2bcff4f84d6acd34b5aa4377f",
+      "templates/t-0006.json": "fe6483c4dbc995be7ed2de554ba3aecb5ca718f62d404a0ab1872f7075c37342",
+      "templates/t-0007.json": "404aa04e6ff33f56803466b80d6fc45b241613219f30b10c4ec613ba180300dc"
+    },
+    "counts": {
+      "classes": 8,
+      "templates": 8,
+      "groups": 182,
+      "furnish_rows": 16,
+      "furnish_props": 30,
+      "rooms": {
+        "covered": 8,
+        "excluded": {}
+      },
+      "furniture": {
+        "covered": 8,
+        "excluded": {}
+      },
+      "search": {
+        "covered": 8,
+        "excluded": {}
+      }
+    },
+    "state": "offline_loadable_provisional_native_acceptance_pending",
+    "admitted": 0,
+    "observed": 0
+  },
+  "framework": [
+    "HC-24 indexed template schema and strict offline validator/assembler",
+    "Existing interior sampler bounded batch planner; no replacement atlas",
+    "Existing measured catalogue and placement admission; runtime consumers retain HCWorkBudget / HCUnitBudget / HCV2Admission",
+    "HC-31 cellar survey tasks; HC-1/HC-25 cached status integration reserved to HC-62"
+  ],
+  "new_distances": [],
+  "refusals": [
+    {
+      "id": "HC53_LEGACY_SOURCE_LAYOUT_UNSUPPORTED",
+      "state": "refused",
+      "reason": "interiors_profile._members rejects coverage.json and authored/*.json. Legacy pack/profile fields and epoch remain byte-identical; lead must stage only CORE_FILES or add an explicit hash-checked source-only allowlist before whole-root validation/install."
+    },
+    {
+      "id": "HC53_NATIVE_QUALIFICATION_PENDING",
+      "state": "refused",
+      "reason": "No DayZ process or clients run in this task; offline loadability never proves enterability, route clearance, search eligibility, pathgraph or observed loading."
+    },
+    {
+      "id": "HC53_REVIEWED_EXCLUSION_EVIDENCE_MISSING",
+      "state": "refused",
+      "reason": "Zero accepted geometry exclusions. Five historical and seven current-source generator not_enterable results remain pending resampling; no sampler failure proves exclusion."
+    },
+    {
+      "id": "HC53_WORLD_ENTERABLE_CENSUS_PENDING",
+      "state": "refused",
+      "reason": "Stock CE proxies omit physical map structures; House ancestry does not prove enterability or island/settlement coverage."
+    },
+    {
+      "id": "HC53_PROP_BOUNDS_UNMEASURED",
+      "state": "refused",
+      "reason": "Reviewed prop box database contains no native measurements; conservative generator boxes cannot promote furnishing safety."
+    }
+  ],
+  "native_api_evidence": [
+    {
+      "key": "N7",
+      "root": "native-scripts/scripts-1.30.164289",
+      "file": "3_Game/Entities/Building.c",
+      "lines": [
+        31,
+        46,
+        49,
+        52,
+        55,
+        61,
+        67,
+        73
+      ],
+      "scope": "Existing sampler door counts/state/positions; no new engine calls.",
+      "sha256": "5aa715d188142dfac9e322d50ebd6f980740be0c667eaf42f1fd7abb6c50be38"
+    },
+    {
+      "key": "N16",
+      "root": "native-scripts/scripts-1.30.164289",
+      "file": "3_Game/Entities/Object.c",
+      "lines": [
+        287,
+        305,
+        370,
+        873,
+        874
+      ],
+      "scope": "Pose/bounds/transforms support measurement, not enterability.",
+      "sha256": "1b1b031948b82c111e9be8b9b0bbef8495c07842d7436d9c3111950e8a3ee95b"
+    },
+    {
+      "key": "N16",
+      "root": "native-scripts/scripts-1.30.164289",
+      "file": "3_Game/Global/DayZPhysics.c",
+      "lines": [
+        199,
+        208
+      ],
+      "scope": "Existing bounded sampler ray queries; no invented room qualification API.",
+      "sha256": "279ce05c528e467cbf7de820954ee0ce98355d47f8efdd04eca4c5de50d86b07"
+    }
+  ],
+  "lead_integration": [
+    {
+      "owner": "HC-62",
+      "files": [
+        "mods/HollowCountry/scripts/4_World/Core/HCServer.c",
+        "mods/HollowCountry/scripts/4_World/Operations/HCOperationalContributors.c"
+      ],
+      "edit": "Add one bounded cached HC-53 manifest/hash/count entry. Report placed_classes=269 qualified=0 pending=269; loaded must come from observed HC-24 admitted class state, never from authored counts. Publish state=off/refused until prerequisites are observed; keep runtime=PENDING."
+    },
+    {
+      "owner": "#138",
+      "files": [
+        "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesData.c"
+      ],
+      "edit": "Consume only the finalized HC-24 index after source/hash review and native admission. Do not parse source decision JSON as runtime template DTOs; no registry/config change or new controller."
+    },
+    {
+      "owner": "lead",
+      "files": [
+        "tools/package/interiors_profile.py"
+      ],
+      "edit": "Keep authored source metadata separate from installed runtime files. Validate the three exact source paths and their manifest hashes before ignoring them in _members; retain strict unexpected-file refusal and canonical legacy derive_manifest semantics. Until implemented, stage ip.CORE_FILES to an external directory and validate/install only that legacy projection; assemble indexed templates separately."
+    }
+  ],
+  "proposed_diagnostic": "[HC Plan] HC-53 placed_classes=269 qualified=0 pending=269 loaded=<observed HC-24 class count> state=<off|refused|ready> manifest=<sha256> runtime=PENDING",
+  "assembly_recipe": {
+    "source_only_paths": [
+      "coverage.json",
+      "authored/manifest.json",
+      "authored/priority-buildings.json"
+    ],
+    "external_inputs": "Resolve external_sources IDs to local read-only files and verify every SHA-256 before use; never copy native census/XML into Git.",
+    "full_build_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/interior_templates.py build --census <sampler-110> --census <sampler-111> --census <sampler-112> --census <sampler-113> --census <sampler-114> --proto <stock>/mapgroupproto.xml --pos <stock>/mapgrouppos.xml --types <stock>/db/types.xml --out <external-full-build>",
+    "projection": [
+      "Read authored/priority-buildings.json selected in order. Verify each template_source file hash in the current full build. Template leaf bytes are retained; rename leaves t-0000.json through t-0007.json in BuildingClass sort order.",
+      "Write schema-2 classes-000.json with Chunk=0 and Rows in BuildingClass order. Each row is BuildingClass plus priority_dispositions. covered remains a provisional package declaration; no qualification.",
+      "Write schema-2 furnish-000.json with Chunk=0. Flatten selected in manifest order and instances in order. Slot is contiguous from zero; BuildingClass, Position, Yaw, Props and History are the exact authored values. At most two props per instance; no existing profiles/journals are modified.",
+      "Write build-manifest.json: SchemaVersion=2, Kind=hc-interior-templates-build, Provisional=true, Frame=rot90; PackId is SHA-256 of priority-buildings.json bytes truncated to 32 hex characters; Sources equals current_build.source_pins; Files sorted by File with exact Sha256/Bytes of every leaf.",
+      "Retain group IDs from the existing search_context writer. Assemble through the existing HC-24 assembler; validate every resulting byte/hash against priority_pack.files. Generated payload and native inputs remain external."
+    ],
+    "search_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/search_context.py --mapgroupproto <stock>/mapgroupproto.xml --types <stock>/db/types.xml --output-dir <external-search-build>",
+    "assemble_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/interiors_profile.py templates assemble --build <external-priority-build> --search-groups <external-search-build> --stock <stock> --out <external-priority-pack>",
+    "validate_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/interiors_profile.py templates validate <external-priority-pack>",
+    "sampler": "Extract coverage placed[*].building_class as a JSON array outside Git. Invoke the existing interior_sampler.py plan command with --classes, --mapgrouppos, --output, --per-class 1 and --run-size 64. Keep all classes unqualified; no resume_measured skips. The saved runs in priority-buildings.json pin the finite batch identities. No engine run is part of this task.",
+    "integration": "Source projection is specified here, not a new installed runtime reader. Whole-root legacy validation remains refused until the lead adds the source-aware admission listed in lead_integration."
+  },
+  "offline_receipts": {
+    "behavioral_red": "Not applicable: pure content; no gameplay behavior or new behavioral test authored.",
+    "priority_pack": "Existing HC-24 templates validator: passed; 8 class rows, 8 templates, 182 groups, 16 furnish rows, 30 props, 31 files. Provisional=true.",
+    "focused_checks": "56 tests passed: test_hc_template_pack, test_script_syntax, test_enforce_locals, test_script_identifiers, test_hygiene.",
+    "legacy_whole_root": "83 tests in test_interiors_profile: failures=5, errors=12. Three requested source manifests are rejected by the existing closed runtime-file allowlist. No production install authorized or attempted.",
+    "source_schema": "The authored input schemas are descriptive content, not consumed runtime DTOs. Their hashes, denominators, aliases, selections, batch targets and external assembled leaf pins were checked offline."
+  }
+}
