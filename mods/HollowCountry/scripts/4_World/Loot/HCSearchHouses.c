@@ -46,6 +46,7 @@ class HCSearchHouseSession
     string ActorId;
     int Row;
     string InstanceId;
+    ref auditsearch_PickerAuthority PickerAuthority;
 }
 
 class HCSearchHouses
@@ -197,8 +198,13 @@ class HCSearchHouses
         m_Refusal = HCRefusal.SERVICE;
         if (!target || !HCInteriorTemplates.Loaded()) return null;
         m_Refusal = HCRefusal.NOTHING;
-        House building = HouseOf(target);
-        if (!building) return null;
+        return HCResolveHousePoint(player, HouseOf(target), target.GetCursorHitPos());
+    }
+
+    // Geometry shared by human cursor hits and server-owned picker site requests.
+    HCSearchHouseHit HCResolveHousePoint(PlayerBase player, House building, vector cursorPoint)
+    {
+        if (!player || !building || !HCInteriorTemplates.Loaded()) return null;
         string cls = building.GetType();
         HCInteriorTemplateClassRow classRow = HCInteriorTemplates.ClassRow(cls);
         if (!classRow || classRow.Search != "covered") return null;
@@ -207,14 +213,15 @@ class HCSearchHouses
         vector orientation = building.GetOrientation();
         // Near-level instances use the full house transforms below.
         if (!HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES)) return null;
-        vector offset = building.WorldToModel(target.GetCursorHitPos());
+        vector offset = building.WorldToModel(cursorPoint);
         vector standing = player.GetPosition();
         m_Refusal = HCRefusal.NO_SITE;
         HCInteriorTemplateSearchSite best;
         vector bestWorld;
         float bestGap = 1000000.0;
         int examined;
-        foreach (HCInteriorTemplateSearchSite site : layout.SearchSites)
+        array<ref HCInteriorTemplateSearchSite> searchSites = layout.SearchSites;
+        foreach (HCInteriorTemplateSearchSite site : searchSites)
         {
             examined++;
             if (examined > MAX_SITES) break;
@@ -239,7 +246,8 @@ class HCSearchHouses
         hit.Room = best.Room;
         hit.Center = bestWorld;
         hit.Radius = best.Radius;
-        foreach (string groupId : best.Groups) hit.Groups.Insert(groupId);
+        array<string> hitGroups = best.Groups;
+        foreach (string groupId : hitGroups) hit.Groups.Insert(groupId);
         if (!HCSearchRules.TextValid(hit.SiteId, 768)) return null;
         m_Refusal = "";
         return hit;
@@ -407,6 +415,12 @@ class HCSearchHouses
         return true;
     }
 
+    HCSearchSupplyRegistry HCMakeRegistry()
+    {
+        HCSearchSupplyRegistry registry = new HCSearchSupplyRegistry;
+        return registry;
+    }
+
     bool EnsureJournal()
     {
         if (!OpenJournal())
@@ -423,7 +437,7 @@ class HCSearchHouses
         string pin = HCInteriorTemplates.SourcePin();
         string worldName = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName());
         string build = HCBuildIdentity.Canonical();
-        HCSearchSupplyRegistry registry = new HCSearchSupplyRegistry;
+        HCSearchSupplyRegistry registry = HCMakeRegistry();
         if (!registry.BindLazySource(SOURCE_ID, pin, worldName, build))
         {
             m_Fault = true;
@@ -821,40 +835,58 @@ class HCSearchHouses
             HCRefusalReport.ActionRefusalMessage(data, HCRefusal.TOO_EARLY, "Search stopped; action completed too early. Please try again.");
             return;
         }
-        bool journalReady = m_Journal && m_Journal.Healthy();
-        if (m_Busy || !SessionValid(data, session) || !journalReady)
-        {
-            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
-            return;
-        }
+        HCCommitReservation(session);
+        int phase = site.Phase;
+        if (phase == 2) Tell(data.m_Player, "Search complete.");
+        else HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
+    }
+
+    // Shared transaction for player actions and picker reservations. The token is
+    // the actual bounded session object, never a caller-supplied row or supply id.
+    bool HCReservationAuthorized(HCSearchHouseSession session)
+    {
+        return session && SessionValid(session.Owner, session) && CanContinue(session.Owner) && StillAuthorized(session.Actor, session.ActorId);
+    }
+
+    bool HCCommitReservation(HCSearchHouseSession session)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !session || m_Sessions.Find(session) < 0) return false;
+        HCInteriorSite site = session.Site;
+        if (!site || site.Phase != 0 || m_Busy || !m_Journal || !m_Journal.Healthy() || !m_Registry) return false;
+        float now = GetGame().GetTickTime();
+        if (now < site.StartedAt || now > site.Deadline || now - site.StartedAt < COMMIT_AFTER) return false;
+        if (!HCReservationAuthorized(session)) return false;
         int index = session.Row;
         HCSearchHouseRow row = m_Journal.Row(index);
-        if (!row || row.Phase != 0 || row.SiteId != site.Id)
-        {
-            site.Phase = 3;
-            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
-            return;
-        }
+        if (!row || row.Phase != 0 || row.SiteId != site.Id) return false;
         HCSearchEntry entry = EntryOf(row);
-        if (!m_Registry.CanTransfer(entry, data.m_Player))
-        {
-            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply, inventory or service changed.");
-            return;
-        }
+        if (!m_Registry.CanTransfer(entry, session.Actor)) return false;
+        // Native inventory preflight may stop the service or revoke the lease.
+        if (!HCReservationAuthorized(session) || m_Sessions.Find(session) < 0 || !m_Journal || !m_Registry) return false;
+        if (m_Busy || site.Phase != 0 || row.Phase != 0) return false;
         string actorId = session.ActorId;
-        // Exclude reentry BEFORE journal I/O or native callbacks, as the pilot does.
         site.Phase = 1;
         m_Busy = true;
         row.Phase = 1;
         int phase = 3;
-        if (m_Journal.Write(index, "claim", actorId, 1))
+        // Keep local owners alive across Stop inside native callbacks.
+        HCSearchHouseJournal journal = m_Journal;
+        HCSearchSupplyRegistry registry = m_Registry;
+        if (journal.Write(index, "claim", actorId, 1))
         {
             phase = 4;
-            if (StillAuthorized(data.m_Player, actorId) && m_Journal.Write(index, "attempt", actorId, 1) && StillAuthorized(data.m_Player, actorId))
+            if (HCReservationAuthorized(session) && journal.Write(index, "attempt", actorId, 1) && HCReservationAuthorized(session))
             {
-                phase = m_Registry.Transfer(entry, data.m_Player);
+                phase = registry.Transfer(entry, session.Actor);
             }
-            phase = Finish(index, actorId, phase);
+            if (m_Journal == journal) phase = Finish(index, actorId, phase);
+            else
+            {
+                if (phase != 2 && phase != 4) phase = 3;
+                row.Phase = phase;
+                if (!journal.Write(index, "result", actorId, phase)) phase = 3;
+                m_Busy = false;
+            }
         }
         else
         {
@@ -863,8 +895,7 @@ class HCSearchHouses
         }
         site.Phase = 3;
         if (phase == 2) site.Phase = 2;
-        if (phase == 2) Tell(data.m_Player, "Search complete.");
-        else HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
+        return phase == 2;
     }
 
     void End(ActionData data)
