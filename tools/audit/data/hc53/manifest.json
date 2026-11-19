@@ -37,7 +37,7 @@
   },
   "documents": {
     "coverage.json": "d991d8b7c4df0d807470374667d6cf84b4d8a6ee7c2dfee34401eaece618c8a1",
-    "authored/priority-buildings.json": "c211deaffd70854374d48d76870848a6a7bbc7b94916cb39b1b66f6c5bd5168c"
+    "priority-buildings.json": "c211deaffd70854374d48d76870848a6a7bbc7b94916cb39b1b66f6c5bd5168c"
   },
   "repository_sources": {
     "tools/package/interior_templates.py": "a0bc8aab75bbef3b6bfeff87af1747521bb89cf5a78135236cae641c9aa68254",
@@ -220,8 +220,8 @@
   "refusals": [
     {
       "id": "HC53_LEGACY_SOURCE_LAYOUT_UNSUPPORTED",
-      "state": "refused",
-      "reason": "interiors_profile._members rejects coverage.json and authored/*.json. Legacy pack/profile fields and epoch remain byte-identical; lead must stage only CORE_FILES or add an explicit hash-checked source-only allowlist before whole-root validation/install."
+      "state": "resolved",
+      "reason": "Resolved in r2: all three HC-53 audit/source files moved to tools/audit/data/hc53, outside the runtime pack. The strict HC-24 allowlist remains unchanged; no source-only allowlist or legacy staging workaround is needed."
     },
     {
       "id": "HC53_NATIVE_QUALIFICATION_PENDING",
@@ -303,26 +303,19 @@
         "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesData.c"
       ],
       "edit": "Consume only the finalized HC-24 index after source/hash review and native admission. Do not parse source decision JSON as runtime template DTOs; no registry/config change or new controller."
-    },
-    {
-      "owner": "lead",
-      "files": [
-        "tools/package/interiors_profile.py"
-      ],
-      "edit": "Keep authored source metadata separate from installed runtime files. Validate the three exact source paths and their manifest hashes before ignoring them in _members; retain strict unexpected-file refusal and canonical legacy derive_manifest semantics. Until implemented, stage ip.CORE_FILES to an external directory and validate/install only that legacy projection; assemble indexed templates separately."
     }
   ],
   "proposed_diagnostic": "[HC Plan] HC-53 placed_classes=269 qualified=0 pending=269 loaded=<observed HC-24 class count> state=<off|refused|ready> manifest=<sha256> runtime=PENDING",
   "assembly_recipe": {
     "source_only_paths": [
-      "coverage.json",
-      "authored/manifest.json",
-      "authored/priority-buildings.json"
+      "tools/audit/data/hc53/coverage.json",
+      "tools/audit/data/hc53/manifest.json",
+      "tools/audit/data/hc53/priority-buildings.json"
     ],
     "external_inputs": "Resolve external_sources IDs to local read-only files and verify every SHA-256 before use; never copy native census/XML into Git.",
     "full_build_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/interior_templates.py build --census <sampler-110> --census <sampler-111> --census <sampler-112> --census <sampler-113> --census <sampler-114> --proto <stock>/mapgroupproto.xml --pos <stock>/mapgrouppos.xml --types <stock>/db/types.xml --out <external-full-build>",
     "projection": [
-      "Read authored/priority-buildings.json selected in order. Verify each template_source file hash in the current full build. Template leaf bytes are retained; rename leaves t-0000.json through t-0007.json in BuildingClass sort order.",
+      "Read tools/audit/data/hc53/priority-buildings.json selected in order. Verify each template_source file hash in the current full build. Template leaf bytes are retained; rename leaves t-0000.json through t-0007.json in BuildingClass sort order.",
       "Write schema-2 classes-000.json with Chunk=0 and Rows in BuildingClass order. Each row is BuildingClass plus priority_dispositions. covered remains a provisional package declaration; no qualification.",
       "Write schema-2 furnish-000.json with Chunk=0. Flatten selected in manifest order and instances in order. Slot is contiguous from zero; BuildingClass, Position, Yaw, Props and History are the exact authored values. At most two props per instance; no existing profiles/journals are modified.",
       "Write build-manifest.json: SchemaVersion=2, Kind=hc-interior-templates-build, Provisional=true, Frame=rot90; PackId is SHA-256 of priority-buildings.json bytes truncated to 32 hex characters; Sources equals current_build.source_pins; Files sorted by File with exact Sha256/Bytes of every leaf.",
@@ -332,13 +325,22 @@
     "assemble_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/interiors_profile.py templates assemble --build <external-priority-build> --search-groups <external-search-build> --stock <stock> --out <external-priority-pack>",
     "validate_command": "PYTHONDONTWRITEBYTECODE=1 python3 tools/package/interiors_profile.py templates validate <external-priority-pack>",
     "sampler": "Extract coverage placed[*].building_class as a JSON array outside Git. Invoke the existing interior_sampler.py plan command with --classes, --mapgrouppos, --output, --per-class 1 and --run-size 64. Keep all classes unqualified; no resume_measured skips. The saved runs in priority-buildings.json pin the finite batch identities. No engine run is part of this task.",
-    "integration": "Source projection is specified here, not a new installed runtime reader. Whole-root legacy validation remains refused until the lead adds the source-aware admission listed in lead_integration."
+    "integration": "Source projection is specified here, not a new installed runtime reader. HC-53 audit/source files remain outside mission/hollow-country/interiors; validate the legacy runtime pack directly with the existing strict HC-24 validator."
   },
   "offline_receipts": {
-    "behavioral_red": "Not applicable: pure content; no gameplay behavior or new behavioral test authored.",
+    "behavioral_red": "Original content slice: no gameplay behavior or new behavioral test authored. Revision r2 adds an offline packaging/data regression; see revision_r2.",
     "priority_pack": "Existing HC-24 templates validator: passed; 8 class rows, 8 templates, 182 groups, 16 furnish rows, 30 props, 31 files. Provisional=true.",
     "focused_checks": "56 tests passed: test_hc_template_pack, test_script_syntax, test_enforce_locals, test_script_identifiers, test_hygiene.",
-    "legacy_whole_root": "83 tests in test_interiors_profile: failures=5, errors=12. Three requested source manifests are rejected by the existing closed runtime-file allowlist. No production install authorized or attempted.",
-    "source_schema": "The authored input schemas are descriptive content, not consumed runtime DTOs. Their hashes, denominators, aliases, selections, batch targets and external assembled leaf pins were checked offline."
+    "legacy_whole_root": "Before r2: 83 tests in test_interiors_profile: failures=5, errors=12. Three requested source manifests are rejected by the existing closed runtime-file allowlist. No production install authorized or attempted.",
+    "source_schema": "The authored input schemas are descriptive content, not consumed runtime DTOs. Their hashes, denominators, aliases, selections, batch targets and external assembled leaf pins were checked offline.",
+    "revision_r2": {
+      "red_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc53_dispositions -v",
+      "red": "FAILED (failures=1): HC-53 audit/source files must not be under mission interiors; coverage.json, authored/manifest.json and authored/priority-buildings.json were present.",
+      "green_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc53_dispositions test_interiors_profile test_interiors_contract test_hc_template_pack test_interior_templates test_friend_bundle test_local_test_session test_interior_measured_catalog",
+      "green": "Ran 421 tests in 52.739s; OK.",
+      "additional_checks_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_script_syntax test_enforce_locals test_script_identifiers test_hygiene",
+      "additional_checks": "Ran 53 tests in 15.397s; OK.",
+      "scope": "Offline packaging/data checks only. Coverage and priority input bytes are unchanged; runtime acceptance remains pending and admitted/observed remain zero."
+    }
   }
 }
