@@ -262,7 +262,7 @@ class RadioFixture:
         self.policy = N(Place=self.places.get, SoloGroup=lambda uid: 'solo:' + uid)
         self.world = N(GetRecentFacts=lambda age, output: (output.clear(), output.extend(self.facts)))
         self.env = dict(EArray=EArray, VectorCopy=list, Print=self.logs.append, GetGame=lambda: N(IsServer=lambda: True,
-            ConfigGetFloatArray=lambda path, output: output.extend([87.8,89.5,91.3,94.6,96.6,99.7,102.5])),
+            ConfigGetFloatArray=lambda path, output: None),  # Explicit absent vanilla property.
             HCWorldClock=N(UTC=lambda: self.now), HCLeadPolicy=self.policy,
             HCWorldLimits=N(Token=lambda value: bool(value)),
             HCEventHCWorldModule=N(Get=lambda: self.world),
@@ -339,6 +339,37 @@ class RadioFixture:
 
 
 class RadioReviewFixes(unittest.TestCase):
+    def test_startup_without_vanilla_frequency_property_reaches_healthy_store(self):
+        f = RadioFixture()
+        status = []
+        f.radio.m_Ready = False
+        f.env['HCRadioDefaults'].Get().LocalsMHz = 99.9  # validated operator override
+        f.radio.m_Refusal = ''
+        f.radio.m_AdmissionPrinted = False
+        f.radio.m_Status = N(HCPublish=lambda *args: status.append(args))
+        f.env.update(HCV2Admission=N(Line=lambda *args: 'synthetic admission'),
+                     HCV2Gates=N(Qualified=lambda gate: False),
+                     HCEventHCMorseRateStore=lambda: N(Open=lambda: True))
+        f.radio.OnStart(N(EnableLeads=True))
+        self.assertTrue(f.radio.m_Ready, 'absent vanilla property must not disable chatter')
+        self.assertIs(f.radio, f.radio.m_StaticInstance)
+        self.assertIs(f.store, f.radio.m_Store)
+        self.assertEqual(99.9, f.radio.m_Defaults.LocalsMHz)
+        self.assertEqual('ready', status[-1][0])
+        self.assertTrue(any('native_membership=unobserved' in line and 'runtime=PENDING' in line
+                            for line in f.logs))
+        # Real store faults and operator opt-outs remain authoritative.
+        f.radio.OnStop()
+        f.healthy = False
+        f.radio.OnStart(N(EnableLeads=True))
+        self.assertFalse(f.radio.m_Ready)
+        self.assertEqual(('refused', 'lead_store_unavailable'), status[-1])
+        f.radio.OnStop()
+        f.healthy = True
+        f.radio.OnStart(N(EnableLeads=False))
+        self.assertFalse(f.radio.m_Ready)
+        self.assertIsNone(f.radio.m_StaticInstance)
+
     def test_p1a_same_listener_three_channel_cycles_notified_once(self):
         f = RadioFixture()
         f.player()

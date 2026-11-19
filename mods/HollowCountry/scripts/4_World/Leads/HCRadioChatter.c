@@ -16,6 +16,8 @@ class HCRadioDefaults
     int BroadcastGapSeconds = 600;
     protected static ref HCRadioDefaults s_Config;
 
+    // Validates a supplied candidate list only; no inspected native channel
+    // catalogue is available. This helper is not a startup prerequisite.
     bool HCQualifyChannels(array<float> channels)
     {
         if (!channels || channels.Count() < 1 || channels.Count() > this.ChannelCountLimit) { return false; }
@@ -204,18 +206,10 @@ class HCRadioChatter : HCModule
     {
         if (!settings || !settings.EnableLeads || s_Instance || !GetGame().IsServer()) { return; }
         m_Defaults = HCRadioDefaults.Get();
-        // Installed scripts-1.30.164289: 3_Game/Global/Game.c:578
-        // ConfigGetFloatArray. Inspect the loaded native/modded radio config;
-        // an in-range number alone does not prove a tuneable channel exists.
-        array<float> nativeChannels = new array<float>;
-        GetGame().ConfigGetFloatArray("CfgVehicles PersonalRadio frequencies", nativeChannels);
-        if (!m_Defaults.HCQualifyChannels(nativeChannels))
-        {
-            HCRefuseAs("degraded", "native_frequency_list_invalid");
-            return;
-        }
-        int nativeCount = nativeChannels.Count();
-        Print("[HC Radio] frequencies=qualified count=" + nativeCount.ToString() + " runtime=PENDING");
+        // Installed vanilla PersonalRadio config has no frequencies property.
+        // Keep validated operator tuning; numeric validation does not establish
+        // native channel membership. Store health still controls readiness.
+        Print("[HC Radio] frequencies=configured native_membership=unobserved runtime=PENDING");
         m_Status.HCPublish("refused", "lead_store_unavailable");
         if (!m_AdmissionPrinted)
         {

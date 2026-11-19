@@ -268,6 +268,7 @@ class HCOperatorSettingsRegistry
         HCAdd("PerceptionRing.HearingRangeMeters", "float", 1000, 100, 5000, "HCPerceptionRing");
         HCAdd("PerceptionRing.SpawnMarginMeters", "float", 100, 1, 500, "HCPerceptionRing");
         HCAdd("PerceptionRing.SpawnBandMeters", "float", 400, 1, 2000, "HCPerceptionRing");
+        HCAdd("Radio.ChannelCountLimit", "int", 64, 1, 64, "HCRadioDefaults");
         // END GENERATED SETTINGS REGISTRY
     }
 
