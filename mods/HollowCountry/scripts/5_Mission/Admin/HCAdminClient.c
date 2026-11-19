@@ -28,6 +28,7 @@ class HCAdminClient
     protected int m_Ticket;
     protected int m_Expected;
     protected int m_SnapshotTicket;
+    protected int m_LootTicket;
     protected float m_NextSend;
     protected float m_LastReply;
     protected float m_SnapshotUntil;
@@ -157,7 +158,32 @@ class HCAdminClient
         if (!m_Listening || !m_Authorized || !m_Player) { return false; }
         if (m_Player != GetGame().GetPlayer() || !m_Player.IsAlive() || m_Player.IsUnconscious()) { return false; }
         float now = GetGame().GetTickTime();
-        return now >= m_LastReply && now - m_LastReply <= 60;
+        if (now < m_LastReply) { return false; }
+        // The multi-tick lootmap job answers once, at the end. The session stays
+        // valid for the derived request wait; HCSend required a fresh session.
+        if (m_Pending && m_LootTicket == m_Ticket) { return now <= m_RequestUntil; }
+        return now - m_LastReply <= 60;
+    }
+
+    // Request wait in seconds: the ordinary 10 s, except the lootmap job whose
+    // single final reply is derived from the server job arithmetic (HCAdminLootMap).
+    protected float HCWaitSeconds(string command)
+    {
+        if (HCAdminWire.HCIsLootMap(command)) { return HCAdminLootMap.HCClientWaitSeconds(); }
+        return 10;
+    }
+
+    // Read-only text command `lootmap <class-or-prefix>`. The server remains the
+    // only authority: admin allowlist, EnableDebugSnapshot, cooldown, one job.
+    // The client only pre-checks the same bounded filter the server enforces.
+    bool HCLootMap(string filter)
+    {
+        string name = filter;
+        if (name.Length() > 1 && name.Get(name.Length() - 1) == "*") { name = name.Substring(0, name.Length() - 1); }
+        if (!HCAdminLootMap.HCValidFilter(name)) { HCFeedback("lootmap needs a class name or prefix (letters, digits, _; up to 96; optional trailing *)."); return false; }
+        string command = "lootmap " + filter;
+        if (!HCAdminWire.HCIsLootMap(command)) { HCFeedback("lootmap request is longer than the wire limit."); return false; }
+        return HCSend(command);
     }
 
     bool HCSend(string command, int value = 0)
@@ -174,19 +200,22 @@ class HCAdminClient
             m_Authorized = false;
             View = null;
             m_SnapshotTicket = 0;
+            m_LootTicket = 0;
             Hidden.Clear();
         }
         m_NextSend = now + 1.1;
         m_Ticket++;
         m_Expected = m_Ticket;
         m_Pending = true;
-        m_RequestUntil = now + 10;
+        m_RequestUntil = now + HCWaitSeconds(command);
         m_Command = command;
         HCAdminRequest request = new HCAdminRequest;
         request.Ticket = m_Ticket;
         request.Command = command;
         request.Value = value;
         if (command == "snapshot") { m_SnapshotTicket = request.Ticket; }
+        // A late final lootmap reply (after a client timeout) is still accepted by ticket.
+        if (HCAdminWire.HCIsLootMap(command)) { m_LootTicket = request.Ticket; }
         ScriptRPC rpc = new ScriptRPC;
         rpc.Write(request);
         rpc.Send(null, HCAdminWire.REQUEST, true);
@@ -223,7 +252,8 @@ class HCAdminClient
         if (!ctx.Read(reply) || !reply || !reply.Authorized) { return; }
         bool current = reply.Ticket == m_Expected;
         bool capture = reply.Snapshot && reply.Ticket == m_SnapshotTicket;
-        if (!current && !capture) { return; }
+        bool loot = reply.Snapshot && m_LootTicket != 0 && reply.Ticket == m_LootTicket;
+        if (!current && !capture && !loot) { return; }
         if (!reply.Marks || !reply.Lines) { return; }
         if (reply.Marks.Count() > 512 || reply.Lines.Count() > 64 || reply.Notice.Length() > 1024) { return; }
         for (int markIndex = 0; markIndex < reply.Marks.Count(); markIndex++)
@@ -234,18 +264,26 @@ class HCAdminClient
             if (mark.Label.Length() > 128 || mark.Detail.Length() > 256) { return; }
         }
         string command = "snapshot";
+        if (loot) { command = "lootmap"; }
         if (current)
         {
             command = m_Command;
             m_Pending = false;
             m_Expected = 0;
+            // A non-snapshot answer to the lootmap request (a refusal) ends it.
+            if (!reply.Snapshot && reply.Ticket == m_LootTicket) { m_LootTicket = 0; }
         }
         // Log the received body before the snapshot reuses the previous status.
         HCLogReply(reply, command);
         m_Authorized = true;
         m_LastReply = GetGame().GetTickTime();
         Notice = reply.Notice;
-        if (reply.Snapshot)
+        if (loot)
+        {
+            HCMergeLootMap(reply);
+            m_LootTicket = 0;
+        }
+        else if (reply.Snapshot)
         {
             if (View) { reply.Lines = View.Lines; }
             View = reply;
@@ -259,6 +297,28 @@ class HCAdminClient
         }
         Revision++;
         Changed.Invoke();
+    }
+
+    // Final lootmap reply: its marks replace only the `lootmap` layer, so a captured
+    // debug snapshot keeps its layers. Reads the reply marks (already validated:
+    // <=512, bounded labels, valid positions); the server stays the only authority.
+    protected void HCMergeLootMap(HCAdminReply reply)
+    {
+        if (!View) { View = new HCAdminReply; }
+        int oldIndex = View.Marks.Count() - 1;
+        while (oldIndex >= 0)
+        {
+            if (View.Marks[oldIndex].Layer == "lootmap") { View.Marks.RemoveOrdered(oldIndex); }
+            oldIndex--;
+        }
+        for (int markIndex = 0; markIndex < reply.Marks.Count(); markIndex++)
+        {
+            if (View.Marks.Count() >= 512) { break; }
+            if (reply.Marks[markIndex].Layer == "lootmap") { View.Marks.Insert(reply.Marks[markIndex]); }
+        }
+        HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
+        float keepUntil = m_LastReply + limits.ViewSeconds;
+        if (keepUntil > m_SnapshotUntil) { m_SnapshotUntil = keepUntil; }
     }
 
     void HCTick()
@@ -305,6 +365,7 @@ class HCAdminClient
         m_Checks.Clear();
         m_Player = null;
         m_SnapshotTicket = 0;
+        m_LootTicket = 0;
         View = null;
         Hidden = null;
         Notice = "Admin session expired; press the admin key to authenticate again.";

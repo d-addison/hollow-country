@@ -30,9 +30,16 @@ class), `lootmap Ammo_` (prefix when no such class exists), `lootmap Ammo_*`
 (explicit prefix). Matching is case sensitive. Only letters, digits and `_`
 are allowed, with one optional trailing `*`; the input limit is 96 characters
 including `*`. The server rechecks sender authority before work and delivery.
-This worker implements the server text registration; **in-game text input and
-the longer client request/session lifetime still require lead wiring** in the
-existing admin client/menu. No new RPC payload field or mission file is needed.
+The server text registration is in `HCAdminModule`; the client sends it through
+`HCAdminClient.HCLootMap(filter)` (same bounded filter check, same 104-character
+wire limit) and waits `HCAdminLootMap.HCClientWaitSeconds()` for the single final
+reply instead of 10 s (derived from the job tick cap plus `ReplyGraceSeconds`;
+the admin session stays valid for that wait, and a late final reply is still
+accepted by its ticket). The reply marks replace only the `lootmap` layer of the
+client map view and stay for `ViewSeconds`; the existing Map tab shows them with
+its layer toggle. **A text-entry control in the admin menu that calls
+`HCLootMap` is still missing** (the card catalog is integer-only). No new RPC
+payload field or mission file is needed.
 
 Each request starts one job, with no automatic repeat and one final reply.
 An accepted request replaces the previous sibling
@@ -61,19 +68,37 @@ profile lookup. A ground count of zero never proves a type does not exist.
 No DIAG-only CE call, spawn, deletion or inventory write is used.
 
 Defaults live in `HCAdminLootMapLimits` (source defaults, not a JSON-loaded
-configuration). The sole new distance is `QueryRadiusM=1000`, anchored to the
-approximately 1 km native network bubble / rifle gunshot scale. It also gives
-the square cell width; the containing circle covers the cell. The job uses
-native world bounds, half-open cell ownership and a bounded set of already
-observed entity handles to avoid overlap/moving-entity duplicates. It may still
-miss an entity that moves into an already visited cell; it is not an atomic
-world snapshot. Limits: one global job, one circle query per core tick, 32 rows
-per step, 4096 objects/proxy cargos per query, 65536 scanned rows per job, 8192
-matches, 32 classes, 1024 cells, 128 positions per reply/export, 300 seconds per
-job, 30 seconds global request cooldown, 64 KiB export. Position clipping keeps
-the observed counts and reports the omitted position count. Other caps produce
-named refusals with explicitly partial observations. Count and elapsed-time
-budgets use `HCUnitBudget` and `HCWorkBudget` with retained cursors.
+configuration). The sole distance is `SubCellM=500`, the square sub-cell edge
+for one query (it replaces the former fixed 1 km `QueryRadiusM`). The query
+circle is the cell's half diagonal rounded up, so it covers the square; each
+native circle (radius 354 m) covers about an eighth of the area of the former 1000 m-radius call. The job uses
+native world bounds and half-open sub-cell ownership as the dedupe: each
+observation is counted only by the sub-cell that owns its position, so
+overlapping circles never double count a stationary entity and the job keeps no
+seen-list (the former `m_Seen.Find` was O(n) per row). An entity that moves into
+a sub-cell not yet visited after it was counted can still be counted twice; it is
+not an atomic world snapshot.
+
+Job arithmetic (derived, not a wall-clock guess; `HCAdminLootMap.HCJobTickCap`):
+one sub-cell query per core tick, then rows until `MaxRowsPerStep=256` units are
+spent. A row whose class does not match costs 1 unit (one `GetType` compare, no
+cast); a match costs `MatchRowUnits=4`. Every tick ends at a sub-cell boundary or
+with the row budget spent, so `ticks <= cells + ceil((MaxItemsScanned +
+(MatchRowUnits-1)*MaxMatches) / MaxRowsPerStep) + 1`. For Chernarus (15360 m):
+31 x 31 = 961 cells, `65536 + 3*8192 = 90112` units / 256 = 352 ticks, cap 1314
+ticks, which is 1314 s at the budgeted 1000 ms core tick (the former 256 cells at
+32 rows per tick needed at least 256 + 2048 ticks against a 300 s cap). A core
+tick slower than `MaxTickIntervalMs=1000` refuses with
+`tick_interval_exceeds_job_budget` instead of silently missing the cap.
+Exceeding the tick cap refuses `job_tick_cap` with explicitly partial
+observations. Other limits: one global job, 4096 objects/proxy cargos per query,
+65536 scanned rows per job, 8192 matches, 32 classes, 1024 cells, 128 positions
+per reply/export, 30 seconds global request cooldown, 64 KiB export. The
+client wait is the largest admitted job (`MaxCells`) at the budgeted tick plus
+`ReplyGraceSeconds=30`. Position clipping keeps the observed counts and reports
+the omitted position count. Other caps produce named refusals with explicitly
+partial observations. Count budgets use `HCUnitBudget` and `HCWorkBudget` with
+retained cursors. The start line names `query_cost=unmeasured`.
 
 Native `GetObjectsAtPosition` has no cursor, output-size bound or cancellation.
 The post-query cap bounds retained/processed work, **not its native peak time

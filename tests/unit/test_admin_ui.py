@@ -174,7 +174,7 @@ class ClientBehavior(unittest.TestCase):
     def test_only_validated_current_reply_releases_pending(self):
         _, body = authored_method(CLIENT,'HCAdminClient','HCReceive',modded=False)
         release = body.index('m_Pending = false')
-        self.assertLess(body.index('if (!current && !capture)'),release)
+        self.assertLess(body.index('if (!current && !capture && !loot)'),release)
         self.assertLess(body.index('reply.Marks.Count() > 512'),release)
         self.assertIn('if (current)',body[:release])
         self.assertIn('HCLogReply',body)

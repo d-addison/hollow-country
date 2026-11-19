@@ -47,7 +47,7 @@ def document():
 def bind(owner, path, cls, names, scope, members=()):
     for name in names:
         fn = compile_authored(path, cls, name, scope, members, modded=False,
-                              native_strings=EStr, fields=('m_Document','m_Cursor','m_Cell'))
+                              native_strings=EStr, fields=('m_Document','m_Cursor','m_Cell','m_Ticks','m_MaxTicks'))
         setattr(owner, name, lambda *args, fn=fn: fn(owner, *args))
 
 
@@ -59,9 +59,9 @@ class LootmapBehavior(unittest.TestCase):
         self.assertTrue(wire.HCIsLootMap(EStr('lootmap')))
         self.assertFalse(wire.HCIsLootMap(EStr('lootmapx BandageDressing')))
         path = ADMIN / 'HCAdminLootMap.c'
-        defaults = N(QueryRadiusM=1000, MaxPositionsPerReply=2, MaxItemsPerStep=2,
+        defaults = N(SubCellM=1000, MaxPositionsPerReply=2, MaxRowsPerStep=2, MatchRowUnits=1,
                      MaxObjectsPerCell=16, MaxItemsScanned=40, MaxMatches=20,
-                     MaxTypes=4, MaxCells=16, CooldownSeconds=30, MaxJobSeconds=300)
+                     MaxTypes=4, MaxCells=16, CooldownSeconds=30, MaxTickIntervalMs=1000)
         query_calls, probes, sent, exported = [], [], [], []
         server = [True]
         ce_ready = [True]
@@ -94,27 +94,37 @@ class LootmapBehavior(unittest.TestCase):
                          HCAdminLootType=lambda:N(className='', count=0, nominal=-1),
                          HCAdminLootPoint=lambda:N(), HCAdminLootDocument=document)
         env['Math'].Ceil = math.ceil
+        env['Math'].Sqrt = math.sqrt
         valid = compile_authored(ADMIN.parent/'Debug/HCDebugSnapshot.c', 'HCDebugSnapshot',
                                  'HCPositionValid', env, modded=False)
         env['HCDebugSnapshot'] = N(HCPositionValid=lambda pos:valid(None, pos))
         static = N()
         env['HCAdminLootMap'] = static
-        bind(static, path, 'HCAdminLootMap', ('HCValidFilter',), env)
+        bind(static, path, 'HCAdminLootMap', ('HCValidFilter', 'HCJobTickCap', 'HCCellsAcross'), env)
+
+        class Units:
+            # Explicit synthetic twin of HCUnitBudget (first item always admitted).
+            def HCReset(self, limit): self.limit, self.used, self.items = max(limit, 1), 0, 0
+            def HCTake(self, cost):
+                if self.items and self.used + max(cost, 1) > self.limit: return False
+                self.used, self.items = self.used + max(cost, 1), self.items + 1
+                return True
+            def HCCharge(self, cost): self.used += max(cost, 0)
 
         def job():
             owner = N(m_Limits=defaults, m_Document=None, m_Candidates=NativeArray(),
                       m_Cargos=NativeArray(), m_Seen=NativeArray(), m_Cursor=0,
                       m_Cell=0, m_Across=0, m_Size=0, m_Loaded=False,
-                      m_MinX=0, m_MinZ=0, m_MaxX=0, m_MaxZ=0,
+                      m_MinX=0, m_MinZ=0, m_MaxX=0, m_MaxZ=0, m_Ticks=0, m_MaxTicks=0,
                       m_Budget=N(HCReset=lambda count:probes.append(count), HCContinue=lambda:True),
-                      m_Units=N(HCReset=lambda count:None, HCTake=lambda cost:True))
+                      m_Units=Units())
             names = ('HCStart', 'HCStep', 'HCQueryCell', 'HCObserve', 'HCFinish',
-                     'HCDocument', 'HCReply', 'HCMatches')
+                     'HCDocument', 'HCReply', 'HCMatches', 'HCTotalCells', 'HCMaxTicks')
             bind(owner, path, 'HCAdminLootMap', names, env, names)
             return owner
 
         exact = job()
-        self.assertTrue(exact.HCStart(EStr('BandageDressing')))
+        self.assertTrue(exact.HCStart(EStr('BandageDressing'), 1000))
         previous = 0
         for _ in range(20):
             done = exact.HCStep()
@@ -129,7 +139,9 @@ class LootmapBehavior(unittest.TestCase):
                          [(t.className, t.count, t.nominal) for t in result.types])
         self.assertEqual('refused_ce_inventory_enumeration_unavailable', result.census)
         self.assertEqual(4, len(query_calls))
-        self.assertEqual([1000]*4, [call[1] for call in query_calls])
+        # Circle = half diagonal of the 1000 m sub-cell (707.1), rounded up: covers the cell.
+        self.assertEqual([708]*4, [call[1] for call in query_calls])
+        self.assertNotIn('m_Seen', (ADMIN/'HCAdminLootMap.c').read_text())
         self.assertEqual(2, len(result.points))  # overlapping queries did not double count
         env.update(HCAdminReply=lambda:N(Lines=NativeArray(), Marks=NativeArray()), HCAdminMark=lambda:N())
         bind(exact, path, 'HCAdminLootMap', ('HCReply',), env)
@@ -140,7 +152,7 @@ class LootmapBehavior(unittest.TestCase):
 
         query_calls.clear()
         prefix = job()
-        self.assertTrue(prefix.HCStart(EStr('Bandage*')))
+        self.assertTrue(prefix.HCStart(EStr('Bandage*'), 1000))
         for _ in range(20):
             if prefix.HCStep(): break
         self.assertEqual(3, prefix.HCDocument().matched)
@@ -148,33 +160,38 @@ class LootmapBehavior(unittest.TestCase):
         self.assertEqual(2, len(prefix.HCDocument().points))
         for bad in ('', '*', '../Bandage', 'Bandage x', 'x'*97):
             invalid = job()
-            self.assertFalse(invalid.HCStart(EStr(bad)))
+            self.assertFalse(invalid.HCStart(EStr(bad), 1000))
             self.assertEqual('invalid_class_or_prefix', invalid.HCDocument().reason)
         ce_ready[0] = False
         refused = job()
-        self.assertFalse(refused.HCStart(EStr('Bandage')))
+        self.assertFalse(refused.HCStart(EStr('Bandage'), 1000))
         self.assertEqual('ce_world_enumeration_unavailable', refused.HCDocument().reason)
         ce_ready[0] = True
         server[0] = False
-        self.assertFalse(job().HCStart(EStr('Bandage')))
+        self.assertFalse(job().HCStart(EStr('Bandage'), 1000))
         server[0] = True
         # An unavailable clock must refuse, not export time=-1 that the webmap rejects.
         clock[0] = -1
         unclocked = job()
-        self.assertFalse(unclocked.HCStart(EStr('Bandage')))
+        self.assertFalse(unclocked.HCStart(EStr('Bandage'), 1000))
         self.assertEqual('clock_unavailable', unclocked.HCDocument().reason)
         clock[0] = 100
+        # The tick cap is exact only while the core tick is not slower than budgeted.
+        slow = job()
+        self.assertFalse(slow.HCStart(EStr('Bandage'), 2000))
+        self.assertEqual('tick_interval_exceeds_job_budget', slow.HCDocument().reason)
+        self.assertFalse(job().HCStart(EStr('Bandage'), 0))
         query_calls.clear()
         defaults.MaxObjectsPerCell = 1
         capped = job()
-        self.assertTrue(capped.HCStart(EStr('Bandage')))
+        self.assertTrue(capped.HCStart(EStr('Bandage'), 1000))
         self.assertTrue(capped.HCStep())
         self.assertEqual('objects_per_cell_cap', capped.HCDocument().reason)
         self.assertEqual(0, capped.HCDocument().matched)
         defaults.MaxObjectsPerCell = 16
         query_calls.clear()
         deferred = job()
-        self.assertTrue(deferred.HCStart(EStr('Bandage')))
+        self.assertTrue(deferred.HCStart(EStr('Bandage'), 1000))
         deferred.m_Budget.HCContinue = lambda:False
         self.assertFalse(deferred.HCStep())
         self.assertEqual((0, 0, 1), (deferred.m_Cursor, deferred.HCDocument().scanned, len(query_calls)))
@@ -186,16 +203,16 @@ class LootmapBehavior(unittest.TestCase):
         self.assertEqual('items_scanned_cap', deferred.HCDocument().reason)
         defaults.MaxItemsScanned = 40
         deferred = job()
-        self.assertTrue(deferred.HCStart(EStr('Bandage')))
-        deferred.m_Started = -300
+        self.assertTrue(deferred.HCStart(EStr('Bandage'), 1000))
+        deferred.m_Ticks = deferred.m_MaxTicks
         before = len(query_calls)
         self.assertTrue(deferred.HCStep())
-        self.assertEqual('job_time_cap', deferred.HCDocument().reason)
+        self.assertEqual('job_tick_cap', deferred.HCDocument().reason)
         self.assertEqual(before, len(query_calls))
         query_calls.clear()
         worlds[0] = [item('Bandage'+'x'*96, 100, 100)]
         oversized_class = job()
-        self.assertTrue(oversized_class.HCStart(EStr('Bandage')))
+        self.assertTrue(oversized_class.HCStart(EStr('Bandage'), 1000))
         self.assertTrue(oversized_class.HCStep())
         self.assertEqual('class_name_cap', oversized_class.HCDocument().reason)
         worlds[0] = [match, cargo, longer, no_ce, bandage]
@@ -223,7 +240,7 @@ class LootmapBehavior(unittest.TestCase):
 
         # Execute request/export lifecycle, erasing only the adapter's unsupported
         # generic-type syntax. Store, directory and identity ports are recorders.
-        receipts, notices = [], []
+        receipts, notices, printed = [], [], []
         exported.clear()
         store_ok = [True]
         now = [10]
@@ -240,7 +257,8 @@ class LootmapBehavior(unittest.TestCase):
                 HCAdminLootMapLimits=lambda:defaults, HCV2ThreatStore=N(
                 CanOpen=lambda path:True, Save=lambda path,data,limit:
                 receipts.append((path,data.state,limit)) or store_ok[0]),
-                FileExist=lambda path:True, MakeDirectory=lambda path:True, Print=lambda line:None)
+                FileExist=lambda path:True, MakeDirectory=lambda path:True, Print=lambda line:printed.append(line),
+                HCServer=N(Get=lambda:N(GetSettings=lambda:N(TickIntervalMs=1000))))
         source = (ADMIN/'HCAdminModule.c').read_text().replace('HCV2ThreatStore<HCAdminLootDocument>', 'HCV2ThreatStore')
         with patch.object(Path, 'read_text', return_value=source):
             start = compile_authored(ADMIN/'HCAdminModule.c', 'HCAdminModule', 'HCStartLootMap',
@@ -258,6 +276,10 @@ class LootmapBehavior(unittest.TestCase):
         query_calls.clear()
         self.assertTrue(start(module, object(), EStr('lootmap Bandage'), 5))
         self.assertEqual('pending', receipts[-1][1])
+        started = [line for line in printed if 'state=started' in line]
+        self.assertEqual(1, len(started))
+        for token in ('cells=4', 'sub_cell_m=1000', 'max_ticks=', 'query_cost=unmeasured', 'runtime=PENDING'):
+            self.assertIn(token, started[0])
         self.assertFalse(start(module, object(), EStr('lootmap Bandage'), 6))
         self.assertEqual('lootmap_job_cap=1', notices[-1][-1])
         for _ in range(20):
