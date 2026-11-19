@@ -353,7 +353,7 @@ class ModuleBreakdown(unittest.TestCase):
         self.assertEqual('pending',report['runtime_acceptance'])
 
 
-def sampler_fixture():
+def sampler_fixture(ecology=None):
     """Execute sampler source; clocks/arrays/players are explicit synthetic ports."""
     from types import SimpleNamespace as N
     from tests.unit.test_event_runtime import translate
@@ -363,7 +363,7 @@ def sampler_fixture():
         def Set(self, index, value): self[index] = value
         def Sort(self): self.sort()
         def Find(self, value): return self.index(value) if value in self else -1
-    source = code_of(SAMPLER.read_text()).replace('HCPerfSampler','HCEventPerfSampler')
+    source = code_of(SAMPLER.read_text()).replace('HCPerfSampler','HCEventPerfSampler').replace('HCEcologyRuntime','HCEventEcologyRuntime')
     source = source.replace('for (int i = 0; i < source.Count(); i++) sorted.Insert(source.Get(i));',
                             'foreach (float item : source) { sorted.Insert(item); }')
     source = re.sub(r'\((int|float)\)\(', r'\1(', source)
@@ -374,7 +374,9 @@ def sampler_fixture():
     source = re.sub(r'(\b[\w.]+)\+\+;',r'\1 += 1;',source)
     clock = N(now=0.,ticks=0)
     logs = []
+    # HC-29 explicit passive runtime port; no ecology object is created by the sampler.
     env = dict(EArray=Array, str=str, int=int, float=float, Print=logs.append,
+        HCEventEcologyRuntime=N(HCPeek=lambda:ecology),
         Math=N(Round=lambda value: int(value+.5)),
         TickCount=lambda prior: clock.ticks-prior,
         GetGame=lambda:N(IsServer=lambda:True, GetTickTime=lambda:clock.now,

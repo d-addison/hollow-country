@@ -1,7 +1,7 @@
 // Server-only tick performance sampler. Not an HCModule; HCServer owns one instance.
 // Collects the HC tick interval and the time HC modules spent inside one tick, and prints one
 // summary line per window. Memory is bounded: two ring buffers and two sort buffers of at most
-// HC_PERF_MAX_SAMPLES floats plus three buffers capped at HC_PERF_MAX_MODULES entries, allocated once.
+// HC_PERF_MAX_SAMPLES floats, module buffers capped at HC_PERF_MAX_MODULES, and 64*4 cost integers.
 // No file I/O. Output is read by tools/testing/perf_capture.py.
 // Verified in the installed 1.30.164289 script dump: array<T>.Insert/Set/Get/Count/Clear/Sort/Reserve/Find (1_Core/proto/EnScript.c:380-493),
 // CGame.GetPlayers(out array<Man>), CGame.GetTickTime, Math.Round, string.ToString, Print,
@@ -43,10 +43,17 @@ class HCPerfSampler
     protected ref array<string> m_ModuleNames = new array<string>();
     protected ref array<int> m_ModuleMaxTicks = new array<int>();
     protected ref array<string> m_SortedModuleNames = new array<string>();
+    // Four maxima per existing module slot: startup, native callback, save,
+    // admission. Attribution can overlap module work; these are not additive.
+    // Fixed 64*4 integers, no new registry, clock, player scan or profiler.
+    protected ref array<int> m_CostMaxTicks = new array<int>();
+    protected float m_TicksPerMs;
+    protected int m_EcologyIndex = -1;
     protected ref array<Man> m_Players = new array<Man>();
 
     void HCPerfSampler()
     {
+        m_CostMaxTicks.Reserve(HC_PERF_MAX_MODULES * 4);
         m_ModuleNames.Reserve(HC_PERF_MAX_MODULES);
         m_ModuleMaxTicks.Reserve(HC_PERF_MAX_MODULES);
         m_SortedModuleNames.Reserve(HC_PERF_MAX_MODULES);
@@ -65,6 +72,9 @@ class HCPerfSampler
         m_WindowSeconds = windowSeconds;
         if (m_WindowSeconds > HC_PERF_MAX_WINDOW_SECONDS) m_WindowSeconds = HC_PERF_MAX_WINDOW_SECONDS;
         m_WindowIndex = 0;
+        m_CostMaxTicks.Clear();
+        m_TicksPerMs = 0;
+        m_EcologyIndex = -1;
         m_ModuleNames.Clear();
         m_ModuleMaxTicks.Clear();
         m_SortedModuleNames.Clear();
@@ -77,14 +87,70 @@ class HCPerfSampler
     void RegisterModule(string name)
     {
         if (!m_Active || m_ModuleNames.Count() >= HC_PERF_MAX_MODULES) return;
+        if (name == "Ecology") m_EcologyIndex = m_ModuleNames.Count();
         m_ModuleNames.Insert(name);
         m_ModuleMaxTicks.Insert(0);
+        m_CostMaxTicks.Insert(-1);
+        m_CostMaxTicks.Insert(-1);
+        m_CostMaxTicks.Insert(-1);
+        m_CostMaxTicks.Insert(-1);
     }
 
     void SampleModule(int moduleIndex, int workTicks)
     {
         if (!m_Active || moduleIndex < 0 || moduleIndex >= m_ModuleMaxTicks.Count()) return;
         if (workTicks > m_ModuleMaxTicks.Get(moduleIndex)) m_ModuleMaxTicks.Set(moduleIndex, workTicks);
+        if (moduleIndex == m_EcologyIndex) HCSampleEcology(moduleIndex);
+    }
+
+    // Runtime keeps callback peaks until the next module sample. Startup runs
+    // before sampler Start, so its cached admission/startup costs survive too.
+    // No entity/player scan or module callback; registration binds the slot once.
+    protected void HCSampleEcology(int moduleIndex)
+    {
+        HCEcologyRuntime runtime = HCEcologyRuntime.HCPeek();
+        if (!runtime) return;
+        runtime.HCSetCalibration(m_TicksPerMs);
+        SampleCost(moduleIndex, 0, runtime.HCStartupTicks());
+        SampleCost(moduleIndex, 1, runtime.HCCallbackTicks());
+        SampleCost(moduleIndex, 2, runtime.HCSaveTicks());
+        SampleCost(moduleIndex, 3, runtime.HCAdmissionTicks());
+        runtime.HCResetCostTicks();
+    }
+
+    // Same validated registration index as SampleModule. Kind: 0 startup,
+    // 1 native callback, 2 save, 3 admission. Raw units are never called ms.
+    void SampleCost(int moduleIndex, int kind, int workTicks)
+    {
+        if (!m_Active || moduleIndex < 0 || moduleIndex >= m_ModuleNames.Count()) return;
+        if (kind < 0 || kind >= 4 || workTicks < 0) return;
+        int costSlot = moduleIndex * 4 + kind;
+        if (workTicks > m_CostMaxTicks.Get(costSlot)) m_CostMaxTicks.Set(costSlot, workTicks);
+    }
+
+    // A caller must refresh this each window. Zero explicitly refuses conversion.
+    float HCTicksPerMs() { return m_TicksPerMs; }
+
+    protected string FormatCost(int ticks, float ticksPerMs)
+    {
+        if (ticks < 0) return "unobserved";
+        return FormatMs(ticks / ticksPerMs);
+    }
+
+    protected void EmitCosts(float ticksPerMs)
+    {
+        int costIndex = 0;
+        while (costIndex < m_ModuleNames.Count())
+        {
+            string cost = "[HC Cost] module=" + m_ModuleNames.Get(costIndex);
+            int slot = costIndex * 4;
+            cost = cost + " startup_ms=" + FormatCost(m_CostMaxTicks.Get(slot), ticksPerMs);
+            cost = cost + " callback_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 1), ticksPerMs);
+            cost = cost + " save_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 2), ticksPerMs);
+            cost = cost + " admission_ms=" + FormatCost(m_CostMaxTicks.Get(slot + 3), ticksPerMs);
+            Print("" + cost + "; runtime=PENDING");
+            costIndex++;
+        }
     }
 
     // elapsedSeconds: wall time since the previous HC tick. workTicks: TickCount(start) around the module loop.
@@ -118,6 +184,7 @@ class HCPerfSampler
     {
         if (!m_Active) return;
         m_Active = false;
+        m_TicksPerMs = 0;
         ResetWindow();
         Print("[HollowCountry] Perf sampler stopped");
     }
@@ -134,6 +201,12 @@ class HCPerfSampler
 
     protected void ResetWindow()
     {
+        int costReset = 0;
+        while (costReset < m_CostMaxTicks.Count())
+        {
+            m_CostMaxTicks.Set(costReset, -1);
+            costReset++;
+        }
         m_WindowElapsed = 0;
         m_Cursor = 0;
         m_TickMax = 0;
@@ -263,6 +336,12 @@ class HCPerfSampler
             report = report + " slowest_module_max_ms=" + FormatMs((float)slowestTicks / ticksPerMs);
             report = report + " slow_ticks=" + m_SlowTickCount.ToString();
             if (m_ModuleNames.Count() > 0) report = report + " mod_max=" + moduleReport;
+        }
+        m_TicksPerMs = 0;
+        if (calibrated)
+        {
+            m_TicksPerMs = ticksPerMs;
+            EmitCosts(ticksPerMs);
         }
         Print("" + report);
         ResetWindow();

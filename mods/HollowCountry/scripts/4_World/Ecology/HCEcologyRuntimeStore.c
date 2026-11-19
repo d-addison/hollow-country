@@ -80,6 +80,60 @@ class HCEcologyRuntimeStore
 	protected string m_Session;
 	protected int m_Revision;
 	protected bool m_Fault;
+	protected int m_SavePhase;
+	protected int m_SaveRevision;
+	protected string m_SaveText;
+
+	// HC-29: six scalar fields, encoded at <=2048 bytes. No live entity
+	// snapshot, rename/fsync claim or unsupported asynchronous engine IO.
+	// EnSystem.c:397/417/425/443/462/528; JsonFileLoader.c:85 MakeData.
+	bool HCBeginSave(HCEcologyCheckpoint state)
+	{
+		if (m_Fault || m_SavePhase != 0 || !HCEcologyRuntimeRules.CheckpointValid(state, m_World)) { return false; }
+		if (state.SessionId != m_Session || state.Revision != m_Revision + 1) { return false; }
+		m_SaveText = HCEcologyRuntimeIO.Encode(state);
+		if (m_SaveText.Length() < 1 || m_SaveText.Length() > 2048) { return false; }
+		m_SaveRevision = state.Revision;
+		m_SavePhase = 1;
+		return true;
+	}
+
+	int HCPhase() { return m_SavePhase; }
+
+	// HCSaveJob result codes: 0 done, 1 more, 2 failed. One bounded file
+	// operation per stage (Write/WriteNew include their existing readback).
+	int HCStepSave()
+	{
+		if (m_Fault && m_SavePhase <= 0) { return 2; }
+		if (m_SavePhase < 1 || m_SavePhase > 4) { return 2; }
+		string pendingPath = m_Root + "/pending-" + m_World + ".json";
+		string imagePath = m_Root + "/state-" + m_World + ".json";
+		bool ok = false;
+		// Fault before the first intent attempt. Only this in-flight continuation
+		// may proceed; every failure retains the journal and forbids retries.
+		m_Fault = true;
+		if (m_SavePhase == 1) { ok = HCEcologyRuntimeIO.WriteNew(pendingPath, m_SaveText, 2048); }
+		if (m_SavePhase == 2) { ok = HCEcologyRuntimeIO.Write(imagePath, m_SaveText, 2048); }
+		if (m_SavePhase == 3) { ok = HCEcologyRuntimeIO.Read(imagePath, 2048) == m_SaveText; }
+		if (m_SavePhase == 4) { ok = DeleteFile(pendingPath); }
+		if (!ok)
+		{
+			m_SavePhase = -1;
+			m_SaveText = "";
+			Print("[HC Plan] HC-29 state=refused reason=checkpoint_io visited=0 deferred=0 save_phase=-1 elapsed_us=-1; runtime=PENDING");
+			return 2;
+		}
+		if (m_SavePhase < 4)
+		{
+			m_SavePhase++;
+			return 1;
+		}
+		m_Revision = m_SaveRevision;
+		m_SavePhase = 0;
+		m_SaveText = "";
+		m_Fault = false;
+		return 0;
+	}
 
 	HCEcologyCheckpoint Open(string worldName, string session)
 	{
@@ -125,6 +179,8 @@ class HCEcologyRuntimeStore
 
 	bool Save(HCEcologyCheckpoint state)
 	{
+		// Startup/shutdown barrier cannot overlap a routine continuation.
+		if (m_SavePhase != 0) { return false; }
 		if (m_Fault || !HCEcologyRuntimeRules.CheckpointValid(state, m_World)) { return false; }
 		if (state.SessionId != m_Session) { return false; }
 		if (state.Revision != m_Revision + 1) { return false; }
