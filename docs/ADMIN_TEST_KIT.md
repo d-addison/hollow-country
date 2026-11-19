@@ -75,17 +75,17 @@ existing receipt rollback commands first when the rehearsal requests it. This
 tool does not silently remove unrelated installers. Output explicitly says
 inventory was not removed and keeps `runtime=PENDING`.
 
-**Inventory is a real remaining gap:** `inventory_sizes.py` is a source generator
-for the generated `CfgVehicles` block inside the shared HC addon, not a
-mission-overlay installer. It has `render_block`, `update_config`, `check_config`
-and `main`, but no installation receipt or rollback function. Selecting
-`--overlays inventory` (or omitting `--overlays`, whose default requests all
-three) refuses before any removal with `inventory receipt rollback unavailable`.
-Removing that block requires a reviewed source change, rebuilding/signing and
-redistributing matching addon packages to server and clients. This confined
-worker cannot edit config.cpp or invent a receipt for an already installed PBO.
-Keep #203's three-overlay removal acceptance open until a genuine source/package
-receipt and its rollback API exist. Feature flags alone cannot undo these bytes.
+**Inventory removal rebuilds the addon:** `inventory_sizes.py` generates a
+`CfgVehicles` block inside the shared HC addon, so it is not a mission overlay.
+Pass `--addon-source mods/HollowCountry` or `--addon-pbo <installed hollowcountry.pbo>`
+together with `--pbo-out <new dir>` to remove it. The tool strips only the generated
+block (it keeps the authored TortillaBag `helmetFlashlight` slot) and writes three
+files: an unsigned `hollowcountry.no-inventory.pbo`, a receipt with sha256 values
+and `runtime=PENDING`, and `config.cpp.diff`. Review the diff, then sign the PBO,
+install it on the stopped server and give it to every client. Without an addon
+source, `--overlays inventory` still refuses with `inventory receipt rollback
+unavailable`. Feature flags alone cannot undo these bytes, and a loaded config
+override only goes away after a restart on the replacement PBO.
 
 ### Native checks still required
 
