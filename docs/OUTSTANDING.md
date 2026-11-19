@@ -34,13 +34,14 @@ Landed on main since the 2026-11-18 snapshot, so no longer in flight:
 - audit waves 2 to 4: HC-12 to HC-53 (HC-32 as a roster validation), HC-56, HC-57, HC-59, HC-60 and HC-61 (section 6 lists what each one actually gates);
 - the #168 operator requests, including the admin loot map and the search density scale;
 - the #135 and #138 review rounds (section 3 lists what remains);
-- wave 10: the #191 loot map, Stop cost, subset pin and infected variety fixes, the #183 subset pins (closed), #168 (closed), and the #160 baseline burn-down from 132 to 19 findings.
+- wave 10: the #191 loot map, Stop cost, subset pin and infected variety fixes, the #183 subset pins (closed), #168 (closed), and the #160 baseline burn-down from 132 to 19 findings;
+- wave 11: the #192 review P3 fixes (Expansion AI, events, crafting, loot and infected), the #160 HC-S005 burn-down, the HC-52 backpack mount manifest loader (#58), the HC-48 habitat boot line (#149), the HC-35 trade slot release and module registration (#145), and the debug map Camps layer with per-layer counts.
 
 Now:
 
 | Item | State |
 | --- | --- |
-| Wave 10 boot | Native boot of the wave 10 source through the friend bundle and installer, then push |
+| Wave 11 boot | Native boot of the wave 11 source through the friend bundle and installer, then push |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -70,7 +71,8 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
   - `HCJsonFields.Check` scanning of `HCWreckSalvage` (up to 2 MB, twice) is unmeasured;
   - Interiors: regenerate the template pack. Blocked on a native door phase 2 census;
   - native loot map checks: the Map tab EditBox and Run button, the immediate ack, the `lootmap_job_running` refusal, the layer surviving a snapshot, query and render cost.
-- **Wave 10 review P3s** (filed as a new issue): small labelling, double-log and sticky-reason notes from the six wave 10 reviews.
+- **#192** wave 10 review follow-ups: landed in wave 11 except the kept-on-purpose notes (the `HCSearchHouses.Commit` BUSY reason, the module-wide wreck start reason).
+- **Wave 11 review P3s** (filed as a new issue): a few labels and sticky reasons, the trade `complete` release order, the taped mount manifest text, debug map overlap and admin wire limits.
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
@@ -113,14 +115,14 @@ Carried from the 2026-11-18 snapshot unless a commit changed them.
   - no COT role authorisation;
   - a fresh `dormant` spawn is refused;
   - forced tiers, visits and raids are skipped.
-- **Debug map** (docs/DEBUG_MAP.md): Pickers, Camps, Scenes, group pins, all leads and materializer proposals have no layers yet. Snapshot writes are not atomic, because the engine has no rename. The loot map layer is built and unobserved.
+- **Debug map** (docs/DEBUG_MAP.md): Camps is a layer now, and `snapshot.json` carries per-layer shown/total counts. Pickers, Scenes, group pins, all leads and materializer proposals have no layers yet; Scenes and leads need the read-only getters listed in docs/DEBUG_MAP.md. Snapshot writes are not atomic, because the engine has no rename. The loot map layer is built and unobserved.
 - **Animations** (docs/ANIMATION_PIPELINE.md):
   - The sleep, get-up, kneel-feed and feed-to-stand clips wait on the sitter working natively.
   - An own `.ast` template is the fallback if the dead slot is used.
 - **Camp theft** stays off (fail closed) until lock state is defined.
 - **Taped lights #58:**
-  - Helmet mounts (HC-23) are a fail-closed catalogue. Backpack mounts (HC-52) exist, but `Qualified()` is false, `Configure()` has no caller and `config/hollow-country-light-mounts.json` is not loaded, so no pair attaches.
-  - The approved cross-slot pairs, TLRLight on 22 rail rifles and UniversalLight on 7 pistols, stay disabled behind a setting. Each pair needs its own client check. Still to do: wire the loader, then client checks for every pair.
+  - Helmet mounts (HC-23) are a fail-closed catalogue. Backpack mounts (HC-52) load `mission/hollow-country/lights/backpack-mounts.json` at boot and publish `off reason=cross_slot_disabled`, but `Qualified()` is false, so no pair attaches. There is no `HCSettings` switch yet; the manifest is the only input.
+  - The approved cross-slot pairs, TLRLight on 22 rail rifles and UniversalLight on 7 pistols, stay disabled behind a setting. Each pair needs its own client check. Still to do: client checks for every pair, a per-pair receipt, and an operator setting if wanted.
 
 ## 5. V3 features (open epics)
 
@@ -139,11 +141,11 @@ Owner direction: players may watch, raid or ambush AI, but there is no trading, 
 | --- | --- | --- |
 | #121 Infected variety | HC-14 substitutions, HC-45 crawler idle hold, HC-46 route drift, HC-47 threat matrix | Sleepers, risers and sit postures wait on native proof; surveyed routes; role postures; place clusters; woken groups; day/night and weather behaviour; tier C animations |
 | #144 AI scavenging runs | HC-34 single-item custody journal, HC-43 locality candidates and Raider/Traveller loadouts | The route stays hard-refused until a verified provider exists; the return receipt is not wired; an open P2 from review |
-| #145 AI-to-AI trade | HC-35 barriers: one reciprocal recipe, journaled exchange | Provider refuses `TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED`; module not registered; a cancelled journal keeps the single slot; HC-36 caravan is wired but refused (corridor unsurveyed, provider callbacks unverified) |
+| #145 AI-to-AI trade | HC-35 barriers: one reciprocal recipe, journaled exchange | Provider refuses `TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED`; the module is registered and prints its refusal at boot; a terminal journal releases the single slot; no provider is bound; HC-36 caravan is wired but refused (corridor unsurveyed, provider callbacks unverified) |
 | #146 Faction territories | HC-37 conflict outcomes from observed actors | `COMBAT_PROVIDER_UNVERIFIED`; no territory shifting or distant resolution evidence |
 | #147 Exploitable situations | HC-38 lifecycle, HC-39 raid profiles (ship off), HC-40 transit profiles (refused), HC-41 incident leases (source refuses), HC-42 story kits | Provider and route-clearance evidence, a surveyed corridor, a verified CE incident source |
 | #148 AI react to emotes | HC-5 gestures and betrayal memory | Emote acknowledgement is unverified in play; the #139 grudge checks |
-| #149 Living wildlife | HC-15 observation baseline, HC-48 habitat dispositions, HC-49 observed carcasses | Authored carcasses refuse (`AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN`); habitat refusals and boot line unwired; predators, herds and animals against AI and infected |
+| #149 Living wildlife | HC-15 observation baseline, HC-48 habitat dispositions, HC-49 observed carcasses | Authored carcasses refuse (`AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN`); the HC-48 boot line prints habitat dispositions and refusals (runtime pending); predators, herds and animals against AI and infected |
 | #150 Visual seasons | HC-6 clock, HC-50 white-terrain receipt, HC-51 forecast, client snapshot and presentation | White terrain `pending` (dynamic terrain API unproven); the client view is unchecked; variant dependencies (HC-60 shortlist, `admitted=0`) |
 | #151 Light player bases | HC-17 per-group claims and construction denial, HC-16 funded camps | Claim expiry rule (section 10); breakable-door and claim-vulnerability checks; respawn question (section 10) |
 
@@ -224,10 +226,10 @@ Every README feature row reads "Built · not played". Still to observe:
 
 ## 8. Checks, audits and tooling debt
 
-- **#160 WP-8:** burn down the lint baseline. After wave 10 the lint reports 19 findings, all baselined (`new=0 stale=0`), down from 132 at `cf10c1d`:
+- **#160 WP-8:** burn down the lint baseline. After wave 11 the lint reports 10 findings, all baselined (`new=0 stale=0`), down from 132 at `cf10c1d`:
   - HC-S001: 6 (infected memory, interiors, taped light and atmosphere starts, and two Expansion AI site spawns)
   - HC-S002: 0
-  - HC-S005: 12 (JSON scalars with a nonzero initializer and no zero guard)
+  - HC-S005: 3 (the measured interior prop `Index`, refused before the parse by `MeasuredStrict`, plus the reviewed `HCGroupRequest.Color` and `HCSearchRetirementState.RecentCount` in `tools/validate/enforce_json.py`)
   - HC-E006: 1 (reviewed safe)
   - HC-S003 is at 0.
 - **Settings registry (#158, done):** boot prints the effective shared settings; `settings_consistency` validates them.
