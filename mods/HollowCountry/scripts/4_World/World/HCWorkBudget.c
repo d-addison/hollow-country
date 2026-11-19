@@ -37,7 +37,7 @@ class HCWorkBudget
         if (count < 1) { return; }
         float now = GetGame().GetTickTime();
         if (now < m_LogAfter) { return; }
-        m_LogAfter = now + 600;
+        m_LogAfter = now + HCWorldRuntimeConfig.HCGet().BudgetDeferredLogSeconds;
         Print("[HollowCountry] perf budget module=" + moduleName + " deferred=" + count.ToString());
     }
 }
@@ -86,7 +86,7 @@ class HCSaveJob
     }
 }
 
-// Bound: <=32 registered stores examined, ONE save STAGE per tick (a single-step job is one whole
+// Bound: <=32 registered stores examined (operator may lower), ONE save STAGE per tick (a single-step job is one whole
 // store; a staged job such as WorldSaves spans several ticks and is never interleaved with another
 // job's stage). Existing verified intent/backup/copy writers remain authoritative. Native
 // copy/JSON calls have no cancellation API; this does not promise a 5 ms save.
@@ -96,6 +96,7 @@ class HCSaveJob
 class HCSaveScheduler : HCModule
 {
     protected static ref array<ref HCSaveJob> s_Jobs = new array<ref HCSaveJob>;
+    protected static string s_RegistrationFault;
     protected int m_Next;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected HCSaveJob m_Active;
@@ -120,13 +121,16 @@ class HCSaveScheduler : HCModule
     // scheduler (see HCRunStep) is a real degradation, reported until the process restarts.
     override HCOperationalStatus HCGetOperationalStatus()
     {
-        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", m_Fault, "save_scheduler_started");
+        string fault = m_Fault;
+        if (s_RegistrationFault != "") { fault = s_RegistrationFault; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", fault, "save_scheduler_started");
         return m_Operational;
     }
 
     override void OnStart(HCSettings settings)
     {
         m_Fault = "";
+        HCWorldRuntimeConfig.HCGet();
         m_Started = true;
         Print("[HC PerfControl] WorldSaves stages=1 target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " cooperative_only=1 runtime=PENDING");
     }
@@ -135,28 +139,43 @@ class HCSaveScheduler : HCModule
 
     static void HCRegister(HCSaveJob job)
     {
-        if (!job || s_Jobs.Find(job) >= 0 || s_Jobs.Count() >= 32) { return; }
-        // Stagger first eligibility; subsequent writes coalesce for 60 seconds.
-        job.HCDue = GetGame().GetTickTime() + 30 + s_Jobs.Count();
+        if (!job || s_Jobs.Find(job) >= 0) { return; }
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+        if (s_Jobs.Count() >= config.SaveJobLimit)
+        {
+            if (s_RegistrationFault != "save_job_capacity")
+            {
+                s_RegistrationFault = "save_job_capacity";
+                Print("[HC WorldRuntime] save_job_capacity; routine registration refused; owner barrier/shutdown flush retained runtime=PENDING");
+            }
+            return;
+        }
+        // Operator limits affect routine eligibility, never owner durability barriers.
+        job.HCDue = GetGame().GetTickTime() + config.SaveFirstDelaySeconds + s_Jobs.Count() * config.SaveStaggerSeconds;
         s_Jobs.Insert(job);
     }
 
     // Synchronous path (shutdown, barriers): finishes every remaining stage in this call. A job
-    // that never reports completion is abandoned after 16 stages and reported as failed.
+    // that never reports completion is abandoned at SaveFlushStageLimit (ceiling 16).
     static bool HCFlush(HCSaveJob job)
     {
         if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
-        while (result == HCSaveJob.STEP_MORE && guard < 16)
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+        while (result == HCSaveJob.STEP_MORE && guard < config.SaveFlushStageLimit)
         {
             result = job.HCStep();
             guard = guard + 1;
         }
         job.HCInFlight = false;
-        if (result != HCSaveJob.STEP_DONE) { return false; }
+        if (result != HCSaveJob.STEP_DONE)
+        {
+            Print("[HC WorldRuntime] save_flush_failed job=" + job.HCName() + " stages=" + guard.ToString() + " runtime=PENDING");
+            return false;
+        }
         job.HCDirty = false;
-        job.HCDue = GetGame().GetTickTime() + 60;
+        job.HCDue = GetGame().GetTickTime() + config.SaveCoalesceSeconds;
         return true;
     }
 
@@ -179,6 +198,7 @@ class HCSaveScheduler : HCModule
             m_StageMax = ticks;
             m_StageMaxIndex = m_Stages;
         }
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
         if (result == HCSaveJob.STEP_MORE)
         {
             job.HCInFlight = true;
@@ -190,7 +210,7 @@ class HCSaveScheduler : HCModule
         if (result == HCSaveJob.STEP_DONE)
         {
             job.HCDirty = false;
-            job.HCDue = now + 60;
+            job.HCDue = now + config.SaveCoalesceSeconds;
             if (m_StageMax > job.HCPeakTicks)
             {
                 job.HCPeakTicks = m_StageMax;
@@ -228,7 +248,8 @@ class HCSaveScheduler : HCModule
             HCRunStep(m_Active, now);
             return;
         }
-        m_Budget.HCReset(32);
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+        m_Budget.HCReset(config.SaveScanLimit, config.SaveScanSliceMs);
         int examined = 0;
         while (examined < s_Jobs.Count() && m_Budget.HCContinue())
         {

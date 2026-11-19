@@ -1,3 +1,117 @@
+// W5 optional $profile:HollowCountry/world-runtime.json; restart to reload.
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
+// HCGroupIO bounds reads; HCJsonFields preserves absent-field defaults.
+// Limits only decrease schema ceilings. Existing saves are validated against
+// schema ceilings; lower operating limits never discard custody/intent rows.
+class HCWorldRuntimeConfig
+{
+    int SaveJobLimit = 32;
+    int SaveScanLimit = 32;
+    int SaveFirstDelaySeconds = 30;
+    int SaveStaggerSeconds = 1;
+    int SaveCoalesceSeconds = 60;
+    int SaveFlushStageLimit = 16;
+    int SaveScanSliceMs = 4;
+    int BudgetDeferredLogSeconds = 600;
+    int MaxFacts = 256;
+    int MaxSiteMemories = 256;
+    int MaxLeads = 64;
+    int MaxGroupLeads = 5;
+    int MaxScenes = 8;
+    int MaxNotes = 10;
+    int MaxTheftRows = 1024;
+    int MaxTheftPerCamp = 32;
+    int MaxSalvage = 64;
+    int FactLifetimeSeconds = 604800;
+    protected static ref HCWorldRuntimeConfig s_Config;
+
+    static HCWorldRuntimeConfig HCGet()
+    {
+        if (s_Config) { return s_Config; }
+        HCOperatorSettingsRegistry.HCWorldRuntimeInit();
+        s_Config = new HCWorldRuntimeConfig;
+        string path = "$profile:HollowCountry/world-runtime.json";
+        string image;
+        string error;
+        HCWorldRuntimeConfig decoded;
+        if (FileExist(path))
+        {
+            if (HCGroupIO.Read(path, 4096, image) && JsonFileLoader<HCWorldRuntimeConfig>.LoadData(image, decoded, error) && decoded)
+            {
+                s_Config.HCApply(decoded, image);
+            }
+            else { Print("[HC WorldRuntime] config_unreadable defaults_retained runtime=PENDING"); }
+        }
+        s_Config.HCLog();
+        return s_Config;
+    }
+
+    void HCApply(HCWorldRuntimeConfig decoded, string image)
+    {
+        if (HCJsonFields.Has(image, "SaveJobLimit") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveJobLimit", decoded.SaveJobLimit)) { SaveJobLimit = decoded.SaveJobLimit; }
+        if (HCJsonFields.Has(image, "SaveScanLimit") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveScanLimit", decoded.SaveScanLimit)) { SaveScanLimit = decoded.SaveScanLimit; }
+        if (HCJsonFields.Has(image, "SaveFirstDelaySeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveFirstDelaySeconds", decoded.SaveFirstDelaySeconds)) { SaveFirstDelaySeconds = decoded.SaveFirstDelaySeconds; }
+        if (HCJsonFields.Has(image, "SaveStaggerSeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveStaggerSeconds", decoded.SaveStaggerSeconds)) { SaveStaggerSeconds = decoded.SaveStaggerSeconds; }
+        if (HCJsonFields.Has(image, "SaveCoalesceSeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveCoalesceSeconds", decoded.SaveCoalesceSeconds)) { SaveCoalesceSeconds = decoded.SaveCoalesceSeconds; }
+        if (HCJsonFields.Has(image, "SaveFlushStageLimit") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveFlushStageLimit", decoded.SaveFlushStageLimit)) { SaveFlushStageLimit = decoded.SaveFlushStageLimit; }
+        if (HCJsonFields.Has(image, "SaveScanSliceMs") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveScanSliceMs", decoded.SaveScanSliceMs)) { SaveScanSliceMs = decoded.SaveScanSliceMs; }
+        if (HCJsonFields.Has(image, "BudgetDeferredLogSeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.BudgetDeferredLogSeconds", decoded.BudgetDeferredLogSeconds)) { BudgetDeferredLogSeconds = decoded.BudgetDeferredLogSeconds; }
+        if (HCJsonFields.Has(image, "MaxFacts") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxFacts", decoded.MaxFacts)) { MaxFacts = decoded.MaxFacts; }
+        if (HCJsonFields.Has(image, "MaxSiteMemories") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxSiteMemories", decoded.MaxSiteMemories)) { MaxSiteMemories = decoded.MaxSiteMemories; }
+        if (HCJsonFields.Has(image, "MaxLeads") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxLeads", decoded.MaxLeads)) { MaxLeads = decoded.MaxLeads; }
+        if (HCJsonFields.Has(image, "MaxGroupLeads") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxGroupLeads", decoded.MaxGroupLeads)) { MaxGroupLeads = decoded.MaxGroupLeads; }
+        if (HCJsonFields.Has(image, "MaxScenes") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxScenes", decoded.MaxScenes)) { MaxScenes = decoded.MaxScenes; }
+        if (HCJsonFields.Has(image, "MaxNotes") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxNotes", decoded.MaxNotes)) { MaxNotes = decoded.MaxNotes; }
+        if (HCJsonFields.Has(image, "MaxTheftRows") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxTheftRows", decoded.MaxTheftRows)) { MaxTheftRows = decoded.MaxTheftRows; }
+        if (HCJsonFields.Has(image, "MaxTheftPerCamp") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxTheftPerCamp", decoded.MaxTheftPerCamp)) { MaxTheftPerCamp = decoded.MaxTheftPerCamp; }
+        if (HCJsonFields.Has(image, "MaxSalvage") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.MaxSalvage", decoded.MaxSalvage)) { MaxSalvage = decoded.MaxSalvage; }
+        if (HCJsonFields.Has(image, "FactLifetimeSeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.FactLifetimeSeconds", decoded.FactLifetimeSeconds)) { FactLifetimeSeconds = decoded.FactLifetimeSeconds; }
+    }
+
+    void HCLog()
+    {
+        Print("[HC WorldRuntime]" + " SaveJobLimit=" + SaveJobLimit.ToString() + " SaveScanLimit=" + SaveScanLimit.ToString() + " SaveFirstDelaySeconds=" + SaveFirstDelaySeconds.ToString() + " runtime=PENDING");
+        Print("[HC WorldRuntime]" + " SaveStaggerSeconds=" + SaveStaggerSeconds.ToString() + " SaveCoalesceSeconds=" + SaveCoalesceSeconds.ToString() + " SaveFlushStageLimit=" + SaveFlushStageLimit.ToString() + " runtime=PENDING");
+        Print("[HC WorldRuntime]" + " SaveScanSliceMs=" + SaveScanSliceMs.ToString() + " BudgetDeferredLogSeconds=" + BudgetDeferredLogSeconds.ToString() + " runtime=PENDING");
+        Print("[HC WorldRuntime]" + " MaxFacts=" + MaxFacts.ToString() + " MaxSiteMemories=" + MaxSiteMemories.ToString() + " MaxLeads=" + MaxLeads.ToString() + " runtime=PENDING");
+        Print("[HC WorldRuntime]" + " MaxGroupLeads=" + MaxGroupLeads.ToString() + " MaxScenes=" + MaxScenes.ToString() + " MaxNotes=" + MaxNotes.ToString() + " runtime=PENDING");
+        Print("[HC WorldRuntime]" + " MaxTheftRows=" + MaxTheftRows.ToString() + " MaxTheftPerCamp=" + MaxTheftPerCamp.ToString() + " MaxSalvage=" + MaxSalvage.ToString() + " runtime=PENDING");
+        Print("[HC WorldRuntime]" + " FactLifetimeSeconds=" + FactLifetimeSeconds.ToString() + " runtime=PENDING");
+    }
+}
+
+// Scoped compiled rows live with their owner; the lead mirrors these exact
+// rows in shared_settings.json and extends settings_consistency's scoped check.
+modded class HCOperatorSettingsRegistry
+{
+    protected static bool s_WorldRuntimeRegistered;
+    static void HCWorldRuntimeInit()
+    {
+        HCInit();
+        if (s_WorldRuntimeRegistered) { return; }
+        s_WorldRuntimeRegistered = true;
+        HCAdd("WorldRuntime.SaveJobLimit", "int", 32, 1, 32, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveScanLimit", "int", 32, 1, 32, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveFirstDelaySeconds", "int", 30, 0, 3600, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveStaggerSeconds", "int", 1, 0, 60, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveCoalesceSeconds", "int", 60, 1, 3600, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveFlushStageLimit", "int", 16, 1, 16, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveScanSliceMs", "int", 4, 1, 4, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.BudgetDeferredLogSeconds", "int", 600, 1, 3600, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxFacts", "int", 256, 1, 256, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxSiteMemories", "int", 256, 1, 256, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxLeads", "int", 64, 1, 64, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxGroupLeads", "int", 5, 1, 5, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxScenes", "int", 8, 1, 8, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxNotes", "int", 10, 1, 10, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxTheftRows", "int", 1024, 1, 1024, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxTheftPerCamp", "int", 32, 1, 32, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.MaxSalvage", "int", 64, 1, 64, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.FactLifetimeSeconds", "int", 604800, 1, 604800, "HCWorldRuntimeConfig");
+    }
+}
+
 // LC-T301 / LC-T401 data only. Native evidence: scripts-1.30.164289,
 // 1_Core/proto/EnScript.c:380,385,389,394,407,470 (array operations),
 // 1_Core/proto/EnString.c:199,240,448 (Length, IndexOf, Get),
@@ -515,9 +629,11 @@ class HCWorldData
         return true;
     }
 
-    bool InsertFact(HCWorldFact row)
+    bool InsertFact(HCWorldFact row, bool schemaOnly = false)
     {
-        if (!FactValid(row) || !HCWorldLimits.Admit(Facts.Count(), HCWorldLimits.FACTS, "Facts")) { return false; }
+        int capacity = HCWorldLimits.FACTS;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxFacts; }
+        if (!FactValid(row) || !HCWorldLimits.Admit(Facts.Count(), capacity, "Facts")) { return false; }
         Facts.Insert(row);
         return true;
     }
@@ -525,10 +641,31 @@ class HCWorldData
     bool AppendFact(HCWorldFact row)
     {
         if (!FactValid(row)) { return false; }
-        if (Facts.Count() < HCWorldLimits.FACTS) { return InsertFact(row); }
-        // Ring replacement is explicit; an insertion never exceeds the cap.
-        Facts.Set(FactHead, row);
-        FactHead = (FactHead + 1) % HCWorldLimits.FACTS;
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+        // Clamp only newly appended facts, leaving saved schema-valid expiries intact.
+        if (row.Expires - row.At > config.FactLifetimeSeconds) { row.Expires = row.At + config.FactLifetimeSeconds; }
+        int capacity = config.MaxFacts;
+        if (Facts.Count() < capacity) { return InsertFact(row); }
+        if (capacity == HCWorldLimits.FACTS)
+        {
+            Facts.Set(FactHead, row);
+            FactHead = (FactHead + 1) % HCWorldLimits.FACTS;
+            return true;
+        }
+        // At most the fixed schema ceiling is visited; preserve newest rows in
+        // chronological order, with head=0 for existing readers of short rings.
+        ref array<ref HCWorldFact> retained = new array<ref HCWorldFact>;
+        int first = Facts.Count() - capacity + 1;
+        int origin = 0;
+        if (Facts.Count() == HCWorldLimits.FACTS) { origin = FactHead; }
+        for (int offset = first; offset < Facts.Count(); offset++)
+        {
+            int sourceIndex = (origin + offset) % Facts.Count();
+            retained.Insert(Facts[sourceIndex]);
+        }
+        retained.Insert(row);
+        Facts = retained;
+        FactHead = 0;
         return true;
     }
 
@@ -558,9 +695,11 @@ class HCWorldData
         return true;
     }
 
-    bool InsertMemory(HCWorldSiteMemory row)
+    bool InsertMemory(HCWorldSiteMemory row, bool schemaOnly = false)
     {
-        if (!MemoryValid(row) || !HCWorldLimits.Admit(SiteMemory.Count(), HCWorldLimits.MEMORIES, "SiteMemory")) { return false; }
+        int capacity = HCWorldLimits.MEMORIES;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxSiteMemories; }
+        if (!MemoryValid(row) || !HCWorldLimits.Admit(SiteMemory.Count(), capacity, "SiteMemory")) { return false; }
         SiteMemory.Insert(row);
         return true;
     }
@@ -568,29 +707,55 @@ class HCWorldData
     bool AppendMemory(HCWorldSiteMemory row)
     {
         if (!MemoryValid(row)) { return false; }
-        if (SiteMemory.Count() < HCWorldLimits.MEMORIES) { return InsertMemory(row); }
-        SiteMemory.Set(MemoryHead, row);
-        MemoryHead = (MemoryHead + 1) % HCWorldLimits.MEMORIES;
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+        int capacity = config.MaxSiteMemories;
+        if (SiteMemory.Count() < capacity) { return InsertMemory(row); }
+        if (capacity == HCWorldLimits.MEMORIES)
+        {
+            SiteMemory.Set(MemoryHead, row);
+            MemoryHead = (MemoryHead + 1) % HCWorldLimits.MEMORIES;
+            return true;
+        }
+        // At most the fixed schema ceiling is visited; preserve newest rows in
+        // chronological order, with head=0 for existing readers of short rings.
+        ref array<ref HCWorldSiteMemory> retained = new array<ref HCWorldSiteMemory>;
+        int first = SiteMemory.Count() - capacity + 1;
+        int origin = 0;
+        if (SiteMemory.Count() == HCWorldLimits.MEMORIES) { origin = MemoryHead; }
+        for (int offset = first; offset < SiteMemory.Count(); offset++)
+        {
+            int sourceIndex = (origin + offset) % SiteMemory.Count();
+            retained.Insert(SiteMemory[sourceIndex]);
+        }
+        retained.Insert(row);
+        SiteMemory = retained;
+        MemoryHead = 0;
         return true;
     }
 
-    bool InsertLead(HCWorldLead row)
+    bool InsertLead(HCWorldLead row, bool schemaOnly = false)
     {
-        if (!LeadValid(row) || !HCWorldLimits.Admit(Leads.Count(), HCWorldLimits.LEADS, "Leads")) { return false; }
+        int capacity = HCWorldLimits.LEADS;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxLeads; }
+        if (!LeadValid(row) || !HCWorldLimits.Admit(Leads.Count(), capacity, "Leads")) { return false; }
+        int groupCapacity = HCWorldLimits.GROUP_LEADS;
+        if (!schemaOnly) { groupCapacity = HCWorldRuntimeConfig.HCGet().MaxGroupLeads; }
         int groupLeads = 0;
         foreach (HCWorldLead priorLead : Leads)
         {
             if (priorLead.Id == row.Id) { return false; }
             if (priorLead.GroupId == row.GroupId) { groupLeads++; }
         }
-        if (!HCWorldLimits.Admit(groupLeads, HCWorldLimits.GROUP_LEADS, "GroupLeads")) { return false; }
+        if (!HCWorldLimits.Admit(groupLeads, groupCapacity, "GroupLeads")) { return false; }
         Leads.Insert(row);
         return true;
     }
 
-    bool InsertScene(HCWorldScene row)
+    bool InsertScene(HCWorldScene row, bool schemaOnly = false)
     {
-        if (!SceneValid(row) || !HCWorldLimits.Admit(Scenes.Count(), HCWorldLimits.SCENES, "Scenes")) { return false; }
+        int capacity = HCWorldLimits.SCENES;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxScenes; }
+        if (!SceneValid(row) || !HCWorldLimits.Admit(Scenes.Count(), capacity, "Scenes")) { return false; }
         foreach (HCWorldScene priorScene : Scenes)
         {
             if (priorScene.Id == row.Id) { return false; }
@@ -599,9 +764,11 @@ class HCWorldData
         return true;
     }
 
-    bool InsertNote(HCWorldNote row)
+    bool InsertNote(HCWorldNote row, bool schemaOnly = false)
     {
-        if (!NoteValid(row) || !HCWorldLimits.Admit(Notes.Count(), HCWorldLimits.NOTES, "Notes")) { return false; }
+        int capacity = HCWorldLimits.NOTES;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxNotes; }
+        if (!NoteValid(row) || !HCWorldLimits.Admit(Notes.Count(), capacity, "Notes")) { return false; }
         foreach (HCWorldNote priorNote : Notes)
         {
             if (priorNote.Id == row.Id || priorNote.SceneId == row.SceneId)
@@ -629,23 +796,29 @@ class HCWorldData
         return true;
     }
 
-    bool InsertTheft(HCWorldTheftRow row)
+    bool InsertTheft(HCWorldTheftRow row, bool schemaOnly = false)
     {
-        if (!TheftValid(row) || !HCWorldLimits.Admit(TheftRows.Count(), HCWorldLimits.THEFT, "TheftRows")) { return false; }
+        int capacity = HCWorldLimits.THEFT;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxTheftRows; }
+        if (!TheftValid(row) || !HCWorldLimits.Admit(TheftRows.Count(), capacity, "TheftRows")) { return false; }
+        int campCapacity = HCWorldLimits.THEFT_PER_CAMP;
+        if (!schemaOnly) { campCapacity = HCWorldRuntimeConfig.HCGet().MaxTheftPerCamp; }
         int campRows = 0;
         foreach (HCWorldTheftRow priorTheft : TheftRows)
         {
             if (priorTheft.Id == row.Id) { return false; }
             if (priorTheft.CampId == row.CampId) { campRows++; }
         }
-        if (!HCWorldLimits.Admit(campRows, HCWorldLimits.THEFT_PER_CAMP, "CampTheftRows")) { return false; }
+        if (!HCWorldLimits.Admit(campRows, campCapacity, "CampTheftRows")) { return false; }
         TheftRows.Insert(row);
         return true;
     }
 
-    bool InsertSalvage(HCWorldSalvage row)
+    bool InsertSalvage(HCWorldSalvage row, bool schemaOnly = false)
     {
-        if (!SalvageValid(row) || !HCWorldLimits.Admit(Salvage.Count(), HCWorldLimits.SALVAGE, "Salvage")) { return false; }
+        int capacity = HCWorldLimits.SALVAGE;
+        if (!schemaOnly) { capacity = HCWorldRuntimeConfig.HCGet().MaxSalvage; }
+        if (!SalvageValid(row) || !HCWorldLimits.Admit(Salvage.Count(), capacity, "Salvage")) { return false; }
         foreach (HCWorldSalvage priorSalvage : Salvage)
         {
             if (priorSalvage.WreckId == row.WreckId) { return false; }
@@ -673,7 +846,7 @@ class HCWorldData
                 oldestAt = prior.At;
             }
         }
-        if (campCount < HCWorldLimits.THEFT_PER_CAMP) { return InsertTheft(row); }
+        if (campCount < HCWorldRuntimeConfig.HCGet().MaxTheftPerCamp) { return InsertTheft(row); }
         if (oldestIndex < 0)
         {
             Print("[HollowCountry] V2 world theft ring full; unresolved rows preserved");
@@ -715,16 +888,16 @@ class HCWorldData
         check.Meta = data.Meta;
         foreach (HCWorldPlace validPlace : data.Places) { if (!check.InsertPlace(validPlace)) { return false; } }
         foreach (HCWorldFaction validFaction : data.Factions) { if (!check.InsertFaction(validFaction)) { return false; } }
-        foreach (HCWorldFact validFact : data.Facts) { if (!check.InsertFact(validFact)) { return false; } }
+        foreach (HCWorldFact validFact : data.Facts) { if (!check.InsertFact(validFact, true)) { return false; } }
         foreach (HCWorldHoldout validHoldout : data.Holdouts) { if (!check.InsertHoldout(validHoldout)) { return false; } }
         foreach (HCWorldParty validParty : data.Parties) { if (!check.InsertParty(validParty)) { return false; } }
-        foreach (HCWorldSiteMemory validMemory : data.SiteMemory) { if (!check.InsertMemory(validMemory)) { return false; } }
-        foreach (HCWorldLead validLead : data.Leads) { if (!check.InsertLead(validLead)) { return false; } }
-        foreach (HCWorldScene validScene : data.Scenes) { if (!check.InsertScene(validScene)) { return false; } }
-        foreach (HCWorldNote validNote : data.Notes) { if (!check.InsertNote(validNote)) { return false; } }
+        foreach (HCWorldSiteMemory validMemory : data.SiteMemory) { if (!check.InsertMemory(validMemory, true)) { return false; } }
+        foreach (HCWorldLead validLead : data.Leads) { if (!check.InsertLead(validLead, true)) { return false; } }
+        foreach (HCWorldScene validScene : data.Scenes) { if (!check.InsertScene(validScene, true)) { return false; } }
+        foreach (HCWorldNote validNote : data.Notes) { if (!check.InsertNote(validNote, true)) { return false; } }
         foreach (HCWorldCamp validCamp : data.Camps) { if (!check.InsertCamp(validCamp)) { return false; } }
-        foreach (HCWorldTheftRow validTheft : data.TheftRows) { if (!check.InsertTheft(validTheft)) { return false; } }
-        foreach (HCWorldSalvage validSalvage : data.Salvage) { if (!check.InsertSalvage(validSalvage)) { return false; } }
+        foreach (HCWorldTheftRow validTheft : data.TheftRows) { if (!check.InsertTheft(validTheft, true)) { return false; } }
+        foreach (HCWorldSalvage validSalvage : data.Salvage) { if (!check.InsertSalvage(validSalvage, true)) { return false; } }
         foreach (HCWorldPressureCap validCap : data.Escalation.PressureCaps) { if (!check.InsertPressureCap(validCap)) { return false; } }
         return data.Places.Count() > 0 && data.Escalation.Day >= 0;
     }
