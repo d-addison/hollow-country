@@ -187,6 +187,22 @@ translator changes were added; the single smoke extends test_map_layers.py.
 | D12 | AI encounters from remembered events | Follow known event; compare `[HC Expansion AI] encounter bound:` to legitimate site patrol/result. No hidden live-position knowledge. | 2C: observers/participants. Unsupported rescue/escort/convoy possibilities remain planned. | `event` + O; normal optional AI provider/budget gates |
 | D13 | Existing DayZ mechanics | Check supported cold/wet-weight, weapon obstruction and directional-hit settings while surviving; record concrete symptoms. This README direction is a native-system audit. | No promise of base-building expansion, futuristic gear, new renderer or unrestricted wildlife simulation. | `status`; manual native-system audit |
 
+HC-17 / #151 round-3 source review: building claims count persisted online
+`AbsentSeconds`, replacing the round-2 boot grace. No new distances: 25 m visit
+radius and native action reach remain. Runtime acceptance pending. After
+DayZDiag and normal PBO/server boots, grep
+`[HC Plan] HC-17 expiry=online_absence window_days=`. Record absence before and
+after regular stop/restart, verify visits reset it, 40 days of downtime do not
+count, and accumulated online absence expires metadata across regular restarts.
+Keep native container/item identities through expiry. Legacy rows without the
+new field must load as 0; negative/over-policy counters must refuse. Observe
+camp-level refusal after a camp fault and a successful Fail -> OnStart without
+OnStop. With two clients check distinct server-sent contention, changed-group,
+persistence-fault and service-unavailable messages. Native lockpick/door restart
+and heavy-infected vulnerability remain pending; no offline result accepts them.
+See LOCAL_ACCEPTANCE_V1.md, HC-17 round 3, for spec/plan/task trace and actual
+RED/GREEN records. Target-load budgets remain provisional for 3–6 players.
+
 ## 5. Restart and record the session — #12, #50, #70
 
 Record inventory, house depletion/layout, markers/notes, camp tier, cache/wreck

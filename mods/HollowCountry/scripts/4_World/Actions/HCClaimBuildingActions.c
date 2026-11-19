@@ -56,17 +56,13 @@ class HCClaimBuildingAction : ActionContinuousBase
     override void OnFinishProgressServer(ActionData action_data)
     {
         if (!action_data) { Print("[HC Plan] HC-17 action=refused reason=missing_action_data runtime=PENDING"); return; }
-        if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
-        {
-            if (action_data.m_Player) { action_data.m_Player.MessageStatus("Building claim refused: you must manage your group and release only its claimed building, within door reach."); }
-            else { Print("[HC Plan] HC-17 action=refused reason=missing_actor runtime=PENDING"); }
-            return;
-        }
+        if (!action_data.m_Player) { Print("[HC Plan] HC-17 action=refused reason=missing_actor runtime=PENDING"); return; }
+        // Completion revalidates through HCRequest, so changed ACL/service state
+        // keeps its specific reason instead of being hidden by a preview gate.
+        string reason = "Claim service unavailable.";
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
-        if (!claims || !claims.HCRequest(action_data.m_Player, action_data.m_Target, HCReleaseRequest()))
-        {
-            action_data.m_Player.MessageStatus("Building claim refused: service unavailable, claim conflict, changed group access or persistence fault.");
-        }
+        if (claims) { reason = claims.HCRequest(action_data.m_Player, action_data.m_Target, HCReleaseRequest()); }
+        if (reason != "") { action_data.m_Player.MessageStatus(reason); }
     }
 }
 

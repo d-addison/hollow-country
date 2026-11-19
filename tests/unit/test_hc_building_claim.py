@@ -22,10 +22,13 @@ CLAIMS = ROOT / 'mods/HollowCountry/scripts/4_World/Camps/HCBuildingClaim.c'
 
 
 def run(source, name, state, env, *args):
+    source = re.sub(r'\bstring (HC(?:Apply|Request))\(', r'HCGroupMember \1(', source)
+    if name == 'HCClaimsValid' and len(args) == 2:
+        args = (*args, 365)  # Native optional argument; translator has no defaults.
     source = re.sub(r'\bHCBuildingClaimRecord\b', 'HCGroupClaimRecord', source)
     source = source.replace('array<Man>', 'HCGroupObserverArray')
     source = re.sub(r'\bPlayerBase (?=\w+\s*=)', 'HCGroupPlayer ', source)
-    source = re.sub(r'(?<![.\w])(HC(?:Ready|Commit|Fail|ClaimHealthy|ShouldExpire))\(', r'self.\1(', source)
+    source = re.sub(r'(?<![.\w])(HC(?:Ready|Commit|Fail|ClaimHealthy|ShouldExpire|AccumulateAbsence))\(', r'self.\1(', source)
     source = source.replace('bool self.', 'bool ').replace('void self.', 'void ')
     return execute_member(source, name, dict(env), state, *args)
 
@@ -86,7 +89,11 @@ class BuildingClaimBehavior(unittest.TestCase):
         clock = [1000]
         saves = []
         durable = [True]
-        state = NS(m_Healthy=True, m_LastUtc=1000, m_BootUtc=1000,
+        class StepMap(dict):
+            def Get(self, key): return self.get(key, 0)
+            def Set(self, key, value): self[key] = value
+            def Remove(self, key): self.pop(key, None)
+        state = NS(m_LastSteps=StepMap(), m_OnlineSeconds=0, m_Healthy=True, m_LastUtc=1000,
                    m_Config=NS(ExpiryDays=30), m_Save=NS(HCDirty=False),
                    m_Status=NS(HCPublish=lambda *args: None), m_Observers=EArray(),
                    m_Examining=None, m_Data=NS(Claims=EArray()))
@@ -94,7 +101,7 @@ class BuildingClaimBehavior(unittest.TestCase):
                'HCSaveScheduler': NS(HCUnregister=lambda job: None),
                'HCAILimits': NS(Get=lambda: NS(MaxCamps=32)),
                'HCGroupClaimRecord': lambda: NS(GroupId=0, BuildingId='', Position=None,
-                                                ClaimedUtc=0, LastVisitUtc=0)}
+                                                ClaimedUtc=0, LastVisitUtc=0, AbsentSeconds=0)}
         invoke = lambda name, *args: run(source, name, state, env, *args)
         state.HCReady = lambda now: invoke('HCReady', now)
         state.HCFail = lambda: invoke('HCFail')
@@ -103,7 +110,7 @@ class BuildingClaimBehavior(unittest.TestCase):
         state.m_Owner = NS(Commit=lambda now: saves.append(now) or durable[0])
         state.HCCommit = lambda now: invoke('HCCommit', now)
         claim = lambda group=1, key='synthetic-world:house:100:0:200:0:0:0', manage=True, release=False: invoke(
-            'HCApply', group, manage, key, (100, 0, 200), clock[0], release)
+            'HCApply', group, manage, key, (100, 0, 200), clock[0], release) == ''
         self.assertFalse(claim(manage=False))
         self.assertTrue(claim())
         self.assertEqual(1, len(state.m_Data.Claims))
@@ -117,6 +124,7 @@ class BuildingClaimBehavior(unittest.TestCase):
         self.assertFalse(invoke('HCShouldExpire', row, 1000, -1))
         self.assertTrue(invoke('HCShouldExpire', row, 1000, 0))
         self.assertFalse(invoke('HCShouldExpire', row, 1000 + 30 * 86400 - 1, 1))
+        row.AbsentSeconds = 30 * 86400
         self.assertTrue(invoke('HCShouldExpire', row, 1000 + 30 * 86400, 1))
         self.assertFalse(invoke('HCShouldExpire', row, 999, 1))
         self.assertTrue(claim(release=True))
@@ -163,10 +171,11 @@ class BuildingClaimBehavior(unittest.TestCase):
             def InsertAll(self, other): self.extend(other)
             def Find(self, item):
                 return next((index for index, value in enumerate(self) if value is item), -1)
+        row.AbsentSeconds = 0
         stale, current = NS(**vars(row)), NS(**vars(row))
         step_now = [1000]
         step_saves = []
-        step = NS(m_Healthy=True, m_LastUtc=1000, m_BootUtc=1000, m_Elapsed=0, m_Cursor=0,
+        step = NS(m_LastSteps=StepMap(), m_OnlineSeconds=0, m_Healthy=True, m_LastUtc=1000, m_Elapsed=0, m_Cursor=0,
                   m_Examining=stale, m_Observers=SnapshotArray(), m_ObserverCursor=0,
                   m_VisitObservedUtc=0, m_Config=NS(ExpiryDays=30, VisitRadiusMeters=25),
                   m_Data=NS(Claims=SnapshotArray([current])), m_Save=NS(HCDirty=False),
@@ -180,11 +189,13 @@ class BuildingClaimBehavior(unittest.TestCase):
         step_call = lambda name, *args: run(source, name, step, step_env, *args)
         step.HCReady = lambda now: step_call('HCReady', now)
         step.HCCommit = lambda now: step_call('HCCommit', now)
+        step.HCAccumulateAbsence = lambda *args: step_call('HCAccumulateAbsence', *args)
         step.HCShouldExpire = lambda *args: step_call('HCShouldExpire', *args)
         step_call('HCStep', 5)
         self.assertGreaterEqual(step.m_Cursor, 0)
         step_call('HCStep', 5)
         self.assertEqual([current], step.m_Data.Claims)
+        current.AbsentSeconds = 30 * 86400
         step_now[0] += 30 * 86400
         step_call('HCStep', 5)
         self.assertEqual([], step.m_Data.Claims)

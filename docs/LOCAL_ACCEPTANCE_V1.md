@@ -558,6 +558,9 @@ production decisions; nothing observed in DayZ yet.
 
 ## HC-17 / #151 round 2 source review and acceptance (2026-11-18)
 
+Historical round-2 record. Round 3 below supersedes its expiry policy and native
+expiry checklist; the RED/GREEN evidence here remains an earlier source receipt.
+
 Specification input: `.banso-writer/inputs/task.md` HC-17 and the active round-2
 review; shared interfaces: `RUNTIME_IMPLEMENTATION_CONTRACT.md`. The paths
 `docs/SPECIFICATION.md` and `docs/specs/001-survival-overhaul/spec.md` named in
@@ -573,7 +576,8 @@ HCUnitBudget/HCWorkBudget cursors, HCPerfPlayers snapshot, HCV2Admission,
 HCOperationalStatus and HCSaveScheduler/HCCampStore services are reused.
 No new distance is introduced (25 m visit default and native 2 m reach retained).
 
-Expiry uses **one full configured absence window of grace after each boot**
+Historical round-2 policy, **superseded by round 3 below**: expiry used
+**one full configured absence window of grace after each boot**
 (default 30 days). A live group's claim expires only when both its last observed
 visit and this boot are at least that old. Downtime alone cannot release a claim
 on first tick. Boot grace does not fabricate or persist a visit. Repeated
@@ -657,4 +661,115 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers
 # Ran 285 tests / OK
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_v1_native_noise_vision tests.unit.test_build_identity tests.unit.test_v1_combined_rpc tests.unit.test_enforce_source_parity tests.unit.test_gameplay_delta tests.unit.test_native_wiring_batch_a tests.unit.test_acceptance_optins tests.unit.test_hc_operational_status -v
 # Ran 218 tests / OK
+```
+
+
+## HC-17 / #151 round 3 review fixes (2026-11-18)
+
+Spec input: active round-3 review, following the HC-17 task brief and shared
+runtime contract. The two specification paths noted above remain absent.
+Plan/tasks: replace boot grace with persisted online absence (P1); report camp
+owner faults and clear stale claims before restart (P2); return specific claim
+refusal text through the server action (P2); use the native literal constant (P3).
+Source tasks are complete; runtime acceptance and production enablement pending.
+
+`HCBuildingClaimRecord.AbsentSeconds` is an int with native missing-field default
+0, in the existing version-1 DTO. The store refuses negatives and values over
+365 days; claim startup additionally validates against configured ExpiryDays
+(7..365). Lowering the policy below a stored counter refuses claim startup; it
+does not silently discard or rewrite the row. A service-local online clock sums
+capped tick deltas, preserves fractional seconds and starts at zero each boot.
+Per-building transient map baselines start at zero for loaded rows, or current
+online time for newly claimed rows. Only AbsentSeconds is persisted; downtime
+and UTC jumps do not advance the online clock. A hitch credits at most 5 seconds
+of tick delta. Each completed row earns elapsed online seconds since its last
+turn, capped at one bounded walk interval: 10 seconds * AILimits.MaxCamps
+(two 5-second slices for up to 32 observers under the existing 40-unit budget).
+A stalled/preempted walk may conservatively undercount; budgets remain provisional.
+Counters saturate at ExpiryDays * 86400. Any observed group-member visit resets
+absence to zero, including a visit in the same UTC second. Confirmed disband still
+releases metadata; unknown group state and clock rollback do not release it.
+Dirty absence/visit updates use HCSaveScheduler and the existing staged camp save;
+expiry/release use the existing synchronous persistence barrier. An abrupt crash
+can lose unsaved credit; a normal stop flushes via the existing save job.
+No container, inventory or native door state is added to the claim journal.
+
+Camp status is camp-level off/refused while the module is not running, with
+`camp_clock_schema_or_persistence_fault` after Fail. A running camp still reports
+its claim service status. OnStart stops any stale claim singleton before loading
+and starting a new one, including Fail -> OnStart without OnStop. HCApply and
+HCRequest now return empty text for success or one short authored refusal.
+Completion revalidates through HCRequest, independently of preview conditions,
+and sends only the actor a native MessageStatus: `Building already claimed by
+another group.`, `Group access changed.`, `Claim persistence fault.`, or
+`Claim service unavailable.` Additional short target/reach/cap refusals remain
+specific. No custom RPC or client-owned claim state was added.
+
+Exact RED command (before source edits), and GREEN command (after edits):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round3 -v
+```
+
+Initial result: `Ran 5 tests in 4.755s` / `FAILED (failures=5)`.
+Final focused GREEN: `Ran 5 tests in 4.297s` / `OK`.
+Actual stable RED excerpts and final GREEN test results:
+
+| Review item / test suffix | Actual RED excerpt | GREEN |
+| --- | --- | --- |
+| P1 / online_absence_survives_four_hour_restarts_for_31_days | `claim must expire after 30 online days across four-hour restarts` (AssertionError, nonempty Claims) | `ok` |
+| P1 / visit_reset_downtime_hitch_legacy_and_bounds | `AssertionError: 5 != 0 : online step must persist absence credit` | `ok` |
+| P2 / camp_fault_status_and_restart_clears_stale_claim_service | `is not 'claim-status' : camp failure must override claim status` (AssertionError) | `ok` |
+| P2 / refusal_reason_reaches_server_player_message | `AssertionError: 'Building already claimed by another group.' != False` | `ok` |
+| P3 / visit_default_is_native_literal_constant | `AssertionError: unexpectedly None : native visit-radius constant must be a float literal` | `ok` |
+
+The explicit synthetic fixtures execute authored handlers: 31 online days with
+four-hour process reloads, visit resets, 40-day downtime, long hitch/UTC jump,
+stalled-walk cap, per-row multi-claim credit, legacy missing-field defaults,
+bounds, camp failure/restart and live request/server message refusals. P3 checks
+the native literal initializer and its 25.0 value. Updated round-1/2 tests follow
+the reason-string contract and the new expiry policy; old grace assertions are
+superseded. Offline checks do not establish Enforce compile, native JSON default
+semantics, durable writes or client delivery.
+
+Framework reused: HCUnitBudget/HCWorkBudget cursor walk, HCPerfPlayers,
+HCAILimits, HCOperationalStatus, HCV2Admission, HCSaveScheduler and
+HCCampStore/HCV2ThreatStore staged persistence. No shared HCModule.c or config.cpp
+edit is needed. Installed native API evidence inspected:
+`1_Core/proto/EnScript.c:869,902,906` (map Get/Set/Remove) and
+`4_World/Entities/ManBase/PlayerBase.c:6911-6926` (server MessageStatus routing).
+Distances added: none. Visit default remains 25 m (1000 m / 40), action reach is
+native UAMaxDistances.DEFAULT. The const initializer is now the literal `25.0`.
+
+Native checks for the lead remain pending: exact-source DayZDiag and normal
+PBO/server boots; grep `[HC Plan] HC-17 expiry=online_absence window_days=`,
+`claims=per-group state=ready`, and camp status reason
+`camp_clock_schema_or_persistence_fault` in the fault fixture. Check legacy rows
+load with zero absence, regular stop/save/restart retains accrued absence, a
+member visit clears it, downtime alone does not expire it, and eventual online
+expiry removes only claim metadata. Exercise Fail -> OnStart without OnStop.
+Two clients must verify contention, manager/group changes during an action,
+persistence-fault/service-off text, native lockpick/raid and unchanged stash
+identities after restart/release/expiry. Existing heavy-infected and door-restart
+experiments remain unimplemented/unobserved as recorded above. Keep external
+source/PBO/config hashes and receipts; no log line alone accepts runtime behavior.
+
+Focused affected-reader validation:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round3 tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+# Ran 90 tests / OK
+python3 -B -m tools.validate.enforce_lint --no-native
+# enforce_lint: pass findings=126 new=0 stale=0 native=no
+```
+
+The installed lint CLI rejects a trailing `new=0` argument (`unrecognized
+arguments: new=0`); the supported command above reports the required zero new
+findings without changing the baseline.
+
+Acceptance-document reader checks (all focused; no full discovery):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
+# Ran 285 tests / OK
 ```

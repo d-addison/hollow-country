@@ -101,23 +101,19 @@ class ClaimReviewBehavior(unittest.TestCase):
         self.assertEqual(60, config.ExpiryDays)
         self.assertEqual(['[HC Plan] HC-17 policy VisitRadiusMeters absent; default 25'], logs)
 
-    def test_boot_grace_prevents_downtime_expiry_without_renewing_visits(self):
+    def test_persisted_online_absence_excludes_downtime(self):
         source = CLAIMS.read_text()
         boot = 1000 + 90 * 86400
-        state = NS(m_BootUtc=boot, m_Config=NS(ExpiryDays=30))
-        row = NS(LastVisitUtc=1000)
+        state = NS(m_Config=NS(ExpiryDays=30))
+        row = NS(LastVisitUtc=1000, AbsentSeconds=0)
         expire = lambda now, group=1: run(source, 'HCShouldExpire', state, {}, row, now, group)
         self.assertFalse(expire(boot))
-        self.assertFalse(expire(boot + 30 * 86400 - 1))
-        self.assertTrue(expire(boot + 30 * 86400))
-        self.assertFalse(expire(boot + 30 * 86400, -1))
-        self.assertTrue(expire(boot, 0))
-        row.LastVisitUtc = boot + 20 * 86400
         self.assertFalse(expire(boot + 30 * 86400))
-        self.assertTrue(expire(boot + 50 * 86400))
-        row.LastVisitUtc = 1000
+        row.AbsentSeconds = 30 * 86400
+        self.assertTrue(expire(boot))
+        self.assertFalse(expire(boot, -1))
+        self.assertTrue(expire(boot, 0))
         self.assertEqual(1000, row.LastVisitUtc)
-        self.assertIn('service.m_BootUtc = service.m_LastUtc;', source)
 
     def test_native_commit_refusals_are_observable_without_condition_logs(self):
         source = (WORLD / 'Crafting/HCNoConstruction.c').read_text()
@@ -169,7 +165,7 @@ class ClaimReviewBehavior(unittest.TestCase):
         selected[0] = 'held'
         self.assertTrue(run(actions, 'ActionCondition', action, env, actor, target, None))
         # Authoritative commit refusal is delivered through native MessageStatus.
-        service.HCRequest = lambda *args: False
+        service.HCRequest = lambda *args: 'Group access changed.'
         action.ActionCondition = lambda *args: True
         run(actions, 'OnFinishProgressServer', action, env, data)
         self.assertEqual(2, len(messages))
@@ -181,7 +177,7 @@ class ClaimReviewBehavior(unittest.TestCase):
         source = adapted((WORLD / 'Camps/HCCampModule.c').read_text())
         events, logs = [], []
         data = NS(Camps=EArray())
-        state = NS(m_Running=False, m_AdmissionPrinted=True, m_LastUtc=0, m_LastSaved=0,
+        state = NS(m_Status=NS(HCPublish=lambda *args: None), m_Running=False, m_AdmissionPrinted=True, m_LastUtc=0, m_LastSaved=0,
                    m_Elapsed=0, s_Instance=None, m_Players=EArray(),
                    IsEnabled=lambda settings: settings.EnableCamps)
         service = NS(HCStep=lambda delta: events.append(('step', delta)),
@@ -208,7 +204,7 @@ class ClaimReviewBehavior(unittest.TestCase):
             events.clear()
             state.m_Running = False
             run(source, 'OnStart', state, env, NS(EnableCamps=True, EnableGroups=enabled))
-            self.assertEqual(['start'] if enabled else [], events)
+            self.assertEqual([('stop', False), 'start'] if enabled else [('stop', False)], events)
             self.assertTrue(state.m_Running)
         self.assertTrue(any('claims_start_refused' in log for log in logs))
         self.assertTrue(any('mailbox=off' in log for log in logs))

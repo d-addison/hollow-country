@@ -31,6 +31,7 @@ class HCBuildingClaimRecord
     vector Position;
     int ClaimedUtc;
     int LastVisitUtc;
+    int AbsentSeconds; // Missing legacy JSON field is 0; schema remains 1.
 }
 
 class HCCampData
@@ -50,13 +51,15 @@ class HCCampStore
     static const int BYTES = 1048576;
 
     // Duplicate group/building rows are contested migration, never first-wins.
-    static bool HCClaimsValid(HCCampData data, int now)
+    static bool HCClaimsValid(HCCampData data, int now, int expiryDays = 365)
     {
+        if (expiryDays < 7 || expiryDays > 365) { return false; }
         if (!data || data.ClaimsVersion != 1 || !data.Claims || data.Claims.Count() > HCAILimits.Get().MaxCamps) { return false; }
         foreach (HCBuildingClaimRecord claim : data.Claims)
         {
             if (!claim || claim.GroupId < 1 || claim.BuildingId.Length() < 1 || claim.BuildingId.Length() > 512 || !HCGroupRules.PositionValid(claim.Position)) { return false; }
             if (claim.ClaimedUtc < 1 || claim.LastVisitUtc < claim.ClaimedUtc || claim.LastVisitUtc > now) { return false; }
+            if (claim.AbsentSeconds < 0 || claim.AbsentSeconds > expiryDays * 86400) { return false; }
             int matches = 0;
             foreach (HCBuildingClaimRecord other : data.Claims)
             {
