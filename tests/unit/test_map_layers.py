@@ -397,13 +397,15 @@ class ServerDiscoveryPrivacy(unittest.TestCase):
         p.Position = [100, 0, 100]
         return p
 
-    def test_other_players_visits_stay_private_unless_operator_enables_group_sharing(self):
+    def test_group_visits_share_by_default_and_operator_can_keep_them_private(self):
         self.joined()
         place = self.place('p')
         self.assertTrue(self.e['RecordVisit'](self.state, self.cfg, 'alice', place, [100, 0, 100]))
         catalog = NS(Places=EArray([place, self.place('q')]))
         known = lambda uid: [x.Id for x in self.e['KnownPlaces'](self.state, self.cfg, uid, catalog)]
-        self.assertFalse(self.cfg.ShareDiscovery)
+        self.assertTrue(self.cfg.ShareDiscovery)
+        self.assertEqual(['p'], known('bob'))
+        self.cfg.ShareDiscovery = False
         self.assertEqual(['p'], known('alice'))
         self.assertEqual([], known('bob'))
         self.assertEqual([], known('stranger'))

@@ -213,7 +213,7 @@ class Wiring(unittest.TestCase):
     def test_ship_defaults(self):
         text = strip(source(STORE))
         self.assertRegex(text, r"bool EnableLOD = true;")
-        self.assertRegex(text, r"bool EnableVirtualHerds = false;", "new bodies change visible counts: default off")
+        self.assertRegex(text, r"bool EnableVirtualHerds = true;", "owner default-on; verdict remains unverified")
         self.assertRegex(text, r"int PosedBudget = 12;")
         self.assertRegex(text, r"int PosedFullBudget = 12;")
         self.assertRegex(text, r"int PosedIdleBudget = 12;")

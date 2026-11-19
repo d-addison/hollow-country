@@ -26,8 +26,9 @@ class HCInfectedLODConfig
     // Classification and the tiered posed budget: a strict refinement of the
     // shipped behaviour at these defaults (same posed cap, same wake outcome).
     bool EnableLOD = true;
-    // New bodies change visible infected counts near herds: off by default.
-    bool EnableVirtualHerds = false;
+    // Owner default-on preference; explicit false remains the operator opt-out.
+    // HCV2Admission logs W7-135 unverified; configured seeds are still required.
+    bool EnableVirtualHerds = true;
     // Provisional design bands, not measured hearing cutoffs. The repo's
     // LOCAL_ACCEPTANCE_V1.md:413 documents the 1000 m visibility/network
     // baseline; OUTSTANDING.md:78 calls for the same gunshot/network scale.
@@ -125,7 +126,7 @@ class HCInfectedLODConfig
     // Native LoadData zero-fills a missing key to 0/"" instead of keeping the
     // initializer. HerdWorld "" would silently disable every herd seed and a 0
     // hold is out of range, so a lod.json written before these keys existed would
-    // disable the whole module. Restore the declared default of just these two keys
+    // disable the whole module. Restore the declared defaults of missing added keys
     // (taken from a fresh instance) in memory only; the operator's file is never
     // rewritten. ONE line per boot lists every restored key (#194); every other
     // missing or invalid key still fails IsValid exactly as before.
@@ -150,6 +151,17 @@ class HCInfectedLODConfig
             }
             keys = keys + "VarietyNonCalmHoldSeconds";
             restored = restored + "VarietyNonCalmHoldSeconds=" + declared.VarietyNonCalmHoldSeconds.ToString();
+        }
+        if (!HCJsonFields.Has(content, "EnableVirtualHerds"))
+        {
+            config.EnableVirtualHerds = declared.EnableVirtualHerds;
+            if (keys != "")
+            {
+                keys = keys + ",";
+                restored = restored + " ";
+            }
+            keys = keys + "EnableVirtualHerds";
+            restored = restored + "EnableVirtualHerds=true";
         }
         if (keys == "") { return; }
         Print("[HC InfectedLOD] lod.json missing keys " + keys + "; declared defaults restored " + restored + " runtime=PENDING");

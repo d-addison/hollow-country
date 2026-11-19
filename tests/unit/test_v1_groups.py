@@ -42,7 +42,7 @@ class V1GroupsBehavior(unittest.TestCase):
         self.assertEqual([], g.Officers)
         self.assertEqual(0, self.e['Role'](g,'alice'))
 
-    def test_visit_requires_actual_proximity_and_is_bounded_persistent_private(self):
+    def test_visit_requires_actual_proximity_and_is_bounded_persistent_with_privacy_opt_out(self):
         self.joined()
         p = self.e['HCGroupPlace'](); p.Id='synthetic-well'; p.Name='Synthetic well'; p.Position=[100,0,200]; p.Radius=25
         visit = self.e['RecordVisit']
@@ -51,6 +51,8 @@ class V1GroupsBehavior(unittest.TestCase):
         self.assertFalse(visit(self.state,self.cfg,'alice',p,[100,0,200]))
         self.assertEqual(1,len(self.state.Explorers))
         known = lambda state,cfg,uid:self.e['KnownPlaces'](state,cfg,uid,NS(Places=EArray([p])))
+        self.assertEqual(['synthetic-well'],[p.Id for p in known(self.state,self.cfg,'bob')])
+        self.cfg.ShareDiscovery=False
         self.assertEqual([],known(self.state,self.cfg,'bob'))
         self.cfg.ShareDiscovery=True
         self.assertEqual(['synthetic-well'],[p.Id for p in known(self.state,self.cfg,'bob')])

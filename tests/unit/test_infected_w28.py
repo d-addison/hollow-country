@@ -151,7 +151,7 @@ class MissingKeyDefaults(unittest.TestCase):
     def test_missing_herd_world_restores_the_declared_default_and_names_the_key(self):
         restore, printed = self.restore()
         cfg = self.zero_filled()
-        restore(cfg, '{"SchemaVersion":1,"VarietyNonCalmHoldSeconds":600}')
+        restore(cfg, '{"EnableVirtualHerds":true,"SchemaVersion":1,"VarietyNonCalmHoldSeconds":600}')
         self.assertEqual('chernarusplus', cfg.HerdWorld)
         self.assertEqual(1, len(printed), printed)
         self.assertIn('HerdWorld', printed[0])
@@ -161,7 +161,7 @@ class MissingKeyDefaults(unittest.TestCase):
         # #194 (wave 13): one line per boot, not one per key; the operator's file is not rewritten.
         restore, printed = self.restore()
         cfg = self.zero_filled()
-        restore(cfg, '{"SchemaVersion":1}')
+        restore(cfg, '{"EnableVirtualHerds":true,"SchemaVersion":1}')
         self.assertEqual(('chernarusplus', 600), (cfg.HerdWorld, cfg.VarietyNonCalmHoldSeconds))
         self.assertEqual(1, len(printed), printed)
         self.assertIn('lod.json missing keys HerdWorld,VarietyNonCalmHoldSeconds; declared defaults restored', printed[0])
@@ -170,7 +170,7 @@ class MissingKeyDefaults(unittest.TestCase):
         self.assertTrue(printed[0].endswith('runtime=PENDING'))
         # A complete file stays silent.
         restore, printed = self.restore()
-        restore(self.zero_filled(), '{"SchemaVersion":1,"HerdWorld":"x","VarietyNonCalmHoldSeconds":9}')
+        restore(self.zero_filled(), '{"EnableVirtualHerds":true,"SchemaVersion":1,"HerdWorld":"x","VarietyNonCalmHoldSeconds":9}')
         self.assertEqual([], printed)
         load = STORE.read_text().split('static HCInfectedLODConfig Load(out string reason)', 1)[1].split('\n    }\n', 1)[0]
         existing = load.split('if (FileExist(path))', 1)[1].split('else if', 1)[0]
@@ -180,7 +180,7 @@ class MissingKeyDefaults(unittest.TestCase):
         restore, printed = self.restore()
         cfg = self.zero_filled()
         cfg.VarietyNonCalmHoldSeconds = 120
-        restore(cfg, '{"SchemaVersion":1,"HerdWorld":"","VarietyNonCalmHoldSeconds":120}')
+        restore(cfg, '{"EnableVirtualHerds":true,"SchemaVersion":1,"HerdWorld":"","VarietyNonCalmHoldSeconds":120}')
         self.assertEqual('', cfg.HerdWorld, 'explicit empty is an operator choice')
         self.assertEqual(120, cfg.VarietyNonCalmHoldSeconds)
         self.assertEqual([], printed)
@@ -189,7 +189,7 @@ class MissingKeyDefaults(unittest.TestCase):
         restore, printed = self.restore()
         cfg = self.zero_filled()
         cfg.HerdWorld = 'chernarusplus'
-        restore(cfg, '{"SchemaVersion":1,"HerdWorld":"chernarusplus"}')
+        restore(cfg, '{"EnableVirtualHerds":true,"SchemaVersion":1,"HerdWorld":"chernarusplus"}')
         self.assertEqual(600, cfg.VarietyNonCalmHoldSeconds)
         self.assertEqual(1, len(printed), printed)
         self.assertIn('VarietyNonCalmHoldSeconds', printed[0])

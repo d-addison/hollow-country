@@ -30,7 +30,14 @@ class HCGroupStore
         HCGroupSettings settings = new HCGroupSettings;
         if (FileExist(path))
         {
-            if (!HCGroupJson<HCGroupSettings>.Load(path, 8192, settings)) return null;
+            // Same bounded/recovery-gated read as HCGroupJson.Load, retaining
+            // raw keys for native zero-fill default restoration. Native snapshot
+            // 1.30.164289: 3_Game/tools/JsonFileLoader.c:69 LoadData.
+            string content;
+            string error;
+            if (!HCGroupIO.Read(path, 8192, content)) return null;
+            if (!JsonFileLoader<HCGroupSettings>.LoadData(content, settings, error)) return null;
+            HCGroupSettingDefaults.HCRestoreMissingDefaults(settings, content);
         }
         else if (!HCGroupJson<HCGroupSettings>.WriteNew(path, settings, 8192)) return null;
         if (!HCGroupRules.SettingsValid(settings)) return null;

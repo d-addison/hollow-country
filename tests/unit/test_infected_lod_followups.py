@@ -243,7 +243,7 @@ class DistanceBands(unittest.TestCase):
         self.assertEqual(900, cfg.MaterializeRange)
         self.assertEqual(1000, cfg.FoldRange)
         self.assertEqual(1500, cfg.VisibilityRange)
-        self.assertFalse(cfg.EnableVirtualHerds)
+        self.assertTrue(cfg.EnableVirtualHerds)
         p = policy()
         self.assertEqual(p.TIER_FULL, p.Tier(300, cfg.FullRange, cfg.IdleRange))
         self.assertEqual(p.TIER_IDLE, p.Tier(1000, cfg.FullRange, cfg.IdleRange))
