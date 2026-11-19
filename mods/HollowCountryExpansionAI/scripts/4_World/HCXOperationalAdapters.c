@@ -6,13 +6,18 @@
 modded class HCXAIAdapter
 {
     protected ref HCOperationalOwner m_CaravanOperationalOwner;
+    // #185.3: registration is tried at boot only. A full owner registry is not
+    // retried every tick; a registered owner is still observed every tick so
+    // HC-1 freshness (MAX_SOURCE_AGE_SECONDS) holds.
+    protected bool m_CaravanRegistrationTried;
 
     override void HCPublishCaravanStatus(bool boot)
     {
         if (!m_Caravan) { return; }
         HCOperationalStatus caravanStatus = m_Caravan.HCGetOperationalStatus();
-        if (boot || !m_CaravanOperationalOwner)
+        if (boot || (!m_CaravanOperationalOwner && !m_CaravanRegistrationTried))
         {
+            m_CaravanRegistrationTried = true;
             m_CaravanOperationalOwner = HCOperationalContributors.HCRegisterOwner("hc36-caravan");
         }
         if (m_CaravanOperationalOwner)
