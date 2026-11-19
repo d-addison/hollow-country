@@ -21,7 +21,11 @@ class HCCampProbes
 
     static void HCStart()
     {
-        if (HCEnabled()) { HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); }
+        if (HCEnabled())
+        {
+            HCBaseRaid.HCEnabled();
+            if (!HCBaseRaid.HCGet()) { HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); }
+        }
     }
 
     static void HCRefuse(string reason)
@@ -49,12 +53,6 @@ class HCCampProbes
             if (!module.Commit(now)) { return; }
         }
         if (!Eligible(camp.Tier, HCEscalationClock.Day(), now, camp.LastProbe, scan.Hidden(burning))) { return; }
-        // Eligibility is not perception, a warning, a funded party lease or
-        // actual departure. Never debit cooldown for a dispatch that did not
-        // occur, broadcast a phantom warning, or raid by camp coordinates.
-        // HC-39's existing actor port cannot dispatch player-base targets; its
-        // validation requires a funded AI holdout lease. Keep this real gap
-        // explicit, separately from the admitted native-verdict gate.
-        HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE");
+        HCBaseRaid.HCWarn(module, camp, scan, now);
     }
 }

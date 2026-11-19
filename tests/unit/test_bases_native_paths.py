@@ -110,6 +110,11 @@ class BasesNativePaths(unittest.TestCase):
         env = dict(Eligible=lambda *args: True, HCEscalationClock=NS(Day=lambda: 14),
                    Print=logs.append, FileExist=lambda path: False, HCEnabled=lambda: True,
                    HCRefuse=lambda reason: logs.append(reason + ' runtime=PENDING'))
+        # Execute the new real dispatch bridge with an explicit unbound provider.
+        bridge = (WORLD / 'Camps/HCBaseRaid.c').read_text().replace('HCBaseRaidPort port', 'HCGroupPort port')
+        bridge_env = dict(HCBaseRaid=NS(HCEnabled=lambda: True, HCGet=lambda: None,
+                          HCRefuse=lambda reason: logs.append(reason + ' runtime=PENDING')))
+        env['HCBaseRaid'] = NS(HCWarn=lambda *args: run(bridge, 'HCWarn', NS(), bridge_env, *args))
         scan = NS(Hidden=lambda burning: False)
         run(source, 'Step', NS(), env, module, camp, scan, False, 2000000)
         self.assertEqual(0, camp.LastProbe, 'unavailable dispatch must not spend cooldown')
