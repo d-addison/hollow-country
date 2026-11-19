@@ -19,6 +19,9 @@ class HCCampRecord : HCWorldCamp
     int ProbePhase; // 0 idle, 1 warned, 2 signs issued; maximum 20 minutes
     int LastSignal;
     string Signal;
+    // Legacy JSON zero-fills to empty: the first observed refusal is pending.
+    // This is a diagnostic state, never evidence that a visitor body exists.
+    string VisitorRefusal;
     ref array<string> Answered = new array<string>(); // paper refs only, no text
 }
 
@@ -83,6 +86,7 @@ class HCCampStore
             if (!camp || !HCWorldLimits.Token(camp.Id) || !HCWorldLimits.Token(camp.GroupId) || !HCWorldLimits.Token(camp.FireRef) || !HCWorldLimits.Token(camp.FireClass) || camp.Tier < 0 || camp.Tier > 3) { return false; }
             if (!HCGroupRules.PositionValid(camp.Position) || groups.Find(camp.GroupId) >= 0 || ids.Find(camp.Id) >= 0) { return false; }
             if (!HCWorldLimits.Strings(camp.Members, HCAILimits.Get().MaxCampItems) || !HCWorldLimits.Strings(camp.Answered, 32) || camp.Flag.Length() > 96 || camp.Signal.Length() > 32) { return false; }
+            if (camp.VisitorRefusal != "" && camp.VisitorRefusal != "VISITOR_BODY_NOT_OBSERVED") { return false; }
             if (camp.Neighbours < 0 || camp.Neighbours > HCAILimits.SIZE_CEILING || (camp.NeighboursLost && camp.Neighbours != 0)) { return false; }
             if (camp.ProbePhase < 0 || camp.ProbePhase > 2 || camp.ProbeUntil < 0 || camp.ProbeUntil > now + 1200) { return false; }
             if (camp.LastLit < 1 || camp.LastLit > now || camp.LastScan < 0 || camp.LastScan > now || camp.LastVisit < 0 || camp.LastVisit > now || camp.LastProbe < 0 || camp.LastProbe > now || camp.LastTheft < 0 || camp.LastTheft > now || camp.LastMailbox < 0 || camp.LastMailbox > now || camp.LastSignal < 0 || camp.LastSignal > now) { return false; }

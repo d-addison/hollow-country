@@ -13,9 +13,14 @@
 // 4_World/DayZExpansion_AI/Classes/eAIGroup.c:1123 IsInCombat, :1139
 // GetMember, :1185 Count; Entities/DayZPlayerImplement.c:234 GetGroup,
 // :431 EEKilled defers member cleanup; Entities/AI/eAIBase.c:4755
-// OverrideTargetPosition, :10860 Expansion_SetEmote (FSM request, not success),
+// OverrideTargetPosition (no matching clear operation), :10860
+// Expansion_SetEmote (FSM request, not success),
 // :10867-10920 playback/autocancel. The existing qualified navmesh points are
-// the ONLY destinations. Native eating/fire/repair custody is UNPROVEN.
+// the ONLY admitted route candidates, but camp movement requests remain refused:
+// eAIBase.c:4999-5005 writes the path target without a clear operation;
+// :656-660 eAI_ResetPathfinding only resets unreachable bookkeeping/ladder loops.
+// No zero-vector/current-position substitute or provider field write is used.
+// Native eating/fire/repair custody is UNPROVEN.
 modded class HCXAISiteState
 {
     int HCCampMemberCursor;
@@ -47,7 +52,8 @@ class HCXAICampRoutine
         m_Enabled = false;
         m_Closed = true;
         m_Cursor = 0;
-        // No persistent action, group setting or target override is owned here.
+        // No camp target override is issued: the installed provider exposes no
+        // matching clear call for release/close/combat/threat takeover.
         // Rest requests use the provider's bounded auto-cancel timer.
     }
 
@@ -75,13 +81,23 @@ class HCXAICampRoutine
         HCXAISiteState state = states[m_Cursor];
         m_Cursor++;
         if (!state || !state.Transient || state.Completed || !state.Qualified || !state.Patrol) { return; }
+        eAIGroup group = state.Patrol.m_Group;
+        if (!group || group.Count() < 1 || group.IsInCombat()) { return; }
+        // Cooldown and relief have no content to read. In particular, do not
+        // clone HCRoutineView's JSON ledger on these otherwise idle dispatches.
+        int now = HCWorldClock.UTC();
+        if (now < state.HCCampNextRoleAt) { return; }
+        if (state.HCCampNextRoleAt > 0)
+        {
+            state.HCCampMemberCursor = 0;
+            state.HCCampNextRoleAt = 0;
+            return;
+        }
         HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
         if (!identity || identity.HCCampId().IndexOf("camp:") != 0) { return; }
         HCAICampRoutineView view = camps.HCRoutineView(identity);
         if (!view) { HCRefuse(state, "FUNDED_HOME_UNAVAILABLE"); return; }
         if (view.Home.State == "ALERT") { return; }
-        eAIGroup group = state.Patrol.m_Group;
-        if (!group || group.Count() < 1 || group.IsInCombat()) { return; }
         if (group.Count() > view.Population) { HCRefuse(state, "POPULATION_EXCEEDS_FUNDED_HOME"); return; }
         HCAICampPolicy policy = camps.HCRoutinePolicy();
         int memberIndex = state.HCCampMemberCursor % group.Count();
@@ -99,17 +115,10 @@ class HCXAICampRoutine
             HCRefuse(state, "HOME_BODY_BIND_REFUSED");
             return;
         }
-        int now = HCWorldClock.UTC();
-        if (now < state.HCCampNextRoleAt) { return; }
-        if (state.HCCampNextRoleAt > 0)
-        {
-            state.HCCampMemberCursor = 0;
-            state.HCCampNextRoleAt = 0;
-            return;
-        }
-        // Shared epoch gives exactly one sentry slot; other slots rotate rest
-        // and work-route walking. No harvest, repairs or nutrition are implied.
+        // Two or more members retain one sentry slot in the role schedule.
+        // A solo member keeps rest; movement slots are explicitly refused.
         int role = (memberIndex + state.HCCampRoleEpoch) % group.Count();
+        if (group.Count() == 1) { role = 1; }
         string roleName = "sentry";
         if (role == 1)
         {
@@ -125,18 +134,9 @@ class HCXAICampRoutine
         }
         else
         {
-            if (!state.PatrolPoints || state.PatrolPoints.Count() < 1) { HCRefuse(state, "QUALIFIED_WORK_ROUTE_MISSING"); return; }
-            int pointIndex = 0;
-            if (role > 1) { pointIndex = state.HCCampRoleEpoch % state.PatrolPoints.Count(); roleName = "work_walk_requested"; }
-            vector destination = state.PatrolPoints[pointIndex];
-            if (vector.DistanceSq(destination, view.Home.HousePos) > rangeSq)
-            {
-                HCRefuse(state, "HOUSE_ROUTE_CONNECTION_UNPROVEN");
-                return;
-            }
-            // Provider pathfinding owns locomotion, collision and combat. No
-            // SetPosition, formation change or unobserved action outcome.
-            actor.OverrideTargetPosition(destination, true, policy.ArrivalToleranceMeters, false);
+            // A path request without a verified release cannot be safely owned
+            // across role relief, camp close, combat or an ALERT transition.
+            HCRefuse(state, "ROUTINE_TARGET_CLEAR_UNAVAILABLE");
         }
         // One role request per visit; all members get a slot before relief.
         if (memberIndex == group.Count() - 1)
@@ -144,6 +144,7 @@ class HCXAICampRoutine
             state.HCCampNextRoleAt = now + policy.RoleSeconds;
             state.HCCampRoleEpoch = (state.HCCampRoleEpoch + 1) % group.Count();
         }
+        if (role != 1) { return; }
         state.HCCampRefusal = "";
         string line = "[HC Plan] HC-16 camp=" + view.Home.Id + " level=" + view.Level.ToString();
         line += " supply=" + view.Supply.ToString() + " roles=1 state=ready role=" + roleName;
