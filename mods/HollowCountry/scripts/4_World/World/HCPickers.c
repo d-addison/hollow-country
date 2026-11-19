@@ -815,7 +815,7 @@ class HCPickers : HCModule
     protected bool m_ProviderLogged;
     // #144: the module owns remembered danger and the house port across port rebinds.
     protected ref HCPickDanger m_Danger = new HCPickDanger;
-    protected ref HCPickHousePort m_Houses = new HCPickHousePort;
+    protected ref HCPickHousePort m_Houses = new HCPickSearchHousePort;
     protected bool m_RunsOn;
 
     static HCPickers Get() { return s_Instance; }
