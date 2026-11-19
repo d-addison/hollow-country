@@ -556,5 +556,238 @@
    "group": "attachment-only-items",
    "reason": "Bipods, suppressors, stocks, handguards, compensators and magazines for non-selected guns are not spawned."
   }
- ]
+ ],
+ "hc61": {
+  "schema": 1,
+  "members": [
+   {
+    "class": "TF_AK74M",
+    "family": "tf-ak74m",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_M1A_Black",
+    "family": "tf-m14",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_M14_STD",
+    "family": "tf-m14",
+    "unit_rounds": 1,
+    "parts": [
+     {
+      "class": "TF_M14_Adapter",
+      "route": "native-carrier"
+     }
+    ]
+   },
+   {
+    "class": "TF_VPO190",
+    "family": "tf-vpo190",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_MP443",
+    "family": "tf-mp443",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_M24",
+    "family": "tf-m24",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_ElcanSpecterDROptic_Black",
+    "family": "tf-elcan-1x4",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_ElcanSpecterDROptic_FDE",
+    "family": "tf-elcan-1x4",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_ElcanSpecterDR_6xOptic_Black",
+    "family": "tf-elcan-6x",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_ElcanSpecterDR_6xOptic_FDE",
+    "family": "tf-elcan-6x",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_Mag_M14_10Rnd",
+    "family": "tf-m14-magazines",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_Mag_M14_20Rnd",
+    "family": "tf-m14-magazines",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_Mag_VPO190_4Rnd",
+    "family": "tf-mag-vpo190-4rnd",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_Mag_MP443_18Rnd",
+    "family": "tf-mag-mp443-18rnd",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_Mag_AK74_Bakelit30Rnd",
+    "family": "tf-mag-ak74-bakelit30rnd",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "TF_M14_Adapter",
+    "family": "tf-m14-adapter",
+    "unit_rounds": 1,
+    "parts": []
+   }
+  ],
+  "family_budgets": [
+   {
+    "family": "tf-ak74m",
+    "kind": "weapon",
+    "nominal": 4,
+    "min": 2
+   },
+   {
+    "family": "tf-m14",
+    "kind": "weapon",
+    "nominal": 8,
+    "min": 3
+   },
+   {
+    "family": "tf-vpo190",
+    "kind": "weapon",
+    "nominal": 8,
+    "min": 4
+   },
+   {
+    "family": "tf-mp443",
+    "kind": "weapon",
+    "nominal": 8,
+    "min": 4
+   },
+   {
+    "family": "tf-m24",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "tf-elcan-1x4",
+    "kind": "magazine",
+    "nominal": 5,
+    "min": 2
+   },
+   {
+    "family": "tf-elcan-6x",
+    "kind": "magazine",
+    "nominal": 3,
+    "min": 1
+   },
+   {
+    "family": "tf-m14-magazines",
+    "kind": "magazine",
+    "nominal": 18,
+    "min": 9
+   },
+   {
+    "family": "tf-mag-vpo190-4rnd",
+    "kind": "magazine",
+    "nominal": 10,
+    "min": 5
+   },
+   {
+    "family": "tf-mag-mp443-18rnd",
+    "kind": "magazine",
+    "nominal": 8,
+    "min": 4
+   },
+   {
+    "family": "tf-mag-ak74-bakelit30rnd",
+    "kind": "magazine",
+    "nominal": 8,
+    "min": 4
+   },
+   {
+    "family": "tf-m14-adapter",
+    "kind": "magazine",
+    "nominal": 0,
+    "min": 0
+   }
+  ],
+  "dependency_pins": [
+   {
+    "name": "armor_a.pbo",
+    "size": 308335050,
+    "sha256": "c4ba26b56dcf87c33b6b45efbfeeddcc0632ef78a2d5d6634144dbb377f1eaae"
+   },
+   {
+    "name": "clothing_a.pbo",
+    "size": 154018265,
+    "sha256": "56aa75bb1a39a7eea7009284e517beaf9fff685e7519957705f8d433894dfded"
+   },
+   {
+    "name": "grenades_a.pbo",
+    "size": 12912000,
+    "sha256": "0773bdadfa73eacd395451082f70ab212533a8b0f6950b640d41b6c18b3a4a29"
+   },
+   {
+    "name": "optic_a.pbo",
+    "size": 60143070,
+    "sha256": "0c7d626050c28d716e0471bb90a47eb065aef90643b9f538ac4d3f8db9d3bb8c"
+   },
+   {
+    "name": "script_a.pbo",
+    "size": 62346542,
+    "sha256": "b5a84170380e75c6a8a07fa45296ca4946daab52af14e698e4d6e2882f1ae9d1"
+   },
+   {
+    "name": "weapon_a.pbo",
+    "size": 588598837,
+    "sha256": "fc1caa0d652cf2a803cbbe60aac37f367607f8b6e567a3b52d04f70e14bfe967"
+   },
+   {
+    "name": "weapon_b.pbo",
+    "size": 243714741,
+    "sha256": "4f6f4ff56c5305820b46c7f55ec1ebebdad50ecae8df57ed9485797011b4a133"
+   },
+   {
+    "name": "weapon_c.pbo",
+    "size": 26258057,
+    "sha256": "c74dece98f812560b1a191307c26d4b41b0b3b37662e37348a1a924618f32ecf"
+   }
+  ],
+  "aggregate_weapon_budget": {
+   "nominal": 62,
+   "min": 31
+  },
+  "refusals": [
+   "HC61_RIGHTS_PENDING",
+   "HC61_SUBSET_RUNTIME_PENDING",
+   "HC61_PART_REPAIR_NATIVE_PENDING",
+   "HC61_CE_CARRIER_COUNTS_UNOBSERVED",
+   "HC61_FULL_PACK_NOT_ADMITTED"
+  ]
+ }
 }

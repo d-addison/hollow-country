@@ -4,7 +4,7 @@ The base Hollow Country addon never depends on this module or on Tactical Flava 
 copied, bundled, repacked or re-hosted: the item ships no licence file, its Workshop page forbids
 monetisation and repacks, and says nothing about dependency use, so a rights review stays pending. The
 verifier only reads an operator's own installed copy (meta.cpp, bounded PBO headers, rapified ``config.bin``
-and plain-text ``config.cpp`` members, and a vendor readme hash) next to the vanilla DayZ addons, and writes
+and plain-text ``config.cpp`` members, and a vendor readme hash plus pinned PBO hashes) next to the vanilla DayZ addons, and writes
 its report outside Git.
 
 Generation is fail-closed: with no report, an unverified report, a report for a different allowlist, or any
@@ -96,7 +96,7 @@ def _safe_relative(text):
 
 
 def validate_allowlist(allowlist):
-    if not isinstance(allowlist, dict) or set(allowlist) != TOP \
+    if not isinstance(allowlist, dict) or not TOP <= set(allowlist) <= TOP | {'hc61'} \
             or type(allowlist['schema']) is not int or allowlist['schema'] != 1:
         raise ValueError('unsupported allowlist schema/fields')
     if not isinstance(allowlist['name'], str) or not re.fullmatch(r'[a-z0-9-]{1,64}', allowlist['name']):
@@ -154,6 +154,7 @@ def validate_allowlist(allowlist):
         if kind in {'optic', 'attachment'} and not e['fits']:
             raise ValueError(f'fits required: {name}')
     _validate_usage_rules(rows)
+    snafu_optional._family_policy(allowlist)
     excluded = allowlist['excluded']
     if not isinstance(excluded, list) or len(excluded) > MAX_ENTRIES:
         raise ValueError('invalid excluded list')
@@ -263,7 +264,8 @@ def _load_addons(root, problems, max_pbos):
         except Exception as e:  # corrupt/oversized input is reported, never trusted
             problems.append(f'{p.name}: {type(e).__name__}: {str(e)[:120]}')
             continue
-        listed.append({'name': p.name, 'size': index['size'], 'prefix': index['prefix']})
+        listed.append({'name': p.name, 'size': index['size'], 'prefix': index['prefix'],
+                       'sha256': snafu_optional._pbo_sha256(p)})
         models |= pbo_config.model_paths(index)
         for member, configs in members:
             for r in ROOTS:
@@ -421,6 +423,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
         problems.append('terms-file-missing')
     elif not terms['matches_reviewed']:
         problems.append('terms-changed-since-review')
+    snafu_optional._check_pins(allowlist, listed, problems)
     if vanilla is None:
         problems.append('vanilla-not-provided')
         vanilla_report = {'checked': False, 'problems': [], 'magazines': 0, 'ammo': 0}
@@ -439,10 +442,16 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
     return {'schema': 1, 'kind': 'tactical-flava-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
             'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
-            'terms': terms, 'vanilla': vanilla_report, 'classes': dict(sorted(classes.items())),
+            'allowlist': allowlist, 'terms': terms, 'vanilla': vanilla_report, 'classes': dict(sorted(classes.items())),
             'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers, config.bin/config.cpp members, vendor readme hash, '
                      'vanilla loose-ammo and bullet classes',
+            'subset': {'authored_weapons': sum(e['kind'] == 'weapon' for e in allowlist['entries']),
+                       'static_verified_weapons': sum(e['kind'] == 'weapon' and classes[e['class']]['status'] == 'verified'
+                                                      for e in allowlist['entries']),
+                       'installed_public_weapons': sum((pbo_config.resolve_scope(merged['CfgWeapons'], name) or 0) >= 2
+                                                       for name in merged['CfgWeapons']),
+                       'runtime_accepted_weapons': 0, 'full_pack_admitted': False},
             'runtime_acceptance': 'pending'}
 
 
@@ -510,6 +519,7 @@ def _spawnable_types(entries):
 def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
+    snafu_optional._check_hc61_report(allowlist, report)
     entries, totals, scale_policy = snafu_optional._scaled_entries(allowlist['entries'], nominal_scale, tier_scales)
     data = economy.snapshot(source)
     core = _checked_core(data['cfgeconomycore.xml'])
@@ -535,6 +545,7 @@ def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
         rows.append(row)
     firearms.check_effective_support(source, stock, entries, out, (economy.MANAGED, SNAFU_MANAGED),
                                      ammo_fields=('vanilla_ammo',), verification=report['classes'])
+    family_status = snafu_optional._check_family_delta(allowlist, entries, out, source, MANAGED)
     fragment = ET.Element('economycore')
     ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
     ET.SubElement(ce, 'file', {'name': 'types.xml', 'type': 'types'})
@@ -544,7 +555,8 @@ def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
             'workshop_id': WORKSHOP_ID, 'engine_merge_semantics': 'unobserved', 'loot_fix_claim': False,
             'dependency': 'optional; server and every client must load Tactical Flava; never bundled or repacked',
             'allowlist_sha256': allowlist_sha256(allowlist), 'entries': rows, 'totals': totals,
-            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING, **scale_policy}
+            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING, **scale_policy,
+            'allowlist': allowlist, 'hc61': family_status}
     files = {SPAWNABLE: xml_text.document(_spawnable_types(entries)) + b'\n',
              'ce/types.xml': xml_text.document(out) + b'\n',
              'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
@@ -664,6 +676,8 @@ def install(stage, target):
     expected = _spawnable_types(entries)
     if economy._full(economy.xml(files[SPAWNABLE], 'spawnabletypes')) != economy._full(expected):
         raise ValueError('spawnable delta differs from verified attachment policy')
+    snafu_optional._check_install_policy(meta, verification, types, target, MANAGED,
+                                         validate_allowlist, _check_report)
     managed.mkdir()
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
@@ -771,7 +785,8 @@ def main(argv=None):
                 print(f'  vanilla note: {problem}')
             return
         if args.command == 'generate':
-            files = generate(args.source, json.loads(args.allowlist.read_bytes()),
+            selected = json.loads(args.allowlist.read_bytes())
+            files = generate(args.source, selected,
                              json.loads(args.report.read_bytes()), nominal_scale=args.nominal_scale,
                              tier_scales=snafu_optional._cli_tier_scales(args.tier_scale))
             write_delta(args.out, files)

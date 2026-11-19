@@ -713,5 +713,379 @@
  "optics": {
   "status": "deferred-pending-owner-decision",
   "entries": []
+ },
+ "hc61": {
+  "schema": 1,
+  "members": [
+   {
+    "class": "SNAFUMarlin1895",
+    "family": "snafumarlin1895",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUSWM629",
+    "family": "snafuswm629",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SN_M870",
+    "family": "sn-m870",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SN_USP",
+    "family": "sn-usp",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_M48",
+    "family": "snafu-m48",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_Trenchgun",
+    "family": "snafu-trenchgun",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "GCGN_M1Garand",
+    "family": "gcgn-m1garand",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUThompsonMk2",
+    "family": "snafuthompsonmk2",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUPPSh",
+    "family": "snafuppsh",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUSten",
+    "family": "snafusten",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_AK103A",
+    "family": "snafu-ak103a",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "HK416_Gun",
+    "family": "hk416-gun",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SCAR_Gun",
+    "family": "scar-gun",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_MPX_GUN",
+    "family": "snafu-mpx-gun",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNHK417_Gun",
+    "family": "snhk417-gun",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUThompsonMk2_30rdMag",
+    "family": "snafuthompsonmk2-30rdmag",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUPPSh_71rdMag",
+    "family": "snafuppsh-71rdmag",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFUSten_32rdMag",
+    "family": "snafusten-32rdmag",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_MPX_30rnd_Mag",
+    "family": "snafu-mpx-30rnd-mag",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNHK417_Mag",
+    "family": "snhk417-mag",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_Ammo_762x25",
+    "family": "snafu-ammo-762x25",
+    "unit_rounds": 40,
+    "parts": []
+   },
+   {
+    "class": "SN_USP_Mag",
+    "family": "sn-usp-mag",
+    "unit_rounds": 1,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_Ammo_45_70mm",
+    "family": "snafu-ammo-45-70mm",
+    "unit_rounds": 40,
+    "parts": []
+   },
+   {
+    "class": "SNAFU_Ammo_44",
+    "family": "snafu-ammo-44",
+    "unit_rounds": 40,
+    "parts": []
+   },
+   {
+    "class": "GCGN_Ammo_3006",
+    "family": "gcgn-ammo-3006",
+    "unit_rounds": 20,
+    "parts": []
+   }
+  ],
+  "family_budgets": [
+   {
+    "family": "snafumarlin1895",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafuswm629",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "sn-m870",
+    "kind": "weapon",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "sn-usp",
+    "kind": "weapon",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "snafu-m48",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafu-trenchgun",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "gcgn-m1garand",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafuthompsonmk2",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafuppsh",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafusten",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafu-ak103a",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "hk416-gun",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "scar-gun",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafu-mpx-gun",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snhk417-gun",
+    "kind": "weapon",
+    "nominal": 2,
+    "min": 1
+   },
+   {
+    "family": "snafuthompsonmk2-30rdmag",
+    "kind": "magazine",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "snafuppsh-71rdmag",
+    "kind": "magazine",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "snafusten-32rdmag",
+    "kind": "magazine",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "snafu-mpx-30rnd-mag",
+    "kind": "magazine",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "snhk417-mag",
+    "kind": "magazine",
+    "nominal": 3,
+    "min": 2
+   },
+   {
+    "family": "snafu-ammo-762x25",
+    "kind": "ammo",
+    "nominal": 240,
+    "min": 160
+   },
+   {
+    "family": "sn-usp-mag",
+    "kind": "magazine",
+    "nominal": 4,
+    "min": 2
+   },
+   {
+    "family": "snafu-ammo-45-70mm",
+    "kind": "ammo",
+    "nominal": 240,
+    "min": 160
+   },
+   {
+    "family": "snafu-ammo-44",
+    "kind": "ammo",
+    "nominal": 240,
+    "min": 160
+   },
+   {
+    "family": "gcgn-ammo-3006",
+    "kind": "ammo",
+    "nominal": 120,
+    "min": 80
+   }
+  ],
+  "dependency_pins": [
+   {
+    "name": "GCGN_Guns.pbo",
+    "size": 359720843,
+    "sha256": "bfc629f6ff9b052f3d9ba6b09e592d58fd7b7df567ef989ecfca7dbede207316"
+   },
+   {
+    "name": "Guns_01.pbo",
+    "size": 374869584,
+    "sha256": "852300b90ed7b5628b40e4f4fd3cb32145c8009b7d2f5120c31e2dcc32ec3888"
+   },
+   {
+    "name": "SNAFU_Guns.pbo",
+    "size": 276543374,
+    "sha256": "a2e5de9d8fcdd42713cdbc3f9ca39a6e9e9f72b8f5d7ee203db207cecf4da967"
+   },
+   {
+    "name": "SNAFU_Guns_01.pbo",
+    "size": 469144360,
+    "sha256": "72665f1918dd1a23b3679b9d28394fce4f086d3d173ebaaac24a23b2dd9bef94"
+   },
+   {
+    "name": "SNAFU_Guns_02.pbo",
+    "size": 974621604,
+    "sha256": "89acd6fd24fc86d99b14027dd6d7c543231bc0ff1d0b6ade6be26ddf47a088bf"
+   },
+   {
+    "name": "SNAFU_Guns_03.pbo",
+    "size": 152607440,
+    "sha256": "1fa9efc16da13f02524a4ea865fd5be7825dceeefc920803cbef9f082ffdda4d"
+   },
+   {
+    "name": "SNAFU_Guns_05.pbo",
+    "size": 138232310,
+    "sha256": "04a2ae5688b050375bb9d7b36a2bc1646c334d8595065f29cd1b0b27e72887c7"
+   },
+   {
+    "name": "SNAFU_Guns_06.pbo",
+    "size": 395447534,
+    "sha256": "c5d7f71ea0d03ce706539fc626efd3823d0ca756fee3076e1e1e477d7eb68998"
+   },
+   {
+    "name": "SNAFU_Scopes.pbo",
+    "size": 379641061,
+    "sha256": "96c7b2c56f9afc4051e3b13e7b28eefbb9c75948f0ffe61468b70d495c228339"
+   },
+   {
+    "name": "SNAFU_Scripts.pbo",
+    "size": 935504,
+    "sha256": "f3c1786f51071a26fc487a2c29230bcba63d602661b5c12dac41eb715ea6ccb4"
+   },
+   {
+    "name": "SNAFU_WW2.pbo",
+    "size": 134008742,
+    "sha256": "ef5a4df1f9cff288342183518eaf176a42e534ce9711b97507c0c59209c677dc"
+   }
+  ],
+  "aggregate_weapon_budget": {
+   "nominal": 62,
+   "min": 31
+  },
+  "refusals": [
+   "HC61_SUBSET_RUNTIME_PENDING",
+   "HC61_PART_REPAIR_NATIVE_PENDING",
+   "HC61_CE_CARRIER_COUNTS_UNOBSERVED",
+   "HC61_FULL_PACK_NOT_ADMITTED"
+  ]
  }
 }

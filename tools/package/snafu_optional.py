@@ -3,7 +3,7 @@
 The base Hollow Country addon never depends on this module or on SNAFU. SNAFU files are never copied,
 bundled or re-hosted (the item is licensed DPL-ND: server use allowed, no repack/reupload). The verifier
 only reads an operator's own installed copy (meta.cpp, bounded PBO headers and config.bin members,
-the vendor class list and the terms file hash) and writes a report outside Git.
+the vendor class list, terms hash and pinned PBO hashes) and writes a report outside Git.
 
 Generation is fail-closed: with no report, an unverified report, a report for a different allowlist,
 or any class not individually verified, no spawn entries are produced. The delta registers a separate
@@ -43,7 +43,7 @@ WORKSHOP_ID = '2443122116'
 MANAGED = 'hollow-country-snafu'
 ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo')
 TOP = {'schema', 'name', 'workshop_id', 'status', 'rights', 'entries', 'excluded'}
-TOP_OPTIONAL = {'optics'}
+TOP_OPTIONAL = {'optics', 'hc61'}
 # Optics are a later owner decision: the extension point accepts no optic entry yet.
 OPTICS_PLACEHOLDER = {'status': 'deferred-pending-owner-decision', 'entries': []}
 RIGHTS_REQUIRED = {'license', 'terms_file', 'terms_sha256', 'urls', 'redistribution'}
@@ -149,6 +149,7 @@ def validate_allowlist(allowlist):
             if not set(e['snafu_ammo']) <= by_kind.get('ammo', set()) \
                     or not set(e['magazines']) <= by_kind.get('magazine', set()):
                 raise ValueError(f'unlisted ammo/magazine reference: {e["class"]}')
+    _family_policy(allowlist)
     excluded = allowlist['excluded']
     if not isinstance(excluded, list) or len(excluded) > MAX_ENTRIES:
         raise ValueError('invalid excluded list')
@@ -158,6 +159,174 @@ def validate_allowlist(allowlist):
             raise ValueError('excluded groups need a group and a reason')
         if 'classes' in x:
             _names(x['classes'], x['group'])
+
+
+# HC-61 uses HC-21's whole-family arithmetic through a narrow projection. Optics and
+# adapter items count as support items; no script/controller or engine API is added.
+def _pbo_sha256(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _family_policy(allowlist):
+    policy = allowlist.get('hc61')
+    if policy is None:
+        return None  # legacy library callers/rollback; never qualified as HC-61 admission
+    if (not isinstance(policy, dict) or set(policy) != {
+            'schema', 'members', 'family_budgets', 'dependency_pins', 'aggregate_weapon_budget', 'refusals'}
+            or type(policy['schema']) is not int or policy['schema'] != 1):
+        raise ValueError('HC61_POLICY_INVALID')
+    members = policy['members']
+    if not isinstance(members, list) or len(members) != len(allowlist['entries']):
+        raise ValueError('HC61_MEMBERSHIP_MISSING')
+    by_name = {}
+    for member in members:
+        if (not isinstance(member, dict) or set(member) != {'class', 'family', 'unit_rounds', 'parts'}
+                or not isinstance(member['class'], str) or member['class'] in by_name):
+            raise ValueError('HC61_MEMBERSHIP_INVALID')
+        by_name[member['class']] = member
+    if set(by_name) != {entry['class'] for entry in allowlist['entries']}:
+        raise ValueError('HC61_MEMBERSHIP_MISSING')
+    pins = policy['dependency_pins']
+    if (not isinstance(pins, list) or not 0 < len(pins) <= MAX_PBOS
+            or any(not isinstance(pin, dict) or set(pin) != {'name', 'size', 'sha256'}
+                   or not isinstance(pin['name'], str)
+                   or not re.fullmatch(r'[A-Za-z0-9_.-]{1,100}\.pbo', pin['name'])
+                   or not _int(pin['size'], 1)
+                   or not re.fullmatch(r'[0-9a-f]{64}', str(pin['sha256'])) for pin in pins)
+            or len({pin['name'].lower() for pin in pins}) != len(pins)):
+        raise ValueError('HC61_DEPENDENCY_PIN_INVALID')
+    cap = policy['aggregate_weapon_budget']
+    if (not isinstance(cap, dict) or set(cap) != {'nominal', 'min'}
+            or not _int(cap['nominal'], 0) or not _int(cap['min'], 0) or cap['min'] > cap['nominal']):
+        raise ValueError('HC61_AGGREGATE_BUDGET_INVALID')
+    if (not isinstance(policy['refusals'], list) or len(policy['refusals']) > 16
+            or any(not isinstance(code, str) or not re.fullmatch(r'HC61_[A-Z0-9_]{1,70}', code)
+                   for code in policy['refusals'])):
+        raise ValueError('HC61_REFUSALS_INVALID')
+    projected = []
+    for entry in allowlist['entries']:
+        member = by_name[entry['class']]
+        expected_parts = [{'class': name, 'route': 'native-carrier'}
+                          for name in entry.get('optic_requires', [])]
+        # Integral assemblies/repair/muzzle compatibility need native trials. Never infer
+        # a loose-part source from an attachment slot or add a guessed assembly adapter.
+        if member['parts'] != expected_parts:
+            raise ValueError('HC61_PART_ROUTE_UNSUPPORTED')
+        projected.append(dict(entry, kind=entry['kind'] if entry['kind'] in KINDS else 'magazine',
+                              family=member['family'], unit_rounds=member['unit_rounds'],
+                              disposition='curated-family-split', parts=member['parts']))
+    roster = {'entries': projected, 'family_budgets': policy['family_budgets']}
+    try:
+        firearms.family_totals(roster)
+    except (ValueError, TypeError) as error:
+        raise ValueError('HC61_FAMILY_BUDGET: ' + str(error)) from error
+    return roster
+
+
+def _check_pins(allowlist, listed, problems):
+    if 'hc61' not in allowlist:
+        return
+    actual = [{key: row.get(key) for key in ('name', 'size', 'sha256')} for row in listed]
+    expected = allowlist['hc61']['dependency_pins']
+    if sorted(actual, key=lambda row: row['name']) != sorted(expected, key=lambda row: row['name']):
+        problems.append('HC61_DEPENDENCY_PIN_MISMATCH')
+
+
+def _check_units(allowlist, classes, problems):
+    if 'hc61' not in allowlist:
+        return
+    members = {member['class']: member for member in allowlist['hc61']['members']}
+    for entry in allowlist['entries']:
+        if entry['kind'] == 'ammo' and classes[entry['class']].get('unit_rounds') != members[entry['class']]['unit_rounds']:
+            problems.append('HC61_AMMO_CAPACITY_UNVERIFIED:' + entry['class'])
+
+
+def _check_hc61_report(allowlist, report, for_install=False):
+    if 'hc61' not in allowlist:
+        return
+    problems = []
+    _check_pins(allowlist, report['install'].get('pbos', []), problems)
+    _check_units(allowlist, report['classes'], problems)
+    if problems:
+        raise ValueError(';'.join(problems))
+    # Owner decision 2026-11-17: the pack is accepted as a Workshop dependency (never repacked), so
+    # unstated dependency_use rights stay a recorded note in the allowlist, not an install refusal.
+
+
+def _check_family_delta(allowlist, entries, generated, source, managed):
+    roster = _family_policy(allowlist)
+    rows = [{'class': item.get('name'), 'candidate': {
+        field: int(item.findtext(field) or 0) for field in ('nominal', 'min')}} for item in generated]
+    if roster is None:
+        # Preserve old library policies but close transport-manifest inflation even there.
+        shares = {entry['class']: entry['set'] for entry in entries}
+        if any(any(row['candidate'][field] > shares[row['class']][field]
+                   for field in ('nominal', 'min')) for row in rows):
+            raise ValueError('HC61_FAMILY_BUDGET: legacy authored share exceeded')
+        return {'state': 'off', 'refusals': ['HC61_LEGACY_UNPINNED'], 'runtime_acceptance': 'pending'}
+    try:
+        summary = firearms.family_totals(roster, rows)
+    except ValueError as error:
+        raise ValueError('HC61_FAMILY_BUDGET: ' + str(error)) from error
+    # One common optional-gun ceiling across BOTH installed managed overlays, independent
+    # of scale. HC-21's vanilla envelope is unchanged; these counts are incremental.
+    cap = allowlist['hc61']['aggregate_weapon_budget']
+    counts = {field: sum(row['candidate'][field] for row in rows
+                        if next(entry for entry in entries if entry['class'] == row['class'])['kind'] == 'weapon')
+              for field in cap}
+    core = _checked_core(economy.read_plain(source, 'cfgeconomycore.xml'))
+    for ce in core.findall('ce'):
+        folder = ce.get('folder')
+        if folder not in {'hollow-country-snafu/ce', 'hollow-country-tactical-flava/ce'} or folder == managed + '/ce':
+            continue
+        other = json.loads(economy.read_plain(source, folder.removesuffix('/ce') + '/verification.json'))
+        other_allow = other.get('allowlist')
+        if (not isinstance(other_allow, dict) or _family_policy(other_allow) is None
+                or other.get('allowlist_sha256') != allowlist_sha256(other_allow)
+                or other_allow['hc61']['aggregate_weapon_budget'] != cap):
+            raise ValueError('HC61_OTHER_POLICY_MISSING: reverify both optional packs')
+        other_types = economy._unique(economy.xml(economy.read_plain(source, folder + '/types.xml'), 'types'))
+        for entry in other_allow['entries']:
+            if entry['kind'] == 'weapon':
+                for field in counts:
+                    counts[field] += int(other_types[entry['class']].findtext(field) or 0)
+    if any(counts[field] > cap[field] for field in cap):
+        raise ValueError('HC61_AGGREGATE_BUDGET_EXCEEDED')
+    refusals = allowlist['hc61']['refusals']
+    summary.update(state='off', refusals=refusals, optional_families=summary['family_count'],
+                   budget=summary['family_budget'], aggregate_weapon_counts=counts,
+                   aggregate_weapon_budget=cap, admitted_families=0, observed_families=None)
+    summary['diagnostic'] = (f'[HC Plan] HC-61 optional_families={summary["family_count"]}'
+                             f' budget={summary["family_budget"]} state=off refused={",".join(refusals)} runtime=PENDING')
+    return summary
+
+
+def _check_install_policy(meta, verification, types, target, managed, validator, checker):
+    allowlist = meta.get('allowlist')
+    if allowlist is None:
+        if meta.get('hc61', {}).get('optional_families') is not None:
+            raise ValueError('HC61_POLICY_MISSING')
+        _check_family_delta({}, meta['entries'], types, target, managed)
+        return
+    validator(allowlist)
+    checker(allowlist, verification)
+    _check_hc61_report(allowlist, verification, for_install=True)
+    entries, _, _ = _scaled_entries(allowlist['entries'], meta.get('nominal_scale', 1), meta.get('tier_scales', {}))
+    # Exact decimal scale is independently retained by the existing package protocol.
+    decimal = meta.get('scale_decimal', {})
+    if decimal:
+        entries, _, _ = _scaled_entries(allowlist['entries'], decimal['nominal_scale'], decimal['tier_scales'])
+    if {entry['class'] for entry in entries} != {item.get('name') for item in types}:
+        raise ValueError('HC61_MEMBERSHIP_MISSING')
+    _check_family_delta(allowlist, entries, types, target, managed)
+    for expected in entries:
+        actual = next(entry for entry in meta['entries'] if entry['class'] == expected['class'])
+        if any(actual.get(key) != value for key, value in expected.items()):
+            raise ValueError('HC61_POLICY_DRIFT')
 
 
 # ---------------------------------------------------------------- verification
@@ -235,7 +404,8 @@ def _load_addons(root, problems, max_pbos):
         except Exception as e:  # corrupt/oversized input is reported, never trusted
             problems.append(f'{p.name}: {type(e).__name__}: {str(e)[:120]}')
             continue
-        listed.append({'name': p.name, 'size': index['size'], 'prefix': index['prefix']})
+        listed.append({'name': p.name, 'size': index['size'], 'prefix': index['prefix'],
+                       'sha256': _pbo_sha256(p)})
         models |= pbo_config.model_paths(index)
         for r in ROOTS:
             for cname, row in configs[r].items():
@@ -301,6 +471,8 @@ def _evaluate(entry, merged, duplicates, models, vendor, state):
             if state.get(a) != 'verified':
                 reasons.append(f'ammo-unverified:{a}')
     result = {'status': 'unverified' if reasons else 'verified', 'reasons': reasons, 'notes': notes}
+    if kind == 'ammo':
+        result['unit_rounds'] = pbo_config.resolve_field(classes, name, 'count')
     if kind == 'weapon':
         result['compatible_magazines'] = [m for m in (magazines or []) if m]
     return result
@@ -327,6 +499,7 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
         problems.append('terms-file-missing')
     elif not terms['matches_reviewed']:
         problems.append('terms-changed-since-review')
+    _check_pins(allowlist, listed, problems)
     entries = allowlist['entries']
     state, classes = {}, {}
     for entry in sorted(entries, key=lambda e: e['kind'] == 'weapon'):  # items before the weapons using them
@@ -334,12 +507,19 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
         state[entry['class']] = row['status']
         classes[entry['class']] = row
     counts = {s: sum(1 for r in classes.values() if r['status'] == s) for s in ('verified', 'missing', 'unverified')}
+    _check_units(allowlist, classes, problems)
     ok = not problems and counts['verified'] == len(classes)
     return {'schema': 1, 'kind': 'snafu-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
             'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
-            'terms': terms, 'classes': dict(sorted(classes.items())), 'counts': counts,
+            'allowlist': allowlist, 'terms': terms, 'classes': dict(sorted(classes.items())), 'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers/config.bin, vendor types, terms hash',
+            'subset': {'authored_weapons': sum(e['kind'] == 'weapon' for e in allowlist['entries']),
+                       'static_verified_weapons': sum(e['kind'] == 'weapon' and classes[e['class']]['status'] == 'verified'
+                                                      for e in allowlist['entries']),
+                       'installed_public_weapons': sum((pbo_config.resolve_scope(merged['CfgWeapons'], name) or 0) >= 2
+                                                       for name in merged['CfgWeapons']),
+                       'runtime_accepted_weapons': 0, 'full_pack_admitted': False},
             'runtime_acceptance': 'pending'}
 
 
@@ -439,6 +619,8 @@ def _cli_tier_scales(values):
 
 
 def _print_scale_totals(meta):
+    if 'hc61' in meta:
+        print(meta['hc61'].get('diagnostic', '[HC Plan] HC-61 optional_families=0 budget=0 state=off refused=HC61_LEGACY_UNPINNED runtime=PENDING'))
     print(f'nominal_scale={meta["nominal_scale"]}; tier_scales={meta["tier_scales"]}')
     print(f'scale_decimal={meta["scale_decimal"]}')
     for kind in ('weapon', 'magazine', 'ammo'):
@@ -467,6 +649,7 @@ def _new_type(entry):
 def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
+    _check_hc61_report(allowlist, report)
     entries, totals, scale_policy = _scaled_entries(allowlist['entries'], nominal_scale, tier_scales)
     data = economy.snapshot(source)
     core = _checked_core(data['cfgeconomycore.xml'])
@@ -492,6 +675,7 @@ def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
                      **{k: entry[k] for k in WEAPON_EXTRA if k in entry}})
     firearms.check_effective_support(source, stock, entries, out, (economy.MANAGED,),
                                      ammo_fields=('vanilla_ammo', 'snafu_ammo'), verification=report['classes'])
+    family_status = _check_family_delta(allowlist, entries, out, source, MANAGED)
     fragment = ET.Element('economycore')
     ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
     ET.SubElement(ce, 'file', {'name': 'types.xml', 'type': 'types'})
@@ -500,7 +684,8 @@ def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
             'workshop_id': WORKSHOP_ID, 'engine_merge_semantics': 'unobserved', 'loot_fix_claim': False,
             'dependency': 'optional; server and every client must load SNAFU Weapons; never bundled',
             'allowlist_sha256': allowlist_sha256(allowlist), 'entries': rows, 'totals': totals,
-            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING, **scale_policy}
+            'rights': allowlist['rights'], 'verification': report, 'pending': PENDING, **scale_policy,
+            'allowlist': allowlist, 'hc61': family_status}
     files = {'ce/types.xml': xml_text.document(out) + b'\n',
              'cfgeconomycore.append.xml': xml_text.document(fragment) + b'\n',
              'core-defaults.patch.json': economy.encode({}), 'economy-report.json': economy.encode(meta)}
@@ -580,6 +765,7 @@ def install(stage, target):
         raise ValueError('support policy must cover the verified classes')
     firearms.check_effective_support(target, stock, entries, types, (economy.MANAGED,),
                                      ammo_fields=('vanilla_ammo', 'snafu_ammo'), verification=rows)
+    _check_install_policy(meta, verification, types, target, MANAGED, validate_allowlist, _check_report)
     managed.mkdir()
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
@@ -677,7 +863,8 @@ def main(argv=None):
                 print(f'  install problem: {problem}')
             return
         if args.command == 'generate':
-            files = generate(args.source, json.loads(args.allowlist.read_bytes()),
+            selected = json.loads(args.allowlist.read_bytes())
+            files = generate(args.source, selected,
                              json.loads(args.report.read_bytes()), nominal_scale=args.nominal_scale,
                              tier_scales=_cli_tier_scales(args.tier_scale))
             write_delta(args.out, files)
