@@ -31,6 +31,11 @@ class HCEventModule : HCModule
     protected ref HCEventNativeObserver m_NativeObserver;
     protected float m_RosterElapsed = 0;
     protected int m_RosterCursor = 0;
+    // One bounded slot per configured site/family, reset on module start.
+    // Six post-readiness attempts, one roster slot per five seconds. With one
+    // site the same family is visited every 35 seconds (up to 8 sites: 280 s).
+    protected ref array<int> m_PoliceRetryAttempts;
+    protected bool m_PoliceRetryReady;
     protected ref HCEventRPC m_EventRPC;
     protected bool m_Stopping = false;
     protected bool m_Quarantined = false;
@@ -272,6 +277,10 @@ class HCEventModule : HCModule
         }
         m_RosterCursor = 0;
         m_RosterElapsed = 0;
+        m_PoliceRetryReady = false;
+        m_PoliceRetryAttempts = new array<int>;
+        int retrySlots = m_Config.Sites.Count() * 7;
+        while (m_PoliceRetryAttempts.Count() < retrySlots) { m_PoliceRetryAttempts.Insert(0); }
         m_AnnouncedMissions = new array<string>();
         m_StartedAt = GetGame().GetTickTime();
         m_Session = "events-" + Math.RandomIntInclusive(1, 1000000000).ToString() + "-" + Math.RandomIntInclusive(1, 1000000000).ToString();
@@ -404,6 +413,7 @@ class HCEventModule : HCModule
         // One site's one family per five seconds; late CE population can admit
         // missions without restart. Runtime owns terminal cleanup and the two-hour
         // cooldown; remembering an admission only suppresses early retry work/logs.
+        int retrySlot = m_RosterCursor;
         int siteIndex = Math.Floor(m_RosterCursor / 7);
         int family = (m_RosterCursor % 7) + 1;
         m_RosterCursor = (m_RosterCursor + 1) % (m_Config.Sites.Count() * 7);
@@ -420,14 +430,41 @@ class HCEventModule : HCModule
             bool matchingFamily = mission.Family == family && offerDue;
             if (matchingFamily && !m_Runtime.HasMission(mission.Id))
             {
-                HCEventWorldBinding.Bind(m_NativeObserver, mission);
-                if (m_Runtime.Announce(mission, context) == HCEventCode.OK)
+                bool policeRetry = HCEventSites.PoliceSupplies(mission);
+                if (mission.Family == HCEventFamily.INFECTED_CLEAR && mission.AnchorClass == "Land_Village_PoliceStation") { policeRetry = true; }
+                if (policeRetry && !remembered)
+                {
+                    // Cached module readiness, no speculative loading API. Do not
+                    // spend the finite allowance during startup/provider refusal.
+                    if (m_SituationStatus.HCState() != "ready" || !m_PoliceRetryAttempts) { return; }
+                    if (m_PoliceRetryAttempts[retrySlot] >= 6) { return; }
+                    // Physical stock charges its own scan; infected lookup is
+                    // charged here. A budget yield never consumes an attempt.
+                    if (mission.Family == HCEventFamily.INFECTED_CLEAR && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { return; }
+                    if (!m_PoliceRetryReady)
+                    {
+                        m_PoliceRetryReady = true;
+                        Print("[HC Events] police binding retries ready; attempts_per_mission=6; slot_interval_s=5 runtime=PENDING");
+                    }
+                }
+                bool bound = HCEventWorldBinding.Bind(m_NativeObserver, mission);
+                if (policeRetry && !remembered)
+                {
+                    if (!bound && HCEventSites.PoliceSupplies(mission) && HCEventCacheSpawner.PoliceReason() == "police_work_budget") { return; }
+                    m_PoliceRetryAttempts[retrySlot] = m_PoliceRetryAttempts[retrySlot] + 1;
+                }
+                int admission = m_Runtime.Announce(mission, context);
+                if (admission == HCEventCode.OK)
                 {
                     // Remembered once, so this line appears once per mission id.
                     if (RememberAnnounced(mission.Id))
                     {
-                        Print("[HC Events] mission admitted later; " + mission.Id);
+                        Print("[HC Events] mission admitted later; " + mission.Id + " runtime=PENDING");
                     }
+                }
+                else if (policeRetry && !remembered && m_PoliceRetryAttempts[retrySlot] >= 6)
+                {
+                    Print("[HC Events] police binding retries exhausted; " + mission.Id + "; attempts=6; code=" + admission.ToString() + " runtime=PENDING");
                 }
             }
         }

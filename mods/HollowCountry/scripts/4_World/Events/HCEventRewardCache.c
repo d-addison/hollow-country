@@ -36,6 +36,17 @@ class HCEventCacheSpawner
     protected static ref HCEventRewardLedger s_PoliceLedger;
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
 
+    protected static string s_PoliceReason;
+    protected static string s_PoliceDetails;
+
+    static string PoliceReason() { return s_PoliceReason; }
+    static string PoliceDetails() { return s_PoliceDetails; }
+    static void PoliceRefused(string reason, string details = "")
+    {
+        s_PoliceReason = reason;
+        s_PoliceDetails = details;
+    }
+
     static HCEventRewardLedger PoliceLedger()
     {
         if (!s_PoliceLedger)
@@ -63,14 +74,17 @@ class HCEventCacheSpawner
     }
     static HCEventTarget CreatePolice(HCEventMission mission)
     {
-        if (!HCEventSites.PoliceSupplies(mission)) { return null; }
-        if (!HCEventSitesGate.Admitted() || !GetGame() || !GetGame().IsServer()) { return null; }
-        if (!HCEventRuntimePolicy.MissionValid(mission, mission.WorldName)) { return null; }
+        PoliceRefused("");
+        if (!HCEventSites.PoliceSupplies(mission)) { PoliceRefused("police_mission_mismatch"); return null; }
+        if (!HCEventSitesGate.Admitted()) { PoliceRefused("police_gate_closed"); return null; }
+        if (!GetGame() || !GetGame().IsServer()) { PoliceRefused("police_server_unavailable"); return null; }
+        if (!HCEventRuntimePolicy.MissionValid(mission, mission.WorldName)) { PoliceRefused("police_mission_invalid"); return null; }
         HCEventTarget existing = PoliceTarget(mission.Id);
         if (existing) { return existing; }
-        // A deterministic source-derived point, not a field-surveyed placement.
-        vector anchor = Vector(mission.Source[0] + 6, mission.Source[1], mission.Source[2] + 6);
-        Spawn(mission, anchor, mission.ContainerClass, true);
+        // Physical stock lookup is centred on the exact stock station origin.
+        // The old +6,+6 placement offset clipped the opposite side of the 15 m
+        // lookup sphere; no placement/navmesh operation occurs on this path.
+        Spawn(mission, mission.Source, mission.ContainerClass, true);
         return PoliceTarget(mission.Id);
     }
     static HCEventTarget Create(HCEventMission mission)
@@ -84,9 +98,13 @@ class HCEventCacheSpawner
     // lookup never materializes at this point or alters its native owner.
     static vector SpawnPosition(HCEventMission mission, vector anchor, bool police)
     {
+        if (police) { PoliceRefused(""); }
+        if (!mission) { if (police) { PoliceRefused("police_mission_invalid"); } return vector.Zero; }
+        if (!GetGame() || !GetGame().IsServer()) { if (police) { PoliceRefused("police_server_unavailable"); } return vector.Zero; }
         float height = GetGame().SurfaceY(anchor[0], anchor[2]);
         if (height != height)
         {
+            if (police) { PoliceRefused("police_terrain_unavailable"); }
             if (!police) { Print("[HC Events] reward cache refused for site " + mission.SiteId + "; terrain height differs from the reviewed height"); }
             return vector.Zero;
         }
@@ -97,9 +115,13 @@ class HCEventCacheSpawner
             // above its ground (stock neighbours sit ~5 m lower). Accept ground up to 12 m
             // below it, then take an outdoor walkable navmesh point so the barrel is not
             // inside a wall. Retries report through BindFailed's bounded (mission, reason) set.
-            if (height > mission.Source[1] + 3 || height < mission.Source[1] - 12) { return vector.Zero; }
+            if (height > mission.Source[1] + 3 || height < mission.Source[1] - 12)
+            {
+                PoliceRefused("police_terrain_height", "; h=" + height.ToString() + "; src=" + mission.Source[1].ToString());
+                return vector.Zero;
+            }
             position = HCEventPoliceNav.Sample(Vector(anchor[0], height, anchor[2]), 6);
-            if (position == vector.Zero) { return vector.Zero; }
+            if (position == vector.Zero) { PoliceRefused("police_navmesh_none"); return vector.Zero; }
         }
         else
         {
@@ -110,21 +132,28 @@ class HCEventCacheSpawner
             }
             position = Vector(anchor[0], height, anchor[2]);
         }
-        if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius) { return vector.Zero; }
+        if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius)
+        {
+            if (police) { PoliceRefused("police_position_outside_radius"); }
+            return vector.Zero;
+        }
         return position;
     }
     static HCEventTarget Spawn(HCEventMission mission, vector anchor, string containerClass, bool police)
     {
-        if (!mission || !GetGame() || !GetGame().IsServer()) { return null; }
-        if (!HCEventSitesGate.Admitted()) { return null; }
-        if (!HCPhysicalEnabled()) { return null; }
+        if (police) { PoliceRefused(""); }
+        if (!mission) { if (police) { PoliceRefused("police_mission_invalid"); } return null; }
+        if (!GetGame() || !GetGame().IsServer()) { if (police) { PoliceRefused("police_server_unavailable"); } return null; }
+        if (!HCEventSitesGate.Admitted()) { if (police) { PoliceRefused("police_gate_closed"); } return null; }
+        if (!HCPhysicalEnabled()) { if (police) { PoliceRefused("police_physical_disabled"); } return null; }
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
-        if (!policy) { return null; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { return null; }
+        if (!policy) { if (police) { PoliceRefused("police_policy_invalid"); } return null; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { if (police) { PoliceRefused("police_work_budget"); } return null; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(anchor, mission.Radius, nearby, proxies);
         int remaining = policy.PhysicalScanObjects;
+        bool matchingStock = false;
         foreach (Object candidate : nearby)
         {
             if (remaining <= 0) { break; }
@@ -134,6 +163,7 @@ class HCEventCacheSpawner
             if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
             if (police)
             {
+                matchingStock = true;
                 CargoBase cargo = cache.GetInventory().GetCargo();
                 int count = cargo.GetItemCount();
                 if (count > policy.PhysicalScanCargo) { count = policy.PhysicalScanCargo; }
@@ -157,12 +187,26 @@ class HCEventCacheSpawner
                     if (!s_PoliceTargets) { s_PoliceTargets = new array<ref HCEventTarget>; }
                     s_PoliceTargets.Insert(supply);
                 }
+                // A barrel with another family's item must not hide a later
+                // barrel containing this mission's item. Never author cargo.
+                HCEventTarget matched = PoliceTarget(mission.Id);
+                if (matched) { return matched; }
+                continue;
             }
             HCEventTarget result = new HCEventTarget;
             result.MissionId = mission.Id;
             result.Item = cache;
             result.Presence = cache;
             return result;
+        }
+        if (police)
+        {
+            string reason = "police_stock_absent";
+            if (matchingStock) { reason = "police_cargo_item_absent"; }
+            if (nearby.Count() > policy.PhysicalScanObjects) { reason = "police_scan_limit"; }
+            string details = "; wanted=" + mission.ItemClass + "; container=" + containerClass;
+            details = details + "; queried=" + nearby.Count().ToString() + "; scan_cap=" + policy.PhysicalScanObjects.ToString();
+            PoliceRefused(reason, details);
         }
         HCPhysicalPending();
         return null;

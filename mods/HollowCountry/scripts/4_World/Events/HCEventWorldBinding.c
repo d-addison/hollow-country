@@ -199,7 +199,7 @@ class HCEventWorldBinding
             s_BindReported.Insert(mission.Id);
             s_BindReasons.Insert(reason);
         }
-        Print("[HC Events] bind failed; " + mission.Id + "; reason=" + reason + s_FailDetails);
+        Print("[HC Events] bind failed; " + mission.Id + "; reason=" + reason + s_FailDetails + " runtime=PENDING");
         return false;
     }
     // Reviewed-site reward cache: created at most once per site and session by the
@@ -222,26 +222,45 @@ class HCEventWorldBinding
     // Shared barrel cargo is never discarded or replenished after registration failure.
     static bool BindPolice(HCEventNativeObserver observer, HCEventMission mission)
     {
-        if (!HCEventSitesGate.Admitted()) { return false; }
+        if (!HCEventSitesGate.Admitted())
+        {
+            s_FailReason = "police_gate_closed";
+            return BindFailed(mission);
+        }
         HCEventTarget current = observer.Target(mission.Id);
         if (current)
         {
             if (mission.Family == HCEventFamily.DELIVERY && !current.DeliveryContainer)
             {
                 HCEventTarget pending = HCEventCacheSpawner.PoliceTarget(mission.Id);
-                return pending && observer.RegisterContainer(mission.Id, pending.DeliveryContainer);
+                if (pending && observer.RegisterContainer(mission.Id, pending.DeliveryContainer))
+                {
+                    Print("[HC Events] police supply bound; " + mission.Id + " runtime=PENDING");
+                    return true;
+                }
+                s_FailReason = "police_container_registration_refused";
+                return BindFailed(mission);
             }
             return true;
         }
         HCEventTarget supply = HCEventCacheSpawner.CreatePolice(mission);
         if (!supply)
         {
-            s_FailReason = "police_supply_unavailable";
+            s_FailReason = HCEventCacheSpawner.PoliceReason();
+            s_FailDetails = HCEventCacheSpawner.PoliceDetails();
             return BindFailed(mission);
         }
-        if (!observer.RegisterTarget(mission.Id, supply.Item)) { return false; }
-        if (mission.Family == HCEventFamily.DELIVERY && !observer.RegisterContainer(mission.Id, supply.DeliveryContainer)) { return false; }
-        Print("[HC Events] police supply bound; " + mission.Id);
+        if (!observer.RegisterTarget(mission.Id, supply.Item))
+        {
+            s_FailReason = "police_target_registration_refused";
+            return BindFailed(mission);
+        }
+        if (mission.Family == HCEventFamily.DELIVERY && !observer.RegisterContainer(mission.Id, supply.DeliveryContainer))
+        {
+            s_FailReason = "police_container_registration_refused";
+            return BindFailed(mission);
+        }
+        Print("[HC Events] police supply bound; " + mission.Id + " runtime=PENDING");
         return true;
     }
     static bool Bind(HCEventNativeObserver observer, HCEventMission mission)
@@ -253,7 +272,7 @@ class HCEventWorldBinding
             if (index >= 0 && s_BindReasons[index] != "")
             {
                 s_BindReasons[index] = "";
-                Print("[HC Events] bind recovered; " + mission.Id);
+                Print("[HC Events] bind recovered; " + mission.Id + " runtime=PENDING");
             }
         }
         return bound;
@@ -261,6 +280,7 @@ class HCEventWorldBinding
     static bool BindCandidate(HCEventNativeObserver observer, HCEventMission mission)
     {
         s_FailDetails = "";
+        s_FailReason = "";
         if (!observer || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName) || !HCEventQualification.Admitted()) { return false; }
         if (mission.Family == HCEventFamily.INVESTIGATION) { return true; }
         if (mission.Family == HCEventFamily.AI_ENCOUNTER) { return false; }
