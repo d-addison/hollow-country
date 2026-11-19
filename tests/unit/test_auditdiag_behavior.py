@@ -95,7 +95,7 @@ class PermissionLifecycle(unittest.TestCase):
                            FileExist=lambda path: disabled[0], Print=logs.append,
                            HCV2Admission=N(Line=lambda *args: 'admission'),
                            HCAdminPermissionAdapter=N(PERMISSION='HollowCountry.Admin'))
-        names = ('HCStart', 'HCStop', 'HCBind', 'HCUnbind', 'HCAllowed', 'HCRefresh', 'HCRefuse')
+        names = ('HCDefaultPort', 'HCStart', 'HCStop', 'HCBind', 'HCUnbind', 'HCAllowed', 'HCRefresh', 'HCRefuse')
         for name in names:
             method = compile_authored(ADMIN, 'HCAdminPermissionAdapter', name, scope,
                                       names, modded=False, native_strings=EStr)
