@@ -45,6 +45,60 @@ def synthetic_build(directory, count, source_count=8):
 
 
 class TemplatePackTests(unittest.TestCase):
+    def test_receipt_order_bounded_read_logs_and_single_strict_dispatch(self):
+        docs = {name: ip._compact(value) for name, value in pack().items()}
+        # Synthetic paged equivalent keeps every legacy leaf byte unchanged.
+        index = json.loads(docs['index.json'])
+        page = dict(SchemaVersion=3, Chunk=0,
+                    SourcePins=[dict(Name=k, Sha256=v) for k,v in index['Sources'].items()],
+                    **{key:index[key] for key in ip.TEMPLATE_LISTS})
+        docs['index-000.json'] = ip._compact(page)
+        root = {key:value for key,value in index.items() if key not in ('Sources', *ip.TEMPLATE_LISTS)}
+        root.update(SchemaVersion=3, IndexFiles=[dict(File='index-000.json',Sha256=ip.sha(docs['index-000.json']))])
+        docs['index.json'] = ip._compact(root)
+        ports = pack_reader(docs)
+        strict = ports['HCInteriorTemplatesStrict'].NativeText
+        schemas = []
+        def counted(raw, schema):
+            schemas.append(schema)
+            return strict(raw, schema)
+        ports['HCInteriorTemplatesStrict'].NativeText = counted
+        job = ports['HCInteriorPackJob']()
+        self.assertTrue(ports['HCStart'](job, 'synthetic/'))
+        self.assertEqual(['pack-index'], schemas)
+        self.assertEqual(0, ports['HCStep'](job, SyntheticBudget(True)))
+        for name in ('classes-000.json', 't-0000.json'):
+            ports['HCReadChunk'](job, name, job.Schemas.Get(name), job.Pins.Get(name))
+        ports['HCReceipt'](job, 1, True)
+        self.assertIn('pack_chunks=3 classes=1 refused=none state=ready', ports['logs'][-1])
+        self.assertEqual(3, sum('HC-24 read=' in line for line in ports['logs']))
+        ports['HCReadChunk'](job, 'bad', 'template', 'a'*64)
+        self.assertIn('pack_chunks=3 classes=0 refused=chunk_before_index_or_pin state=refused', ports['logs'][-1])
+
+    def test_610_leaves_plus_16_pages_count_once_and_leaf_611_refuses(self):
+        # Explicit IO/accounting boundary fixture: synthetic ready metadata with
+        # 16 already read pages. Per-list/semantic checks are exercised separately.
+        for via_reader in (False, True):
+            with self.subTest(via_reader=via_reader):
+                ports = pack_reader({'leaf.json': b'{"SchemaVersion":2,"Chunk":0,"Rows":[]}'})
+                job = ports['HCInteriorPackJob']()
+                ports['s_Job'] = job
+                job.Started = job.Ready = True
+                job.Root = 'synthetic/'
+                job.Files = 17
+                job.NextPage = 16
+                job.Pins.Set('leaf.json', 'a'*64)
+                job.Schemas.Set('leaf.json', 'classes')
+                def read():
+                    if via_reader: return ports['ReadStrict']('leaf.json', 'classes', 'a'*64)
+                    return ports['HCReadChunk'](job, 'leaf.json', 'classes', 'a'*64)
+                for number in range(610):
+                    self.assertTrue(read(), number)
+                self.assertEqual(627, job.Files)
+                self.assertEqual(610, job.LeafFiles)
+                self.assertEqual('', read())
+                self.assertEqual('file_cap', ports['s_Reason'] if via_reader else job.Reason)
+
     def test_complete_bounded_pack_refuses_damage_and_migrates_without_gameplay_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -71,7 +125,6 @@ class TemplatePackTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'Sha256'):
                         ip._validate_templates(damaged)
             # Execute the authored staged reader through synthetic native ports.
-            # Reserved strict schema-table edits are supplied in memory, pending native integration.
             runtime = pack_reader(files)
             job = runtime['HCInteriorPackJob']()
             self.assertTrue(runtime['HCStart'](job, 'synthetic/'))
@@ -89,7 +142,7 @@ class TemplatePackTests(unittest.TestCase):
             loaded = runtime['HCReadChunk'](job, last.FileName, 'template', last.Sha256)
             self.assertEqual(json.loads(loaded)['BuildingClass'], last.BuildingClass)
             runtime['HCReceipt'](job, 180, True)
-            self.assertIn('classes=180 state=ready refused=none', runtime['logs'][-1])
+            self.assertIn('classes=180 refused=none state=ready', runtime['logs'][-1])
             self.assertEqual(runtime['HCReadChunk'](job, '../escape.json', 'template', 'a'*64), '')
             self.assertEqual(job.Reason, 'chunk_before_index_or_pin')
             runtime['HCReset'](job)
@@ -179,12 +232,11 @@ class SyntheticBudget:
     def HCContinue(self): return self.allowed
 
 
-def pack_reader(files):
-    """Restricted Enforce execution; IO/config/strict integration are explicit ports.
+def pack_reader(files, existing=None):
+    """Execute authored pack jobs with explicit synthetic native IO/JSON ports.
 
-    No Python placement/loading policy. This executes the authored job, merge and
-    refusal bodies. Native deserialization is a stand-in and strict-schema additions
-    are applied in memory; exact-source DayZ compile remains pending.
+    The strict parser and reader validation use real source, without injected
+    schema tables. Native compilation and read semantics remain pending.
     """
     import re
     from types import SimpleNamespace as NS
@@ -194,8 +246,12 @@ def pack_reader(files):
     source = (ip.ENFORCE_SOURCES / 'HCInteriorPackIndex.c').read_text()
     class Map(EMap):
         def Contains(self, key): return key in self
-    env = dict(EArray=EArray, EMap=Map, len=len, reads=[], logs=[])
-    env.update({k: v for k, v in authored().items() if k.startswith('HCInteriorTemplate')})
+    if existing is None:
+        existing = fixture(connect_pack=False)[0]
+    env = existing
+    env.update(EMap=Map, len=len)
+    env.setdefault('reads', [])
+    env.setdefault('logs', [])
     for match in re.finditer(r'class (HCInteriorPack\w+)\s*\{', source):
         fields = re.findall(r'^\s*(?:ref )?([\w<>, ]+?) (\w+)(?:\s*=\s*([^;]+))?;', body(source, match.end()), re.M)
         def make(fields=fields):
@@ -216,21 +272,16 @@ def pack_reader(files):
     # Native byte count/length is an explicit synthetic port, including oversize and truncation.
     def read(path, cap):
         env['reads'].append(path)
-        raw = files.get(path.removeprefix('synthetic/'), b'')[:cap]
-        return len(raw), raw.decode('ascii')
+        raw = files.get(path.rsplit('/', 1)[-1], b'')[:cap]
+        if isinstance(raw, str): raw = raw.encode('utf-8')
+        return len(raw), raw.decode('latin1')
     env.update(OpenFile=lambda path, mode: path, FileMode=NS(READ=0), CloseFile=lambda handle: None,
                NativeRead=read, Print=env['logs'].append)
-    # Exercise the actual authored token/remap parser with ONLY the lead's
-    # three schema-table additions supplied in memory. No reserved file is edited.
-    existing, *_ = fixture()
-    old_keys, old_child, old_cap = existing['Keys'], existing['Child'], existing['ArrayCap']
-    existing['Keys'] = lambda schema: ip._TEMPLATE_KEYS[schema] if schema.startswith('pack-') else old_keys(schema)
-    existing['Child'] = lambda schema, key: (
-        '@file' if key == 'IndexFiles' else '@pack-source' if key == 'SourcePins' else old_child(schema, key))
-    existing['ArrayCap'] = lambda schema: 520 if schema == '@pack-source' else old_cap(schema)
+    # Read the real strict schema tables; no injected integration assumptions.
     env['HCInteriorTemplatesStrict'] = NS(NativeText=existing['NativeText'],
-        SourceName=existing['SourceName'], Hex=existing['Hex'])
-    env['HCSearchRules'] = NS(PinValid=ip.hash_ok)
+        SourceName=existing['SourceName'], Hex=existing['Hex'],
+        Take=existing['Take'], Space=existing['Space'], Code=existing['Code'])
+    env['HCInteriorTemplateCursor'] = existing['HCInteriorTemplateCursor']
     env['HCInteriorTemplates'] = NS(IndexValid=existing['IndexValid'], Numbered=existing['Numbered'])
     def load(typ, raw, target):
         try:
@@ -244,7 +295,7 @@ def pack_reader(files):
         for key, value in doc.items():
             setattr(target, key, EMap(value) if key == 'Sources' else convert(value))
         return True
-    env['NativeLoad'] = load
+    env['NativePackLoad'] = load
     source = re.sub(r'//[^\n]*', '', source)
     for match in re.finditer(r'static ([\w<> ]+?) (HC\w+)\(([^)]*)\)\s*\{', source):
         name = match[2]
@@ -258,12 +309,13 @@ def pack_reader(files):
             literals = []
             def protect(m): literals.append(m[0]); return f'__LITERAL_{len(literals)-1}__'
             token = re.sub(r'"(?:\\.|[^"\\])*"', protect, token)
-            token = re.sub(r'JsonFileLoader<(\w+)>\.LoadData\(([^,]+), ([^,]+), [^)]+\)', r'NativeLoad("\1", \2, \3)', token)
+            token = re.sub(r'JsonFileLoader<(\w+)>\.LoadData\(([^,]+), ([^,]+), [^)]+\)', r'NativePackLoad("\1", \2, \3)', token)
             token = re.sub(r'int (\w+) = ReadFile\(([^,]+), (\w+), ([^)]+)\)', r'\1, \3 = NativeRead(\2, \4)', token)
             token = re.sub(r'new (HC\w+)(?:\(\))?', r'\1()', token)
             token = re.sub(r'(?:HC\w+|int|float|bool|string|FileHandle)\s+(?=\w+\s*=)', '', token)
             bare = re.fullmatch(r'(int|bool|string|HC\w+) (\w+)', token)
             if bare: token = bare[2]+' = '+{'int':'0','bool':'False','string':"''"}.get(bare[1],'None')
+            token = re.sub(r'([\w.]+)\.IndexOf\(([^)]+)\)', r'\1.find(\2)', token)
             token = re.sub(r'([\w.]+)\.Length\(\)\.ToString\(\)', r'str(len(\1))', token)
             token = re.sub(r'([\w.]+)\.Length\(\)', r'len(\1)', token)
             token = re.sub(r'([\w.]+)\.ToString\(\)', r'str(\1)', token)
@@ -280,6 +332,8 @@ def pack_reader(files):
             for index, literal in enumerate(literals): token = token.replace(f'__LITERAL_{index}__', literal)
             lines.append('    '*indent+token)
         exec(compile('\n'.join(lines), 'authored-pack-index:'+name, 'exec'), env)
+    env['HCInteriorPackIndex'] = NS(**env)
+    env['HCInteriorTemplates'] = NS(**env)
     return env
 
 

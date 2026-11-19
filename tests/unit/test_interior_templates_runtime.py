@@ -63,8 +63,9 @@ def authored(include_read=False):
         if name in {'EngineHouse', 'Spawn', 'Available', 'Schedule'} or (name == 'Read' and not include_read):
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
+        args = [arg.replace("=false", "=False").replace("=true", "=True") for arg in args]
         lines = [f'def {name}({", ".join(args)}):',
-                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery, s_ResolveNext']
+                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery, s_ResolveNext, s_Job, s_LoadPhase, s_LoadChunk, s_LoadStart']
         indent = 1
         for token in statements(body(sources, match.end())):
             token = token.strip()
@@ -154,7 +155,7 @@ class SyntheticHouse:
     def ModelToWorld(self, local): return [a+b for a,b in zip(self.position,local)]
 
 
-def fixture(values=None):
+def fixture(values=None, staged=False, connect_pack=True):
     assert METADATA['Synthetic']
     values = pack() if values is None else values
     raw = {name:json.dumps(value) for name,value in values.items()}
@@ -208,10 +209,171 @@ def fixture(values=None):
         Spawn=synthetic_spawn,
         Schedule=lambda props:None,
         HCInteriorCatalog=NS(SearchType=lambda typ:typ in SEARCH_TYPES))
+    if connect_pack:
+        from tests.unit.test_hc_template_pack import pack_reader, SyntheticBudget
+        env.update(reads=reads, logs=logs)
+        pack_reader(raw, existing=env)
+        env.update(s_Job=env['HCInteriorPackJob'](), s_LoadPhase=0, s_LoadChunk=0, s_LoadStart=0)
+        if not staged:
+            # Existing tests inspect completed admission; explicitly simulate ticks.
+            begin = env['EnsureLoaded']
+            def load(legacy, cap=5):
+                begin(legacy, cap)
+                for _ in range(1000):
+                    if env['s_Loaded'] or env['s_Reason']: break
+                    env['HCLoadStep'](legacy, SyntheticBudget(True))
+                else: raise AssertionError('synthetic pack admission did not finish')
+            env['EnsureLoaded'] = load
     return env, raw, reads, logs, objects, created
 
 
 class InteriorTemplatesRuntimeTests(unittest.TestCase):
+    def test_module_tick_finishes_admission_and_stop_cancels_pending_load(self):
+        from tests.unit.test_group_server import execute_member
+        from tests.unit.test_hc_template_pack import SyntheticBudget
+        source = (SRC / 'HCInteriorTemplates.c').read_text()
+        # Before integration, execute the existing tick: it never advances a pack.
+        if 'modded class HCInteriorsModule' not in source:
+            source = (SRC / 'HCInteriorTemplatesModule.c').read_text()
+        source = source.replace('super.OnTick(deltaTime)', 'self.LegacyTick(deltaTime)')
+        source = source.replace('super.OnStop()', 'self.LegacyStop()')
+        source = source.replace('super.OnStart(settings)', 'self.LegacyStart(settings)')
+        source = source.replace('s_Instance', 'self.s_Instance').replace('this', 'self')
+        source = source.replace('IsEnabled(settings)', 'self.IsEnabled(settings)')
+        source = re.sub(r'\b(?:HC\w+|array<[^;]+>)\s+(?=\w+\s*=)', '', source)
+        settings = NS(EnableInteriors=True)
+        result = fixture(staged=True)
+        env, raw, reads, logs = result[:4]
+        env['EnsureLoaded'](None)
+        events = []
+        budget = SyntheticBudget(True)
+        budget.HCReset = lambda limit: None
+        module = NS(m_PackLoading=True, m_PackBudget=budget, m_Config=None, m_Objects=EArray(),
+                    s_Instance=None, LegacyTick=lambda delta:None, IsEnabled=lambda cfg:cfg.EnableInteriors,
+                    LegacyStart=lambda cfg:None, LegacyStop=lambda:events.append('stop'))
+        ports = dict(GetGame=lambda:NS(IsServer=lambda:True),
+                     HCServer=NS(Get=lambda:NS(GetSettings=lambda:settings)),
+                     HCInteriorTemplates=NS(**env), Print=logs.append, FileExist=lambda path:False,
+                     HCInteriorTemplatePlacement=NS(Place=lambda *args:events.append('place')),
+                     HCSearchBinding=NS(TemplatesComplete=lambda owner:events.append('search')))
+        execute_member(source, 'OnTick', ports, module, 1.0)
+        self.assertGreater(len(reads), 1, 'module tick must advance pending pack even without a legacy owner')
+        for _ in range(20):
+            execute_member(source, 'OnTick', ports, module, 1.0)
+            if env['Loaded'](): break
+        self.assertTrue(env['Loaded'](), logs)
+        self.assertIs(module, module.s_Instance)
+        self.assertEqual(['place', 'search'], events)
+        execute_member(source, 'OnTick', ports, module, 1.0)
+        self.assertEqual(['place', 'search'], events)
+        execute_member(source, 'OnStop', ports, module)
+        self.assertFalse(env['Loaded']())
+        self.assertFalse(env['s_Job'].Started)
+        execute_member(source, 'OnStart', ports, module, settings)
+        env['EnsureLoaded'](None)
+        self.assertTrue(module.m_PackLoading)
+        execute_member(source, 'OnStop', ports, module)
+        before = list(reads)
+        execute_member(source, 'OnTick', ports, module, 1.0)
+        self.assertEqual(before, reads)
+        self.assertFalse(env['s_Job'].Started)
+        self.assertTrue(any('state=off' in line for line in logs))
+
+        # Explicit two-page synthetic metadata: HCStep=1 must end this tick.
+        from tools.package import interiors_profile as ip
+        values = pack()
+        index = values['index.json']
+        values['index-000.json'] = dict(SchemaVersion=3, Chunk=0,
+            SourcePins=[dict(Name=k,Sha256=v) for k,v in index['Sources'].items()],
+            **{key:[] for key in ip.TEMPLATE_LISTS})
+        values['index-001.json'] = dict(SchemaVersion=3, Chunk=1, SourcePins=[],
+            **{key:index[key] for key in ip.TEMPLATE_LISTS})
+        root = {k:v for k,v in index.items() if k not in ('Sources', *ip.TEMPLATE_LISTS)}
+        root.update(SchemaVersion=3, IndexFiles=[dict(File='index-%03d.json'%i,Sha256='a'*64) for i in range(2)])
+        values['index.json'] = root
+        env, _, reads, logs = fixture(values, staged=True)[:4]
+        ports['HCInteriorTemplates'] = NS(**env)
+        module.m_PackLoading = True
+        module.s_Instance = None
+        env['EnsureLoaded'](None)
+        execute_member(source, 'OnTick', ports, module, 1.0)
+        self.assertEqual(2, len(reads), 'HCStep=1 must yield to the next module tick')
+        self.assertTrue(reads[-1].endswith('index-000.json'))
+        self.assertFalse(env['Loaded']())
+
+    def test_reader_stages_both_schemas_without_reloading_and_resets_on_stop(self):
+        from tests.unit.test_hc_template_pack import SyntheticBudget
+        from tools.package import interiors_profile as ip
+        legacy = pack()
+        paged = copy.deepcopy(legacy)
+        index = paged['index.json']
+        page = dict(SchemaVersion=3, Chunk=0,
+                    SourcePins=[dict(Name=k,Sha256=v) for k,v in index['Sources'].items()],
+                    **{key:index[key] for key in ip.TEMPLATE_LISTS})
+        paged['index-000.json'] = page
+        root = {k:v for k,v in index.items() if k not in ('Sources', *ip.TEMPLATE_LISTS)}
+        root.update(SchemaVersion=3, IndexFiles=[dict(File='index-000.json', Sha256='a'*64)])
+        paged['index.json'] = root
+        snapshots = []
+        for values in (legacy, paged):
+            result = fixture(values, staged=True)
+            env, raw, reads, logs = result[:4]
+            env['EnsureLoaded'](None)
+            self.assertFalse(env['Loaded'](), 'startup must retain a job and yield before leaves')
+            self.assertEqual(1, len(reads))
+            job = env['s_Job']
+            env['HCLoadStep'](None, SyntheticBudget(False))
+            self.assertEqual(1, len(reads))
+            budget = SyntheticBudget(True)
+            for _ in range(20):
+                before = len(reads)
+                env['HCLoadStep'](None, SyntheticBudget(False))
+                self.assertEqual(before, len(reads))
+                env['HCLoadStep'](None, budget)
+                if env['Loaded'](): break
+            self.assertTrue(env['Loaded'](), logs)
+            self.assertIs(job.Index, env['s_Index'])
+            self.assertEqual(len(raw), len(reads))
+            self.assertEqual(len(reads), len(set(reads)))
+            self.assertEqual(sum(len(text) for text in raw.values()), job.Bytes)
+            self.assertIn('pack_chunks=%d classes=1 refused=none state=ready' % (len(raw)-1), '\n'.join(logs))
+            snapshots.append((vars(env['ClassRow']('Land_House_1W01')),
+                              vars(env['Template']('Land_House_1W01')),
+                              vars(env['Group']('g-0000')), [vars(row) for row in env['FurnishRows']()]))
+            env['HCLoadReset']()
+            self.assertFalse(env['Loaded']())
+            self.assertFalse(job.Started)
+            self.assertEqual((0, 0), (job.Files, job.Bytes))
+            env['EnsureLoaded'](None)
+            self.assertTrue(job.Started)
+        # Compare exact native-deserialization results, including all template fields.
+        def plain(value):
+            if isinstance(value, NS): return {k:plain(v) for k,v in vars(value).items()}
+            if isinstance(value, dict): return {k:plain(v) for k,v in value.items()}
+            if isinstance(value, (list,tuple)): return [plain(v) for v in value]
+            return value
+        self.assertEqual(plain(snapshots[0]), plain(snapshots[1]))
+
+    def test_reader_propagates_job_refusal_and_clears_partial_admission(self):
+        from tests.unit.test_hc_template_pack import SyntheticBudget
+        for broken in ('index.json', 'classes-000.json', 'furnish-000.json'):
+            result = fixture(staged=True)
+            env, raw, reads, logs = result[:4]
+            raw[broken] = '{}'
+            env['EnsureLoaded'](None)
+            for _ in range(20):
+                if env['s_Reason']: break
+                env['HCLoadStep'](None, SyntheticBudget(True))
+            self.assertFalse(env['Loaded']())
+            expected = 'legacy_index_or_pin' if broken == 'index.json' else 'chunk_strict:' + broken
+            self.assertEqual(expected, env['s_Reason'], logs)
+            self.assertTrue(any('HC-24 pack_chunks=' in line and 'state=refused' in line for line in logs))
+            self.assertFalse(env['s_Job'].Started)
+            self.assertEqual([], env['s_Classes'])
+            before = list(reads)
+            env['EnsureLoaded'](None)
+            self.assertEqual(before, reads)
+
     def test_resolve_cache_is_bounded_separates_positions_and_resets_on_stop(self):
         result = self.load()
         env = result[0]
@@ -502,7 +664,8 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
     def test_missing_pack_in_both_sources_refuses_without_reading(self):
         (e,raw,reads,logs,objects,created),copies=self.with_sources(profile=False, shipped=False)
         self.assertFalse(e['Loaded']()); self.assertEqual([],reads)
-        self.assertIn('templates refused: pack_missing source=missing',' '.join(logs))
+        self.assertIn('templates refused: pack_missing',' '.join(logs))
+        self.assertIn('templates source=missing', ' '.join(logs))
         self.assertIn('[HollowCountry] V1 admission feature=InteriorPlacement preference=on gate=interior_placement qualified=0 result=refused: template pack missing',' '.join(logs))
 
     def test_legacy_only_load_does_not_touch_legacy_files(self):
@@ -621,9 +784,11 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
                          json.loads(e['NativeText'](json.dumps(index),'index')))
 
     def test_read_totals_are_refused_before_publication(self):
-        for key,value in [('s_Files',610),('s_Bytes',20971520)]:
-            result=fixture(); e=result[0]; e[key]=value
-            self.assertEqual('',e['ReadStrict']('index.json','index','index'))
+        for key,value in [('LeafFiles',610),('Bytes',20971520)]:
+            result=fixture(staged=True); e=result[0]
+            e['EnsureLoaded'](None)
+            setattr(e['s_Job'], key, value)
+            self.assertEqual('',e['ReadStrict']('classes-000.json','classes','a'*64))
             self.assert_refused(result)
 
     def test_template_slot_count_obeys_setting(self):

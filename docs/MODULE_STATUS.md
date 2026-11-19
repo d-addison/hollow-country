@@ -16,7 +16,7 @@ not proof that its gameplay is operational.
 | --- | --- | --- |
 | Shared runtime | Server lifecycle, 16 KiB configuration reader, module registry, real elapsed time; actual compiler/core script-VM self-test/initialization under Wine. Native Windows vanilla join, movement, inventory and reconnect passed on 2026-11-17 | Final-source addon compilation, native Windows addon loading, diagnostic and signed loading gates |
 | Economy | Stock audit, conservative profile/delta tooling, isolated install and exact rollback; pinned measured-export candidate preparation | Verified apartment/barracks coverage correction; observed engine merge/eligibility; measured contextual routes and budgets |
-| Interiors | Stable identities, three two-prop trial layouts/two histories, immutable manifest, bounded startup placement; conservative journal migration and orphan quarantine. Bounded measured-catalog import binds exact reviewed documents, live house identity and contextual item groups; 15 synthetic checks and native run 054 compilation. Run 060 read an existing house's native pose, bounds and coordinate transforms. #138 adds a bounded building-position resolve cache (cleared on stop), preserving resolve/#q diagnostics, and cancels deferred interior pathgraph calls on stop; synthetic regressions pass, runtime acceptance pending | Complete measured catalog and layout fit, navigation/collision/replication, native parser/import/migration/recovery trials. Normal-build placement and search remain hard-gated; measurements and imported metadata do not prove fit |
+| Interiors | Stable identities, three two-prop trial layouts/two histories, immutable manifest, bounded startup placement; conservative journal migration and orphan quarantine. Bounded measured-catalog import binds exact reviewed documents, live house identity and contextual item groups; 15 synthetic checks and native run 054 compilation. Run 060 read an existing house's native pose, bounds and coordinate transforms. HC-24 now admits schema-2 and paged schema-3 packs through one retained startup job, shared tick budgets and atomic publication; stop/refusal clears the job. #138 adds a bounded building-position resolve cache (cleared on stop), preserving resolve/#q diagnostics, and cancels deferred interior pathgraph calls on stop; synthetic regressions pass, runtime acceptance pending | Complete measured catalog and layout fit, navigation/collision/replication, native parser/import/migration/recovery trials. Normal-build placement and search remain hard-gated; measurements and imported metadata do not prove fit |
 | Search | Native continuous action, server-owned target/range/LOS/time/lock checks, shared finite allocation pool and actor-bound reservation/attempt/result journal | Shared CE allocator/reconciliation and proven durable inventory/ledger commit. Native UI/audio/races/restart unobserved. Normal-build search is hard-gated |
 | Crafting | Three native salvage recipes, fixed yields, ownership/type/condition checks, tool wear, null-spawn and completion guards. All 36 audited cutting-tool classes share registration, eligibility and completion rules. Native run 055 compiled with crafting enabled and passed registered-definition/config checks | Native inventory/ground behavior, tool wear, concurrency/crash safety, balance and compatible rifle wrap observation. The broader justified recipe scope remains under review |
 | Full item audit and utility extensions | Whole-source recipe census; chunked in-engine configuration exporter preserves native type variants and unresolved fields; unhooked fuel arithmetic with binary32 no-creation checks. Run 035 enumerated all 7,389 classes across four roots/15 chunks. Bounded flashlight matrix retains every class; its raw-artifact shape exercise emitted 47,888 candidate pairs | Complete item/recipe/action and usefulness audit, broad justified crafting scope, native fuel action and durable conservation, taped flashlight mounting/switching/geometry and client qualification. Candidates do not establish compatible geometry or gameplay |
@@ -328,3 +328,121 @@ Additional settings/survival regressions: `python3 -B -m unittest tests.unit.tes
 → `Ran 12 tests`; `OK`. `git diff --check` passed. Changed Enforce files have
 at most 8 plus operators per statement. No commit/push or game execution was run;
 Banso's writer owns the eventual local commit.
+||||||| parent of 0de6dbc (Integrate HC-24 staged template pack admission and fix paging limits)
+[Operator keys](../mission/hollow-country/ai/README.md) and
+[cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
+save compatibility, invalid-key fallback logs, deterministic world-seed sizing
+and all deferred checks. HC-10 custody persistence was applied as a separate
+prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
+is source/policy verification only; DayZDiag, normal PBO/server, two-client
+visibility/audio/replication and load testing at 3–6 players remain pending.
+Budgets are provisional until measured; production enablement is not established.
+[Operator keys](../mission/hollow-country/ai/README.md) and
+[cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
+save compatibility, invalid-key fallback logs, deterministic world-seed sizing
+and all deferred checks. HC-10 custody persistence was applied as a separate
+prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
+is source/policy verification only; DayZDiag, normal PBO/server, two-client
+visibility/audio/replication and load testing at 3–6 players remain pending.
+Budgets are provisional until measured; production enablement is not established.
+
+
+## HC-24 interior template pack index — round 2, 2026-11-18
+
+Source/package integration complete; **runtime acceptance pending**. Trace:
+the dispatched HC-24 brief and active round-2 integration request, [pack contract](INTERIOR_TEMPLATES_CONTRACT.md),
+[runtime interfaces](RUNTIME_IMPLEMENTATION_CONTRACT.md) and
+[remaining HC-24 work](OUTSTANDING.md#6-audit-plan-work-packages-still-to-build-hc-11-to-hc-64).
+The named `docs/SPECIFICATION.md` and `docs/specs/001-survival-overhaul/spec.md`
+are absent from this checkout. HC-11 owns the shared master spec/plan/tasks;
+no missing engine experiment is accepted by this source update.
+
+Plan/tasks implemented: real strict schema tables → retained metadata admission
+→ budgeted leaves with unchanged semantic validation → atomic publication and
+receipt → stop/refusal cleanup. The existing `HCInteriorsModule` lifecycle chain
+is extended inside the owned `HCInteriorTemplates.c`: no registration, config,
+placement cursor or other worker's module file changes are required. The bridge
+runs before the existing template extension's instance guard, so a missing
+optional pilot cannot prevent loading. `HCStep=1` ends the entire module tick.
+At most eight load slices run per tick, with shared `HCWorkBudget` checks before
+each leaf; the existing placement loop, gameplay limits and opt-in gates remain.
+The raw `load_ticks` diagnostic spans staged startup, including time between ticks;
+it is not a per-tick CPU benchmark.
+
+Accounting has one owner (`HCInteriorPackJob`): 610 leaves, up to 16 pages and
+one root, at most 627 reads / 20 MiB. `pack_chunks` excludes the root and includes
+pages plus leaves. The 610/611 boundary fixture explicitly starts from synthetic
+ready metadata; canonical per-list caps remain unchanged (608 possible leaves).
+Schema-2 leaf bytes and all published reader data are preserved. The builder
+keeps all eligible templates up to 512; metadata paging replaces the obsolete
+single-index byte budget. Diagnostics parse each root strictly once and log
+only the root, page zero (when present) and first leaf per lifecycle.
+
+Actual RED → GREEN records (all fixtures synthetic; stdlib only):
+
+| Behavior / focused test | Actual RED | GREEN |
+| --- | --- | --- |
+| `test_hc_template_pack.TemplatePackTests.test_complete_bounded_pack_refuses_damage_and_migrates_without_gameplay_changes` | `AssertionError: False is not true` after removing injected strict tables | `ok` using real strict source |
+| `test_interior_templates.ClassRowTests.test_paged_index_keeps_every_template_up_to_512` | `AssertionError: 512 != 97` | `ok`: 512 kept, one excess template refused |
+| `test_hc_template_pack.TemplatePackTests.test_610_leaves_plus_16_pages_count_once_and_leaf_611_refuses` | `AssertionError: '' is not true : 609` | `ok`: 610 admitted, 611 refused through job and reader |
+| `test_hc_template_pack.TemplatePackTests.test_receipt_order_bounded_read_logs_and_single_strict_dispatch` | `['pack-index'] != ['index', 'pack-index']` | `ok`: one strict parse, three read logs and ordered receipt |
+| `test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_reader_stages_both_schemas_without_reloading_and_resets_on_stop` | `True is not false : startup must retain a job and yield before leaves` | `ok`: exact matching reader data, one read per file, budget deferral and restart |
+| `test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_reader_propagates_job_refusal_and_clears_partial_admission` | `AssertionError: False is not true` (missing pack refusal diagnostic) | `ok`: exact job reason retained, partial rows cleared, no retry |
+| `test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_module_tick_finishes_admission_and_stop_cancels_pending_load` | `1 not greater than 1 : module tick must advance pending pack even without a legacy owner`; further two-page RED: `2 != 7 : HCStep=1 must yield to the next module tick` | `ok`: actual lifecycle bodies progress, yield, finish once and stop |
+
+Exact focused RED/GREEN invocation: prefix each test above with
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest ` and
+suffix ` -v`. Cap/diagnostic REDs ran together as
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_template_pack -v`.
+The initial strict RED used
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_template_pack test_interior_templates.TemplateBuildTests.test_paged_index_keeps_every_template_up_to_512 -v`:
+it recorded the behavioral strict failure plus an unrelated selection error
+(`TemplateBuildTests` was corrected to `ClassRowTests` before the builder RED).
+The two reader REDs ran together by their complete test names. The existing
+`test_hc_unit_budget.SourceContractTests.test_interior_load_time_is_logged_in_raw_ticks_once`
+also caught the changed retained timer variable; its raw-tick contract is preserved.
+
+Final verification command (all named-file readers found by `rg`, plus required checks):
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_template_pack test_interior_templates test_interior_templates_runtime test_local_test_session test_tilt_rule test_house_search_flow test_hc_unit_budget test_infected_production_rooms test_interiors_profile test_server_report test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_friend_bundle -v
+python3 -B -m tools.validate.enforce_lint --no-native
+```
+
+Final result: **`Ran 655 tests in 104.951s` / `OK`**. Enforce lint:
+**`pass findings=126 new=0 stale=0 native=no`**. `git diff --check` passed.
+Git metadata was not written; the writer commit message is supplied separately.
+
+Native API declarations were inspected in the pinned 1.30.164289 snapshot:
+`EnSystem.c:106,417,425,443` (timer/read/close), `EnString.c:240` (dispatch probe),
+`EnScript.c:380,394,407,902,917` (arrays/maps), `EnConvert.c:30`,
+`EnDebug.c:96`, `Game.c:914,1120` and `JsonFileLoader.c:69`.
+No engine API, world scan, save scheduler, distance or production gate is added.
+The source check also found no statement above eight `+` operators and no
+foreach receiver other than a named local/member in the three changed scripts.
+
+Expected native log text (placeholders are observed pack-specific numbers,
+not offline evidence):
+
+```text
+[HC Plan] HC-24 pack_chunks=0 classes=0 refused=none state=pending hash_refused=runtime_sha256_unavailable runtime=PENDING
+[HC Plan] HC-24 read=index.json bytes=<bytes> length=<length> runtime=PENDING
+[HC Plan] HC-24 read=index-000.json bytes=<bytes> length=<length> runtime=PENDING
+[HC Plan] HC-24 read=classes-000.json bytes=<bytes> length=<length> runtime=PENDING
+[HC Plan] HC-24 pack_chunks=<pages+leaves> classes=<classes> refused=none state=ready hash=offline-receipt runtime=PENDING
+[HC Plan] HC-24 pack_chunks=<pages+leaves> classes=<classes> refused=none state=off hash=offline-receipt runtime=PENDING
+```
+
+Schema 2 omits the page read. Missing-root control must emit exactly
+`[HC Plan] HC-24 pack_chunks=0 classes=0 refused=pack_missing state=refused runtime=PENDING`.
+A missing page/leaf emits
+`[HC Plan] HC-24 pack_chunks=<successful reads minus root> classes=0 refused=file_size_or_read:<file> state=refused runtime=PENDING`.
+There must be no later ready receipt after refusal in that lifecycle.
+
+Still deferred: exact-source DayZDiag compile/boot (including the modded lifecycle
+chain), normal PBO/server admission for both schemas and the full authored pack,
+missing/corrupt page/leaf controls, stop/restart/off-path observation, installer
+rollback and hashes, physical fit/navigation/audio/replication qualification and
+3–6-player load measurement. Existing two-client acceptance remains pending.
+Runtime checks pins/bindings/schema/read sizes; SHA-256 authenticity still belongs
+to the offline installer receipt. Nothing here enables production gameplay.

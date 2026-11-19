@@ -4,6 +4,18 @@ class HCInteriorTemplatesStrict
     static string Keys(string schema)
 
     {
+        if (schema == "pack-index")
+        {
+            return "SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional IndexFiles";
+        }
+        if (schema == "pack-page")
+        {
+            return "SchemaVersion Chunk SourcePins ClassFiles TemplateFiles FurnishFiles GroupFiles";
+        }
+        if (schema == "pack-source")
+        {
+            return "Name Sha256";
+        }
         if (schema == "index")
 
         {
@@ -130,6 +142,10 @@ class HCInteriorTemplatesStrict
     static int ArrayCap(string schema)
 
     {
+        if (schema == "@pack-source")
+        {
+            return 520;
+        }
         if (schema == "@template-file")
         {
             return 512;
@@ -183,6 +199,14 @@ class HCInteriorTemplatesStrict
     static string Child(string schema, string key)
 
     {
+        if (key == "IndexFiles")
+        {
+            return "@file";
+        }
+        if (key == "SourcePins")
+        {
+            return "@pack-source";
+        }
         if (schema == "sources")
         {
             return "text";
