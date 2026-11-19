@@ -53,11 +53,18 @@ class HCStoryPolicy
 
     // Every issued identity is either retained, in bounded terminal exceptions,
     // or <= TerminalThrough. No hole, duplicate or replay can be admitted.
+    static bool HCUnmigrated(HCStoryProgress progress)
+    {
+        if (!progress) { return true; }
+        // Only the exact empty DTO is legacy; partial history must fail closed.
+        return progress.Version == 1 && progress.NextSequence == 1 && progress.LegacyThrough == 0 && progress.TerminalThrough == 0 && progress.NextArrival == 0 && progress.LegacyIds && progress.LegacyIds.Count() == 0 && progress.TerminalExceptions && progress.TerminalExceptions.Count() == 0;
+    }
+
     static bool HCValid(HCSceneChainState state)
     {
         if (!state || !state.Chains) { return false; }
         if (state.Chains.Count() > 4) { return false; }
-        if (!state.Stories)
+        if (HCUnmigrated(state.Stories))
         {
             if (state.Chains.Count() < 1) { return false; }
             foreach (HCSceneChain legacy : state.Chains)
@@ -197,6 +204,15 @@ class HCStorySchedule
         return false;
     }
 
+    bool HCOperatorOff(string cause)
+    {
+        m_Ready = false;
+        m_Reason = "operator-off";
+        // Story-only operator input cannot disable a valid pinned legacy page.
+        HCReport("off cause=" + cause);
+        return false;
+    }
+
     void HCReport(string effective)
     {
         int sequence = 0;
@@ -228,13 +244,14 @@ class HCStorySchedule
     {
         if (m_Ready) { return true; }
         m_Reason = "";
+        // Also normalize old explicit-null DTOs before an operator-off return.
+        // No numbering or IO here; the existing owner persists its next heartbeat.
+        if (state && !state.Stories) { state.Stories = new HCStoryProgress; }
         if (!enabled || (config && !HCV2Admission.Admitted(config.EnableStories)))
         {
-            m_Reason = "operator-off";
-            HCReport("off");
-            return false;
+            return HCOperatorOff("preference");
         }
-        if (!HCStoryPolicy.HCConfigValid(config)) { return HCRefuse("invalid-config"); }
+        if (!HCStoryPolicy.HCConfigValid(config)) { return HCOperatorOff("invalid-config"); }
         if (!state || !store || !HCStoryPolicy.HCValid(state)) { return HCRefuse("invalid-state"); }
         if (now < state.LastNow || now < 1 || now > 999000000) { return HCRefuse("world-clock"); }
         m_State = state;
@@ -243,9 +260,9 @@ class HCStorySchedule
         // Respect the operator catalog for NEW arrivals; pinned old plans are
         // never edited. A future HC-18 admitted template provider plugs in here.
         m_Templates = HCSceneChains.LoadCatalog();
-        if (!m_Templates) { return HCRefuse("template-catalog"); }
+        if (!m_Templates) { return HCOperatorOff("template-catalog"); }
         m_Cursor = 0;
-        if (!state.Stories)
+        if (HCStoryPolicy.HCUnmigrated(state.Stories))
         {
             HCStoryPolicy.HCMigrate(state, now, config);
             // Metadata-only migration must retain the last heartbeat: Scenes

@@ -9,7 +9,8 @@
 // 2_GameLib/tools.c:61 CallLater, :65 Remove.
 // HCGroupClock (UTC), HCGroupIO and the v1 director are reused, not reimplemented.
 // Common natives: 3_Game/Global/Game.c:1120 IsServer; 1_Core/proto/EnDebug.c:96 Print;
-// EnScript.c:380 Count, :394 Find, :407 Insert, :463 Remove; EnConvert.c:30 int.ToString;
+// EnScript.c:380 Count, :394 Find, :407 Insert, :463 Remove, :502 RemoveItem,
+// :906 map.Remove; EnConvert.c:30 int.ToString;
 // EnString.c:171 ToLower, :199 Length (1_Core/proto).
 // Note placement reuses HCSceneKits.Preflight: Game.c:930 objects, :1176
 // SurfaceY, :1196 SurfaceIsSea; Building.c:31/73 doors, Object.c:370 bounds;
@@ -21,19 +22,21 @@ class HCScenesModule : HCModule
     protected static ref HCScenesModule s_CleanupOwner;
     protected ref HCSceneChainStore m_Store;
     protected ref HCSceneChainState m_State;
+    protected ref HCStorySchedule m_Stories;
     protected ref array<ref HCSceneLease> m_Leases = new array<ref HCSceneLease>();
     protected int m_Cursor;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected ref HCSceneSaveJob m_SaveJob;
     protected int m_Placed;
     protected int m_Refused;
-    // Last preflight refusal reason printed per chain id; bounded by the 4 reviewed chains.
+    // Last refusal per retained chain; release keys when a terminal row is released.
     protected ref map<string, string> m_PreflightReasons = new map<string, string>();
     protected ref array<string> m_AdvertiseRefusals = new array<string>();
     protected int m_LastNow;
     protected float m_WorkElapsed;
     protected float m_LogElapsed;
     protected bool m_Running;
+    protected bool m_Stopping;
     protected bool m_AdmissionPrinted;
     protected bool m_SummaryPrinted;
 
@@ -66,7 +69,15 @@ class HCScenesModule : HCModule
         m_Store = new HCSceneChainStore;
         m_State = m_Store.Open(now);
         if (!m_State) { return; }
+        m_Stories = new HCStorySchedule;
+        if (!m_Stories.HCStart(m_State, m_Store, HCStoryPolicy.HCLoadConfig(), now, true) && m_Stories.HCReason() != "operator-off")
+        {
+            Print("[HollowCountry] V2 scenes refused; HC-19 " + m_Stories.HCReason());
+            m_Stories = null;
+            return;
+        }
         m_LastNow = now;
+        m_Stopping = false;
         m_SaveJob = new HCSceneSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
@@ -88,18 +99,48 @@ class HCScenesModule : HCModule
         m_State.LastNow = now;
         if (m_Store.Save(m_State))
         {
-            if (m_SaveJob)
-            {
-                // The barrier wrote the whole current state; a staged heartbeat in flight is done.
-                m_SaveJob.HCDirty = false;
-                m_SaveJob.HCInFlight = false;
-                m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
-            }
+            SaveBarrierDone();
             return true;
         }
         m_Running = false;
         OnStop();
         return false;
+    }
+
+    void SaveBarrierDone()
+    {
+        if (!m_SaveJob) { return; }
+        // The barrier wrote the whole current state; a staged heartbeat is done.
+        m_SaveJob.HCDirty = false;
+        m_SaveJob.HCInFlight = false;
+        m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
+    }
+
+    void StoryStep(int now)
+    {
+        if (!m_Running || !m_Stories || !m_Stories.HCReady()) { return; }
+        array<string> released = new array<string>();
+        HCSceneChain candidate = m_Stories.HCCandidate();
+        if (candidate && (candidate.Complete || candidate.Cancelled) && Cleanup(Lease(candidate.Id)))
+        {
+            released.Insert(candidate.Id);
+            ReleaseRefusals(candidate.Id);
+        }
+        // Even an empty receipt advances the scheduler's bounded retained cursor.
+        if (m_Stories.HCStep(now, released)) { SaveBarrierDone(); return; }
+        if (m_Stories.HCReady()) { return; }
+        if (m_Stories.HCReason() == "save-failed") { SaveBarrierDone(); }
+        m_Running = false;
+        OnStop();
+    }
+
+    void ReleaseRefusals(string chainId)
+    {
+        m_PreflightReasons.Remove(chainId);
+        // Reviewed plans have at most three stages; IDs never recur.
+        m_AdvertiseRefusals.RemoveItem(chainId + ":0");
+        m_AdvertiseRefusals.RemoveItem(chainId + ":1");
+        m_AdvertiseRefusals.RemoveItem(chainId + ":2");
     }
 
     HCSceneLease Lease(string chainId)
@@ -255,6 +296,7 @@ class HCScenesModule : HCModule
             if (!Commit(now)) { return; }
             Print("[HollowCountry] V2 scene deadlines shifted downtime=" + paused.ToString());
         }
+        if (m_State.Chains.Count() < 1) { return; }
         if (m_Cursor >= m_State.Chains.Count()) { m_Cursor = 0; }
         int selected = m_Cursor;
         m_Cursor = m_Cursor + 1;
@@ -383,7 +425,11 @@ class HCScenesModule : HCModule
             }
             m_LastNow = now;
             // One chain per ten seconds; at most two live kits of <=8 props.
+            int revision = m_State.Revision;
             Work(now);
+            // ResumeAfterGap must see the old heartbeat before HCCommit writes
+            // LastNow. A Work barrier already used this slot's synchronous save.
+            if (m_Running && m_State.Revision == revision) { StoryStep(now); }
             // Persist a heartbeat even while every chain is waiting; otherwise
             // an ordinary long stage would be mistaken for server downtime.
             if (m_Running && now - m_State.LastNow >= 60) { m_SaveJob.HCDirty = true; }
@@ -445,6 +491,9 @@ class HCScenesModule : HCModule
 
     override void OnStop()
     {
+        if (m_Stopping) { return; }
+        m_Stopping = true;
+        if (m_Stories) { m_Stories.HCStop(); }
         if (m_SaveJob)
         {
             // A staged heartbeat holds an older snapshot: drop it and flush the current state whole.

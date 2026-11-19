@@ -2,8 +2,8 @@
 
 All state, cleanup receipts, clocks and disk images below are SYNTHETIC. No
 engine persistence, placement, corpse/cargo or runtime acceptance is established.
-Spec/plan/task: HC-19 / #147, independent arrivals; HC-10/HC-18 consumption and
-HCScenesModule integration belong to the lead.
+Spec/plan/task: HC-19 / #147, independent arrivals; HC-10/HC-18 consumption
+belongs to the lead. Round 2 integrates HCScenesModule in this worktree.
 Actual receipt, 2026-11-18:
   PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_story_schedule -v
   RED: AssertionError: False is not true : fifth independent story rejected: no authored durable scheduler
@@ -45,7 +45,83 @@ def bind(kind, target, env, names=None, member=False, path=SOURCE):
     return target
 
 
+def dto(kind, env, path=SOURCE):
+    """Instantiate authored DTO field defaults; syntax scaffolding only."""
+    source = path.read_text()
+    match = re.search(r'class ' + kind + r'\s*\{', source)
+    fields = body(source, match.end())
+    value = N()
+    for field in re.finditer(r'^\s*(?:ref )?([\w<> ]+?) (\w+)(?:\s*=\s*([^;]+))?;', fields, re.M):
+        typ, name, initializer = field.groups()
+        if initializer and initializer.startswith('new array<'):
+            default = EArray()
+        elif initializer and initializer.startswith('new '):
+            default = env[initializer[4:].strip()]()
+        elif initializer:
+            default = json.loads(initializer)
+        elif typ == 'int':
+            default = 0
+        elif typ == 'string':
+            default = ''
+        else:
+            default = None
+        setattr(value, name, default)
+    return value
+
+
 class StoryScheduleBehavior(unittest.TestCase):
+    def test_operator_off_legacy_state_saves_object_then_migrates_once(self):
+        env = dict(EArray=EArray, str=str, Print=lambda line: None,
+                   HCV2Admission=N(Admitted=lambda preference: preference),
+                   HCEventDirector=N(TextValid=lambda text, limit: bool(text) and len(text) <= limit),
+                   HCEventSceneChains=N(LoadCatalog=lambda: N(Chains=EArray())))
+        env['HCStoryProgress'] = lambda: dto('HCStoryProgress', env)
+        env['HCEventStoryProgress'] = env['HCStoryProgress']
+        state = dto('HCSceneChainState', env, SCENES / 'HCSceneChains.c')
+        self.assertIsNotNone(state.Stories, 'legacy Stories must serialize as an object, never null')
+        state.LastNow = 100
+        state.Chains = EArray([N(Id='synthetic-legacy', StorySequence=0, Complete=False, Cancelled=False)])
+        policy = N()
+        env['HCEventStoryPolicy'] = policy
+        bind('HCStoryPolicy', policy, env,
+             names=['HCConfigValid', 'HCUnmigrated', 'HCValid', 'HCMigrate', 'HCIdentity'])
+        self.assertTrue(policy.HCValid(state))
+        self.assertTrue(policy.HCUnmigrated(state.Stories))
+        images = []
+        store = N(Save=lambda value: images.append(copy.deepcopy(value)) or True)
+        config = N(Version=1, EnableStories=False, ArrivalSeconds=21600, Window=4)
+        schedule = N(m_Ready=False, m_Reason='', m_State=None)
+        bind('HCStorySchedule', schedule, env, member=True)
+        # Legacy DTOs supplied by old tools can still have an explicit null.
+        state.Stories = None
+        self.assertFalse(schedule.HCStart(state, store, config, 1000, True))
+        self.assertEqual('operator-off', schedule.HCReason())
+        self.assertEqual([], images, 'off path must not migrate or save')
+        self.assertIsNotNone(state.Stories)
+        self.assertEqual(0, state.Chains[0].StorySequence)
+        serialized = json.dumps(state, default=vars)
+        self.assertIsInstance(json.loads(serialized)['Stories'], dict)
+        reopened = copy.deepcopy(state)  # explicit synthetic loader port
+        self.assertTrue(policy.HCValid(reopened))
+        config.EnableStories = True
+        self.assertTrue(schedule.HCStart(reopened, store, config, 1000, True))
+        self.assertEqual(1, len(images))
+        self.assertEqual((1, 2, 100), (reopened.Stories.LegacyThrough,
+                         reopened.Stories.NextSequence, reopened.LastNow))
+        self.assertTrue(policy.HCValid(reopened))
+        schedule.HCStop()
+        self.assertTrue(schedule.HCStart(reopened, store, config, 1010, True))
+        self.assertEqual(1, len(images), 'already migrated restart must not reissue identities')
+        # An object with partially populated history is corruption, not legacy.
+        for field, value in (('NextSequence', 2), ('NextArrival', 1),
+                             ('TerminalThrough', 1), ('Version', 2),
+                             ('LegacyIds', EArray(['forged'])),
+                             ('TerminalExceptions', EArray([1]))):
+            with self.subTest(field=field):
+                bad = copy.deepcopy(state)
+                setattr(bad.Stories, field, value)
+                self.assertFalse(policy.HCValid(bad))
+
     def test_independent_successors_migration_failed_start_and_restart_conservation(self):
         self.assertTrue(SOURCE.exists(), 'fifth independent story rejected: no authored durable scheduler')
         logs = []
@@ -90,7 +166,7 @@ class StoryScheduleBehavior(unittest.TestCase):
                    GetGame=lambda: N(GetTickTime=lambda: 1.))
         policy = N()
         env['HCEventStoryPolicy'] = policy
-        bind('HCStoryPolicy', policy, env, names=['HCConfigValid', 'HCValid', 'HCMigrate', 'HCRetired', 'HCIdentity', 'HCPlan'])
+        bind('HCStoryPolicy', policy, env, names=['HCConfigValid', 'HCUnmigrated', 'HCValid', 'HCMigrate', 'HCRetired', 'HCIdentity', 'HCPlan'])
 
         def scheduler(value):
             obj = N(m_State=value, m_Store=N(Save=save), m_Config=config, m_Ready=False,
@@ -234,7 +310,7 @@ class StoryScheduleBehavior(unittest.TestCase):
         actual_policy = N()
         native['HCEventStoryPolicy'] = actual_policy
         bind('HCStoryPolicy', actual_policy, native,
-             names=['HCValid', 'HCPlan', 'HCRetired', 'HCIdentity'])
+             names=['HCUnmigrated', 'HCValid', 'HCPlan', 'HCRetired', 'HCIdentity'])
         seeds = chain_policy.Defaults()
         self.assertTrue(chain_policy.CatalogValid(seeds, False))
         plan = actual_policy.HCPlan(5, seeds, EArray(p.Id for p in seeds.Chains))
