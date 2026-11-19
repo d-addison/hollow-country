@@ -105,12 +105,3 @@ class HCMorseClues : HCModule
     }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
 }
-
-modded class HCModuleRegistry
-{
-    override void RegisterModules()
-    {
-        super.RegisterModules();
-        Register(new HCMorseClues);
-    }
-}
