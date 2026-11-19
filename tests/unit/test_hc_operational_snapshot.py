@@ -10,7 +10,17 @@ RED: FAILED (failures=1), unauthorized Core row exposed: [] !=
 RED extension: FAILED (failures=1), ' state=off ' not found in disabled
      owner's state=unknown/source_state=off/freshness=stale row.
 GREEN: Ran 1 test; OK (synthetic handlers, not engine acceptance).
-Related focused modules: 116 tests OK. Required checks plus formula complexity:
+Round 2 (same focused command above):
+RED: Ran 7 tests; FAILED (failures=6): authorized status returned no owner rows;
+Start retained prior-session owner; refresh became source_stale at t=73;
+Stop retained state=ready; aggregate refusals 1 != 64; unloaded store closed.
+GREEN: Ran 7 tests; OK. Explicit synthetic lifecycle/transport/store ports only.
+Round 2 related-file/admin/compile/hygiene suites: Ran 500 tests;
+OK (expected failures=1, pre-existing shared-work-budget case).
+python3 -B -m tools.validate.enforce_lint --no-native:
+pass findings=126 new=0 stale=0 native=no.
+
+Round 1 related focused modules: 116 tests OK. Required checks plus formula complexity:
 56 tests OK. Native compile, two-client RPC and performance remain PENDING.
 """
 from pathlib import Path
@@ -55,7 +65,7 @@ def fixture():
     make_status, _ = authored_status(logs)
     debug = N(s_Contributors=None, s_RegistrationRefusals=0)
     service = N(s_Owners=EArray(), s_ByName=NativeMap(), s_Aggregate=None,
-                s_Registered=False, s_Refused=0, MAX_SOURCE_AGE_SECONDS=60)
+                s_Registered=False, s_RegistrationTried=False, s_Refused=0, MAX_SOURCE_AGE_SECONDS=60)
     scope = base_scope(array=EArray, HCOperationalContributors=service, HCDebugSnapshot=debug,
                        HCRecoveryGate=N(HCReady=lambda name:name != 'world',
                           HCDisposition=lambda name:'durable', HCGeneration=lambda:7,
@@ -66,6 +76,8 @@ def fixture():
     debug.HCText = lambda value, limit:text_fn(None, NativeString(value), limit)
     bind(debug, DEBUG, 'HCDebugSnapshot', ('HCRegister','HCUnregister','HCContributorCount'),
          scope, fields=('s_Contributors','s_RegistrationRefusals'))
+    bind(debug, DEBUG, 'HCDebugSnapshot', ('HCResetRegistrationRefusals',), scope,
+         fields=('s_RegistrationRefusals',))
     owner_fields = ('Name','Status','Requested','ObservedAt','CountersAt','Work','Cap','Refusals','Exception')
     owner_methods = ('HCObserve','HCCounters','HCStop','HCFreshness','HCLine')
     def owner():
@@ -88,11 +100,141 @@ def fixture():
     methods = ('HCRegisterOwner','HCReset','HCCount','HCRefused','HCStoreLine',
                'HCRows','HCAppend','HCAdminRows','HCReport')
     bind(service, OPS, 'HCOperationalContributors', methods, scope,
-         fields=('s_Owners','s_ByName','s_Aggregate','s_Registered','s_Refused'), members=methods)
+         fields=('s_Owners','s_ByName','s_Aggregate','s_Registered','s_RegistrationTried','s_Refused'), members=methods)
     return service, debug, make_status, scope, logs
 
 
 class OperationalSnapshot(unittest.TestCase):
+    def lifecycle(self):
+        from tests.unit import test_core_lifecycle as core
+        service, debug, status, scope, logs = fixture()
+        events = []
+        report = status()
+        report.HCPublish('ready', 'synthetic_ready')
+        active = core.Module(NativeString('running'), events)
+        active.HCGetOperationalStatus = lambda: report
+        active.OnTick = lambda elapsed: None
+        disabled = core.Module(NativeString('disabled'), events, enabled=False)
+        state, _ = core.fixture(modules=[active, disabled], operational=service)
+        return state, service, scope, logs
+
+    def test_status_authorizes_before_describing_and_rechecks_delivery(self):
+        service, _, _, scope, _ = fixture()
+        service.HCRegisterOwner(NativeString('synthetic-status'))
+        replies, described, refused = [], [], []
+        sender = object()
+        allowed = [True]
+        describe = compile_authored(WORLD / 'Admin/HCAdminStatus.c', 'HCServer',
+                                    'HCAdminDescribe', scope)
+        def record(reply):
+            describe(N(), reply)
+            described.append(reply)
+        scope.update(HCAdminReply=lambda:N(Authorized=False, Lines=EArray()),
+                     HCServer=N(Get=lambda:N(HCAdminDescribe=record)))
+        admin = N(HCAuthorized=lambda who:allowed[0] and who is sender,
+                  HCRefused=lambda who:refused.append(who),
+                  HCCommand=lambda *args:False)
+        # The actual final sender gate is already exercised below; record its input here.
+        admin.HCSend = lambda who, reply:replies.append(reply) if admin.HCAuthorized(who) else None
+        bind(admin, WORLD / 'Admin/HCAdminModule.c', 'HCAdminModule',
+             ('HCStatus', 'HCDispatch'), scope,
+             members=('HCAuthorized','HCRefused','HCStatus','HCCommand','HCSend'))
+        self.assertTrue(admin.HCDispatch(sender, 'status', 0, 1))
+        self.assertTrue(any('owner=synthetic-status ' in line for line in replies[0].Lines),
+                        'authorized status command returned no owner rows')
+        allowed[0] = False
+        self.assertFalse(admin.HCDispatch(sender, 'status', 0, 2))
+        self.assertEqual(1, len(described))
+        self.assertEqual(1, len(replies))
+        self.assertEqual([sender], refused)
+        admin.HCStatus(sender, 3)  # direct invocation still cannot expose cached rows
+        self.assertEqual([], described[-1].Lines)
+        self.assertEqual(1, len(replies))
+
+    def test_start_registers_enabled_and_disabled_owners_and_reports(self):
+        state, service, scope, logs = self.lifecycle()
+        service.HCRegisterOwner(NativeString('prior-session'))
+        state.Start()
+        self.assertEqual(['running', 'disabled'], [row.Name for row in service.s_Owners])
+        self.assertIn('state=ready', service.s_Owners[0].HCLine(12))
+        self.assertIn('state=off', service.s_Owners[1].HCLine(12))
+        self.assertTrue(any('[HC Plan] HC-25 contributors=1' in line for line in logs))
+
+    def test_ticks_refresh_active_owner_past_source_ttl_with_bounded_work(self):
+        from tests.unit import test_core_lifecycle as core
+        state, service, scope, logs = self.lifecycle()
+        state.Start()
+        row = service.HCRegisterOwner(NativeString('running'))
+        row.HCObserve(True, state.m_Active[0].HCGetOperationalStatus(), 12)
+        clock = [12]
+        tick_scope = dict(GetGame=lambda:N(IsServer=lambda:True, GetTickTime=lambda:clock[0]),
+                          TickCount=lambda prior:0, Print=logs.append,
+                          HCOperationalContributors=service)
+        tick = core.actual_method('Tick', tick_scope)
+        for now in range(13, 100):
+            clock[0] = now
+            tick(state)
+            self.assertNotIn('source_stale', row.HCLine(now))
+        self.assertGreaterEqual(row.ObservedAt, 87)
+        # Deliberately oversized synthetic active array: publisher visits at most 64.
+        reads = []
+        for index in range(70):
+            state.m_Active.Insert(N(GetName=lambda i=index:NativeString('extra-' + str(i)),
+                                   OnTick=lambda elapsed:None,
+                                   HCGetOperationalStatus=lambda i=index:reads.append(i)))
+        attempts = []
+        register = service.HCRegisterOwner
+        service.HCRegisterOwner = lambda name:(attempts.append(name), register(name))[1]
+        clock[0] = 115
+        tick(state)
+        self.assertEqual(64, len(attempts))
+        self.assertEqual(62, len(reads))
+        self.assertEqual(64, service.HCCount())
+
+    def test_stop_marks_owner_before_callback_and_restart_discards_receipts(self):
+        state, service, scope, logs = self.lifecycle()
+        state.Start()
+        row = service.HCRegisterOwner(NativeString('running'))
+        row.HCObserve(True, state.m_Active[0].HCGetOperationalStatus(), 12)
+        stopped = []
+        state.m_Active[0].OnStop = lambda:stopped.append(row.HCLine(12))
+        state.Stop()
+        self.assertIn('state=off', stopped[0])
+        self.assertFalse(row.Requested)
+        self.assertIn('reason=server_stop_requested', row.HCLine(13))
+        state.Start()
+        self.assertIsNot(row, service.s_ByName.Get('running'))
+
+    def test_full_contributor_registry_attempts_once_and_reset_clears_refusals(self):
+        service, debug, _, _, _ = fixture()
+        for _ in range(16):
+            self.assertTrue(debug.HCRegister(object()))
+        for index in range(64):
+            service.HCRegisterOwner(NativeString('owner-' + str(index)))
+        self.assertEqual(1, debug.s_RegistrationRefusals,
+                         'one saturated aggregate registration must not retry for every owner')
+        service.HCReset()
+        self.assertEqual(0, debug.s_RegistrationRefusals)
+        self.assertFalse(service.s_RegistrationTried)
+        service.HCRegisterOwner(NativeString('new-session'))
+        self.assertEqual(1, debug.s_RegistrationRefusals)
+        self.assertTrue(service.s_RegistrationTried)
+        service.HCReset()
+        debug.HCUnregister(debug.s_Contributors[0])
+        service.HCRegisterOwner(NativeString('available-next-session'))
+        self.assertTrue(service.s_Registered)
+        self.assertEqual(0, debug.s_RegistrationRefusals)
+
+    def test_not_loaded_store_receipt_is_pending_admission(self):
+        service, _, _, scope, _ = fixture()
+        scope['HCRecoveryGate'].HCReady = lambda name:False
+        scope['HCRecoveryGate'].HCReason = lambda:'not_loaded'
+        self.assertIn('recovery=pending_admission', service.HCStoreLine('world'))
+        scope['HCRecoveryGate'].HCReason = lambda:'synthetic_quarantine'
+        self.assertIn('recovery=closed_or_quarantined', service.HCStoreLine('world'))
+        scope['HCRecoveryGate'].HCReady = lambda name:True
+        self.assertIn('recovery=admitted', service.HCStoreLine('world'))
+
     def test_unauthorized_oversized_and_stale_cached_rows(self):
         # This first assertion is the actual preimplementation RED: original
         # HCAdminDescribe emitted a Core row without checking authorization.

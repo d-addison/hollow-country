@@ -12,6 +12,7 @@ class HCServer
     protected ref HCOperationalStatusCache m_Operational = new HCOperationalStatusCache();
     protected bool m_Started;
     protected float m_LastTick;
+    protected float m_OperationalRefreshAt;
     protected ref HCPerfSampler m_Perf = new HCPerfSampler();
 
     static HCServer Get()
@@ -34,6 +35,8 @@ class HCServer
         // A prior startup/stop callback may have aborted before cleanup finished.
         if (m_Active.Count() > 0) Stop();
         m_Operational.HCReset();
+        HCOperationalContributors.HCReset();
+        m_OperationalRefreshAt = 0;
         if (!HCNativeSelfTests.Run())
         {
             Print("[HollowCountry] Core native self-test FAILED; no modules started");
@@ -51,6 +54,7 @@ class HCServer
         array<ref HCModule> modules = m_Registry.GetModules();
         bool moduleEnabled = false;
         HCOperationalStatus reported = null;
+        HCOperationalOwner opOwner = null;
         foreach (HCModule module : modules)
         {
             // Exactly one lifecycle admission read; it may load local config.
@@ -62,6 +66,8 @@ class HCServer
             }
             reported = module.HCGetOperationalStatus();
             m_Operational.HCCapture(module.GetName(), moduleEnabled, reported);
+            opOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
+            if (opOwner) { opOwner.HCObserve(moduleEnabled, reported, GetGame().GetTickTime()); }
             if (moduleEnabled)
             {
                 Print("[HollowCountry] Requested module start; inspect module admission result: " + module.GetName());
@@ -69,6 +75,7 @@ class HCServer
         }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
+        m_OperationalRefreshAt = m_LastTick + 15;
         m_Perf.Start(60);
         foreach (HCModule perfModule : m_Active)
         {
@@ -78,6 +85,7 @@ class HCServer
         Print(HCV2Admission.Summary(m_Settings));
         Print(HCV2Admission.OperationalSummary(m_Operational));
         Print(HCV2Admission.NonModuleSummary());
+        HCOperationalContributors.HCReport();
         Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
 
@@ -104,6 +112,26 @@ class HCServer
             m_Perf.SampleModule(moduleIndex, TickCount(moduleStart));
             moduleIndex++;
         }
+        // Publish cached owner state on the lifecycle path, never on requests.
+        // The registry caps 64; keep the refresh independently bounded as well.
+        if (now >= m_OperationalRefreshAt)
+        {
+            m_OperationalRefreshAt = now + 15;
+            int refreshIndex = 0;
+            HCOperationalOwner refreshOwner = null;
+            HCOperationalStatus refreshStatus = null;
+            foreach (HCModule refreshModule : m_Active)
+            {
+                if (refreshIndex >= 64) { break; }
+                refreshIndex++;
+                refreshOwner = HCOperationalContributors.HCRegisterOwner(refreshModule.GetName());
+                if (refreshOwner)
+                {
+                    refreshStatus = refreshModule.HCGetOperationalStatus();
+                    refreshOwner.HCObserve(true, refreshStatus, now);
+                }
+            }
+        }
         m_Perf.Sample(elapsed, TickCount(perfStart));
     }
 
@@ -115,11 +143,16 @@ class HCServer
         m_Operational.HCStopAll();
         m_Perf.Stop();
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
+        float stopNow = -1;
+        if (GetGame()) { stopNow = GetGame().GetTickTime(); }
+        HCOperationalOwner stopOwner = null;
         for (int i = m_Active.Count() - 1; i >= 0; i--)
         {
             HCModule module = m_Active[i];
             // Remove before callback: an abort must not repeat this module's stop.
             m_Active.Remove(i);
+            stopOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
+            if (stopOwner) { stopOwner.HCStop(stopNow); }
             module.OnStop();
         }
         m_Active.Clear();

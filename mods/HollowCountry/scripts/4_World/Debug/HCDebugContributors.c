@@ -193,6 +193,7 @@ class HCDebugOperationalContributor : HCDebugContributor
         {
             snapshot.HCAddOperational(rows[index]);
         }
-        snapshot.HCDocument().operationalTruncated += HCOperationalContributors.HCRefused();
+        HCDebugDocument document = snapshot.HCDocument();
+        document.operationalTruncated += HCOperationalContributors.HCRefused();
     }
 }

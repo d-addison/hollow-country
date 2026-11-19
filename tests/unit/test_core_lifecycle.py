@@ -43,7 +43,7 @@ def tokens(source):
 
 def expression(text):
     text = re.sub(r"\bnew (HCModuleRegistry)\(\)", r"\1()", text)
-    text = re.sub(r"\b(?:int|float|bool|HCSettings|HCModule|HCOperationalStatus|array<ref HCModule>) (\w+) =", r"\1 =", text)
+    text = re.sub(r"\b(?:int|float|bool|HCSettings|HCModule|HCOperationalStatus|HCOperationalOwner|array<ref HCModule>) (\w+) =", r"\1 =", text)
     text = re.sub(r"\bm_(\w+)\b", r"self.m_\1", text)
     text = re.sub(r"(?<!\.)\b(Stop|Tick)\b", r"self.\1", text)
     text = text.replace("&&", " and ").replace("||", " or ")
@@ -117,7 +117,7 @@ class Module:
         if self.abort_stop: raise AbortCallback("stop:" + self.name)
 
 
-def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, game_present=True, server=True):
+def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, game_present=True, server=True, operational=None):
     calls = []
     queue = SimpleNamespace(Remove=lambda fn: calls.append("remove-tick"),
                             CallLater=lambda *args: calls.append("schedule-tick"))
@@ -126,6 +126,7 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
     settings = SimpleNamespace(TickIntervalMs=1000)
     registry = SimpleNamespace(RegisterModules=lambda: calls.append("register"), GetModules=lambda: modules)
     context = {"GetGame": lambda: game if game_present else None,
+               "HCOperationalContributors": operational or SimpleNamespace(HCReset=lambda: None, HCRegisterOwner=lambda name: None, HCReport=lambda: None),
                "HCNativeSelfTests": SimpleNamespace(Run=lambda: self_test),
                "HCSettings": SimpleNamespace(LoadFromProfile=lambda: settings if loaded else None),
                "HCModuleRegistry": lambda: registry, "Print": lambda text: None,
@@ -135,7 +136,7 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                                                 OperationalSummary=lambda status: "[HC Plan] HC-1 status",
                                                 NonModuleSummary=lambda: "[HC Plan] HC-1 non_modules")}
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
-                            m_Registry=None, m_LastTick=0, Tick=lambda: None,
+                            m_Registry=None, m_LastTick=0, m_OperationalRefreshAt=0, Tick=lambda: None,
                             # HC-1 receipts are passive; their own tests live in test_hc_operational_status.
                             m_Operational=SimpleNamespace(HCReset=lambda: None, HCStopAll=lambda: None,
                                                           HCCapture=lambda name, requested, reported: None),

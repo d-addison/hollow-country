@@ -210,6 +210,7 @@ class HCAdminModule : HCModule
         HCAdminReply reply = new HCAdminReply;
         reply.Ticket = ticket;
         reply.Notice = "Status: enabled means requested; n/a means no public metric. Runtime acceptance pending.";
+        reply.Authorized = HCAuthorized(sender);
         HCServer.Get().HCAdminDescribe(reply);
         for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { Print(reply.Lines[lineIndex]); }
         Print("[HC Admin] cmd=status result=ok reason=bounded-module-status");
