@@ -211,6 +211,7 @@ The opt-out markers on this checkout (create the `.disable` file to turn the fea
 | `$profile:HollowCountry/acceptance/infected_horde_routes.disable` | `HCInfectedQualification.HordeStimulusRoutesOptIn` | `mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c` |
 | `$profile:HollowCountry/acceptance/interior_placement.disable` | `HCInteriorRules.PlacementOptIn` | `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c` |
 | `$profile:HollowCountry/acceptance/interior_search.disable` | `HCInteriorRules.SearchOptIn` | `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c` |
+| `$profile:HollowCountry/acceptance/taped_helmet.disable` | `HCTapedHelmetMounts.OnStart` | `mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c` |
 | `$profile:HollowCountry/acceptance/taped_light.disable` | `HCTapedLightAdmission.LocalAcceptanceOptIn` | `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c` |
 | `$profile:HollowCountry/acceptance/pve_patrols.disable` | `HCXAIQualification.LocalAcceptanceOptIn` (optional `HollowCountryExpansionAI` addon) | `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIQualification.c` |
 

@@ -286,8 +286,14 @@ def render_block(changes):
             old, new = row['vanilla'], row['new']
             lines.append(f'    // {row["category"]}; {row["addon"]}; {row["pbo"]}:{row["member"]}; '
                          f'vanilla {row["property"]} {old[0]}x{old[1]} -> {new[0]}x{new[1]}')
+            # Preserve HC-52's authored native-slot extension when sizes regenerate.
+            # Vanilla evidence: ~/.cache/hollow-country/wine-server-20261116/addons/
+            # characters_backpacks.pbo:config.bin; slot-table tests pin preservation.
+            extra_fields = ''
+            if row['name'] == 'TortillaBag':
+                extra_fields = ' attachments[] = {"Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag", "helmetFlashlight"};'
             lines.append(f'    class {row["name"]}: {row["parent"]} '
-                         f'{{ {row["property"]}[] = {{{new[0]}, {new[1]}}}; }};')
+                         f'{{ {row["property"]}[] = {{{new[0]}, {new[1]}}};{extra_fields} }};')
             del pending[row['name'].lower()]
     lines.append('    ' + END)
     return '\n'.join(lines) + '\n'

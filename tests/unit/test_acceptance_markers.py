@@ -377,7 +377,7 @@ class ChecklistTraceabilityTests(unittest.TestCase):
     OPT_OUTS = ("atmosphere", "ecology_migration", "events", "events_sites", "fuel_siphon", "infected_ce_adoption",
                 "infected_contact_guard", "infected_deaths", "infected_horde_routes", "infected_investigation",
                 "infected_member_recovery", "infected_pack_routes", "infected_supplementary_chains",
-                "infected_vision", "interior_placement", "interior_search", "pve_patrols", "taped_light")
+                "infected_vision", "interior_placement", "interior_search", "pve_patrols", "taped_helmet", "taped_light")
 
     def test_the_real_source_has_the_known_fuel_opt_out(self):
         self.assertIn("fuel_siphon", markers.opt_out_names(self.result))
