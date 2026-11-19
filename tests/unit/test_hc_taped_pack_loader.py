@@ -32,6 +32,11 @@ def member(path, cls, method, state, env, *args):
                     r'array<ref HCTapedPairReceipt>)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
     source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
+    # Native string members on Python str: Get/Substring/IndexOf/IndexOfFrom.
+    source = re.sub(r'(\w+)\.Get\(([^()]+)\)', r'\1[\2]', source)
+    source = re.sub(r'(\w+)\.Substring\((\w+), (\d+)\)', r'\1[\2:\2 + \3]', source)
+    source = re.sub(r'(\w+)\.IndexOfFrom\((\w+), (\w+)\)', r'\1.find(\3, \2)', source)
+    source = re.sub(r'(\w+)\.IndexOf\((\w+)\)', r'\1.find(\2)', source)
     source = re.sub(r'\bTStringArray (?=PairIds\()', 'int ', source)
     source = re.sub(r'\b(?:HCTapedPackManifest|HCTapedPairReceipts|HCOperationalStatus) (?=(?:ParseManifest|ParseReceipts|HCGetOperationalStatus)\()',
                     'int ', source)
@@ -86,7 +91,7 @@ def build(text, build_ok=True, files=None, receipts=""):
         return json.loads(t, object_hook=hook)
     names = ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable", "PairRefusal",
              "BindingAllowed", "ApplyManifest", "LoadSettings", "ReadManifest", "ParseManifest",
-             "ApplyReceipts", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ReceiptChecked",
+             "ApplyReceipts", "ReceiptCheckedTyped", "ValidCheckDate", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ReceiptChecked",
              "PairAdmission", "PairQualified", "AdmittedCount", "FirstAdmissionReason", "OnStart")
     for name in names:
         setattr(gate, name, lambda *a, name=name: member(PACKS, "HCTapedPackMounts", name, gate, env, *a))

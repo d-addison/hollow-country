@@ -276,18 +276,6 @@ class ScenesLayer(unittest.TestCase):
 
 
 class OwnerGetters(unittest.TestCase):
-    def lead_fn(self, name, store_rows, now=1000, healthy=True):
-        copies = []
-
-        def copy(row):
-            clone = N(**vars(row))
-            copies.append(clone)
-            return clone
-        scope = base_scope(HCWorldClock=N(UTC=lambda: now), HCLeadPolicy=N(Copy=copy), HC_DEBUG_LEAD_SCAN=64)
-        receiver = N(m_Store=N(Data=N(Leads=EArray(store_rows))), Get=lambda: receiver if healthy else None)
-        fn = compile_authored(LEADS, 'HCLeadModule', name, scope, ('Get',), modded=False)
-        return receiver, fn
-
     def rows(self):
         return [N(Id='a', Kind='PLACE', TargetPlaceId='p', Expires=2000, GroupId='solo:secret', TextId='t', Source='x'),
                 N(Id='old', Kind='PLACE', TargetPlaceId='p', Expires=500, GroupId='g', TextId='t', Source='x'),
@@ -330,25 +318,14 @@ class OwnerGetters(unittest.TestCase):
         self.assertEqual(64, rows_fn(receiver, 1000, out))
         self.assertEqual(64, len(out))
 
-    def test_lead_count_is_unexpired_rows_only(self):
-        receiver, count = self.lead_fn('HCDebugLeadCount', self.rows())
-        self.assertEqual(2, count(receiver))
-
-    def test_lead_getter_returns_withheld_group_copy_and_does_not_mutate(self):
-        source = self.rows()
-        receiver, lead = self.lead_fn('HCDebugLead', source)
-        first, second = lead(receiver, 0), lead(receiver, 1)
-        self.assertEqual(('a', 'b'), (first.Id, second.Id))
-        self.assertEqual('', first.GroupId)
-        self.assertEqual('solo:secret', source[0].GroupId, 'the ledger row itself is untouched')
-        self.assertIsNone(lead(receiver, 2))
-        self.assertIsNone(lead(receiver, -1))
-
-    def test_lead_getters_are_empty_when_module_unhealthy(self):
-        receiver, count = self.lead_fn('HCDebugLeadCount', self.rows(), healthy=False)
-        self.assertEqual(0, count(receiver))
-        receiver, lead = self.lead_fn('HCDebugLead', self.rows(), healthy=False)
-        self.assertIsNone(lead(receiver, 0))
+    def test_test_only_lead_getters_are_gone_and_nothing_calls_them(self):
+        # #195: the contributor uses the one-pass HCDebugLeadRows batch getter, so the
+        # older per-row getters were dead code kept alive by tests only.
+        import re
+        for path in LEADS.parent.parent.parent.rglob('*.c'):
+            text = path.read_text()
+            self.assertIsNone(re.search(r'\bHCDebugLead(?:Count)?\(', text), path.name)
+        self.assertIn('HC_DEBUG_LEAD_SCAN', LEADS.read_text(), 'the named scan bound stays')
 
     def scene_receiver(self):
         lease = N(ChainId='chain-a', Stage=2, Anchor=(1.0, 0, 2.0), Closing=False, Objects=EArray([1, 2, 3]))
@@ -690,6 +667,23 @@ class PickersLayer(unittest.TestCase):
         trip.m_State.Phase = 'idle'
         self.assertEqual(0, count(receiver), 'an idle or refused picker has nothing to place')
         self.assertIsNone(row_fn(receiver, 0))
+
+    def test_picker_getters_return_nothing_while_the_journal_is_not_ready(self):
+        # #195: a journal with an invalid phase leaves m_Ready false; the layer must
+        # not show a row carrying that phase text.
+        actor = N(GetPosition=lambda: (10.0, 0, 20.0))
+        scope = base_scope(HCDebugPickerRow=lambda: N(Locator='none', HasPosition=False), HCDebugSnapshot=N(**CONSTANTS))
+        count = compile_authored(PICKERS, 'HCPickers', 'HCDebugPickerCount', scope, modded=False)
+        row_fn = compile_authored(PICKERS, 'HCPickers', 'HCDebugPicker', scope, modded=False)
+        for phase in ('leaving', 'returning', 'not-a-phase', 'quarantined'):
+            trip = N(m_Ready=False, m_State=N(Phase=phase, Generation=3, Refusal=''),
+                     m_IO=N(Actor=actor, Source=None, Home=None, HCLive=lambda: True))
+            receiver = N(m_Trip=trip)
+            self.assertEqual(0, count(receiver), phase)
+            self.assertIsNone(row_fn(receiver, 0), phase)
+            trip.m_Ready = True
+            self.assertEqual(1, count(receiver), phase)
+            self.assertIsNotNone(row_fn(receiver, 0), phase)
 
     def test_picker_getter_falls_back_to_source_then_home_and_then_unplaced(self):
         source = N(GetPosition=lambda: (1.0, 0, 2.0))

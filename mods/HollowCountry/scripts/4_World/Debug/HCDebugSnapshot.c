@@ -14,7 +14,7 @@
 // so neither side squeezes the other and the total never exceeds the wire cap.
 // Each hardened layer also reports total/shown/truncated through HCNoteLayer.
 // w28-debugmap #193: the lead-ledger and scenes layers read the new read-only
-// owner getters (HCLeadModule.HCDebugLead*, HCScenesModule.HCDebugLease*) and draw
+// owner getters (HCLeadModule.HCDebugLeadRows, HCScenesModule.HCDebugLease*) and draw
 // on the same hardened share: camps 24 + lead-ledger 56 + scenes 8 = 88.
 class HCDebugContributor
 {

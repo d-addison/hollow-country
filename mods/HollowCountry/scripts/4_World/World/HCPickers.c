@@ -474,7 +474,8 @@ class HCPickers : HCModule
     // Runtime acceptance pending (the provider route is refused/unsurveyed).
     int HCDebugPickerCount()
     {
-        if (!m_Trip || !m_Trip.m_State) { return 0; }
+        // m_Ready false = the journal is unavailable or invalid: no row, whatever the phase text.
+        if (!m_Trip || !m_Trip.m_Ready || !m_Trip.m_State) { return 0; }
         if (m_Trip.m_State.Phase == "idle") { return 0; }
         return 1;
     }
@@ -482,7 +483,7 @@ class HCPickers : HCModule
     // Detached copy: position from the live carrier, else the source, else home.
     HCDebugPickerRow HCDebugPicker(int wanted)
     {
-        if (wanted != 0 || !m_Trip || !m_Trip.m_State || !m_Trip.m_IO) { return null; }
+        if (wanted != 0 || !m_Trip || !m_Trip.m_Ready || !m_Trip.m_State || !m_Trip.m_IO) { return null; }
         if (m_Trip.m_State.Phase == "idle") { return null; }
         HCDebugPickerRow row = new HCDebugPickerRow;
         row.Phase = m_Trip.m_State.Phase;

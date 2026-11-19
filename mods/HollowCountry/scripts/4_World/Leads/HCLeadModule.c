@@ -405,47 +405,11 @@ class HCLeadModule : HCModule
         }
     }
 
-    // w28-debugmap #193: read-only debug seam for the lead-ledger layer. Scans at
-    // most the store ceiling (64 rows) of unexpired rows; never calls Select/Latest
-    // (they advance cursors) and never mutates the store. Runtime acceptance pending.
+    // w28-debugmap #193: the lead-ledger layer reads the one-pass batch getter
+    // HCDebugLeadRows (Debug/HCDebugLeadRows.c). The older per-row HCDebugLeadCount
+    // and HCDebugLead getters were test-only after w29 and were removed (#195).
+    // Scan bound for that getter: at most the store ceiling (64 rows).
     static const int HC_DEBUG_LEAD_SCAN = 64;
-
-    int HCDebugLeadCount()
-    {
-        if (!Get()) { return 0; }
-        int now = HCWorldClock.UTC();
-        int scan = m_Store.Data.Leads.Count();
-        if (scan > HC_DEBUG_LEAD_SCAN) { scan = HC_DEBUG_LEAD_SCAN; }
-        int count = 0;
-        for (int index = 0; index < scan; index++)
-        {
-            if (m_Store.Data.Leads[index].Expires > now) { count++; }
-        }
-        return count;
-    }
-
-    // The wanted-th unexpired row as a copy with the group id withheld.
-    HCWorldLead HCDebugLead(int wanted)
-    {
-        if (wanted < 0 || !Get()) { return null; }
-        int now = HCWorldClock.UTC();
-        int scan = m_Store.Data.Leads.Count();
-        if (scan > HC_DEBUG_LEAD_SCAN) { scan = HC_DEBUG_LEAD_SCAN; }
-        int seen = 0;
-        for (int index = 0; index < scan; index++)
-        {
-            HCWorldLead row = m_Store.Data.Leads[index];
-            if (row.Expires <= now) { continue; }
-            if (seen == wanted)
-            {
-                HCWorldLead copy = HCLeadPolicy.Copy(row);
-                copy.GroupId = "";
-                return copy;
-            }
-            seen++;
-        }
-        return null;
-    }
 }
 
 // Resolve membership from authoritative state at delivery time, without editing
