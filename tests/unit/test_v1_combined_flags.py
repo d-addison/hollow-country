@@ -9,7 +9,8 @@ Trace: T023 / AC-011, FR-012, NFR-003/004; current #23 scope supersedes
 the older plan's two-client and late-join acceptance cases for this writer.
 TDD record (2026-11-17): unmarked combined workload failed 36 <= 32;
 unmarked Stop regression failed with two pathgraph callbacks still queued.
-Both remain expected failures; no product implementation is changed.
+Wave 13 (#138): the combined-workload test now passes through the shared HCServer tick budget (RED on the
+base copy: AssertionError 36 not less than or equal to 32); no expected failures remain.
 Green: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_v1_combined_flags
 """
 import itertools
@@ -26,6 +27,7 @@ from tests.unit import test_search_economy_integration as search
 from tests.unit import test_v1_weather as weather
 from tests.unit import test_infected_admission as infected
 from tests.unit import test_ecology_module as ecology
+from tests.unit import tick_budget_fixture as tickbudget
 from tests.unit.test_group_server import EArray
 from tools.validate.runtime import V2_FLAGS
 
@@ -182,6 +184,8 @@ class CoreFixture:
         self.registry.RegisterModules = base
         self.state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None,
                        m_LastTick=0, m_Registry=None, m_SettingsRefusalLogged=False,
+                       # Wave 13 (#138): the authored shared tick budget (offline port of HCUnitBudget).
+                       m_TickWork=tickbudget.new_budget(), m_TickActive=False,
                        m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
                                        HCCapture=lambda name, requested, reported: None),
                        m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,
@@ -351,22 +355,28 @@ class CombinedWorkTests(unittest.TestCase):
             self.assertFalse(craft.Started)
             self.assertEqual([('start', True), ('stop', None)] * (cycle + 1), siphon_lifecycle)
 
-    # DESIGN QUESTION (reviewed: MaxTickWorkItems is per module; no shared-budget requirement) mods/HollowCountry/scripts/4_World/Core/HCServer.c:61:
-    # independent module loops receive no shared remaining
-    # allowance. Input: MaxTickWorkItems=32, 12 interior sites + 24 actors = 36.
-    @unittest.expectedFailure
+    # Wave 13 (#138): HCServer owns one shared HCUnitBudget per core tick (HCServer.HCTickWork()); the infected
+    # and interior loops take one unit per item from it. Input: MaxTickWorkItems=32, 12 interior sites +
+    # 24 actors. No-starvation rule: the budget admits the first item of every consumer once per tick even when
+    # spent, so the exact bound is MaxTickWorkItems plus one forced unit per starved consumer. Here the
+    # interior sites run first (12) and the infected get 20 (32 total), so nothing is forced.
     def test_all_modules_tick_within_shared_work_budget(self):
         f = CoreFixture()
         f.state.Start()
+        klass = tickbudget.budget_class()
+        accessor = tickbudget.tick_work_accessor(f.state, klass)
         processed = []
         # Explicit admitted synthetic workload: 24 registered infected actors,
         # 12 live interior sites. Actual module loops choose what gets processed.
-        h = infected.StartedModule(flags=infected.NO_ADMISSION, hordes=False).start()
+        h = infected.StartedModule(flags=infected.NO_ADMISSION, hordes=False)
+        h.tick_klass, h.tick_work = klass, accessor
+        h.start()
         h.ctx.m_Actors = infected.Array(object() for _ in range(24))
         h.ctx.SampleActor = lambda actor: processed.append('infected')
         h.ctx.FinishSweep = lambda now: None
         f.modules['Infected'].OnTick = lambda dt: h.tick(10001)
         interior = search.SearchIntegrationTests(); interior.setUp()
+        tickbudget.install(interior.env, f.state, klass)
         class Site:
             Deadline = 1000.
             @property
@@ -378,8 +388,14 @@ class CombinedWorkTests(unittest.TestCase):
         f.modules['Interiors'].OnTick = lambda dt: interior.call('OnTick', dt)
         f.now += 1
         f.state.Tick()
-        self.assertLessEqual(len(processed), f.state.m_Settings.MaxTickWorkItems,
+        limit = f.state.m_Settings.MaxTickWorkItems
+        forced = f.state.m_TickWork.m_Starved
+        self.assertLessEqual(len(processed), limit + forced,
                              'shared budget exceeded by actual infected/interior loops: ' + repr(processed))
+        self.assertLessEqual(len(processed), limit + klass.HC_WORK_CONSUMERS - 1)
+        self.assertEqual(0, forced)
+        self.assertIn('interior', processed)
+        self.assertIn('infected', processed)
 
     def test_stop_removes_queued_interior_updates_as_well_as_core_tick(self):
         f = CoreFixture()

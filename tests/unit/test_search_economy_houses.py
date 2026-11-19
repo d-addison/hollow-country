@@ -16,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace as N
 
 from tests.unit import test_search_supply_provider as sp
+from tests.unit import tick_budget_fixture as tick_fixture
 from tools.setup import probe_runtime
 from tests.unit.test_group_server import EArray
 
@@ -378,6 +379,7 @@ class Harness:
         self.site_fields = {k for k in vars(site_fields)}
         from tests.unit.test_refusal_report import install_refusal
         install_refusal(env)
+        tick_fixture.install(env)
         for filename in HOUSE_FILES:
             for source in translate(filename):
                 exec(source, env)

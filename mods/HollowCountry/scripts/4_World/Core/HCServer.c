@@ -6,6 +6,8 @@
 class HCServer
 {
     protected static ref HCServer s_Instance;
+    // Idle budget for callers outside a core tick; allocated once on first use, never per tick.
+    protected static ref HCUnitBudget s_IdleWork;
     protected ref HCSettings m_Settings = new HCSettings();
     protected ref HCModuleRegistry m_Registry;
     protected ref array<ref HCModule> m_Active = new array<ref HCModule>();
@@ -15,6 +17,11 @@ class HCServer
     protected float m_LastTick;
     protected float m_OperationalRefreshAt;
     protected ref HCPerfSampler m_Perf = new HCPerfSampler();
+    // Wave 13 (#138): ONE shared per-tick work budget, reset to MaxTickWorkItems at the top of Tick()
+    // and read by every module item loop through HCServer.HCTickWork(). Allocated once, no per-tick
+    // allocation. m_TickActive is true only while Tick() is running the module callbacks.
+    protected ref HCUnitBudget m_TickWork = new HCUnitBudget();
+    protected bool m_TickActive;
 
     static HCServer Get()
     {
@@ -23,6 +30,17 @@ class HCServer
     }
 
     HCSettings GetSettings() { return m_Settings; }
+
+    // The shared core-tick work budget (see HCUnitBudget header for the no-starvation rule). Null-safe:
+    // with no HCServer instance, or outside a core tick (tests, a module ticking on its own, a player
+    // action), it returns the idle budget that never refuses. Fetch it once per tick, not per item.
+    static HCUnitBudget HCTickWork()
+    {
+        if (s_Instance && s_Instance.m_TickActive) { return s_Instance.m_TickWork; }
+        if (!s_IdleWork) { s_IdleWork = new HCUnitBudget(); }
+        s_IdleWork.HCReset(HCUnitBudget.HC_WORK_UNBOUNDED);
+        return s_IdleWork;
+    }
     bool IsStarted() { return m_Started; }
 
     // Passive operator/debug ports: cached strings, no module callbacks or IO.
@@ -117,6 +135,8 @@ class HCServer
         m_LastTick = GetGame().GetTickTime();
         m_OperationalRefreshAt = m_LastTick + 15;
         m_Perf.Start(60);
+        m_TickActive = false;
+        m_TickWork.HCWindowReset();
         foreach (HCModule perfModule : m_Active)
         {
             m_Perf.RegisterModule(perfModule.GetName());
@@ -144,6 +164,9 @@ class HCServer
             Stop();
             return;
         }
+        // Shared budget: reset once, before the first module; every consumer draws from it.
+        m_TickWork.HCReset(m_Settings.MaxTickWorkItems);
+        m_TickActive = true;
         int perfStart = TickCount(0);
         int moduleIndex = 0;
         foreach (HCModule module : m_Active)
@@ -153,6 +176,9 @@ class HCServer
             m_Perf.SampleModule(moduleIndex, TickCount(moduleStart));
             moduleIndex++;
         }
+        m_TickActive = false;
+        // One line per perf window (same 60 s as m_Perf.Start): shared_used_max / shared_starved.
+        if (m_TickWork.HCEndTick(elapsed, 60)) { Print("" + m_TickWork.HCWindowReport()); }
         // Publish cached owner state on the lifecycle path, never on requests.
         // The registry caps 64; keep the refresh independently bounded as well.
         if (now >= m_OperationalRefreshAt)
@@ -180,6 +206,7 @@ class HCServer
     {
         if (!m_Started && m_Active.Count() == 0) return;
         m_Started = false;
+        m_TickActive = false;
         // Retain off/unknown receipts even if a later stop callback aborts.
         m_Operational.HCStopAll();
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);

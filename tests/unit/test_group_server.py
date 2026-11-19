@@ -88,7 +88,7 @@ def execute_member(source, name, env, *args):
         bare=re.fullmatch(r'(int|float|bool|string|HCGroup\w+) (\w+)',token)
         if bare:
             token=bare[2]+' = '+{'int':'0','float':'0.0','bool':'False','string':"''"}.get(bare[1],'None')
-        token=re.sub(r'\b(?:int|float|bool|string|vector|ScriptRPC|HCGroup\w+)\s+(?=\w+\s*=)','',token)
+        token=re.sub(r'\b(?:int|float|bool|string|vector|ScriptRPC|HCUnitBudget|HCGroup\w+)\s+(?=\w+\s*=)','',token)
         token=re.sub(r'\bm_\w+\b',lambda m:'self.'+m[0],token)
         for method in ('Fault','PathFor','Live','Peer','HasGPS','Member','SendSnapshot','VisibilityAllows','Equipment','LOSAllows','EvictExplorers'):
             token=re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(',token)

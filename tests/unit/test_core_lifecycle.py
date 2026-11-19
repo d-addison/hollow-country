@@ -7,6 +7,8 @@ import re
 from types import SimpleNamespace
 import unittest
 
+from tests.unit import tick_budget_fixture as tick_fixture
+
 SOURCE = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts/4_World/Core/HCServer.c"
 
 
@@ -123,7 +125,7 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                             CallLater=lambda *args: calls.append("schedule-tick"))
     game = SimpleNamespace(IsServer=lambda: server, GetTickTime=lambda: 12,
                            GetCallQueue=lambda category: queue)
-    settings = SimpleNamespace(TickIntervalMs=1000, EnableInfected=True)
+    settings = SimpleNamespace(TickIntervalMs=1000, EnableInfected=True, MaxTickWorkItems=32)
     registry = SimpleNamespace(RegisterModules=lambda: calls.append("register"), GetModules=lambda: modules)
     context = {"GetGame": lambda: game if game_present else None,
                "HCOperationalContributors": operational or SimpleNamespace(HCReset=lambda: None, HCRegisterOwner=lambda name: None, HCReport=lambda: None),
@@ -142,6 +144,9 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
     context.update(ports or {})
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
                             m_Registry=None, m_SettingsRefusalLogged=False, m_LastTick=0, m_OperationalRefreshAt=0, Tick=lambda: None,
+                            # Wave 13 (#138): the authored shared tick budget (offline port); its own tests live
+                            # in test_hc_tick_budget.
+                            m_TickWork=tick_fixture.new_budget(), m_TickActive=False,
                             # HC-1 receipts are passive; their own tests live in test_hc_operational_status.
                             m_Operational=SimpleNamespace(HCReset=lambda: None, HCStopAll=lambda: None,
                                                           HCCapture=lambda name, requested, reported: None),

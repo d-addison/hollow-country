@@ -1102,7 +1102,11 @@ class HCInfectedModule : HCModule
                 voices--;
                 work--;
             }
-            while (work > 0 && m_Cursor < m_Actors.Count())
+            // Wave 13 (#138): each sampled actor also takes one unit from the shared core-tick
+            // budget (own cap above stays). A refused request leaves m_Cursor on that actor; the
+            // sweep resumes there next tick (HCUnitBudget forces one item per consumer per tick).
+            HCUnitBudget sharedWork = HCServer.HCTickWork();
+            while (work > 0 && m_Cursor < m_Actors.Count() && sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 1))
             {
                 SampleActor(m_Actors[m_Cursor]);
                 m_Cursor++;

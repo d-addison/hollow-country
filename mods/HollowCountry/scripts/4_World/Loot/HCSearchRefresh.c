@@ -341,6 +341,9 @@ class HCSearchRefreshModule : HCModule
     protected int m_Pending;
     protected int m_Refreshed;
     protected float m_Minute;
+    // Rows still owed to the current minute's batch (shared-budget resume) and whether it changed any.
+    protected int m_BatchLeft;
+    protected bool m_BatchChanged;
     protected float m_Hour;
 
     override string GetName() { return "LootRefresh"; }
@@ -497,21 +500,33 @@ class HCSearchRefreshModule : HCModule
         if (!Active() || !(deltaTime > 0.0)) return;
         m_Minute += deltaTime;
         m_Hour += deltaTime;
-        if (m_Minute >= 60.0)
+        if (m_Minute >= 60.0 && m_BatchLeft < 1)
         {
             // Discard excess dt rather than doing catch-up bursts. Cursor survives
             // batches; UTC still counts all real downtime between process boots.
             m_Minute = 0.0;
-            int now = HCGroupClock.Utc();
-            if (now < m_State.LastUtc) { m_Store.Fault(); return; }
+            if (HCGroupClock.Utc() < m_State.LastUtc) { m_Store.Fault(); return; }
             int limit = RECORDS_PER_MINUTE;
             if (limit > m_Settings.MaxTickWorkItems) limit = m_Settings.MaxTickWorkItems;
             if (limit > m_State.Rows.Count()) limit = m_State.Rows.Count();
-            int processed;
-            bool changed;
-            while (processed < limit)
+            m_BatchLeft = limit;
+            m_BatchChanged = false;
+        }
+        if (m_BatchLeft > 0)
+        {
+            // Wave 13 (#138): the minute's rows are owed, not skipped. Each row takes one unit of the
+            // shared core-tick budget; a refused request leaves m_Next and m_BatchLeft where they are
+            // and the next tick continues (the shared budget forces one row per tick, so the batch
+            // always finishes). The batch is saved once, when its last row is done.
+            int now = HCGroupClock.Utc();
+            if (now < m_State.LastUtc) { m_Store.Fault(); return; }
+            HCUnitBudget sharedWork = HCServer.HCTickWork();
+            while (m_BatchLeft > 0)
             {
+                // Rows may be compacted away between ticks of one batch: never index an empty list.
+                if (m_State.Rows.Count() < 1) { m_BatchLeft = 0; break; }
                 if (m_Next >= m_State.Rows.Count()) m_Next = 0;
+                if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_REFRESH, 1)) break;
                 HCSearchRefreshRow row = m_State.Rows[m_Next];
                 if (!row.Ready && HCSearchRefreshPolicy.Due(row.SearchedUtc, now, HCSearchRefreshPolicy.Interval(row.SiteId)))
                 {
@@ -519,13 +534,14 @@ class HCSearchRefreshModule : HCModule
                     row.Revisited = true;
                     m_Pending--;
                     m_Refreshed++;
-                    changed = true;
+                    m_BatchChanged = true;
                 }
                 m_Next++;
-                processed++;
+                m_BatchLeft = m_BatchLeft - 1;
             }
-            if (changed)
+            if (m_BatchLeft < 1 && m_BatchChanged)
             {
+                m_BatchChanged = false;
                 m_State.LastUtc = now;
                 if (!m_Store.Save(m_State)) return;
             }
@@ -542,6 +558,8 @@ class HCSearchRefreshModule : HCModule
     {
         if (m_Pilot) m_Pilot.Stop();
         if (s_Instance == this) s_Instance = null;
+        m_BatchLeft = 0;
+        m_BatchChanged = false;
         m_Settings = null;
     }
 }
@@ -598,9 +616,13 @@ modded class HCSearchHouses
         int limit = Math.Min(m_Settings.MaxTickWorkItems, 32);
         if (!m_Journal.PruneLegacyTombstones(limit)) { return; }
         if (limit > m_Journal.Count()) { limit = m_Journal.Count(); }
+        // Wave 13 (#138): each inspected row takes one shared core-tick unit; a refused request keeps
+        // m_CompactNext and the next minute resumes there.
+        HCUnitBudget sharedWork = HCServer.HCTickWork();
         while (examined < limit)
         {
             if (m_CompactNext >= m_Journal.Count()) { m_CompactNext = 0; }
+            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_MAINT, 1)) { break; }
             int compactIndex = m_CompactNext;
             m_CompactNext++;
             examined++;
