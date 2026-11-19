@@ -154,8 +154,11 @@ class HCEcologyRuntimeStore
 			// HCGroupClock.Utc uses EnSystem.c:76/100 UTC time/date.
 			int now = HCGroupClock.Utc();
 			string suffix = ".quarantined-" + now.ToString();
+			string pendingText = HCEcologyRuntimeIO.Read(pendingPath, 2048);
+			string pendingReason = "leftover_pending";
+			if (pendingText.Trim().Length() == 0) { pendingReason = "leftover_pending_empty"; }
 			bool archived = false;
-			if (now > 0) { archived = HCPersistenceDisposition.HCArchive(pendingPath, suffix, 2048); }
+			if (now > 0) { archived = HCPersistenceDisposition.HCArchive(pendingPath, suffix, 2048, true); }
 			if (!archived || !DeleteFile(pendingPath) || FileExist(pendingPath))
 			{
 				m_Fault = true;
@@ -163,7 +166,8 @@ class HCEcologyRuntimeStore
 				return null;
 			}
 			pending = false;
-			Print("[HC Ecology] recovery=quarantined reason=leftover_pending path=" + pendingName + suffix + " runtime=PENDING");
+			Print("[HC Ecology] recovery=quarantined reason=" + pendingReason + " path=" + pendingName + suffix + " runtime=PENDING");
+			HCPersistenceDisposition.HCPruneArchives(pendingPath, ".quarantined-");
 		}
 		bool image = FileExist(imagePath);
 		HCEcologyCheckpoint prior;
