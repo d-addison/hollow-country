@@ -65,6 +65,7 @@ class LootmapBehavior(unittest.TestCase):
         query_calls, probes, sent, exported = [], [], [], []
         server = [True]
         ce_ready = [True]
+        clock = [100]
 
         def item(name, x, z, nominal=8, parent=None):
             return N(GetType=lambda:EStr(name), GetPosition=lambda:(x, 0, z),
@@ -89,7 +90,7 @@ class LootmapBehavior(unittest.TestCase):
                  GetObjectsAtPosition=query)
         env = base_scope(GetGame=lambda:game, GetCEApi=lambda:object() if ce_ready[0] else None,
                          EntityAI=N(Cast=lambda entity:entity), Vector=lambda x,y,z:(x,y,z),
-                         HCGroupClock=N(Utc=lambda:100),
+                         HCGroupClock=N(Utc=lambda:clock[0]),
                          HCAdminLootType=lambda:N(className='', count=0, nominal=-1),
                          HCAdminLootPoint=lambda:N(), HCAdminLootDocument=document)
         env['Math'].Ceil = math.ceil
@@ -157,6 +158,12 @@ class LootmapBehavior(unittest.TestCase):
         server[0] = False
         self.assertFalse(job().HCStart(EStr('Bandage')))
         server[0] = True
+        # An unavailable clock must refuse, not export time=-1 that the webmap rejects.
+        clock[0] = -1
+        unclocked = job()
+        self.assertFalse(unclocked.HCStart(EStr('Bandage')))
+        self.assertEqual('clock_unavailable', unclocked.HCDocument().reason)
+        clock[0] = 100
         query_calls.clear()
         defaults.MaxObjectsPerCell = 1
         capped = job()

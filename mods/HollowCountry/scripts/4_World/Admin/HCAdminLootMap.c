@@ -102,6 +102,7 @@ class HCAdminLootMap
         m_Document = new HCAdminLootDocument;
         if (!GetGame() || !GetGame().IsServer()) { HCFinish("server_only"); return false; }
         m_Document.time = HCGroupClock.Utc();
+        if (m_Document.time < 0) { HCFinish("clock_unavailable"); return false; }
         m_Document.world = GetGame().GetWorldName();
         m_Document.world.ToLower();
         bool forcePrefix = false;
