@@ -6,12 +6,12 @@
   "trace": {
     "spec": "FR-008; FR-011; AC-007; owner_task_2026-11-18",
     "plan": "consolidated_coverage_Wave_2_HC-45",
-    "task": "one_attempt_native_crawler_hold_release_and_bounded_posture_support_queue",
+    "task": "W56 issue-121 audit; deterministic place roles, native perception wake, bounded fresh crawler queue",
     "shared_trace_owner": "HC-11; canonical_spec_plan_tasks_are_not_in_this_worktree; read_existing_lead_copies_without_modifying_them"
   },
   "runtime_acceptance": "PENDING",
   "production_enabled": false,
-  "interpretation": "Authored support queue and pending site coverage, not a runtime spawn/config loader or CE success receipt. HCPostureAdmission.c contains the fixed runtime capability table. No preference, manifest edit or graph bind promotes an unproved mode.",
+  "interpretation": "Support-mode audit and source coverage. variety-runtime.json is now loaded by HCInfectedVariety; its CE anchors identify contexts only. All placement is subject to existing native clearance, observer and infected caps. No native behavior observed.",
   "bounds": {
     "support_modes": 4,
     "queue_rows_per_tick": 1,
@@ -52,7 +52,10 @@
       "refusal": "SIT_WAKE_NATIVE_PROOF_PENDING",
       "class_candidate": "HC_ZmbM_Sitter",
       "event_reference": null,
-      "existing_assets": ["hc_sit_wall_idle", "hc_sit_wall_getup"],
+      "existing_assets": [
+        "hc_sit_wall_idle",
+        "hc_sit_wall_getup"
+      ],
       "graph": "HCMasterControl; CMD_HC_POSE; HCPose; mods/HollowCountryAnims/anims/infected/hc_poses.agf",
       "evidence_limit": "Already authored own-prefix assets only. No exact-source installed config/playback/wake/observer proof; hidden subclass and all entry requests refused.",
       "required_experiment": "DayZDiag graph/load/bind/playback and safe native command return, then normal signed PBO and two clients including late streaming"
@@ -73,12 +76,13 @@
     }
   ],
   "sites": [],
-  "pending_coverage": "Every eligible settlement and island remains eligible for eventual measured sites; none admitted without geometry/access and observer evidence. Empty authored sites are pending coverage, not a quiet-by-design exclusion.",
+  "pending_coverage": "60 vanilla CE anchors across five contexts; all other sites remain eligible future coverage. Anchors are not measured clearance or runtime acceptance.",
   "lead_integration": {
-    "config_cpp": "No pose subclass or CE event enablement now. After native proof choose the exact verified subclass/event; no verified event reference exists yet.",
-    "package_allowlist": "Lead adds 'infected/variety-sites.json' to tools/package/pbo.py MISSION_FILES, then reruns test_package. Shared packager is outside worker scope.",
+    "config_cpp": "No config.cpp change or module slot needed; only native vanilla class ZmbM_CitizenASkinny_Brown created through existing HCLODMaterialize.",
+    "package_allowlist": "Add 'infected/variety-runtime.json' to tools/package/pbo.py MISSION_FILES (retain variety-sites.json).",
     "policy_owner": "#135 consumes HCPostureAdmission.HCCanEnter(mode) alongside existing observer/PosedRoom admission; keep LOD/policy/state ownership unchanged.",
-    "status": "HC-14 lifecycle extension emits one mode per tick and drains once. Cached HC-1 ready/degraded/off describes the existing variety/scaling owner, not animation qualification; queue support remains degraded/off. No module registration edit needed."
+    "status": "Existing posture/owner status retained; HCInfectedVarietyStatus surfaces missing/invalid catalog through HCGetOperationalStatus/HCPublish; ready remains derived from existing admission/dependency status.",
+    "admin": "In Admin/HCAdminDirectors.c HCInfectedModule.HCAdminDormant replace its body with: return HCInfectedVariety.HCAdminFreshDormant(pos, reason);"
   },
   "native_acceptance": [
     "Exact-source DayZDiag compile and boot, then normal signed server/client PBO; no script/CE errors",
@@ -86,5 +90,79 @@
     "Two clients: approach, real noise and attack; day/night/weather; native wake/crawl, combat and death; late-stream observer consistency",
     "Off path and stop/restart: release each owned idle latch once; no delayed pose callbacks, new entities, corpse replacement, duplicate loot or second resurrection",
     "Unsupported sit/prone/riser modes remain named pending experiments; native HC-14 variants remain available"
-  ]
+  ],
+  "runtime_catalog": "infected/variety-runtime.json",
+  "runtime_config_fields": [
+    "MaxSites",
+    "MaxFreshBodies",
+    "GroupMembers",
+    "ContextRange",
+    "InterestRange",
+    "RequestRange",
+    "MinSpawnDistance",
+    "VisibilityRange",
+    "MaxObservers",
+    "GroupSpacing",
+    "AutomaticIntervalSeconds"
+  ],
+  "issue_121_audit_base_d68a2ed": [
+    {
+      "checkbox": "Dormant sleepers",
+      "status": "partial",
+      "evidence": "HCInfectedVarietyNative.HCVarietySleep holds existing calm crawlers; original 60-second expiry contradicted until-noise/proximity",
+      "w56": "Remove timer wake; wake on native non-calm, real shot, standing proximity, damage or cap repair. Fresh crawl request uses native m_CrawlTransition; runtime pending."
+    },
+    {
+      "checkbox": "Bodies that rise among real corpses",
+      "status": "partial",
+      "evidence": "HCVarietyNearCorpse admits existing living crawlers near tracked dead bodies; no standing reverse-crawl API",
+      "w56": "Living dormant crawlers retained; standing riser remains unexposed, never revive or replace real corpses."
+    },
+    {
+      "checkbox": "Role-driven posture and idle",
+      "status": "partial",
+      "evidence": "Native stance 0/1/3 and military 2 already role-driven; initial role random; native mind states own idle 0/1/2",
+      "w56": "Context-derived roles replace initial random selection. Preserve native idle selection and runner caps."
+    },
+    {
+      "checkbox": "Place-fitting clusters",
+      "status": "partial",
+      "evidence": "Existing corpse and room-catalog admission; no outdoor source catalog or fresh group hook",
+      "w56": "Load 60 CE anchors: wreck, church, gas_station, roadside, building. Existing building-lurker room admission retained; fresh bodies placed outdoors only after clearance."
+    },
+    {
+      "checkbox": "Gunfire-woken groups and noise-following herds",
+      "status": "partial",
+      "evidence": "HCVarietyShot already routes real shots via HCAlertChain and HCHordeStimulus, <=3 recipients; f757a5d migration <=6 members, <=2 hops, <=60 seconds; no surveyed pilot route",
+      "w56": "Reuse existing services unchanged. Horde migration native route survey remains missing and outside ownership; no teleport/spawn route workaround."
+    },
+    {
+      "checkbox": "Day/night and weather",
+      "status": "done-source",
+      "evidence": "RunnerLimit, DormantChance, NoiseWakeChance and native night/rain sampling already implemented",
+      "w56": "Retained; native acceptance pending."
+    },
+    {
+      "checkbox": "Tier C custom animation",
+      "status": "missing-out-of-scope",
+      "evidence": "Native crawl is injury transition with no exposed standing reversal; custom graphs/assets excluded by this task",
+      "w56": "Named one-time native_rise=unexposed diagnostic; no fabricated admission."
+    }
+  ],
+  "bounds_scope": "Original HCPostureAdmission support queue only. Fresh-body placement has separate runtime_bounds and variety-runtime.json policy.",
+  "runtime_bounds": {
+    "MaxFreshBodies": 3,
+    "CandidatesPerTick": 1,
+    "BodiesPerTick": 1,
+    "Contexts": 5,
+    "Sites": 60,
+    "DistancesAdded": [
+      "ContextRange",
+      "InterestRange",
+      "RequestRange",
+      "MinSpawnDistance",
+      "VisibilityRange",
+      "GroupSpacing"
+    ]
+  }
 }
