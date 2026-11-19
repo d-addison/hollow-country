@@ -24,7 +24,7 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.'))]
 
 
 def check_performance(rows, source, registry):
@@ -76,6 +76,30 @@ def check_hearth(rows, source, registry):
         if binding not in dto: errors.append(f'HearthFires apply binding differs for {key}')
         if re.search(r'\b' + key + r'\s*[<>]=?\s*[\d.]', dto):
             errors.append(f'HearthFires literal range bypasses registry for {key}')
+    return errors
+
+
+def check_season_leaves(rows):
+    """Optional client profile; validate its authored template and compiled registry."""
+    source = (ROOT / 'mods/HollowCountry/scripts/3_Game/Weather/auditleaves_Config.c').read_text()
+    dto = source.split('modded class HCOperatorSettingsRegistry', 1)[0]
+    fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+    rules = {r['key'].removeprefix('SeasonLeaves.'): r for r in rows}
+    errors = []
+    if fields.keys() != rules.keys(): errors.append('SeasonLeaves registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', source, re.M)
+    if compiled != render_native_registry(rows).splitlines():
+        errors.append('SeasonLeaves compiled registry differs')
+    template = json.loads((ROOT / 'mission/hollow-country/auditleaves_settings.json').read_text())
+    if template != {key: default for key, (_, default) in fields.items()}:
+        errors.append('SeasonLeaves template/native defaults differ')
+    for key, row in rules.items():
+        if row['owner'] != 'auditleaves_Config' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'SeasonLeaves DTO default/type/owner differs for {key}')
+        guard = f'HCJsonFields.Has(image, "{key}") && HCOperatorSettingsRegistry.HCValid("SeasonLeaves.{key}", decoded.{key})'
+        if f'if ({guard}) {{ {key} = decoded.{key}; }}' not in dto:
+            errors.append(f'SeasonLeaves validation binding differs for {key}')
     return errors
 
 
@@ -163,13 +187,14 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
             elif key != 'SearchDensityScale' and not low <= row['default'] <= high:
                 errors.append(f'Registry default outside range {key}')
     if errors: return errors
+    errors.extend(check_season_leaves([r for r in rows if r['key'].startswith('SeasonLeaves.')]))
     hearth_rows = [r for r in rows if r['key'].startswith('HearthFires.')]
     errors.extend(check_hearth(hearth_rows, HEARTH_NATIVE.read_text(), HEARTH_REGISTRY.read_text()))
     perf_rows = [r for r in rows if r['key'].startswith('Performance.')]
     errors.extend(check_performance(perf_rows,
         PERF_NATIVE.read_text() if perf_native is None else perf_native,
         PERF_REGISTRY.read_text() if perf_registry is None else perf_registry))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.'))]
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]

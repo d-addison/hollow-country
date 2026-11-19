@@ -72,7 +72,7 @@ class HCXAIDefaults
             return false;
         }
         DeleteFile(temporary);
-        Print("[HC Expansion AI] loadout default provisioned name=" + name + " source=pbo; operator files are never overwritten");
+        Print("[HC Expansion AI] loadout default provisioned name=" + name + " source=pbo; operator files are never overwritten; runtime=PENDING");
         return true;
     }
 

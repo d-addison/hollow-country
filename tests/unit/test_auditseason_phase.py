@@ -89,14 +89,14 @@ class ConsumerPhase(unittest.TestCase):
         clock, store, config = fixture.harness()
         self.assertTrue(clock.HCActive())
         self.assertTrue(clock.HCStart(True))
-        self.assertEqual(1, sum('HC-150 leaves=unavailable reason=emitter_asset_contract_uninspected runtime=PENDING' in line
+        self.assertEqual(1, sum('synthetic admission runtime=PENDING' in line
                                 for line in fixture.logs))
 
     def test_leaf_record_has_exact_native_lifecycle_and_honest_pending_boundary(self):
-        path = ROOT / 'docs/auditseason_leaf-feasibility.md'
-        self.assertTrue(path.is_file(), 'falling-leaf feasibility record missing')
+        path = ROOT / 'mods/HollowCountry/scripts/5_Mission/Weather/auditleaves_Client.c'
+        self.assertTrue(path.is_file(), 'falling-leaf implementation missing')
         text = path.read_text()
-        for evidence in ('ParticleList.c:399', 'Particle.c:158', 'Particle.c:174',
-                         'Particle.c:245', 'MiscEffects.c:7', 'runtime=PENDING',
-                         'HCReadPhase', 'forage', 'spec', 'plan', 'tasks'):
+        for evidence in ('ParticleList.c:399', 'Particle.c:158', ':245 StopParticle',
+                         ':340 GetParticleCount', 'runtime=PENDING',
+                         'HCSeasonVisualClient.HCGetPhase', 'HCStopEmitter', 'HCDrain'):
             self.assertIn(evidence, text)
