@@ -142,3 +142,9 @@ Layer legend (w27): the page lists each layer's meaning and, for bounded layers
 `N of M shown` with a truncated note. `layerStats` is validated when present and
 optional, so older snapshots still load. Offline check only:
 `tests/unit/test_debug_map_layers.py`; nothing observed in DayZ yet.
+
+w28 (#193): the legend also describes `lead-ledger` (unexpired ledger rows at place
+level, no group ids) and `scenes` (lease anchors, not an entity-presence claim) with
+their `layerStats` rows. The in-game admin wire carries the same per-layer
+`sent/total` in its Notice. Offline check only: `tests/unit/test_debug_map_layers.py`;
+nothing observed in DayZ yet.

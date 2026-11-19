@@ -17,9 +17,28 @@
 // 1_Core/proto/EnMath3D.c:18 Vector. No new placement/physics API.
 // 1_Core/proto/EnConvert.c:210 vector.DistanceSq (named-place selection).
 
+// w28-debugmap #193: detached read-only lease row for the debug map. Plain data
+// only (no object handles), so a reader can never mutate or retain scene state.
+class HCDebugSceneLeaseRow
+{
+    string ChainId;
+    int Stage;
+    vector Anchor;
+    bool Closing;
+    bool Placed;
+    int Objects;
+    int DueAt;
+    int ExpiresAt;
+    bool Complete;
+}
+
 class HCScenesModule : HCModule
 {
     protected static ref HCScenesModule s_CleanupOwner;
+    // Weak pointer to the running instance for read-only debug getters; cleared in OnStop.
+    protected static HCScenesModule s_DebugOwner;
+    // Chains scanned when matching a lease to its chain (reviewed catalogs are small).
+    static const int HC_DEBUG_CHAIN_SCAN = 16;
     protected ref HCSceneChainStore m_Store;
     protected ref HCSceneChainState m_State;
     protected ref HCStorySchedule m_Stories;
@@ -96,6 +115,7 @@ class HCScenesModule : HCModule
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
         m_Running = true;
+        s_DebugOwner = this;
         if (!m_SummaryPrinted) { Summary(); }
     }
 
@@ -185,6 +205,48 @@ class HCScenesModule : HCModule
             if (ownedLease.ChainId == chainId) { return ownedLease; }
         }
         return null;
+    }
+
+    // Read-only debug seam (w28-debugmap). Only a running instance is exposed.
+    static HCScenesModule HCDebugGet()
+    {
+        if (s_DebugOwner && s_DebugOwner.m_Running) { return s_DebugOwner; }
+        return null;
+    }
+
+    // Only the instance that published itself may clear the pointer.
+    protected void HCDebugRelease()
+    {
+        if (s_DebugOwner == this) { s_DebugOwner = null; }
+    }
+
+    int HCDebugLeaseCount() { return m_Leases.Count(); }
+
+    HCDebugSceneLeaseRow HCDebugLease(int index)
+    {
+        if (index < 0 || index >= m_Leases.Count()) { return null; }
+        HCSceneLease lease = m_Leases[index];
+        if (!lease) { return null; }
+        HCDebugSceneLeaseRow row = new HCDebugSceneLeaseRow;
+        row.ChainId = lease.ChainId;
+        row.Stage = lease.Stage;
+        row.Anchor = lease.Anchor;
+        row.Closing = lease.Closing;
+        row.Placed = HCSceneKits.HCPlacementComplete(lease);
+        row.Objects = lease.Objects.Count();
+        if (!m_State) { return row; }
+        int scan = m_State.Chains.Count();
+        if (scan > HC_DEBUG_CHAIN_SCAN) { scan = HC_DEBUG_CHAIN_SCAN; }
+        for (int chainIndex = 0; chainIndex < scan; chainIndex++)
+        {
+            HCSceneChain chain = m_State.Chains[chainIndex];
+            if (chain.Id != lease.ChainId) { continue; }
+            row.DueAt = chain.DueAt;
+            row.ExpiresAt = chain.ExpiresAt;
+            row.Complete = chain.Complete;
+            return row;
+        }
+        return row;
     }
 
     bool SiteAvailable(vector anchor)
@@ -547,6 +609,7 @@ class HCScenesModule : HCModule
             HCSaveScheduler.HCUnregister(m_SaveJob);
         }
         m_Running = false;
+        HCDebugRelease();
         if (!GetGame() || !GetGame().IsServer() || m_Leases.Count() == 0) { return; }
         s_CleanupOwner = this;
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(CleanupStopped);
