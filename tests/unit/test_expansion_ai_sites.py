@@ -184,6 +184,8 @@ AI = ROOT / 'mission/hollow-country/ai'
 
 
 def api(source, env):
+    from tests.unit.test_w68_spawnring import ring_fixture
+    env.setdefault("HCPerceptionRing", ring_fixture()[0])
     if 'HCBuildIdentity' not in env:
         env['HCBuildIdentity'] = build_identity()
     authored = Authored(source, env)
@@ -225,6 +227,17 @@ class SiteRulesTests(unittest.TestCase):
 
     def site(self, kind):
         return next(s for s in self.policy.Sites if s.Kind == kind)
+
+    def test_policy_rejects_empty_perception_spawn_window(self):
+        # Synthetic policy + default ring: small authored radius widens to 1500.
+        from tests.unit.test_w68_spawnring import ring_fixture
+        self.env['HCPerceptionRing'] = ring_fixture()[0]
+        self.assertEqual('', self.rules.PolicyProblem(self.policy))
+        for minimum in (1500, 2000):
+            self.policy.MinPlayerDistance = minimum
+            self.assertIn('MinPlayerDistance', self.rules.PolicyProblem(self.policy))
+        self.policy.MinPlayerDistance = 1499
+        self.assertEqual('', self.rules.PolicyProblem(self.policy))
 
     def test_w5_group_scaling_rounds_and_caps_authored_counts(self):
         # Synthetic player counts only; no native spawning or runtime evidence.
@@ -286,7 +299,7 @@ class SiteRulesTests(unittest.TestCase):
 
     def test_site_refuses_activation_inside_the_no_spawn_ring_and_long_legs(self):
         site = self.site('patrol')
-        site.ActivationRadius = 240
+        site.ActivationRadius = 0
         self.assertIn('ActivationRadius', self.rules.SiteProblem(self.policy, site))
         site.ActivationRadius = 600
         a = site.Waypoints[0]
@@ -314,18 +327,18 @@ class SiteRulesTests(unittest.TestCase):
 
     def test_spawn_needs_budget_distance_and_no_line_of_sight(self):
         p = self.policy
-        self.assertEqual(self.rules.SpawnProblem(p, 0, 0, 3, 250., False), '')
+        self.assertEqual(self.rules.SpawnProblem(p, 0, 0, 3, 1100., False), '')
         self.assertIn('player within', self.rules.SpawnProblem(p, 0, 0, 3, 199.9, False))
-        self.assertIn('line of sight', self.rules.SpawnProblem(p, 0, 0, 3, 600., True))
-        self.assertIn('AI budget', self.rules.SpawnProblem(p, 70, 1, 3, 600., False))
-        self.assertEqual(self.rules.SpawnProblem(p, 21, 1, 3, 600., False), '')
-        self.assertIn('site budget', self.rules.SpawnProblem(p, 0, p.MaxActiveSites, 2, 600., False))
+        self.assertIn('line of sight', self.rules.SpawnProblem(p, 0, 0, 3, 1500., True))
+        self.assertIn('AI budget', self.rules.SpawnProblem(p, 70, 1, 3, 1500., False))
+        self.assertEqual(self.rules.SpawnProblem(p, 21, 1, 3, 1500., False), '')
+        self.assertIn('site budget', self.rules.SpawnProblem(p, 0, p.MaxActiveSites, 2, 1500., False))
 
     def test_every_member_spawn_point_needs_the_same_distance_and_sight_rules(self):
         p = self.policy
-        self.assertEqual(self.rules.MemberSpawnProblem(p, 201., False), '')
+        self.assertEqual(self.rules.MemberSpawnProblem(p, 1100., False), '')
         self.assertIn('player within', self.rules.MemberSpawnProblem(p, 197., False))
-        self.assertIn('line of sight', self.rules.MemberSpawnProblem(p, 900., True))
+        self.assertIn('line of sight', self.rules.MemberSpawnProblem(p, 1500., True))
 
     def test_despawn_waits_for_combat_to_end(self):
         self.assertFalse(self.rules.DespawnAllowed(True, False))

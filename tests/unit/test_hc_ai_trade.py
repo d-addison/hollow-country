@@ -495,6 +495,7 @@ class TradeBehavior(unittest.TestCase):
             ports = []
             owner = N(m_Profile=None, m_Leases=EArray(), m_Caravan=None,
                       m_CaravanOperationalOwner=None, m_ReadinessLogged=True,
+                      m_LastQualifiedPatrolCount=0,
                       LogAddonChecks=lambda: None, LogReadiness=lambda trigger: None,
                       HasReservations=lambda: False)
             scope = dict(Print=logs.append, GetGame=lambda: N(IsServer=lambda: True, GetTickTime=lambda: 100),
@@ -508,7 +509,8 @@ class TradeBehavior(unittest.TestCase):
                          HCXAISituationAdapter=lambda: 'situation-port', HCXAIRaidAdapter=lambda: 'raid-port',
                          HCXAITransitAdapter=lambda: 'transit-port',
                          HCXAISiteDirector=lambda: N(Start=lambda: None, Step=lambda: None, Stop=lambda: None),
-                         HCXAIEncounters=lambda: N(Open=lambda: None, Step=lambda: None, Close=lambda: None),
+                         HCXAIEncounters=lambda: N(Open=lambda: None, Step=lambda: None, Close=lambda: None,
+                                                  QualifiedCount=lambda: 0, Settled=lambda: True),
                          HCXAICampRoutine=lambda: N(Open=lambda settings: None, Step=lambda: None, Close=lambda: None),
                          HCXAICaravanAdapter=lambda: caravan_port, HCAICaravan=lambda: adjunct,
                          HCOperationalContributors=N(HCRegisterOwner=lambda name: N(
@@ -517,7 +519,7 @@ class TradeBehavior(unittest.TestCase):
             bind(lifecycle_source, 'HCXAIAdapter', owner,
                  ('OnStart', 'OnTick', 'OnStop'), scope)
             # Own namespace: the shared translator keys string literals by index.
-            bind(lifecycle_source, 'HCXAIAdapter', owner, ('HCDropCaravanHandles',), dict(scope))
+            bind(lifecycle_source, 'HCXAIAdapter', owner, ('HCDropCaravanHandles', 'HCRefreshReadiness'), dict(scope))
             # Syntax-only field inheritance expansion for the modded link.
             status_source = operational.replace('    protected ref HCOperationalOwner',
                 '    ref HCAICaravan m_Caravan;\n    bool m_CaravanRequested;\n    protected ref HCOperationalOwner', 1)

@@ -28,33 +28,36 @@ def ring_fixture(view=1000, hearing=1000, margin=100, band=400):
     return api, env
 
 
-# Exact proposed shared validator addition, executed only in an isolated local
-# fixture copy. tools/validate/runtime.py is outside this worker's file scope.
-RUNTIME_RING_GUARD = """    if 'PerceptionRing' in value:
-        ring = value['PerceptionRing']
-        if not isinstance(ring, dict):
-            errors.append('PerceptionRing must be an object')
-        else:
-            ring_rules = {row['key'].removeprefix('PerceptionRing.'): row
-                          for row in load_registry() if row['key'].startswith('PerceptionRing.')}
-            for key in ring.keys() - ring_rules.keys():
-                errors.append(f'Unknown field PerceptionRing.{key}')
-            for key, item in ring.items():
-                if key in ring_rules:
-                    rule = ring_rules[key]
-                    if type(item) not in (int, float) or not rule['min'] <= item <= rule['max']:
-                        errors.append(f'PerceptionRing.{key} must be numeric within its registry range')
-"""
-
-
-def runtime_validator_fixture_source():
-    source = (ROOT / 'tools/validate/runtime.py').read_text()
-    source = source.replace("- {'SearchDensityScale'})", "- {'SearchDensityScale', 'PerceptionRing'})")
-    return source.replace("    if 'SearchDensityScale' in value:",
-                          RUNTIME_RING_GUARD + "    if 'SearchDensityScale' in value:")
-
-
 class SpawnRingTests(unittest.TestCase):
+    def test_readiness_refreshes_when_qualified_count_changes(self):
+        source = (SITES.parent / 'HCXAIAdapter.c').read_text()
+        count = [0]
+        logs = []
+        authored = Authored(source, dict(Print=logs.append,
+                           GetGame=lambda: N(GetWorldName=lambda: 'synthetic-world')))
+        owner = N(m_ReadinessLogged=True, m_LastQualifiedPatrolCount=0,
+                  m_Sites=N(HCLocalitySummary=lambda: 'synthetic-localities', Phase=lambda: 'run'),
+                  m_Encounters=N(QualifiedCount=lambda: count[0], Settled=lambda: True,
+                                 Ready=lambda world: True, State=lambda: 'armed'),
+                  ExpansionAISettingsLoaded=lambda: True, GlobalsProblem=lambda: '')
+        owner.LogReadiness = lambda trigger: authored.call('LogReadiness', owner, trigger)
+        authored.call('HCRefreshReadiness', owner)
+        count[0] = 2
+        authored.call('HCRefreshReadiness', owner)
+        authored.call('HCRefreshReadiness', owner)
+        count[0] = 0
+        authored.call('HCRefreshReadiness', owner)
+        readiness = [line for line in logs if 'qualified_patrols=' in line]
+        self.assertEqual(2, len(readiness))
+        self.assertIn('qualified_patrols=2;', readiness[0])
+        self.assertIn('qualified_patrols=0;', readiness[1])
+        self.assertEqual(0, owner.m_LastQualifiedPatrolCount)
+        owner.m_ReadinessLogged = False
+        authored.call('HCRefreshReadiness', owner)
+        self.assertTrue(owner.m_ReadinessLogged)
+        self.assertEqual(3, sum('qualified_patrols=' in line for line in logs))
+        self.assertIn('this.HCRefreshReadiness();', source.split('override void OnTick', 1)[1])
+
     def test_ring_math_and_event_ranges(self):
         self.assertTrue(RING.exists(), 'missing shared HCPerceptionRing policy')
         ring, _ = ring_fixture()
@@ -131,7 +134,7 @@ class SpawnRingTests(unittest.TestCase):
         from tests.unit.test_expansion_ai_adapter import A
         fixture = CustodyFixture()
         ring, _ = ring_fixture()
-        # Extend this local synthetic port only; the shared fixture is read-only.
+        # Override the explicit shared synthetic ring for this observer scenario.
         fixture.env['HCPerceptionRing'] = ring
         fixture.api.HCSpawnDistanceAllowed = lambda distance: fixture.policy.call(
             'HCSpawnDistanceAllowed', None, distance)
@@ -150,12 +153,9 @@ class SpawnRingTests(unittest.TestCase):
         self.assertIsNotNone(fixture.offer())  # 1200 m: outside min, within band
         self.assertEqual(1, fixture.runtime.m_Proposals)
 
-    def test_proposed_shared_validator_edit_in_local_fixture_only(self):
+    def test_shared_validator_accepts_optional_ring_and_rejects_invalid_fields(self):
         import copy
-        # Execute an explicit local fixture copy, never mutate the shared file.
-        env = dict(__name__='synthetic_w68_runtime', __file__=str(ROOT / 'tools/validate/runtime.py'))
-        exec(compile(runtime_validator_fixture_source(), '<synthetic-w68-runtime>', 'exec'), env)
-        validate = env['validate_settings']
+        from tools.validate.runtime import validate_settings as validate
         shipped = json.loads((ROOT / 'config/hollow-country-settings.json').read_text())
         self.assertEqual([], validate(shipped))
         for invalid in (None, True, {'Unknown': 1}, {'ViewRangeMeters': True},

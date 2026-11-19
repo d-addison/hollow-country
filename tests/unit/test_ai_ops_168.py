@@ -47,6 +47,8 @@ class OperationsTests(unittest.TestCase):
     def setUp(self):
         self.logs = []
         self.env = dict(A=A, Print=self.logs.append, Math=N(Round=lambda n: math.floor(n + .5)))
+        from tests.unit.test_w68_spawnring import ring_fixture
+        self.env["HCPerceptionRing"] = ring_fixture()[0]
         declarations(self.env)
         self.source = (SCRIPTS / 'HCXAISites.c').read_text()
         self.authored = Authored(self.source, self.env)
@@ -173,14 +175,14 @@ class OperationsTests(unittest.TestCase):
 
     def test_activation_scale_zero_defaults_clamps_and_logs_once(self):
         self.env['HCXAISiteRules'] = N(EncounterRadius=lambda r: max(r, 600))
-        self.assertEqual(650, self.call('HCActivationRadius', 650, False))
-        self.assertEqual(600, self.call('HCActivationRadius', 300, False))
+        self.assertEqual(1500, self.call('HCActivationRadius', 650, False))
+        self.assertEqual(1500, self.call('HCActivationRadius', 300, False))
         self.director.m_Policy.ActivationRadiusScale = .5
-        self.assertEqual(325, self.call('HCActivationRadius', 650, False))
-        self.assertEqual(250, self.call('HCActivationRadius', 300, True))
+        self.assertEqual(1500, self.call('HCActivationRadius', 650, False))
+        self.assertEqual(1500, self.call('HCActivationRadius', 300, True))
         self.director.m_Policy.ActivationRadiusScale = 2
-        self.assertEqual(1200, self.call('HCActivationRadius', 650, False))
-        self.assertEqual(1200, self.call('HCActivationRadius', 650, False))
+        self.assertEqual(1500, self.call('HCActivationRadius', 650, False))
+        self.assertEqual(1500, self.call('HCActivationRadius', 650, False))
         self.assertEqual(1, sum('activation radius clamped' in line for line in self.logs))
         self.assertIn('config.MaxDistRadius = this.HCActivationRadius(site, state.Transient);', self.source)
 
@@ -188,6 +190,8 @@ class OperationsTests(unittest.TestCase):
 class PolicyTests(unittest.TestCase):
     def setUp(self):
         self.env = dict(A=A, Math=N(AbsFloat=abs), vector=N(Distance=math.dist))
+        from tests.unit.test_w68_spawnring import ring_fixture
+        self.env["HCPerceptionRing"] = ring_fixture()[0]
         declarations(self.env)
         self.env['HCXAIRules'] = api((SCRIPTS / 'HCXAIRules.c').read_text(), self.env)
         self.rules = api((SCRIPTS / 'HCXAISiteRules.c').read_text(), self.env)

@@ -33,6 +33,8 @@ class CustodyFixture:
                                         Position=lambda position: True),
                         synthetic_encode=self.encode, synthetic_decode=self.decode,
                         synthetic_legacy_encode=lambda data: self.encode(N(SchemaVersion=data.SchemaVersion, Rows=data.Rows)))
+        from tests.unit.test_w68_spawnring import ring_fixture
+        self.env["HCPerceptionRing"] = ring_fixture()[0]
         self.limits = install(self.env)
         self.budget = self.env['HCAIBudget']
         data = IDENTITY.read_text()
@@ -71,7 +73,7 @@ class CustodyFixture:
             self.env[name] = int(re.search(r'const int ' + name + r' = (\d+)', source)[1])
             setattr(self.api, name, self.env[name])
         self.env['HCWorldMaterializer'] = self.api
-        for method in ('FoldBack', 'NoProvider', 'CanPropose'):
+        for method in ('FoldBack', 'NoProvider', 'CanPropose', 'HCSpawnDistanceAllowed'):
             setattr(self.api, method, lambda *args, name=method: self.policy.call(name, None, *args))
         self.runtime = self.new_runtime()
 
@@ -102,7 +104,7 @@ class CustodyFixture:
     def proposal(self, key='synthetic-party'):
         return N(Id='party:' + key, Identity=self.identity(key), ActorCap=4,
                  FactionId='synthetic-faction', PlaceId='synthetic-home', Kind='PATROL',
-                 Position=[100., 0., 100.])
+                 Position=[1300., 0., 100.])
 
     def new_runtime(self):
         work = N(HCReset=lambda cap: None, HCContinue=lambda: True,
