@@ -28,10 +28,12 @@ def member(path, cls, method, state, env, *args):
     match = re.search(r'class ' + cls + r'\b[^\{]*\{', text)
     source = body(text, match.end())
     source = re.sub(r'\b(?:TStringArray|HCTapedPackManifest|HCTapedPackSettingsContract|'
-                    r'HCTapedLightMountSettings)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
+                    r'HCTapedLightMountSettings|HCTapedPairReceipts|HCTapedPairReceipt|'
+                    r'array<ref HCTapedPairReceipt>)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
     source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
-    source = re.sub(r'\b(?:HCTapedPackManifest|HCOperationalStatus) (?=(?:ParseManifest|HCGetOperationalStatus)\()',
+    source = re.sub(r'\bTStringArray (?=PairIds\()', 'int ', source)
+    source = re.sub(r'\b(?:HCTapedPackManifest|HCTapedPairReceipts|HCOperationalStatus) (?=(?:ParseManifest|ParseReceipts|HCGetOperationalStatus)\()',
                     'int ', source)
     return ui_member(source, method, state, dict(env), *args)
 
@@ -44,22 +46,35 @@ def scan(text, key, depth):
     return any(isinstance(v, dict) and key in v for v in data.values())
 
 
-def build(text, build_ok=True, files=None):
+def scan_every(text, key, depth):
+    """Synthetic stand-in for HCJsonFields.Every at depth 3: every row object in
+    every top-level array carries the key (an empty array passes)."""
+    assert depth == 3
+    data = json.loads(text)
+    rows = [row for v in data.values() if isinstance(v, list) for row in v if isinstance(row, dict)]
+    return all(key in row for row in rows)
+
+
+def build(text, build_ok=True, files=None, receipts=""):
     """Executes the authored PackMounts handlers against explicit fakes."""
     catalog = NS()
-    for name in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal"):
+    for name in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal", "PairIds"):
         setattr(catalog, name, lambda *a, name=name: member(
-            WEARABLE, "HCTapedPackCatalog", name, catalog, {}, *a))
+            WEARABLE, "HCTapedPackCatalog", name, catalog, {"NewSlots": EArray}, *a))
     probes = []
-    gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False, probes=probes)
+    gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False, probes=probes,
+              mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0,
+              mHCStarted=False)
     logs = []
     manifest_text = {"value": text}
+    receipt_text = {"value": receipts}
     env = dict(
         GetGame=lambda: NS(IsServer=lambda: True,
                            ConfigGetTextArray=lambda p, out: out.extend([])),
         HCBuildIdentity=NS(Matches=lambda b: build_ok, SeenBuild=lambda: "synthetic"),
         HCTapedPackCatalog=catalog, NewSlots=EArray,
         HCJsonFields=NS(Has=lambda t, k: scan(t, k, 1),
+                        Every=scan_every,
                         Check=lambda t, k, d, every: scan(t, k, d)),
         HCGroupIO=NS(), Print=logs.append,
         HCTapedLightMountSettings=lambda: NS(crossSlotLights=False, permittedPairIds=EArray()),
@@ -70,25 +85,31 @@ def build(text, build_ok=True, files=None):
             return NS(**{k: EArray(v) if isinstance(v, list) else v for k, v in d.items()})
         return json.loads(t, object_hook=hook)
     names = ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable", "PairRefusal",
-             "BindingAllowed", "ApplyManifest", "LoadSettings", "ReadManifest", "ParseManifest")
+             "BindingAllowed", "ApplyManifest", "LoadSettings", "ReadManifest", "ParseManifest",
+             "ApplyReceipts", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ReceiptChecked",
+             "PairAdmission", "PairQualified", "AdmittedCount", "FirstAdmissionReason", "OnStart")
     for name in names:
         setattr(gate, name, lambda *a, name=name: member(PACKS, "HCTapedPackMounts", name, gate, env, *a))
     gate.ReadManifest = lambda: manifest_text["value"]
     gate.ParseManifest = parse
+    gate.ReadReceipts = lambda: receipt_text["value"]
+    gate.ParseReceipts = parse
+    gate.receipt_text = receipt_text
+    gate.manifest_text = manifest_text
     gate.logs = logs
     gate.env = env
     return gate
 
 
-def start(gate):
+def start(gate, setting=False):
+    """Runs the authored OnStart on the gate itself so all mHC state is shared."""
     published = []
-    status = NS(HCPublish=lambda *a: published.append(a), HCStop=lambda: published.append("stop"))
-    module = NS(mHCStarted=False, mHCStatus=status, mHCPermitted=gate.mHCPermitted)
-    for name in ("PairRefusal", "CrossSlotEnabled", "Reset", "LoadSettings"):
-        setattr(module, name, getattr(gate, name))
-    module.mHCPermitted = gate.mHCPermitted
-    member(PACKS, "HCTapedPackMounts", "OnStart", module, gate.env, NS())
-    return module, published
+    gate.mHCStatus = NS(HCPublish=lambda *a: published.append(a),
+                        HCStop=lambda: published.append("stop"))
+    gate.mHCStarted = False
+    member(PACKS, "HCTapedPackMounts", "OnStart", gate, gate.env,
+           NS(EnableTapedPackMounts=setting))
+    return gate, published
 
 
 class TapedPackLoaderTests(unittest.TestCase):
@@ -109,7 +130,7 @@ class TapedPackLoaderTests(unittest.TestCase):
         self.assertNotIn("lead-owned integration pending", text)
         self.assertNotIn("DefaultsFile", text)
         self.assertIn("HCTapedPackMounts.ReadManifest/ApplyManifest", contract["RuntimeInput"])
-        self.assertIn("no hcsettings switch", contract["RuntimeInput"].lower())
+        self.assertIn("EnableTapedPackMounts", contract["RuntimeInput"])
         self.assertIn("Qualified() stays false", contract["RuntimeInput"])
         self.assertIn("offline mirror", contract["OfflineMirror"])
         self.assertIn("config/hollow-country-light-mounts.json", contract["OfflineMirror"])
@@ -155,19 +176,19 @@ class TapedPackLoaderTests(unittest.TestCase):
         gate = build(self.real())
         module, published = start(gate)
         self.assertTrue(gate.mHCConfigured)
-        self.assertIn(("off", "cross_slot_disabled"), published)
+        self.assertIn(("off", "setting_off"), published)
         plan = [x for x in gate.logs if isinstance(x, str) and "HC-52 pack_pairs=" in x]
         self.assertEqual(1, len(plan))
         for field in ("config=loaded", "cross_slot=off", "qualified=0", "state=off",
-                      "reason=cross_slot_disabled", "runtime=PENDING"):
+                      "reason=setting_off", "admitted=0", "runtime=PENDING"):
             self.assertIn(field, plan[0])
 
     def test_enabled_cross_slot_is_refused_client_check_pending_and_never_attaches(self):
         data = json.loads(self.real())
         data["SettingsContract"]["DefaultCrossSlotLights"] = True
         data["SettingsContract"]["DefaultPermittedPairIds"] = ["tortilla_universal_cross"]
-        gate = build(json.dumps(data))
-        module, published = start(gate)
+        gate = build(json.dumps(data), receipts=(ROOT / "mission/hollow-country/lights/pair-receipts.json").read_text())
+        module, published = start(gate, setting=True)
         self.assertTrue(gate.CrossSlotEnabled())
         self.assertIn(("refused", "client_check_pending"), published)
         binding = NS(HostConfigRoot="CfgVehicles", PairId="tortilla_universal_cross",

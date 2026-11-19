@@ -75,6 +75,15 @@ class HCTapedPackCatalog
         return pairId == "tortilla_universal_mount" || pairId == "tortilla_universal_cross";
     }
 
+    // Every exact pair identity, in boot-line order (startup only).
+    static TStringArray PairIds()
+    {
+        TStringArray ids = new TStringArray;
+        ids.Insert("tortilla_universal_mount");
+        ids.Insert("tortilla_universal_cross");
+        return ids;
+    }
+
     static string SlotName(string pairId)
     {
         if (pairId == "tortilla_universal_mount") { return "helmetFlashlight"; }
@@ -94,6 +103,8 @@ class HCTapedPackCatalog
     {
         // Neither native model/proxy geometry nor two-client receipts exist.
         // A settings flag, live slot array or HC-7 opt-in cannot qualify these.
+        // HCTapedPackMounts.PairQualified additionally needs the operator
+        // setting and a checked per-pair receipt; this gate alone never admits.
         return false;
     }
 

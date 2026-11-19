@@ -539,7 +539,9 @@ Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on syn
         # User decision: feature preferences default on; capability admission stays fail-closed.
         self.assertEqual(json.loads(Path('config/hollow-country-settings.json').read_text()), settings)
         self.assertEqual([], validate_settings(settings))
-        self.assertTrue(all(v is True for k, v in settings.items() if k.startswith('Enable')))
+        self.assertIs(False, settings['EnableTapedPackMounts'])  # #58 gate switch ships off
+        self.assertTrue(all(v is True for k, v in settings.items()
+                            if k.startswith('Enable') and k != 'EnableTapedPackMounts'))
         self.assertEqual(settings['SchemaVersion'], 1)
         with tempfile.TemporaryDirectory() as t:
             addon = Path(t)

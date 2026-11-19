@@ -73,6 +73,7 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'ecology/habitat-overrides.json', 'ecology/events.append.xml',
                  # HC-52 backpack light pairs (fail-closed; qualification stays false).
                  'lights/backpack-mounts.json',
+                 'lights/pair-receipts.json',
                  # HC-59 shelter survey backlog and finite wreck part dispositions.
                  'travel/route-surveys.json', 'travel/wreck-dispositions.json'}
 

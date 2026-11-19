@@ -148,6 +148,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableForage", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableProgression", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableGroupScaling", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("EnableTapedPackMounts", "bool", 0, 0, 1, "HCSettings");
         HCAdd("TickIntervalMs", "int", 1000, 500, 10000, "HCSettings");
         HCAdd("MaxTickWorkItems", "int", 32, 1, 256, "HCSettings");
         HCAdd("MaxActiveHordes", "int", 2, 1, 8, "HCSettings");
@@ -286,6 +287,8 @@ class HCSettings
     bool EnableForage = true;
     bool EnableProgression = true;
     bool EnableGroupScaling = true;
+    // Default false: JsonFileLoader zero-fills a missing bool to false (assumed by analogy to the observed int zero-fill), which is the safe closed value.
+    bool EnableTapedPackMounts = false;
     // Optional: JsonFileLoader absent ints are 0; progression resolves 0 to 128.
     int MaxFamiliarityRows = 0;
     int TickIntervalMs = 1000;
@@ -325,6 +328,7 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableForage")) { settings.EnableForage = defaults.EnableForage; }
         if (!HCJsonFields.Has(content, "EnableProgression")) { settings.EnableProgression = defaults.EnableProgression; }
         if (!HCJsonFields.Has(content, "EnableGroupScaling")) { settings.EnableGroupScaling = defaults.EnableGroupScaling; }
+        if (!HCJsonFields.Has(content, "EnableTapedPackMounts")) { settings.EnableTapedPackMounts = defaults.EnableTapedPackMounts; }
         if (!HCJsonFields.Has(content, "AILimits")) { settings.AILimits = defaults.AILimits; }
         if (!HCJsonFields.Has(content, "MaxFurnishedProps")) { settings.MaxFurnishedProps = defaults.MaxFurnishedProps; }
     }
@@ -408,6 +412,7 @@ class HCSettings
         Print("[HC Settings] effective EnableForage=" + EnableForage.ToString());
         Print("[HC Settings] effective EnableProgression=" + EnableProgression.ToString());
         Print("[HC Settings] effective EnableGroupScaling=" + EnableGroupScaling.ToString());
+        Print("[HC Settings] effective EnableTapedPackMounts=" + EnableTapedPackMounts.ToString());
         Print("[HC Settings] effective TickIntervalMs=" + TickIntervalMs.ToString());
         Print("[HC Settings] effective MaxTickWorkItems=" + MaxTickWorkItems.ToString());
         Print("[HC Settings] effective MaxActiveHordes=" + MaxActiveHordes.ToString());
