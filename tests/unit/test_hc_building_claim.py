@@ -71,11 +71,11 @@ class BuildingClaimBehavior(unittest.TestCase):
         special = [False]
         door = NS(IsPendingDeletion=lambda: False, GetType=lambda: NativeText('Land_SyntheticHouse'),
                   GetPosition=lambda: (100, 0, 200), GetDoorCount=lambda: 1,
-                  GetDoorInfo=lambda index: object(), GetLockCompatibilityType=lambda index: 1)
+                  GetDoorInfo=lambda index: object(), GetLockCompatibilityType=lambda index: 2)
         door_env = {'PositionValid': lambda position: True,
                     'Bunker': NS(Cast=lambda building: special[0]),
                     'ContainerLockedBase': NS(Cast=lambda building: False),
-                    'EBuildingLockType': NS(LOCKPICK=0)}
+                    'EBuildingLockType': NS(LOCKPICK=1)}
         self.assertTrue(run(source, 'HCDoor', NS(), door_env, door, 0))
         self.assertFalse(run(source, 'HCDoor', NS(), door_env, door, -1))
         special[0] = True
@@ -86,7 +86,7 @@ class BuildingClaimBehavior(unittest.TestCase):
         clock = [1000]
         saves = []
         durable = [True]
-        state = NS(m_Healthy=True, m_LastUtc=1000,
+        state = NS(m_Healthy=True, m_LastUtc=1000, m_BootUtc=1000,
                    m_Config=NS(ExpiryDays=30), m_Save=NS(HCDirty=False),
                    m_Status=NS(HCPublish=lambda *args: None), m_Observers=EArray(),
                    m_Examining=None, m_Data=NS(Claims=EArray()))
@@ -137,7 +137,17 @@ class BuildingClaimBehavior(unittest.TestCase):
         self.assertFalse(valid())
         data.Claims.pop()
         data.ClaimsVersion = 0
-        self.assertFalse(valid())  # never infer a native building from a legacy fire
+        self.assertFalse(valid())  # populated unknown claim schema still refuses
+        legacy_camps = EArray([NS(Id='synthetic-original-camp', Tier=2)])
+        legacy = NS(ClaimsVersion=0, Claims=None, Camps=legacy_camps)
+        migrate_source = store.replace('new array<ref HCBuildingClaimRecord>()', 'new HCGroupClaimArray')
+        run(migrate_source, 'HCClaimsMigrate', NS(),
+            dict(HCGroupClaimArray=EArray, Print=lambda line: None), legacy)
+        self.assertEqual(1, legacy.ClaimsVersion)
+        self.assertEqual([], legacy.Claims)
+        self.assertIs(legacy_camps, legacy.Camps)
+        self.assertEqual('synthetic-original-camp', legacy.Camps[0].Id)
+        self.assertEqual(2, legacy.Camps[0].Tier)
         data.ClaimsVersion = 1
         durable[0] = False
         self.assertFalse(claim(group=2, release=True))
@@ -156,7 +166,7 @@ class BuildingClaimBehavior(unittest.TestCase):
         stale, current = NS(**vars(row)), NS(**vars(row))
         step_now = [1000]
         step_saves = []
-        step = NS(m_Healthy=True, m_LastUtc=1000, m_Elapsed=0, m_Cursor=0,
+        step = NS(m_Healthy=True, m_LastUtc=1000, m_BootUtc=1000, m_Elapsed=0, m_Cursor=0,
                   m_Examining=stale, m_Observers=SnapshotArray(), m_ObserverCursor=0,
                   m_VisitObservedUtc=0, m_Config=NS(ExpiryDays=30, VisitRadiusMeters=25),
                   m_Data=NS(Claims=SnapshotArray([current])), m_Save=NS(HCDirty=False),
@@ -196,7 +206,7 @@ class BuildingClaimBehavior(unittest.TestCase):
         # the native transaction; container placement still delegates to it.
         native_calls = []
         guards = NS()
-        guard_env = {'HCNoConstruction': guards,
+        guard_env = {'HCNoConstruction': guards, 'Print': lambda line: None,
                      'super': NS(OnFinishProgressServer=lambda data: native_calls.append(data))}
         guards.HCDeniedObject = lambda obj: run(construction, 'HCDeniedObject', NS(), {}, obj)
         guard_env['HCDeniedObject'] = guards.HCDeniedObject

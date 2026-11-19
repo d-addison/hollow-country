@@ -8,7 +8,7 @@
 // 3_Game/Entities/Man.c:21 GetIdentity;
 // 4_World/Entities/ManBase/PlayerBase.c:2219/3925 restrained/unconscious;
 // 4_World/Entities/DayZPlayerImplement.c:468 IsInVehicle; 1_Core/proto/EnMath.c:413 Round; EnConvert.c:30/210
-// ToString/DistanceSq; EnString.c:199/240 Length/IndexOf;
+// int/float ToString/DistanceSq (EnConvert.c:30/115/210); EnString.c:199/240 Length/IndexOf;
 // EnScript.c:380/385/407/448/470 Count/Clear/Insert/InsertAll/RemoveOrdered;
 // EnSystem.c:397 FileExist; EnDebug.c:96 Print; EnMath.c:553 Min.
 // 4_World/Classes/UserActionsComponent/Actions/ActionConstants.c:111-114
@@ -21,19 +21,29 @@
 // No engine entity store override, inventory serialization or lock replay.
 class HCBuildingClaimConfig
 {
-    int Version = 1;
-    int ExpiryDays = 30; // long absence, provisional owner-tunable default
+    static const int DEFAULT_VERSION = 1;
+    static const int DEFAULT_EXPIRY_DAYS = 30;
+    static const float DEFAULT_VISIT_RADIUS_METERS = 1000.0 / 40.0;
+    static const float DEFAULT_ACTION_REACH_METERS = UAMaxDistances.DEFAULT;
+    int Version = DEFAULT_VERSION;
+    int ExpiryDays = DEFAULT_EXPIRY_DAYS; // provisional owner-tunable default
     // 25m = 1/40 of the approx 1000m vanilla network/gunshot scale. Presence
     // near the anchor renews absence; it does not assert measured containment.
-    float VisitRadiusMeters = 1000.0 / 40.0;
+    float VisitRadiusMeters = DEFAULT_VISIT_RADIUS_METERS;
     // Interaction follows vanilla reach; no new remote claim distance.
-    float ActionReachMeters = UAMaxDistances.DEFAULT;
+    float ActionReachMeters = DEFAULT_ACTION_REACH_METERS;
     // Identity precision, NOT gameplay reach; fixed across profiles/restarts.
     static const int POSITION_UNITS_PER_METER = 100;
     static const int ANGLE_UNITS_PER_DEGREE = 10;
 
     bool HCValid()
     {
+        // Native partial JSON leaves scalar fields at zero. Zero is absent;
+        // explicit nonzero values still pass through the strict bounds below.
+        if (Version == 0) { Version = DEFAULT_VERSION; Print("[HC Plan] HC-17 policy Version absent; default " + DEFAULT_VERSION.ToString()); }
+        if (ExpiryDays == 0) { ExpiryDays = DEFAULT_EXPIRY_DAYS; Print("[HC Plan] HC-17 policy ExpiryDays absent; default " + DEFAULT_EXPIRY_DAYS.ToString()); }
+        if (VisitRadiusMeters == 0) { VisitRadiusMeters = DEFAULT_VISIT_RADIUS_METERS; Print("[HC Plan] HC-17 policy VisitRadiusMeters absent; default " + DEFAULT_VISIT_RADIUS_METERS.ToString()); }
+        if (ActionReachMeters == 0) { ActionReachMeters = DEFAULT_ACTION_REACH_METERS; Print("[HC Plan] HC-17 policy ActionReachMeters absent; default " + DEFAULT_ACTION_REACH_METERS.ToString()); }
         return Version == 1 && ExpiryDays >= 7 && ExpiryDays <= 365 && VisitRadiusMeters >= UAMaxDistances.DEFAULT && VisitRadiusMeters <= 1000.0 && ActionReachMeters == UAMaxDistances.DEFAULT;
     }
 }
@@ -50,6 +60,7 @@ class HCBuildingClaim
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Healthy;
     protected int m_LastUtc;
+    protected int m_BootUtc;
     protected int m_Cursor;
     protected int m_ObserverCursor;
     protected HCBuildingClaimRecord m_Examining;
@@ -94,6 +105,7 @@ class HCBuildingClaim
         string path = "$profile:HollowCountry/building-claims-config.json";
         if (FileExist(path) && !HCGroupJson<HCBuildingClaimConfig>.Load(path, 4096, service.m_Config)) { service.HCFail(); return false; }
         service.m_LastUtc = HCWorldClock.UTC();
+        service.m_BootUtc = service.m_LastUtc;
         if (service.m_LastUtc < 1 || service.m_LastUtc < data.SavedUtc || !service.m_Config || !service.m_Config.HCValid() || !HCCampStore.HCClaimsValid(data, service.m_LastUtc)) { service.HCFail(); return false; }
         service.m_Save = new HCBuildingClaimSave;
         service.m_Save.Owner = service;
@@ -102,6 +114,7 @@ class HCBuildingClaim
         service.m_Status.HCPublish("ready", "claim_journal_loaded_native_acceptance_pending");
         Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false));
         Print("[HC Plan] HC-17 claims=per-group state=ready expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=off count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
+        Print("[HC Plan] HC-17 expiry=boot_grace window_days=" + service.m_Config.ExpiryDays.ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 state=refused reason=door_restart_and_heavy_infected_unobserved count=2 runtime=PENDING");
         return true;
     }
@@ -164,7 +177,11 @@ class HCBuildingClaim
     bool HCShouldExpire(HCBuildingClaimRecord row, int now, int groupState)
     {
         if (!row || groupState < 0 || now < row.LastVisitUtc) { return false; }
-        return groupState == 0 || now - row.LastVisitUtc >= m_Config.ExpiryDays * 86400;
+        if (groupState == 0) { return true; }
+        // Every boot gives a full absence window, without forging a visit or
+        // rewriting old timestamps. Frequent restarts can extend retention.
+        int windowSeconds = m_Config.ExpiryDays * 86400;
+        return now >= m_BootUtc && now - m_BootUtc >= windowSeconds && now - row.LastVisitUtc >= windowSeconds;
     }
 
     static bool HCActor(PlayerBase player)
@@ -194,7 +211,19 @@ class HCBuildingClaim
         vector angles = building.GetOrientation();
         int posUnits = HCBuildingClaimConfig.POSITION_UNITS_PER_METER;
         int angleUnits = HCBuildingClaimConfig.ANGLE_UNITS_PER_DEGREE;
-        return GetGame().GetWorldName() + ":" + building.GetType() + ":" + HCQuantized(position[0], posUnits) + ":" + HCQuantized(position[1], posUnits) + ":" + HCQuantized(position[2], posUnits) + ":" + HCQuantized(angles[0], angleUnits) + ":" + HCQuantized(angles[1], angleUnits) + ":" + HCQuantized(angles[2], angleUnits);
+        string id = GetGame().GetWorldName() + ":" + building.GetType() + ":" + HCQuantized(position[0], posUnits);
+        id = id + ":" + HCQuantized(position[1], posUnits) + ":" + HCQuantized(position[2], posUnits);
+        id = id + ":" + HCQuantized(angles[0], angleUnits) + ":" + HCQuantized(angles[1], angleUnits) + ":" + HCQuantized(angles[2], angleUnits);
+        return id;
+    }
+
+    bool HCHoldsClaim(int groupId, string buildingId)
+    {
+        foreach (HCBuildingClaimRecord row : m_Data.Claims)
+        {
+            if (row.GroupId == groupId && row.BuildingId == buildingId) { return true; }
+        }
+        return false;
     }
 
     bool HCRequest(PlayerBase player, ActionTarget target, bool release)

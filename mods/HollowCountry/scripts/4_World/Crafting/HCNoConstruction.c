@@ -38,7 +38,7 @@ modded class RecipeBase
     }
     override void PerformRecipe(ItemBase item1, ItemBase item2, PlayerBase player)
     {
-        if (HCNoConstruction.HCDeniedRecipe(ClassName())) { return; }
+        if (HCNoConstruction.HCDeniedRecipe(ClassName())) { Print("[HC Plan] HC-17 construction=refused reason=construction_recipe runtime=PENDING"); return; }
         super.PerformRecipe(item1, item2, player);
     }
 }
@@ -57,7 +57,7 @@ modded class ActionBuildPart
     }
     override void OnFinishProgressServer(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedTarget(action_data.m_Target)) { return; }
+        if (!action_data || HCNoConstruction.HCDeniedTarget(action_data.m_Target)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_target runtime=PENDING"); return; }
         super.OnFinishProgressServer(action_data);
     }
 }
@@ -91,12 +91,12 @@ modded class ActionDeployObject
     }
     override void OnFinishProgressClient(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { return; }
+        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_deploy runtime=PENDING"); return; }
         super.OnFinishProgressClient(action_data);
     }
     override void OnFinishProgressServer(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { return; }
+        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_deploy runtime=PENDING"); return; }
         super.OnFinishProgressServer(action_data);
     }
 }
@@ -106,7 +106,7 @@ modded class ActionDeployBase
 {
     override void OnFinishProgressServer(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { return; }
+        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_deploy runtime=PENDING"); return; }
         super.OnFinishProgressServer(action_data);
     }
 }

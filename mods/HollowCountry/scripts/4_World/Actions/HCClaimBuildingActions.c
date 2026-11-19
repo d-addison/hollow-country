@@ -7,6 +7,8 @@
 // ItemConditionComponents/CCINone.c:1; ActionTargets.c:142/147/159 object/parent/component;
 // Entities/ManBase/PlayerBase.c:1695 SetActions(out TInputActionMap), :1705 AddAction;
 // 3_Game/Entities/Building.c:28 GetDoorIndex; Global/Game.c:1120 IsServer.
+// Entities/ManBase/PlayerBase.c:6911-6926 Message/MessageStatus routes server
+// status text to the actor's client; conditions remain quiet per-frame previews.
 // Server re-reads actual building/transform, current group and role at finish.
 // UI preview does not assert ownership. Door locking remains native lockpick.
 class HCClaimBuildingCB : ActionContinuousBaseCB
@@ -40,17 +42,31 @@ class HCClaimBuildingAction : ActionContinuousBase
         if (!building || !HCBuildingClaim.HCDoor(building, building.GetDoorIndex(target.GetComponentIndex()))) { return false; }
         if (GetGame().IsServer())
         {
-            if (!HCBuildingClaim.HCGet()) { return false; }
+            HCBuildingClaim claims = HCBuildingClaim.HCGet();
+            if (!claims) { return false; }
             HCGroupService groups = HCGroupService.Get();
-            return groups && groups.HCClaimActorGroup(player, true) > 0;
+            if (!groups) { return false; }
+            int groupId = groups.HCClaimActorGroup(player, true);
+            if (groupId < 1) { return false; }
+            if (HCReleaseRequest()) { return claims.HCHoldsClaim(groupId, HCBuildingClaim.HCIdentity(building)); }
+            return true;
         }
         return true;
     }
     override void OnFinishProgressServer(ActionData action_data)
     {
-        if (!action_data || !ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem)) { return; }
+        if (!action_data) { Print("[HC Plan] HC-17 action=refused reason=missing_action_data runtime=PENDING"); return; }
+        if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
+        {
+            if (action_data.m_Player) { action_data.m_Player.MessageStatus("Building claim refused: you must manage your group and release only its claimed building, within door reach."); }
+            else { Print("[HC Plan] HC-17 action=refused reason=missing_actor runtime=PENDING"); }
+            return;
+        }
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
-        if (claims) { claims.HCRequest(action_data.m_Player, action_data.m_Target, HCReleaseRequest()); }
+        if (!claims || !claims.HCRequest(action_data.m_Player, action_data.m_Target, HCReleaseRequest()))
+        {
+            action_data.m_Player.MessageStatus("Building claim refused: service unavailable, claim conflict, changed group access or persistence fault.");
+        }
     }
 }
 
