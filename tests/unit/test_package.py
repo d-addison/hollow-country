@@ -267,6 +267,29 @@ class PackageBehavior(unittest.TestCase):
             with self.assertRaises(ValueError):
                 pbo.handoff(addon, mission, release=True)
 
+    def test_extracted_handoff_imports_the_overlay_remove_helper(self):
+        """#206: the portable helper imports from the extracted handoff alone."""
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            addon = root / 'addon'
+            addon.mkdir()
+            (addon / 'config.cpp').write_text('class Synthetic {};')
+            mission = root / 'mission'
+            mission.mkdir()
+            (mission / 'README.md').write_text('Synthetic original instructions')
+            blob = pbo.handoff(addon, mission)
+            pbo.verify_handoff(blob)
+            out = root / 'extracted'
+            with zipfile.ZipFile(io.BytesIO(blob)) as z:
+                z.extractall(out)
+            run = subprocess.run(
+                [sys.executable, '-I', '-B', '-c',
+                 'import sys; sys.path.insert(0, "."); from tools.package import overlay_remove, ce_extensions; '
+                 'ce_extensions._registrations(); print("ok")'],
+                cwd=out, capture_output=True, text=True, timeout=60)
+            self.assertEqual(0, run.returncode, run.stderr[-800:])
+            self.assertEqual('ok', run.stdout.strip())
+
     def test_mod_metadata_outside_pbo(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
