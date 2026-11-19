@@ -116,7 +116,7 @@ class HCAdminModule : HCModule
         Print(HCV2Admission.Line("AdminControls", m_OperatorControls, "203", false) + " runtime=PENDING");
         if (m_OperatorControls)
         {
-            Print("[HC Admin] controls missing=HCRequestFreshDormant,HCRequestVisitorParty,HCRequestRaidParty runtime=PENDING");
+            Print("[HC Admin] controls missing=HCRequestFreshDormant runtime=PENDING");
         }
         m_Running = true;
         DayZGame.Event_OnRPC.Insert(HCReceive);

@@ -55,6 +55,7 @@ class HCBaseRaidConfig
 // Server capability, not JSON readiness. The addon binds its single instance.
 class HCBaseRaidPort
 {
+    bool HCVisit(HCCampModule owner, HCCampRecord camp, int now) { return false; }
     bool HCReady() { return false; }
     string HCRefusal() { return "PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"; }
     bool HCSeen(HCCampRecord camp, HCCampScan scan) { return false; }
@@ -74,11 +75,12 @@ class HCBaseRaid
     protected static bool s_Started;
     protected static bool s_Enabled;
     protected static string s_Refusal;
+    protected static string s_RequestRefusal;
 
     static void HCBind(HCBaseRaidPort port) { s_Port = port; }
     static HCBaseRaidPort HCGet() { return s_Port; }
     static HCBaseRaidConfig HCConfig() { return s_Config; }
-    static bool HCOwns(string lease) { return s_Port && s_Port.HCOwns(lease); }
+    static bool HCOwns(string lease) { return (s_Port && s_Port.HCOwns(lease)) || HCCampProbes.HCVisitorOwns(lease); }
 
     static bool HCEnabled()
     {
@@ -102,8 +104,16 @@ class HCBaseRaid
         return true;
     }
 
+    static string HCRefusal()
+    {
+        if (s_RequestRefusal != "") { return s_RequestRefusal; }
+        if (s_Refusal != "") { return s_Refusal; }
+        return "BASE_RAID_REQUEST_REFUSED";
+    }
+
     static void HCRefuse(string reason)
     {
+        s_RequestRefusal = reason;
         if (s_Refusal == reason) { return; }
         s_Refusal = reason;
         if (reason != "") { Print("[HC BaseRaid] reason=" + reason + " runtime=PENDING"); }
@@ -147,17 +157,19 @@ class HCBaseRaid
 
     static bool HCWarn(HCCampModule owner, HCCampRecord camp, HCCampScan scan, int now)
     {
+        s_RequestRefusal = "BASE_RAID_DISABLED_OR_INVALID_REQUEST";
         if (!HCBaseRaid.HCEnabled() || !owner || !camp || !scan || now < 1) { return false; }
+        s_RequestRefusal = "";
         HCBaseRaidPort port = HCBaseRaid.HCGet();
         if (!port) { HCBaseRaid.HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); return false; }
         if (!port.HCReady()) { HCBaseRaid.HCRefuse(port.HCRefusal()); return false; }
-        if (!port.HCSeen(camp, scan)) { return false; }
+        if (!port.HCSeen(camp, scan)) { HCBaseRaid.HCRefuse("BASE_RAID_PARTY_NOT_OBSERVED"); return false; }
         if (!HCBaseRaid.HCRecipients(owner, camp)) { HCBaseRaid.HCRefuse("BASE_RAID_WARNING_RECIPIENT_OFFLINE"); return false; }
         if (!port.HCReserve(owner, camp, now)) { HCBaseRaid.HCRefuse(port.HCRefusal()); return false; }
         // Existing probe cooldown is 3 real days, stricter than one/day. Save
         // before the existing warning; uncertain IO never refunds/replays it.
         camp.LastProbe = now;
-        if (!owner.Commit(now)) { port.HCCancel(); return false; }
+        if (!owner.Commit(now)) { port.HCCancel(); s_RequestRefusal = "BASE_RAID_PERSISTENCE_REFUSED"; return false; }
         owner.Tell(camp, "Raiders have noticed your camp. A warned probe may return after a warning delay if it is unattended.");
         port.HCWarned(camp, now);
         return true;
@@ -169,6 +181,7 @@ class HCBaseRaid
 modded class HCCampModule
 {
     protected ref HCOperationalOwner m_HCBaseRaidStatus;
+    protected ref HCOperationalOwner m_HCVisitorStatus;
 
     // Exact recipient list used by Tell in this synchronous camp scan; a
     // different player cache must not turn an undelivered warning into a debit.
@@ -189,6 +202,9 @@ modded class HCCampModule
         HCOperationalStatus inherited = super.HCGetOperationalStatus();
         if (!m_Running || !GetGame()) { return inherited; }
         if (!m_HCBaseRaidStatus) { m_HCBaseRaidStatus = HCOperationalContributors.HCRegisterOwner("BaseRaid"); }
+        if (!m_HCVisitorStatus) { m_HCVisitorStatus = HCOperationalContributors.HCRegisterOwner("CampVisitors"); }
+        HCOperationalStatus visitors = HCCampProbes.HCGetOperationalStatus();
+        if (m_HCVisitorStatus) { m_HCVisitorStatus.HCObserve(true, visitors, GetGame().GetTickTime()); }
         HCOperationalStatus raid = HCBaseRaid.HCGetOperationalStatus();
         if (m_HCBaseRaidStatus) { m_HCBaseRaidStatus.HCObserve(true, raid, GetGame().GetTickTime()); }
         return inherited;

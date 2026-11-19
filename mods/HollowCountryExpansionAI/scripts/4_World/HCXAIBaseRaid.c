@@ -124,6 +124,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
     // One party, one local object and one door per budgeted tick. Never reads
     // camps/claims/positions to choose a target. Ownership is resolved ONLY
     // after live distance + geometry; arbitrary camp coordinates cannot enter.
+    bool HCPartyAllowed() { return m_Site && m_Site.ProviderFaction == "HCRaiders"; }
+
     void HCSense()
     {
         m_Seen = null;
@@ -137,8 +139,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_PartyCursor = m_PartyCursor % states.Count();
         m_Site = states[m_PartyCursor];
         m_PartyCursor++;
-        if (!HCW38SituationRuntime.HCCandidate(m_Site) || m_Site.ProviderFaction != "HCRaiders") { return; }
-        if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { return; }
+        if (!HCW38SituationRuntime.HCCandidate(m_Site) || !HCPartyAllowed()) { return; }
+        if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId) || HCBaseRaid.HCOwns(m_Site.ProposalId)) { return; }
         eAIGroup party = m_Site.Patrol.m_Group;
         if (party.IsInCombat() || party.Count() > HCWorldMaterializer.MAX_PLAYERS) { return; }
         m_Actor = eAIBase.Cast(party.GetMember(0));
@@ -194,7 +196,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
     {
         m_Reason = "BASE_RAID_PARTY_UNAVAILABLE";
         if (!HCReady() || m_Reserved || !HCLiveParty() || !m_Seen) { return false; }
-        if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { return false; }
+        if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId) || HCBaseRaid.HCOwns(m_Site.ProposalId)) { return false; }
         eAIGroup group = m_Actor.GetGroup();
         array<vector> route = group.GetWaypoints();
         if (!route || route.Count() == 0 || route.Count() > m_Config.MaxRouteNodes || group.IsInCombat()) { return false; }
@@ -389,6 +391,52 @@ class HCXAIBaseRaid : HCBaseRaidPort
     }
 }
 
+// #203 physical visitors reuse only the perception/reservation/walking helpers.
+// No loot, action, notification, dialogue or reward handler is called. Shared
+// BaseRaid config supplies bounded sensing, observer range and visit duration.
+// Engine/Expansion evidence is the exact inspected header above; new call:
+// native EnConvert.c:210 DistanceSq. No spawn or coordinate-driven perception.
+class HCAdminVisitorParty : HCXAIBaseRaid
+{
+    void HCOpenVisitor()
+    {
+        if (!HCCampProbes.HCVisitorsEnabled() || !HCBaseRaid.HCEnabled()) { return; }
+        m_Config = HCBaseRaid.HCConfig();
+        m_Healthy = m_Config != null;
+    }
+
+    override bool HCReady() { return m_Healthy && m_Config != null; }
+    override string HCRefusal() { return "CAMP_VISITOR_CONFIG_UNAVAILABLE"; }
+    override bool HCPartyAllowed() { return m_Site && m_Site.ProviderFaction == "HCTravellers"; }
+    override bool HCCustodyAllowed(PlayerBase actor, EntityAI source) { return false; }
+
+    override bool HCVisit(HCCampModule owner, HCCampRecord camp, int now)
+    {
+        if (!HCReserve(owner, camp, now)) { return false; }
+        camp.LastVisit = now;
+        // Intent debit before any route changes; uncertain save never replays.
+        if (!owner.Commit(now)) { HCCancel(); return false; }
+        m_Due = now;
+        m_Ends = now + m_Config.RaidSeconds;
+        Print("[HC CampVisitors] reserved walk=pending runtime=PENDING");
+        return true;
+    }
+
+    void HCVisitStep(int now)
+    {
+        if (!HCReady() || !HCCampProbes.HCVisitorsEnabled() || !HCCampProbes.HCEnabled() || !HCBaseRaid.HCEnabled()) { return; }
+        int cost = m_Config.MaxObjects + m_Config.MaxPlayers + m_Config.MaxRouteNodes;
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, cost)) { return; }
+        if (!m_Reserved) { HCSense(); return; }
+        if (!HCLiveParty() || now < m_Camp.LastVisit || now >= m_Ends) { HCCancel(); return; }
+        if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { HCCancel(); return; }
+        if (!HCBaseRaid.HCUnattended(m_Owner, m_Camp, m_Point)) { HCCancel(); return; }
+        if (m_Actor.GetGroup().IsInCombat()) { HCCancel(); return; }
+        // Normal finite native route, no teleport, item transfer or forced entry.
+        if (!m_Walking && !HCWalkTo(m_Point)) { HCCancel(); return; }
+    }
+}
+
 // Cancellation/attendance during the native continuous action also vetoes its
 // completion. Keep the tag after cancellation so a late callback cannot unlock.
 modded class eAIBase
@@ -420,6 +468,8 @@ modded class ActionUnlockDoors
 modded class HCXAIAdapter
 {
     protected ref HCXAIBaseRaid m_HCBaseRaid;
+    protected ref HCAdminVisitorParty m_HCVisitorParty;
+    protected bool m_HCVisitorFirst;
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
@@ -431,14 +481,29 @@ modded class HCXAIAdapter
         m_HCBaseRaid = new HCXAIBaseRaid;
         m_HCBaseRaid.HCOpen();
         HCBaseRaid.HCBind(m_HCBaseRaid);
+        m_HCVisitorParty = new HCAdminVisitorParty;
+        m_HCVisitorParty.HCOpenVisitor();
+        HCCampProbes.HCBindVisitor(m_HCVisitorParty);
     }
     override void OnTick(float deltaTime)
     {
         super.OnTick(deltaTime);
-        if (HCXAIService.Adapter() == this && m_HCBaseRaid) { m_HCBaseRaid.HCStep(HCWorldClock.UTC()); }
+        if (HCXAIService.Adapter() == this)
+        {
+            // Alternate first service on the same bounded consumer so visits
+            // cannot starve behind continuous raid sensing (or vice versa).
+            int now = HCWorldClock.UTC();
+            m_HCVisitorFirst = !m_HCVisitorFirst;
+            if (m_HCVisitorFirst && m_HCVisitorParty) { m_HCVisitorParty.HCVisitStep(now); }
+            if (m_HCBaseRaid) { m_HCBaseRaid.HCStep(now); }
+            if (!m_HCVisitorFirst && m_HCVisitorParty) { m_HCVisitorParty.HCVisitStep(now); }
+        }
     }
     override void OnStop()
     {
+        if (m_HCVisitorParty) { m_HCVisitorParty.HCCancel(); }
+        if (HCCampProbes.HCVisitor() == m_HCVisitorParty) { HCCampProbes.HCBindVisitor(null); }
+        m_HCVisitorParty = null;
         if (m_HCBaseRaid) { m_HCBaseRaid.HCCancel(); }
         if (HCBaseRaid.HCGet() == m_HCBaseRaid) { HCBaseRaid.HCBind(null); }
         m_HCBaseRaid = null;
