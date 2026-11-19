@@ -257,6 +257,8 @@ class HCEcologyRuntime
 		}
 		m_SaveJob = new HCEcologySaveJob;
 		m_SaveJob.HCBind(this, m_Store);
+		// HC-29 lead wiring: staged routine saves run on the shared scheduler; Finish unregisters on every stop path.
+		HCSaveScheduler.HCRegister(m_SaveJob);
 		m_Session = session;
 		// EEInit may have registered handles before the session was admitted.
 		BindLocalIds();
@@ -657,7 +659,10 @@ class HCEcologyRuntime
 		if (elapsedUs < 0) { reason = "invalid_calibration"; }
 		string state = "on";
 		if (!m_Running) { state = "refused"; }
-		Print("[HC Plan] HC-29 visited=" + m_Visited.ToString() + " deferred=" + m_Deferred.ToString() + " save_phase=" + phase.ToString() + " elapsed_us=" + elapsedUs.ToString() + " state=" + state + " reason=" + reason + "; runtime=PENDING");
+		// Split: native Enforce refuses more than 9 '+' in one statement.
+		string counts = "visited=" + m_Visited.ToString() + " deferred=" + m_Deferred.ToString() + " save_phase=" + phase.ToString();
+		string timing = " elapsed_us=" + elapsedUs.ToString() + " state=" + state + " reason=" + reason;
+		Print("[HC Plan] HC-29 " + counts + timing + "; runtime=PENDING");
 	}
 
 	HCEcologyCheckpoint HCSnapshot()
@@ -717,7 +722,11 @@ class HCEcologyRuntime
 			// continuation first, then synchronously persist only that delta.
 			if (flushed) { HCWriteCheckpoint(); }
 		}
-		if (m_SaveJob) { m_SaveJob.HCDetach(); }
+		if (m_SaveJob)
+		{
+			HCSaveScheduler.HCUnregister(m_SaveJob);
+			m_SaveJob.HCDetach();
+		}
 		m_SaveJob = null;
 		m_TicksPerMs = 0;
 		m_Deferred = 0;
