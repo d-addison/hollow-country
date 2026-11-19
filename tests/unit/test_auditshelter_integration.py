@@ -7,25 +7,35 @@ import io
 from pathlib import Path
 import types
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def replace_pending(source, before, after):
+    """Accept the exact integrated edit; fail closed on unexpected fixture drift."""
+    if after in source:
+        return source
+    if before not in source:
+        raise AssertionError('Shared fixture changed; review the proposed edit again')
+    return source.replace(before, after)
 
 
 def proposed_edits():
     edits = {}
     path = 'tools/package/pbo.py'
     old = (ROOT / path).read_text()
-    edits[path] = old.replace("'travel/route-surveys.json', 'travel/wreck-dispositions.json'", "'travel/route-surveys.json', 'travel/auditshelter_scenes.json', 'travel/wreck-dispositions.json'")
+    edits[path] = replace_pending(old, "'travel/route-surveys.json', 'travel/wreck-dispositions.json'", "'travel/route-surveys.json', 'travel/auditshelter_scenes.json', 'travel/wreck-dispositions.json'")
 
     path = 'tests/unit/test_w47_shelters.py'
     old = (ROOT / path).read_text()
-    new = old.replace("'excluded-missing-site-access-clearance'", "'authored-exterior-scene-native-access-pending'")
-    new = new.replace("['site-terrain-clearance', 'outside-to-roof-path', 'scene-prop-slots']", "['native-site-access-and-clearance-verdict']")
-    new = new.replace("self.assertEqual(0, row['authored_props'])", "self.assertEqual(3, row['authored_props'])")
-    new = new.replace(".replace('HCShelterSurvey', 'HCEventSurvey')", ".replace('HCShelterSurvey', 'HCEventSurvey').replace('HCShelterRegionalConfig ', 'HCEventConfig ')")
-    new = new.replace('HCShelterCatalog=N(CandidateCount=', 'HCShelterCatalog=N(HCRegionalConfig=lambda: N(Enabled=True, Scenes=[N(Enabled=True), N(Enabled=True)]), CandidateCount=')
-    new = new.replace('candidate=synthetic-a excluded=site_access_missing', 'candidate=synthetic-a admission=authored_exterior_scene access=site_access_missing')
-    new = new.replace('candidate=synthetic-b excluded=scene_slots_missing', 'candidate=synthetic-b admission=authored_exterior_scene access=scene_slots_missing')
+    new = replace_pending(old, "'excluded-missing-site-access-clearance'", "'authored-exterior-scene-native-access-pending'")
+    new = replace_pending(new, "['site-terrain-clearance', 'outside-to-roof-path', 'scene-prop-slots']", "['native-site-access-and-clearance-verdict']")
+    new = replace_pending(new, "self.assertEqual(0, row['authored_props'])", "self.assertEqual(3, row['authored_props'])")
+    new = replace_pending(new, ".replace('HCShelterSurvey', 'HCEventSurvey')", ".replace('HCShelterSurvey', 'HCEventSurvey').replace('HCShelterRegionalConfig ', 'HCEventConfig ')")
+    new = replace_pending(new, 'HCShelterCatalog=N(CandidateCount=', 'HCShelterCatalog=N(HCRegionalConfig=lambda: N(Enabled=True, Scenes=[N(Enabled=True), N(Enabled=True)]), CandidateCount=')
+    new = replace_pending(new, 'candidate=synthetic-a excluded=site_access_missing', 'candidate=synthetic-a admission=authored_exterior_scene access=site_access_missing')
+    new = replace_pending(new, 'candidate=synthetic-b excluded=scene_slots_missing', 'candidate=synthetic-b admission=authored_exterior_scene access=scene_slots_missing')
     edits[path] = new
 
     path = 'tests/unit/test_hc_module_readiness_wave16.py'
@@ -44,13 +54,22 @@ def proposed_edits():
         ('degraded', 'regional_scene_data_missing_or_invalid', {'m_Started': True, 'm_Placed': 3, 'm_RegionalFailed': 0}, False,
          {'HCShelterCatalog': N(HCRegionalFault=lambda: 'regional_scene_data_missing_or_invalid')}),
         ('off', OFF, {'m_Started': False, 'm_Placed': 0, 'm_RegionalFailed': 0}, False, {})]),"""
-    if before not in old:
-        raise AssertionError('Shared readiness fixture changed; review the proposed edit again')
-    edits[path] = old.replace(before, after)
+    edits[path] = replace_pending(old, before, after)
     return edits
 
 
 class SharedIntegrationCopies(unittest.TestCase):
+    def test_proposed_edits_accept_already_integrated_files(self):
+        overlay = proposed_edits()
+        original = Path.read_text
+        def read(path, *args, **kwargs):
+            relative = str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else ''
+            return overlay[relative] if relative in overlay else original(path, *args, **kwargs)
+        with patch.object(Path, 'read_text', read):
+            self.assertEqual(overlay, proposed_edits())
+            self.test_updated_existing_behavioral_fixtures()
+            self.test_package_allowlist_edit_in_local_fixture_copy()
+
     def test_updated_existing_behavioral_fixtures(self):
         for path, source in proposed_edits().items():
             if not path.startswith('tests/'):

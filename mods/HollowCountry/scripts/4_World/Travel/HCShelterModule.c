@@ -610,8 +610,8 @@ class HCShelterModule : HCModule
         Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
     }
 
-    // Reuse the Interiors consumer: this is finite static furnishing, not an
-    // independent simulation. One complete 3-prop attempt costs configured units.
+    // Dedicated consumer preserves progress after Interiors spends its slice.
+    // One complete 3-prop attempt costs configured units.
     // Observer veto leaves the row pending; all other failures are tried once.
     protected void HCRegionalTick()
     {
@@ -622,7 +622,7 @@ class HCShelterModule : HCModule
         m_RegionalCursor = m_RegionalCursor + 1;
         if (!entry || !entry.Scene || !entry.Scene.Enabled || entry.Attempted) { return; }
         HCUnitBudget shared = HCServer.HCTickWork();
-        if (!shared.HCTakeFor(HCUnitBudget.HC_WORK_INTERIORS, config.WorkUnits)) { return; }
+        if (!shared.HCTakeFor(HCUnitBudget.HC_WORK_SHELTER, config.WorkUnits)) { return; }
         if (!HCObserverTransitionGate.CanTransition(entry.Position, config.ObserverDistance)) { return; }
         entry.Attempted = true;
         HCPlaceRegional(entry);
@@ -672,6 +672,13 @@ class HCShelterModule : HCModule
         if (!HCPlaceBatch(house, layout, batch))
         {
             m_RegionalScene = null;
+            // HCPlaceBatch already rolled back every partial prop. A player
+            // near a prop can veto after the anchor passed; retry on a later tick.
+            if (m_RefusalReason == "observed_regional_prop")
+            {
+                entry.Attempted = false;
+                return;
+            }
             HCRegionalRefuse(m_RefusalReason + ":" + scene.Id);
             return;
         }

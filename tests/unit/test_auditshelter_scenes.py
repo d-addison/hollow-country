@@ -28,9 +28,9 @@ class RegionalScenes(unittest.TestCase):
         entry = N(Scene=scene, Attempted=False, Position=[1, 2, 3])
         visible = [True]
         budget = N(HCTakeFor=lambda consumer, cost: charges.append((consumer, cost)) or True)
-        config = N(Enabled=True, WorkUnits=24, ObserverDistance=1100)
+        config = N(Enabled=True, WorkUnits=24, ObserverDistance=1100, BoundsToleranceSquared=.04)
         env = dict(HCShelterCatalog=N(HCRegionalConfig=lambda: config, Count=lambda: 1, Get=lambda i: entry),
-                   HCServer=N(HCTickWork=lambda: budget), HCUnitBudget=N(HC_WORK_INTERIORS=1),
+                   HCServer=N(HCTickWork=lambda: budget), HCUnitBudget=N(HC_WORK_INTERIORS=1, HC_WORK_SHELTER=21),
                    HCObserverTransitionGate=N(CanTransition=lambda *args: not visible[0]))
         owner = type('SyntheticShelters', (), {})
         owner.HCRegionalTick = translate(source, 'HCRegionalTick', env, 'HCShelterModule', True)
@@ -50,6 +50,35 @@ class RegionalScenes(unittest.TestCase):
         state.HCRegionalTick()
         self.assertEqual([entry], attempts, 'operator opt-out is a cheap no-op')
         self.assertTrue(all(cost == 24 for _, cost in charges))
+
+    def test_real_budget_advances_all_scenes_after_interiors_spends_twelve_units(self):
+        from tests.unit.tick_budget_fixture import new_budget, budget_class
+        budget, klass = new_budget(), budget_class()
+        # Exact lead-owned constant; Core remains outside this worker's scope.
+        klass.HC_WORK_SHELTER = 21
+        klass.HC_WORK_CONSUMERS = 22
+        entries = [N(Scene=N(Enabled=True), Attempted=False, Position=[i, 0, 0]) for i in range(5)]
+        config = N(Enabled=True, WorkUnits=24, ObserverDistance=1100, BoundsToleranceSquared=.04)
+        env = dict(HCShelterCatalog=N(HCRegionalConfig=lambda: config, Count=lambda: len(entries), Get=entries.__getitem__),
+                   HCServer=N(HCTickWork=lambda: budget), HCUnitBudget=klass,
+                   HCObserverTransitionGate=N(CanTransition=lambda *args: True))
+        source = MODULE.read_text().replace('HCShelterRegionalConfig ', 'HCEventConfig ').replace('HCShelterEntry ', 'HCEventEntry ').replace('HCUnitBudget shared', 'HCEventBudget shared')
+        owner = type('SyntheticBudgetShelters', (), {})
+        owner.HCRegionalTick = translate(source, 'HCRegionalTick', env, 'HCShelterModule', True)
+        state = owner()
+        state.m_RegionalCursor = 0
+        placed = []
+        state.HCPlaceRegional = placed.append
+        for tick in range(10):
+            budget.HCReset(32)
+            for visit in range(12):
+                self.assertTrue(budget.HCTakeFor(klass.HC_WORK_INTERIORS, 1))
+            state.HCRegionalTick()
+            if tick < 5:
+                self.assertEqual(tick + 1, len(placed), 'Interiors must not starve shelter placement')
+                self.assertEqual(36, budget.HCUsed())
+                self.assertEqual(1, budget.HCStarved())
+        self.assertEqual(entries, placed)
 
     def test_config_validation_rejects_missing_limits_and_access_overlap(self):
         source = CATALOG.read_text().replace('HCShelterRegionalScene ', 'HCEventScene ').replace('HCShelterRegionalConfig ', 'HCEventConfig ').replace('HCShelterSurvey ', 'HCEventSurvey ').replace('array<float> slot :', 'HCEventPoint slot :')
@@ -89,7 +118,7 @@ class RegionalScenes(unittest.TestCase):
                          ('HCInteriorTemplate ', 'HCEventTemplate ')):
             source = source.replace(old, new)
         created, deleted, updated, logs = [], [], [], []
-        scene = N(Id='synthetic', BuildingClass='SyntheticRoof', Position=[100, 0, 100],
+        scene = N(Enabled=True, Id='synthetic', BuildingClass='SyntheticRoof', Position=[100, 0, 100],
                   ClipMin=[-3, -3, -2], ClipMax=[3, 3, 2], YardMin=[-10, -20, -6],
                   YardMax=[-6, 20, 6], AccessMin=[-5, -20, -4], AccessMax=[5, 20, 4])
         house = N(ClippingInfo=lambda target: target.__setitem__(slice(None), [scene.ClipMin, scene.ClipMax]))
@@ -123,16 +152,50 @@ class RegionalScenes(unittest.TestCase):
             created.append(handle)
             return handle
         state.PlaceProp = place
-        entry = N(Scene=scene, Placed=False, PlacementAnchor=None)
+        entry = N(Scene=scene, Position=scene.Position, Attempted=True, Placed=False, PlacementAnchor=None)
         state.HCPlaceRegional(entry)
         self.assertFalse(entry.Placed)
         self.assertEqual(created, deleted)
         self.assertEqual([], state.m_Objects)
         self.assertEqual([], updated)
         self.assertIsNone(state.m_RegionalScene)
+        self.assertEqual(1, state.m_RegionalFailed, 'real collision remains a permanent failure')
+        for veto_at in range(3):
+            created.clear()
+            deleted.clear()
+            entry.Attempted = True
+            fail_at[0] = veto_at
+            def observed_place(house, layout, prop, z):
+                if len(created) == fail_at[0]:
+                    state.m_RefusalReason = 'observed_regional_prop'
+                    return None
+                handle = N(prop=prop)
+                created.append(handle)
+                return handle
+            state.PlaceProp = observed_place
+            state.HCPlaceRegional(entry)
+            self.assertFalse(entry.Attempted, 'temporary prop observer veto must allow retry')
+            self.assertFalse(entry.Placed)
+            self.assertIsNone(entry.PlacementAnchor)
+            self.assertEqual(created, deleted)
+            self.assertEqual([], state.m_Objects)
+            self.assertEqual([], updated)
+            self.assertIsNone(state.m_RegionalScene)
+            self.assertEqual(1, state.m_RegionalFailed, 'observer veto is not a permanent fault')
+        # Observers leave: a later tick retries and publishes the complete batch.
         created.clear()
+        state.PlaceProp = place
         fail_at[0] = -1
-        state.HCPlaceRegional(entry)
+        config = N(Enabled=True, WorkUnits=24, ObserverDistance=1100, BoundsToleranceSquared=.04)
+        env.update(HCShelterCatalog=N(HCRegionalConfig=lambda: config, Count=lambda: 1, Get=lambda i: entry),
+                   HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda *args: True)),
+                   HCUnitBudget=N(HC_WORK_INTERIORS=1, HC_WORK_SHELTER=21),
+                   HCObserverTransitionGate=N(CanTransition=lambda *args: True))
+        tick_source = MODULE.read_text().replace('HCShelterRegionalConfig ', 'HCEventConfig ').replace('HCShelterEntry ', 'HCEventEntry ').replace('HCUnitBudget shared', 'HCEventBudget shared')
+        owner.HCRegionalTick = translate(tick_source, 'HCRegionalTick', env, 'HCShelterModule', True)
+        state.m_RegionalCursor = 0
+        state.HCRegionalTick()
+        self.assertTrue(entry.Attempted)
         self.assertTrue(entry.Placed)
         self.assertIs(entry.PlacementAnchor, created[0])
         self.assertEqual(3, state.m_Objects.Count())
