@@ -22,7 +22,7 @@ class HCInfectedLODHerdSeed
 
 class HCInfectedLODConfig
 {
-    int SchemaVersion = 1;
+    int SchemaVersion = 2;
     // Classification and the tiered posed budget: a strict refinement of the
     // shipped behaviour at these defaults (same posed cap, same wake outcome).
     bool EnableLOD = true;
@@ -74,7 +74,7 @@ class HCInfectedLODConfig
 
     bool IsValid()
     {
-        if (SchemaVersion != 1 || !MemberTypes || !Herds) { return false; }
+        if (SchemaVersion != 2 || !MemberTypes || !Herds) { return false; }
         if (!HCLODPolicy.ValidRanges(FullRange, IdleRange, MinSpawnDistance, MaterializeRange, FoldRange, VisibilityRange)) { return false; }
         if (IdleRange > VisibilityRange || MaterializeRange < FullRange || FoldRange < IdleRange) { return false; }
         if (!HCLODPolicy.ValidCaps(ClassifyPerTick, MaxMaterialized, MaxPerHerd, PosedBudget, PosedFullBudget, PosedIdleBudget, Herds.Count())) { return false; }
@@ -127,8 +127,9 @@ class HCInfectedLODConfig
     // initializer. HerdWorld "" would silently disable every herd seed and a 0
     // hold is out of range, so a lod.json written before these keys existed would
     // disable the whole module. Restore the declared defaults of missing added keys
-    // (taken from a fresh instance) in memory only; the operator's file is never
-    // rewritten. ONE line per boot lists every restored key (#194); every other
+    // (taken from a fresh instance). Version 1 preferences are migrated once
+    // through the verified temp/backup store; version 2 opt-outs are preserved.
+    // One line per boot lists every restored key (#194); every other
     // missing or invalid key still fails IsValid exactly as before.
     static void HCRestoreMissingDefaults(HCInfectedLODConfig config, string content)
     {
@@ -174,9 +175,15 @@ class HCInfectedLODConfig
         string path = HCInfectedStore.DIRECTORY + "/lod.json";
         string content;
         string error;
+        bool migrate = false;
         reason = "";
         MakeDirectory(HCInfectedStore.ROOT);
         MakeDirectory(HCInfectedStore.DIRECTORY);
+        if (!HCV2ThreatStore<HCInfectedLODConfig>.CanOpen(path))
+        {
+            reason = "lod.json recovery pending; preserving file";
+            return null;
+        }
         if (FileExist(path))
         {
             if (!HCInfectedStore.ReadBounded(path, content) || !JsonFileLoader<HCInfectedLODConfig>.LoadData(content, config, error))
@@ -185,6 +192,12 @@ class HCInfectedLODConfig
                 return null;
             }
             HCRestoreMissingDefaults(config, content);
+            if (config && config.SchemaVersion == 1)
+            {
+                config.SchemaVersion = 2;
+                config.EnableVirtualHerds = true;
+                migrate = true;
+            }
         }
         else if (!JsonFileLoader<HCInfectedLODConfig>.SaveFile(path, config, error))
         {
@@ -195,6 +208,15 @@ class HCInfectedLODConfig
         {
             reason = "invalid lod.json ranges/caps/classes/herds; preserving file";
             return null;
+        }
+        if (migrate)
+        {
+            if (!HCV2ThreatStore<HCInfectedLODConfig>.Save(path, config, 65536))
+            {
+                reason = "cannot migrate lod.json; preserving recovery files";
+                return null;
+            }
+            Print("[HC InfectedLOD] settings migrated v1->v2 EnableVirtualHerds=true (owner default-on; set false to opt out)");
         }
         return config;
     }

@@ -28,6 +28,8 @@ class HCGroupStore
         if (!FileExist(root) && !MakeDirectory(root)) return null;
         string path = root + "/settings.json";
         HCGroupSettings settings = new HCGroupSettings;
+        bool migrate = false;
+        if (!HCV2ThreatStore<HCGroupSettings>.CanOpen(path)) return null;
         if (FileExist(path))
         {
             // Same bounded/recovery-gated read as HCGroupJson.Load, retaining
@@ -38,9 +40,20 @@ class HCGroupStore
             if (!HCGroupIO.Read(path, 8192, content)) return null;
             if (!JsonFileLoader<HCGroupSettings>.LoadData(content, settings, error)) return null;
             HCGroupSettingDefaults.HCRestoreMissingDefaults(settings, content);
+            if (settings && settings.SchemaVersion == 1)
+            {
+                settings.SchemaVersion = 2;
+                settings.ShareDiscovery = true;
+                migrate = true;
+            }
         }
         else if (!HCGroupJson<HCGroupSettings>.WriteNew(path, settings, 8192)) return null;
         if (!HCGroupRules.SettingsValid(settings)) return null;
+        if (migrate)
+        {
+            if (!HCV2ThreatStore<HCGroupSettings>.Save(path, settings, 8192)) return null;
+            Print("[HC Groups] settings migrated v1->v2 ShareDiscovery=true (owner default-on; set false to opt out)");
+        }
         return settings;
     }
 

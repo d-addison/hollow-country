@@ -324,7 +324,7 @@ class GroupServerTests(unittest.TestCase):
         for field in ('RequireLOS','RequireRadio'):
             config=self.e['HCGroupSettings']();setattr(config,field,True)
             self.assertTrue(valid(config))
-        config=self.e['HCGroupSettings']();config.SchemaVersion=2
+        config=self.e['HCGroupSettings']();config.SchemaVersion=3
         self.assertFalse(valid(config))
 
     def test_disabled_policy_and_invalid_version_never_mutate(self):

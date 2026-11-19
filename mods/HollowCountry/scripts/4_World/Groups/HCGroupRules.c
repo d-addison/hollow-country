@@ -35,7 +35,7 @@ class HCGroupRules
     {
         // Native probe031 rejected the previous single long formula. Keep
         // each guard small; positive float ranges also reject NaN/infinity.
-        if (!c || c.SchemaVersion != 1)
+        if (!c || c.SchemaVersion != 2)
         {
             return false;
         }

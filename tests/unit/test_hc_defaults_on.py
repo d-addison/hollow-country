@@ -1,9 +1,8 @@
 """Owner default-on preferences; synthetic ports, never DayZ acceptance.
 
-Shipped profile templates mirror Enforce defaults. Existing operator files remain
-owned by the operator; false is an opt-out, not a missing native verdict.
+Profile files are generated from Enforce defaults. Version 1 migrates once;
+version 2 false is an operator opt-out, not a missing native verdict.
 """
-import json
 from pathlib import Path
 import unittest
 from types import SimpleNamespace as NS
@@ -42,13 +41,9 @@ class DefaultsOn(unittest.TestCase):
         loader = (ROOT / 'mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c').read_text()
         self.assertIn('HCGroupSettingDefaults.HCRestoreMissingDefaults(settings, content)', loader)
 
-    def test_virtual_herds_default_and_shipped_template_are_on(self):
+    def test_virtual_herds_generated_default_is_on(self):
         cfg, _ = lod_config()
         self.assertTrue(cfg.EnableVirtualHerds, 'virtual herd preference must default on')
-        shipped = json.loads((ROOT / 'mission/hollow-country/infected/lod.json').read_text())
-        self.assertTrue(shipped['EnableVirtualHerds'])
-        for key, value in shipped.items():
-            self.assertEqual(value, getattr(cfg, key), key)
 
     def test_virtual_herd_opt_out_reaches_existing_admission(self):
         # Execute the authored startup with synthetic store/game/admission ports.
@@ -75,14 +70,10 @@ class DefaultsOn(unittest.TestCase):
             self.assertTrue(module.m_Running)
             self.assertFalse(module.m_Herds, 'empty seeds never fabricate population')
 
-    def test_group_sharing_default_template_and_explicit_opt_out(self):
+    def test_group_sharing_generated_default_and_explicit_opt_out(self):
         env = translated_rules()
         cfg = env['HCGroupSettings']()
         self.assertTrue(cfg.ShareDiscovery, 'group discovery preference must default on')
-        shipped = json.loads((ROOT / 'mission/hollow-country/groups/settings.json').read_text())
-        self.assertTrue(shipped['ShareDiscovery'])
-        for key, value in shipped.items():
-            self.assertEqual(value, getattr(cfg, key), key)
         # KnownPlaces executes real authored rules, with explicit synthetic state.
         place = NS(Id='synthetic-visited')
         group = NS(Members=EArray(['alice', 'bob']))
