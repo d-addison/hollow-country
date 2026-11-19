@@ -30,7 +30,7 @@ def synthetic_routine(size=3):
     site = N(Transient=True, Completed=False, Qualified=True, Patrol=N(m_Group=group),
              ProposalId='synthetic-lease', PatrolPoints=EArray([(0, 0, 0)]),
              HCCampMemberCursor=0, HCCampRoleEpoch=0, HCCampNextRoleAt=0,
-             HCCampRefusal='')
+             HCCampRefusal='', HCCampRefusalRepeats=0)
     view = N(Home=N(State='OCCUPIED', Id='synthetic-house', HousePos=(0, 0, 0)),
              Level=3, Supply=9, Population=size)
     homes = N(HCRoutineView=lambda identity: reads.append(identity) or view,
@@ -43,6 +43,7 @@ def synthetic_routine(size=3):
                HCWorldClock=N(UTC=lambda: flags.now), eAIBase=N(Cast=lambda actor: actor),
                EmoteConstants=N(ID_EMOTE_SITA=123),  # Explicit synthetic enum.
                vector=N(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b))),
+               REFUSAL_SUMMARY_EVERY=50, STRUCTURAL_REFUSAL=EStr('ROUTINE_TARGET_CLEAR_UNAVAILABLE'),
                Print=logs.append, str=str)
     source = re.sub(r'([\w.]+)\.ToString\(\)', r'str(\1)', ROUTINE.read_text())
     source = source.replace('protected ', '')

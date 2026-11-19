@@ -70,6 +70,23 @@ class HCXAIAdapter extends HCModule
     // adjunct status without an earlier link calling an undeclared method.
     void HCPublishCaravanStatus(bool boot) {}
 
+    // #190: the provider keeps actor/item refs after a successful bind. Drop
+    // them whenever the caravan is not on an active leg (refusal, quarantine,
+    // lost). A returned leg keeps them: HCConfirmedReturn still reads the
+    // actor to unload, and the next bind or HCClose clears them. Script
+    // references only: no entity is deleted or moved, so no stock is
+    // duplicated or removed.
+    protected void HCDropCaravanHandles()
+    {
+        if (!m_Caravan || !m_Caravan.m_IO) { return; }
+        bool held = m_Caravan.m_IO.LeftActor || m_Caravan.m_IO.RightActor;
+        if (m_Caravan.m_IO.LeftItem || m_Caravan.m_IO.RightItem) { held = true; }
+        if (!held || m_Caravan.HCActive()) { return; }
+        if (m_Caravan.m_State && m_Caravan.m_State.Leg == "returned") { return; }
+        m_Caravan.m_IO.HCClear();
+        Print("[HC Caravan] HC-36 provider handles released leg_inactive=1 runtime=PENDING");
+    }
+
     override string GetName() { return "optional-expansion-human-ai"; }
     // Invoke startup to create/read the user's preference even without admission.
     override bool IsEnabled(HCSettings settings) { return true; }
@@ -571,7 +588,11 @@ class HCXAIAdapter extends HCModule
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (m_Sites) { m_Sites.Step(); }
         if (m_CampRoutine) { m_CampRoutine.Step(); }
-        if (m_Caravan) { m_Caravan.Step(); }
+        if (m_Caravan)
+        {
+            m_Caravan.Step();
+            this.HCDropCaravanHandles();
+        }
         this.HCPublishCaravanStatus(false);
         if (m_Encounters)
         {

@@ -27,10 +27,15 @@ modded class HCXAISiteState
     int HCCampRoleEpoch;
     int HCCampNextRoleAt;
     string HCCampRefusal;
+    int HCCampRefusalRepeats;
 }
 
 class HCXAICampRoutine
 {
+    // #190: a repeated refusal is logged once per camp until the reason changes,
+    // then one bounded summary per this many suppressed repeats.
+    static const int REFUSAL_SUMMARY_EVERY = 50;
+    static const string STRUCTURAL_REFUSAL = "ROUTINE_TARGET_CLEAR_UNAVAILABLE";
     protected bool m_Enabled;
     protected bool m_Closed;
     protected int m_Cursor;
@@ -59,8 +64,17 @@ class HCXAICampRoutine
 
     protected void HCRefuse(HCXAISiteState state, string reason)
     {
-        if (state.HCCampRefusal == reason) { return; }
+        if (state.HCCampRefusal == reason)
+        {
+            state.HCCampRefusalRepeats++;
+            if (state.HCCampRefusalRepeats % REFUSAL_SUMMARY_EVERY == 0)
+            {
+                Print("[HC Plan] HC-16 camp=" + state.ProposalId + " state=refused refusal=" + reason + " refusal_repeats=" + state.HCCampRefusalRepeats.ToString() + " runtime=PENDING");
+            }
+            return;
+        }
         state.HCCampRefusal = reason;
+        state.HCCampRefusalRepeats = 0;
         Print("[HC Plan] HC-16 camp=" + state.ProposalId + " level=-1 supply=0 roles=0 state=refused refusal=" + reason + " runtime=PENDING");
     }
 
@@ -145,7 +159,9 @@ class HCXAICampRoutine
             state.HCCampRoleEpoch = (state.HCCampRoleEpoch + 1) % group.Count();
         }
         if (role != 1) { return; }
-        state.HCCampRefusal = "";
+        // The sentry/work refusal is structural (no proven target-clear), so a
+        // rest slot admitted in the same cycle must not re-arm its log line.
+        if (state.HCCampRefusal != STRUCTURAL_REFUSAL) { state.HCCampRefusal = ""; }
         string line = "[HC Plan] HC-16 camp=" + view.Home.Id + " level=" + view.Level.ToString();
         line += " supply=" + view.Supply.ToString() + " roles=1 state=ready role=" + roleName;
         Print(line + " refusal=EAT_FIRE_REPAIR_UNPROVEN runtime=PENDING");

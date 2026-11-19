@@ -95,7 +95,7 @@ def authored_holdouts(state, prior=None, save_ok=True):
                HCAIPartyIdentity=N(HCValid=lambda identity: identity is not None),
                HCArray=EArray, HCMap=Map, HCHoldoutState=lambda: state,
                HCEncounterCacheIO=N(Valid=lambda cache: cache.Phase == 2),
-               HCHoldoutSaveJob=N, HCAICampDebug=N,
+               HCHoldoutSaveJob=N, HCAICampDebug=N, HCAICampRoutineView=N,
                HCSaveScheduler=N(HCRegister=lambda job: None),
                HCDebugSnapshot=N(HCRegister=lambda page: None),
                HCV2Gates=N(Qualified=lambda gate: False),
@@ -115,14 +115,14 @@ def authored_holdouts(state, prior=None, save_ok=True):
     source = source.replace(') occupied++;', ') { occupied++; }')
     source = source.replace(') m_Bodies.Remove(releaseIndex);', ') { m_Bodies.Remove(releaseIndex); }')
     source = source.replace(') return;', ') { return; }').replace(') continue;', ') { continue; }')
-    source = re.sub(r'array<ref \w+>', 'HCArray', source)
+    source = re.sub(r'array<(?:ref )?\w+>', 'HCArray', source)
     source = source.replace('map<string, bool>', 'HCMap').replace('map<string, string>', 'HCMap')
     source = re.sub(r'([\w.]+(?:\(\))?(?:\.\w+(?:\(\))?)*)\.ToString\(\)', r'str(\1)', source)
     source = source.replace('if (!JsonFileLoader<HCHoldoutState>.MakeData(m_State, canonical, encodeError) || canonical != priorImage)',
                             'canonical, encodeError = serialize(m_State); if (!canonical || canonical != priorImage)')
     names = ('OnStart', 'HCRefuseState', 'Count', 'Occupied', 'HCCampHomes', 'OccupantKilled',
              'HCStepCamp', 'Raid', 'HCRaidCamp', 'HCPartyKilled', 'ReleaseOccupant',
-             'HCOwnsOccupant', 'HCLogCamp')
+             'HCOwnsOccupant', 'HCLogCamp', 'HCRoutineView', 'HCCachedHome', 'HCHomeKey')
     # The shared adapter supports forward loops; supply the reverse-loop syntax.
     source = re.sub(r'for \(int (\w+) = ([^;]+); \1 >= 0; \1--\)',
                     r'foreach (int \1 : reverse_indices(\2))', source)
@@ -525,7 +525,7 @@ class AICampBehavior(unittest.TestCase):
         site = N(Transient=True, Completed=False, Qualified=True,
                  Patrol=N(m_Group=group), ProposalId='synthetic-lease',
                  PatrolPoints=EArray([(0, 0, 0), (3, 0, 0)]), HCCampMemberCursor=0,
-                 HCCampRoleEpoch=0, HCCampNextRoleAt=0)
+                 HCCampRoleEpoch=0, HCCampNextRoleAt=0, HCCampRefusal='')
         view = N(Home=N(State='OCCUPIED', Id='synthetic-house', HousePos=(0, 0, 0)),
                  Level=3, Supply=9, Population=3)
         homes = N(HCRoutineView=lambda i: view, HCRoutinePolicy=lambda: cfg,
@@ -538,7 +538,8 @@ class AICampBehavior(unittest.TestCase):
             HCWorldClock=N(UTC=lambda: clock[0]), eAIBase=N(Cast=lambda a: a),
             EmoteConstants=N(ID_EMOTE_SITA=123),  # Explicitly synthetic enum value.
             vector=N(DistanceSq=lambda a, b: sum((x-y)**2 for x,y in zip(a,b))),
-            HCRefuse=lambda state, reason: refusals.append(reason), Print=lambda s: None, str=str)
+            HCRefuse=lambda state, reason: refusals.append(reason), Print=lambda s: None, str=str,
+            STRUCTURAL_REFUSAL='ROUTINE_TARGET_CLEAR_UNAVAILABLE')
         routine_source = re.sub(r'([\w.]+)\.ToString\(\)', r'str(\1)', routine.read_text())
         routine_source = routine_source.replace('array<ref HCXAISiteState> states', 'HCXAICampStates states')
         routine_source = routine_source.replace('array<Man> players', 'HCPlayers players')
