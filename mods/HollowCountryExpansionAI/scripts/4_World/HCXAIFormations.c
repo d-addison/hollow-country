@@ -405,6 +405,8 @@ class HCXAIGroupStyle
     int PaceEpochStart;
     int LastJunction = -1;
     bool Foreign;
+    // True only while our own formation is installed on the group.
+    bool Styled;
 }
 
 modded class HCXAISiteState
@@ -449,17 +451,14 @@ class HCXAIFormationLoader
 // shared core budget. Groups that are not due cost a field compare only.
 class HCXAIFormationController
 {
-    // Consumer id for HCUnitBudget.HCTakeFor. The lead reserves the matching
-    // HCUnitBudget.HC_WORK_FORMATION (see the report); the slot is shared fairness
-    // only and a collision never refuses work.
-    static const int WORK_ID = 13;
+    // Consumer id for HCUnitBudget.HCTakeFor. HCUnitBudget.HC_WORK_FORMATION (lead allocates 14).
+    static const int WORK_ID = 14;
     // Freshness cadence of the HC-1 owner (its source age limit is 60 s).
     static const int OBSERVE_SECONDS = 10;
     protected bool m_Enabled;
     protected bool m_Closed;
     protected bool m_Requested;
     protected int m_Cursor;
-    protected int m_Managed;
     protected int m_Refused;
     protected int m_Worked;
     protected int m_Pauses;
@@ -522,10 +521,34 @@ class HCXAIFormationController
         if (!m_Requested) { status.HCPublish("off", "operator_disabled_or_encounters_off"); return status; }
         if (m_ConfigProblem != "") { status.HCPublish("refused", "config_" + m_ConfigProblem); return status; }
         if (m_Closed) { status.HCPublish("off", "closed"); return status; }
-        if (m_Managed > 0 && m_Refusal != "") { status.HCPublish("degraded", "cached_" + m_Refusal); return status; }
-        if (m_Managed > 0) { status.HCPublish("ready", "cached_groups_styled"); return status; }
+        int live = LiveCount();
+        if (live > 0 && m_Refusal != "") { status.HCPublish("degraded", "cached_" + m_Refusal); return status; }
+        if (live > 0) { status.HCPublish("ready", "live_groups_styled"); return status; }
+        if (m_Refusal != "") { status.HCPublish("degraded", "no_live_group_" + m_Refusal); return status; }
         status.HCPublish("requested", "no_group_styled_yet");
         return status;
+    }
+
+    // Groups that currently carry our installed formation: not completed, still
+    // the same group instance, formation not replaced. Derived on demand so a
+    // completed or lost group stops counting at once.
+    protected int LiveCount()
+    {
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (!director) { return 0; }
+        array<ref HCXAISiteState> states = director.States();
+        if (!states) { return 0; }
+        int live = 0;
+        for (int i = 0; i < states.Count(); i++)
+        {
+            HCXAISiteState state = states[i];
+            if (!state || state.Completed || !state.Patrol || !state.Patrol.m_Group) { continue; }
+            HCXAIGroupStyle style = state.HCStyle;
+            if (!style || !style.Styled || style.Foreign) { continue; }
+            if (style.GroupRef != state.Patrol.m_Group) { continue; }
+            live++;
+        }
+        return live;
     }
 
     protected void Observe()
@@ -677,7 +700,6 @@ class HCXAIFormationController
             fresh.Seed = HCXAIFormationRules.SeedOf(identity);
             state.HCStyle = fresh;
             style = fresh;
-            m_Managed++;
         }
         style.NextEvalAt = now + m_Config.RefreshSeconds;
         style.Evals++;
@@ -703,10 +725,12 @@ class HCXAIFormationController
             fresh.HCConfigure(m_Config, style.Seed);
             group.SetFormation(fresh);
             style.FormRef = fresh;
+            style.Styled = true;
         }
         else if (group.GetFormation() != style.FormRef)
         {
             // Another owner installed its own formation: never fight it.
+            style.Styled = false;
             if (!style.Foreign)
             {
                 style.Foreign = true;
@@ -740,6 +764,7 @@ class HCXAIFormationController
     {
         if (style.Halted.Count() > 0 || now < style.NextPauseAt) { return; }
         if (leader.Expansion_GetMovementSpeed() <= 0.0) { return; }
+        if (ThreatFelt(group)) { return; }
         int seconds = 0;
         int junction = JunctionIndex(group, at, style.LastJunction);
         if (junction == -2) { return; }
@@ -755,6 +780,19 @@ class HCXAIFormationController
         }
         if (seconds < 1) { return; }
         if (BeginPause(group, style, seconds, now) && junction >= 0) { m_Junctions++; }
+    }
+
+    // Never start a pause on a group that already feels a threat: the hold pass
+    // would only release it a tick later and a halted AI ignores threat
+    // (eAIBase.c:7598). eAIBase.c:2028 GetThreatToSelf.
+    protected bool ThreatFelt(eAIGroup group)
+    {
+        for (int t = 0; t < group.Count(); t++)
+        {
+            eAIBase watcher = eAIBase.Cast(group.GetMember(t));
+            if (watcher && watcher.IsAlive() && watcher.GetThreatToSelf() >= m_Config.ThreatPercent * 0.01) { return true; }
+        }
+        return false;
     }
 
     // Halts only members whose native halt is not already set by something else.
