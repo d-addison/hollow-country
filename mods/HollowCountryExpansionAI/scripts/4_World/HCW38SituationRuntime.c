@@ -2,7 +2,7 @@
 // request finite native walking/threat placement, observe, restore its route.
 // Original integration; Expansion sources inspected, never copied.
 // Expansion xref/ai/4_World/DayZExpansion_AI/Classes/eAIGroup.c:
-// :213 AddWaypoint, :221 GetWaypoints, :241 ClearWaypoints,
+// :213 AddWaypoint, :222 GetWaypoints, :241 ClearWaypoints,
 // :251 SetWaypointBehaviour, :304 GetWaypointBehaviour, :1123 IsInCombat,
 // :1139 GetMember, :1185 Count. Combat targets remain perception-owned.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx,
@@ -12,6 +12,7 @@
 // 3_Game/CE/CentralEconomy.c:18 ECE_INITAI, :38 ECE_PLACE_ON_SURFACE;
 // 1_Core/proto/EnScript.c:380 Count, :385 Clear, :394 Find, :407 Insert;
 // 1_Core/proto/EnDebug.c:96 Print; EnSystem.c:397 FileExist; EnScript.c:463 Remove.
+// Native Game.c:930 GetObjectsAtPosition3D; EnConvert.c:210 DistanceSq.
 // No actor teleport, new AI owner, target assignment, door change or loot mint.
 class HCW38SituationBinding
 {
@@ -34,6 +35,8 @@ class HCW38SituationRuntime
     protected static int s_SelectedIndex = -1;
     protected static int s_TargetCursor;
     protected static string s_Refusal;
+    protected static bool s_SmokePending;
+    protected static bool s_FactPending;
     protected static ref array<ZombieBase> s_Threats = new array<ZombieBase>;
 
     static bool HCRefuse(string reason)
@@ -225,6 +228,49 @@ class HCW38SituationRuntime
         return true;
     }
 
+    // A one-point HALT is a native movement request; combat stays entirely
+    // perception-owned. Restore the saved route on release, never SetPosition.
+    static void HCHold(HCW38SituationBinding binding)
+    {
+        if (binding.Profile != "survivor") { return; }
+        eAIBase sheltered = eAIBase.Cast(binding.Group.GetMember(0));
+        if (!sheltered) { return; }
+        binding.Group.ClearWaypoints();
+        binding.Group.AddWaypoint(sheltered.GetPosition());
+        binding.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
+    }
+
+    static void HCSignals(HCW38SituationBinding binding)
+    {
+        eAIBase witness = eAIBase.Cast(binding.Group.GetMember(0));
+        if (!witness) { return; }
+        if (!HCSituationSignals.HCPublish(witness.GetPosition()) && !s_FactPending)
+        {
+            s_FactPending = true;
+            Print("[HC Situations] SITUATION_FACT_PLACE_PENDING discovery=native_perception runtime=PENDING");
+        }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+        array<Object> nearby = new array<Object>;
+        array<CargoBase> proxies = new array<CargoBase>;
+        GetGame().GetObjectsAtPosition3D(witness.GetPosition(), s_Policy.ShelterMeters, nearby, proxies);
+        // Native query allocates before this bound; target-load cost unmeasured.
+        if (nearby.Count() > s_Policy.PhysicalScanObjects) { return; }
+        HCXAISiteDirector signalDirector = HCXAISiteDirector.Active();
+        if (!signalDirector) { return; }
+        foreach (Object signalCandidate : nearby)
+        {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+            if (!SmokeGrenadeBase.Cast(signalCandidate)) { continue; }
+            if (signalDirector.MemberProblemFor(signalCandidate.GetPosition()) != "") { continue; }
+            if (HCSituationSignals.HCSmoke(signalCandidate)) { return; }
+        }
+        if (!s_SmokePending)
+        {
+            s_SmokePending = true;
+            Print("[HC Situations] SITUATION_SMOKE_STOCK_PENDING discovery=gunfire_and_shared_facts runtime=PENDING");
+        }
+    }
+
     static bool HCThreaten(HCXAISiteState party, HCW38SituationBinding binding)
     {
         HCXAISiteDirector director = HCXAISiteDirector.Active();
@@ -240,11 +286,17 @@ class HCW38SituationRuntime
         eAIBase leader = eAIBase.Cast(binding.Group.GetMember(0));
         if (!leader) { return false; }
         int inspected = 0;
+        string threatSurface;
         foreach (vector position : points)
         {
             if (inspected >= s_Policy.MaxRouteNodes || s_Threats.Count() >= s_Policy.MaxThreats) { break; }
             inspected++;
             if (vector.DistanceSq(position, leader.GetPosition()) > s_Policy.ShelterMeters * s_Policy.ShelterMeters) { continue; }
+            if (binding.Profile == "roadside-position" || binding.Profile == "threatened-exodus")
+            {
+                GetGame().SurfaceGetType(position[0], position[2], threatSurface);
+                if (threatSurface != s_Policy.RoadSurface) { continue; }
+            }
             if (director.MemberProblemFor(position) != "") { continue; }
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { break; }
             // Placement is a qualified existing navmesh point, checked out of
@@ -281,7 +333,9 @@ class HCW38SituationRuntime
         if (opportunity.Profile == "raid" || opportunity.Profile == "column") { started = HCRaid(party, binding); }
         else { started = HCThreaten(party, binding); }
         if (!started) { return false; }
+        HCHold(binding);
         s_Active = binding;
+        HCSignals(binding);
         Print("[HC Situations] started profile=" + binding.Profile + " lease=" + binding.Lease + " runtime=PENDING");
         return true;
     }

@@ -94,7 +94,7 @@ class Situations(unittest.TestCase):
                    vector=N(DistanceSq=lambda a,b: (a-b)**2),
                    ECE_INITAI=1, ECE_PLACE_ON_SURFACE=2, HCRefuse=lambda reason: False)
         translate(source, 'HCW38SituationRuntime', env, only=('HCThreaten',))
-        binding = N(Group=N(GetMember=lambda index: leader), Threats=EArray())
+        binding = N(Profile='survivor', Group=N(GetMember=lambda index: leader), Threats=EArray())
         self.assertTrue(env['HCThreaten'](N(PatrolPoints=EArray([2,4,6,8])), binding))
         self.assertEqual([2,4,6], checked)
         self.assertEqual([('native-infected',4,3), ('native-infected',6,3)], made)
