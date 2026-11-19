@@ -676,7 +676,7 @@ modded class HCSearchHouses
         {
             string scope = m_Journal.RefreshScope();
             if (m_Journal.RefreshHasHistory(hit.SiteId)) HCSearchRefreshModule.Mark(scope, hit.SiteId, true);
-            if (HCSearchRefreshModule.Ready(scope, hit.SiteId) && !SessionOfSite(hit.SiteId))
+            if (HCSearchRefreshModule.Ready(scope, hit.SiteId) && HCRefreshPreparationAllowed(hit, player))
             {
                 // Bind ignores old SupplyKnown ids, including ambiguous/failed moves.
                 // Append only real newly observed supplies; leave all old rows intact.

@@ -671,6 +671,17 @@ class HCSearchHouses
         return true;
     }
 
+    // Refresh may prepare for its owning provisional picker while the installed
+    // session continues to exclude every other actor through Admit.
+    bool HCRefreshPreparationAllowed(HCSearchHouseHit hit, PlayerBase player)
+    {
+        HCSearchHouseSession reservation = SessionOfSite(hit.SiteId);
+        if (!reservation) return true;
+        if (!reservation.PickerAuthority || reservation.Actor != player || reservation.Row != -1) return false;
+        if (reservation.InstanceId != hit.InstanceId || reservation.Site.Phase != 0) return false;
+        return HCReservationAuthorized(reservation);
+    }
+
     int Prepare(HCSearchHouseSlot slot, HCSearchHouseHit hit, PlayerBase player)
     {
         if (slot.Sites.Find(hit.SiteId) < 0)
