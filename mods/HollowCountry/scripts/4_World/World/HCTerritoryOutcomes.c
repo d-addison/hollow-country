@@ -40,6 +40,14 @@ class HCTerritoryOutcomes
     // with maximum-length tokens and both SIZE_CEILING actor arrays.
     static const int MAX_ROWS = 128;
 
+    // Run on the bounded persisted image before JSON scalar zero-fill. A real
+    // observed 0/0 is valid; missing survivor keys never prove NONE_REMAIN.
+    // Lead wires this into HCFactionConflict.OnStart's encounter-store load.
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Every(text, "LeftSurvivors", 3) && HCJsonFields.Every(text, "RightSurvivors", 3);
+    }
+
     static bool HCSamePair(HCTerritoryOutcomeRow row, string left, string right)
     {
         return (row.LeftLease == left && row.RightLease == right) || (row.LeftLease == right && row.RightLease == left);

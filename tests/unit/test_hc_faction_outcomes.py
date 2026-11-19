@@ -15,6 +15,13 @@ Generation RED, same command: '' != 'conflict:1':
   "another world generation cannot reuse an old receipt".
 GREEN, same command: Ran 1 test; OK. Required focused suite (including file
 reader test_expansion_ai_live_map and formula guard): Ran 66 tests; OK.
+
+Wave-8 #177 extends this same behavioral test with explicit synthetic persisted
+survivor keys. RED: AssertionError: Missing authored method HCFieldsPresent.
+GREEN: test_hc_zero_fill + this module, Ran 4 tests; OK (command/evidence in
+test_hc_zero_fill). Lead must wire HCFieldsPresent before the encounter-store
+load in HCFactionConflict.OnStart; this owned-file guard alone cannot distinguish
+absent keys after native scalar zero-fill. Runtime acceptance remains PENDING.
 """
 from copy import deepcopy
 from pathlib import Path
@@ -77,6 +84,20 @@ class FactionOutcomes(unittest.TestCase):
         self.assertEqual(['0:0'], list(b.Territory))
 
         policy = (WORLD/'HCTerritoryOutcomes.c').read_text()
+        # #177: explicit synthetic serialized rows. Native zero-fill makes a
+        # missing survivor key indistinguishable from an observed zero later.
+        from tests.unit.json_loader_port import json_fields_port
+        from tests.unit.test_event_runtime import translate as execute
+        present = execute(policy, 'HCFieldsPresent', {'HCJsonFields': json_fields_port()},
+                          'HCTerritoryOutcomes')
+        self.assertTrue(present('{"Rows":[]}'))
+        self.assertTrue(present('{"Rows":[{"LeftSurvivors":-1,"RightSurvivors":-1}]}'))
+        self.assertTrue(present('{"Rows":[{"LeftSurvivors":0,"RightSurvivors":0}]}'))
+        for image in ('{"Rows":[{}]}', '{"Rows":[{"LeftSurvivors":0}]}',
+                      '{"Rows":[{"RightSurvivors":0}]}',
+                      '{"Rows":[{"LeftSurvivors":0,"RightSurvivors":0},{}]}',
+                      '{"Rows":[{"Nested":{"LeftSurvivors":0,"RightSurvivors":0}}]}'):
+            self.assertFalse(present(image), 'missing survivor receipts must refuse before zero-fill')
         api = N(MAX_ROWS=int(re.search(r'MAX_ROWS = (\d+)', policy)[1]))
         factions = N()
         fenv = dict(HCWorldFactionCatalog=factions)
@@ -84,6 +105,7 @@ class FactionOutcomes(unittest.TestCase):
                   'HCWorldFactionCatalog', fenv, only=('Known', 'Relation'))
         factions.Known, factions.Relation = fenv['Known'], fenv['Relation']
         penv = dict(HCTerritoryOutcomes=api, MAX_ROWS=api.MAX_ROWS, str=str,
+                    HCJsonFields=json_fields_port(),
                     HCWorldLimits=N(Token=lambda s: isinstance(s, str) and 0 < len(s) <= 96),
                     HCWorldFactionCatalog=factions, HCAILimits=N(SIZE_CEILING=12))
         translate(syntax(policy), 'HCTerritoryOutcomes', penv)

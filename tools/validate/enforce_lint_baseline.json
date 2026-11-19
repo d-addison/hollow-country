@@ -937,6 +937,132 @@
       "count": 1,
       "line_at_review": 312,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/3_Game/Ecology/HCEcologyRuntimeData.c",
+      "symbol": "HCEcologyMigrationSchedule.NextDueUtc",
+      "key": "HCEcologyMigrationSchedule.NextDueUtc relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 57,
+      "review": "2026-11-19 #177 wave-8 review: HCEcologyRuntimeData.c:57; HCEcologyMigrationRules.c:5-6,20 rejects zero via UtcValid >= 1767225600. Strict sentinel whitelist deliberately does not infer that range helper; ecology source is outside #177 ownership."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/3_Game/Interiors/HCInteriorMeasuredCatalogData.c",
+      "symbol": "HCInteriorMeasuredCatalogMeasuredProp.Index",
+      "key": "HCInteriorMeasuredCatalogMeasuredProp.Index relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 55,
+      "review": "2026-11-19 #177 wave-8 review: HCInteriorMeasuredCatalogData.c:55; HCInteriorMeasuredCatalog.c:1131 compares Index to propIndex, so missing zero can alias the first prop. Interior owner must add raw-key presence; no measurement accepted by this exception."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "symbol": "HCHordeRecord.Reserved",
+      "key": "HCHordeRecord.Reserved relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 424,
+      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:424; :542 delegates to ValidGroupRecord. Parallel infected follow-up owns required raw-key handling; temporary integration baseline, remove/reconcile when that worker lands. No reservation recovery is accepted here."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "symbol": "HCHordeRecord.Living",
+      "key": "HCHordeRecord.Living relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 425,
+      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:425; :542 delegates to ValidGroupRecord. Parallel infected follow-up owns missing-zero survivor handling; temporary integration baseline, remove/reconcile when that worker lands. No native population evidence."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "symbol": "HCHordeRecord.AdoptionStage",
+      "key": "HCHordeRecord.AdoptionStage relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 427,
+      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:427; :544 delegates to ValidAdoptionRecord. Parallel infected follow-up owns required raw-key handling; temporary integration baseline, remove/reconcile when that worker lands. No adoption acceptance here."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "symbol": "HCInfectedSnapshot.SchemaVersion",
+      "key": "HCInfectedSnapshot.SchemaVersion relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 452,
+      "review": "2026-11-19 #177 wave-8 review: HCInfectedState.c:452; :530 delegates to ValidSnapshotHeader. Stricter sentinel whitelist does not infer version comparisons to 2. Infected owner must reconcile this temporary integration baseline with the parallel follow-up."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLODStore.c",
+      "symbol": "HCInfectedLODConfig.HerdWorld",
+      "key": "HCInfectedLODConfig.HerdWorld relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 55,
+      "review": "2026-11-19 #177 wave-8 review: HCInfectedLODStore.c:55; :78 only caps length; :237-241 copies and compares the seed world, so missing empty text disables seed applicability. Reserved #135 LOD scope is read-only; owner must decide explicit missing-key refusal/default, not assume chernarusplus survived."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSamplerData.c",
+      "symbol": "HCCellarSamplerClass.Disposition",
+      "key": "HCCellarSamplerClass.Disposition relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 22,
+      "review": "2026-11-19 #177 wave-8 review: HCCellarSamplerData.c:22; HCCellarSampler.c:404,413 overwrites diagnostic summaries with pending/refused. Sampler owner must review imported legacy values; this is not survey/geometry acceptance."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSamplerData.c",
+      "symbol": "HCCellarSamplerClass.Reason",
+      "key": "HCCellarSamplerClass.Reason relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 23,
+      "review": "2026-11-19 #177 wave-8 review: HCCellarSamplerData.c:23; HCCellarSampler.c:405,409,414 rewrites diagnostic reasons. Sampler owner must review missing imported text; no native survey proof is granted."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSamplerData.c",
+      "symbol": "HCCellarSamplerData.Method",
+      "key": "HCCellarSamplerData.Method relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 52,
+      "review": "2026-11-19 #177 wave-8 review: HCCellarSamplerData.c:52; HCCellarSampler.c:107 imports seed DTOs through HCGroupJson. Missing Method becomes empty rather than the declared method; owner must add presence/explicit handling. Do not infer measurement provenance from the initializer."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorCatalog.c",
+      "symbol": "HCInteriorCandidate.SlotId",
+      "key": "HCInteriorCandidate.SlotId relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 92,
+      "review": "2026-11-19 #177 wave-8 review: HCInteriorCatalog.c:92; HCInteriorModule.c:81 checks < 0 and upper bounds but missing zero aliases slot 0. Interior owner must add raw-key presence; no layout/identity acceptance is granted by this baseline."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+      "symbol": "HCSettlementState.Version",
+      "key": "HCSettlementState.Version relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 29,
+      "review": "2026-11-19 #177 wave-8 review: HCSettlementDecay.c:29; :138 requires Version != 1 refusal, so missing zero is already rejected. Strict sentinel whitelist intentionally accepts only explicit 0/-1 guards; settlement source is outside #177 ownership."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c",
+      "symbol": "HCXAIProfile.BuildVersion",
+      "key": "HCXAIProfile.BuildVersion relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 32,
+      "review": "2026-11-19 #177 wave-8 review: HCXAIData.c:32; HCXAIRules.c:113 requires HCBuildIdentity.Matches; HCBuildIdentity.c:49-53 rejects empty via named constant comparisons. Lexical string guard does not trace those constants; Expansion source is outside #177 ownership."
+    },
+    {
+      "rule": "HC-S005",
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c",
+      "symbol": "HCXAILocalityCoverage.Refusal",
+      "key": "HCXAILocalityCoverage.Refusal relies on JSON initializer",
+      "count": 1,
+      "line_at_review": 223,
+      "review": "2026-11-19 #177 wave-8 review: HCXAIData.c:223; missing diagnostic text becomes empty instead of route_not_reviewed. Locality owner must handle imported missing text explicitly; this exception never turns pending coverage into observed coverage."
     }
   ]
 }

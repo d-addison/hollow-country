@@ -41,8 +41,10 @@ def types_in(text):
 
 
 def nonzero(field):
-    if field.type not in {'int', 'float', 'bool'} or field.modifiers & {'static', 'const'}:
+    if field.type not in {'int', 'float', 'bool', 'string'} or field.modifiers & {'static', 'const'}:
         return False
+    if field.type == 'string':
+        return field.string_initializer not in {'', '""'}
     value = field.initializer.strip()
     if not value or value == 'false':
         return False
@@ -53,7 +55,24 @@ def nonzero(field):
 
 
 def explicit_check(body, access, kind, sentinel=False):
+    if kind == 'string':
+        check = re.search(access + r'\s*(?:==|!=)\s*"[^"\n]*"', body)
+        if not check:
+            check = re.search(r'"[^"\n]*"\s*(?:==|!=)\s*' + access, body)
+        return check or explicit_check(body, access + r'\s*\.\s*Length\s*\(\s*\)', 'int')
     pattern = access + r'\s*(==|!=|<=|>=|<|>)\s*([\w.\-]+)'
+    if sentinel:
+        # Native missing -1 becomes 0. Only these explicit distinctions (or
+        # presence checks handled by guards) qualify, in either operand order.
+        for candidate in re.finditer(pattern, body):
+            if (candidate[1], candidate[2]) in {('==', '0'), ('==', '0.0'),
+                                               ('==', '-1'), ('!=', '-1')}:
+                return candidate
+        for candidate in re.finditer(r'([\w.\-]+)\s*(==|!=|<=|>=|<|>)\s*' + access, body):
+            if (candidate[2], candidate[1]) in {('==', '0'), ('==', '0.0'),
+                                               ('==', '-1'), ('!=', '-1')}:
+                return candidate
+        return None
     check = None
     for candidate in re.finditer(pattern, body):
         # A negative-only refusal / nonnegative acceptance cannot detect an
@@ -116,7 +135,7 @@ def guards(project):
             return
         for field_name, (owner, field) in fields.get(kind, {}).items():
             path = prefix + field_name
-            if field.type in {'int', 'float', 'bool'}:
+            if field.type in {'int', 'float', 'bool', 'string'}:
                 if owner in loaded and nonzero(field):
                     yield path, owner, field
             elif field.type in loaded:
@@ -142,10 +161,10 @@ def guards(project):
         sentinel_checked = []
         for method in methods:
             checked.append({index for index, (kind, param, _) in enumerate(method.parameters())
-                            if kind in {'int', 'float', 'bool'} and explicit_check(
+                            if kind in {'int', 'float', 'bool', 'string'} and explicit_check(
                                 method.owner.source.body(method), r'(?<![\w.])' + re.escape(param) + r'\b', kind)})
             sentinel_checked.append({index for index, (kind, param, _) in enumerate(method.parameters())
-                            if kind in {'int', 'float', 'bool'} and explicit_check(
+                            if kind in {'int', 'float', 'bool', 'string'} and explicit_check(
                                 method.owner.source.body(method), r'(?<![\w.])' + re.escape(param) + r'\b', kind, True)})
         if checked:
             helpers[name] = set.intersection(*checked)
