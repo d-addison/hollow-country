@@ -3,7 +3,8 @@
 // V2 replaces its forecast selection while active; no mission XML/config edits,
 // mission-weather takeover, frozen-state bypass, lighting table or client loop.
 // Installed snapshot: ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
-// 3_Game/Weather.c:38 GetActual, :49 Set, :65-74 SetLimits holds actual in range,
+// 3_Game/Weather.c:38 GetActual, :49 Set, :61 GetLimits(out float, out float),
+// :65-74 SetLimits holds actual in range,
 // :180 GetTime,
 // :183 GetOvercast, :186 GetFog, :189 GetRain, :192 GetSnowfall,
 // :199 GetWindDirection, :205 GetWindMagnitude, :219 SetStorm,
@@ -110,6 +111,8 @@ modded class ChernarusPlusData
 {
     protected bool m_HCWeatherDaysActive;
     protected bool m_HCWeatherDaysSuspended;
+    protected bool m_HCSnowLimitsWritten;
+    protected float m_HCSnowLimit;
     protected bool m_HCWeatherWasWet;
     protected int m_HCWeatherDay = -1;
     protected int m_HCWeatherSlot = -1;
@@ -250,7 +253,7 @@ modded class ChernarusPlusData
         m_HCWeatherLastHour = GetGame().GetDayTime();
         HCApplyNightLimits(true);
         m_Weather.GetRain().SetLimits(0.0, 0.9);
-        m_Weather.GetSnowfall().SetLimits(0.0, 0.0);
+        HCWriteSnowLimits(0.0);
         // Native Weather.c:321, default overcast range/stopping time :309-311.
         // Falling snow keeps stock wetness effects; no extra thermal owner.
         m_Weather.SetSnowfallThresholds(HCSeasonVisualPolicy.SNOW_CLOUD_THRESHOLD, 1.0, 30.0);
@@ -272,10 +275,33 @@ modded class ChernarusPlusData
         return super.HCStartAtmosphere();
     }
 
+    protected void HCWriteSnowLimits(float snowLimit)
+    {
+        m_Weather.GetSnowfall().SetLimits(0.0, snowLimit);
+        m_HCSnowLimit = snowLimit;
+        m_HCSnowLimitsWritten = true;
+    }
+
+    protected void HCReleaseSnowLimits()
+    {
+        if (!m_HCSnowLimitsWritten) { return; }
+        // Relinquish once. A foreign owner may have written before this same
+        // tick; compare both native limits before clearing our seasonal cap.
+        m_HCSnowLimitsWritten = false;
+        if (!m_Weather) { return; }
+        float snowMin;
+        float snowMax;
+        m_Weather.GetSnowfall().GetLimits(snowMin, snowMax);
+        if (snowMin == 0.0 && snowMax == m_HCSnowLimit)
+        {
+            m_Weather.GetSnowfall().SetLimits(0.0, 0.0);
+        }
+    }
+
     void HCEndWeatherDays()
     {
         if (!m_HCWeatherDaysActive) return;
-        if (m_Weather) { m_Weather.GetSnowfall().SetLimits(0.0, 0.0); }
+        HCReleaseSnowLimits();
         m_HCWeatherDaysActive = false;
         HCPublishSeason();
         if (m_HCVisualSeasons) { m_HCVisualSeasons.HCStop(); }
@@ -293,9 +319,7 @@ modded class ChernarusPlusData
         {
             if (!m_HCWeatherDaysSuspended)
             {
-                // Release the seasonal snowfall once at handover; subsequent
-                // suspended ticks must not overwrite the foreign controller.
-                m_Weather.GetSnowfall().SetLimits(0.0, 0.0);
+                HCReleaseSnowLimits();
                 Print("[HollowCountry] V2 weather suspended: foreign mission weather/frozen controller");
             }
             m_HCWeatherDaysSuspended = true;
@@ -353,7 +377,7 @@ modded class ChernarusPlusData
             m_HCWeatherSlot = slot;
             float snowLimit = 0.0;
             if (phase == "winter") { snowLimit = HCSeasonVisualPolicy.WINTER_SNOWFALL; }
-            m_Weather.GetSnowfall().SetLimits(0.0, snowLimit);
+            HCWriteSnowLimits(snowLimit);
             m_Weather.GetFog().Set(fog, 30.0, 0.0);
             if (changed || boundary || m_HCWeatherDaysSuspended)
             {

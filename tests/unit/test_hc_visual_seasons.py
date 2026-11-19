@@ -101,6 +101,38 @@ remain fail-closed; LIGHTING_START_UNAVAILABLE logs once at attempt exhaustion.
 Native DayZDiag, signed PBO/server, two-client join/change/off/death/reconnect,
 foreign weather handover, restart and exact build/dependency hashes PENDING.
 Nothing observed in DayZ yet.
+
+Wave 8 HC-51/HC-49 P2 (2026-11-19).
+Trace: supplied task items 2/3 -> direct HCStartSeasonPresentation retry and
+constant-based exhaustion receipt; native GetLimits comparison before snowfall
+release -> this same synthetic feature check extends delayed mission/lighting,
+retained lane timers/cursor, receipt count, alternate constant and foreign
+same-tick handover/stop coverage. All decisions execute authored handlers.
+Native Weather.c:61 exposes GetLimits(out float fnMin, out float fnMax), :74
+SetLimits. Both current limits must equal HC's last written pair before reset;
+ownership is relinquished once even when the foreign pair differs. No controller
+identity is inferred from matching values. Existing weather/HC-6 gates remain.
+Actual pre-edit RED command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_wildlife test_hc_visual_seasons -v
+Ran 7 tests; FAILED (failures=9), with no fixture errors. Season output:
+  AssertionError: Tuples differ: (0.1, 0.7) != (0.0, 0.0)
+  + (0, 0, 0, 0) : season retry reset unrelated presentation timers/cursor
+GREEN: required eight-module command in test_hc_wildlife.py, Ran 105 tests;
+OK (expected failures=1, pre-existing). Offline lint: pass findings=124 new=0
+stale=0 native=no. Broader direct-reader/guard fixture gap and exact lead edit
+are recorded there; all three tests pass with the proposed fixture edit in memory.
+Framework: same HC-27 coordinator/effective mask/retained lanes and budgets,
+sole weather-days writer and HC-6 clock. No new timers, distances, mission/ files,
+shared core hooks, registry changes or provider enablement. Core spec/plan/task
+paths remain absent; supplied task is design input, HC-11 owns reconciliation.
+Lead native checks: HC-27 presentation= must not repeat on lighting-only retry;
+LIGHTING_START_UNAVAILABLE reports SEASON_START_MAX_ATTEMPTS once. Observe hint,
+sign and sound cadence while lighting is unavailable; check delayed startup and
+GRADE off cleanup. Switch to foreign mission/frozen weather after it writes a
+different snowfall pair in the same tick, then suspend and stop HC; retain that
+pair. With HC's pair still present, verify one cleanup and later reacquisition.
+Exact-source DayZDiag, signed PBO/server, two clients, restart and hashes PENDING.
+Nothing observed in DayZ yet.
 """
 import functools
 import json
@@ -677,6 +709,7 @@ def check_wave7_weather_owner(test, policy_env, policy):
     def phenomenon(actual):
         value = N(limits=None, actual=actual, target=None)
         value.GetActual = lambda: value.actual
+        value.ReadLimits = lambda: value.limits  # SYNTHETIC native out-parameters only.
         value.SetLimits = lambda low, high: setattr(value, 'limits', (low, high))
         value.Set = lambda target, *args: setattr(value, 'target', target)
         return value
@@ -695,6 +728,8 @@ def check_wave7_weather_owner(test, policy_env, policy):
     source = source[source.index('modded class ChernarusPlusData'):]
     source = source.replace('HCApplyNightLimits(false)', 'this.HCApplyNightLimits(false)')
     source = source.replace('HCStopAtmosphere()', 'this.HCStopAtmosphere()')
+    source = source.replace('m_Weather.GetSnowfall().GetLimits(snowMin, snowMax)',
+                            'snowMin, snowMax = m_Weather.GetSnowfall().ReadLimits()')
     owner = N(m_Weather=weather, m_HCWeatherDaysActive=True, m_HCWeatherDaysSuspended=False,
               m_HCVisualSeasons=N(HCActive=lambda: phase[0] >= 0, HCPhase=lambda: phase[0],
                                  HCTick=lambda: None, HCStop=lambda: None),
@@ -702,10 +737,13 @@ def check_wave7_weather_owner(test, policy_env, policy):
               m_HCWeatherCalm=0., m_HCWeatherWasWet=False, m_HCWeatherDay=-1,
               m_HCWeatherProfile='', m_HCWeatherPhase='', m_HCNightLimited=False,
               m_HCWeatherSlot=-1, HCApplyNightLimits=lambda *args: None,
+              m_HCSnowLimitsWritten=False, m_HCSnowLimit=0.,
               HCWeatherDaysForecast=lambda *args: None, CalculateVolFog=lambda *args: None,
               HCStopAtmosphere=lambda: None)
-    for name in ('HCWeatherDaysAuthority', 'HCSeasonPhaseCode', 'HCPublishSeason',
-                 'HCTickWeatherDays', 'HCEndWeatherDays'):
+    names = ('HCWeatherDaysAuthority', 'HCSeasonPhaseCode', 'HCPublishSeason',
+             'HCTickWeatherDays', 'HCEndWeatherDays', 'HCWriteSnowLimits', 'HCReleaseSnowLimits')
+    for name in names:
+        if not re.search(r'\b' + name + r'\([^)]*\)\s*\{', source): continue
         setattr(owner, name, functools.partial(translate(source, name, env, 'ChernarusPlusData', True), owner))
     with test.subTest(wave7='tick snow/fog and once-per-phase receipt'):
         for current in (3, 0, 1, 2, -1):
@@ -733,6 +771,18 @@ def check_wave7_weather_owner(test, policy_env, policy):
         snow.limits = (0., .7)  # SYNTHETIC subsequent foreign-owned change.
         owner.HCTickWeatherDays()
         test.assertEqual((0., .7), snow.limits, 'suspended ticks must not keep overwriting foreign weather')
+    for ending in (False, True):
+        with test.subTest(wave8='foreign snowfall written before handover', ending=ending):
+            foreign[0] = False
+            owner.m_HCWeatherDaysActive = True
+            owner.m_HCWeatherPhase = ''
+            owner.HCTickWeatherDays()
+            test.assertEqual((0., policy.WINTER_SNOWFALL), snow.limits)
+            snow.limits = (.1, .7)  # SYNTHETIC foreign write in the very same tick.
+            foreign[0] = True
+            if ending: owner.HCEndWeatherDays()
+            else: owner.HCTickWeatherDays()
+            test.assertEqual((.1, .7), snow.limits, 'handover overwrote foreign snowfall limits')
 
 
 def check_wave7_lighting_start(test):
@@ -755,7 +805,8 @@ def check_wave7_lighting_start(test):
                        HCOperationalStatus=lambda: N(HCPublish=lambda *args: None),
                        HCUnitBudget=lambda: unit_budget(),
                        HCWorkBudget=lambda: N(HCReset=lambda *args: None, HCContinue=lambda: True),
-                       HCGradeSettingsClient=lambda: N(Start=lambda: None, Stop=lambda: None, HCHandleCount=lambda: 0))
+                       HCGradeSettingsClient=lambda: N(Start=lambda: None, Stop=lambda: None,
+                                                       Update=lambda *args: None, HCHandleCount=lambda: 0))
             install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask',))
             c = install(COORD, env, 'HCClientPresentation',
                         ('HCReconcile', 'HCUpdate', 'HCReport', 'HCHandleCount'))()
@@ -773,14 +824,37 @@ def check_wave7_lighting_start(test):
             c.HCReconcile()
             c.m_Settings = N(HCEffective=lambda local: 2)
             ready[0] = False
+            # SYNTHETIC alternate constant tests that the refusal reports the
+            # same cap that bounds retries; no native setting is changed.
+            c.SEASON_START_MAX_ATTEMPTS = 3
             c.HCReconcile()
             queries.clear()
             for _ in range(100): c.HCUpdate(.01, True)
             test.assertEqual([], queries, 'per-frame lighting retry storm')
+            # Existing elapsed lanes yield while season startup retries. Their
+            # timers/cursor and HC-27 receipt must survive that retry unchanged.
+            c.m_Hints = N(Stop=lambda: None)
+            c.m_Signs = N(Stop=lambda: None, HCHandleCount=lambda: 0)
+            c.m_Sound = N(Stop=lambda: None, HCHandleCount=lambda: 0)
+            c.m_Settings = N(HCEffective=lambda local: 15)
+            c.HCReconcile()
+            game.GetPlayer = lambda: N(IsAlive=lambda: True, IsUnconscious=lambda: False)
+            c.m_Work.HCContinue = lambda: False
+            c.m_HintElapsed, c.m_SignsElapsed, c.m_SoundElapsed, c.m_Next = 1., 2., 3., 2
+            reports = sum('HC-27 presentation=' in line for line in logs)
+            with test.subTest(wave8='retry leaves other presentation lanes intact'):
+                c.HCUpdate(5., True)
+                test.assertEqual((6., 7., 8., 2),
+                                 (c.m_HintElapsed, c.m_SignsElapsed, c.m_SoundElapsed, c.m_Next),
+                                 'season retry reset unrelated presentation timers/cursor')
+                test.assertEqual(reports, sum('HC-27 presentation=' in line for line in logs))
+            c.m_Hints = c.m_Signs = c.m_Sound = None
             for _ in range(100): c.HCUpdate(5., True)
             test.assertGreater(len(queries), 0, 'startup never retries without another settings RPC')
-            test.assertLessEqual(len(queries), 12, 'lighting startup retry count is unbounded')
+            test.assertLessEqual(len(queries), c.SEASON_START_MAX_ATTEMPTS,
+                                 'lighting startup retry count is unbounded')
             test.assertEqual(1, sum('LIGHTING_START_UNAVAILABLE' in line for line in logs))
+            test.assertTrue(any('attempts=' + str(c.SEASON_START_MAX_ATTEMPTS) in line for line in logs))
             queries.clear()
             c.m_Stopped = True
             c.HCReconcile()

@@ -91,6 +91,58 @@ native skinning, one refusal on Stories-off first-stage publication, independent
 Ecology/HC-49 status and bounded diagnostic counts. Two-client visibility and
 inventory, paired Hive/journal restoration and exact package hashes PENDING.
 Nothing observed in DayZ yet.
+
+Wave 8 HC-51/HC-49 P2 (2026-11-19), superseding the Wave-7 owed wiring above.
+Trace: supplied Wave-8 task items 1/4/5 -> named 1024-ID fallback + unchanged
+fail-closed ring, Work's first-stage publication seam, HC-25 cached HC-49 owner
+-> existing feature behavior extended through synthetic corpse/journal/scene
+ports and the authored HCOperationalContributors/HCOperationalOwner handlers.
+The required central spec/plan/task paths remain absent; HC-11 reconciliation
+stays with the lead. No new gameplay or provider/engine acceptance is inferred.
+
+Actual pre-implementation RED command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_wildlife test_hc_visual_seasons -v
+Ran 7 tests; FAILED (failures=9), with no fixture errors. Wildlife lines:
+  AssertionError: 1024 != 64 : fallback cap must fit the shared 262144-byte store
+  + ['published'] : Stories-off publication never reaches HC-49 refusal
+  + [] : HC-49 never registered an operational owner
+The 65th reservation also failed: 64 lifetime reservations permanently disable HC-49.
+Named fallback diagnostic extension RED, same command, Ran 7 tests; FAILED
+(failures=1): AssertionError: False is not true : cap fallback has no named eviction refusal
+GREEN required command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_wildlife test_hc_visual_seasons test_hc_client_controls test_ecology_module test_hc_story_module test_v1_weather test_v1_combined_flags test_hc_operational_status -v
+Ran 105 tests; OK (expected failures=1, pre-existing shared-budget check).
+The broader reader/guard command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_enforce_formula_complexity test_admin_ui test_admin_test_kit test_hc_unit_budget test_hc_wildlife_wiring test_v1_ecology_sight test_v2_leads test_v2_scenes test_hc_operational_snapshot test_v2_weather_days test_v2_lighting test_v1_ecology_resources test_hc_story_schedule -v
+Ran 206 tests; FAILED (errors=2). It ran every direct filename reader; all
+guards passed, with two fixture errors in unowned test_v2_scenes.py:
+AttributeError: 'types.SimpleNamespace' object has no attribute 'm_Stories'.
+Exact lead edit: in test_successful_scene_clears_refusal_after_optional_note_attempt,
+add m_Stories=N(HCReady=lambda: True) to owner=N(...) (line 56 vicinity).
+That exact edit was executed in memory only: all 3 SceneSmoke tests passed.
+GREEN remaining readers/guards (same command above with test_v2_scenes omitted):
+Ran 203 tests; OK. Offline lint: pass findings=124 new=0 stale=0 native=no.
+No HCModule.c/config.cpp/HCServer.c/registry/MISSION_FILES changes are needed.
+
+HC-49 owner refresh runs only on the existing ecology lifecycle/tick, including
+admission refusal and stop. Its HC-25 row is independent of Ecology's status;
+inactive HC-49 still skips UTC and native corpse queries. The bounded shared
+owner map/aggregate is reused; no scheduler, scan or debug slot per child owner.
+Native rechecked: Weather.c:61 GetLimits(out float, out float), :74 SetLimits,
+EntityAI.c:3374 GetPersistentID, Object.c:215 IsPendingDeletion, Game.c:914
+GetTickTime. Pinned scripts-1.30.164289. An old persisted PID has no retained
+handle/session proof; current snapshot absence cannot prove destruction.
+Fallback MAX_SPENT_CORPSES=1024 fits native four-int IDs plus 64 scene receipts
+inside HCEncounterStore's existing 262144-byte limit. No ID eviction is enabled.
+CARCASS_SPENT_EVICTION_UNPROVEN logs once per successful open; saturation still
+refuses CARCASS_SPENT_HISTORY_FULL. Old IDs and Version-1 migration remain intact.
+No distances or mission/ files added. Native checks: grep HC-49,
+CARCASS_SPENT_EVICTION_UNPROVEN spent_cap=1024, STORIES_NOT_READY and
+[HC Admin] owner=HC-49. Check one first-stage Stories-off refusal, independent
+ready/refused/off status across start/tick/stop, >64 observations and no old-ID
+re-offer after scene eviction/restart. DayZDiag, signed PBO/server, two-client
+presentation/inventory, paired Hive restore, performance and exact hashes PENDING.
+Nothing observed in DayZ yet.
 """
 import functools
 import copy
@@ -120,6 +172,7 @@ def carcass_fixture(image=None, enabled=True):
     text = re.sub(r'\bthis\b', 'self', text)
     text = text.replace('retained.ToString()', 'str(retained)')
     text = text.replace('receiptCap.ToString()', 'str(receiptCap)')
+    text = text.replace('spentCap.ToString()', 'str(spentCap)')
     text = re.sub(r'array<[^>]+>(?= \w+ =)', 'HCArray', text)
     text = text.replace('new HCEncounterStore<HCWildlifeSceneState>("hc49-carcasses")',
                         'new SyntheticStore()')
@@ -180,7 +233,8 @@ def carcass_fixture(image=None, enabled=True):
               Complete=False, Cancelled=False)
     state = N(Chains=EArray([chain]), Stories=N(LegacyThrough=0, NextSequence=2))
     return N(owner=owner, disk=disk, calls=calls, logs=logs, animal=animal,
-             snapshots=snapshots, chain=chain, state=state, config=config)
+             snapshots=snapshots, chain=chain, state=state, config=config,
+             spent_cap=env['HCWildlifeScenes'].MAX_SPENT_CORPSES)
 
 
 def rename(text):
@@ -209,9 +263,11 @@ def check_carcass_runtime(test):
     utc = [1577836900]
     env = dict(legacy.e, static_owner=static_owner, HCWildlifeScenes=lambda: carcasses,
                HCGroupClock=N(Utc=lambda: events.append(('utc',)) or utc[0]))
-    source = legacy.source.replace('override ', '').replace('s_Instance', 'static_owner.instance')
+    source = legacy.source.replace('override ', '').replace('    protected ', '    ')
+    source = source.replace('hc49_static.instance', 'static_owner.instance')
     source = re.sub(r'\bthis\b', 'self', source)
-    names = ('IsEnabled', 'OnStart', 'OnTick', 'OnStop', 'HCGetOperationalStatus', 'HCGetWildlifeStatus', 'HCWildlife')
+    names = ('IsEnabled', 'OnStart', 'OnTick', 'OnStop', 'HCGetOperationalStatus',
+             'HCGetWildlifeStatus', 'HCWildlife', 'HCObserveWildlife')
     handlers(source, 'HCEcologyRuntimeModule', env, only=names)
     owner = legacy.module
     owner.m_WildlifeScenes, owner.m_Status = None, ecology_status
@@ -283,6 +339,85 @@ def check_carcass_runtime(test):
 def authored(text, method, env, owner, member=False):
     text = re.sub(r'new array<([^>]+)>(?!\s*\()', r'new array<\1>()', rename(text))
     return translate(text, method, {rename(k): v for k, v in env.items()}, rename(owner), member)
+
+
+def check_stories_off_publication(test):
+    """Actual Work publication branch over an already placed SYNTHETIC lease."""
+    from tests.unit.test_hc_story_module import module_method
+    for ready in (None, False, True):
+        for stage_index in (0, 1):
+            with test.subTest(stories_ready=ready, stage=stage_index):
+                calls = []
+                chain = N(Id='synthetic-issued', Stage=stage_index, Cancelled=False,
+                          Complete=False, EventId=0, DueAt=100, BeganAt=100)
+                stage = N(Kit='synthetic-kit', HoldSeconds=100)
+                plan = N(Stages=[stage, stage], SiteId='synthetic-site')
+                lease = N(StoryPublished=False, Objects=EArray(), ViewEventId=1, PlacementVariant=0)
+                owner = N(m_State=N(Chains=EArray([chain]), Catalog=N(Chains=EArray([plan]))),
+                          m_Cursor=0, m_Placed=0,
+                          m_Stories=None if ready is None else N(HCReady=lambda: ready),
+                          Lease=lambda key: lease, m_PreflightReasons=N(Remove=lambda key: None),
+                          PublishSceneStory=lambda *args: calls.append('published'))
+                env = dict(Print=lambda line: None,
+                           HCSceneChains=N(ResumeAfterGap=lambda *args: 0,
+                                           CancelExpired=lambda *args: False, Site=lambda key: None),
+                           HCSceneKits=N(HCPlacementComplete=lambda value: True, Healthy=lambda value: True),
+                           HCEventStatus=N(ANNOUNCED=0, COMPLETED=1),
+                           HCWildlifeScenes=N(HCEventStoryOff=lambda key: calls.append(('refused', key))))
+                module_method(owner, 'Work', env)
+                owner.Work(101)
+                owner.Work(102)
+                expected = ['published']
+                if not ready and stage_index == 0: expected.append(('refused', chain.Id))
+                test.assertEqual(expected, calls, 'Stories-off publication never reaches HC-49 refusal')
+
+
+def check_wildlife_operational_owner(test):
+    """Execute owner lifecycle and real HC-25 capture over SYNTHETIC native ports."""
+    from tests.unit.test_ecology_module import EcologyModuleBehavior
+    from tests.unit.test_hc_operational_snapshot import fixture, NativeString
+    from tests.unit.test_map_layers import methods, translate as handlers
+    service, _, make_status, _, _ = fixture()
+    legacy = EcologyModuleBehavior()
+    legacy.setUp()
+    env = dict(legacy.e, HCOperationalContributors=service)
+    env['GetGame'] = lambda: N(IsServer=lambda: True, GetTickTime=lambda: now[0],
+                               GetTime=lambda: 4321, GetWorldName=lambda: 'chernarusplus')
+    now = [10.]
+    owner = legacy.module
+    status = make_status()
+    owner.m_Status, owner.m_WildlifeStatus = make_status(), status
+    legacy.e['HCWildlifeScenes'] = lambda: N(HCOpen=lambda enabled: status.HCPublish('ready', 'synthetic_ready'),
+        HCStatus=lambda: status, HCActive=lambda: False, HCClose=lambda: None)
+    env['HCWildlifeScenes'] = legacy.e['HCWildlifeScenes']
+    source = legacy.source.replace('    protected ', '    ').replace('override ', '')
+    source = re.sub(r'\bthis\b', 'self', source)
+    source = source.replace('"HC-49"', 'NativeString("HC-49")')
+    env['NativeString'] = NativeString
+    names, _ = methods(source, 'HCEcologyRuntimeModule')
+    handlers(source, 'HCEcologyRuntimeModule', env,
+             only=tuple(name for name in names if name != 'Session'))
+    for name, (static, _, _) in names.items():
+        if name != 'Session': setattr(owner, name, env[name] if static else MethodType(env[name], owner))
+    test.assertTrue(owner.IsEnabled(None))
+    owner.OnStart(None)
+    test.assertEqual(['HC-49'], [row.Name for row in service.s_Owners],
+                     'HC-49 never registered an operational owner')
+    row = service.s_Owners[0]
+    test.assertEqual('ready', row.Status.HCState())
+    status.HCPublish('refused', 'synthetic_store_fault')
+    now[0] = 100.
+    owner.OnTick(1.)
+    test.assertIn('state=refused', row.HCLine(now[0]))
+    test.assertIn('reason=synthetic_store_fault', row.HCLine(now[0]))
+    test.assertEqual('ready', owner.HCGetOperationalStatus().HCState())
+    owner.OnStop()
+    test.assertEqual('off', row.Status.HCState())
+    test.assertFalse(row.Requested)
+    service.HCReset()
+    legacy.settings.Enabled = False
+    test.assertFalse(owner.IsEnabled(None))
+    test.assertIn('reason=ecology_operator_off', service.s_Owners[0].HCLine(200.))
 
 
 class SyntheticAnimal:
@@ -576,9 +711,9 @@ class WildlifeBehavior(unittest.TestCase):
                 self.assertEqual(64, len(restored.disk.image.SpentCorpseIds))
                 restored.animal.pid = 'previously-unseen-body'
                 restored.owner.HCStep(101, 2000)
-                self.assertIsNone(restored.owner.m_Body)
-                self.assertTrue(any('CARCASS_SPENT_HISTORY_FULL' in line for line in restored.logs))
-                self.assertEqual(64, len(restored.disk.image.SpentCorpseIds))
+                self.assertIs(restored.animal, restored.owner.m_Body,
+                              '64 lifetime reservations permanently disable HC-49')
+                self.assertEqual(65, len(restored.disk.image.SpentCorpseIds))
             receipt = copy.deepcopy(capped.disk.image.Rows[-1])
             capped.chain.Id, capped.chain.StorySequence = 'synthetic-story-66', 66
             capped.state.Stories.NextSequence = 67
@@ -596,15 +731,23 @@ class WildlifeBehavior(unittest.TestCase):
             self.assertEqual(1, sum('scene=overflow' in line for line in refused.logs))
             self.assertEqual([], refused.disk.image.Rows if refused.disk.image else [])
         with self.subTest(wave7='spent ledger migration and safe saturation'):
-            saturated = carcass_fixture(full_image)
+            migrated = carcass_fixture(full_image)
+            self.assertEqual(2, migrated.owner.m_State.Version, 'legacy journal never migrated')
+            cap = migrated.spent_cap
+            self.assertEqual(1024, cap, 'fallback cap must fit the shared 262144-byte store')
+            saturated_image = copy.deepcopy(migrated.disk.image)
+            saturated_image.SpentCorpseIds.extend('synthetic-spent-' + str(i) for i in range(cap - 64))
+            saturated = carcass_fixture(saturated_image)
             self.assertEqual(2, saturated.owner.m_State.Version, 'legacy journal never migrated')
-            self.assertEqual(64, len(saturated.disk.image.SpentCorpseIds))
+            self.assertEqual(cap, len(saturated.owner.m_State.SpentCorpseIds))
             saturated.chain.Id, saturated.chain.StorySequence = 'synthetic-story-65', 65
             saturated.state.Stories.NextSequence = 66
             self.assertTrue(saturated.owner.HCOffer(saturated.chain, saturated.state))
             saturated.owner.HCStep(100, 1000)
             self.assertIsNone(saturated.owner.m_Body, 'full spent ledger must fail closed')
             self.assertTrue(any('CARCASS_SPENT_HISTORY_FULL' in line for line in saturated.logs))
+            self.assertEqual(saturated_image.SpentCorpseIds, saturated.owner.m_State.SpentCorpseIds,
+                             'unproven corpse retirement must never evict an ID')
         with self.subTest(wave7='corrupt spent ledger refuses without repair'):
             for spent_ids in (None, EArray(['duplicate', 'duplicate']), EArray([''])):
                 corrupt = N(Version=2, Rows=EArray(), SpentCorpseIds=spent_ids)
@@ -617,6 +760,8 @@ class WildlifeBehavior(unittest.TestCase):
         self.assertEqual('missed', expired.disk.image.Rows[0].Supply)
 
         self.assertTrue(any('AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN' in line for line in scene.logs))
+        self.assertTrue(any('CARCASS_SPENT_EVICTION_UNPROVEN' in line for line in scene.logs),
+                        'cap fallback has no named eviction refusal')
         self.assertTrue(any('HC-49 carcass=synthetic-story-1-carcass origin=observed supply=native_skinnable'
                             in line and 'runtime=PENDING' in line for line in scene.logs))
         # Manifest validation runs authored policy; no new distances or authored loot.
@@ -652,7 +797,7 @@ class WildlifeBehavior(unittest.TestCase):
             self.assertIn('m_WildlifeScenes.HCOpen(true)', start)
             self.assertIn('s_Instance = this;', start)
             self.assertIn('HCGroupClock.Utc()', tick)
-            self.assertIn('if (utc < 1577836801) { return; }', tick)
+            self.assertIn('if (utc >= 1577836801)', tick)
             self.assertIn('m_WildlifeScenes.HCStep(utc - 1577836800, GetGame().GetTime())', tick)
             self.assertLess(stop.index('m_WildlifeScenes.HCClose()'), stop.index('m_WildlifeScenes = null'))
             self.assertIn('s_Instance = null;', stop)
@@ -667,6 +812,10 @@ class WildlifeBehavior(unittest.TestCase):
             self.assertIn('HCEcologyRuntimeModule.HCWildlife()', step)
             self.assertIn('if (wildlife)', step)
             check_carcass_runtime(self)
+        with self.subTest(wave8='Stories-off live publication'):
+            check_stories_off_publication(self)
+        with self.subTest(wave8='independent HC-49 operational owner'):
+            check_wildlife_operational_owner(self)
 
 
 if __name__ == '__main__':

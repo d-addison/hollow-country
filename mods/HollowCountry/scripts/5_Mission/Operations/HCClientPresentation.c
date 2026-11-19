@@ -152,7 +152,7 @@ class HCClientPresentation
         }
         if ((!m_Seasons || !m_Lighting) && m_SeasonStartAttempts == SEASON_START_MAX_ATTEMPTS)
         {
-            Print("[HC Plan] HC-51 lighting=refused reason=LIGHTING_START_UNAVAILABLE attempts=12 runtime=PENDING");
+            Print("[HC Plan] HC-51 lighting=refused reason=LIGHTING_START_UNAVAILABLE attempts=" + SEASON_START_MAX_ATTEMPTS.ToString() + " runtime=PENDING");
         }
     }
 
@@ -235,7 +235,7 @@ class HCClientPresentation
             if (timeslice > 0.0 && timeslice <= SEASON_START_RETRY_SECONDS)
             {
                 m_SeasonStartElapsed = m_SeasonStartElapsed + timeslice;
-                if (m_SeasonStartElapsed >= SEASON_START_RETRY_SECONDS) { HCReconcile(); }
+                if (m_SeasonStartElapsed >= SEASON_START_RETRY_SECONDS) { HCStartSeasonPresentation(); }
             }
         }
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
