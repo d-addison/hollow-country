@@ -39,6 +39,7 @@ class LoaderFixture:
     def __init__(self, module, image, save_ok=True):
         self.files = {}
         self.logs = []
+        self.reasons = []
         self.saves = []
         self.module = module
         group = module == 'Groups'
@@ -52,6 +53,7 @@ class LoaderFixture:
         self.files[self.path] = image
         self.save_ok = save_ok
         text = GROUP_STORE.read_text() if group else STORE.read_text().split('class HCInfectedLODHerd\n')[0]
+        text = re.sub(r'reason = ("[^"]*");', r'reason = refusal(\1);', text)
         # Syntax-only out-parameter and type adaptations. Native IO is synthetic.
         text = re.sub(r'(?:HCGroupIO.Read|HCInfectedStore.ReadBounded)\(path, (?:8192, )?content\)',
                       '((content := read(path)) != null)', text)
@@ -62,6 +64,7 @@ class LoaderFixture:
         text = text.replace('static '+self.kind+' ', 'static HCEventHandle ')
         self.env = dict(FileExist=lambda p: p in self.files, MakeDirectory=lambda p: True,
                         read=lambda p: self.files.get(p), decode=self.decode, Print=self.logs.append,
+                        refusal=lambda value: self.reasons.append(value) or value,
                         HCJsonFields=json_fields_port(), HCGroupRules=N(SettingsValid=translated_rules()['SettingsValid']),
                         HCInfectedStore=N(ROOT='$profile:HollowCountry', DIRECTORY='$profile:HollowCountry/Infected'),
                         StorePort=N(CanOpen=lambda p: not (p+'.tmp' in self.files), Save=self.save,
@@ -105,6 +108,10 @@ class LoaderFixture:
 
 
 class SettingsMigration(unittest.TestCase):
+    # Explicit compatibility defaults; all other declared settings are required.
+    ALLOWED_MISSING = {'Groups': {'ShareDiscovery'},
+                       'InfectedLOD': {'EnableVirtualHerds', 'HerdWorld', 'VarietyNonCalmHoldSeconds'}}
+
     def image(self, module, version=1, omit=False):
         cfg = LoaderFixture(module, '{}').factory()
         values = vars(cfg).copy()
@@ -138,6 +145,55 @@ class SettingsMigration(unittest.TestCase):
             self.assertIsNotNone(cfg)
             self.assertFalse(getattr(cfg, key))
             self.assertEqual(image, h.files[h.path])
+            self.assertEqual([], h.saves)
+
+    def test_every_missing_baseline_field_refuses_and_preserves_bytes(self):
+        for module in ('Groups', 'InfectedLOD'):
+            for version in (1, 2):
+                image, _ = self.image(module, version)
+                fields = json.loads(image)
+                for key in fields.keys() - self.ALLOWED_MISSING[module]:
+                    with self.subTest(module=module, version=version, missing=key):
+                        partial = fields.copy()
+                        del partial[key]
+                        content = json.dumps(partial, indent=2) + '\n'
+                        h = LoaderFixture(module, content)
+                        self.assertIsNone(h.run(), f'{module} missing {key} must refuse')
+                        self.assertEqual(content, h.files[h.path])
+                        self.assertEqual([], h.saves)
+                        self.assertFalse(any('settings migrated' in s for s in h.logs))
+                        diagnostics = h.logs if module == 'Groups' else h.reasons
+                        self.assertEqual(1, sum('settings_missing_baseline_fields' in s for s in diagnostics))
+
+    def test_only_named_compatibility_fields_can_default(self):
+        for module, allowed in self.ALLOWED_MISSING.items():
+            for version in (1, 2):
+                image, _ = self.image(module, version)
+                full = json.loads(image)
+                for key in allowed:
+                    with self.subTest(module=module, version=version, missing=key):
+                        partial = full.copy()
+                        del partial[key]
+                        h = LoaderFixture(module, json.dumps(partial))
+                        cfg = h.run()
+                        self.assertIsNotNone(cfg)
+                        self.assertEqual(getattr(h.factory(), key), getattr(cfg, key))
+
+    def test_explicit_false_baseline_booleans_are_kept_in_v2(self):
+        for module in ('Groups', 'InfectedLOD'):
+            image, _ = self.image(module, version=2)
+            fields = json.loads(image)
+            for key, value in fields.items():
+                if isinstance(value, bool):
+                    fields[key] = False
+            content = json.dumps(fields, indent=2) + '\n'
+            h = LoaderFixture(module, content)
+            cfg = h.run()
+            self.assertIsNotNone(cfg)
+            for key, value in fields.items():
+                if isinstance(value, bool):
+                    self.assertIs(False, getattr(cfg, key))
+            self.assertEqual(content, h.files[h.path])
             self.assertEqual([], h.saves)
 
     def test_missing_key_restores_on_for_both_versions(self):
