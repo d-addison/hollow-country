@@ -5,6 +5,8 @@
 // 3_Game/gameplay.c MapWidget; UIScriptedMenu.c Init/OnShow/OnHide/Close.
 // Vanilla gui.pbo: camera_tools.layout scroll/spacers; connection dialogue
 // MultilineText wrap/size-to-text. Original layouts; no COT source used.
+// Map tab lootmap controls reuse EditBoxWidget.GetText (EnWidgets.c:349) and
+// Widget.Enable (:126); the filter is validated by HCAdminClient.HCLootMap.
 // Widgets: tabs once at open, cards once per tab switch, 50 console rows once.
 // Reply-driven refresh. Update only checks session/busy; no widget allocation.
 class HCAdminCard
@@ -104,6 +106,8 @@ class HCAdminMenu : UIScriptedMenu
     protected TextWidget m_SectionHelp;
     protected ButtonWidget m_Checks;
     protected Widget m_MapPanel;
+    protected EditBoxWidget m_LootFilter;
+    protected ButtonWidget m_LootRun;
     protected GridSpacerWidget m_CardHost;
     protected GridSpacerWidget m_TabHost;
     protected GridSpacerWidget m_ConsoleHost;
@@ -131,12 +135,14 @@ class HCAdminMenu : UIScriptedMenu
         m_SectionHelp = TextWidget.Cast(layoutRoot.FindAnyWidget("HCAdminSectionHelp"));
         m_Checks = ButtonWidget.Cast(layoutRoot.FindAnyWidget("HCAdminChecks"));
         m_MapPanel = layoutRoot.FindAnyWidget("HCAdminMapPanel");
+        m_LootFilter = EditBoxWidget.Cast(layoutRoot.FindAnyWidget("HCAdminLootFilter"));
+        m_LootRun = ButtonWidget.Cast(layoutRoot.FindAnyWidget("HCAdminLootRun"));
         m_CardHost = GridSpacerWidget.Cast(layoutRoot.FindAnyWidget("HCAdminCards"));
         m_TabHost = GridSpacerWidget.Cast(layoutRoot.FindAnyWidget("HCAdminTabs"));
         m_ConsoleHost = GridSpacerWidget.Cast(layoutRoot.FindAnyWidget("HCAdminConsole"));
         m_CardScroll = ScrollWidget.Cast(layoutRoot.FindAnyWidget("HCAdminCardScroll"));
         m_ConsoleScroll = ScrollWidget.Cast(layoutRoot.FindAnyWidget("HCAdminConsoleScroll"));
-        if (!m_Map || !m_Routes || !m_Layers || !m_State || !m_SectionTitle || !m_SectionHelp || !m_Checks || !m_MapPanel || !m_CardHost || !m_TabHost || !m_ConsoleHost || !m_CardScroll || !m_ConsoleScroll)
+        if (!m_Map || !m_Routes || !m_Layers || !m_State || !m_SectionTitle || !m_SectionHelp || !m_Checks || !m_MapPanel || !m_LootFilter || !m_LootRun || !m_CardHost || !m_TabHost || !m_ConsoleHost || !m_CardScroll || !m_ConsoleScroll)
         {
             layoutRoot.Unlink();
             layoutRoot = null;
@@ -259,6 +265,8 @@ class HCAdminMenu : UIScriptedMenu
         m_WasBusy = busy;
         m_State.SetText(m_Client.HCState());
         m_Checks.Enable(!busy);
+        m_LootFilter.Enable(!busy);
+        m_LootRun.Enable(!busy);
         for (int index = 0; index < m_Cards.Count(); index++)
         {
             HCAdminCard card = m_Cards[index];
@@ -376,6 +384,7 @@ class HCAdminMenu : UIScriptedMenu
         }
         if (m_Client.HCBusy()) { return true; }
         if (w == m_Checks) { m_Client.HCChecks(); HCApplyBusy(); return true; }
+        if (w.GetName() == "HCAdminLootRun") { return HCRunLootMap(); }
         for (int cardIndex = 0; cardIndex < m_Cards.Count(); cardIndex++)
         {
             HCAdminCard card = m_Cards[cardIndex];
@@ -393,6 +402,16 @@ class HCAdminMenu : UIScriptedMenu
             return true;
         }
         return super.OnClick(w, x, y, button);
+    }
+
+    // The server stays the only authority; HCLootMap pre-checks the same bounded
+    // filter and reports a problem in the console. No gameplay command is sent here.
+    protected bool HCRunLootMap()
+    {
+        if (m_Client.HCBusy()) { return true; }
+        m_Client.HCLootMap(m_LootFilter.GetText());
+        HCApplyBusy();
+        return true;
     }
 
     override bool OnChange(Widget w, int x, int y, bool finished)

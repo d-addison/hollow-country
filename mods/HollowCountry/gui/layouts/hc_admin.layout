@@ -83,14 +83,24 @@
           ignorepointer 1 clipchildren 1
          }
          TextListboxWidgetClass HCAdminLayers {
-          position 0.74 0 size 0.26 0.79
+          position 0.74 0 size 0.26 0.52
           hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
           font "gui/fonts/sdf_MetronBook24"
          }
          ButtonWidgetClass HCAdminToggle {
-          position 0.74 0.82 size 0.26 0.16
+          position 0.74 0.54 size 0.26 0.13
           hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
           style Default font "gui/fonts/sdf_MetronBook24" text "Toggle layer" text_proportion 0.55
+         }
+         EditBoxWidgetClass HCAdminLootFilter {
+          position 0.74 0.70 size 0.26 0.13
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          font "gui/fonts/sdf_MetronBook24" text ""
+         }
+         ButtonWidgetClass HCAdminLootRun {
+          position 0.74 0.85 size 0.26 0.13
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          style Default font "gui/fonts/sdf_MetronBook24" text "Run lootmap" text_proportion 0.55
          }
         }
        }

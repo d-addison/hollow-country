@@ -154,7 +154,7 @@ class HCAdminModule : HCModule
         if (!GetGame().IsServer() || !HCAuthorized(sender)) { return false; }
         if (!m_DebugEnabled) { HCReply(sender, ticket, "lootmap", false, "EnableDebugSnapshot-off"); return false; }
         if (command.Length() <= 8) { HCReply(sender, ticket, "lootmap", false, "usage_lootmap_class_or_prefix"); return false; }
-        if (m_LootMap) { HCReply(sender, ticket, "lootmap", false, "lootmap_job_cap=1"); return false; }
+        if (m_LootMap) { HCReply(sender, ticket, "lootmap", false, "lootmap_job_running; one job at a time"); return false; }
         float now = GetGame().GetTickTime();
         if (now < m_LootMapAfter) { HCReply(sender, ticket, "lootmap", false, "lootmap_cooldown"); return false; }
         HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
@@ -174,7 +174,14 @@ class HCAdminModule : HCModule
         {
             HCReply(sender, ticket, "lootmap", false, "lootmap_export_failed"); return false;
         }
-        if (!started) { HCSend(sender, job.HCReply(ticket)); return false; }
+        if (!started)
+        {
+            // A refusal is an ordinary reply, not the final-marks reply (Snapshot).
+            HCAdminReply refusal = job.HCReply(ticket);
+            refusal.Snapshot = false;
+            HCSend(sender, refusal);
+            return false;
+        }
         m_LootMap = job;
         m_LootMapSender = sender;
         m_LootMapTicket = ticket;
@@ -182,8 +189,12 @@ class HCAdminModule : HCModule
         startLine += " max_ticks=" + job.HCMaxTicks().ToString() + " rows_per_tick=" + limits.MaxRowsPerStep.ToString();
         startLine += " positions=0 query_cost=unmeasured runtime=PENDING";
         Print("" + startLine);
-        // Exactly one final RPC. The client waits HCAdminLootMap.HCClientWaitSeconds
-        // (the same tick arithmetic) for it; no automatic retries.
+        // Immediate ack, the snapshot pattern: the client is freed at once, then the
+        // one final marks RPC follows by this ticket (no automatic retries). If the
+        // client session ends first the final reply is dropped client-side.
+        string ack = "started ticket=" + ticket.ToString() + " est_ticks=" + job.HCMaxTicks().ToString();
+        ack += " cells=" + job.HCTotalCells().ToString() + " final_reply=by_ticket; query_cost=unmeasured";
+        HCReply(sender, ticket, "lootmap", true, ack);
         return true;
     }
 

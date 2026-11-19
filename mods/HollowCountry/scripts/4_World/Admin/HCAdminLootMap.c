@@ -126,8 +126,10 @@ class HCAdminLootMap
         return cells + rowTicks + 1;
     }
 
-    // Client wait for the single final reply: the largest possible job (MaxCells)
-    // at the budgeted core tick, plus ReplyGraceSeconds.
+    // Client job window for the final marks reply (the request itself is acked at
+    // once): the largest possible job (MaxCells) at the budgeted core tick, plus
+    // ReplyGraceSeconds. Bounds how long the client keeps its session and tracks
+    // the ticket; it is not a request timeout.
     static int HCClientWaitSeconds()
     {
         HCAdminLootMapLimits limits = new HCAdminLootMapLimits;

@@ -280,8 +280,17 @@ class LootmapBehavior(unittest.TestCase):
         self.assertEqual(1, len(started))
         for token in ('cells=4', 'sub_cell_m=1000', 'max_ticks=', 'query_cost=unmeasured', 'runtime=PENDING'):
             self.assertIn(token, started[0])
+        # Immediate ack (the snapshot pattern): started, the request ticket and the
+        # derived tick estimate. The marks are NOT sent yet; they come later by ticket.
+        ack = notices[-1]
+        self.assertEqual((5, 'lootmap', True), ack[1:4])
+        for token in ('started', 'ticket=5', 'est_ticks=', 'final_reply=by_ticket'):
+            self.assertIn(token, ack[-1])
+        self.assertEqual([], exported)
+        # A second lootmap while one runs is refused server-side with a named reason.
         self.assertFalse(start(module, object(), EStr('lootmap Bandage'), 6))
-        self.assertEqual('lootmap_job_cap=1', notices[-1][-1])
+        self.assertEqual((6, 'lootmap', False), notices[-1][1:4])
+        self.assertTrue(notices[-1][-1].startswith('lootmap_job_running'))
         for _ in range(20):
             tick(module)
             if module.m_LootMap is None: break
