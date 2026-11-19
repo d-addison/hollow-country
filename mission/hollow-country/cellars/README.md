@@ -162,13 +162,13 @@ expansion beyond the authored limits. All other sampler distances are unchanged.
 ## Acceptance still pending
 
 For each of the two selected spaces, retain exact source/PBO/mission/config and
-installed dependency hashes, raw logs and two-client receipts externally. Walk
+installed dependency hashes, raw logs and single-client receipts externally. Walk
 stairs in both directions, connected rooms, outside and upstairs by day and night;
 check torch, NVG, native audio, death/rejoin and restart. Verify no effect spill,
 no door/path blockage, no script/CE errors and native lighting/audio fallback.
 Exercise marker-off ticks, mid-scan marker removal, stop/restart, interrupted store
 recovery, overlay removal and byte-exact rollback. No production enablement until
-DayZDiag AND normal PBO/server AND both clients pass. The other 26 remain native
+DayZDiag, normal PBO/server and the single-client in-game checks pass. The other 26 remain native
 survey/access tasks; absence of a probe result is pending coverage, not exclusion.
 
 ## TDD receipt and remaining integration
@@ -217,7 +217,7 @@ No edits to HCModule.c, config.cpp or furnishing readers are needed.
 
 Remaining lead integration: HC-11 retains consolidated spec → plan → task
 integration. No worker source edits remain deferred to the lead. Native survey,
-qualification protocol/receipts, DayZDiag, normal PBO/server and two-client
+qualification protocol/receipts, DayZDiag, normal PBO/server and single-client
 acceptance remain pending as listed above. A future qualification protocol must
 identify individual spaces; class ancestry, SampleCount, Eligible, selection and
 HCV2Admission.Admitted(preference) must never promote an entire class.

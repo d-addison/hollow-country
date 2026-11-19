@@ -22,9 +22,9 @@ not proof that its gameplay is operational.
 | Full item audit and utility extensions | Whole-source recipe census; chunked in-engine configuration exporter preserves native type variants and unresolved fields; unhooked fuel arithmetic with binary32 no-creation checks. Run 035 enumerated all 7,389 classes across four roots/15 chunks. Bounded flashlight matrix retains every class; its raw-artifact shape exercise emitted 47,888 candidate pairs | Complete item/recipe/action and usefulness audit, broad justified crafting scope, native fuel action and durable conservation, taped flashlight mounting/switching/geometry and client qualification. Candidates do not establish compatible geometry or gameplay |
 | Infected | Bounded visual-clue sampling, native voice provenance and bounded relay chains, native pack route validation, observed progress/purpose and fair retarget scheduling, durable pre-transfer cohort intent, semantic room catalog interface/order and exact storage-identity recovery. Every complex path (pack routes, adoption, member recovery, investigation, chains, stimulus routes) is admitted only by its own qualification and fails closed with a reason code; dormant journals load verbatim; one stimulus selection (visual > external heard > retained memory) is shared by chains and investigation; explicit four-entry variant map. Final source compiled and initialized under Wine (compile 079) | Real measured room catalog, safe horde abstraction/activation and a complete recognizable variant roster. Native route traversal/perception, relay audibility and restart recovery remain unobserved; no periodic journal appeared during the 90-second hold |
 | Packaging | Original-source container/signing/smoke tooling; transaction-based install/upgrade/recovery/rollback. Official tools signed and positively verified the exact run 057 addon under Wine; that addon compiled and initialized | Signature-enforced server/client loading, client tests, combined load/performance and destination rollback |
-| Stamina and weight | Native handler scaling, bounded server profile, authenticated client receipt/session reset and separate cached weight/stamina bars. Defaults request 0.25 continuous exertion, 2.5x recovery and half the vanilla weight penalty (0.875 units/kg above the native 6 kg free threshold; native 5-unit minimum and 100-unit maximum with native defaults). Schema 1 profiles missing WeightPenaltyScale default to 0.5; invalid profiles and explicit disables are preserved. Native discrete jump/melee costs are retained. Earlier run 046 compiled the previous wiring under Wine | Final-source enabled profile loading and native delivery/order including WeightPenaltyScale, prediction/modifier compatibility, rendered layout and connected-client gameplay validation with two clients. Earlier compilation does not establish the new defaults or synchronized custom stamina; DayZDiag and normal PBO/server acceptance remain pending |
-| Taped flashlights | Unhooked mount/removal service, consumed-tape checks, identity/condition/energy conservation, full binding replay guards, bounded intent/image journal and native inventory observations/transfers. Thirty-six synthetic checks include unresolved-operation quarantine, intent before custody acquisition and an operation-bound terminal write after confirmed release. Native run 057 compiled this service and initialized under Wine | First-release scope is native light-slot pairs only (rail/handguard rifles and pistols); other hosts are post-v1 (#58). Qualified host/slot/geometry matrix, exclusive inventory custody integration, LOS provider, native mount/removal/switching, crash recovery and two-client presentation. No actual host is qualified or automatically enabled; journal readback does not establish crash durability |
-| Groups and navigation | Enabled server preference, authenticated routing, permissions, invitations, markers/notes, immutable journals and ordered counters. Full positive signed epoch range through January 2038, checked expiry addition, durable clock watermark, rollback refusal and failed-commit handling now pass 99 focused checks with synthetic collaborators. Earlier run 038 compiled client recovery/map/menu/icons; its 41 synthetic native policy steps completed | Final-source compilation, native persistence/restart/RPC trials, additional map layers/roles, rendered controls, two-client privacy/races and load qualification. LOS/radio requirements remain unsupported and rejected; synthetic fixtures do not establish enabled group gameplay |
+| Stamina and weight | Native handler scaling, bounded server profile, authenticated client receipt/session reset and separate cached weight/stamina bars. Defaults request 0.25 continuous exertion, 2.5x recovery and half the vanilla weight penalty (0.875 units/kg above the native 6 kg free threshold; native 5-unit minimum and 100-unit maximum with native defaults). Schema 1 profiles missing WeightPenaltyScale default to 0.5; invalid profiles and explicit disables are preserved. Native discrete jump/melee costs are retained. Earlier run 046 compiled the previous wiring under Wine | Final-source enabled profile loading and native delivery/order including WeightPenaltyScale, prediction/modifier compatibility, rendered layout and connected-client gameplay validation with one client. Earlier compilation does not establish the new defaults or synchronized custom stamina; DayZDiag and normal PBO/server acceptance remain pending |
+| Taped flashlights | Unhooked mount/removal service, consumed-tape checks, identity/condition/energy conservation, full binding replay guards, bounded intent/image journal and native inventory observations/transfers. Thirty-six synthetic checks include unresolved-operation quarantine, intent before custody acquisition and an operation-bound terminal write after confirmed release. Native run 057 compiled this service and initialized under Wine | First-release scope is native light-slot pairs only (rail/handguard rifles and pistols); other hosts are post-v1 (#58). Qualified host/slot/geometry matrix, exclusive inventory custody integration, LOS provider, native mount/removal/switching, crash recovery and single-client presentation. No actual host is qualified or automatically enabled; journal readback does not establish crash durability |
+| Groups and navigation | Enabled server preference, authenticated routing, permissions, invitations, markers/notes, immutable journals and ordered counters. Full positive signed epoch range through January 2038, checked expiry addition, durable clock watermark, rollback refusal and failed-commit handling now pass 99 focused checks with synthetic collaborators. Earlier run 038 compiled client recovery/map/menu/icons; its 41 synthetic native policy steps completed | Final-source compilation, native persistence/restart/RPC trials, additional map layers/roles, rendered controls, single-client privacy/reconnect and cost observations. LOS/radio requirements remain unsupported and rejected; synthetic fixtures do not establish enabled group gameplay |
 | Weather and atmosphere | Native XML candidate generator with pinned source, explicit operator profiles and preserved unspecified settings; 16 synthetic regressions including early rejection of unrelated directory entries. No-op generation preserved the four inspected official mission templates byte-for-byte | Native XML/storage/map-script interaction, profile balance, visibility, accessibility, performance and rollback. Lighting and volumetric fog remain separate feasibility work; no weather profile is automatically installed |
 | Optional events | Bounded unhooked event definitions, opt-in participants, ordered server observations, revision/replay protection, expiry/cancellation and frozen definitions; 18 focused checks. Native run 042 compiled the director | Native observation/objective adapters, mission roster, AI integration, durable economy-backed rewards, persistence and client presentation. Nonzero rewards remain blocked |
 | PvE AI groups | Bounded declaration audit for a source-pinned optional provider: dependency subset, finite-ammunition/damage settings and observer retirement context; 31 focused checks. User-approved policy permits reviewed built-in human-AI stuck recovery, including visible repositioning | No provider is installed or qualified. The recovery exception does not waive exact artifact admission, permissions, finite ammunition, ordinary damage or cleanup fairness. Native-first provider implementation, combat/navigation, encounter integration and measured capacity remain outstanding |
@@ -58,9 +58,9 @@ remain included in persisted `Alive`, and session-held leases reserve surviving
 bodies across module stop/start; deaths and external claims debit once, while
 missing bodies return to virtual capacity. Reuses the LOD cursor, player roster,
 observer gate, admission and shared save scheduler/journal. Tests execute authored
-control flow with synthetic engine ports. DayZDiag, normal PBO/server restart,
-two-client partial-cover/foliage/vehicle/optics checks and load at 3–6 players
-remain **runtime acceptance pending**; stop/start handles are session-only and
+control flow with synthetic engine ports. DayZDiag, normal PBO/server restart and
+single-client partial-cover/foliage/vehicle/optics checks remain **runtime acceptance pending**.
+Target-load budgets remain provisional; stop/start handles are session-only and
 cross-process body persistence must be checked natively. No shared HCSettings,
 serverDZ network defaults or global settings JSON edits are required.
 
@@ -91,7 +91,7 @@ installed mission overlays.
 | Travel CE content and optional animal/bicycle mission overlays | Installed content; flags alone do not roll it back | being built / runtime acceptance pending |
 
 The [V2 acceptance checklist](LOCAL_ACCEPTANCE_V1.md#v2-living-country-scaffolding)
-retains feature steps, missing observations and two-client checks. Operator
+retains feature steps, missing observations and single-client checks. Operator
 settings, profile files and dependency loading are in the [handbook](README.md#living-country--v2-operations).
 
 ## Earlier native diagnostics
@@ -192,7 +192,7 @@ The development key remains outside the repository. This verification does not
 establish signature-enforced client/server loading or approve a release.
 Diagnostic 017 emitted a native plugin error and is a failed smoke. See the
 issue tracker for validation summaries and outstanding gates. These observations
-do not establish native Windows or multiplayer acceptance.
+do not establish native Windows or native gameplay acceptance.
 Tasks requiring unobserved gameplay remain open.
 
 ## Inventory sizes — owner playtest 2026-11-18
@@ -249,7 +249,7 @@ Final unsigned PBO build/verify passed (255 entries). config.cpp remains text,
 verified byte-for-byte after packing; signing operates on the unchanged opaque
 PBO and its existing flow is retained. Git metadata was not written; the writer
 commit message is set. DayZDiag, normal PBO/server/client loading, inventory fit,
-persistence/reconnect, nesting safety and balance at 3–6 players remain **pending**.
+persistence/reconnect and nesting safety remain **pending**; target-load balance is unmeasured and outside acceptance.
 Offline checks do not grant production acceptance.
 
 
@@ -313,10 +313,10 @@ The identity-restart single-method RED was
 after the reset fix, the full focused module GREEN was `Ran 8 tests`; `OK`.
 The seasonal expectations in test_v2_world and admin forage behavior are unchanged.
 
-Pending: DayZDiag compilation/boot, normal PBO/server tests, two-client placement,
+Pending: DayZDiag compilation/boot, normal PBO/server tests, single-client placement,
 visibility/pop-in and replication, native generator coexistence, persistence-ID
 allocation/reconnect/restart/death, pickup/crash/restart and archive recovery,
-plus performance at 3–6 players. No production qualification is asserted.
+plus single-client performance observations; target-load budgets remain provisional. No production qualification is asserted.
 
 Final GREEN, exact requested selection:
 
@@ -337,16 +337,16 @@ Banso's writer owns the eventual local commit.
 save compatibility, invalid-key fallback logs, deterministic world-seed sizing
 and all deferred checks. HC-10 custody persistence was applied as a separate
 prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
-is source/policy verification only; DayZDiag, normal PBO/server, two-client
-visibility/audio/replication and load testing at 3–6 players remain pending.
+is source/policy verification only; DayZDiag, normal PBO/server, single-client
+visibility/audio/replication checks remain pending. Target-load budgets are provisional and outside acceptance.
 Budgets are provisional until measured; production enablement is not established.
 [Operator keys](../mission/hollow-country/ai/README.md) and
 [cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
 save compatibility, invalid-key fallback logs, deterministic world-seed sizing
 and all deferred checks. HC-10 custody persistence was applied as a separate
 prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
-is source/policy verification only; DayZDiag, normal PBO/server, two-client
-visibility/audio/replication and load testing at 3–6 players remain pending.
+is source/policy verification only; DayZDiag, normal PBO/server, single-client
+visibility/audio/replication checks remain pending. Target-load budgets are provisional and outside acceptance.
 Budgets are provisional until measured; production enablement is not established.
 
 
@@ -446,6 +446,6 @@ Still deferred: exact-source DayZDiag compile/boot (including the modded lifecyc
 chain), normal PBO/server admission for both schemas and the full authored pack,
 missing/corrupt page/leaf controls, stop/restart/off-path observation, installer
 rollback and hashes, physical fit/navigation/audio/replication qualification and
-3–6-player load measurement. Existing two-client acceptance remains pending.
+single-client cost measurement. Existing single-client acceptance remains pending; larger-load budgets stay provisional.
 Runtime checks pins/bindings/schema/read sizes; SHA-256 authenticity still belongs
 to the offline installer receipt. Nothing here enables production gameplay.

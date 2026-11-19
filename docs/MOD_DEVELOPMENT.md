@@ -109,7 +109,7 @@ acceptance remain separate.
 3. Test individual features, then combined flags, against their tracked issue
    acceptance criteria. Include malformed inputs,
    cancellation, full inventories, concurrency, crash/restart and save recovery.
-4. Use two real clients for replication, authority, visibility and sound, then
+4. Use at most one real client for server delivery, authority, visibility and sound, then
    measure representative workloads against calibrated performance budgets.
 5. Sign with a private key kept outside Git; hand off only approved authored
    content, signatures and the public verification key. Exercise clean rollback.

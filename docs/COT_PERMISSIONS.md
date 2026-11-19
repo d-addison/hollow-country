@@ -103,6 +103,6 @@ selection examines at most the existing 32 slots.
 Integration still requires separately authorized COT API inspection/documentation
 with exact file:line evidence and a binding against that build's real signatures.
 After integration, boot the normal server/PBO and DayZDiag, grant/revoke the named
-permission, stop/restart the provider, test the opt-out, and use two clients to
+permission, stop/restart the provider, test the opt-out, and use one client to
 verify that an unauthorized peer receives no live snapshot or admin data. The
 synthetic adapter tests do not establish these results.

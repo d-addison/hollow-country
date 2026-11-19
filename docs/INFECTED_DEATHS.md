@@ -92,7 +92,7 @@ are logged at most 16 times per process.
   already does it for `doPhxImpulse` ammo.
 - Visible difference between DEFAULT and IMPULSE: unobserved (no render
   evidence; animation graphs are not in the script cache).
-- Per-client replication of the chosen type: unobserved; a two-client check is
+- Per-client replication of the chosen type: unobserved; a single-client check is
   needed before any production claim.
 - Ammo `doPhxImpulse`/`hitAnimation` values: the cached `config.bin` is too
   small to read them offline, so the policy reads them at runtime through
@@ -206,10 +206,10 @@ from the run-065 report.
 What a clean receipt would and would not show: that the override ran once, the
 policy chose IMPULSE for a heavy frontal torso kill, the death command received
 that type and direction unchanged, and cleanup was observed. It would not show
-how either variant looks, whether clients see the same fall, or anything about
+how either variant looks, how the connected client presents the fall, or anything about
 collision or loot. Those need a rendered side-by-side (DayZDiag with a client
-window, vanilla ammo versus the opt-in marker) and, for replication, two
-clients. `HCInfectedDeathQualification.Qualified()` stays false until that
+window, vanilla ammo versus the opt-in marker) and client presentation on one
+connected client. `HCInfectedDeathQualification.Qualified()` stays false until that
 evidence exists and is reviewed.
 
 ## 7. Cost and bounds

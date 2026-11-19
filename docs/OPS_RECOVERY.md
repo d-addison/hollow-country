@@ -265,7 +265,7 @@ On a private disposable installation:
    denied deletion: verify the named refusal, retained evidence and healthy
    store startup without applying a restore. Test malformed/mismatched pairs
    and archive collisions separately: those still refuse startup.
-6. With two clients, verify retained inventories/ACLs/stashes and no duplicate
+6. With one client, verify retained inventories/ACLs/stashes and no duplicate
    loot, refund/replay, replenished cargo or lost/restarted completion history.
 
 Native inventory consistency and benchmark budgets for the intended 3–6 players

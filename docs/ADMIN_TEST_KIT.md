@@ -90,16 +90,16 @@ override only goes away after a restart on the replacement PBO.
 ### Native checks still required
 
 With catalog integration applied, run DayZDiag and normal packaged server/client
-loads with two clients. Grep `feature=AdminControls`, `feature=CampVisitors`, `[HC CampVisitors] reserved walk=pending`,
+loads with one client. Grep `feature=AdminControls`, `feature=CampVisitors`, `[HC CampVisitors] reserved walk=pending`,
 `[HC Admin] cmd=camptier`, `cmd=campvisit`, `cmd=campraid`, `cmd=dormant`, and
 `SCRIPT (E)`. Confirm the existing `status` owner row follows allowlist startup,
 not catalog presence. With a recognised camp, test tiers 0 and 3, rejection of
 out-of-schema raw values, save/restart and next-scan reclassification. A forced
 tier must create no structures, items, world facts or actors. With the opt-out
 file present at restart, tier writes and dormant requests must refuse; remove
-it and restart to readmit controls. Verify an unallowlisted second client cannot
-run commands. Record visit/raid/dormant outcomes only from what the two clients
-actually see; a refusal reason is not an observed arrival. Rehearse removal against a disposable installed mission while stopped,
+it and restart to readmit controls. Verify an unallowlisted connected client cannot
+run commands. Record visit/raid/dormant outcomes only from what the client
+actually sees; a refusal reason is not an observed arrival. Rehearse removal against a disposable installed mission while stopped,
 check byte hashes and untouched saves, then test a normal packaged restart.
 
 ### Spec, plan and tasks for this worker
@@ -125,8 +125,8 @@ document shared catalog integration, operator opt-out and acceptance gaps.
   and isolated bundle import, retaining explicit inventory refusal.
 - [ ] OPS-06: physical dormant/visitor/raid ports and source/PBO inventory receipt rollback.
 - [ ] OPS-07: COT-role access (explicitly excluded); shared save switch belongs to w45.
-- [ ] OPS-08: DayZDiag, packaged server/client, two-client authorization/visibility,
-  restart/persistence/removal observations and target-load budget calibration.
+- [ ] OPS-08: DayZDiag, packaged server/client, single-client authorization/visibility,
+  restart/persistence/removal and single-client cost observations; capacity budgets remain provisional.
 
 The required specs were absent under this worktree's `docs/`; read-only copies
 were subsequently inspected under `/code/dayzsa_mods/docs/`. Active owner decisions
@@ -538,7 +538,7 @@ Tasks / acceptance trace:
 - [ ] UI-05: DayZDiag and normal packaged client/server load, all 20 buttons and refusal reasons,
   initial key notification, close/Escape/focus/input, tab highlighting, small-screen scrolling,
   wrapped full replies, map layers and pan/zoom route alignment; reconnect/death/expiry.
-- [ ] UI-06: two-client visibility/authorization/snapshot behavior and target-load measurements.
+- [ ] UI-06: single-client visibility/authorization/snapshot behavior and single-client cost observations; larger-load budgets remain provisional.
   No runtime acceptance or production qualification is granted by offline checks.
 
 Visual result is **unrendered until someone opens it in DayZ**. Budgets remain
@@ -724,12 +724,11 @@ and `SCRIPT (E)`. The teleport result is
 name, account identifier or destination name. `tplist` names destinations only
 in the authorized reply, not in the server log.
 
-With two clients, verify an allowlisted admin can list several pages, refresh
+With one client, verify an allowlisted admin can list several pages, refresh
 and reach town, AI site, camp and holdout areas on clear terrain. Verify snapshot
 building, water, a building obstruction, steep ground, world-edge candidates,
 vehicle occupancy, unconsciousness, restraint and each opt-out refuse with no
 movement. Confirm raw negative/oversized indices clamp server-side and existing
-cadence/replay protections still apply. Confirm the second player's position and
-all AI remain unchanged; observe loading, collision and network replication.
+cadence/replay protections still apply. Confirm unrelated AI remain unchanged; observe loading, collision and network replication.
 Record these results before accepting runtime behavior. No DayZ result is
 established by the synthetic suite.

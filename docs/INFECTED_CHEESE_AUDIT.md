@@ -9,7 +9,7 @@ Native citations refer to the installed `scripts-1.30.164289` snapshot
 (`~/.cache/hollow-country/native-scripts/`). Source lives in
 `mods/HollowCountry/scripts/4_World/Infected/Reach/`. Every row is source-only.
 Nothing here has been seen working in DayZ yet. DayZDiag, normal PBO/server
-runs, two-client checks and the target-load benchmark are all still pending.
+runs and single-client checks are still pending; target-load budgets remain provisional.
 
 ## Why the infected below cannot hit back (native cause)
 
@@ -115,8 +115,7 @@ this issue does not change it.
    `[HollowCountry] perf budget module=InfectedReach deferred=` line per
    600 s.
 
-Second-client visibility of swings, vaults and vehicle damage is a deferred
-user check.
+Check visible swings, vaults and vehicle damage on the connected client.
 
 ## Remaining gaps
 

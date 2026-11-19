@@ -6,8 +6,8 @@ names what to run, what success looks like and what to do when it fails. The
 background and the reasons are in [FRIEND_SERVER.md](FRIEND_SERVER.md).
 
 Status: this is a **test build**. Hollow Country compiles and starts on the
-developer's Windows server with one client. Multiplayer and two-client behaviour
-are not accepted yet. Report what you see; do not claim a feature works because
+developer's Windows server with one client. The current combined build still needs DayZDiag, normal PBO/server and
+single-client gameplay acceptance. Report what you see; do not claim a feature works because
 a log line appeared.
 
 ## Rules for the agent
@@ -290,9 +290,9 @@ catalog/operator drift. Check for `route qualified`, cached route refusals and
 normal native patrol creation/spawn logs as separate stages. Route outcomes use
 the existing route cache; cached refusals survive restart. Successful routes
 still rebuild geometry because that cache does not store snapped/skipped
-waypoints. Native qualification, normal PBO/server behavior, two-client
-observer/combat cleanup, restart recovery and 3–6-player performance remain
-**runtime acceptance pending** for this change.
+waypoints. Native qualification, normal PBO/server behavior, single-client
+observer/combat cleanup and restart recovery remain **runtime acceptance pending**
+for this change. Larger-load performance is unmeasured and outside acceptance.
 
 ## 8. Mission overlay
 
@@ -353,7 +353,7 @@ Success leaves the bundle's three CE folders plus one folder per weapon pack
 class already in stock or any registered types file still refuses. Unknown CE
 folders are named for explicit operator reconciliation; do not remove the guard
 or hand-edit around it. Static verification and installation leave DayZDiag,
-normal server/PBO and two-client acceptance pending.
+normal server/PBO and single-client acceptance pending.
 
 Rollback is last installed first: Tactical Flava, SNAFU, then the bundle (see
 Rollback below). If the packs were installed in the opposite order, reverse their
@@ -655,7 +655,7 @@ Inspected PBO SHA-256 values (not redistributed):
 
 Title: AI weapon event dispatch dereferences missing FSM for admin-spawned vanilla M249
 
-Observed by friend operator on Hollow Country v1-test-7, two players: an
+Observed by friend operator on Hollow Country v1-test-7: an
 admin-spawned M249 later held by eAI produces repeated `NULL pointer to instance`
 errors in Expansion `weapon_base.c:666` on fire ticks; spawn also reports
 `[wpnfsm] SaveCurrentFSMState: weapon without FSM`. Exact weapon classname,
@@ -673,7 +673,7 @@ Suggested investigation: reject unsupported/no-FSM weapons before AI selection
 or event dispatch; emit a bounded diagnostic and leave inventory handling to the
 provider. Verify normal event/abort semantics and a supported rifle regression.
 Reproduce on a disposable server using the exact friend versions, raw `M249`
-versus a known supported rifle, with two clients. HC has a local downstream
+versus a known supported rifle, with one client. HC has a local downstream
 containment guard; no Expansion/COT files were modified or repacked. No upstream
 issue was filed.
 
@@ -702,7 +702,7 @@ Native math/super/cast seams are explicit and do not simulate engine acceptance.
 Pending: DayZDiag compilation, signed normal PBO/server reproduction with the
 friend dependency set, supported weapon/abort regression, late native CE
 population and candidate-flag observation at both sites, startup geometry
-confirmation, and two-client replication/visibility tests. Offline passes do not
+confirmation, and single-client replication/visibility tests. Offline passes do not
 enable production or accept an unrun engine experiment. Performance at 3–6
 players remains unmeasured.
 
