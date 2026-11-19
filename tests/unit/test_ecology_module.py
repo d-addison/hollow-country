@@ -44,9 +44,14 @@ class EcologyModuleBehavior(unittest.TestCase):
             HCOpen=lambda enabled: None, HCStatus=lambda: wildlife_status, HCActive=lambda: False,
             HCStep=lambda *args: None, HCClose=lambda: None)
         self.e['HCGroupClock'] = SimpleNamespace(Utc=lambda: 1577836900)
+        # Explicit synthetic HC-25 registration port. The wildlife behavioral
+        # test executes real HC-25 capture; this legacy fixture has no registry.
+        self.e['HCOperationalContributors'] = SimpleNamespace(HCRegisterOwner=lambda name: None)
         self.source = SOURCE.read_text().replace('s_Instance', 'hc49_static.instance')
+        self.source = self.source.replace('HCOperationalOwner wildlifeOwner', 'HCEventOperationalOwner wildlifeOwner')
         self.module = SimpleNamespace(m_Settings=None, m_Started=False, Session=lambda: "s20261117-010203-77",
                                       m_WildlifeScenes=None, m_Status=status, m_WildlifeStatus=wildlife_status)
+        self.module.HCObserveWildlife = lambda requested: self.method('HCObserveWildlife')(self.module, requested)
 
     def method(self, name):
         return translated(self.source, name, self.e, "HCEcologyRuntimeModule", True)

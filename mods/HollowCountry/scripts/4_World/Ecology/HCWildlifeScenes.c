@@ -70,7 +70,13 @@ class HCWildlifeSceneDebug : HCDebugContributor
 class HCWildlifeScenes
 {
     static const int MAX_RECEIPTS = 64;
-    static const int MAX_SPENT_CORPSES = 64;
+    // Fallback: 16 times the old lifetime allowance, bounded independently of
+    // the 64 scene receipts. 1024 native numeric PIDs plus receipts fit the
+    // shared HCEncounterStore 262144-byte ceiling. This is NOT safe eviction:
+    // GetPersistentID (EntityAI.c:3374) identifies, but does not resolve an old
+    // PID or prove its Hive corpse is gone. Old rows retain no handle/session.
+    // Refuse at this named cap; never treat snapshot absence as destruction.
+    static const int MAX_SPENT_CORPSES = 1024;
     protected static ref array<string> s_StoryOff = new array<string>;
     protected ref HCWildlifeSceneConfig m_Config;
     protected ref HCEncounterStore<HCWildlifeSceneState> m_Store;
@@ -267,6 +273,8 @@ class HCWildlifeScenes
         HCDebugSnapshot.HCRegister(m_Debug);
         HCReport();
         Print("[HC Plan] HC-49 carcass=none origin=authored supply=pending state=refused refusal=AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN count=0 runtime=PENDING");
+        int spentCap = HCWildlifeScenes.MAX_SPENT_CORPSES;
+        Print("[HC Plan] HC-49 state=refused refusal=CARCASS_SPENT_EVICTION_UNPROVEN spent_cap=" + spentCap.ToString() + " runtime=PENDING");
         return true;
     }
 

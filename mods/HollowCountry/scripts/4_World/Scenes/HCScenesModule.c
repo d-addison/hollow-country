@@ -402,6 +402,10 @@ class HCScenesModule : HCModule
             m_Placed = m_Placed + lease.Objects.Count();
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
             PublishSceneStory(chain, HCSceneChains.Site(plan.SiteId));
+            if (chain.Stage == 0 && (!m_Stories || !m_Stories.HCReady()))
+            {
+                HCWildlifeScenes.HCStoryOff(chain.Id);
+            }
             m_PreflightReasons.Remove(chain.Id);
         }
         if (lease.ViewEventId == 0)
