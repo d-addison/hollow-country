@@ -1,5 +1,7 @@
 // HC-59: active legacy barns plus a separate bounded regional survey queue.
-// No new roof is admitted from class ancestry, a stock point or a route label.
+// Issue 200: stock identity checked; both installed class samples have zero
+// paths and search-only templates (no rooms, keepouts or prop slots). Missing
+// site access/clearance is a data gap, not an unverified acceptance gate.
 // CandidateCount/GetCandidate are lead integration inputs, never placed scenes.
 // Native stock roofs need no new stock, lights, inventory, props or tick loop.
 // LC-T206 / LC-TRV-06. Six shared, unowned rural barns; no loot or lead grants.
@@ -36,7 +38,7 @@ class HCShelterSurvey
     string LocalityId;
     string Region;
     string RouteClass;
-    string Refusal = "hc59_regional_shelter_access_unobserved";
+    string Refusal;
 }
 
 class HCShelterCatalog
@@ -45,7 +47,7 @@ class HCShelterCatalog
     protected static ref array<ref HCShelterEntry> s_Entries = new array<ref HCShelterEntry>;
     protected static ref array<ref HCShelterSurvey> s_Candidates = new array<ref HCShelterSurvey>;
 
-    protected static void HCCandidate(string id, string name, string buildingClass, vector position, string locality, string region, string routeClass)
+    protected static void HCCandidate(string id, string name, string buildingClass, vector position, string locality, string region, string routeClass, string refusal)
     {
         HCShelterSurvey row = new HCShelterSurvey;
         row.Id = id;
@@ -55,6 +57,7 @@ class HCShelterCatalog
         row.LocalityId = locality;
         row.Region = region;
         row.RouteClass = routeClass;
+        row.Refusal = refusal;
         s_Candidates.Insert(row);
     }
 
@@ -62,13 +65,15 @@ class HCShelterCatalog
     {
         if (s_Candidates.Count() != 0) return;
         // Exact stock-map anchors, not measured access or interior locations.
-        // Residential config exposes these models as HouseNoDestruct scope=1;
-        // this is insufficient to assert enterability, roof cover or road access.
-        HCCandidate("nw-feed-roof", "Northwest woodland roof", "Land_Misc_FeedShack", "1987.282837 289.981445 12965.870117", "sinystok", "NW", "forest-trail");
-        HCCandidate("nc-feed-roof", "Northern woodland roof", "Land_Misc_FeedShack", "7428.081543 131.084442 12732.728516", "kamensk", "NC", "forest-trail");
-        HCCandidate("ne-feed-roof", "Northeast woodland roof", "Land_Misc_FeedShack", "12818.673828 126.932716 13117.182617", "novodmitrovsk", "NE", "remote-road");
-        HCCandidate("sc-bus-roof", "Central coast road roof", "Land_BusStop_City", "6826.631836 50.728073 3549.387207", "prigorodki", "SC", "coastal-road");
-        HCCandidate("se-bus-roof", "Southeast coast road roof", "Land_BusStop_City", "10897.795898 7.027513 2815.425293", "elektrozavodsk", "SE", "coastal-road");
+        // Native sampler 110 (BusStop) / 112 (FeedShack) measured other sites:
+        // no-door, zero strict/player paths, entered=untested. _measure returns
+        // path_pending. Installed t-0011/t-0078 have no scene slots. Per-site
+        // stock row, source hashes and remaining survey work: route-surveys.json.
+        HCCandidate("nw-feed-roof", "Northwest woodland roof", "Land_Misc_FeedShack", "1987.282837 289.981445 12965.870117", "sinystok", "NW", "forest-trail", "hc200_feed_roof_site_path_clearance_missing");
+        HCCandidate("nc-feed-roof", "Northern woodland roof", "Land_Misc_FeedShack", "7428.081543 131.084442 12732.728516", "kamensk", "NC", "forest-trail", "hc200_feed_roof_site_path_clearance_missing");
+        HCCandidate("ne-feed-roof", "Northeast woodland roof", "Land_Misc_FeedShack", "12818.673828 126.932716 13117.182617", "novodmitrovsk", "NE", "remote-road", "hc200_feed_roof_site_path_clearance_missing");
+        HCCandidate("sc-bus-roof", "Central coast road roof", "Land_BusStop_City", "6826.631836 50.728073 3549.387207", "prigorodki", "SC", "coastal-road", "hc200_bus_roof_site_path_clearance_missing");
+        HCCandidate("se-bus-roof", "Southeast coast road roof", "Land_BusStop_City", "10897.795898 7.027513 2815.425293", "elektrozavodsk", "SE", "coastal-road", "hc200_bus_roof_site_path_clearance_missing");
     }
 
     static int CandidateCount()

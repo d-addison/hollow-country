@@ -29,6 +29,7 @@
 class HCShelterModule : HCModule
 {
     protected bool m_Started;
+    protected bool m_CandidateSurveyReported;
     protected int m_Placed;
     protected int m_Refused;
     protected string m_RefusalReason;
@@ -101,7 +102,8 @@ class HCShelterModule : HCModule
     override void OnStop()
     {
         if (!m_Started) return;
-        foreach (Object ownedProp : m_Objects)
+        array<Object> ownedProps = m_Objects;
+        foreach (Object ownedProp : ownedProps)
         {
             DeleteProp(ownedProp);
         }
@@ -458,8 +460,28 @@ class HCShelterModule : HCModule
         return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
+    // Once per owner lifetime, bounded by the five authored survey rows. Missing
+    // site measurements never become a gate-verdict refusal for working barns.
+    // Print: installed 1_Core/proto/EnDebug.c:96; array access is catalog-only.
+    protected void HCReportCandidateSurveys()
+    {
+        if (m_CandidateSurveyReported) { return; }
+        m_CandidateSurveyReported = true;
+        int candidateIndex = 0;
+        while (candidateIndex < HCShelterCatalog.CandidateCount())
+        {
+            HCShelterSurvey candidate = HCShelterCatalog.GetCandidate(candidateIndex);
+            if (candidate)
+            {
+                Print("[HC Shelters] candidate=" + candidate.Id + " excluded=" + candidate.Refusal + " source=travel/route-surveys.json runtime=PENDING");
+            }
+            candidateIndex = candidateIndex + 1;
+        }
+    }
+
     protected void PlaceShelter(int index)
     {
+        if (index == 0) { HCReportCandidateSurveys(); }
         HCShelterEntry entry = HCShelterCatalog.Get(index);
         if (!entry) { return; }
         entry.Placed = false;
