@@ -232,11 +232,12 @@ class Signals(unittest.TestCase):
         self.assertTrue(path.exists())
         text = path.read_text().split("class HCXSignalProvider", 1)[0]
         text = text.replace("EmoteCB previous", "Object previous")  # declaration syntax only
-        state = N(m_HCSignalSerial=0, m_bEmoteIsPlaying=False, m_CurrentGestureID=9, m_Callback=None)
+        state = N(m_HCSignalSerial=0, m_HCGreetingSerial=0, m_bEmoteIsPlaying=False, m_CurrentGestureID=9, m_Callback=None)
         def native_create(*args):
             state.m_Callback = object(); state.m_bEmoteIsPlaying = True
         # Synthetic native callback creation, no engine or provider behavior claim.
         env = {"GetGame":lambda:N(IsServer=lambda:True),
+               "EmoteConstants":N(ID_EMOTE_GREETING=9),
                "super":N(CreateEmoteCallback=native_create)}
         authored = Authored(text, env)
         self.assertEqual(0, authored.call("HCSignalGesture", state))
@@ -687,6 +688,7 @@ class Signals(unittest.TestCase):
                     actor, player = N(), N()
                     stance = N(Owns=lambda a:True, Relation=lambda *a:relation)
                     env = dict(GetGame=lambda:N(IsServer=lambda:True),
+                        GetGroup=lambda:N(GetFaction=lambda:"Locals"), HCXFactions=N(Id=lambda faction:faction),
                         HCXStance=stance, HCXDefence=N(AttackerOf=lambda a:player, HCHitRecorded=lambda *a:True),
                         HCXEmoteObservation=N(Remember=lambda *a:store.Remember("g", "p", 100)),
                         HCXAISiteDirector=N(Active=lambda:None), EntityAI=N(Cast=lambda a:a),
