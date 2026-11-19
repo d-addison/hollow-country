@@ -174,7 +174,11 @@ class HCHordeMigration : HCModule
         s_Active = HCHordeRoutes.HCLoad(GetGame().GetWorldName());
         m_Status.HCPublish("refused", HCHordeRoutes.Reason());
         if (HCHordeRoutes.Reason() == "ROUTE_OPERATOR_OFF") { m_Status.HCPublish("off", "route_operator_off"); }
-        if (s_Active) { m_Status.HCPublish("degraded", "survey_source_loaded_physical_observer_contract_pending"); }
+        // Wave 16 owner decision: a loaded, valid route document is admitted unverified (the EXP-S4
+        // admission line above names the missing native verdict once; the two HC-46 lines below
+        // name the physical observer and fresh-visual parts that stay refused). Ready is derived
+        // from the loaded document; operator opt-out is Enabled=false in route-surveys.json.
+        if (s_Active) { m_Status.HCPublish("ready", "survey_routes_loaded_admitted_unverified_runtime_pending"); }
         Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=" + HCHordeRoutes.Reason() + " state=" + m_Status.HCState() + " admitted=0 max_cohorts=2 runtime=PENDING");
         Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=FRESH_VISUAL_RECEIPT_UNEXPOSED state=refused count=0 runtime=PENDING");
         Print("[HC Plan] HC-46 route=all cohort=0 stimulus=0 phase=PHYSICAL_ROUTE_OBSERVER_CONTRACT_PENDING state=refused noise_ttl_max=30 observer_quiet=60 count=0 runtime=PENDING");

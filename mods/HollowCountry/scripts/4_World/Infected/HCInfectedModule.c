@@ -82,11 +82,6 @@ class HCInfectedModule : HCModule
         {
             HCOperationalStatus variety = HCInfectedVarietyModule.HCObservedStatus();
             if (variety && variety.HCState() == "degraded") { return variety; }
-            // #187: the start placeholder ends once the posture owner reports.
-            if (variety && m_HCOwnerStatus.HCReason() == "posture_owner_start_pending")
-            {
-                m_HCOwnerStatus.HCPublish("ready", "infected_owner_running_runtime_pending");
-            }
         }
         return m_HCOwnerStatus;
     }
@@ -222,13 +217,11 @@ class HCInfectedModule : HCModule
         m_NativeVariants = HCNativeVariantAdmission.Check(settings.EnableInfectedVariety);
         Print(m_NativeVariants.HCAdmissionLine());
         m_Healthy = true;
+        // The posture owner (InfectedVariety) is a separate module registered after this one, so
+        // it cannot have started when HC-1 captures this row. It prints its own readiness line;
+        // this owner reports only its own started state and still surfaces a later degraded
+        // posture row through HCGetOperationalStatus.
         m_HCOwnerStatus.HCPublish("ready", "infected_owner_running_runtime_pending");
-        // HC-1 can capture this owner before Variety's OnStart. Requested
-        // postures cannot be reported ready while that owner's row is absent.
-        if (settings.EnableInfectedVariety)
-        {
-            m_HCOwnerStatus.HCPublish("degraded", "posture_owner_start_pending");
-        }
         Instance = this;
         // Periodic saves run half an interval after adoption so the two
         // persistence-heavy steps never share a server tick.

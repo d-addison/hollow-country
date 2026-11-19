@@ -77,7 +77,10 @@ class HCPostureAdmission
         m_Queue.Insert("prone_sleep");
         m_Queue.Insert("riser");
         m_Running = true;
-        m_Status.HCPublish("degraded", "native_crawler_idle_only_rest_wake_unverified");
+        // Wave 16 owner decision: the missing native rest-wake verdict is an admitted-unverified
+        // verdict (logged once by the HCV2Admission line above; HC-45 per-mode lines name each
+        // refused mode), not a degraded module. Opt-out stays EnableInfectedVariety.
+        m_Status.HCPublish("ready", "native_crawler_idle_admitted_rest_wake_unverified_runtime_pending");
         HCSlice();
     }
 
