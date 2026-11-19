@@ -22,6 +22,26 @@ GREEN required checks: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3
 test_script_syntax test_enforce_locals test_script_identifiers test_hygiene
 test_enforce_formula_complexity -v -> Ran 66 tests, OK.
 Synthetic journal/body/story ports establish no DayZ or paired-Hive durability.
+
+Wave 6 wiring / HC-49, actual RED (2026-11-18): same focused command above,
+Ran 1 test; FAILED (failures=4). Pending close: 'pending' != 'unknown';
+invalid UTC: disk pending != unknown; full terminal history: False is not true;
+runtime contract: 'protected ref HCWildlifeScenes m_WildlifeScenes;' not found.
+GREEN: same focused command, Ran 1 test; OK. Executed authored owner lifecycle,
+story save/sequence gate, receipt eviction, restart and cached-status policies
+through explicitly synthetic collaborators, with no native qualification.
+GREEN required command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_wildlife test_hc_wildlife_wiring test_v1_ecology_resources test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_enforce_formula_complexity -v
+Ran 66 tests; OK.
+Affected-file regression command:
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_wildlife test_hc_wildlife_wiring test_ecology_module test_hc_story_module test_hc_story_schedule test_hc_unit_budget test_v2_scenes test_v2_leads test_v1_combined_flags test_v1_ecology_sight test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_enforce_formula_complexity -v
+Ran 181 tests; FAILED (failures=7, errors=8, expected failures=1).
+The two out-of-scope legacy fixtures need static owner/status/carcass ports
+(test_ecology_module) and the new type spelling/Stories DTO
+(test_hc_story_module). Combined flags imports the ecology fixture.
+Those files remain untouched; lead integration must update their scaffolding.
+Validating those two proposed fixture edits in memory only (no file writes),
+the ecology/story/combined-flags subset ran 52 tests; OK (expected failures=1).
 """
 import functools
 import copy
@@ -50,6 +70,7 @@ def carcass_fixture(image=None, enabled=True):
     text = path.read_text().replace('    protected ', '    ')
     text = re.sub(r'\bthis\b', 'self', text)
     text = text.replace('retained.ToString()', 'str(retained)')
+    text = text.replace('receiptCap.ToString()', 'str(receiptCap)')
     text = re.sub(r'array<[^>]+>(?= \w+ =)', 'HCArray', text)
     text = text.replace('new HCEncounterStore<HCWildlifeSceneState>("hc49-carcasses")',
                         'new SyntheticStore()')
@@ -62,7 +83,11 @@ def carcass_fixture(image=None, enabled=True):
         return True
     config = N(**json.loads((CONFIG.parent / 'carcass-sites.json').read_text()))
     config.Sites = EArray(config.Sites)
+    status = N(state='unknown', reason='unknown')
+    status.HCPublish = lambda state, reason: (setattr(status, 'state', state), setattr(status, 'reason', reason))
+    cap = int(re.search(r'MAX_RECEIPTS = (\d+);', text)[1])
     env = dict(str=str, GetGame=lambda: N(IsServer=lambda: True), Print=logs.append,
+        HCWildlifeScenes=N(MAX_RECEIPTS=cap),
         HCEcologyNative=N(Authority=lambda: True),
         HCV2Admission=N(Admitted=lambda preference: preference),
         HCEventDirector=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap),
@@ -75,7 +100,7 @@ def carcass_fixture(image=None, enabled=True):
             Supply=EStr('pending'), Origin=EStr('observed'), DueAt=0, EndsAt=0),
         SyntheticStore=lambda: N(Load=lambda fresh, collection: calls.append('load') or
             copy.deepcopy(disk.image or fresh), Save=save),
-        HCOperationalStatus=lambda: N(HCPublish=lambda *args: None),
+        HCOperationalStatus=lambda: status,
         HCWildlifeSceneDebug=lambda: N(Owner=None),
         HCDebugSnapshot=N(HCRegister=lambda value: calls.append('debug_add'),
                           HCUnregister=lambda value: calls.append('debug_remove')))
@@ -90,7 +115,7 @@ def carcass_fixture(image=None, enabled=True):
     owner = N(m_State=None, m_Store=None, m_Config=None, m_Active=None, m_Body=None,
         m_Enabled=False, m_Fault=False, m_Opened=False, m_Cursor=0, m_LastTick=-1,
         m_LastNow=-1, m_Effective=EStr('off'), m_Reason=EStr('not_started'), m_Reports=0,
-        m_Debug=None, m_Units=unit_budget(),
+        m_Debug=None, m_Status=status, m_Units=unit_budget(),
         m_Work=N(HCReset=lambda *args: None, HCContinue=lambda: True))
     for name, (static, _, _) in table.items():
         setattr(owner, name, env[name] if static else MethodType(env[name], owner))
@@ -109,6 +134,85 @@ def carcass_fixture(image=None, enabled=True):
 def rename(text):
     return re.sub(r'\b(HCWildlife\w*|HCEcology\w*|HCV2Admission|DayZAnimalInputController|AnimalBase|AIAgent|Man)\b',
                   lambda m: 'HCEvent' + m[0], text)
+
+
+def check_carcass_runtime(test):
+    """Execute the two owned module seams; all collaborators are SYNTHETIC.
+
+    The existing restricted translator supplies syntax only. Static storage is
+    an explicit namespace because Python function assignment is not Enforce
+    class-static assignment. No engine/runtime acceptance is asserted.
+    """
+    from tests.unit.test_ecology_module import EcologyModuleBehavior
+    from tests.unit.test_map_layers import translate as handlers
+    legacy = EcologyModuleBehavior()
+    legacy.setUp()
+    events, static_owner = [], N(instance=None)
+    status = N(HCPublish=lambda *args: None)
+    carcasses = N(HCOpen=lambda enabled: events.append(('open', enabled)),
+                  HCStep=lambda now, now_ms: events.append(('step', now, now_ms)),
+                  HCClose=lambda: events.append(('close',)), HCStatus=lambda: status)
+    utc = [1577836900]
+    env = dict(legacy.e, static_owner=static_owner, HCWildlifeScenes=lambda: carcasses,
+               HCGroupClock=N(Utc=lambda: utc[0]))
+    source = legacy.source.replace('override ', '').replace('s_Instance', 'static_owner.instance')
+    source = re.sub(r'\bthis\b', 'self', source)
+    names = ('IsEnabled', 'OnStart', 'OnTick', 'OnStop', 'HCGetOperationalStatus', 'HCWildlife')
+    handlers(source, 'HCEcologyRuntimeModule', env, only=names)
+    owner = legacy.module
+    owner.m_WildlifeScenes, owner.m_Status = None, status
+    for name in names:
+        setattr(owner, name, env[name] if name == 'HCWildlife' else MethodType(env[name], owner))
+    test.assertIsNone(owner.HCWildlife())
+    test.assertTrue(owner.IsEnabled(None))
+    owner.OnStart(None)
+    test.assertEqual([('open', True)], events)
+    test.assertIs(carcasses, owner.HCWildlife())
+    test.assertIs(status, owner.HCGetOperationalStatus())
+    owner.OnStart(None)
+    test.assertEqual([('open', True)], events, 'duplicate start never opens a second owner')
+    owner.OnTick(1)
+    test.assertEqual(('step', 100, 4321), events[-1])
+    for invalid in (-1, 0, 1577836800):
+        utc[0] = invalid
+        before = list(events)
+        owner.OnTick(1)
+        test.assertEqual(before, events, 'invalid group UTC skips carcass step')
+    owner.OnStop()
+    test.assertIsNone(owner.HCWildlife())
+    test.assertIsNone(owner.m_WildlifeScenes)
+    owner.OnStop()
+    owner.OnTick(1)
+    test.assertEqual(1, events.count(('close',)))
+    legacy.settings.Enabled = False
+    test.assertFalse(owner.IsEnabled(None))
+    test.assertIsNone(owner.HCWildlife())
+
+    # A successful save alone can be a retirement. Only an actual new arrival
+    # offers its exact chain, after the story barrier, and never retries later.
+    source = (SOURCE.parent.parent / 'Scenes/HCScenesModule.c').read_text()
+    source = re.sub(r'array<[^>]+>(?= \w+ =)', 'HCArray', source)
+    for saved, advanced, present in ((True, True, True), (True, False, True),
+                                      (False, True, True), (True, True, False)):
+        with test.subTest(saved=saved, advanced=advanced, ecology=present):
+            calls = []
+            arrived = N(StorySequence=9)
+            state = N(Stories=N(NextSequence=9), Chains=EArray([N(StorySequence=8), arrived]))
+            wildlife = N(HCOffer=lambda chain, current: calls.append(('offer', chain, current)))
+            def step(now, released):
+                calls.append('story-save')
+                if advanced: state.Stories.NextSequence += 1
+                return saved
+            scene = N(m_Running=True, m_State=state,
+                      m_Stories=N(HCReady=lambda: True, HCCandidate=lambda: None, HCStep=step),
+                      SaveBarrierDone=lambda: calls.append('barrier'))
+            env = dict(HCEcologyRuntimeModule=N(HCWildlife=lambda: wildlife if present else None))
+            handlers(source, 'HCScenesModule', env, only=('StoryStep',))
+            env['StoryStep'](scene, 100)
+            expected = ['story-save']
+            if saved: expected.append('barrier')
+            if saved and advanced and present: expected.append(('offer', arrived, state))
+            test.assertEqual(expected, calls)
 
 
 def authored(text, method, env, owner, member=False):
@@ -299,6 +403,13 @@ class WildlifeBehavior(unittest.TestCase):
         self.assertEqual('unknown', crashed.disk.image.Rows[0].Supply)
         self.assertIsNone(crashed.owner.m_Body)
         self.assertFalse(crashed.owner.HCOffer(crashed.chain, crashed.state))
+        active.owner.HCClose()
+        self.assertEqual('unknown', active.disk.image.Rows[0].Supply)
+        self.assertIsNone(active.owner.m_Body)
+        # Separate deletion observation still runs through the same authored port.
+        active = carcass_fixture()
+        active.owner.HCOffer(active.chain, active.state)
+        active.owner.HCStep(100, 1000)
         active.animal.deleted = True
         active.owner.HCStep(101, 2000)
         self.assertEqual('unavailable', active.disk.image.Rows[0].Supply)
@@ -325,7 +436,25 @@ class WildlifeBehavior(unittest.TestCase):
         stopped.owner.HCStep(100, 1000)
         stopped.owner.HCClose()
         self.assertEqual(calls, len(stopped.calls))
-        self.assertEqual('unknown', stopped.disk.image.Rows[0].Supply)
+        with self.subTest(hc49='pending survives stop and restart'):
+            self.assertEqual('pending', stopped.disk.image.Rows[0].Supply)
+            resumed = carcass_fixture(stopped.disk.image)
+            self.assertIsNotNone(resumed.owner.m_Active)
+            resumed.owner.HCStep(100, 1000)
+            self.assertEqual('native_skinnable', resumed.disk.image.Rows[0].Supply)
+
+        with self.subTest(hc49='invalid UTC does not burn the opportunity'):
+            waiting = carcass_fixture()
+            waiting.owner.HCOffer(waiting.chain, waiting.state)
+            before = copy.deepcopy(waiting.disk.image)
+            calls = list(waiting.calls)
+            waiting.owner.HCStep(0, 1000)
+            waiting.owner.HCStep(-1, 2000)
+            self.assertEqual(before, waiting.disk.image)
+            self.assertEqual(calls, waiting.calls)
+            self.assertEqual((-1, -1), (waiting.owner.m_LastNow, waiting.owner.m_LastTick))
+            waiting.owner.HCStep(100, 3000)
+            self.assertEqual('native_skinnable', waiting.disk.image.Rows[0].Supply)
 
         unknown = carcass_fixture()
         unknown.animal.pid = ''
@@ -353,8 +482,23 @@ class WildlifeBehavior(unittest.TestCase):
             row.Id, row.StorySequence, row.CorpseId = 'old-' + str(index), index + 1, 'body-' + str(index)
         full = carcass_fixture(full_image)
         self.assertFalse(full.owner.HCOffer(full.chain, full.state))
-        self.assertEqual(64, len(full.owner.m_State.Rows), 'history never evicts depleted receipts')
+        self.assertEqual(64, len(full.owner.m_State.Rows), 'duplicate offer cannot evict a receipt')
         self.assertNotIn('save', full.calls)
+        with self.subTest(hc49='oldest terminal receipt is evicted at the cap'):
+            # SYNTHETIC shuffled history: sequence records issue order, not position.
+            full_image.Rows[0], full_image.Rows[17] = full_image.Rows[17], full_image.Rows[0]
+            capped = carcass_fixture(full_image)
+            capped.chain.Id, capped.chain.StorySequence = 'synthetic-story-65', 65
+            capped.state.Stories.NextSequence = 66
+            self.assertTrue(capped.owner.HCOffer(capped.chain, capped.state))
+            self.assertEqual(64, len(capped.disk.image.Rows))
+            self.assertNotIn(1, [row.StorySequence for row in capped.disk.image.Rows])
+            self.assertEqual('pending', capped.disk.image.Rows[-1].Supply)
+            receipt = copy.deepcopy(capped.disk.image.Rows[-1])
+            capped.chain.Id, capped.chain.StorySequence = 'synthetic-story-66', 66
+            capped.state.Stories.NextSequence = 67
+            self.assertFalse(capped.owner.HCOffer(capped.chain, capped.state))
+            self.assertEqual(receipt, capped.disk.image.Rows[-1], 'pending is never evicted')
         expired = carcass_fixture()
         expired.owner.HCOffer(expired.chain, expired.state)
         expired.owner.HCStep(200, 1000)
@@ -372,6 +516,45 @@ class WildlifeBehavior(unittest.TestCase):
         self.authority = False
         self.assertFalse(owner.HCAdd(other))
         self.assertFalse(owner.HCBegin(True, config))
+
+        with self.subTest(hc49='cached status follows transitions beyond log cap'):
+            cached = carcass_fixture()
+            status = cached.owner.HCStatus()
+            self.assertIs(status, cached.owner.HCStatus())
+            self.assertEqual('ready', status.state)
+            cached.owner.m_Reports = 32
+            cached.owner.HCRefuse('SYNTHETIC_REFUSAL')
+            self.assertIs(status, cached.owner.HCStatus())
+            self.assertEqual('refused', status.state)
+            cached.owner.HCClose()
+            self.assertEqual('off', status.state)
+
+        with self.subTest(hc49='runtime ownership and durable story offer contract'):
+            from tests.unit.test_hc_wildlife_wiring import method
+            module = (SOURCE.parent / 'HCEcologyRuntimeModule.c').read_text()
+            self.assertIn('protected ref HCWildlifeScenes m_WildlifeScenes;', module)
+            self.assertIn('protected static HCEcologyRuntimeModule s_Instance;', module)
+            start = method(module, 'HCEcologyRuntimeModule', 'OnStart')
+            tick = method(module, 'HCEcologyRuntimeModule', 'OnTick')
+            stop = method(module, 'HCEcologyRuntimeModule', 'OnStop')
+            self.assertIn('m_WildlifeScenes.HCOpen(true)', start)
+            self.assertIn('s_Instance = this;', start)
+            self.assertIn('HCGroupClock.Utc()', tick)
+            self.assertIn('if (utc < 1577836801) { return; }', tick)
+            self.assertIn('m_WildlifeScenes.HCStep(utc - 1577836800, GetGame().GetTime())', tick)
+            self.assertLess(stop.index('m_WildlifeScenes.HCClose()'), stop.index('m_WildlifeScenes = null'))
+            self.assertIn('s_Instance = null;', stop)
+            self.assertIn('return m_Status;', method(module, 'HCEcologyRuntimeModule', 'HCGetOperationalStatus'))
+            self.assertIn('return s_Instance.m_WildlifeScenes;', method(module, 'HCEcologyRuntimeModule', 'HCWildlife'))
+            scenes = (SOURCE.parent.parent / 'Scenes/HCScenesModule.c').read_text()
+            step = method(scenes, 'HCScenesModule', 'StoryStep')
+            self.assertLess(step.index('int nextSequence ='), step.index('m_Stories.HCStep(now, released)'))
+            self.assertLess(step.index('SaveBarrierDone();'), step.index('wildlife.HCOffer('))
+            self.assertIn('m_State.Stories.NextSequence != nextSequence', step)
+            self.assertIn('arrived.StorySequence == m_State.Stories.NextSequence - 1', step)
+            self.assertIn('HCEcologyRuntimeModule.HCWildlife()', step)
+            self.assertIn('if (wildlife)', step)
+            check_carcass_runtime(self)
 
 
 if __name__ == '__main__':

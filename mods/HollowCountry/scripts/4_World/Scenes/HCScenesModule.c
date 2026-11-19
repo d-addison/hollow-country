@@ -127,7 +127,30 @@ class HCScenesModule : HCModule
             ReleaseRefusals(candidate.Id);
         }
         // Even an empty receipt advances the scheduler's bounded retained cursor.
-        if (m_Stories.HCStep(now, released)) { SaveBarrierDone(); return; }
+        int nextSequence = 0;
+        if (m_State.Stories) { nextSequence = m_State.Stories.NextSequence; }
+        if (m_Stories.HCStep(now, released))
+        {
+            SaveBarrierDone();
+            // HCStep returned only after its synchronous story save succeeded.
+            // Retirement also saves: offer only a newly issued identity.
+            if (m_State.Stories && m_State.Stories.NextSequence != nextSequence)
+            {
+                HCWildlifeScenes wildlife = HCEcologyRuntimeModule.HCWildlife();
+                if (wildlife)
+                {
+                    foreach (HCSceneChain arrived : m_State.Chains)
+                    {
+                        if (arrived.StorySequence == m_State.Stories.NextSequence - 1)
+                        {
+                            wildlife.HCOffer(arrived, m_State);
+                            break;
+                        }
+                    }
+                }
+            }
+            return;
+        }
         if (m_Stories.HCReady()) { return; }
         if (m_Stories.HCReason() == "save-failed") { SaveBarrierDone(); }
         m_Running = false;

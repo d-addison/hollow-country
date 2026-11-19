@@ -7,6 +7,7 @@
 // Native live reads are confined to HCEcologyResourceSurvey.Carcass/Supply.
 // N9 AnimalBase.c:32-40 DeathUpdate swaps some native bodies; ActionSkinning.c:
 // 64-80 spends the body, creates native-config organs and schedules deletion.
+// 1_Core/proto/EnScript.c:470 RemoveOrdered retains receipt order on eviction.
 // No general CE corpse admission/paired Hive-restore receipt was established.
 // Refuse authored materialization; no dummy, kill/spawn, loot, lifetime write,
 // population count, predator command or inferred feeding. CE retains ownership.
@@ -40,7 +41,8 @@ class HCWildlifeSceneRow
     string CorpseId;
     string Origin = "observed";
     // pending -> native_skinnable -> depleted/unavailable/unknown.
-    // missed: window ended without a body. All terminal receipts stay forever.
+    // missed: window ended without a body. Oldest terminal receipts may expire
+    // from the bounded journal; pending/native_skinnable rows are never evicted.
     string Supply = "pending";
 }
 
@@ -64,6 +66,7 @@ class HCWildlifeSceneDebug : HCDebugContributor
 // Ecology calls HCStep(world UTC since 2020, native mission milliseconds).
 class HCWildlifeScenes
 {
+    static const int MAX_RECEIPTS = 64;
     protected ref HCWildlifeSceneConfig m_Config;
     protected ref HCEncounterStore<HCWildlifeSceneState> m_Store;
     protected ref HCWildlifeSceneState m_State;
@@ -81,6 +84,7 @@ class HCWildlifeScenes
     protected int m_Reports;
     protected string m_Effective = "off";
     protected string m_Reason = "not_started";
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     static HCWildlifeSceneConfig HCLoadConfig()
     {
@@ -95,7 +99,7 @@ class HCWildlifeScenes
     {
         // No initializer/missing-field migration: native missing ints are zero.
         if (!config || config.Version != 1 || !config.Sites || config.Sites.Count() != 0) { return false; }
-        if (config.MaxReceipts < 1 || config.MaxReceipts > 64) { return false; }
+        if (config.MaxReceipts < 1 || config.MaxReceipts > HCWildlifeScenes.MAX_RECEIPTS) { return false; }
         if (config.SamplesPerTick < 1 || config.SamplesPerTick > 16) { return false; }
         if (config.WorkUnits < 1 || config.WorkUnits > 64 || config.TickMs < 1 || config.TickMs > 60000) { return false; }
         if (config.Origin != "observed" || config.SupplyOwner != "native_skinning") { return false; }
@@ -104,7 +108,7 @@ class HCWildlifeScenes
 
     static bool HCValid(HCWildlifeSceneState state)
     {
-        if (!state || state.Version != 1 || !state.Rows || state.Rows.Count() > 64) { return false; }
+        if (!state || state.Version != 1 || !state.Rows || state.Rows.Count() > HCWildlifeScenes.MAX_RECEIPTS) { return false; }
         array<string> identities = new array<string>();
         array<string> bodies = new array<string>();
         array<int> stories = new array<int>();
@@ -136,6 +140,8 @@ class HCWildlifeScenes
 
     void HCReport()
     {
+        // Lifecycle status stays current even when bounded diagnostics are full.
+        m_Status.HCPublish(m_Effective, m_Reason);
         if (m_Reports >= 32) { return; }
         m_Reports = m_Reports + 1;
         string carcassId = "none";
@@ -145,14 +151,13 @@ class HCWildlifeScenes
         if (m_Active) { carcassId = m_Active.Id; supply = m_Active.Supply; }
         string line = "[HC Plan] HC-49 carcass=" + carcassId + " origin=observed supply=" + supply;
         line += " state=" + m_Effective + " refusal=" + m_Reason;
-        Print(line + " retained=" + retained.ToString() + " receipt_cap=64 active_cap=1 authored=0 runtime=PENDING");
+        int receiptCap = HCWildlifeScenes.MAX_RECEIPTS;
+        Print(line + " retained=" + retained.ToString() + " receipt_cap=" + receiptCap.ToString() + " active_cap=1 authored=0 runtime=PENDING");
     }
 
     HCOperationalStatus HCStatus()
     {
-        HCOperationalStatus status = new HCOperationalStatus;
-        status.HCPublish(m_Effective, m_Reason);
-        return status;
+        return m_Status;
     }
 
     protected bool HCRefuse(string reason)
@@ -227,10 +232,28 @@ class HCWildlifeScenes
         if (chain.StorySequence <= state.Stories.LegacyThrough || chain.StorySequence >= state.Stories.NextSequence) { return false; }
         if (!HCEventDirector.TextValid(chain.Id, 80) || chain.DueAt < 1 || chain.ExpiresAt <= chain.DueAt) { return false; }
         if (chain.ExpiresAt > 1000086400) { return false; }
-        if (m_State.Rows.Count() >= m_Config.MaxReceipts) { return HCRefuse("CARCASS_HISTORY_FULL_NO_EVICTION"); }
         foreach (HCWildlifeSceneRow prior : m_State.Rows)
         {
             if (prior.StorySequence == chain.StorySequence || prior.Id == chain.Id + "-carcass") { return false; }
+        }
+        if (m_State.Rows.Count() >= m_Config.MaxReceipts)
+        {
+            // StorySequence is durable issue order even if JSON rows reorder.
+            // At most MAX_RECEIPTS rows; eviction and insertion share ONE barrier.
+            int oldest = -1;
+            int oldestSequence = 999999999;
+            int receiptIndex = 0;
+            foreach (HCWildlifeSceneRow receipt : m_State.Rows)
+            {
+                if (receipt.Supply != "pending" && receipt.Supply != "native_skinnable" && receipt.StorySequence < oldestSequence)
+                {
+                    oldest = receiptIndex;
+                    oldestSequence = receipt.StorySequence;
+                }
+                receiptIndex = receiptIndex + 1;
+            }
+            if (oldest < 0) { return HCRefuse("CARCASS_HISTORY_FULL_NO_TERMINAL"); }
+            m_State.Rows.RemoveOrdered(oldest);
         }
         HCWildlifeSceneRow row = new HCWildlifeSceneRow;
         row.Id = chain.Id + "-carcass";
@@ -262,7 +285,10 @@ class HCWildlifeScenes
     void HCStep(int now, int nowMs)
     {
         if (!m_Enabled || m_Fault || !m_Active || !HCEcologyNative.Authority()) { return; }
-        if (now < 1 || now > 999000000 || nowMs < 0 || nowMs < m_LastNow)
+        // A missing/invalid UTC sample is transient; retain the opportunity and
+        // both cursors without a save, report or native body query.
+        if (now < 1) { return; }
+        if (now > 999000000 || nowMs < 0 || nowMs < m_LastNow)
         {
             HCFinish("unknown");
             HCRefuse("CARCASS_CLOCK_INVALID");
@@ -335,7 +361,10 @@ class HCWildlifeScenes
     void HCClose()
     {
         if (!m_Enabled) { return; }
-        if (m_Active) { HCFinish("unknown"); }
+        // Unbound pending opportunities survive ordinary owner stop/restart.
+        // Bound native bodies still lack a paired Hive restoration receipt.
+        if (m_Active && m_Active.CorpseId != "") { HCFinish("unknown"); }
+        m_Active = null;
         m_Enabled = false;
         m_Body = null;
         HCReleaseDebug();
