@@ -1,0 +1,124 @@
+"""Check the operator registry, compiled native mirror and shipped defaults.
+
+Standard library only. This is source admission, never DayZ runtime evidence.
+The JSON is the authoring registry; HCSettings consumes its checked compiled
+mirror so startup does not depend on an extra mission file or file IO.
+"""
+import argparse
+import json
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+REGISTRY = ROOT / 'tools/validate/shared_settings.json'
+NATIVE = ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c'
+AI_NATIVE = ROOT / 'mods/HollowCountry/scripts/3_Game/World/HCAILimits.c'
+SHIPPED = (ROOT / 'config/hollow-country-settings.json',
+           ROOT / 'mission/hollow-country/operator/settings.json')
+
+
+def load_registry():
+    return json.loads(REGISTRY.read_text())
+
+
+def flatten(value, prefix=''):
+    result = {}
+    for key, item in value.items():
+        name = prefix + key
+        result[name] = item
+        if isinstance(item, dict):
+            result.update(flatten(item, name + '.'))
+    return result
+
+
+def render_native_registry(rows):
+    lines = []
+    for row in rows:
+        default = row['default']
+        if row['type'] == 'object': default = 0
+        if row['type'] == 'bool': default = int(default)
+        lines.append('        HCAdd("{key}", "{type}", {default}, {low}, {high}, "{owner}");'.format(
+            **{key: row[key] for key in ('key', 'type', 'owner')}, default=default,
+            low=row['min'] or 0, high=row['max'] or 0))
+    return '\n'.join(lines)
+
+
+def check_consistency(*, registry=None, shipped=None, native=None):
+    """Optional inputs are explicit synthetic mutation seams for the same check."""
+    rows = load_registry() if registry is None else registry
+    source = NATIVE.read_text() if native is None else native
+    errors, rules = [], {}
+    for row in rows:
+        if set(row) != {'key', 'type', 'default', 'min', 'max', 'owner'}:
+            errors.append('Registry row must contain key/type/default/min/max/owner')
+            continue
+        key = row['key']
+        if key in rules: errors.append(f'Duplicate registry key {key}')
+        rules[key] = row
+        if not row['owner']: errors.append(f'Missing owner {key}')
+        kind = row['type']
+        allowed = {'bool': (bool,), 'int': (int,), 'float': (int, float), 'object': (dict,)}
+        if kind not in allowed or type(row['default']) not in allowed[kind]:
+            errors.append(f'Registry default type differs for {key}')
+        if kind != 'object':
+            low, high = row['min'], row['max']
+            if type(low) not in (int, float) or type(high) not in (int, float) or low > high:
+                errors.append(f'Invalid registry range {key}')
+            elif key != 'SearchDensityScale' and not low <= row['default'] <= high:
+                errors.append(f'Registry default outside range {key}')
+    if errors: return errors
+    images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
+        (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
+    for label, image in images:
+        values = flatten(image)
+        for key in sorted(values.keys() - rules.keys()): errors.append(f'{label}: unregistered key {key}')
+        for key in sorted(rules.keys() - values.keys()): errors.append(f'{label}: missing key {key}')
+        for key in values.keys() & rules.keys():
+            default = rules[key]['default']
+            if values[key] != default or type(values[key]) is not type(default):
+                errors.append(f'{label}: default differs for {key}')
+    block = re.search(r'// BEGIN GENERATED SETTINGS REGISTRY\n(.*?)\n        // END GENERATED SETTINGS REGISTRY', source, re.S)
+    if block is None or block[1] != render_native_registry(rows):
+        errors.append('Compiled settings registry differs (key/type/default/range/owner)')
+    dto = source.split('class HCSettings\n', 1)[-1]
+    fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+    top_rules = {key: row for key, row in rules.items() if '.' not in key and row['type'] != 'object'}
+    for key in fields.keys() - top_rules.keys(): errors.append(f'Unregistered native field {key}')
+    for key, row in top_rules.items():
+        if fields.get(key) != (row['type'], row['default']):
+            errors.append(f'Native DTO default/type differs for {key}')
+        if row['type'] in ('int', 'float'):
+            binding = f'HCOperatorSettingsRegistry.HCValid("{key}", {key})'
+            if binding not in dto: errors.append(f'Native validation binding differs for {key}')
+            if re.search(r'\b' + key + r'\s*[<>]=?\s*[\d.]', dto):
+                errors.append(f'Native literal range bypasses registry for {key}')
+    # AILimits keeps its owner and key-specific native clamp policy. Check its
+    # defaults/bounds against the same registry without editing that owner.
+    ai = AI_NATIVE.read_text()
+    ai_defaults = {k: int(v) for k,v in re.findall(r'^    int (\w+) = (\d+);', ai, re.M)}
+    ai_ranges = {k: (int(a), int(b)) for k,a,b in re.findall(
+        r'HCAILimits.Value\("(\w+)", \w+, (\d+), (\d+)\)', ai)}
+    nested = {k.removeprefix('AILimits.'): v for k,v in rules.items() if k.startswith('AILimits.')}
+    if set(nested) != set(ai_defaults) or set(nested) != set(ai_ranges):
+        errors.append('AILimits registry/native key set differs')
+    for key, row in nested.items():
+        if ai_defaults.get(key) != row['default'] or ai_ranges.get(key) != (row['min'], row['max']):
+            errors.append(f'AILimits default/range differs for {key}')
+    return errors
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args()
+    try:
+        errors = check_consistency()
+    except (OSError, ValueError, TypeError) as exc:
+        errors = [str(exc)]
+    print(json.dumps({'status': 'fail' if errors else 'pass', 'errors': errors,
+                      'scope': 'settings source consistency; runtime=PENDING'}, indent=2))
+    return bool(errors)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

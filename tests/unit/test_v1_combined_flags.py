@@ -69,6 +69,8 @@ class Profile:
         from tests.unit.ai_limits_fixture import install
         install(self.env)
         self.env['HCAILimits'].Use = lambda limits: None
+        from tests.unit.settings_registry_fixture import install_registry
+        install_registry(self.env)
         self.env['HCEventSettings'] = self.make
         self.load = event.translate(self.source, 'LoadFromProfile', self.env, 'HCEventSettings')
 
@@ -76,10 +78,15 @@ class Profile:
         value = N(**DEFAULTS)
         self.ai(value, DEFAULTS["AILimits"])
         source = self.source
-        for field in DEFAULTS:
-            source = re.sub(r'\b' + field + r'\b', 'self.' + field, source)
+        names = '|'.join(map(re.escape, DEFAULTS))
+        source = re.sub(r'"(?:\\.|[^"\\])*"|\b(?:' + names + r')\b',
+                        lambda match: match[0] if match[0].startswith('"') else 'self.' + match[0], source)
         value.Validate = lambda error: event.translate(source, 'Validate', self.env,
                                                        'HCEventSettings', True)(value, error)
+        from tests.unit.settings_registry_fixture import attach_density
+        attach_density(value, self.env)
+        value.HCLogEffective = lambda: event.translate(source, 'HCLogEffective', self.env,
+                                                       'HCEventSettings', True)(value)
         return value
 
     def ai(self, value, fields):

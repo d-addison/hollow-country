@@ -1,0 +1,547 @@
+[
+  {
+    "key": "SchemaVersion",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableInteriors",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableSearch",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableCrafting",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableInfected",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableHordes",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableAlertChains",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableGroups",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableAtmosphere",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableGrade",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "ClientPresentationMask",
+    "type": "int",
+    "default": 15,
+    "min": 0,
+    "max": 15,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableAmbientLife",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableSignsOfLife",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableTravel",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableWorld",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableLeads",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableCamps",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableEncounters",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableInfectedVariety",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableDebugSnapshot",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableAdminMap",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableCampRespawn",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableTeamPing",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableVehicleFlip",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableMealBuffs",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableForage",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableProgression",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "EnableGroupScaling",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "TickIntervalMs",
+    "type": "int",
+    "default": 1000,
+    "min": 500,
+    "max": 10000,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxTickWorkItems",
+    "type": "int",
+    "default": 32,
+    "min": 1,
+    "max": 256,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxActiveHordes",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 8,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxActiveHordeMembers",
+    "type": "int",
+    "default": 24,
+    "min": 1,
+    "max": 64,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxActiveInteriors",
+    "type": "int",
+    "default": 12,
+    "min": 1,
+    "max": 32,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxPropsPerInterior",
+    "type": "int",
+    "default": 5,
+    "min": 1,
+    "max": 20,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxFurnishedProps",
+    "type": "int",
+    "default": 1500,
+    "min": 0,
+    "max": 2000,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxBoundSearchSites",
+    "type": "int",
+    "default": 256,
+    "min": 1,
+    "max": 1024,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "InfectedBindRadius",
+    "type": "int",
+    "default": 30,
+    "min": 5,
+    "max": 60,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "MaxBindQueriesPerTick",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 8,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "AILimits",
+    "type": "object",
+    "default": {
+      "MaxLiveGroups": 15,
+      "MaxLiveAI": 72,
+      "OccupationMin": 3,
+      "OccupationMax": 8,
+      "HoldoutMin": 3,
+      "HoldoutMax": 6,
+      "PartyMin": 2,
+      "PartyMax": 6,
+      "PatrolMin": 2,
+      "PatrolMax": 5,
+      "CampMin": 2,
+      "CampMax": 6,
+      "MaxOccupiedPlaces": 15,
+      "MaxParties": 24,
+      "MaxMaterialized": 15,
+      "FactionStrengthMax": 24,
+      "MaxActiveSites": 15,
+      "MaxActiveAI": 72,
+      "MaxEncounters": 15,
+      "MaxHoldouts": 48,
+      "MaxCamps": 32,
+      "MaxCampItems": 64,
+      "WorldSeed": 18473,
+      "MaxObservedAI": 1024
+    },
+    "min": null,
+    "max": null,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxLiveGroups",
+    "type": "int",
+    "default": 15,
+    "min": 1,
+    "max": 24,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxLiveAI",
+    "type": "int",
+    "default": 72,
+    "min": 1,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.OccupationMin",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.OccupationMax",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.HoldoutMin",
+    "type": "int",
+    "default": 3,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.HoldoutMax",
+    "type": "int",
+    "default": 6,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.PartyMin",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.PartyMax",
+    "type": "int",
+    "default": 6,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.PatrolMin",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.PatrolMax",
+    "type": "int",
+    "default": 5,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.CampMin",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.CampMax",
+    "type": "int",
+    "default": 6,
+    "min": 1,
+    "max": 12,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxOccupiedPlaces",
+    "type": "int",
+    "default": 15,
+    "min": 1,
+    "max": 64,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxParties",
+    "type": "int",
+    "default": 24,
+    "min": 1,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxMaterialized",
+    "type": "int",
+    "default": 15,
+    "min": 1,
+    "max": 24,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.FactionStrengthMax",
+    "type": "int",
+    "default": 24,
+    "min": 1,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxActiveSites",
+    "type": "int",
+    "default": 15,
+    "min": 1,
+    "max": 24,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxActiveAI",
+    "type": "int",
+    "default": 72,
+    "min": 1,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxEncounters",
+    "type": "int",
+    "default": 15,
+    "min": 1,
+    "max": 24,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxHoldouts",
+    "type": "int",
+    "default": 48,
+    "min": 24,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxCamps",
+    "type": "int",
+    "default": 32,
+    "min": 1,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxCampItems",
+    "type": "int",
+    "default": 64,
+    "min": 1,
+    "max": 128,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.WorldSeed",
+    "type": "int",
+    "default": 18473,
+    "min": 0,
+    "max": 1000003,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "AILimits.MaxObservedAI",
+    "type": "int",
+    "default": 1024,
+    "min": 1,
+    "max": 8192,
+    "owner": "HCAILimits"
+  },
+  {
+    "key": "MaxFamiliarityRows",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 128,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "SearchDensityScale",
+    "type": "float",
+    "default": 0,
+    "min": 0.5,
+    "max": 2,
+    "owner": "HCSettings"
+  }
+]

@@ -528,7 +528,7 @@ class HCSearchHouses
             known.LastUsed = now;
             return known;
         }
-        if (m_Slots.Count() >= m_Settings.MaxActiveInteriors && !ReleaseIdle()) return null;
+        if (m_Slots.Count() >= m_Settings.HCSearchCap("MaxActiveInteriors", m_Settings.MaxActiveInteriors) && !ReleaseIdle()) return null;
         int detachedIndex = m_DetachedSlots.Count() - 1;
         while (detachedIndex >= 0)
         {
@@ -590,7 +590,7 @@ class HCSearchHouses
     bool Bind(HCSearchHouseSlot slot, HCSearchHouseHit hit)
     {
         bool newBinding = !m_Journal.SiteBound(hit.SiteId) || m_Journal.BindingReleased(hit.SiteId);
-        if (newBinding && m_Journal.SiteCount() >= m_Settings.MaxBoundSearchSites)
+        if (newBinding && m_Journal.SiteCount() >= m_Settings.HCSearchCap("MaxBoundSearchSites", m_Settings.MaxBoundSearchSites))
         {
             Print("[HC Search Houses] site cap reached: " + m_Journal.SiteCount().ToString());
             return false;
