@@ -41,8 +41,9 @@ class FamiliarityLife(unittest.TestCase):
                    HCProgressionRow=lambda: N(Key='', CharacterKey='', Dead=False,
                                                Forage=0, DecayUtc=0, GainUtc=0),
                    HCSaveJob=N(STEP_DONE=0, STEP_MORE=1, STEP_FAILED=2),
-                   HCV2ThreatStore=N(Save=save),
-                   PATH='synthetic/progression',
+                   HCV2ThreatStore=N(Save=save, CanOpen=lambda path:True),
+                   PATH='synthetic/progression', LEGACY_PATH='synthetic/progression.v1.json',
+                   FileExist=lambda path:False, HCPerfPlayers=N(HCGet=lambda:EArray()),
                    s_HCInstance=None)
         for name in ('DecayedFamiliarity', 'ForageDelay'):
             setattr(policy, name, translate(POLICY.read_text(), name, env, 'HCSurvivalPolicy'))
@@ -51,10 +52,10 @@ class FamiliarityLife(unittest.TestCase):
         module = N(m_State=state, m_Healthy=True, m_Dirty=False, m_SaveUtc=self.now,
                    m_Revision=0, m_SnapshotRevision=0, m_SaveStage=0, m_Snapshot=None,
                    m_SaveJob=N(HCDirty=False, HCInFlight=False),
-                   m_IdentityRefused=False, m_Status=N(HCPublish=lambda *args: None))
+                   m_IdentityRefused=False, m_RowCap=128, m_Cursor=0, m_Status=N(HCPublish=lambda *args: None))
         module.HCFail = lambda: self.fail('unexpected authored store/clock refusal')
         names = ['HCDecay', 'HCAwardForage']
-        for name in ('HCFail', 'HCReceipt', 'HCChanged', 'HCResetLife', 'HCIdentityRefusal', 'HCObserveDeath', 'HCFlush', 'HCStepCheckpoint', 'HCMigrate'):
+        for name in ('HCFail', 'HCReceipt', 'HCChanged', 'HCResetLife', 'HCIdentityRefusal', 'HCObserveDeath', 'HCFlush', 'HCStepCheckpoint', 'HCMigrate', 'HCLegacyCharacterKey', 'HCPruneRows'):
             if ' ' + name + '(' in SOURCE.read_text():
                 names.append(name)
         # Generic store type is a syntax-only binding in the same restricted port.
@@ -105,14 +106,15 @@ class FamiliarityLife(unittest.TestCase):
         # A late death notification for the old corpse cannot reset its replacement.
         module.HCObserveDeath(living)
         self.assertEqual(1, module.m_State.Players[0].Forage)
-        # Old account-wide scores are discarded; migration alone earns nothing.
+        # Unmapped account-wide rows are archived, logged and omitted; no shared reward.
         module.m_State = N(Version=1, Players=EArray([N(Key=living.uid,
             Forage=100, DecayUtc=self.now-100, GainUtc=self.now-60,
             CharacterKey='', Dead=False)]))
         self.assertTrue(module.HCMigrate(self.now))
         self.assertEqual(2, module.m_State.Version)
-        self.assertEqual(0, module.m_State.Players[0].Forage)
-        self.assertEqual('', module.m_State.Players[0].CharacterKey)
+        self.assertEqual([], module.m_State.Players)
+        self.assertEqual(1, saved[-1].Version)
+        self.assertEqual(100, saved[-1].Players[0].Forage)
         self.assertEqual(1, module.HCAwardForage(replacement))
         for _ in range(110):
             self.now += 60
