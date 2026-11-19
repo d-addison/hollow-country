@@ -18,6 +18,8 @@
 class HCClientPresentation
 {
     static const string PROFILE_KEY = "HollowCountryPresentationMaskV1";
+    static const float SEASON_START_RETRY_SECONDS = 5.0;
+    static const int SEASON_START_MAX_ATTEMPTS = 12;
     protected static ref HCClientPresentation s_Current;
     protected ref HCClientPresentationSettings m_Settings = new HCClientPresentationSettings;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -38,6 +40,8 @@ class HCClientPresentation
     protected float m_HintElapsed;
     protected float m_SignsElapsed;
     protected float m_SoundElapsed;
+    protected float m_SeasonStartElapsed;
+    protected int m_SeasonStartAttempts;
     protected bool m_Stopped = true;
     protected bool m_Alive;
     protected string m_LastRefusal;
@@ -122,18 +126,33 @@ class HCClientPresentation
     protected void HCStartSeasonPresentation()
     {
         if (!GetGame() || GetGame().IsDedicatedServer()) { return; }
+        if (m_Seasons && m_Lighting) { return; }
+        if (m_SeasonStartAttempts >= SEASON_START_MAX_ATTEMPTS) { return; }
+        m_SeasonStartAttempts = m_SeasonStartAttempts + 1;
+        m_SeasonStartElapsed = 0;
         Mission mission = GetGame().GetMission();
-        if (!mission) { return; }
-        if (!m_Seasons)
+        if (mission)
         {
-            m_Seasons = new HCSeasonVisualClient;
-            m_Seasons.HCStart();
+            if (!m_Seasons)
+            {
+                m_Seasons = new HCSeasonVisualClient;
+                m_Seasons.HCStart();
+            }
+            if (!m_Lighting)
+            {
+                // Native 3_Game/gameplay.c:747 Mission.GetWorldLighting.
+                // Never retain an inert client constructed with a null handle.
+                WorldLighting lighting = mission.GetWorldLighting();
+                if (lighting)
+                {
+                    m_Lighting = new HCLightingClient(lighting);
+                    m_Lighting.Start();
+                }
+            }
         }
-        if (!m_Lighting)
+        if ((!m_Seasons || !m_Lighting) && m_SeasonStartAttempts == SEASON_START_MAX_ATTEMPTS)
         {
-            // Native 3_Game/gameplay.c:747 Mission.GetWorldLighting.
-            m_Lighting = new HCLightingClient(mission.GetWorldLighting());
-            m_Lighting.Start();
+            Print("[HC Plan] HC-51 lighting=refused reason=LIGHTING_START_UNAVAILABLE attempts=12 runtime=PENDING");
         }
     }
 
@@ -179,6 +198,8 @@ class HCClientPresentation
             if (m_Grade) { m_Grade.Stop(); m_Grade = null; }
             if (m_Lighting) { m_Lighting.Stop(); m_Lighting = null; }
             if (m_Seasons) { m_Seasons.HCStop(); m_Seasons = null; }
+            m_SeasonStartAttempts = 0;
+            m_SeasonStartElapsed = 0;
         }
         else
         {
@@ -209,6 +230,14 @@ class HCClientPresentation
     {
         // No owner callbacks, native queries, clock reads, saves or scans off.
         if (m_Stopped || m_EffectiveMask == 0) { return; }
+        if ((m_EffectiveMask & HCClientPresentationSettings.GRADE) != 0 && (!m_Seasons || !m_Lighting) && m_SeasonStartAttempts < SEASON_START_MAX_ATTEMPTS)
+        {
+            if (timeslice > 0.0 && timeslice <= SEASON_START_RETRY_SECONDS)
+            {
+                m_SeasonStartElapsed = m_SeasonStartElapsed + timeslice;
+                if (m_SeasonStartElapsed >= SEASON_START_RETRY_SECONDS) { HCReconcile(); }
+            }
+        }
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
         if (!viewer || !viewer.IsAlive() || viewer.IsUnconscious())
         {

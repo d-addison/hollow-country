@@ -275,6 +275,7 @@ modded class ChernarusPlusData
     void HCEndWeatherDays()
     {
         if (!m_HCWeatherDaysActive) return;
+        if (m_Weather) { m_Weather.GetSnowfall().SetLimits(0.0, 0.0); }
         m_HCWeatherDaysActive = false;
         HCPublishSeason();
         if (m_HCVisualSeasons) { m_HCVisualSeasons.HCStop(); }
@@ -291,7 +292,12 @@ modded class ChernarusPlusData
         if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen())
         {
             if (!m_HCWeatherDaysSuspended)
+            {
+                // Release the seasonal snowfall once at handover; subsequent
+                // suspended ticks must not overwrite the foreign controller.
+                m_Weather.GetSnowfall().SetLimits(0.0, 0.0);
                 Print("[HollowCountry] V2 weather suspended: foreign mission weather/frozen controller");
+            }
             m_HCWeatherDaysSuspended = true;
             return;
         }

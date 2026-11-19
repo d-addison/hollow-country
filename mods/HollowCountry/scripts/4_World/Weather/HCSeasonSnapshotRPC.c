@@ -52,6 +52,9 @@ class HCSeasonSnapshotRPC
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (!(timeslice > 0.0) || !(timeslice <= 2000000000.0)) { return; }
+        // No recurring traffic before the weather owner first publishes a
+        // phase. A later published off snapshot still needs its heartbeat.
+        if (s_Phase == -1 && s_Revision == 1) { return; }
         s_Elapsed = s_Elapsed + timeslice;
         if (s_Elapsed < HCSeasonVisualPolicy.SNAPSHOT_HEARTBEAT_SECONDS) { return; }
         s_Units.HCReset(1);
