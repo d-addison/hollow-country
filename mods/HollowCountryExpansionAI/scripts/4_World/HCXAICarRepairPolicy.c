@@ -187,6 +187,17 @@ class HCXAICarRepairPolicy
         return seconds + slackSeconds;
     }
 
+    // Every timed commit revalidates custody and proximity (squared meters).
+    // Membership first: a part held by anyone outside the job group is never
+    // pulled in. A worker who left the car pauses the job; a far carrier aborts.
+    static string HCCommitGate(bool carrierMember, float workerSq, float carrierSq, float reachSq)
+    {
+        if (!carrierMember) { return "carfix_carrier_not_member"; }
+        if (workerSq > reachSq) { return "carfix_pause_worker"; }
+        if (carrierSq > reachSq) { return "carfix_carrier_far"; }
+        return "";
+    }
+
     static bool HCRegistryAdd(array<CarScript> list, CarScript car, int cap)
     {
         if (!car) { return false; }

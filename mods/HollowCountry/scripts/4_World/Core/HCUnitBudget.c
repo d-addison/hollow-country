@@ -53,7 +53,9 @@ class HCUnitBudget
     static const int HC_WORK_ROLES = 13;
     // Context formation styling of HC site patrol groups.
     static const int HC_WORK_FORMATION = 14;
-    static const int HC_WORK_CONSUMERS = 15;
+    // AI car finding and repair jobs.
+    static const int HC_WORK_CARFIX = 15;
+    static const int HC_WORK_CONSUMERS = 16;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;

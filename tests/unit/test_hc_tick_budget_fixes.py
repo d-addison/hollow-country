@@ -78,7 +78,7 @@ class RecycleStarvationTests(houses.HouseCase):
         ids = [CONST[name] for name in CONST if name.startswith("HC_WORK_") and name not in
                ("HC_WORK_CONSUMERS", "HC_WORK_UNBOUNDED")]
         self.assertEqual(CONST["HC_WORK_CONSUMERS"], len(ids))
-        self.assertEqual(15, CONST["HC_WORK_CONSUMERS"])
+        self.assertEqual(16, CONST["HC_WORK_CONSUMERS"])
         for limit in (1, 4, 32):
             budget = tickbudget.new_budget()
             budget.HCReset(limit)

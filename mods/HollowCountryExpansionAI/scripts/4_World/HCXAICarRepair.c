@@ -89,6 +89,7 @@ class HCXAICarRepair
     static const int KIND_GLOW = 4;
     static const int KIND_ENGINE = 5;
 
+    // Work budget consumer: HCUnitBudget.HC_WORK_CARFIX.
     protected static ref HCXAICarRepairConfig s_Config;
     protected static ref array<CarScript> s_Cars;
     protected static ref array<ref HCXAICarJob> s_Jobs;
@@ -222,7 +223,7 @@ class HCXAICarRepair
     {
         if (!s_Open || !group || !GetGame() || !GetGame().IsServer()) { return false; }
         HCXAICarRepairConfig config = HCConfig();
-        if (!HCServer.HCTickWork().HCTake(1 + group.Count())) { return false; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CARFIX, 1 + group.Count())) { return false; }
         int now = HCWorldClock.UTC();
         int groupId = group.GetID();
         int nextAt = 0;
@@ -294,7 +295,7 @@ class HCXAICarRepair
         int index = HCJobs().Count() - 1;
         while (index >= 0)
         {
-            if (!HCServer.HCTickWork().HCTake(1)) { return; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CARFIX, 1)) { return; }
             HCStep(HCJobs()[index], now);
             index--;
         }
@@ -302,7 +303,8 @@ class HCXAICarRepair
 
     protected static HCXAICarJob HCJobFor(int groupId)
     {
-        foreach (HCXAICarJob job : s_Jobs)
+        array<ref HCXAICarJob> jobs = HCJobs();
+        foreach (HCXAICarJob job : jobs)
         {
             if (job && job.GroupId == groupId) { return job; }
         }
@@ -334,11 +336,12 @@ class HCXAICarRepair
             items.Clear();
             member.GetInventory().EnumerateInventory(InventoryTraversalType.PREORDER, items);
             int scanned = 0;
+            array<string> tools = config.MechanicToolClasses;
             foreach (EntityAI item : items)
             {
                 scanned++;
                 if (scanned > config.MaxScanItems) { break; }
-                foreach (string tool : config.MechanicToolClasses)
+                foreach (string tool : tools)
                 {
                     if (item && item.IsKindOf(tool)) { return true; }
                 }
@@ -401,12 +404,12 @@ class HCXAICarRepair
     protected static int HCKindOf(CarScript car, EntityAI item)
     {
         if (!item || item.IsRuined()) { return -1; }
-        if (CarWheel.Cast(item)) { return KIND_WHEEL; }
-        if (SparkPlug.Cast(item)) { return KIND_SPARK; }
-        if (GlowPlug.Cast(item)) { return KIND_GLOW; }
-        if (CarRadiator.Cast(item)) { return KIND_RADIATOR; }
+        if (CarWheel.Cast(item)) { return HCXAICarRepair.KIND_WHEEL; }
+        if (SparkPlug.Cast(item)) { return HCXAICarRepair.KIND_SPARK; }
+        if (GlowPlug.Cast(item)) { return HCXAICarRepair.KIND_GLOW; }
+        if (CarRadiator.Cast(item)) { return HCXAICarRepair.KIND_RADIATOR; }
         string batteryType = car.GetElectricitySourceDeviceType();
-        if (batteryType != "" && item.IsKindOf(batteryType)) { return KIND_BATTERY; }
+        if (batteryType != "" && item.IsKindOf(batteryType)) { return HCXAICarRepair.KIND_BATTERY; }
         return -1;
     }
 
@@ -519,15 +522,15 @@ class HCXAICarRepair
             EntityAI wheel = car.WheelGetEntity(wheelIndex);
             wheelIndex++;
             if (wheel && !wheel.IsRuined()) { continue; }
-            EntityAI wheelPart = HCFindPart(car, KIND_WHEEL, wheel, carried, stashed, used);
+            EntityAI wheelPart = HCFindPart(car, HCXAICarRepair.KIND_WHEEL, wheel, carried, stashed, used);
             if (!wheelPart) { continue; }
-            HCAddStep(job, KIND_WHEEL, wheelPart, wheel, used);
+            HCAddStep(job, HCXAICarRepair.KIND_WHEEL, wheelPart, wheel, used);
             haveWheels++;
         }
-        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_BATTERY, KIND_BATTERY, car.GetBattery(), carried, stashed, used);
-        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_SPARK, KIND_SPARK, car.FindAttachmentBySlotName("SparkPlug"), carried, stashed, used);
-        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_GLOW, KIND_GLOW, car.FindAttachmentBySlotName("GlowPlug"), carried, stashed, used);
-        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_RADIATOR, KIND_RADIATOR, car.FindAttachmentBySlotName("CarRadiator"), carried, stashed, used);
+        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_BATTERY, HCXAICarRepair.KIND_BATTERY, car.GetBattery(), carried, stashed, used);
+        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_SPARK, HCXAICarRepair.KIND_SPARK, car.FindAttachmentBySlotName("SparkPlug"), carried, stashed, used);
+        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_GLOW, HCXAICarRepair.KIND_GLOW, car.FindAttachmentBySlotName("GlowPlug"), carried, stashed, used);
+        haveMask = haveMask | HCPlanPart(job, entry, HCXAICarRepairPolicy.PART_RADIATOR, HCXAICarRepair.KIND_RADIATOR, car.FindAttachmentBySlotName("CarRadiator"), carried, stashed, used);
         bool haveTool = false;
         if (entry.EngineSteps > 0)
         {
@@ -539,7 +542,7 @@ class HCXAICarRepair
         int engineStep = 0;
         while (engineStep < entry.EngineSteps)
         {
-            HCAddStep(job, KIND_ENGINE, null, null, used);
+            HCAddStep(job, HCXAICarRepair.KIND_ENGINE, null, null, used);
             engineStep++;
         }
         foreach (EntityAI reserved : used) { HCReserved().Insert(reserved); }
@@ -571,7 +574,8 @@ class HCXAICarRepair
     // notification; nothing is created or deleted.
     protected static bool HCTakeStash(HCXAICarJob job, eAIBase leader)
     {
-        foreach (HCXAICarStep step : job.Steps)
+        array<ref HCXAICarStep> planned = job.Steps;
+        foreach (HCXAICarStep step : planned)
         {
             if (!step.Item || step.Item.GetHierarchyRootPlayer()) { continue; }
             if (!leader.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.ANY, step.Item)) { return false; }
@@ -604,7 +608,8 @@ class HCXAICarRepair
         if (!job.RouteSaved || !job.Group) { return; }
         job.RouteSaved = false;
         job.Group.ClearWaypoints();
-        foreach (vector point : job.Route) { job.Group.AddWaypoint(point); }
+        array<vector> route = job.Route;
+        foreach (vector point : route) { job.Group.AddWaypoint(point); }
         job.Group.SetWaypointBehaviour(job.Behaviour);
     }
 
@@ -630,29 +635,64 @@ class HCXAICarRepair
             return;
         }
         if (now < job.StepDue) { return; }
-        string failure = HCCommit(job, config);
+        string failure = HCCommit(job, config, leader);
+        if (failure == "carfix_pause_worker")
+        {
+            HCRewalk(job, leader, now);
+            return;
+        }
         if (failure != "") { HCEnd(job, failure, false); return; }
         job.Index++;
         job.StepDue = now + config.WorkSecondsPerStep;
         if (job.Index >= job.Steps.Count()) { HCEnd(job, "", true); }
     }
 
+    // The worker left the car: back to walking with a fresh real-walk budget.
+    protected static void HCRewalk(HCXAICarJob job, eAIBase leader, int now)
+    {
+        HCXAICarRepairConfig config = HCConfig();
+        vector goal = job.Subject.GetPosition();
+        job.Phase = 0;
+        job.Deadline = now + HCXAICarRepairPolicy.HCWalkSeconds(vector.Distance(leader.GetPosition(), goal), config.WalkMetersPerSecond, config.WalkSlackSeconds);
+        job.Group.ClearWaypoints();
+        job.Group.AddWaypoint(goal);
+        job.Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+    }
+
+    // Custody and proximity revalidated before every commit: the carrier must be
+    // a living member of this job's group, the worker and the carrier must both
+    // stand within working range of the car as it is NOW.
+    protected static string HCCarrierGate(HCXAICarJob job, EntityAI item, eAIBase leader, float reachSq)
+    {
+        eAIBase carrier = eAIBase.Cast(item.GetHierarchyRootPlayer());
+        bool member = carrier && carrier.IsAlive() && carrier.GetGroup() == job.Group;
+        float workerSq = vector.DistanceSq(leader.GetPosition(), job.Subject.GetPosition());
+        float carrierSq = reachSq + 1.0;
+        if (carrier) { carrierSq = vector.DistanceSq(carrier.GetPosition(), job.Subject.GetPosition()); }
+        return HCXAICarRepairPolicy.HCCommitGate(member, workerSq, carrierSq, reachSq);
+    }
+
     // One timed step: a real attach, or one engine health step. "" on success.
-    protected static string HCCommit(HCXAICarJob job, HCXAICarRepairConfig config)
+    protected static string HCCommit(HCXAICarJob job, HCXAICarRepairConfig config, eAIBase leader)
     {
         HCXAICarStep step = job.Steps[job.Index];
-        if (step.Kind == KIND_ENGINE) { return HCEngineStep(job, config); }
-        if (!step.Item || step.Item.IsRuined() || !step.Item.GetHierarchyRootPlayer()) { return "carfix_part_lost"; }
+        float reachSq = config.WorkRangeMeters * config.WorkRangeMeters;
+        if (step.Kind == HCXAICarRepair.KIND_ENGINE) { return HCEngineStep(job, config, leader); }
+        if (!step.Item || step.Item.IsRuined()) { return "carfix_part_lost"; }
+        string gate = HCCarrierGate(job, step.Item, leader, reachSq);
+        if (gate != "") { return gate; }
         if (step.Occupant && step.Occupant.GetHierarchyParent() != job.Subject) { return "carfix_slot_changed"; }
         int result = HCXAICarRepairPolicy.HCAttach(job.Subject, step.Item, step.Occupant);
         if (result != 0) { return "carfix_attach_" + result.ToString(); }
         return "";
     }
 
-    protected static string HCEngineStep(HCXAICarJob job, HCXAICarRepairConfig config)
+    protected static string HCEngineStep(HCXAICarJob job, HCXAICarRepairConfig config, eAIBase leader)
     {
         Blowtorch torch = Blowtorch.Cast(job.Tool);
-        if (!torch || !torch.HasEnoughEnergyForRepair(config.WorkSecondsPerStep)) { return "carfix_tool_empty"; }
+        if (!torch || torch.IsRuined() || !torch.HasEnoughEnergyForRepair(config.WorkSecondsPerStep)) { return "carfix_tool_empty"; }
+        string toolGate = HCCarrierGate(job, torch, leader, config.WorkRangeMeters * config.WorkRangeMeters);
+        if (toolGate != "") { return toolGate; }
         int level = job.Subject.GetHealthLevel("Engine");
         if (level >= GameConstants.STATE_RUINED) { return "carfix_engine_ruined"; }
         int lowered = HCXAICarRepairPolicy.HCEngineNextLevel(level);
@@ -679,7 +719,8 @@ class HCXAICarRepair
         if (!job) { return; }
         HCXAICarRepairConfig config = HCConfig();
         HCRestoreRoute(job);
-        foreach (HCXAICarStep step : job.Steps)
+        array<ref HCXAICarStep> ended = job.Steps;
+        foreach (HCXAICarStep step : ended)
         {
             if (!step.Item) { continue; }
             int at = HCReserved().Find(step.Item);
