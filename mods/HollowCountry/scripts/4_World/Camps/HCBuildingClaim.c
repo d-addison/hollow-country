@@ -11,6 +11,7 @@
 // int/float ToString/DistanceSq (EnConvert.c:30/115/210); EnString.c:199/240 Length/IndexOf;
 // EnScript.c:380/385/407/448/470 Count/Clear/Insert/InsertAll/RemoveOrdered;
 // EnSystem.c:397 FileExist; EnDebug.c:96 Print; EnMath.c:553 Min.
+// EnScript.c:869/902/906 map Get/Set/Remove (transient online baselines only).
 // 4_World/Classes/UserActionsComponent/Actions/ActionConstants.c:111-114
 // UAMaxDistances.DEFAULT; 3_Game/Enums/EBuildingLockTypes.c:10 LOCKPICK.
 // 1_Core/proto/EnScript.c:94 Cast; 3_Game/gameplay.c:636 GetGame.
@@ -23,7 +24,7 @@ class HCBuildingClaimConfig
 {
     static const int DEFAULT_VERSION = 1;
     static const int DEFAULT_EXPIRY_DAYS = 30;
-    static const float DEFAULT_VISIT_RADIUS_METERS = 1000.0 / 40.0;
+    static const float DEFAULT_VISIT_RADIUS_METERS = 25.0; // 1000m / 40
     static const float DEFAULT_ACTION_REACH_METERS = UAMaxDistances.DEFAULT;
     int Version = DEFAULT_VERSION;
     int ExpiryDays = DEFAULT_EXPIRY_DAYS; // provisional owner-tunable default
@@ -60,7 +61,8 @@ class HCBuildingClaim
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Healthy;
     protected int m_LastUtc;
-    protected int m_BootUtc;
+    protected int m_OnlineSeconds;
+    protected ref map<string, int> m_LastSteps = new map<string, int>;
     protected int m_Cursor;
     protected int m_ObserverCursor;
     protected HCBuildingClaimRecord m_Examining;
@@ -105,8 +107,7 @@ class HCBuildingClaim
         string path = "$profile:HollowCountry/building-claims-config.json";
         if (FileExist(path) && !HCGroupJson<HCBuildingClaimConfig>.Load(path, 4096, service.m_Config)) { service.HCFail(); return false; }
         service.m_LastUtc = HCWorldClock.UTC();
-        service.m_BootUtc = service.m_LastUtc;
-        if (service.m_LastUtc < 1 || service.m_LastUtc < data.SavedUtc || !service.m_Config || !service.m_Config.HCValid() || !HCCampStore.HCClaimsValid(data, service.m_LastUtc)) { service.HCFail(); return false; }
+        if (service.m_LastUtc < 1 || service.m_LastUtc < data.SavedUtc || !service.m_Config || !service.m_Config.HCValid() || !HCCampStore.HCClaimsValid(data, service.m_LastUtc, service.m_Config.ExpiryDays)) { service.HCFail(); return false; }
         service.m_Save = new HCBuildingClaimSave;
         service.m_Save.Owner = service;
         service.m_Healthy = true;
@@ -114,7 +115,7 @@ class HCBuildingClaim
         service.m_Status.HCPublish("ready", "claim_journal_loaded_native_acceptance_pending");
         Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false));
         Print("[HC Plan] HC-17 claims=per-group state=ready expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=off count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
-        Print("[HC Plan] HC-17 expiry=boot_grace window_days=" + service.m_Config.ExpiryDays.ToString() + " runtime=PENDING");
+        Print("[HC Plan] HC-17 expiry=online_absence window_days=" + service.m_Config.ExpiryDays.ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 state=refused reason=door_restart_and_heavy_infected_unobserved count=2 runtime=PENDING");
         return true;
     }
@@ -147,29 +148,39 @@ class HCBuildingClaim
     }
 
     // Trusted server-only input from HCRequest. No client-supplied group/key.
-    bool HCApply(int groupId, bool manage, string buildingId, vector position, int now, bool release)
+    // Empty result means success; all refusal text is authored/server-only.
+    string HCApply(int groupId, bool manage, string buildingId, vector position, int now, bool release)
     {
-        if (!HCReady(now) || groupId < 1 || !manage || buildingId == "") { return false; }
+        if (!HCReady(now)) { return "Claim service unavailable."; }
+        if (groupId < 1 || !manage) { return "Group access changed."; }
+        if (buildingId == "") { return "Claim service unavailable."; }
         int index = 0;
         foreach (HCBuildingClaimRecord row : m_Data.Claims)
         {
-            if (row.GroupId == groupId || row.BuildingId == buildingId)
+            if (row.BuildingId == buildingId && row.GroupId != groupId) { return "Building already claimed by another group."; }
+            if (row.GroupId == groupId)
             {
-                if (!release || row.GroupId != groupId || row.BuildingId != buildingId) { return false; }
+                if (!release) { return "Your group already claims a building."; }
+                if (row.BuildingId != buildingId) { return "Group access changed."; }
+                m_LastSteps.Remove(row.BuildingId);
                 m_Data.Claims.RemoveOrdered(index);
-                return HCCommit(now);
+                if (!HCCommit(now)) { return "Claim persistence fault."; }
+                return "";
             }
             index++;
         }
-        if (release || m_Data.Claims.Count() >= HCAILimits.Get().MaxCamps) { return false; }
+        if (release) { return "Group access changed."; }
+        if (m_Data.Claims.Count() >= HCAILimits.Get().MaxCamps) { return "Claim limit reached."; }
         HCBuildingClaimRecord claim = new HCBuildingClaimRecord;
         claim.GroupId = groupId;
         claim.BuildingId = buildingId;
         claim.Position = position;
         claim.ClaimedUtc = now;
         claim.LastVisitUtc = now;
+        m_LastSteps.Set(buildingId, m_OnlineSeconds);
         m_Data.Claims.Insert(claim);
-        return HCCommit(now);
+        if (!HCCommit(now)) { return "Claim persistence fault."; }
+        return "";
     }
 
     // -1 means unavailable/unhealthy ACL service, 0 confirmed disband, 1 exists.
@@ -178,10 +189,21 @@ class HCBuildingClaim
     {
         if (!row || groupState < 0 || now < row.LastVisitUtc) { return false; }
         if (groupState == 0) { return true; }
-        // Every boot gives a full absence window, without forging a visit or
-        // rewriting old timestamps. Frequent restarts can extend retention.
-        int windowSeconds = m_Config.ExpiryDays * 86400;
-        return now >= m_BootUtc && now - m_BootUtc >= windowSeconds && now - row.LastVisitUtc >= windowSeconds;
+        return row.AbsentSeconds >= m_Config.ExpiryDays * 86400;
+    }
+
+    void HCAccumulateAbsence(HCBuildingClaimRecord row, int groupState)
+    {
+        int previous = m_LastSteps.Get(row.BuildingId);
+        m_LastSteps.Set(row.BuildingId, m_OnlineSeconds);
+        if (groupState != 1) { return; }
+        // At most two 5s slices per claim (32 observers, 40 work units).
+        // Credit is bounded to one full walk interval even after stalled work.
+        int creditCap = 10 * HCAILimits.Get().MaxCamps;
+        int credit = Math.Min(m_OnlineSeconds - previous, creditCap);
+        if (credit <= 0) { return; }
+        row.AbsentSeconds = Math.Min(row.AbsentSeconds + credit, m_Config.ExpiryDays * 86400);
+        m_Save.HCDirty = true;
     }
 
     static bool HCActor(PlayerBase player)
@@ -226,17 +248,19 @@ class HCBuildingClaim
         return false;
     }
 
-    bool HCRequest(PlayerBase player, ActionTarget target, bool release)
+    string HCRequest(PlayerBase player, ActionTarget target, bool release)
     {
-        if (!GetGame().IsServer() || !HCActor(player) || !target || target.GetParent()) { return false; }
+        if (!m_Healthy || !GetGame() || !GetGame().IsServer()) { return "Claim service unavailable."; }
+        if (!HCActor(player)) { return "Group access changed."; }
+        if (!target || target.GetParent()) { return "Use an ordinary building door."; }
         Building building = Building.Cast(target.GetObject());
-        if (!building) { return false; }
+        if (!building) { return "Use an ordinary building door."; }
         int door = building.GetDoorIndex(target.GetComponentIndex());
-        if (!HCDoor(building, door)) { return false; }
-        if (vector.DistanceSq(player.GetPosition(), building.GetDoorSoundPos(door)) > m_Config.ActionReachMeters * m_Config.ActionReachMeters) { return false; }
+        if (!HCDoor(building, door)) { return "Use an ordinary building door."; }
+        if (vector.DistanceSq(player.GetPosition(), building.GetDoorSoundPos(door)) > m_Config.ActionReachMeters * m_Config.ActionReachMeters) { return "Move within door reach."; }
         HCGroupService groups = HCGroupService.Get();
-        if (!groups) { return false; }
-        // Re-read authenticated live peer and current manager role at completion.
+        if (!groups || !groups.HCClaimHealthy()) { return "Claim service unavailable."; }
+        // Re-read authenticated live peer and manager role at completion.
         int groupId = groups.HCClaimActorGroup(player, true);
         return HCApply(groupId, true, HCIdentity(building), building.GetPosition(), HCWorldClock.UTC(), release);
     }
@@ -247,7 +271,11 @@ class HCBuildingClaim
         if (!m_Healthy || !(deltaTime > 0)) { return; }
         m_Elapsed += Math.Min(deltaTime, 5);
         if (m_Elapsed < 5) { return; }
-        m_Elapsed = 0;
+        // Tick delta is online-only; a hitch contributes at most 5 seconds.
+        // Preserve fractional seconds without persisting a process clock.
+        int elapsedSeconds = m_Elapsed;
+        m_Elapsed -= elapsedSeconds;
+        m_OnlineSeconds += elapsedSeconds;
         int now = HCWorldClock.UTC();
         if (!HCReady(now)) { return; }
         HCGroupService groups = HCGroupService.Get();
@@ -285,12 +313,15 @@ class HCBuildingClaim
             if (vector.DistanceSq(player.GetPosition(), m_Examining.Position) <= m_Config.VisitRadiusMeters * m_Config.VisitRadiusMeters && groups.HCClaimActorGroup(player, false) == m_Examining.GroupId) { m_VisitObservedUtc = now; }
         }
         int groupState = groups.HCClaimGroupState(m_Examining.GroupId);
-        if (groupState == 1 && m_VisitObservedUtc > m_Examining.LastVisitUtc)
+        HCAccumulateAbsence(m_Examining, groupState);
+        if (groupState == 1 && m_VisitObservedUtc > 0)
         {
             m_Examining.LastVisitUtc = m_VisitObservedUtc;
+            m_Examining.AbsentSeconds = 0;
             m_Save.HCDirty = true;
         }
         bool expired = HCShouldExpire(m_Examining, now, groupState);
+        if (expired) { m_LastSteps.Remove(m_Examining.BuildingId); }
         m_Examining = null;
         m_Observers.Clear();
         if (expired)

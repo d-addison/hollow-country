@@ -22,6 +22,7 @@ class HCCampModule : HCModule
     protected static bool s_FireCapLogged;
     protected ref HCCampData m_Data;
     protected ref array<Man> m_Players = new array<Man>();
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Running;
     protected bool m_AdmissionPrinted;
     protected float m_Elapsed;
@@ -32,7 +33,12 @@ class HCCampModule : HCModule
 
     override string GetName() { return "Camps"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableCamps; }
-    override HCOperationalStatus HCGetOperationalStatus() { return HCBuildingClaim.HCObservedStatus(); }
+    void HCCampModule() { m_Status.HCPublish("off", "camp_owner_not_running"); }
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        if (!m_Running) { return m_Status; }
+        return HCBuildingClaim.HCObservedStatus();
+    }
 
     static HCCampModule Get()
     {
@@ -60,6 +66,7 @@ class HCCampModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (m_Running || !GetGame().IsServer() || !IsEnabled(settings)) { return; }
+        HCBuildingClaim.HCStop(); // Clear a failed singleton before a fresh start.
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("Camps", true, "EXP-L7", HCV2Gates.Qualified("EXP-L7")));
@@ -70,6 +77,7 @@ class HCCampModule : HCModule
         if (!m_Data) { Fail(); return; }
         m_LastSaved = m_LastUtc;
         m_Running = true;
+        m_Status.HCPublish("ready", "camp_store_loaded_native_acceptance_pending");
         s_Instance = this;
         if (settings.EnableGroups)
         {
@@ -84,6 +92,7 @@ class HCCampModule : HCModule
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
         if (claims) { claims.HCFail(); }
         m_Running = false;
+        m_Status.HCPublish("refused", "camp_clock_schema_or_persistence_fault");
         if (s_Instance == this) { s_Instance = null; }
         Print("[HollowCountry] V2 camps disabled: UTC/schema/world/persistence fault; preserve camps.json, .tmp and .bak");
     }
@@ -255,6 +264,7 @@ class HCCampModule : HCModule
         HCBuildingClaim.HCStop();
         if (m_Running) { Commit(HCWorldClock.UTC()); }
         m_Running = false;
+        m_Status.HCPublish("off", "camp_owner_stopped");
         if (s_Instance == this) { s_Instance = null; }
         m_Players.Clear();
     }
