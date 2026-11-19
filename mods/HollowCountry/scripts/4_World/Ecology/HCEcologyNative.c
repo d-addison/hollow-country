@@ -14,8 +14,8 @@
 // 3_Game/Entities/DayZAnimalInputController.c:55 GetBehaviourAction.
 // Neither these nor 4_World/Entities/DayZAnimalImplement.c:1-8 exposes an
 // animal destination or target accessor. N17 is a human lifecycle, not an AI
-// SDK. HCWildlifeProviders now supplies bounded native target eligibility
-// after vanilla/Expansion super checks; it does not select or expose a target.
+// SDK. HCWildlifeProviders preserves vanilla/Expansion target eligibility
+// without query-side caps; an actual-target interaction cap remains open.
 class HCEcologyNative
 {
 	static bool Authority()

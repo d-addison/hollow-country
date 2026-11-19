@@ -84,22 +84,50 @@ class WildlifeProviders(unittest.TestCase):
         for forbidden in ('OverrideMovement', 'OverrideBehaviour', 'AddAgent(', 'SetQuantity(', 'AddNoise'):
             self.assertNotIn(forbidden, self.source)
 
-    def test_native_pair_requests_are_capped_and_do_not_refresh_their_lifetime(self):
-        attacker = N(IsAlive=lambda: True, IsPendingDeletion=lambda: False)
-        prey = N(IsAlive=lambda: True, IsPendingDeletion=lambda: False)
-        other = N(IsAlive=lambda: True, IsPendingDeletion=lambda: False)
+    def eligibility_fixture(self, actor_class, native=True):
+        # Explicit synthetic native result, attacker/prey handles and service clock.
+        attacker = N(IsAlive=lambda: True, IsPendingDeletion=lambda: False,
+                     IsKindOf=lambda kind: kind == 'Animal_CanisLupus')
+        owner = N(m_Running=True, m_LastNow=0, m_Pairs=EArray(), m_PairChecks=0,
+                  m_Config=N(TargetPairsEnabled=True, MaxPairs=8, PairLifetimeMs=10000,
+                             PairCooldownMs=30000, MaxPairChecksPerTick=32))
         self.e['HCEcologyNative'] = N(Authority=lambda: True)
         self.e['HCWildlifePairLease'] = lambda: N()
-        owner = N(m_LastNow=0, m_Pairs=EArray(), m_PairChecks=0,
-                  m_Config=N(MaxPairs=1, PairLifetimeMs=10, PairCooldownMs=20, MaxPairChecksPerTick=4))
-        self.assertTrue(self.call('HCPermit', owner, attacker, prey, 100))
-        self.assertEqual((110, 130), (owner.m_Pairs[0].UntilMs, owner.m_Pairs[0].ReleaseMs))
-        self.assertTrue(self.call('HCPermit', owner, attacker, prey, 109))
-        self.assertFalse(self.call('HCPermit', owner, attacker, other, 109))
-        self.assertFalse(self.call('HCPermit', owner, attacker, prey, 110))
-        owner.m_PairChecks = 4
-        owner.m_Pairs.clear()
-        self.assertFalse(self.call('HCPermit', owner, attacker, prey, 111), 'pair callbacks exceed per-tick cap')
+        owner.HCPermit = lambda *args: self.call('HCPermit', owner, *args)
+        self.e['s_Owner'] = owner
+        self.e['GetGame'] = lambda: N(GetTime=lambda: 100)
+        permit = translated(self.source, 'HCNativePermit', self.e, 'HCWildlifeProviders')
+        env = dict(HCWildlifeProviders=N(HCNativePermit=permit),
+                   ZombieBase=N(Cast=lambda ai: ai), NativeResult=lambda ai: native,
+                   GetIdentity=lambda: None)
+        section = self.source.split('modded class ' + actor_class, 1)[1]
+        section = section.replace('super.CanBeTargetedByAI(ai)', 'NativeResult(ai)')
+        query = translated(section, 'CanBeTargetedByAI', env, actor_class, True)
+        return query, owner, attacker
+
+    def test_many_prey_in_one_frame_preserve_native_eligibility(self):
+        for actor_class in ('AnimalBase', 'PlayerBase'):
+            with self.subTest(actor_class=actor_class):
+                query, owner, attacker = self.eligibility_fixture(actor_class)
+                prey = [N(IsAlive=lambda: True, IsPendingDeletion=lambda: False, index=i)
+                        for i in range(64)]
+                self.assertTrue(all(query(animal, attacker) for animal in prey))
+
+    def test_repeated_eligibility_queries_never_mutate_provider_state(self):
+        for actor_class in ('AnimalBase', 'PlayerBase'):
+            with self.subTest(actor_class=actor_class):
+                query, owner, attacker = self.eligibility_fixture(actor_class)
+                before = (list(owner.m_Pairs), owner.m_PairChecks, owner.m_LastNow)
+                for _ in range(64):
+                    query(attacker, attacker)
+                self.assertEqual(before, (list(owner.m_Pairs), owner.m_PairChecks, owner.m_LastNow))
+
+    def test_more_than_32_queries_keep_native_true_and_false_results(self):
+        for actor_class in ('AnimalBase', 'PlayerBase'):
+            for native in (True, False):
+                with self.subTest(actor_class=actor_class, native=native):
+                    query, owner, attacker = self.eligibility_fixture(actor_class, native)
+                    self.assertEqual([native] * 96, [query(attacker, attacker) for _ in range(96)])
 
     def test_hidden_check_refuses_overflow_or_any_visible_observer(self):
         players = EArray([N(GetPosition=lambda: [0., 0., 0.])])

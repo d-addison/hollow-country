@@ -19,8 +19,12 @@
 // ai/4_World/DayZExpansion_AI/Entities/DayZPlayerImplement.c:95-103 preserves
 // native CanBeTargetedByAI plus faction checks. AnimalBase.c:42-49 exposes its
 // creature target information to Expansion's existing perception pipeline.
-// This provider only limits native eligibility AFTER super accepted it. It
-// never nominates prey, acquires a target, moves an actor, or replaces a brain.
+// Eligibility is a pure native passthrough: never reserve a queried candidate.
+// No interaction cap is installed. Follow-up: a safe actual-target lifecycle
+// covering both infected and wolves, preserving native target choice/brains.
+// Inspected: 4_World/Entities/Creatures/Infected/ZombieBase.c:685,726 reads
+// actual infected targets; 3_Game/Entities/DayZAnimal.c:772-775 starts/signals
+// animal attacks without a target argument. No shared pair lifecycle found.
 
 class HCWildlifeProviderSite
 {
@@ -37,6 +41,7 @@ class HCWildlifeProviderConfig
     int TickMs;
     int WorkUnits;
     int MaxCarcasses;
+    // Legacy pair settings remain readable/validated, but have no runtime cap.
     int MaxPairs;
     int MaxPairChecksPerTick;
     int PairLifetimeMs;
@@ -55,14 +60,6 @@ class HCWildlifeProviderState
     ref array<string> SpentSites = new array<string>;
 }
 
-class HCWildlifePairLease
-{
-    EntityAI Attacker;
-    EntityAI Prey;
-    int UntilMs;
-    int ReleaseMs;
-}
-
 class HCWildlifeCarcassIO : HCEventRewardIO
 {
     void HCWildlifeCarcassIO()
@@ -78,12 +75,10 @@ class HCWildlifeProviders
     protected ref HCWildlifeProviderState m_State;
     protected ref HCEncounterStore<HCWildlifeProviderState> m_Store;
     protected ref HCEventRewardLedger m_Ledger;
-    protected ref array<ref HCWildlifePairLease> m_Pairs = new array<ref HCWildlifePairLease>;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Running;
     protected bool m_Fault;
     protected bool m_AdmissionPrinted;
-    protected int m_PairChecks;
     protected string m_Refusal;
     protected string m_RuntimeFault;
     protected int m_LastTick = -1;
@@ -117,15 +112,14 @@ class HCWildlifeProviders
     {
         if (!s_Owner) { return; }
         s_Owner.m_Running = false;
-        s_Owner.m_Pairs.Clear();
         s_Owner.HCObserve();
     }
 
     static bool HCNativePermit(EntityAI attacker, EntityAI prey)
     {
-        // Cheap no-op when this feature is off; native super remains authoritative.
-        if (!s_Owner || !s_Owner.m_Running || !s_Owner.m_Config.TargetPairsEnabled) { return true; }
-        return s_Owner.HCPermit(attacker, prey, GetGame().GetTime());
+        // No query-side budget, reservation, timer or engine access. Native
+        // eligibility remains authoritative even when queried repeatedly.
+        return true;
     }
 
     static bool HCValid(HCWildlifeProviderConfig config)
@@ -172,7 +166,7 @@ class HCWildlifeProviders
     {
         string fault = m_RuntimeFault;
         if (m_Fault) { fault = "wildlife_allocation_store_uncertain"; }
-        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, fault, "finite_carcasses_native_pair_eligibility");
+        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, fault, "finite_carcasses_native_targeting_passthrough");
         HCOperationalOwner owner = HCOperationalContributors.HCRegisterOwner("HC-149");
         if (owner) { owner.HCObserve(m_Running, m_Status, GetGame().GetTickTime()); }
     }
@@ -226,7 +220,7 @@ class HCWildlifeProviders
         {
             m_AdmissionPrinted = true;
             Print(HCV2Admission.Line("WildlifeProviders", true, "N9-wildlife", false) + " runtime=PENDING");
-            Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=finite pair_selection=native runtime=PENDING");
+            Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=finite pair_selection=native interaction_cap=unimplemented runtime=PENDING");
             Print("[HC Plan] HC-149 missing=animal_resource_goal_and_consumption_api seasonal_routes_blood_trails_carcass_attraction=unimplemented runtime=PENDING");
         }
         HCObserve();
@@ -279,27 +273,6 @@ class HCWildlifeProviders
         return body;
     }
 
-    bool HCPermit(EntityAI attacker, EntityAI prey, int nowMs)
-    {
-        if (m_PairChecks >= m_Config.MaxPairChecksPerTick) { return false; }
-        m_PairChecks = m_PairChecks + 1;
-        if (!attacker || !prey || nowMs < 0 || nowMs < m_LastNow || !HCEcologyNative.Authority()) { return false; }
-        if (!attacker.IsAlive() || !prey.IsAlive() || attacker.IsPendingDeletion() || prey.IsPendingDeletion()) { return false; }
-        array<ref HCWildlifePairLease> pairs = m_Pairs;
-        foreach (HCWildlifePairLease pair : pairs)
-        {
-            if (pair.Attacker == attacker) { return pair.Prey == prey && nowMs < pair.UntilMs; }
-        }
-        if (pairs.Count() >= m_Config.MaxPairs || nowMs > 2147483647 - m_Config.PairLifetimeMs - m_Config.PairCooldownMs) { return false; }
-        HCWildlifePairLease lease = new HCWildlifePairLease;
-        lease.Attacker = attacker;
-        lease.Prey = prey;
-        lease.UntilMs = nowMs + m_Config.PairLifetimeMs;
-        lease.ReleaseMs = lease.UntilMs + m_Config.PairCooldownMs;
-        pairs.Insert(lease);
-        return true;
-    }
-
     void HCStep(int nowMs)
     {
         if (!m_Running || !HCEcologyNative.Authority()) { return; }
@@ -308,16 +281,7 @@ class HCWildlifeProviders
         m_LastNow = nowMs;
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
-        m_PairChecks = 0;
         HCUnitBudget work = HCServer.HCTickWork();
-        int pairIndex = m_Pairs.Count() - 1;
-        while (pairIndex >= 0)
-        {
-            if (!work.HCTake(1)) { break; }
-            HCWildlifePairLease pair = m_Pairs.Get(pairIndex);
-            if (!pair.Attacker || !pair.Prey || nowMs >= pair.ReleaseMs) { m_Pairs.RemoveOrdered(pairIndex); }
-            pairIndex = pairIndex - 1;
-        }
         if (m_Config.CarcassesEnabled && m_State.SpentSites.Count() < m_Config.MaxCarcasses && work.HCTake(m_Config.WorkUnits))
         {
             if (m_Cursor >= m_Config.Sites.Count()) { m_Cursor = 0; }
@@ -340,9 +304,10 @@ modded class AnimalBase
 {
     override bool CanBeTargetedByAI(EntityAI ai)
     {
-        if (!super.CanBeTargetedByAI(ai)) { return false; }
-        if (ZombieBase.Cast(ai)) { return HCWildlifeProviders.HCNativePermit(ai, this); }
-        return true;
+        bool nativeEligible = super.CanBeTargetedByAI(ai);
+        if (!nativeEligible) { return nativeEligible; }
+        if (ZombieBase.Cast(ai) && !HCWildlifeProviders.HCNativePermit(ai, this)) { return false; }
+        return nativeEligible;
     }
 }
 
@@ -350,10 +315,11 @@ modded class PlayerBase
 {
     override bool CanBeTargetedByAI(EntityAI ai)
     {
-        if (!super.CanBeTargetedByAI(ai)) { return false; }
+        bool nativeEligible = super.CanBeTargetedByAI(ai);
+        if (!nativeEligible) { return nativeEligible; }
         // Native/Expansion eligibility and faction checks remain in super.
         // Human players are untouched. Only live server AI camp actors qualify.
-        if (!GetIdentity() && ai && ai.IsKindOf("Animal_CanisLupus")) { return HCWildlifeProviders.HCNativePermit(ai, this); }
-        return true;
+        if (!GetIdentity() && ai && ai.IsKindOf("Animal_CanisLupus") && !HCWildlifeProviders.HCNativePermit(ai, this)) { return false; }
+        return nativeEligible;
     }
 }

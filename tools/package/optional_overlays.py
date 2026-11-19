@@ -546,12 +546,18 @@ def bundle_candidate(bundle, mission):
     No stock mission is transported. Unknown edits to patched values refuse.
     """
     bundle, mission = safe(bundle), mission_target(mission)
+    # Inspect the preference before requiring any habitat-only source/stock.
+    habitat_root = bundle / 'mission-overlay/hollow-country/ecology'
+    habitat = json.loads(read(habitat_root / 'habitat-overrides.json'))
+    if type(habitat.get('Enabled')) is not bool:
+        raise ValueError('habitat Enabled preference missing')
     habitat_stock = {}
-    for name in ('cfgenvironment.xml', 'db/events.xml'):
-        try:
-            habitat_stock[name] = read(mission / name)
-        except FileNotFoundError as error:
-            raise ValueError('HC149_HABITAT_STOCK_MISSING: ' + name) from error
+    if habitat['Enabled']:
+        for name in ('cfgenvironment.xml', 'db/events.xml'):
+            try:
+                habitat_stock[name] = read(mission / name)
+            except FileNotFoundError as error:
+                raise ValueError('HC149_HABITAT_STOCK_MISSING: ' + name) from error
     patch = json.loads(read(bundle / 'mission-patches.json'))
     candidate = {'mission': str(mission), 'files': {}, 'before': {}, 'sources': {}}
 
@@ -567,6 +573,10 @@ def bundle_candidate(bundle, mission):
         safe(path)
         if path.is_file():
             name = path.relative_to(bundle / 'mission-overlay').as_posix()
+            if not habitat['Enabled'] and name in (
+                    'hollow-country/ecology/habitat-overrides.json',
+                    'hollow-country/ecology/events.append.xml'):
+                continue
             data = read(path)
             target = safe(mission / name)
             if target.exists() and read(target) != data:
@@ -608,15 +618,14 @@ def bundle_candidate(bundle, mission):
     # #149: replace one stock event, never add another CE event owner. These
     # class names are from the inspected stock 1.30 configuration inventory;
     # this candidate is not evidence of class loading or mixed-herd behavior.
-    from tools.package import HCWildlife_habitats
-    habitat_root = bundle / 'mission-overlay/hollow-country/ecology'
-    habitat = json.loads(read(habitat_root / 'habitat-overrides.json'))
-    habitat_files = HCWildlife_habitats.build(
-        habitat, read(habitat_root / 'events.append.xml'),
-        habitat_stock['cfgenvironment.xml'], habitat_stock['db/events.xml'],
-        HCWildlife_habitats.REQUIRED_CLASSES)
-    for relative, data in habitat_files.items():
-        put_file(relative, data)
+    if habitat['Enabled']:
+        from tools.package import HCWildlife_habitats
+        habitat_files = HCWildlife_habitats.build(
+            habitat, read(habitat_root / 'events.append.xml'),
+            habitat_stock['cfgenvironment.xml'], habitat_stock['db/events.xml'],
+            HCWildlife_habitats.REQUIRED_CLASSES)
+        for relative, data in habitat_files.items():
+            put_file(relative, data)
     return candidate
 
 

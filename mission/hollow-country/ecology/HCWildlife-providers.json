@@ -33,6 +33,7 @@
   "Source": "Installed chernarusplus/env/red_deer_territories.xml:4-5 Graze zone centers; height sampled from native terrain. Source-derived, geometry/runtime acceptance PENDING.",
   "Economy": "HCEventRewardLedger allowance plus permanent HCEncounterStore spent-site barrier. Two lifetime site grants; no restart refill, replay, extra inventory or loot. Back up hc149-wildlife-allocations.json with Hive.",
   "RangeBasis": "200 m minimum exclusion reuses native herd safe radius. Every cached player must additionally pass existing multi-height PointHidden ray checks. 16-player bound fails closed on overflow.",
+  "InteractionCapStatus": "UNIMPLEMENTED: legacy TargetPairsEnabled, MaxPairs, MaxPairChecksPerTick, PairLifetimeMs and PairCooldownMs do not change native eligibility. Follow-up: inspect and qualify a safe actual-target lifecycle for infected and wolves. Eligibility queries never reserve pairs or consume budgets.",
   "RuntimeAcceptance": "PENDING",
   "MaxPairChecksPerTick": 32,
   "WorldName": "chernarusplus"

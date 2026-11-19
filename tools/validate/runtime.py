@@ -9,7 +9,8 @@ FLAGS = {'EnableInteriors', 'EnableSearch', 'EnableCrafting', 'EnableInfected',
 # Bounds/default metadata come from the shared authoring registry. Native
 # HCSettings reads the compiled mirror, checked by the same validate entry point.
 from tools.validate.settings_consistency import load_registry, check_consistency
-RULES = {row['key']: row for row in load_registry()}
+RULES = {row['key']: row for row in load_registry()
+         if row['owner'] in ('HCSettings', 'HCAILimits')}
 V2_FLAGS = {key for key,row in RULES.items() if row['type'] == 'bool'} - FLAGS
 LIMITS = {key: (row['min'], row['max']) for key,row in RULES.items()
           if row['type'] == 'int' and '.' not in key
