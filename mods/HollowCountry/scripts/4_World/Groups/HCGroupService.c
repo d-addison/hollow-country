@@ -185,28 +185,40 @@ class HCGroupService
         return "pin";
     }
 
-    // Read-only pin view for the debug layer: asks the existing HCGroupPins.Collect
-    // for each stored group (at most the configured MaxGroups, capped per group by
-    // `cap`), appends at most `cap` detached rows and returns the pin count seen
-    // (a group with more than `cap` pins is undercounted). No broadcast and no
-    // save; Collect's death-pin prune drops already-expired rows early, as every
-    // Broadcast does. No player identity. Empty when the
-    // service is unhealthy or the pins module is off. Runtime acceptance pending.
-    int HCDebugPins(int cap, array<ref HCDebugGroupPinRow> output)
+    // Count the current bounded group catalogue without collecting any pins.
+    int HCDebugPinGroupCount()
+    {
+        if (!m_Healthy || !HCGroupPins.Get() || !m_State || !m_Config) { return 0; }
+        int count = m_State.Groups.Count();
+        if (count > m_Config.MaxGroups) { count = m_Config.MaxGroups; }
+        return count;
+    }
+
+    // Cursor is a group offset, groupCap bounds Collect calls per invocation.
+    // Return the TRUE PAGE total even when output is already full. Collect's
+    // producers are independently bounded (90 pings, 256 death rows, 5 leads,
+    // 20 shelter entries); int.MAX prevents the display cap truncating counts.
+    // Native scripts-1.30.164289: 1_Core/proto/EnConvert.c:27 int.MAX.
+    // Detached anonymous rows only; no save/broadcast. Collect retains its
+    // ordinary expired-death pruning. Catalogue edits during a sweep may shift
+    // offsets; this is a rolling diagnostic sample, never an atomic world view.
+    int HCDebugPins(int cursor, int groupCap, int cap, array<ref HCDebugGroupPinRow> output)
     {
         HCGroupPins pins = HCGroupPins.Get();
-        if (cap < 1 || !output || !m_Healthy || !pins || !m_State || !m_Config) { return 0; }
-        int scan = m_State.Groups.Count();
-        if (scan > m_Config.MaxGroups) { scan = m_Config.MaxGroups; }
+        if (cursor < 0 || groupCap < 1 || cap < 1 || !output || !pins) { return 0; }
+        int scan = HCDebugPinGroupCount();
         int total = 0;
-        for (int groupIndex = 0; groupIndex < scan; groupIndex++)
+        int visited = 0;
+        for (int groupIndex = cursor; groupIndex < scan; groupIndex++)
         {
+            if (visited >= groupCap) { break; }
+            visited++;
             array<ref HCGroupPlace> collected = new array<ref HCGroupPlace>;
-            pins.Collect(m_State.Groups[groupIndex], cap, collected);
+            pins.Collect(m_State.Groups[groupIndex], int.MAX, collected);
+            total += collected.Count();
             for (int pinIndex = 0; pinIndex < collected.Count(); pinIndex++)
             {
-                total++;
-                if (output.Count() >= cap) { continue; }
+                if (output.Count() >= cap) { break; }
                 HCDebugGroupPinRow row = new HCDebugGroupPinRow;
                 row.Kind = HCDebugPinKind(collected[pinIndex].Id);
                 row.Position = collected[pinIndex].Position;

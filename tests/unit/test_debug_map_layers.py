@@ -735,17 +735,24 @@ class GroupPinsLayer(unittest.TestCase):
     def describe(self, groups):
         scope = base_scope(HCGroupService=N(Get=lambda: groups), HCDebugSnapshot=N(**CONSTANTS),
                            HCDebugGroupPinRow=lambda: N(), array=EArray)
-        return compile_authored(SNAPSHOT, 'HCDebugGroupPinsContributor', 'HCDescribe', scope, modded=False)
+        fields = ('m_Cursor', 'm_Total', 'm_Rows', 'm_PublishedRows', 'm_PublishedTotal', 'm_GroupOwner')
+        fn = compile_authored(SNAPSHOT, 'HCDebugGroupPinsContributor', 'HCDescribe', scope, modded=False, fields=fields)
+        def describe(obj, recorder):
+            for key, value in dict(m_Cursor=0, m_Total=0, m_Rows=EArray(), m_PublishedRows=EArray(),
+                                   m_PublishedTotal=0, m_GroupOwner=None).items():
+                if not hasattr(obj, key): setattr(obj, key, value)
+            return fn(obj, recorder)
+        return describe
 
     def service(self, rows, total=None):
         self.caps = []
 
-        def fill(cap, out):
+        def fill(cursor, group_cap, cap, out):
             self.caps.append(cap)
             for row in rows[:cap]:
                 out.Insert(row)
             return len(rows) if total is None else total
-        return N(HCDebugPins=fill)
+        return N(HCDebugPins=fill, HCDebugPinGroupCount=lambda:1)
 
     def pin(self, kind='ping', i=0):
         return N(Kind=kind, Position=(100.0 + i, 0, 200.0), ExpiresUtc=5000)
@@ -787,10 +794,12 @@ class GroupPinsLayer(unittest.TestCase):
         receiver = N(m_Healthy=healthy, m_State=N(Groups=EArray(records)), m_Config=N(MaxGroups=32),
                      HCDebugPinKind=None)
         scope = base_scope(HCGroupPins=N(Get=lambda: pins if pins_enabled else None), array=EArray,
-                           HCDebugGroupPinRow=lambda: N(), HCGroupService=N())
+                           HCDebugGroupPinRow=lambda: N(), HCGroupService=N(), int=N(MAX=2147483647))
         kind_fn = compile_authored(GROUPS, 'HCGroupService', 'HCDebugPinKind', scope, modded=False)
         receiver.HCDebugPinKind = lambda ident: kind_fn(receiver, ident)
-        fn = compile_authored(GROUPS, 'HCGroupService', 'HCDebugPins', scope, ('HCDebugPinKind',), modded=False)
+        count_fn = compile_authored(GROUPS, 'HCGroupService', 'HCDebugPinGroupCount', scope, modded=False)
+        receiver.HCDebugPinGroupCount = lambda: count_fn(receiver)
+        fn = compile_authored(GROUPS, 'HCGroupService', 'HCDebugPins', scope, ('HCDebugPinKind', 'HCDebugPinGroupCount'), modded=False)
         return receiver, fn, collect_caps
 
     def place(self, ident, name='Alice Smith', x=1.0, expires=0):
@@ -802,7 +811,7 @@ class GroupPinsLayer(unittest.TestCase):
                        self.place('hc-lead:lead-1'), self.place('hc-found:Old Barn'), self.place('weird')]}
         receiver, fn, _caps = self.owner(pin_sets=places)
         rows = EArray()
-        self.assertEqual(5, fn(receiver, 32, rows))
+        self.assertEqual(5, fn(receiver, 0, 32, 32, rows))
         self.assertEqual(['ping', 'death', 'lead', 'trail', 'pin'], [row.Kind for row in rows])
         self.assertEqual(900, rows[0].ExpiresUtc)
         for row in rows:
@@ -813,25 +822,25 @@ class GroupPinsLayer(unittest.TestCase):
         places = {10: [self.place('hc-ping:10:s%d' % i) for i in range(6)], 11: [self.place('hc-lead:l%d' % i) for i in range(6)]}
         receiver, fn, caps = self.owner(pin_sets=places)
         rows = EArray()
-        self.assertEqual(12, fn(receiver, 5, rows))
+        self.assertEqual(12, fn(receiver, 0, 32, 5, rows))
         self.assertEqual(5, len(rows))
-        self.assertTrue(all(cap == 5 for cap in caps), 'each group collect is capped by the same named cap')
+        self.assertTrue(all(cap == 2147483647 for cap in caps), 'display cap never truncates the page total')
 
     def test_getter_scans_at_most_the_configured_group_count(self):
         receiver, fn, caps = self.owner(groups=50, pin_sets={g: [self.place('hc-ping:x:y')] for g in range(10, 60)})
         rows = EArray()
-        self.assertEqual(32, fn(receiver, 64, rows), 'MaxGroups is the existing config bound')
+        self.assertEqual(32, fn(receiver, 0, 32, 64, rows), 'MaxGroups is the existing config bound')
         self.assertEqual(32, len(caps))
 
     def test_getter_is_empty_when_unhealthy_or_pins_module_off_or_bad_arguments(self):
         for kwargs in (dict(healthy=False), dict(pins_enabled=False)):
             receiver, fn, _caps = self.owner(pin_sets={10: [self.place('hc-ping:a:b')]}, **kwargs)
             rows = EArray()
-            self.assertEqual(0, fn(receiver, 8, rows))
+            self.assertEqual(0, fn(receiver, 0, 32, 8, rows))
             self.assertEqual([], list(rows))
         receiver, fn, _caps = self.owner(pin_sets={10: [self.place('hc-ping:a:b')]})
-        self.assertEqual(0, fn(receiver, 0, EArray()))
-        self.assertEqual(0, fn(receiver, 8, None))
+        self.assertEqual(0, fn(receiver, 0, 32, 0, EArray()))
+        self.assertEqual(0, fn(receiver, 0, 32, 8, None))
 
 
 class ProposalsLayer(unittest.TestCase):

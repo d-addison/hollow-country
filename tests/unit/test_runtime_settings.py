@@ -257,9 +257,9 @@ class DensityRegistryTests(unittest.TestCase):
         self.assertEqual([], profile.writes, 'loading must preserve operator profile bytes')
         effective = [line for line in profile.logs if line.startswith('[HC Settings] effective ')]
         registered = json.loads((ROOT / 'tools/validate/shared_settings.json').read_text())
-        self.assertEqual({row['key'] for row in registered if row['type'] != 'object'},
+        self.assertEqual({row['key'] for row in registered if row['type'] != 'object' and not row['key'].startswith('Performance.')},
                          {line.split(' effective ')[1].split('=')[0] for line in effective})
-        self.assertEqual(len({row['key'] for row in registered if row['type'] != 'object'}), len(effective))
+        self.assertEqual(len({row['key'] for row in registered if row['type'] != 'object' and not row['key'].startswith('Performance.')}), len(effective))
 
     def test_registry_detects_key_default_range_and_runtime_drift(self):
         from tools.validate.settings_consistency import check_consistency

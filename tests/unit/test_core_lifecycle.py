@@ -44,7 +44,7 @@ def tokens(source):
 
 
 def expression(text):
-    text = re.sub(r"\bnew (HCModuleRegistry)\(\)", r"\1()", text)
+    text = re.sub(r"\bnew (HCModuleRegistry|HCOperationalStatus)\(\)", r"\1()", text)
     text = re.sub(r"\b(?:int|float|bool|string|HCSettings|HCModule|HCModuleRegistry|HCOperationalStatus|HCOperationalOwner|array<ref HCModule>) (\w+) =", r"\1 =", text)
     text = re.sub(r"\bm_(\w+)\b", r"self.m_\1", text)
     text = re.sub(r"(?<!\.)\b(Stop|Tick)\b", r"self.\1", text)
@@ -85,6 +85,7 @@ def actual_method(name, context):
             line = expression(token)
         lines.append("    " * indent + line.replace("\n", " "))
     namespace = dict(context)
+    namespace.setdefault("HCPerfConfig", SimpleNamespace(HCGet=lambda: SimpleNamespace(EnableSharedSaves=True)))
     exec(compile("def actual(self):\n" + "\n".join(lines), "authored-HCServer:" + name, "exec"), namespace)
     return namespace["actual"]
 

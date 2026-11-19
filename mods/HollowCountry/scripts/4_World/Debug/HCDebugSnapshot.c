@@ -436,20 +436,59 @@ class HCDebugPickersContributor : HCDebugContributor
 // Bounded by GROUP_PIN_LAYER_CAP; the owner returns the true total.
 class HCDebugGroupPinsContributor : HCDebugContributor
 {
+    protected HCGroupService m_GroupOwner;
+    protected int m_Cursor;
+    protected int m_Total;
+    protected int m_PublishedTotal;
+    protected ref array<ref HCDebugGroupPinRow> m_Rows = new array<ref HCDebugGroupPinRow>;
+    protected ref array<ref HCDebugGroupPinRow> m_PublishedRows = new array<ref HCDebugGroupPinRow>;
+
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
         HCGroupService groups = HCGroupService.Get();
-        if (!groups) { return; }
-        array<ref HCDebugGroupPinRow> rows = new array<ref HCDebugGroupPinRow>;
-        int total = groups.HCDebugPins(HCDebugSnapshot.GROUP_PIN_LAYER_CAP, rows);
-        int shown = 0;
-        for (int index = 0; index < rows.Count(); index++)
+        // Do not retain another owner's sample across disable/restart.
+        if (!groups || groups != m_GroupOwner)
         {
-            HCDebugGroupPinRow row = rows[index];
-            string detail = "kind=" + row.Kind + "; expires=" + row.ExpiresUtc.ToString() + "; group, player and name withheld";
+            m_GroupOwner = groups;
+            m_Cursor = 0;
+            m_Total = 0;
+            m_PublishedTotal = 0;
+            m_Rows.Clear();
+            m_PublishedRows.Clear();
+        }
+        if (!groups) { return; }
+        int groupCount = groups.HCDebugPinGroupCount();
+        if (groupCount == 0)
+        {
+            m_Cursor = 0;
+            m_Total = 0;
+            m_Rows.Clear();
+            m_PublishedRows.Clear();
+            m_PublishedTotal = 0;
+            snapshot.HCNoteLayer("group-pins", 0, 0);
+            return;
+        }
+        // One group per capture; keep the last complete rolling sample visible
+        // until the next sweep completes. No whole-catalogue Collect call.
+        m_Total += groups.HCDebugPins(m_Cursor, 1, HCDebugSnapshot.GROUP_PIN_LAYER_CAP, m_Rows);
+        m_Cursor++;
+        if (m_Cursor >= groupCount)
+        {
+            m_PublishedRows = m_Rows;
+            m_PublishedTotal = m_Total;
+            m_Rows = new array<ref HCDebugGroupPinRow>;
+            m_Cursor = 0;
+            m_Total = 0;
+        }
+        if (m_Cursor > 0 && m_PublishedRows.Count() == 0 && m_PublishedTotal == 0) { return; }
+        int shown = 0;
+        for (int index = 0; index < m_PublishedRows.Count(); index++)
+        {
+            HCDebugGroupPinRow row = m_PublishedRows[index];
+            string detail = "kind=" + row.Kind + "; expires=" + row.ExpiresUtc.ToString() + "; rolling sample; group, player and name withheld";
             if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { shown++; }
         }
-        snapshot.HCNoteLayer("group-pins", total, shown);
+        snapshot.HCNoteLayer("group-pins", m_PublishedTotal, shown);
     }
 }
 

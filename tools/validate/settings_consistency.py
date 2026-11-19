@@ -13,12 +13,42 @@ ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / 'tools/validate/shared_settings.json'
 NATIVE = ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c'
 AI_NATIVE = ROOT / 'mods/HollowCountry/scripts/3_Game/World/HCAILimits.c'
+PERF_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c'
+PERF_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/HCPerfSettingsRegistry.c'
 SHIPPED = (ROOT / 'config/hollow-country-settings.json',
            ROOT / 'mission/hollow-country/operator/settings.json')
 
 
-def load_registry():
-    return json.loads(REGISTRY.read_text())
+def load_registry(*, include_scoped=False):
+    """Main settings consumers exclude optional profile-file scopes by default."""
+    rows = json.loads(REGISTRY.read_text())
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith('Performance.')]
+
+
+def check_performance(rows, source, registry):
+    """Optional performance.json has no shipped image; check its constructor."""
+    errors = []
+    source = re.sub(r'//[^\n]*', '', source)
+    registry = re.sub(r'//[^\n]*', '', registry)
+    dto = source.split('class HCPerfConfig\n', 1)[-1].split('class HCPerfSlices', 1)[0]
+    fields = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (bool|int|float) (\w+) = ([\w.]+);', dto, re.M)}
+    rules = {r['key'].removeprefix('Performance.'): r for r in rows}
+    if fields.keys() != rules.keys(): errors.append('Performance registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', registry, re.M)
+    expected = render_native_registry(rows).splitlines()
+    if compiled != expected: errors.append('Performance compiled registry differs (key/type/default/range/owner)')
+    for key, row in rules.items():
+        if row['owner'] != 'HCPerfConfig' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'Performance DTO default/type/owner differs for {key}')
+        guard = f'HCJsonFields.Has(text, "{key}")'
+        if row['type'] != 'bool':
+            guard += f' && HCOperatorSettingsRegistry.HCValid("Performance.{key}", decoded.{key})'
+        binding = f'if ({guard}) {{ {key} = decoded.{key}; }}'
+        if binding not in dto: errors.append(f'Performance apply binding differs for {key}')
+        if re.search(r'\b' + key + r'\s*[<>]=?\s*[\d.]', dto):
+            errors.append(f'Performance literal range bypasses registry for {key}')
+    return errors
 
 
 def flatten(value, prefix=''):
@@ -43,9 +73,9 @@ def render_native_registry(rows):
     return '\n'.join(lines)
 
 
-def check_consistency(*, registry=None, shipped=None, native=None):
+def check_consistency(*, registry=None, shipped=None, native=None, perf_native=None, perf_registry=None):
     """Optional inputs are explicit synthetic mutation seams for the same check."""
-    rows = load_registry() if registry is None else registry
+    rows = load_registry(include_scoped=True) if registry is None else registry
     source = NATIVE.read_text() if native is None else native
     errors, rules = [], {}
     for row in rows:
@@ -67,6 +97,12 @@ def check_consistency(*, registry=None, shipped=None, native=None):
             elif key != 'SearchDensityScale' and not low <= row['default'] <= high:
                 errors.append(f'Registry default outside range {key}')
     if errors: return errors
+    perf_rows = [r for r in rows if r['key'].startswith('Performance.')]
+    errors.extend(check_performance(perf_rows,
+        PERF_NATIVE.read_text() if perf_native is None else perf_native,
+        PERF_REGISTRY.read_text() if perf_registry is None else perf_registry))
+    rows = [r for r in rows if not r['key'].startswith('Performance.')]
+    rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
     for label, image in images:
