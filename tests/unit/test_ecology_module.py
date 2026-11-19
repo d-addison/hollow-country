@@ -28,6 +28,8 @@ class EcologyModuleBehavior(unittest.TestCase):
         self.calls = []
         self.e = environment()
         self.e["HCEcologyDisposition"] = SimpleNamespace(Report=lambda: None)
+        # Synthetic HC-48 boot receipt port (#149); tests/unit/test_hc48_habitat_boot.py asserts the calls.
+        self.e["HCEcologyNative"] = SimpleNamespace(HCHabitatRefusals=lambda state: None)
         self.settings = self.e["HCEcologyRuntimeSettings"]()
         self.game = SimpleNamespace(IsServer=lambda: True, GetWorldName=lambda: "chernarusplus", GetTime=lambda: 4321)
         self.e["GetGame"] = lambda: self.game
