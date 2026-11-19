@@ -124,11 +124,15 @@ class VarietyRoutes(unittest.TestCase):
             return N(GroupId=0, SearchPack=None, EverAssigned=False,
                      InfectedEntity=N(IsAlive=lambda: True, HCVarietyTriedDormant=lambda: True,
                        HCVarietyRouteTried=lambda: False, HCVarietyPlace=lambda: place,
-                       HCVarietyDormant=lambda: False, GetMindStateSynced=lambda: 0))
+                       HCVarietyDormant=lambda: False, GetMindStateSynced=lambda: 0,
+                       GetPosition=lambda: [0., 0., 0.]))
         first, second = actor(), actor()
-        owner = N(m_Healthy=True, m_Config=N(), m_Actors=Array([first, second]))
+        owner = N(m_Healthy=True, m_Config=N(MaxTracked=24),
+                  m_HCVarietyRouteCursor=0, m_Actors=Array([first, second]))
         roster = translate(str(path), 'array<HCInfectedActor> HCVarietyRouteRoster(', (),
-                           HCInfectedVariety=N(HCConfig=lambda: N(GroupMembers=3)),
+                           HCInfectedVariety=N(HCConfig=lambda: N(GroupMembers=3, EnableMigration=True),
+                             HCHidden=lambda *a: True),
+                           HCPerfPlayers=N(HCGet=lambda: Array()),
                            DayZInfectedConstants=N(MINDSTATE_CALM=0))
         self.assertEqual([first, second], roster(owner))
         second.InfectedEntity.HCVarietyDormant = lambda: True
@@ -136,7 +140,65 @@ class VarietyRoutes(unittest.TestCase):
         second.SearchPack = N()  # Existing investigator's native ownership wins.
         self.assertEqual([first], roster(owner))
         first.EverAssigned = True
-        self.assertEqual([], roster(owner))
+        self.assertIsNone(roster(owner))  # No eligible group remains.
+
+    def test_scan_skips_blocked_places_and_rotates_over_eligible_actors(self):
+        """#213: real accessor on synthetic bodies; visibility is only a stub."""
+        path = AREA / 'HCInfectedVarietyRoutes.c'
+        for blocked in ('dormant', 'combat', 'visible'):
+            with self.subTest(blocked=blocked):
+                def actor(place, block=False):
+                    return N(GroupId=0, SearchPack=None, EverAssigned=False,
+                             InfectedEntity=N(IsAlive=lambda: True,
+                               HCVarietyTriedDormant=lambda: True,
+                               HCVarietyRouteTried=lambda: False,
+                               HCVarietyPlace=lambda: place,
+                               HCVarietyDormant=lambda: block and blocked == 'dormant',
+                               GetMindStateSynced=lambda: int(block and blocked == 'combat'),
+                               GetPosition=lambda: (place, block)))
+                first = actor('blocked', True)
+                second, third = actor('second'), actor('third')
+                owner = N(m_Healthy=True, m_Config=N(MaxTracked=24),
+                          m_HCVarietyRouteCursor=0, m_Actors=Array([first, second]))
+                roster = translate(str(path), 'array<HCInfectedActor> HCVarietyRouteRoster(', (),
+                                   HCInfectedVariety=N(HCConfig=lambda: N(GroupMembers=3, EnableMigration=True),
+                                     HCHidden=lambda pos, players: not (pos[1] and blocked == 'visible')),
+                                   HCPerfPlayers=N(HCGet=lambda: Array()),
+                                   DayZInfectedConstants=N(MINDSTATE_CALM=0))
+                self.assertEqual([second], roster(owner))  # Two places, one scan.
+                owner.m_Actors.Insert(third)
+                self.assertEqual([second], roster(owner))
+                self.assertEqual([third], roster(owner))
+                self.assertEqual([second], roster(owner))
+                # Cursor remains valid after the tracked actor list shrinks.
+                owner.m_Actors = Array([third])
+                self.assertEqual([third], roster(owner))
+
+    def test_blocked_place_is_checked_once_and_scan_respects_actor_cap_and_opt_out(self):
+        path = AREA / 'HCInfectedVarietyRoutes.c'
+        checks = []
+        def body():
+            return N(IsAlive=lambda: True, HCVarietyTriedDormant=lambda: True,
+                     HCVarietyRouteTried=lambda: False, HCVarietyPlace=lambda: 'same-place',
+                     HCVarietyDormant=lambda: checks.append('blocked') or True)
+        actors = Array([N(GroupId=0, SearchPack=None, EverAssigned=False,
+                          InfectedEntity=body()) for _ in range(3)])
+        owner = N(m_Healthy=True, m_Config=N(MaxTracked=3),
+                  m_HCVarietyRouteCursor=0, m_Actors=actors)
+        config = N(GroupMembers=3, EnableMigration=True)
+        roster = translate(str(path), 'array<HCInfectedActor> HCVarietyRouteRoster(', (),
+                           HCInfectedVariety=N(HCConfig=lambda: config),
+                           HCPerfPlayers=N(HCGet=lambda: checks.append('players') or Array()))
+        self.assertIsNone(roster(owner))
+        self.assertEqual(['players', 'blocked'], checks)
+        self.assertEqual(0, owner.m_HCVarietyRouteCursor)  # Exactly one bounded sweep.
+        checks.clear()
+        config.EnableMigration = False
+        self.assertIsNone(roster(owner))
+        config.EnableMigration = True
+        owner.m_Config.MaxTracked = 2  # Never build a partial, truncated group.
+        self.assertIsNone(roster(owner))
+        self.assertEqual([], checks)
 
     def test_tick_releases_on_visibility_and_commits_one_next_segment_on_arrival(self):
         path = AREA / 'HCInfectedVarietyRoutes.c'

@@ -5,7 +5,7 @@
 // (3_Game/Entities); DayZAnimal.c:193 GetAIAgent; 3_Game/AI/AIAgent.c:7 GetGroup;
 // 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
 // 1_Core/proto/EnConvert.c:196 Distance, :210 DistanceSq; EnScript.c:380 Count,
-// :407 Insert; EnMath.c:553/566 Min/Max; EnDebug.c:96 Print; 3_Game/Global/Game.c:934 GetWorldName.
+// :394 Find, :407 Insert; EnMath.c:553/566 Min/Max; EnDebug.c:96 Print; 3_Game/Global/Game.c:934 GetWorldName.
 // Native movement remains entirely in HCNativeInfectedPack (AIWorld.c:98/122,
 // AIGroupBehaviour.c:27); no Expansion calls. Surveyed means authored source,
 // never an observed terrain/traversal verdict. Native and two-client pending.
@@ -290,26 +290,52 @@ modded class ZombieBase
 
 modded class HCInfectedModule
 {
+    protected int m_HCVarietyRouteCursor;
+
     array<HCInfectedActor> HCVarietyRouteRoster()
     {
         if (!m_Healthy || !m_Config) { return null; }
-        array<HCInfectedActor> roster = new array<HCInfectedActor>;
-        string place = "";
+        HCInfectedVarietyConfig variety = HCInfectedVariety.HCConfig();
+        if (!variety || !variety.EnableMigration) { return null; }
         array<ref HCInfectedActor> actors = m_Actors;
-        foreach (HCInfectedActor actor : actors)
+        int count = actors.Count();
+        // MaxTracked is the existing validated actor cap. Never truncate a
+        // place roster if the owner has somehow exceeded that cap.
+        if (count < 1 || count > m_Config.MaxTracked) { return null; }
+        array<Man> players = HCPerfPlayers.HCGet();
+        array<string> visited = new array<string>;
+        // At most MaxTracked candidates and MaxTracked members per place.
+        // Advance before testing so blocked places cannot pin the next scan.
+        for (int scan = 0; scan < count; scan++)
         {
-            ZombieBase body = actor.InfectedEntity;
-            if (!body || !body.IsAlive() || !body.HCVarietyTriedDormant() || body.HCVarietyRouteTried()) { continue; }
-            if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || body.HCVarietyPlace() == "") { continue; }
-            if (place == "") { place = body.HCVarietyPlace(); }
-            if (place != body.HCVarietyPlace()) { continue; }
-            // Wait for the whole capped place group to wake. Never steal a
-            // sleeping member, combat actor, investigator or horde member.
-            if (body.HCVarietyDormant() || body.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { return null; }
-            if (roster.Count() >= HCInfectedVariety.HCConfig().GroupMembers) { return null; }
-            roster.Insert(actor);
+            m_HCVarietyRouteCursor = m_HCVarietyRouteCursor % count;
+            HCInfectedActor candidate = actors[m_HCVarietyRouteCursor];
+            m_HCVarietyRouteCursor = (m_HCVarietyRouteCursor + 1) % count;
+            if (!candidate) { continue; }
+            ZombieBase candidateBody = candidate.InfectedEntity;
+            if (!candidateBody || !candidateBody.IsAlive() || !candidateBody.HCVarietyTriedDormant() || candidateBody.HCVarietyRouteTried()) { continue; }
+            if (candidate.GroupId != 0 || candidate.SearchPack || candidate.EverAssigned) { continue; }
+            string place = candidateBody.HCVarietyPlace();
+            if (place == "" || visited.Find(place) >= 0) { continue; }
+            visited.Insert(place);
+            array<HCInfectedActor> roster = new array<HCInfectedActor>;
+            bool blocked = false;
+            foreach (HCInfectedActor actor : actors)
+            {
+                if (!actor) { continue; }
+                ZombieBase body = actor.InfectedEntity;
+                if (!body || !body.IsAlive() || !body.HCVarietyTriedDormant() || body.HCVarietyRouteTried()) { continue; }
+                if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || body.HCVarietyPlace() != place) { continue; }
+                // Wait for the whole capped place group, without starving
+                // awake hidden groups elsewhere. Existing native owners win.
+                if (body.HCVarietyDormant() || body.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { blocked = true; break; }
+                if (!HCInfectedVariety.HCHidden(body.GetPosition(), players)) { blocked = true; break; }
+                if (roster.Count() >= variety.GroupMembers) { blocked = true; break; }
+                roster.Insert(actor);
+            }
+            if (!blocked && roster.Count() > 0) { return roster; }
         }
-        return roster;
+        return null;
     }
 }
 
