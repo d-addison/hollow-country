@@ -15,7 +15,8 @@
 // Persistence reuses HCV2ThreatStore<T>: bounded temp/backup/copy/readback;
 // no native rename exists. Interrupted writes need operator recovery.
 //
-// OFF: no tick, scan, buffers, DTO allocation or IO beyond admission marker check.
+// IDLE (no marker): reports ready, no scan, buffers, DTO allocation or IO beyond
+// the one marker check at start; OnTick returns at once.
 // ON: each core tick handles ONE of: a 128m tile query (<=4096 returned objects,
 // overflowing tiles stay pending); <=16 cursor objects (<=64 class comparisons each); <=3
 // seed columns (<=21 rays); <=4 validation points (<=12 rays + 2 stair rays);
@@ -76,19 +77,30 @@ class HCCellarSampler : HCModule
         int pending = 0;
         if (m_Data && m_Data.Classes) { pending = m_Data.Classes.Count(); }
         string counts = " cellar_measured=" + m_MeasuredClasses.ToString() + " admitted=0 pending=" + pending.ToString();
-        Print("[HC Cellars] HC-31 sampler" + counts + " state=" + state + " refused=" + reason + " runtime=PENDING");
+        string key = " note=";
+        if (state != "ready") { key = " refused="; }
+        Print("[HC Cellars] HC-31 sampler" + counts + " state=" + state + key + reason + " runtime=PENDING");
     }
 
     override bool IsEnabled(HCSettings settings)
     {
-        bool requested = GetGame().IsServer() && FileExist(MARKER);
-        if (!requested) { HCReceipt("off", "measurement_marker_absent_or_not_server"); }
-        return requested;
+        // Wave 16: the sampler is started on every server and idles ready until the
+        // operator creates MARKER; OnTick below is a cheap no-op while !m_Running.
+        if (!GetGame() || !GetGame().IsServer())
+        {
+            HCReceipt("off", "not_server");
+            return false;
+        }
+        return true;
     }
 
     override void OnStart(HCSettings settings)
     {
-        if (!IsEnabled(settings)) { return; }
+        if (!FileExist(MARKER))
+        {
+            HCReceipt("ready", "idle_waiting_for_measure_marker");
+            return;
+        }
         if (!HCStart()) { HCReceipt("refused", "measurement_input_or_store_invalid"); }
     }
 
@@ -431,7 +443,7 @@ class HCCellarSampler : HCModule
         m_Objects.Clear();
         m_Cargos.Clear();
         m_Hits.Clear();
-        HCReceipt("off", "measurement_complete_native_stair_route_unobserved");
+        HCReceipt("ready", "measurement_complete_native_stair_route_unobserved");
         Print("[HC Cellars] sampler done skipped_tiles=" + m_SkippedTiles.ToString());
     }
 
