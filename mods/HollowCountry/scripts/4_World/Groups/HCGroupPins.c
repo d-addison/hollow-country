@@ -16,7 +16,7 @@ class HCGroupPinPolicy
 {
     static bool AddTrail(HCGroupRecord group, string shelterId)
     {
-        if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= 48 || group.HCTrailPlaceIds.Find(shelterId) >= 0) { return false; }
+        if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= HCGCCampGroupConfig.Get().TrailPins || group.HCTrailPlaceIds.Find(shelterId) >= 0) { return false; }
         group.HCTrailPlaceIds.Insert(shelterId);
         return true;
     }
@@ -32,7 +32,7 @@ class HCGroupPinPolicy
         if (historyLength > shelter.History.Length()) { historyLength = shelter.History.Length(); }
         if (historyLength > 0) { pin.Name = shelter.Name + ": " + shelter.History.Substring(0, historyLength); }
         pin.Position = shelter.Position;
-        pin.Radius = 40;
+        pin.Radius = HCGCCampGroupConfig.Get().TrailRadiusMeters;
         if (!HCGroupRules.PlaceValid(pin)) { return null; }
         return pin;
     }
@@ -79,6 +79,7 @@ class HCGroupPins : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || s_Instance) { return; }
+        HCGCCampGroupConfig.Get();
         m_Trail = settings.EnableTravel;
         m_Leads = settings.EnableLeads;
         s_Instance = this;
@@ -95,7 +96,9 @@ class HCGroupPins : HCModule
     void Collect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
     {
         if (!group || !output || cap < 1) { return; }
-        // #131: at most 90 expiring team pings, sharing the existing wire cap.
+        HCGCCampGroupConfig limits = HCGCCampGroupConfig.Get();
+        if (cap > limits.PinLimit) { cap = limits.PinLimit; }
+        // Effective pin policy applies to snapshots and debug collection alike.
         HCTeamPingModule teamPings = HCTeamPingModule.Get();
         if (teamPings) { teamPings.HCCollect(group, cap, output); }
         // A corpse-run pin has priority over leads/trails at the existing cap.
@@ -111,7 +114,7 @@ class HCGroupPins : HCModule
             int leadNow = HCGroupClock.Utc();
             foreach (HCWorldLead row : received)
             {
-                if (output.Count() >= cap || leadCount >= 5) { break; }
+                if (output.Count() >= cap || leadCount >= limits.LeadPins) { break; }
                 if (row.GroupId != groupId) { continue; }
                 HCGroupPlace leadPin = HCGroupPinPolicy.LeadPin(row, leadNow);
                 if (!leadPin) { continue; }
@@ -121,7 +124,7 @@ class HCGroupPins : HCModule
         }
         if (!m_Trail || !group.HCTrailPlaceIds) { return; }
         int shelterCount = HCShelterCatalog.Count();
-        if (shelterCount > 20) { shelterCount = 20; }
+        if (shelterCount > HCGCCampGroupConfig.Get().ShelterQueries) { shelterCount = HCGCCampGroupConfig.Get().ShelterQueries; }
         for (int shelterIndex = 0; shelterIndex < shelterCount; shelterIndex++)
         {
             if (output.Count() >= cap) { break; }
@@ -141,13 +144,13 @@ class HCGroupPins : HCModule
         // Refresh FULL through the existing group path, including newly
         // received leads when no membership or discovery mutation occurs.
         m_RefreshSeconds += deltaTime;
-        if (m_RefreshSeconds >= 60)
+        if (m_RefreshSeconds >= HCGCCampGroupConfig.Get().PinRefreshSeconds)
         {
             m_RefreshSeconds = 0;
             groups.Broadcast();
         }
         m_LogSeconds += deltaTime;
-        if (m_LogSeconds >= 600)
+        if (m_LogSeconds >= HCGCCampGroupConfig.Get().PinLogSeconds)
         {
             m_LogSeconds = 0;
             groups.HCPinsLog(this);
@@ -171,6 +174,7 @@ class HCGroupPins : HCModule
 modded class HCGroupService
 {
     protected int m_HCPinsCursor;
+    protected int m_HCPinsLogCursor;
 
     void HCPinsDeath(PlayerBase player, HCDeathPins pins)
     {
@@ -196,13 +200,13 @@ modded class HCGroupService
         m_HCPinsCursor++;
         if (!Live(explorer) || !explorer.Player.IsAlive() || explorer.Player.IsUnconscious()) { return; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, explorer.Id);
-        if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= 48) { return; }
+        if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= HCGCCampGroupConfig.Get().TrailPins) { return; }
         vector actual = explorer.Player.GetPosition();
         if (!HCGroupRules.PositionValid(actual)) { return; }
         HCGroupState candidate;
         HCGroupRecord candidateGroup;
         int shelterCount = HCShelterCatalog.Count();
-        if (shelterCount > 20) { shelterCount = 20; }
+        if (shelterCount > HCGCCampGroupConfig.Get().ShelterQueries) { shelterCount = HCGCCampGroupConfig.Get().ShelterQueries; }
         for (int shelterIndex = 0; shelterIndex < shelterCount; shelterIndex++)
         {
             HCShelterEntry placedShelter = HCShelterCatalog.Get(shelterIndex);
@@ -211,7 +215,7 @@ modded class HCGroupService
             if (!shelter || group.HCTrailPlaceIds.Find(shelter.Id) >= 0) { continue; }
             float dx = actual[0] - shelter.Position[0];
             float dz = actual[2] - shelter.Position[2];
-            if (dx * dx + dz * dz > 1600) { continue; }
+            if (dx * dx + dz * dz > HCGCCampGroupConfig.Get().TrailRadiusMeters * HCGCCampGroupConfig.Get().TrailRadiusMeters) { continue; }
             if (!candidate)
             {
                 if (!Clone(candidate)) { m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60; return; }
@@ -251,8 +255,13 @@ modded class HCGroupService
         int trailCount = 0;
         int leadCount = 0;
         int deathCount = 0;
-        foreach (HCGroupRecord group : m_State.Groups)
+        int scanCount = m_State.Groups.Count();
+        if (scanCount > HCGCCampGroupConfig.Get().PinLogGroups) { scanCount = HCGCCampGroupConfig.Get().PinLogGroups; }
+        for (int scanIndex = 0; scanIndex < scanCount; scanIndex++)
         {
+            if (m_HCPinsLogCursor >= m_State.Groups.Count()) { m_HCPinsLogCursor = 0; }
+            HCGroupRecord group = m_State.Groups[m_HCPinsLogCursor];
+            m_HCPinsLogCursor++;
             array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
             pins.Collect(group, m_Config.MaxDiscoveries, known);
             foreach (HCGroupPlace pin : known)
@@ -262,7 +271,8 @@ modded class HCGroupService
                 if (pin.Id.IndexOf("hc-death:") == 0) { deathCount++; }
             }
         }
-        Print("[HollowCountry] V2 map pins groups=" + m_State.Groups.Count().ToString() + " trail=" + trailCount.ToString() + " leads=" + leadCount.ToString() + " deaths=" + deathCount.ToString());
+        string logHead = "[HollowCountry] V2 map pins groups=" + m_State.Groups.Count().ToString() + " sampled=" + scanCount.ToString();
+        Print(logHead + " trail=" + trailCount.ToString() + " leads=" + leadCount.ToString() + " deaths=" + deathCount.ToString() + " rolling_sample runtime=PENDING");
     }
 }
 
@@ -274,3 +284,63 @@ modded class HCModuleRegistry
         Register(new HCGroupPins);
     }
 }
+
+// W6: retain the existing registered anonymous rolling contributor. At most
+// DebugGroups bounded Collect calls and DebugPins emitted rows per Describe.
+// The counters describe the effective pin policy; they are not a world census.
+modded class HCDebugGroupPinsContributor
+{
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCGroupService groups = HCGroupService.Get();
+        // Do not retain another owner's sample across disable/restart.
+        if (!groups || groups != m_GroupOwner)
+        {
+            m_GroupOwner = groups;
+            m_Cursor = 0;
+            m_Total = 0;
+            m_PublishedTotal = 0;
+            m_Rows.Clear();
+            m_PublishedRows.Clear();
+        }
+        if (!groups) { return; }
+        int groupCount = groups.HCDebugPinGroupCount();
+        if (groupCount == 0)
+        {
+            m_Cursor = 0;
+            m_Total = 0;
+            m_Rows.Clear();
+            m_PublishedRows.Clear();
+            m_PublishedTotal = 0;
+            snapshot.HCNoteLayer("group-pins", 0, 0);
+            return;
+        }
+        // One group per capture; keep the last complete rolling sample visible
+        // until the next sweep completes. No whole-catalogue Collect call.
+        HCGCCampGroupConfig limits = HCGCCampGroupConfig.Get();
+        int groupWork = groupCount - m_Cursor;
+        if (groupWork > limits.DebugGroups) { groupWork = limits.DebugGroups; }
+        m_Total += groups.HCDebugPins(m_Cursor, groupWork, limits.DebugPins, m_Rows);
+        m_Cursor += groupWork;
+        if (m_Cursor >= groupCount)
+        {
+            m_PublishedRows = m_Rows;
+            m_PublishedTotal = m_Total;
+            m_Rows = new array<ref HCDebugGroupPinRow>;
+            m_Cursor = 0;
+            m_Total = 0;
+        }
+        if (m_Cursor > 0 && m_PublishedRows.Count() == 0 && m_PublishedTotal == 0) { return; }
+        int shown = 0;
+        int emitCount = m_PublishedRows.Count();
+        if (emitCount > limits.DebugPins) { emitCount = limits.DebugPins; }
+        for (int index = 0; index < emitCount; index++)
+        {
+            HCDebugGroupPinRow row = m_PublishedRows[index];
+            string detail = "kind=" + row.Kind + "; expires=" + row.ExpiresUtc.ToString() + "; rolling sample; group, player and name withheld";
+            if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { shown++; }
+        }
+        snapshot.HCNoteLayer("group-pins", m_PublishedTotal, shown);
+    }
+}
+

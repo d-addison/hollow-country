@@ -38,7 +38,15 @@ class HCTeamPingModule : HCModule
     protected float m_LogAfter;
     protected string m_LastRefusal = "none";
     void HCTeamPingModule() { m_Status.HCPublish("off", "not_started"); }
-    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        if (s_Instance != this) { return m_Status; }
+        HCGroupService groups = HCGroupService.Get();
+        string fault;
+        if (!groups || !groups.HCPresentationReady()) { fault = "group_service_unavailable"; }
+        HCModuleReadiness.HCDerive(m_Status, m_Rows != null, "", fault, "server_handlers_ready_runtime_pending");
+        return m_Status;
+    }
     static HCTeamPingModule Get() { return s_Instance; }
     override string GetName() { return "TeamPing"; }
     override bool IsEnabled(HCSettings settings)
@@ -62,6 +70,7 @@ class HCTeamPingModule : HCModule
             HCReport("group_service_unavailable", 0);
             return;
         }
+        HCGCCampGroupConfig.Get();
         m_Rows = new array<ref HCTeamPingRow>;
         s_Instance = this;
         groups.HCPingPreference(true);
@@ -90,21 +99,21 @@ class HCTeamPingModule : HCModule
         string label = HCStatus(status);
         if (label == "") { HCReport("status", 0); return HCGroupCode.INVALID; }
         int now = HCGroupClock.Utc();
-        if (!HCGroupRules.DeadlineFits(now, 60)) { HCReport("clock", 0); return HCGroupCode.DENIED; }
+        if (!HCGroupRules.DeadlineFits(now, HCGCCampGroupConfig.Get().TeamPingSeconds)) { HCReport("clock", 0); return HCGroupCode.DENIED; }
         HCTeamPingRow previous;
         for (int index = m_Rows.Count() - 1; index >= 0; index--)
         {
             HCTeamPingRow cached = m_Rows.Get(index);
             if (now < cached.At) { HCReport("clock", 0); return HCGroupCode.RATE; }
-            if (now - cached.At >= 60) { m_Rows.RemoveOrdered(index); if (m_Expired < 1000000) { m_Expired++; } continue; }
+            if (now - cached.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { m_Rows.RemoveOrdered(index); if (m_Expired < 1000000) { m_Expired++; } continue; }
             if (cached.Account == peer.Id) { previous = cached; }
         }
-        if (previous && now - previous.At < 10) { HCReport("sender_rate", 0); return HCGroupCode.RATE; }
+        if (previous && now - previous.At < HCGCCampGroupConfig.Get().TeamPingCooldownSeconds) { HCReport("sender_rate", 0); return HCGroupCode.RATE; }
         vector actual = peer.Player.GetPosition();
         if (!HCGroupRules.PositionValid(actual)) { HCReport("position", 0); return HCGroupCode.INVALID; }
         if (!previous)
         {
-            if (m_Rows.Count() >= 90) { HCReport("receipt_cap", 0); return HCGroupCode.LIMIT; }
+            if (m_Rows.Count() >= HCGCCampGroupConfig.Get().TeamPingRows) { HCReport("receipt_cap", 0); return HCGroupCode.LIMIT; }
             previous = new HCTeamPingRow;
             previous.Account = peer.Id;
             m_Rows.Insert(previous);
@@ -121,8 +130,8 @@ class HCTeamPingModule : HCModule
         if (shortName.Length() > 48) { shortName = shortName.Substring(0, 48); }
         previous.Pin.Name = shortName + ": " + label;
         previous.Pin.Position = actual;
-        previous.Pin.Radius = 5;
-        previous.Pin.HCPinExpiresUtc = now + 60;
+        previous.Pin.Radius = HCGCCampGroupConfig.Get().TeamPingRadiusMeters;
+        previous.Pin.HCPinExpiresUtc = now + HCGCCampGroupConfig.Get().TeamPingSeconds;
         int recipients = service.HCPingDeliver(group, peer, label);
         HCReport("none", recipients);
         return HCGroupCode.OK;
@@ -130,13 +139,14 @@ class HCTeamPingModule : HCModule
     void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
     {
         if (s_Instance != this || !m_Rows || !group || !output || cap < 1) { return; }
+        if (cap > HCGCCampGroupConfig.Get().PinLimit) { cap = HCGCCampGroupConfig.Get().PinLimit; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
         foreach (HCTeamPingRow row : m_Rows)
         {
             if (output.Count() >= cap) { break; }
             if (row.GroupId != group.Id || row.Epoch != group.Epoch) { continue; }
-            if (group.Members.Find(row.Account) < 0 || now < row.At || now - row.At >= 60) { continue; }
+            if (group.Members.Find(row.Account) < 0 || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { continue; }
             HCGroupService service = HCGroupService.Get();
             if (!service) { continue; }
             HCGroupPeer source = service.Peer(row.Account);
@@ -152,8 +162,8 @@ class HCTeamPingModule : HCModule
     {
         if (!m_Rows || s_Instance != this) { return; }
         HCGroupService service = HCGroupService.Get();
-        m_Work.HCReset(32);
-        m_Units.HCReset(32);
+        m_Work.HCReset(HCGCCampGroupConfig.Get().TeamPingPruneRows);
+        m_Units.HCReset(HCGCCampGroupConfig.Get().TeamPingPruneRows);
         int remaining = m_Rows.Count();
         int now = HCGroupClock.Utc();
         while (remaining > 0 && m_Work.HCContinue() && m_Units.HCTake(1))
@@ -164,7 +174,7 @@ class HCTeamPingModule : HCModule
             HCGroupPeer peer;
             HCGroupRecord group;
             if (service) { peer = service.Peer(row.Account); group = service.HCPingGroup(peer); }
-            if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session || now < row.At || now - row.At >= 60)
+            if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds)
             {
                 m_Rows.RemoveOrdered(m_PruneCursor);
                 if (m_Expired < 1000000) { m_Expired++; }
@@ -191,7 +201,7 @@ class HCTeamPingModule : HCModule
         int now = HCGroupClock.Utc();
         foreach (HCTeamPingRow row : m_Rows)
         {
-            if (row.Pin.Id != pin.Id || now < row.At || now - row.At >= 60) { continue; }
+            if (row.Pin.Id != pin.Id || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { continue; }
             HCGroupPeer peer = service.Peer(row.Account);
             HCGroupRecord group = service.HCPingGroup(peer);
             if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session) { return false; }
@@ -208,10 +218,8 @@ class HCTeamPingModule : HCModule
         }
         float now = GetGame().GetTickTime();
         if (now >= 0 && now < m_LogAfter) { return; }
-        m_LogAfter = now + 60;
-        string state = "off";
-        if (s_Instance == this) { state = "ready"; }
-        if (s_Instance != this && reason != "none") { state = "refused"; }
+        m_LogAfter = now + HCGCCampGroupConfig.Get().TeamPingLogSeconds;
+        string state = HCGetOperationalStatus().HCState();
         string head = "[HC Plan] HC-26 group_recipients=" + recipients.ToString() + " expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal;
         Print(head + " state=" + state + " refusals=" + m_Refused.ToString() + " runtime=PENDING");
         m_LastRefusal = "none";

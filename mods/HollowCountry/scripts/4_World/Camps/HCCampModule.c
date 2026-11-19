@@ -1,3 +1,129 @@
+// W6 optional server tuning. Missing keys retain defaults despite native zero-fill.
+// Existing EnableCamps/EnableGroups/EnableTeamPing preferences remain opt-outs.
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; EnDebug.c:96 Print.
+// Bounded IO uses HCGroupIO; this read-only config creates no persistence owner.
+class HCGCCampGroupConfig
+{
+    int CampFireCandidates = 128;
+    int CampPlayers = 32;
+    int CampTickSeconds = 5;
+    int CampScanSeconds = 600;
+    int CampProbeScanSeconds = 30;
+    int CampSaveSeconds = 600;
+    int CampBindDistanceSq = 145;
+    int PinLimit = 64;
+    int LeadPins = 5;
+    int TrailPins = 48;
+    int ShelterQueries = 20;
+    int TrailRadiusMeters = 40;
+    int PinRefreshSeconds = 60;
+    int PinLogSeconds = 600;
+    int PinLogGroups = 1;
+    int TeamPingRows = 90;
+    int TeamPingSeconds = 60;
+    int TeamPingCooldownSeconds = 10;
+    int TeamPingPruneRows = 32;
+    int TeamPingLogSeconds = 60;
+    int TeamPingRadiusMeters = 5;
+    int DebugGroups = 1;
+    int DebugPins = 32;
+    protected static ref HCGCCampGroupConfig s_Config;
+
+    protected int HCValue(string text, string key, int value, int declared, int low, int high)
+    {
+        if (!HCJsonFields.Has(text, key)) { return declared; }
+        string registryKey = "CampGroup." + key;
+        // Literal ceilings remain until the shared registry integration lands.
+        bool valid = value >= low && value <= high;
+        if (HCOperatorSettingsRegistry.HCFind(registryKey)) { valid = valid && HCOperatorSettingsRegistry.HCValid(registryKey, value); }
+        if (valid) { return value; }
+        Print("[HC CampGroup] invalid_setting=" + key + " default_restored runtime=PENDING");
+        return declared;
+    }
+
+    void HCNormalize(string text)
+    {
+        if (!HCJsonFields.Has(text, "CampFireCandidates")) { CampFireCandidates = 128; }
+        CampFireCandidates = HCValue(text, "CampFireCandidates", CampFireCandidates, 128, 1, 128);
+        if (!HCJsonFields.Has(text, "CampPlayers")) { CampPlayers = 32; }
+        CampPlayers = HCValue(text, "CampPlayers", CampPlayers, 32, 1, 32);
+        if (!HCJsonFields.Has(text, "CampTickSeconds")) { CampTickSeconds = 5; }
+        CampTickSeconds = HCValue(text, "CampTickSeconds", CampTickSeconds, 5, 1, 60);
+        if (!HCJsonFields.Has(text, "CampScanSeconds")) { CampScanSeconds = 600; }
+        CampScanSeconds = HCValue(text, "CampScanSeconds", CampScanSeconds, 600, 30, 3600);
+        if (!HCJsonFields.Has(text, "CampProbeScanSeconds")) { CampProbeScanSeconds = 30; }
+        CampProbeScanSeconds = HCValue(text, "CampProbeScanSeconds", CampProbeScanSeconds, 30, 5, 600);
+        if (!HCJsonFields.Has(text, "CampSaveSeconds")) { CampSaveSeconds = 600; }
+        CampSaveSeconds = HCValue(text, "CampSaveSeconds", CampSaveSeconds, 600, 60, 3600);
+        if (!HCJsonFields.Has(text, "CampBindDistanceSq")) { CampBindDistanceSq = 145; }
+        CampBindDistanceSq = HCValue(text, "CampBindDistanceSq", CampBindDistanceSq, 145, 1, 145);
+        if (!HCJsonFields.Has(text, "PinLimit")) { PinLimit = 64; }
+        PinLimit = HCValue(text, "PinLimit", PinLimit, 64, 1, 64);
+        if (!HCJsonFields.Has(text, "LeadPins")) { LeadPins = 5; }
+        LeadPins = HCValue(text, "LeadPins", LeadPins, 5, 1, 5);
+        if (!HCJsonFields.Has(text, "TrailPins")) { TrailPins = 48; }
+        TrailPins = HCValue(text, "TrailPins", TrailPins, 48, 1, 48);
+        if (!HCJsonFields.Has(text, "ShelterQueries")) { ShelterQueries = 20; }
+        ShelterQueries = HCValue(text, "ShelterQueries", ShelterQueries, 20, 1, 20);
+        if (!HCJsonFields.Has(text, "TrailRadiusMeters")) { TrailRadiusMeters = 40; }
+        TrailRadiusMeters = HCValue(text, "TrailRadiusMeters", TrailRadiusMeters, 40, 1, 40);
+        if (!HCJsonFields.Has(text, "PinRefreshSeconds")) { PinRefreshSeconds = 60; }
+        PinRefreshSeconds = HCValue(text, "PinRefreshSeconds", PinRefreshSeconds, 60, 5, 600);
+        if (!HCJsonFields.Has(text, "PinLogSeconds")) { PinLogSeconds = 600; }
+        PinLogSeconds = HCValue(text, "PinLogSeconds", PinLogSeconds, 600, 60, 3600);
+        if (!HCJsonFields.Has(text, "PinLogGroups")) { PinLogGroups = 1; }
+        PinLogGroups = HCValue(text, "PinLogGroups", PinLogGroups, 1, 1, 4);
+        if (!HCJsonFields.Has(text, "TeamPingRows")) { TeamPingRows = 90; }
+        TeamPingRows = HCValue(text, "TeamPingRows", TeamPingRows, 90, 1, 90);
+        if (!HCJsonFields.Has(text, "TeamPingSeconds")) { TeamPingSeconds = 60; }
+        TeamPingSeconds = HCValue(text, "TeamPingSeconds", TeamPingSeconds, 60, 10, 60);
+        if (!HCJsonFields.Has(text, "TeamPingCooldownSeconds")) { TeamPingCooldownSeconds = 10; }
+        TeamPingCooldownSeconds = HCValue(text, "TeamPingCooldownSeconds", TeamPingCooldownSeconds, 10, 1, 60);
+        if (!HCJsonFields.Has(text, "TeamPingPruneRows")) { TeamPingPruneRows = 32; }
+        TeamPingPruneRows = HCValue(text, "TeamPingPruneRows", TeamPingPruneRows, 32, 1, 32);
+        if (!HCJsonFields.Has(text, "TeamPingLogSeconds")) { TeamPingLogSeconds = 60; }
+        TeamPingLogSeconds = HCValue(text, "TeamPingLogSeconds", TeamPingLogSeconds, 60, 10, 600);
+        if (!HCJsonFields.Has(text, "TeamPingRadiusMeters")) { TeamPingRadiusMeters = 5; }
+        TeamPingRadiusMeters = HCValue(text, "TeamPingRadiusMeters", TeamPingRadiusMeters, 5, 1, 5);
+        if (!HCJsonFields.Has(text, "DebugGroups")) { DebugGroups = 1; }
+        DebugGroups = HCValue(text, "DebugGroups", DebugGroups, 1, 1, 4);
+        if (!HCJsonFields.Has(text, "DebugPins")) { DebugPins = 32; }
+        DebugPins = HCValue(text, "DebugPins", DebugPins, 32, 1, 32);
+    }
+
+    static HCGCCampGroupConfig Get()
+    {
+        if (s_Config) { return s_Config; }
+        s_Config = new HCGCCampGroupConfig;
+        string path = "$profile:HollowCountry/camp-group-config.json";
+        if (FileExist(path))
+        {
+            string text;
+            string error;
+            HCGCCampGroupConfig decoded;
+            if (HCGroupIO.Read(path, 16384, text) && JsonFileLoader<HCGCCampGroupConfig>.LoadData(text, decoded, error) && decoded)
+            {
+                decoded.HCNormalize(text);
+                s_Config = decoded;
+            }
+            else { Print("[HC CampGroup] invalid_config defaults_restored runtime=PENDING"); }
+        }
+        s_Config.HCLog();
+        return s_Config;
+    }
+
+    void HCLog()
+    {
+        Print("[HC CampGroup] limits CampFireCandidates=" + CampFireCandidates.ToString() + " CampPlayers=" + CampPlayers.ToString() + " CampTickSeconds=" + CampTickSeconds.ToString() + " CampScanSeconds=" + CampScanSeconds.ToString() + " runtime=PENDING");
+        Print("[HC CampGroup] limits CampProbeScanSeconds=" + CampProbeScanSeconds.ToString() + " CampSaveSeconds=" + CampSaveSeconds.ToString() + " CampBindDistanceSq=" + CampBindDistanceSq.ToString() + " runtime=PENDING");
+        Print("[HC CampGroup] limits PinLimit=" + PinLimit.ToString() + " LeadPins=" + LeadPins.ToString() + " TrailPins=" + TrailPins.ToString() + " ShelterQueries=" + ShelterQueries.ToString() + " runtime=PENDING");
+        Print("[HC CampGroup] limits TrailRadiusMeters=" + TrailRadiusMeters.ToString() + " PinRefreshSeconds=" + PinRefreshSeconds.ToString() + " PinLogSeconds=" + PinLogSeconds.ToString() + " PinLogGroups=" + PinLogGroups.ToString() + " runtime=PENDING");
+        Print("[HC CampGroup] limits TeamPingRows=" + TeamPingRows.ToString() + " TeamPingSeconds=" + TeamPingSeconds.ToString() + " TeamPingCooldownSeconds=" + TeamPingCooldownSeconds.ToString() + " TeamPingPruneRows=" + TeamPingPruneRows.ToString() + " runtime=PENDING");
+        Print("[HC CampGroup] limits TeamPingLogSeconds=" + TeamPingLogSeconds.ToString() + " TeamPingRadiusMeters=" + TeamPingRadiusMeters.ToString() + " DebugGroups=" + DebugGroups.ToString() + " DebugPins=" + DebugPins.ToString() + " runtime=PENDING");
+    }
+}
+
 // LC-T412..416 / #105..109. Preference EnableCamps admits V2 by default;
 // experiment verdicts are diagnostics, never claimed as observed/accepted.
 // Native evidence ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/:
@@ -70,9 +196,9 @@ class HCCampModule : HCModule
     static void Remember(FireplaceBase fire)
     {
         if (!GetGame() || !GetGame().IsServer() || !fire || s_Fires.Find(fire) >= 0) { return; }
-        if (s_Fires.Count() >= 128)
+        if (s_Fires.Count() >= HCGCCampGroupConfig.Get().CampFireCandidates)
         {
-            if (!s_FireCapLogged) { Print("[HollowCountry] V2 camps fire candidate cap=128; extra fires ignored"); s_FireCapLogged = true; }
+            if (!s_FireCapLogged) { Print("[HC CampGroup] fire_candidate_cap=" + HCGCCampGroupConfig.Get().CampFireCandidates.ToString() + " extra_fires_ignored runtime=PENDING"); s_FireCapLogged = true; }
             return;
         }
         s_Fires.Insert(fire);
@@ -87,6 +213,7 @@ class HCCampModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (m_Running || !GetGame().IsServer() || !IsEnabled(settings)) { return; }
+        HCGCCampGroupConfig.Get();
         HCBuildingClaim.HCStop(); // Clear a failed singleton before a fresh start.
         if (!m_AdmissionPrinted)
         {
@@ -106,7 +233,11 @@ class HCCampModule : HCModule
         }
         // One opt-out-aware CampTheft admission line, sampled once.
         HCCampTheft.HCEnabled();
-        Print("[HollowCountry] V2 camps started camps=" + m_Data.Camps.Count().ToString() + " visitors=abstract probes=abstract mailbox=off; native acceptance pending");
+        HCOperationalStatus visitors = HCCampProbes.HCGetOperationalStatus();
+        HCOperationalStatus probes = HCBaseRaid.HCGetOperationalStatus();
+        Print("[HC CampGroup] camps_started camps=" + m_Data.Camps.Count().ToString() + " runtime=PENDING");
+        Print("[HC CampGroup] visitors=" + visitors.HCState() + " reason=" + visitors.HCReason() + " runtime=PENDING");
+        Print("[HC CampGroup] probes=" + probes.HCState() + " reason=" + probes.HCReason() + " mailbox=retired runtime=PENDING");
     }
 
     protected void Fail()
@@ -173,7 +304,7 @@ class HCCampModule : HCModule
         if (!fire || fire.IsPendingDeletion() || fire.GetHierarchyParent() || !fire.IsBurning()) { return; }
         vector position = fire.GetPosition();
         string selected;
-        float best = 145;
+        float best = HCGCCampGroupConfig.Get().CampBindDistanceSq;
         foreach (Man person : m_Players)
         {
             PlayerBase player = PlayerBase.Cast(person);
@@ -220,8 +351,8 @@ class HCCampModule : HCModule
 
     protected void StepCamp(HCCampRecord camp, int now)
     {
-        int interval = 600;
-        if (camp.ProbePhase > 0) { interval = 30; }
+        int interval = HCGCCampGroupConfig.Get().CampScanSeconds;
+        if (camp.ProbePhase > 0) { interval = HCGCCampGroupConfig.Get().CampProbeScanSeconds; }
         if (camp.LastScan > 0 && now - camp.LastScan < interval) { return; }
         FireplaceBase fire = FireFor(camp);
         bool burning = fire && fire.IsBurning();
@@ -377,11 +508,11 @@ class HCCampModule : HCModule
         reason = "camp-clock-unavailable";
         if (now < 1 || now < m_LastUtc) { return false; }
         reason = "camp-admin-shared-work-budget";
-        if (camp.AnchorKind != "claim" && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + 32)) { return false; }
+        if (camp.AnchorKind != "claim" && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + HCGCCampGroupConfig.Get().CampPlayers)) { return false; }
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
         reason = "camp-player-cap-exceeded";
-        if (m_Players.Count() > 32) { m_Players.Clear(); return false; }
+        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); return false; }
         if (camp.AnchorKind == "claim")
         {
             HCCampScan claimScan;
@@ -422,8 +553,8 @@ class HCCampModule : HCModule
         if (!m_Running || !(deltaTime > 0)) { return; }
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
         if (claims) { claims.HCStep(deltaTime); }
-        m_Elapsed += Math.Min(deltaTime, 5);
-        if (m_Elapsed < 5) { return; }
+        m_Elapsed += Math.Min(deltaTime, HCGCCampGroupConfig.Get().CampTickSeconds);
+        if (m_Elapsed < HCGCCampGroupConfig.Get().CampTickSeconds) { return; }
         m_Elapsed = 0;
         int now = HCWorldClock.UTC();
         if (now < m_LastUtc || now < 1) { Fail(); return; }
@@ -431,7 +562,7 @@ class HCCampModule : HCModule
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
         // No partial observer/group snapshot is used if the server exceeds cap.
-        if (m_Players.Count() > 32) { m_Players.Clear(); return; }
+        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); return; }
         if (s_Fires.Count() > 0)
         {
             if (m_FireCursor >= s_Fires.Count()) { m_FireCursor = 0; }
@@ -440,7 +571,7 @@ class HCCampModule : HCModule
         }
         if (!m_Running) { return; }
         HCStepEncounter(now);
-        if (m_Running && now - m_LastSaved >= 600) { Commit(now); }
+        if (m_Running && now - m_LastSaved >= HCGCCampGroupConfig.Get().CampSaveSeconds) { Commit(now); }
     }
 
     override void OnStop()
