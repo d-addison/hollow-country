@@ -43,6 +43,10 @@ class HCInteriorPackPage
 // Owned by the existing reader. Discard/reset on stop; no static stale admission.
 class HCInteriorPackJob
 {
+    ref HCInteriorTemplateClasses PendingClasses;
+    ref HCInteriorTemplateGroups PendingGroups;
+    ref HCInteriorTemplateFurnish PendingFurnish;
+    int ValidateNext;
     string Root;
     string Reason;
     int NextPage;
@@ -66,7 +70,8 @@ class HCInteriorPackJob
 class HCInteriorPackIndex
 {
     // Storage bounds only: one root, <=16 metadata pages and <=610 leaf files.
-    // Native calls/strict parsing of ONE <=32767-byte page cannot be preempted.
+    // Native read/LoadData of ONE <=32767-byte page cannot be preempted.
+    // Production strict parsing is prepared incrementally by HCW64InteriorLoad.
     // The root is excluded from pack_chunks; include every successful page/leaf read.
     static int HCChunks(HCInteriorPackJob job)
     {
@@ -113,6 +118,10 @@ class HCInteriorPackIndex
 
     static void HCReset(HCInteriorPackJob job)
     {
+        job.PendingClasses = null;
+        job.PendingGroups = null;
+        job.PendingFurnish = null;
+        job.ValidateNext = 0;
         job.Root = "";
         job.Reason = "";
         job.NextPage = 0;
@@ -311,12 +320,18 @@ class HCInteriorPackIndex
             return 1;
         }
         HCInteriorTemplateFile binding = job.Header.IndexFiles.Get(job.NextPage);
-        string raw = HCRead(job, binding.FileName);
-        if (raw == "")
+        string content;
+        if (job.Pins.Get("__prepared_file") == binding.FileName)
         {
-            return 2;
+            content = job.Pins.Get("__prepared_text");
+            job.Pins.Set("__prepared_file", "");
         }
-        string content = HCInteriorTemplatesStrict.NativeText(raw, "pack-page");
+        else
+        {
+            string raw = HCRead(job, binding.FileName);
+            if (raw == "") { return 2; }
+            content = HCInteriorTemplatesStrict.NativeText(raw, "pack-page");
+        }
         string error;
         HCInteriorPackPage page = new HCInteriorPackPage;
         if (content == "" || !JsonFileLoader<HCInteriorPackPage>.LoadData(content, page, error))

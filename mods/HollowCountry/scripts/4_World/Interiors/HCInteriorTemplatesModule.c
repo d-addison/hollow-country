@@ -1,5 +1,6 @@
 // W5-PERF bound: furnishing attempts per module tick are limited by a deterministic work-unit
-// budget (HCUnitBudget, FURNISH_UNITS_PER_TICK, issue #138); maintenance
+// budget (HCUnitBudget, FURNISH_UNITS_PER_TICK) AND one tick-wide HCPerfSlices
+// deadline/count (Performance.InteriorStepsPerTick, issue #138); maintenance
 // alternates house/pilot recycle/compaction over four ticks each minute.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:1120 IsServer;
 // 1_Core/proto/EnMath.c:553 Min; EnSystem.c:397 FileExist; EnDebug.c:96 Print.
@@ -8,7 +9,8 @@ modded class HCInteriorsModule
 {
     protected int m_FurnishedLimit;
     protected ref HCInteriorPlacementCursor m_FurnishWork = new HCInteriorPlacementCursor;
-    // Units per module tick: 3 creation attempts (SLOT_UNITS=8) or 24 cheap deferrals/refusals.
+    // Unit ceiling: 3 creation attempts (SLOT_UNITS=8) or 24 cheap deferrals/refusals.
+    // The configured tick-wide slice may stop earlier (default: one cursor visit).
     // The previous 16-slot count with a 4 ms clock guard measured 80-135 ms ticks.
     static const int FURNISH_UNITS_PER_TICK = 24;
     // Issue #138 round 2: an attempt is charged the larger of its declared units and its measured
@@ -48,7 +50,7 @@ modded class HCInteriorsModule
         bool maintenanceDue = m_MaintenancePhase > 0 || m_SearchRecycleElapsed >= 60.0;
         if (!maintenanceDue)
         {
-            if (HCInteriorTemplates.Loaded() && !m_FurnishWork.HCComplete()) { HCFurnish(settings, steps); }
+            if (HCInteriorTemplates.Loaded() && !m_FurnishWork.HCComplete()) { m_FurnishWork.HCBeginTick(); HCFurnish(settings, steps); }
             steps.HCEndTick(TickCount(tickStart));
             return;
         }
@@ -69,7 +71,7 @@ modded class HCInteriorsModule
     }
 
     // Review P1: one slot per module tick took ~7500 ticks for the 1500-row catalog, so several
-    // slots run per tick, bounded by work units: the first slot is always admitted, a creation
+    // slots may run per tick, bounded by work units and HCBeginTick: a creation
     // attempt charges at least SLOT_UNITS (more when its measured cost is higher), a cheap deferral
     // CHEAP_UNITS. The cursor keeps its position before yielding.
     protected void HCFurnish(HCSettings settings, HCStepTimer steps)
