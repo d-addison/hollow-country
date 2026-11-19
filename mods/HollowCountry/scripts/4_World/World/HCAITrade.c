@@ -257,12 +257,23 @@ class HCTradeTransaction
         return phase == "cancelled" || phase == "rolled_back" || phase == "complete";
     }
 
-    // Persist an idle journal for a terminal one (HCCheckpoint quarantines on a
-    // failed write). Called only once admission is otherwise possible, so a
-    // refusing provider never rewrites the journal. Log line bounded at 16.
+    // Persist an idle journal for a terminal one. Called only once admission is
+    // otherwise possible, so a refusing provider never rewrites the journal. The idle row
+    // is saved as a separate candidate and the in-memory journal is released only after
+    // that save succeeds (#193): a failed save leaves memory equal to the disk copy (the
+    // terminal journal and its evidence) and fails closed (no retry until restart) rather
+    // than quarantining over it. Log line bounded at 16.
     bool HCReleaseSlot()
     {
         if (!HCTerminal()) { return true; }
+        HCTradeState idle = new HCTradeState;
+        if (!m_Ready || !m_Store || !HCValidState(idle) || !m_Store.Save(idle))
+        {
+            m_Ready = false;
+            m_Status.HCPublish("refused", "TRADE_JOURNAL_UNCERTAIN");
+            HCLog();
+            return false;
+        }
         string prior = m_State.Phase;
         string priorRefusal = m_State.Refusal;
         m_State.Id = "";
@@ -285,7 +296,7 @@ class HCTradeTransaction
         m_State.RightQuantity = 0;
         m_State.StartedAt = 0;
         m_State.EndsAt = 0;
-        if (!HCCheckpoint()) { return false; }
+        HCLog();
         if (m_Released < 16)
         {
             m_Released++;
@@ -556,6 +567,11 @@ class HCAITrade : HCModule
 
     // Lead's provider activity calls with two already claimed/funded leases.
     // Shipping adapter refuses, so there is no scan or repeated offer loop.
+    // CONSUMER NOTE (#193): ANY HCBegin releases a terminal journal (cancelled, rolled_back
+    // or complete) to idle before it admits the next exchange. A consumer that wants the
+    // result of a complete exchange must read HCObservedComplete(tradeId) BEFORE its next
+    // HCBegin, or latch its own result; after the release the completion is gone. The
+    // provider adapter (HCXAITradeAdapter) stays unbound, so trade remains refusal-only.
     bool HCBegin(string leftLease, string rightLease)
     {
         if (!GetGame() || !GetGame().IsServer() || !m_Trade || !s_Provider) { return false; }

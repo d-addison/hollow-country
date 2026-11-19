@@ -93,7 +93,7 @@ class WreckSupply(unittest.TestCase):
         policy.Allowed = lambda *args: True  # geometry/authority need DayZ tests
         methods = ('Enroll', 'Debit', 'CanStart', 'Begin', 'Continuing', 'Complete', 'End',
                    'IsEnabled', 'HCReport', 'Fault', 'OnStart', 'OnStop', 'OnTick', 'Purge',
-                   'HCGetOperationalStatus', 'HCRefuseStart', 'HCRefuseBegin')
+                   'HCGetOperationalStatus', 'HCRefuseStart', 'HCRefuseBegin', 'HCEnrollReason')
         for code in MethodsTranslator(source, 'HCWreckSalvageModule', methods).classes():
             exec(code, env)
         owner = env['HCWreckSalvageModule']

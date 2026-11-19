@@ -181,13 +181,13 @@ class WreckSalvageRefusals(unittest.TestCase):
     def module(self, **kw):
         module = NS(m_Active=True, m_Busy=False, m_HCStartRefusal='', m_HCBeginRefusal='',
                     m_Sessions=EArray(), m_State=NS(Rows=[NS(Left=2)]), Enroll=lambda target: 0,
-                    Purge=lambda: None, **kw)
-        for name in ('HCRefuseStart', 'HCRefuseBegin'):
+                    m_HCEnrollRefusal='', Purge=lambda: None, **kw)
+        for name in ('HCRefuseStart', 'HCRefuseBegin', 'HCEnrollReason'):
             try:
                 fn = event_translate(self.text, name, self.env, 'HCWreckSalvageModule', True)
             except AssertionError:
                 fn = (lambda self_, reason: self.fail('missing ' + name))
-            setattr(module, name, (lambda f: lambda reason: f(module, reason))(fn))
+            setattr(module, name, (lambda f: lambda *args: f(module, *args))(fn))
         return module
 
     def can_start(self, module, player):

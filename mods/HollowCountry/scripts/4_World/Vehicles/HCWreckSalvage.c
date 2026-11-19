@@ -200,6 +200,11 @@ class HCWreckSalvageModule : HCModule
     protected bool m_Busy;
     protected bool m_HCReported;
     // Last start/begin refusal reasons: one log line per change, cleared on success.
+    // #193: Enroll cause for a negative index. Only the two failures Enroll can tell apart are
+    // named; every other -1 (inactive, unreviewed, bad position) stays the broad STORAGE reason.
+    static const string HC_TABLE_FULL = "wreck_table_full";
+    static const string HC_SAVE_FAILED = "wreck_journal_save_failed";
+    protected string m_HCEnrollRefusal;
     protected string m_HCStartRefusal;
     protected string m_HCBeginRefusal;
     protected int m_HCPurgeCursor = -1;
@@ -391,12 +396,17 @@ class HCWreckSalvageModule : HCModule
 
     int Enroll(Object wreck)
     {
+        m_HCEnrollRefusal = "";
         if (!m_Active || !wreck) return -1;
         if (!HCWreckSalvage.Reviewed(wreck.GetType()) || !HCWreckSalvage.PositionValid(wreck.GetPosition())) return -1;
         string key = HCWreckSalvage.Key(wreck.GetType(), wreck.GetPosition());
         int existing;
         if (m_Index.Find(key, existing)) return existing;
-        if (m_State.Rows.Count() >= MAX_WRECKS) return -1;
+        if (m_State.Rows.Count() >= MAX_WRECKS)
+        {
+            m_HCEnrollRefusal = HC_TABLE_FULL;
+            return -1;
+        }
         HCWreckSalvageRow row = new HCWreckSalvageRow;
         row.Key = key;
         row.WreckClass = wreck.GetType();
@@ -404,7 +414,12 @@ class HCWreckSalvageModule : HCModule
         row.Budget = HCWreckSalvage.Budget(key);
         row.Left = row.Budget;
         int index = m_State.Rows.Insert(row);
-        if (!Save()) return -1;
+        if (!Save())
+        {
+            // Save() faulted the module (inactive); the row is never indexed.
+            m_HCEnrollRefusal = HC_SAVE_FAILED;
+            return -1;
+        }
         m_Index.Set(key, index);
         return index;
     }
@@ -440,16 +455,24 @@ class HCWreckSalvageModule : HCModule
         m_HCBeginRefusal = reason;
     }
 
+    // Cause of the last negative Enroll: the named table/save reason, else the broad storage one.
+    protected string HCEnrollReason()
+    {
+        if (m_HCEnrollRefusal != "") return m_HCEnrollRefusal;
+        return HCRefusal.STORAGE;
+    }
+
     bool CanStart(PlayerBase player, ActionTarget target, ItemBase item)
     {
         if (!GetGame() || !GetGame().IsServer()) return false;
         if (!m_Active) return HCRefuseStart(HCRefusal.SERVICE);
         if (m_Busy) return HCRefuseStart(HCRefusal.BUSY);
-        if (!player) return false;
+        // Unreachable from the action (it always passes a player); kept so every false names a reason.
+        if (!player) return HCRefuseStart(HCRefusal.SESSION);
         if (!player.GetIdentity()) return HCRefuseStart(HCRefusal.SESSION);
         if (!HCWreckSalvage.Allowed(player, target, item)) return HCRefuseStart(HCRefusal.SALVAGE);
         int index = Enroll(target.GetObject());
-        if (index < 0) return HCRefuseStart(HCRefusal.STORAGE);
+        if (index < 0) return HCRefuseStart(HCEnrollReason());
         if (m_State.Rows[index].Left <= 0) return HCRefuseStart(HCRefusal.NOTHING);
         m_HCStartRefusal = "";
         return true;
@@ -523,7 +546,7 @@ class HCWreckSalvageModule : HCModule
         if (data.Index < 0)
         {
             // Enroll failed after CanStart passed (state save or wreck table); no session.
-            HCRefuseBegin(HCRefusal.STORAGE);
+            HCRefuseBegin(HCEnrollReason());
             return;
         }
         m_Sessions.Insert(data);
