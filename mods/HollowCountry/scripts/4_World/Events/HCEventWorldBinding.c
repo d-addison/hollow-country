@@ -24,6 +24,15 @@ class HCEventWorldBinding
     protected static bool s_StartupReported;
     protected static ref array<string> s_BindReported;
     protected static ref array<string> s_BindReasons;
+
+    // HC-41 integration seam. Called once by the owner, including its off path.
+    // Default source explicitly refuses CE ownership before any query/store IO.
+    // No fallback to BindCache/BindPolice: those author cargo, not native stock.
+    static bool BindNativeIncident(HCNativeIncidentLease incidents, HCEventNativeObserver observer, bool enabled)
+    {
+        if (!incidents || !observer) { return false; }
+        return incidents.HCOpen(observer.HCIncidentSource(), enabled);
+    }
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
     {
         if (!observer || !settings || !HCEventRuntimePolicy.SettingsValid(settings)) { return; }
