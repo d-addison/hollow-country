@@ -111,6 +111,23 @@ or an older journal without written hashes, can require this manual review.
 Never delete the journal to bypass a conflict. Identical dependency files are
 recorded as unchanged and receive no backup.
 
+The installer's **Profiles** step also handles upgrades from v1-test-9 or earlier:
+if `profiles/HollowCountry/holdouts.json` has legacy `Version: 1` (unfunded) or
+`Version: 2` (funded, before camp reserves) state or invalid JSON, it moves that file and any existing `holdouts.json.bak`
+and `holdouts.json.tmp` beside it into the same run's backup folder, retaining
+their relative paths. `--plan-only` lists each planned move in plain words;
+`--apply` requires the server stopped. Each move uses the run journal, and
+`hollow-country-install-receipt.json` lists the relative filenames under
+`holdouts_moved`. Installer rollback/recovery restores their exact original bytes.
+This preserves the old image for recovery and allows the mod to create fresh
+funded state; it does not convert old occupants or reserves. A current `Version: 3`
+image and its companions stay untouched, as do orphan companions when the main
+file is absent. Unknown schemas stay untouched for manual inspection.
+`--check` reports a separate `holdouts` line: PASS for absent or funded-schema
+state, FAIL for legacy, invalid JSON or unsupported schemas, even when profile
+writes are skipped. This schema check establishes no native load or gameplay
+result; DayZ runtime acceptance remains pending.
+
 Rollback with the server stopped:
 
 ```sh

@@ -64,6 +64,12 @@ modded class HCSearchHouses
         // All callers, including legacy holdout upkeep, now refuse the hop.
         return 4;
     }
+
+    // Callers check this before spending a finite attempt or saving.
+    bool V2VisitAvailable()
+    {
+        return false;
+    }
 }
 
 // A second, finite journal is exclusively for withdrawals from real caches.

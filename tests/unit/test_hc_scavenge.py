@@ -216,6 +216,11 @@ class ScavengeBehavior(unittest.TestCase):
         # Every legacy remote entry point now refuses even valid-looking handles.
         self.assertEqual(4, execute_member(source, 'TakeOne', {}, N(), source_cache, home, 'party', EArray()))
         self.assertEqual(4, execute_member(source, 'V2Visit', {}, N(), source_cache, home, 'party', 0))
+        # Review P2: holdout upkeep must not spend finite StockAttempts or save for a refused hop.
+        self.assertFalse(execute_member(source, 'V2VisitAvailable', {}, N()))
+        holdouts = (ROOT / 'mods/HollowCountry/scripts/4_World/World/HCHoldouts.c').read_text()
+        gate = holdouts.index('houses.V2VisitAvailable()')
+        self.assertLess(gate, holdouts.index('row.StockAttempts++;'))
 
         # Adapter has a bounded live refusal; it cannot fabricate provider APIs.
         adapter = ADAPTER.read_text()
