@@ -75,7 +75,7 @@ def invoke(name, env, instance, *args, path=None):
                    'Reject', 'SearchBindingValid', 'SearchSession', 'SessionValid',
                    'PreserveLegacyManifest', 'RestoreLayoutManifest', 'SetSession',
                    'IsEnabled', 'ValidateConfig', 'AllocateManifest', 'PlaceCandidate',
-                   'ResolveBuilding', 'InspectProp', 'Fail', 'Refuse', 'OpenJournal', 'ReconcileAll'):
+                   'ResolveBuilding', 'InspectProp', 'Fail', 'Refuse', 'OpenJournal', 'ReconcileAll', 'ExpireLock'):
         text = re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(', text)
     # PlaceCandidate-only syntax: untyped locals, managed arrays, and the native
     # `out Object reusable` parameter (the synthetic port returns (decision, object)).
@@ -147,7 +147,7 @@ class SearchIntegrationTests(unittest.TestCase):
         # Wave 13 (#138): no core tick runs here, so the shared budget is the idle (never refusing) one.
         tick_fixture.install(self.env)
         for name in ('SearchGate','CanStart','CanContinue','SearchSession','SessionValid',
-                     'SearchBindingValid','PreserveLegacyManifest','SetSession'):
+                     'SearchBindingValid','PreserveLegacyManifest','SetSession','ExpireLock'):
             setattr(self.t,name,lambda *a,n=name:self.call(n,*a))
         self.t.FindSite=lambda target:self.site if target is self.site.Target else None
         self.t.ValidateTarget=lambda player,*a:player.IsAlive() and not player.IsUnconscious()

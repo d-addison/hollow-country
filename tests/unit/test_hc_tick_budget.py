@@ -306,11 +306,22 @@ class SourceWiringTests(unittest.TestCase):
     def read(self, relative):
         return (SCRIPTS / relative).read_text()
 
+    # Wave 14 (#195): the behaviour of every consumer id is executed in test_hc_tick_budget_fixes (houses
+    # ChargeQuery/RecycleSpentBindings/CompactSettled, the refresh OnTick batch, the interiors lock loop and
+    # CanStart) and by the two-consumer tests above (interiors, infected). This presence check stays as the
+    # cheap guard that a loop was not re-pointed at another id, and that no consumer id is orphaned.
+    def test_every_consumer_id_is_taken_somewhere_in_4_world(self):
+        sources = "".join(path.read_text() for path in (SCRIPTS / "4_World").rglob("*.c"))
+        for name in CONST:
+            if name in ("HC_WORK_CONSUMERS", "HC_WORK_UNBOUNDED"):
+                continue
+            self.assertIn("HCTakeFor(HCUnitBudget." + name + ", 1)", sources, name)
+
     def test_every_consumer_loop_takes_a_unit_from_the_shared_budget(self):
         wiring = {
             "4_World/Infected/HCInfectedModule.c": ("HC_WORK_INFECTED",),
             "4_World/Interiors/HCInteriorModule.c": ("HC_WORK_INTERIORS",),
-            "4_World/Loot/HCSearchHouses.c": ("HC_WORK_SEARCH_BIND", "HC_WORK_SEARCH_MAINT"),
+            "4_World/Loot/HCSearchHouses.c": ("HC_WORK_SEARCH_BIND", "HC_WORK_SEARCH_MAINT", "HC_WORK_SEARCH_DETACHED"),
             "4_World/Loot/HCSearchRefresh.c": ("HC_WORK_SEARCH_REFRESH", "HC_WORK_SEARCH_MAINT"),
         }
         for path, ids in wiring.items():
