@@ -192,7 +192,8 @@ def api(source, env):
 
 def dto(env, name, data):
     """Fill a declared HCXAIData.c DTO from JSON-like data (vectors become tuples)."""
-    result = env[name]()
+    from tests.unit.json_loader_port import zero_scalars
+    result = zero_scalars(env[name]())
     nested = {'Sites': 'HCXAISite', 'CacheLoot': 'HCXAISiteLoot', 'Rows': None}
     for key, value in data.items():
         if isinstance(value, list) and value and isinstance(value[0], dict):

@@ -187,6 +187,11 @@ class HCWreckSalvage
 
 class HCWreckSalvageModule : HCModule
 {
+    static bool HCFieldsPresent(string text)
+    {
+        return HCJsonFields.Every(text, "Budget", 3) && HCJsonFields.Every(text, "Left", 3);
+    }
+
     static const string PATH = "$profile:HollowCountry/wreck-salvage.json";
     static const int MAX_BYTES = 2097152;
     static const int MAX_WRECKS = 4096;
@@ -283,6 +288,7 @@ class HCWreckSalvageModule : HCModule
             if (text == "" || !JsonFileLoader<HCWreckSalvageImage>.LoadData(text, image, error) || !image || image.Version != 1) return Fault();
             if (image.Length < 1 || image.Length != image.Payload.Length() || image.Hash != image.Payload.Hash()) return Fault();
             if (!JsonFileLoader<HCWreckSalvageState>.LoadData(image.Payload, m_State, error) || !Valid(m_State)) return Fault();
+            if (!HCFieldsPresent(image.Payload)) { Print("[HC Wreck] missing Budget/Left; runtime=PENDING"); return Fault(); }
         }
         else
         {

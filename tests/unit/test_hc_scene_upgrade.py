@@ -1,10 +1,11 @@
 """HC-19 upgrade regression: explicit SYNTHETIC pre-HC-19 disk image.
 
 DTO keys are from 25a7dc2: HCSceneChains.c, HCEventData.c and
-HCEventRuntimeData.c. No profile or DayZ result is embedded here. The normal
-initializer and null ports both admit legacy state before this fix. A separate
-constructor-less allocation port exercises missing-field default loss; it is a
-hypothesis to qualify natively, NOT a reproduction of boot 050's unknown DTO.
+HCEventRuntimeData.c. No profile or DayZ result is embedded here. The
+original initializer-preserving ports were corrected by #177 after boot 057
+observed missing scalar zero-fill. Both allocation shapes now zero scalars;
+authored Open restores the absent legacy Stories section explicitly. This is
+still not a reproduction of boot 050's unknown DTO.
 Spec/plan/task: HC-19 / #147; task.md in the dispatched writer inputs.
 
 Actual TDD receipt, 2026-11-18:
@@ -48,6 +49,8 @@ class LegacySceneUpgrade(unittest.TestCase):
         self.logs = []
         self.env.update(Print=self.logs.append,
                         HCV2Admission=N(Admitted=lambda preference: preference))
+        from tests.unit.json_loader_port import json_fields_port
+        self.env['HCJsonFields'] = json_fields_port()
         reviewed = (SCENES.parent / 'Events/HCEventReviewedSites.c').read_text()
         self.env['HCEventReviewedSites'] = N()
         for name in ('Build', 'Curated', 'SceneMission'):
@@ -108,9 +111,8 @@ class LegacySceneUpgrade(unittest.TestCase):
     def decode(self, raw, mode='initializer', target=None):
         """Synthetic JSON/DTO port, never an implementation of scene policy.
 
-        Default-loss mode deliberately gives an unconstructed output zero-valued
-        absent progress. A caller-provided object retains its authored defaults.
-        This models a risk at the serializer seam, not observed engine behavior.
+        Scalars zero-fill even with caller-provided output. Other modes still
+        exercise null/absent managed-object allocation uncertainty.
         """
         nested = {
             ('HCSceneChainState', 'Catalog'): 'HCSceneCatalog',
@@ -125,7 +127,8 @@ class LegacySceneUpgrade(unittest.TestCase):
         }
 
         def hydrate(kind, data, value=None):
-            value = value or self.env[kind]()
+            from tests.unit.json_loader_port import zero_scalars
+            value = zero_scalars(value or self.env[kind]())
             for key, entry in data.items():
                 child = nested.get((kind, key))
                 if isinstance(entry, list):
@@ -191,6 +194,10 @@ class LegacySceneUpgrade(unittest.TestCase):
         for mode in ('initializer', 'null'):
             with self.subTest(mode=mode):
                 state = self.decode(self.fixture, mode)
+                # Explicit synthetic post-migration defaults for the direct
+                # validator check. Open below must restore these from absence.
+                if mode == 'initializer':
+                    state.Stories = dto('HCStoryProgress', self.env)
                 self.assertTrue(self.policy.HCUnmigrated(state.Stories))
                 self.assertTrue(self.policy.HCValid(state))
                 self.assertTrue(self.chains.CatalogValid(state.Catalog, False))

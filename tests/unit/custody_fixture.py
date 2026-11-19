@@ -81,13 +81,8 @@ class CustodyFixture:
 
     @staticmethod
     def decode(text):
-        def hook(values):
-            if 'Rows' in values:
-                values['Rows'] = A(values['Rows'])
-                values.setdefault('NextLease', 1)
-            return N(**values)
-        try: return json.loads(text, object_hook=hook)
-        except ValueError: return None
+        from tests.unit.json_loader_port import decode_json
+        return decode_json(text, 'HCAIPartyCustodyData', A)
 
     def copy_file(self, source, dest):
         if source not in self.disk: return False

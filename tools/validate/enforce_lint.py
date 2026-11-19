@@ -9,7 +9,8 @@ forces the pinned-only mode the unit tests use.
 
 Every rule maps to a trap a native compile/boot or a real client actually hit
 (see audit/CHECKS.md). Findings already present when the lint landed are listed
-in tools/validate/enforce_lint_baseline.json with a review note; the check fails
+in tools/validate/enforce_lint_baseline.json (and HC-S005 module legacy entries)
+with a review note; the check fails
 on any finding not in the baseline and on baseline entries that no longer
 occur (fixed code must shrink the baseline). A pass is not DayZ evidence.
 """
@@ -24,6 +25,7 @@ import sys
 
 from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
+from tools.validate import enforce_json
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).with_name('enforce_lint_baseline.json')
@@ -48,6 +50,7 @@ RULES = {
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
+    enforce_json.RULE: enforce_json.DESCRIPTION,
 }
 
 _KEYWORDS = frozenset({'if', 'while', 'for', 'foreach', 'switch', 'return', 'new', 'delete', 'case',
@@ -574,7 +577,7 @@ def rule_predicted_actions(project, source):
 
 ALL_RULES = (rule_parse_issues, rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
-             rule_predicted_actions)
+             rule_predicted_actions, enforce_json.rule_json_defaults)
 
 
 def lint(sources, native=None, rules=ALL_RULES):
@@ -597,7 +600,15 @@ def lint_texts(files, native=None, rules=ALL_RULES):
 def load_baseline(path=BASELINE):
     """The reviewed baseline; a missing file means no reviewed exceptions."""
     path = Path(path)
-    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'entries': []}
+    baseline = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'entries': []}
+    if path.exists() and path.resolve() == BASELINE.resolve():
+        identities = {(entry['rule'], entry['path'], entry['symbol'], entry['key'])
+                      for entry in baseline.get('entries', [])}
+        for entry in enforce_json.LEGACY_BASELINE:
+            identity = (entry['rule'], entry['path'], entry['symbol'], entry['key'])
+            if identity not in identities:
+                baseline.setdefault('entries', []).append(dict(entry))
+    return baseline
 
 
 def compare(findings, baseline, native_available):

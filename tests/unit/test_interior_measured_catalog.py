@@ -204,6 +204,8 @@ def fixture(enabled=True, trusted=True):
             value = dto(json.loads(content))
         except (ValueError, TypeError):
             return False
+        from tests.unit.json_loader_port import zero_scalars
+        target.__dict__.update(vars(zero_scalars(target)))
         target.__dict__.update(value.__dict__)
         return True
 

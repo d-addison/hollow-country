@@ -28,6 +28,11 @@ class HCEcologyMigrationIO
 		HCEcologyMigrationJournal state;
 		string error;
 		if (!JsonFileLoader<HCEcologyMigrationJournal>.LoadData(text, state, error) || !state) { return null; }
+		// Missing sentinels become native zero, which is a valid idle counter.
+		// Require each row's keys before any recovery/reservation is admitted.
+		if (!HCJsonFields.Has(text, "LastUtc") || !HCJsonFields.Has(text, "Schedules")) { return null; }
+		if (!HCJsonFields.Every(text, "Sequence", 3) || !HCJsonFields.Every(text, "ReservedMembers", 3)) { return null; }
+		if (!HCJsonFields.Every(text, "LastOutcome", 3) || !HCJsonFields.Every(text, "Pending", 3)) { return null; }
 		state.WorldName = HCBuildIdentity.CanonicalWorld(state.WorldName);
 		state.Build = HCBuildIdentity.Normalize(state.Build);
 		return state;

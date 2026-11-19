@@ -161,7 +161,7 @@ class LocalityRotation(unittest.TestCase):
         director = N(m_Localities=catalog, m_LocalitySave=N(
             Data=rotation, Fault=False, HCChanged=lambda: None),
             m_States=A(), m_Policy=policy, m_LocalityRefused=False,
-            m_Routes=N(Rows=A()),
+            m_Routes=N(SchemaVersion=1, Rows=A()),
             m_LocalityCursor=0, m_LocalityNextAttemptAt=0, m_LocalityNextPendingLogAt=0,
             m_LocalityUnits=units, m_LocalityWork=work,
             m_LocalityStatus='ready', m_Phase='run')
@@ -315,9 +315,8 @@ class LocalityRotation(unittest.TestCase):
             return True
         env['synthetic_serialize'] = serialize
         def load(job, path):
-            raw = json.loads(files[path])
-            job.Data = N(**raw)
-            job.Data.Rows = A(N(**row) for row in raw['Rows'])
+            from tests.unit.json_loader_port import decode_json
+            job.Data = decode_json(files[path], 'HCXAILocalityRotation', A)
             return True
         env['synthetic_load'] = load
         writer = Authored(store_source, env)
@@ -379,7 +378,7 @@ class ReviewFixes(unittest.TestCase):
             Fault=False, HCChanged=lambda: None), m_States=A(), m_Policy=self.policy,
             m_LocalityRefused=False, m_LocalityCursor=0, m_LocalityNextAttemptAt=999999,
             m_LocalityNextPendingLogAt=0, m_LocalityStatus='ready', m_Phase='run',
-            m_Routes=N(Rows=A()),
+            m_Routes=N(SchemaVersion=1, Rows=A()),
             m_LocalityUnits=N(HCReset=lambda n: None, HCTake=lambda n: True, HCCharge=lambda n: None),
             m_LocalityWork=N(HCReset=lambda n: None, HCContinue=lambda: True))
         for name in ('HCStepLocalities', 'HCTryLocality', 'HCLocalityFault',
@@ -550,7 +549,8 @@ class ReviewFixes(unittest.TestCase):
             files[path] = copy.deepcopy(data)
             return True
         def load(data, routes, error):
-            vars(routes).update(vars(copy.deepcopy(data)))
+            from tests.unit.json_loader_port import decode_json
+            vars(routes).update(vars(decode_json(json.dumps(data, default=vars), 'HCXAIRouteCache', A)))
             return True
         self.env.update(HCXAISiteDirector=N(ROUTES='routes'), MakeDirectory=lambda path: True,
             FileExist=lambda path: path in files,

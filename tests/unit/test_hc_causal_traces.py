@@ -137,16 +137,9 @@ class Fixture:
         self.store.m_SaveJob = N(HCDirty=False, HCInFlight=False)
         self.store.m_StaticInstance = None
         defaults = copy.deepcopy(Fixture().store.Data)
-        def dto(value):
-            if isinstance(value, dict): return N(**{k: dto(v) for k,v in value.items()})
-            if isinstance(value, list): return EArray(dto(v) for v in value)
-            return value
         def decode(text):
-            try:
-                values = json.loads(text)
-                return dto(dict(vars(defaults), **values))
-            except (ValueError, TypeError):
-                return None
+            from tests.unit.json_loader_port import decode_json
+            return decode_json(text, 'HCLeadData', EArray)
         def encode(data):
             return json.dumps(data, default=lambda row: vars(row), sort_keys=True)
         self.env.update(NativeDecode=decode, NativeEncode=encode,
@@ -313,14 +306,6 @@ class CausalTraces(unittest.TestCase):
         # "at=decode_traces_invalid" and suspended Leads/Radio/Notes/BodyStories. Model that
         # observed zero-fill explicitly; the migration must stamp the current trace schema.
         zero = Fixture(); zero_encode = zero.storage_port()
-        native_decode = zero.env['NativeDecode']
-        def zero_filled(text):
-            value = native_decode(text)
-            raw = json.loads(text)
-            if value is not None and 'TraceVersion' not in raw: value.TraceVersion = 0
-            if value is not None and 'TraceAfter' not in raw: value.TraceAfter = 0
-            return value
-        zero.env['NativeDecode'] = zero_filled
         old_zero = json.loads(zero_encode(zero.store.Data))
         for key in ('TraceVersion', 'TraceAfter', 'Traces'): del old_zero[key]
         migrated = zero.store.Decode(json.dumps(old_zero))

@@ -34,7 +34,8 @@ class ClientTests(unittest.TestCase):
         return True
 
     def load(self):
-        self.c.m_Pending=N(**json.loads(self.c.m_PendingPayload))
+        from tests.unit.json_loader_port import decode_json
+        self.c.m_Pending=decode_json(self.c.m_PendingPayload, "HCGroupRequest")
         return True
 
     def run_method(self,n,*a):

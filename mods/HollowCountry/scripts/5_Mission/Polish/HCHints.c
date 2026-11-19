@@ -84,6 +84,8 @@ class HCHints
             string text;
             if (!HCGroupIO.Read(m_Path, 4096, text)) return false;
             if (!JsonFileLoader<HCHintState>.LoadData(text, m_State, error)) return false;
+            // A missing -1 sentinel native-zeroes and could replay old hints.
+            if (!HCJsonFields.Has(text, "ShownBits") || !HCJsonFields.Has(text, "PlayedSeconds") || !HCJsonFields.Has(text, "NextHintSecond")) return false;
             return Valid(m_State, characterId);
         }
         if (FileExist(m_Path + ".bak")) return false;

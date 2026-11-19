@@ -1,3 +1,88 @@
+// JSON presence checks for already bounded, successfully parsed documents.
+// JsonFileLoader zeroes absent scalars (boot 057); presence must distinguish
+// absent keys from explicit operator false/0. Scan keys, never values/nested
+// lookalikes. EnString.c:33 HexToInt, :86 ToAscii, :113 Substring,
+// :199 Length, :448 Get, installed scripts-1.30.164289. No new file IO/API.
+class HCJsonFields
+{
+    static bool KeyMatches(string text, int start, int stop, string key)
+    {
+        if (start < 0 || stop > text.Length() || start > stop) { return false; }
+        int cursor = start;
+        int keyIndex = 0;
+        while (cursor < stop && keyIndex < key.Length())
+        {
+            string letter = text.Get(cursor);
+            if (letter == "\\")
+            {
+                if (cursor + 5 >= stop || text.Get(cursor + 1) != "u") { return false; }
+                string hexDigits = text.Substring(cursor + 2, 4);
+                string expected = key.Get(keyIndex);
+                if (hexDigits.HexToInt() != expected.ToAscii()) { return false; }
+                cursor = cursor + 6;
+            }
+            else
+            {
+                if (letter != key.Get(keyIndex)) { return false; }
+                cursor = cursor + 1;
+            }
+            keyIndex = keyIndex + 1;
+        }
+        return cursor == stop && keyIndex == key.Length();
+    }
+
+    static bool Check(string text, string key, int targetDepth, bool every, string selector = "")
+    {
+        int depth = 0;
+        int cursor = 0;
+        int length = text.Length();
+        bool found = false;
+        bool seen = false;
+        bool selected = false;
+        while (cursor < length)
+        {
+            string token = text.Get(cursor);
+            if (token == "\"")
+            {
+                int start = cursor + 1;
+                cursor = start;
+                while (cursor < length && text.Get(cursor) != "\"")
+                {
+                    if (text.Get(cursor) == "\\") { cursor = cursor + 1; }
+                    cursor = cursor + 1;
+                }
+                int after = cursor + 1;
+                while (after < length && (text.Get(after) == " " || text.Get(after) == "\n" || text.Get(after) == "\r" || text.Get(after) == "\t")) { after = after + 1; }
+                if (depth == targetDepth && after < length && text.Get(after) == ":" && KeyMatches(text, start, cursor, key))
+                {
+                    seen = true;
+                    found = true;
+                }
+                if (depth == targetDepth && after < length && text.Get(after) == ":" && KeyMatches(text, start, cursor, selector)) { selected = true; }
+            }
+            else
+            {
+                if (token == "{" || token == "[")
+                {
+                    depth = depth + 1;
+                    if (depth == targetDepth && token == "{") { seen = false; selected = false; }
+                }
+                if (token == "}" || token == "]")
+                {
+                    if (every && token == "}" && depth == targetDepth && !seen && (selector == "" || selected)) { return false; }
+                    depth = depth - 1;
+                }
+            }
+            cursor = cursor + 1;
+        }
+        if (every) { return true; }
+        return found;
+    }
+
+    static bool Has(string text, string key) { return Check(text, key, 1, false); }
+    static bool Every(string text, string key, int depth, string selector = "") { return Check(text, key, depth, true, selector); }
+}
+
 // Original authored settings. Native JsonFileLoader<T>::LoadData/SaveFile and
 // filesystem helpers verified against the installed 1.30 script snapshot.
 class HCSettings
@@ -23,7 +108,9 @@ class HCSettings
             error = "Settings document must contain 1..16384 bytes";
             return false;
         }
-        return JsonFileLoader<HCSettings>.LoadData(content, settings, error);
+        if (!JsonFileLoader<HCSettings>.LoadData(content, settings, error) || !settings) { return false; }
+        HCApplyLegacy(content, settings);
+        return true;
     }
 
     int SchemaVersion = 1;
@@ -35,8 +122,8 @@ class HCSettings
     bool EnableAlertChains = true;
     bool EnableGroups = true;
     bool EnableAtmosphere = true;
-    // V2 feature preferences (LC-T001). Additive: a V1 settings.json without them keeps these defaults, because
-    // LoadBounded fills a default-constructed object. Each feature is still gated by its own qualification.
+    // V2 preferences: HCApplyLegacy explicitly restores absent additive keys.
+    // Explicit false/0 stays authoritative; qualification remains independent.
     bool EnableGrade = true;
     int ClientPresentationMask = 15;
     bool EnableAmbientLife = true;
@@ -71,6 +158,32 @@ class HCSettings
     int MaxBindQueriesPerTick = 2;
 
     ref HCAILimits AILimits = new HCAILimits;
+
+    static void HCApplyLegacy(string content, HCSettings settings)
+    {
+        HCSettings defaults = new HCSettings;
+        if (!HCJsonFields.Has(content, "EnableGrade")) { settings.EnableGrade = defaults.EnableGrade; }
+        if (!HCJsonFields.Has(content, "ClientPresentationMask")) { settings.ClientPresentationMask = defaults.ClientPresentationMask; }
+        if (!HCJsonFields.Has(content, "EnableAmbientLife")) { settings.EnableAmbientLife = defaults.EnableAmbientLife; }
+        if (!HCJsonFields.Has(content, "EnableSignsOfLife")) { settings.EnableSignsOfLife = defaults.EnableSignsOfLife; }
+        if (!HCJsonFields.Has(content, "EnableTravel")) { settings.EnableTravel = defaults.EnableTravel; }
+        if (!HCJsonFields.Has(content, "EnableWorld")) { settings.EnableWorld = defaults.EnableWorld; }
+        if (!HCJsonFields.Has(content, "EnableLeads")) { settings.EnableLeads = defaults.EnableLeads; }
+        if (!HCJsonFields.Has(content, "EnableCamps")) { settings.EnableCamps = defaults.EnableCamps; }
+        if (!HCJsonFields.Has(content, "EnableEncounters")) { settings.EnableEncounters = defaults.EnableEncounters; }
+        if (!HCJsonFields.Has(content, "EnableInfectedVariety")) { settings.EnableInfectedVariety = defaults.EnableInfectedVariety; }
+        if (!HCJsonFields.Has(content, "EnableDebugSnapshot")) { settings.EnableDebugSnapshot = defaults.EnableDebugSnapshot; }
+        if (!HCJsonFields.Has(content, "EnableAdminMap")) { settings.EnableAdminMap = defaults.EnableAdminMap; }
+        if (!HCJsonFields.Has(content, "EnableCampRespawn")) { settings.EnableCampRespawn = defaults.EnableCampRespawn; }
+        if (!HCJsonFields.Has(content, "EnableTeamPing")) { settings.EnableTeamPing = defaults.EnableTeamPing; }
+        if (!HCJsonFields.Has(content, "EnableVehicleFlip")) { settings.EnableVehicleFlip = defaults.EnableVehicleFlip; }
+        if (!HCJsonFields.Has(content, "EnableMealBuffs")) { settings.EnableMealBuffs = defaults.EnableMealBuffs; }
+        if (!HCJsonFields.Has(content, "EnableForage")) { settings.EnableForage = defaults.EnableForage; }
+        if (!HCJsonFields.Has(content, "EnableProgression")) { settings.EnableProgression = defaults.EnableProgression; }
+        if (!HCJsonFields.Has(content, "EnableGroupScaling")) { settings.EnableGroupScaling = defaults.EnableGroupScaling; }
+        if (!HCJsonFields.Has(content, "AILimits")) { settings.AILimits = defaults.AILimits; }
+        if (!HCJsonFields.Has(content, "MaxFurnishedProps")) { settings.MaxFurnishedProps = defaults.MaxFurnishedProps; }
+    }
 
     bool Validate(out string error)
     {

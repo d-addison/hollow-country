@@ -35,6 +35,13 @@ class HCSettlementState
 
 class HCSettlementDecayStore
 {
+    static bool HCFieldsPresent(string text)
+    {
+        if (!HCJsonFields.Every(text, "LastDay", 3)) { return false; }
+        if (!HCJsonFields.Every(text, "Ransack", 3) || !HCJsonFields.Every(text, "Barricades", 3)) { return false; }
+        return HCJsonFields.Every(text, "Remains", 3) && HCJsonFields.Every(text, "Notices", 3);
+    }
+
     static const string PATH = "$profile:HollowCountry/settlement-decay.json";
     bool Save(HCSettlementState state)
     {
@@ -145,7 +152,10 @@ class HCSettlementDecay : HCModule
         if (!HCV2ThreatStore<HCSettlementState>.CanOpen(HCSettlementDecayStore.PATH)) { return false; }
         if (FileExist(HCSettlementDecayStore.PATH))
         {
-            if (!HCV2ThreatStore<HCSettlementState>.Load(HCSettlementDecayStore.PATH, 16384, m_State) || !Valid(world, now)) { return false; }
+            string image;
+            string error;
+            if (!HCGroupIO.Read(HCSettlementDecayStore.PATH, 16384, image) || !JsonFileLoader<HCSettlementState>.LoadData(image, m_State, error)) { return false; }
+            if (!HCSettlementDecayStore.HCFieldsPresent(image) || !Valid(world, now)) { return false; }
         }
         else
         {

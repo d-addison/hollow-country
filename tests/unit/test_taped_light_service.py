@@ -296,12 +296,10 @@ class TapedJournalTests(unittest.TestCase):
             return 0 < len(text) <= limit, text
 
         def decode(text):
-            data = json.loads(text)
-            loaded = self.e["HCTapedLightState"]()
-            loaded.Version = data["Version"]
-            loaded.Records = EArray(data["Records"])
-            loaded.Quarantined = data["Quarantined"]
-            return True, loaded, ""
+            from tests.unit.json_loader_port import decode_json
+            loaded = decode_json(text, 'HCTapedLightState', EArray)
+            return loaded is not None, loaded, ""
+
 
         journal = NS(mHCRoot=root, mHCFault=False, mHCState=None,
                      mHCSequence=0, Read=read,
@@ -426,17 +424,10 @@ class TapedCustodyJournalTests(unittest.TestCase):
         files = {root + "/build.txt": "synthetic-build"}
         events = []
         failed_quarantine_intents = []
-        def dto(value):
-            if isinstance(value, dict):
-                return NS(**{k:dto(v) for k,v in value.items()})
-            if isinstance(value, list):
-                return EArray(dto(v) for v in value)
-            return value
         def decode(text):
-            try:
-                return True, dto(json.loads(text)), ""
-            except ValueError:
-                return False, None, "synthetic invalid JSON"
+            from tests.unit.json_loader_port import decode_json
+            loaded = decode_json(text, 'HCTapedLightState', EArray)
+            return loaded is not None, loaded, "synthetic invalid JSON" if loaded is None else ""
         def encode(state):
             return True, json.dumps(state, default=vars, allow_nan=False), ""
         def read(path, limit, output):

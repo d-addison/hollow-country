@@ -33,16 +33,10 @@ ROOT = events.ROOT
 def encode(value): return json.dumps(value, default=vars, sort_keys=True)
 
 
-def decode(text):
-    """Explicit synthetic JSON object/managed-array adapter, no recovery policy."""
-    def restore(value):
-        if isinstance(value, dict): return N(**{k: restore(v) for k, v in value.items()})
-        if isinstance(value, list): return EArray(restore(v) for v in value)
-        return value
-    try:
-        value = json.loads(text)
-        return restore(value) if isinstance(value, dict) else None
-    except (ValueError, TypeError): return None
+def decode(text, kind='HCInfectedSnapshot'):
+    """Explicit native-zero synthetic typed JSON adapter, no recovery policy."""
+    from tests.unit.json_loader_port import decode_json
+    return decode_json(text, kind, EArray)
 
 
 class EventFiles:
@@ -115,7 +109,7 @@ class SearchRecordFiles:
         for kind, phase in (('claim', 1), ('attempt', 1), ('result', 2)):
             self.files[self.h.s.PathFor(0, kind)] = encode(self.h.record(phase))
         self.paths = tuple(self.files)
-        self.h.s.LoadRecord = lambda i, k: decode(self.files.get(self.h.s.PathFor(i, k), ''))
+        self.h.s.LoadRecord = lambda i, k: decode(self.files.get(self.h.s.PathFor(i, k), ''), 'HCSearchRecord')
 
     def restart(self):
         # Recovered 2 (spent) or 3 (held) is terminal. Verify the real economy
@@ -141,7 +135,8 @@ class InteriorFiles:
         self.files[self.h.root + '/manifest.backup.json'] = encode(self.manifest)
         self.files[self.h.root + '/journal-v2.json'] = encode(self.h.journal(self.manifest))
         self.paths = tuple(self.files)
-        self.h.env['load_json'] = lambda p: decode(self.files.get(p, ''))
+        self.h.env['load_json'] = lambda p: decode(self.files.get(p, ''),
+            'HCInteriorJournalIdentity' if 'journal-v2' in p else 'HCInteriorManifest')
         self.h.env['HCInteriorRules'].JournalVersionAccepted = lambda *a: pool.authored('JournalVersionAccepted', *a)
 
     def restart(self):
@@ -156,7 +151,7 @@ class InteriorRecordFiles:
         self.manifest = N(SchemaVersion=1, Assignments=EArray([
             N(SlotId=0, InstanceId='instance', Item='Rag')]))
         self.env = dict(Print=self.logs.append, str=str, FileExist=lambda p: p in self.files,
-            load_json=lambda p: decode(self.files.get(p, '')),
+            load_json=lambda p: decode(self.files.get(p, ''), 'HCInteriorClaim'),
             HCInteriorRules=N(RecoverJournal=lambda *a: pool.authored('RecoverJournal', *a)))
         for kind, phase in (('claim', 1), ('attempt', 1), ('result', 2)):
             self.files['synthetic/' + kind + '_0.json'] = encode(N(

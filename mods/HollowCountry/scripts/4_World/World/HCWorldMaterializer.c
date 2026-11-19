@@ -208,12 +208,17 @@ class HCWorldMaterializer : HCModule
         string text = HCWorldStore.Read(m_CustodyPath);
         HCAIPartyCustodyData loaded;
         string error;
-        if (text == "" || !JsonFileLoader<HCAIPartyCustodyData>.LoadData(text, loaded, error) || !this.HCValidCustody(loaded)) { return false; }
+        if (text == "" || !JsonFileLoader<HCAIPartyCustodyData>.LoadData(text, loaded, error) || !loaded) { return false; }
+        // V1 never wrote NextLease. Validate the exact legacy image before
+        // adding the new monotonic counter; never repair a malformed V2 image.
+        if (loaded.SchemaVersion == 1 && loaded.NextLease == 0) { loaded.NextLease = 1; }
+        if (!this.HCValidCustody(loaded)) { return false; }
         string canonical;
         if (loaded.SchemaVersion == 1)
         {
             HCAIPartyCustodyLegacyData legacy;
-            if (!JsonFileLoader<HCAIPartyCustodyLegacyData>.LoadData(text, legacy, error) || !JsonFileLoader<HCAIPartyCustodyLegacyData>.MakeData(legacy, canonical, error) || canonical != text) { return false; }
+            if (!JsonFileLoader<HCAIPartyCustodyLegacyData>.LoadData(text, legacy, error) || !legacy || legacy.SchemaVersion != 1) { return false; }
+            if (!JsonFileLoader<HCAIPartyCustodyLegacyData>.MakeData(legacy, canonical, error) || canonical != text) { return false; }
         }
         else if (!JsonFileLoader<HCAIPartyCustodyData>.MakeData(loaded, canonical, error) || canonical != text) { return false; }
         m_Custody = loaded;

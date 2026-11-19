@@ -98,7 +98,19 @@ class RuntimeSettingsTests(unittest.TestCase):
             for bad in (1, 'true', None):
                 self.assertTrue(validate_settings(dict(v1, **{key: bad})), (key, bad))
             self.assertEqual([], validate_settings(dict(v1, **{key: False})), key)
-        # The native loader fills a default-constructed object, so a missing member keeps its default.
+        # Native load zeroes scalars. Execute the authored absent-key migration;
+        # explicit operator false/zero must survive it.
+        from tests.unit.test_v1_combined_flags import Profile
+        legacy = dict(v1)
+        legacy.pop('ClientPresentationMask', None)
+        legacy.pop('MaxFurnishedProps', None)
+        profile = Profile(legacy)
+        decoded = profile.decode('synthetic')
+        for key in V2_FLAGS:
+            self.assertIs(True, getattr(decoded, key), key)
+        self.assertEqual((15, 1500), (decoded.ClientPresentationMask, decoded.MaxFurnishedProps))
+        explicit = Profile(dict(legacy, EnableWorld=False, ClientPresentationMask=0, MaxFurnishedProps=0)).decode('synthetic')
+        self.assertEqual((False, 0, 0), (explicit.EnableWorld, explicit.ClientPresentationMask, explicit.MaxFurnishedProps))
         self.assertRegex(source, r'HCSettings settings = new HCSettings\(\);[\s\S]*LoadBounded\(path, settings, error\)')
 
     def test_feature_flags_are_booleans_not_truthy_strings_or_numbers(self):

@@ -271,14 +271,9 @@ class EcologyStoreRestartBehaviorTests(unittest.TestCase):
         self.e=environment();self.files={};self.saved=[];self.trace=[];self.logs=[]
         self.io_failure="";self.now=1800000000
         self.store=SimpleNamespace(m_Root="owned",m_World="",m_Session="",m_Revision=0,m_Fault=False,m_SavePhase=0)
-        def decode(text):
-            try:
-                fields=json.loads(text)
-                if not isinstance(fields,dict):return None
-                value=self.e["HCEcologyCheckpoint"]()
-                for key,field in fields.items():setattr(value,key,field)
-                return value
-            except (ValueError,TypeError):return None
+        def native_decode(text):
+            from tests.unit.json_loader_port import decode_json
+            return decode_json(text, 'HCEcologyCheckpoint', list)
         def read(path,limit):
             self.trace.append(("read",path))
             text=self.files.get(path,"")
@@ -301,6 +296,12 @@ class EcologyStoreRestartBehaviorTests(unittest.TestCase):
         from tests.unit.test_hc_recovery import authored, RECOVERY
         recovery=SimpleNamespace();self.e["HCPersistenceDisposition"]=recovery
         authored(RECOVERY,"HCPersistenceDisposition",recovery,self.e,only=("HCArchive",))
+        from tests.unit.json_loader_port import json_fields_port
+        self.e.update(HCJsonFields=json_fields_port(), native_decode=native_decode)
+        decode_source=(ROOT/"4_World/Ecology/HCEcologyRuntimeStore.c").read_text().replace(
+            'JsonFileLoader<HCEcologyCheckpoint>.LoadData(text, state, error)',
+            '((state := native_decode(text)) != null)')
+        decode=translated(decode_source,"Decode",self.e,"HCEcologyRuntimeIO")
         self.e["HCEcologyRuntimeIO"]=SimpleNamespace(Decode=decode,Read=read)
         self.store.Save=lambda s:self.saved.append(s) or True
         source=(ROOT/"4_World/Ecology/HCEcologyRuntimeStore.c").read_text()

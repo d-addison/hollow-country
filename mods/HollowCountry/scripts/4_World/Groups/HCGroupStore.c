@@ -3,6 +3,12 @@
 // when the highest discovered revision is incomplete, corrupt or incompatible.
 class HCGroupStore
 {
+    static bool HCFieldsPresent(string text)
+    {
+        // Legacy explorer Visits share this depth but are not markers.
+        return HCJsonFields.Every(text, "Color", 5, "CreatorId");
+    }
+
     protected string m_Root = "$profile:HollowCountry/Groups/state";
     protected ref HCGroupSettings m_Settings;
     protected int m_Latest;
@@ -101,6 +107,7 @@ class HCGroupStore
         HCGroupReceipt intentReceipt;
         if (!HCGroupJson<HCGroupReceipt>.Load(PathFor("commit_", highestCommit), 1024, receipt) || !HCGroupJson<HCGroupReceipt>.Load(PathFor("intent_", highestIntent), 1024, intentReceipt) || !receipt || !intentReceipt) { m_HCDamaged = true; return Fault(); }
         if (!JsonFileLoader<HCGroupState>.LoadData(imageText, state, error) || !HCGroupRules.StateValid(state, settings, GetGame().GetWorldName())) { m_HCDamaged = true; return Fault(); }
+        if (!HCFieldsPresent(imageText)) { Print("[HC Groups] missing Color; runtime=PENDING"); m_HCDamaged = true; return Fault(); }
         if (receipt.Version != 1 || intentReceipt.Version != 1 || receipt.WorldName != state.WorldName || intentReceipt.WorldName != state.WorldName || intentReceipt.Revision != receipt.Revision || intentReceipt.Length != receipt.Length || intentReceipt.Hash != receipt.Hash) { m_HCDamaged = true; return Fault(); }
         if (!HCGroupRules.LatestComplete(highestIntent, highestImage, highestCommit, receipt.Revision, state.Revision, receipt.Length, imageText.Length(), receipt.Hash, imageText.Hash())) { m_HCDamaged = true; return Fault(); }
         HCGroupRules.MigrateExplorers(state);

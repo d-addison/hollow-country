@@ -192,7 +192,19 @@ class HCStaminaConfiguration
         }
         string error;
         HCStaminaProfile profile = new HCStaminaProfile;
-        if (!JsonFileLoader<HCStaminaProfile>.LoadData(text, profile, error) || !ProfileValid(profile))
+        if (!JsonFileLoader<HCStaminaProfile>.LoadData(text, profile, error))
+        {
+            Print("[HollowCountry] Stamina blocked: invalid profile; file preserved: " + error);
+            return false;
+        }
+        // Schema-one profiles predate this field. Zero is also an explicit
+        // operator choice, so only absence restores the constructor default.
+        if (profile && profile.Settings && !HCJsonFields.Check(text, "WeightPenaltyScale", 2, false))
+        {
+            HCStaminaSettings legacyDefaults = new HCStaminaSettings;
+            profile.Settings.WeightPenaltyScale = legacyDefaults.WeightPenaltyScale;
+        }
+        if (!ProfileValid(profile))
         {
             Print("[HollowCountry] Stamina blocked: invalid profile; file preserved: " + error);
             return false;
