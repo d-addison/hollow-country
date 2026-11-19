@@ -75,7 +75,7 @@ class HCSituationSource
     static void HCBind(HCSceneChainState state, HCSceneChainStore store) { s_State = state; s_Store = store; }
     static void HCClear(HCSceneChainState state)
     {
-        if (s_State != state) { return; }
+        if (!s_State || s_State != state) { return; }
         HCEventModule.HCSourceClosing();
         s_State = null;
         s_Store = null;
@@ -285,6 +285,19 @@ class HCSituationDirector
         foreach (HCSituationProfileRow slot : m_Rows)
         {
             if (!slot.Enabled || slot.Opportunity) { continue; }
+            // One durable row per profile: a refused port must leave that
+            // history unused. Resolve after addon startup, before any save.
+            slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
+            if (!slot.Actors.HCReady())
+            {
+                if (slot.Profile == "survivor" && (m_Effective != "refused" || m_Reason != slot.Actors.HCRefusal()))
+                {
+                    m_Effective = "refused";
+                    m_Reason = slot.Actors.HCRefusal();
+                    HCReport();
+                }
+                continue;
+            }
             HCSituationState row = new HCSituationState;
             row.Profile = slot.Profile;
             row.Id = chain.Id + "-" + slot.Profile;

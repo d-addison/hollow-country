@@ -101,6 +101,11 @@ class HCXAIAdapter extends HCModule
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
             return;
         }
+        HCSituationActors.HCBind(new HCXAISituationAdapter());
+        HCXAIRaidAdapter raidPort = new HCXAIRaidAdapter();
+        HCCampRaidActors.HCBind(raidPort);
+        HCSituationActors.HCBindRaid(raidPort);
+        HCSituationActors.HCBindTransit(new HCXAITransitAdapter());
         this.LogAddonChecks();
         m_Status = "lease spawner retired; AI_ENCOUNTER binds HC site patrols";
         Print("[HC Expansion AI] retired: expansion-ai.json lease profile, local hook port and receipt verifiers are not loaded; AI_ENCOUNTER gates on site director run + per-process session + a qualified site patrol");
@@ -592,6 +597,14 @@ class HCXAIAdapter extends HCModule
     }
     override void OnStop()
     {
+        // A rejected/replaced owner must not clear the live owner's ports.
+        if (HCXAIService.Adapter() == this)
+        {
+            HCSituationActors.HCBind(null);
+            HCCampRaidActors.HCBind(null);
+            HCSituationActors.HCBindRaid(null);
+            HCSituationActors.HCBindTransit(null);
+        }
         if (m_Caravan) { m_Caravan.HCClose(); }
         m_CaravanRequested = false;
         this.HCPublishCaravanStatus(false);

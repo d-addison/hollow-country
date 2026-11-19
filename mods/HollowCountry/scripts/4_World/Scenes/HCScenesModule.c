@@ -76,6 +76,7 @@ class HCScenesModule : HCModule
             m_Stories = null;
             return;
         }
+        HCSituationSource.HCBind(m_State, m_Store);
         m_LastNow = now;
         m_Stopping = false;
         m_SaveJob = new HCSceneSaveJob;
@@ -137,15 +138,13 @@ class HCScenesModule : HCModule
             if (m_State.Stories && m_State.Stories.NextSequence != nextSequence)
             {
                 HCWildlifeScenes wildlife = HCEcologyRuntimeModule.HCWildlife();
-                if (wildlife)
+                foreach (HCSceneChain arrived : m_State.Chains)
                 {
-                    foreach (HCSceneChain arrived : m_State.Chains)
+                    if (arrived.StorySequence == m_State.Stories.NextSequence - 1)
                     {
-                        if (arrived.StorySequence == m_State.Stories.NextSequence - 1)
-                        {
-                            wildlife.HCOffer(arrived, m_State);
-                            break;
-                        }
+                        HCEventModule.HCStoryArrived(arrived);
+                        if (wildlife) { wildlife.HCOffer(arrived, m_State); }
+                        break;
                     }
                 }
             }
@@ -516,6 +515,7 @@ class HCScenesModule : HCModule
     {
         if (m_Stopping) { return; }
         m_Stopping = true;
+        HCSituationSource.HCClear(m_State);
         if (m_Stories) { m_Stories.HCStop(); }
         if (m_SaveJob)
         {

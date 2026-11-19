@@ -3,6 +3,25 @@
 Spec: independent survivor opportunity, no quest UI or client reward authority.
 Plan/task: pin one HC-19 identity, reuse its store and HC-10 lease, retire UI.
 Native placement/actions, emotes and two-client acceptance remain pending.
+
+Wave 7 / #186, HC-38/39/40: consume the live HC-19 source and addon ports;
+refused ports must not consume one-row-per-profile history. The supplied task
+is the spec/plan/task trace; both AGENTS.md spec paths are absent here.
+Actual RED (2026-11-19), before source edits:
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_situations -v
+  AssertionError: namespace(Version=1, Profile='survivor', Id='hc-story-5-survivor', StorySequence=5, DueAt=100, EndsAt=200, Phase='pending', Outcome='', Lease='', Refusal='') is not None : unready survivor port must not consume durable history
+  Ran 1 test; FAILED (failures=1).
+  Scene-binding helper also failed: exact live state was not bound.
+  Addon startup check failed: unexpectedly None : successful addon bind must install the survivor port.
+  Null-clear helper failed: clearing an unbound source has no owner to close.
+GREEN:
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_situations test_expansion_ai_adapter test_hc_story_module test_event_integration test_event_runtime test_core_lifecycle test_v1_combined_flags -v
+  Ran 200 tests; OK (expected failures=1, existing combined-work budget case).
+The broader affected-file run needs lead fixture-only updates in the read-only
+modules test_hc_ai_trade (situation binding ports + service Adapter getter) and
+test_hc_wildlife (HCStoryArrived port). Their current missing-port errors are
+not DayZ evidence; applying those exact fixture updates in memory ran 2 tests,
+OK, without changing either file. Native runtime acceptance remains PENDING.
 """
 import copy
 import json
@@ -31,7 +50,7 @@ def cached_status():
     return owner
 
 
-def director_fixture(image=None, enabled=True, fail=False):
+def director_fixture(image=None, enabled=True, fail=False, ready=True):
     """Explicit synthetic DTO, HC-19 save barrier, HC-10 claim and actor port.
 
     Actor requests are counted, never claimed as executed in DayZ. No Python
@@ -44,7 +63,7 @@ def director_fixture(image=None, enabled=True, fail=False):
     state = copy.deepcopy(image) if image else N(LastNow=100,
         Stories=N(LegacyThrough=4, NextSequence=6, HCFirstSurvivor=None, HCSituations=None), Chains=EArray([chain]))
     calls, logs, images, selected_profiles = [], [], [], []
-    actors = N(HCReady=lambda: True, HCRefusal=lambda: EStr('NO_OBSERVED_SURVIVOR'),
+    actors = N(HCReady=lambda: ready, HCRefusal=lambda: EStr('NO_OBSERVED_SURVIVOR'),
                HCSelect=lambda row: EStr('synthetic-owned-lease'),
                HCBegin=lambda row: calls.append(('begin', row.Lease)) or True,
                HCObserve=lambda row: EStr(''), HCEnd=lambda row: calls.append(('end', row.Lease)))
@@ -83,11 +102,13 @@ def director_fixture(image=None, enabled=True, fail=False):
     for name, (static, _, _) in table.items():
         setattr(owner, name, env[name] if static else MethodType(env[name], owner))
     owner.HCOpen(state, N(Save=save), enabled)
-    return N(owner=owner, state=state, actors=actors, calls=calls, logs=logs, images=images, selected_profiles=selected_profiles)
+    return N(owner=owner, state=state, actors=actors, calls=calls, logs=logs, images=images, selected_profiles=selected_profiles, refused=refused)
 
 
 class SituationBehavior(unittest.TestCase):
     def test_independent_lifecycle_and_retired_quest_requests(self):
+        self.check_refused_arrival()
+        self.check_scene_binding()
         self.check_named_profile_wiring()
         # Existing restricted transport port executes the actual OnRPC handler
         # with synthetic native identities, journal and transport. No reward
@@ -230,7 +251,8 @@ class SituationBehavior(unittest.TestCase):
         unavailable.owner.HCOffer(unavailable.state.Chains[0])
         unavailable.owner.HCStep(100)
         unavailable.owner.HCStep(101)
-        self.assertEqual('pending', unavailable.state.Stories.HCFirstSurvivor.Phase)
+        self.assertIsNone(unavailable.state.Stories.HCFirstSurvivor)
+        self.assertEqual([], unavailable.images)
         self.assertEqual(1, sum('SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED' in line for line in unavailable.logs))
         self.assertFalse(any(call[0] == 'begin' for call in unavailable.calls))
 
@@ -347,7 +369,9 @@ class SituationBehavior(unittest.TestCase):
         self.assertFalse(run.owner.HCEnableProfile('sixth', True, 0))
         for name in names[1:]:
             self.assertTrue(run.owner.HCEnableProfile(name, True, 0))
+        run.refused.HCReady = lambda: True  # Explicit synthetic readiness for all five profiles.
         self.assertTrue(run.owner.HCOffer(run.state.Chains[0]))
+        run.refused.HCReady = lambda: False
         self.assertEqual(1, len(run.images), 'all named offers share one durable barrier')
         self.assertEqual(4, len(run.state.Stories.HCSituations))
         self.assertEqual(5, len({row.Id for row in
@@ -384,12 +408,112 @@ class SituationBehavior(unittest.TestCase):
         actor_source = actor_source.replace('s_Unavailable', 'HCSituationActors.s_Unavailable')
         registry = N(s_Adapter=object(), s_Raid=object(), s_Transit=object(), s_Unavailable=object())
         actor_env = dict(HCSituationActors=registry)
-        translate(actor_source, 'HCSituationActors', actor_env, only=('HCForProfile',))
+        translate(actor_source, 'HCSituationActors', actor_env,
+                  only=('HCForProfile', 'HCBind', 'HCBindRaid', 'HCBindTransit'))
         for name, expected in zip(names, (registry.s_Adapter, registry.s_Raid, registry.s_Raid,
                                            registry.s_Transit, registry.s_Transit)):
             self.assertIs(expected, actor_env['HCForProfile'](name))
         self.assertIs(registry.s_Unavailable, actor_env['HCForProfile']('unknown'))
+        for binder in ('HCBind', 'HCBindRaid', 'HCBindTransit'):
+            actor_env[binder](None)
+            actor_env[binder](None)
+        for name in names:
+            self.assertIs(registry.s_Unavailable, actor_env['HCForProfile'](name))
         self.check_module_wiring()
+
+    def check_refused_arrival(self):
+        # #186: bound HC-19 source, shipping-style refused ports. Execute the
+        # actual server arrival callback; no Python situation policy is modeled.
+        run = director_fixture(ready=False)
+        run.actors.HCRefusal = lambda: EStr('SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED')
+        for profile in ('raid', 'column', 'roadside-position', 'threatened-exodus'):
+            run.owner.HCEnableProfile(profile, True, 0)
+        module = N(m_SituationEnabled=True, m_Situations=run.owner)
+        env = dict(HCEventModule=N(s_SituationOwner=module))
+        source = (SCRIPTS/'4_World/Events/HCEventModule.c').read_text()
+        source = source.replace('s_SituationOwner', 'HCEventModule.s_SituationOwner')
+        translate(source, 'HCEventModule', env, only=('HCStoryArrived', 'HCOfferSituation'))
+        module.HCOfferSituation = MethodType(env['HCOfferSituation'], module)
+        for _ in range(2):
+            env['HCStoryArrived'](run.state.Chains[0])
+        self.assertIsNone(run.state.Stories.HCFirstSurvivor,
+                          'unready survivor port must not consume durable history')
+        self.assertIsNone(run.state.Stories.HCSituations)
+        self.assertEqual([], run.images, 'refused arrivals perform no save')
+        self.assertEqual(('refused', 'SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED'),
+                         (run.owner.HCStatus().HCState(), run.owner.HCStatus().HCReason()))
+        self.assertIn('[HC Plan] HC-38 opportunity=none phase=none quest_ui=off state=refused refusal=SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED pinned=0 count_cap=1 runtime=PENDING', run.logs)
+        self.assertEqual(1, sum('SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED' in line for line in run.logs))
+        # A later trusted ready port can consume the still-unused profile once.
+        run.actors.HCReady = lambda: True
+        env['HCStoryArrived'](run.state.Chains[0])
+        env['HCStoryArrived'](run.state.Chains[0])
+        self.assertEqual('pending', run.state.Stories.HCFirstSurvivor.Phase)
+        self.assertEqual(1, len(run.images))
+        self.assertIsNone(run.state.Stories.HCSituations)
+
+    def check_scene_binding(self):
+        from tests.unit.test_hc_story_module import StoryModuleBehavior
+        # Synthetic store/scheduler/native lifecycle; authored Scenes methods
+        # must bind the exact owner and push only the newly saved identity.
+        fixture = StoryModuleBehavior()
+        owner = fixture.owner()
+        owner.m_Running = False
+        owner.m_AdmissionPrinted = True
+        owner.m_SummaryPrinted = True
+        owner.IsEnabled = lambda settings: True
+        state = owner.m_State
+        bound = N(state=None, store=None)
+        def bind_source(live, store):
+            bound.state, bound.store = live, store
+            fixture.calls.append(('bind',))
+        def clear_source(live):
+            if bound.state is live:
+                bound.state, bound.store = None, None
+                fixture.calls.append(('clear',))
+        fixture.env.update(
+            GetGame=lambda: N(IsServer=lambda: True, GetWorldName=lambda: 'chernarusplus', GetTickTime=lambda: 20.),
+            HCSceneChainStore=lambda: N(Open=lambda now: state),
+            HCStoryPolicy=N(HCLoadConfig=lambda: N()),
+            HCStorySchedule=lambda: N(HCStart=lambda *args: True,
+                                     HCStop=lambda: fixture.calls.append(('story-stop',))),
+            HCSituationSource=N(HCBind=bind_source, HCClear=clear_source),
+            HCSceneSaveJob=lambda: N(HCDirty=False, HCInFlight=False, HCDue=0),
+            HCSaveScheduler=N(HCRegister=lambda job: None, HCFlush=lambda job: None, HCUnregister=lambda job: None))
+        fixture.bind(owner, 'OnStart', 'OnStop', 'SaveBarrierDone', 'StoryStep')
+        owner.OnStart(N())
+        owner.OnStart(N())
+        self.assertIs(state, bound.state)
+        self.assertIs(owner.m_Store, bound.store)
+        self.assertEqual(1, fixture.calls.count(('bind',)))
+        old = N(Id='synthetic-old', StorySequence=1)
+        arrived = N(Id='synthetic-new', StorySequence=2)
+        state.Chains = EArray([old, arrived])
+        state.Stories.NextSequence = 2
+        def issue(now, released):
+            state.Stories.NextSequence = 3
+            fixture.calls.append(('story-saved',))
+            return True
+        owner.m_Stories.HCReady = lambda: True
+        owner.m_Stories.HCCandidate = lambda: None
+        owner.m_Stories.HCStep = issue
+        # Wildlife unavailable must not suppress the independent event callback.
+        fixture.env['HCEcologyRuntimeModule'] = N(HCEventWildlife=lambda: None)
+        fixture.env['HCEventModule'] = N(HCEventStoryArrived=lambda chain: fixture.calls.append(('arrived', chain)))
+        fixture.bind(owner, 'StoryStep')
+        owner.StoryStep(1000)
+        self.assertIn(('arrived', arrived), fixture.calls)
+        self.assertLess(fixture.calls.index(('story-saved',)), fixture.calls.index(('arrived', arrived)))
+        fixture.calls.clear()
+        owner.m_Stories.HCStep = lambda *args: True  # Retirement save, no new identity.
+        owner.StoryStep(1001)
+        self.assertNotIn(('arrived', arrived), fixture.calls)
+        owner.OnStop()
+        owner.OnStop()
+        self.assertIsNone(bound.state)
+        self.assertIsNone(bound.store)
+        self.assertEqual(1, fixture.calls.count(('clear',)))
+        self.assertLess(fixture.calls.index(('clear',)), fixture.calls.index(('story-stop',)))
 
     def check_module_wiring(self):
         source = (SCRIPTS/'4_World/Events/HCEventModule.c').read_text()
@@ -478,8 +602,7 @@ class SituationBehavior(unittest.TestCase):
             for _ in range(12):
                 module.OnTick(1)
             self.assertEqual(['raid', 'transit'] if enabled else [], loads, 'tick never reloads manifests')
-            self.assertEqual('pending' if enabled and bind_source else None,
-                getattr(upstream.state.Stories.HCFirstSurvivor, 'Phase', None))
+            self.assertIsNone(upstream.state.Stories.HCFirstSurvivor)
             self.assertEqual(0, len(upstream.state.Stories.HCSituations or []),
                 'unready transit providers write no durable situation rows')
             rows = [getattr(row, 'Profile', '') for row in (upstream.state.Stories.HCSituations or [])]
@@ -489,7 +612,14 @@ class SituationBehavior(unittest.TestCase):
             self.assertNotIn('threatened-exodus', rows)
             self.assertFalse(any(call[0] == 'begin' for run in directors for call in run.calls),
                              'shipping-style refused ports never begin an actor action')
-            self.assertEqual(1 if enabled and bind_source else 0, len(upstream.images))
+            self.assertEqual(0, len(upstream.images))
+            self.assertEqual('off', module.HCGetOperationalStatus().HCState(), 'legacy Events is disabled')
+            module.m_Config.Enabled = True
+            module.HCPublishSituations()
+            self.assertEqual(director.HCStatus().HCState(), module.HCGetOperationalStatus().HCState())
+            self.assertEqual(director.HCStatus().HCReason(), module.HCGetOperationalStatus().HCReason())
+            module.m_Config.Enabled = False
+            module.HCPublishSituations()
             self.assertEqual(3, len({name for name, _, _ in published}))
             module.OnStop()
             count = len(receipts)
@@ -515,12 +645,16 @@ class SituationBehavior(unittest.TestCase):
                      HCEventModule=N(HCSourceClosing=lambda: closures.append((registry.s_State, registry.s_Store))))
         translate(source_port, 'HCSituationSource', ports)
         live_state, live_store = N(synthetic='state'), N(synthetic='store')
+        ports['HCClear'](None)
+        self.assertEqual([], closures, 'clearing an unbound source has no owner to close')
+        ports['HCBind'](live_state, live_store)
         ports['HCBind'](live_state, live_store)
         ports['HCClear'](N(synthetic='other-owner'))
         self.assertEqual([], closures)
         self.assertIs(live_state, ports['HCState']())
         ports['HCClear'](live_state)
         ports['HCClear'](live_state)
+        ports['HCClear'](None)
         self.assertEqual([(live_state, live_store)], closures)
         self.assertIsNone(ports['HCState']())
         self.assertIsNone(ports['HCStore']())
