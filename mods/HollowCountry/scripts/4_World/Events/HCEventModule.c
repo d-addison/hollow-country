@@ -20,6 +20,9 @@ class HCEventModule : HCModule
     protected ref HCOperationalOwner m_SurvivorOwner;
     protected ref HCOperationalOwner m_RaidOwner;
     protected ref HCOperationalOwner m_TransitOwner;
+    // HC-41 native crash observation lease (owned here; one open per start).
+    protected ref HCNativeIncidentLease m_Incidents;
+    protected ref HCOperationalOwner m_IncidentOwner;
     protected bool m_SituationEnabled;
     protected bool m_SourceAttempted;
     // Last provider refusal already named in the log (one line per change).
@@ -71,6 +74,9 @@ class HCEventModule : HCModule
         if (m_SituationEnabled) { raids = HCCampRaidSituation.HCLoad(); }
         m_Raids.HCOpen(raids, m_SituationEnabled);
         m_Transit.HCOpen(m_SituationEnabled);
+        m_Incidents = new HCNativeIncidentLease;
+        HCNativeIncidentSource incidentSource = new HCNativeIncidentSource;
+        m_Incidents.HCOpen(incidentSource, m_SituationEnabled);
         m_ProviderNoted = "";
         m_Situations.HCDeferSource(m_SituationEnabled);
         m_Situations.HCEnableProfile("raid", m_Raids.HCProfilesEnabled(), 0);
@@ -85,6 +91,7 @@ class HCEventModule : HCModule
         m_SurvivorOwner = HCOperationalContributors.HCRegisterOwner("HC-38 survivor");
         m_RaidOwner = HCOperationalContributors.HCRegisterOwner("HC-39 raid,column");
         m_TransitOwner = HCOperationalContributors.HCRegisterOwner("HC-40 roadside,exodus");
+        m_IncidentOwner = HCOperationalContributors.HCRegisterOwner("HC-41 native incidents");
         HCPublishSituations();
     }
 
@@ -118,11 +125,13 @@ class HCEventModule : HCModule
         if (m_SurvivorOwner) { m_SurvivorOwner.HCObserve(m_SituationEnabled, survivorStatus, observedAt); }
         if (m_RaidOwner) { m_RaidOwner.HCObserve(m_SituationEnabled, raidStatus, observedAt); }
         if (m_TransitOwner) { m_TransitOwner.HCObserve(m_SituationEnabled, transitStatus, observedAt); }
+        if (m_IncidentOwner && m_Incidents) { m_IncidentOwner.HCObserve(m_SituationEnabled, m_Incidents.HCStatus(), observedAt); }
     }
 
     void HCStepSituations()
     {
         if (!m_SituationEnabled || !m_Situations) { return; }
+        if (m_Incidents) { m_Incidents.HCStep(); }
         HCSceneChainState source = HCSituationSource.HCState();
         HCSceneChainStore store = HCSituationSource.HCStore();
         // The first server tick follows all module starts. Resolve once, so
@@ -173,6 +182,7 @@ class HCEventModule : HCModule
         if (m_Situations) { m_Situations.HCClose(); }
         if (m_Raids) { m_Raids.HCClose(); }
         if (m_Transit) { m_Transit.HCClose(); }
+        if (m_Incidents) { m_Incidents.HCClose(); }
         m_SituationEnabled = false;
         HCPublishSituations();
         m_ProviderNoted = "";
@@ -182,6 +192,8 @@ class HCEventModule : HCModule
         m_SurvivorOwner = null;
         m_RaidOwner = null;
         m_TransitOwner = null;
+        m_Incidents = null;
+        m_IncidentOwner = null;
     }
 
     HCEventAIProvider CreateAIProvider()
