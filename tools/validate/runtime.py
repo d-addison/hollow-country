@@ -23,7 +23,7 @@ def validate_settings(value):
         return ['Settings must be a JSON object']
     expected = FLAGS | LIMITS.keys() | {'SchemaVersion'}
     errors = [f'Missing field {key}' for key in sorted(expected - value.keys())]
-    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS - {'AILimits', 'ClientPresentationMask'} - OPTIONAL_LIMITS.keys() - {'SearchDensityScale'})]
+    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS - {'AILimits', 'ClientPresentationMask'} - OPTIONAL_LIMITS.keys() - {'SearchDensityScale', 'PerceptionRing'})]
     if 'ClientPresentationMask' in value:
         mask = value['ClientPresentationMask']
         if type(mask) is not int or not RULES['ClientPresentationMask']['min'] <= mask <= RULES['ClientPresentationMask']['max']:
@@ -62,6 +62,20 @@ def validate_settings(value):
     for key, (low, high) in OPTIONAL_LIMITS.items():
         if key in value and (type(value[key]) is not int or not low <= value[key] <= high):
             errors.append(f'{key} must be an integer within {low}..{high}')
+    if 'PerceptionRing' in value:
+        ring = value['PerceptionRing']
+        if not isinstance(ring, dict):
+            errors.append('PerceptionRing must be an object')
+        else:
+            ring_rules = {row['key'].removeprefix('PerceptionRing.'): row
+                          for row in load_registry() if row['key'].startswith('PerceptionRing.')}
+            for key in ring.keys() - ring_rules.keys():
+                errors.append(f'Unknown field PerceptionRing.{key}')
+            for key, item in ring.items():
+                if key in ring_rules:
+                    rule = ring_rules[key]
+                    if type(item) not in (int, float) or not rule['min'] <= item <= rule['max']:
+                        errors.append(f'PerceptionRing.{key} must be numeric within its registry range')
     if 'SearchDensityScale' in value:
         scale = value['SearchDensityScale']
         rule = RULES['SearchDensityScale']

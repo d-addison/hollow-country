@@ -82,7 +82,7 @@ class RuntimeSettingsTests(unittest.TestCase):
             changed = dict(self.value, **{name: value})
             self.assertTrue(validate_settings(changed))
         for key in self.value:
-            if key in V2_FLAGS or key == 'EnableTapedPackMounts' or key in ('AILimits', 'ClientPresentationMask', 'MaxFamiliarityRows', 'SearchDensityScale'):
+            if key in V2_FLAGS or key == 'EnableTapedPackMounts' or key in ('AILimits', 'ClientPresentationMask', 'MaxFamiliarityRows', 'SearchDensityScale', 'PerceptionRing'):
                 continue
             changed = dict(self.value)
             del changed[key]

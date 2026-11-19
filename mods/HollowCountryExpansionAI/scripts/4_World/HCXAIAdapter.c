@@ -61,6 +61,7 @@ class HCXAIAdapter extends HCModule
     protected int m_LastReceiptSequence;
     protected int m_LastReceiptAt = -1;
     protected bool m_ReadinessLogged;
+    protected int m_LastQualifiedPatrolCount = -1;
     protected ref HCXAISiteDirector m_Sites;
     // AI_ENCOUNTER on the director's own qualified patrols (HCXAIEncounters.c).
     protected ref HCXAIEncounters m_Encounters;
@@ -137,8 +138,16 @@ class HCXAIAdapter extends HCModule
     {
         return GetExpansionSettings() && GetExpansionSettings().GetAI() && GetExpansionSettings().GetAI().IsLoaded();
     }
-    // One AI_ENCOUNTER readiness line at start and once more when the
-    // encounters settle (armed, or refused with a reason).
+    // Refresh at settlement and on qualified controller count changes.
+    // Qualified patrols are not a count of live AI groups.
+    void HCRefreshReadiness()
+    {
+        int qualified = m_Encounters.QualifiedCount();
+        if ((!m_ReadinessLogged && m_Encounters.Settled()) || (m_ReadinessLogged && qualified != m_LastQualifiedPatrolCount))
+        {
+            this.LogReadiness("encounters settled or qualified patrol count changed");
+        }
+    }
     void LogReadiness(string trigger)
     {
         if (!m_Encounters || !m_Sites) { return; }
@@ -146,6 +155,7 @@ class HCXAIAdapter extends HCModule
         if (m_Encounters.Settled()) { m_ReadinessLogged = true; }
         bool ready = m_Encounters.Ready(GetGame().GetWorldName());
         int qualified = m_Encounters.QualifiedCount();
+        m_LastQualifiedPatrolCount = qualified;
         bool loaded = this.ExpansionAISettingsLoaded();
         string settingsState = "not loaded";
         if (loaded) { settingsState = "loaded"; }
@@ -613,7 +623,7 @@ class HCXAIAdapter extends HCModule
         if (m_Encounters)
         {
             m_Encounters.Step();
-            if (!m_ReadinessLogged && m_Encounters.Settled()) { this.LogReadiness("encounters settled"); }
+            this.HCRefreshReadiness();
         }
         // Retired lease spawner: m_Profile is never installed by OnStart now.
         if (!m_Profile) { return; }

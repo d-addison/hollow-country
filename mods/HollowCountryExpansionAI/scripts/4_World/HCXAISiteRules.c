@@ -159,7 +159,7 @@ class HCXAISiteRules
         if (p.ObserverPolicy != "native-eai") { return "observer policy must be native-eai (native eAI perception only)"; }
         if (p.MaxActiveAI < 1 || p.MaxActiveAI > HCAILimits.AI_CEILING) { return "MaxActiveAI must be within AI safety ceiling"; }
         if (p.MaxActiveSites < 1 || p.MaxActiveSites > HCAILimits.GROUP_CEILING) { return "MaxActiveSites must be within group safety ceiling"; }
-        if (!HCXAIRules.Finite(p.MinPlayerDistance) || p.MinPlayerDistance < 200 || p.MinPlayerDistance > HCPerceptionRing.HCCeiling()) { return "MinPlayerDistance must be 200..perception ceiling"; }
+        if (!HCXAIRules.Finite(p.MinPlayerDistance) || p.MinPlayerDistance < 200 || p.MinPlayerDistance >= HCPerceptionRing.HCSpawnMax()) { return "MinPlayerDistance must be at least 200 and below perception SpawnMax"; }
         if (!HCXAIRules.Finite(p.LineOfSightRange) || p.LineOfSightRange < 200 || p.LineOfSightRange > 1500) { return "LineOfSightRange must be 200..1500"; }
         if (!HCXAIRules.Finite(p.MaxLegLength) || p.MaxLegLength < 50 || p.MaxLegLength > 600) { return "MaxLegLength must be 50..600"; }
         if (!HCXAIRules.Finite(p.CacheClearRadius) || p.CacheClearRadius < 100 || p.CacheClearRadius > 1000) { return "CacheClearRadius must be 100..1000"; }
