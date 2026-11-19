@@ -1540,6 +1540,11 @@ def main(argv=None):
     p.add_argument('--replace', action='store_true', help='allow replacing a different existing file (backed up)')
     p = sub.add_parser('rollback', help='restore the exact prior profile bytes')
     p.add_argument('--target', type=Path, required=True)
+    p = sub.add_parser('coverage', help='report how much of the stock House denominator qualifying censuses measure (read-only)')
+    p.add_argument('--proto', type=Path, required=True)
+    p.add_argument('--pos', type=Path, required=True)
+    p.add_argument('--census', type=Path, action='append', default=[])
+    p.add_argument('--json', action='store_true', help='print one JSON object instead of lines')
     p = sub.add_parser('templates', help='assemble, validate and manage the additive class template pack')
     commands = p.add_subparsers(dest='templates_command', required=True)
     entry = commands.add_parser('build', help='build observed House rows and audit excluded stock classes; census is optional')
@@ -1568,6 +1573,14 @@ def main(argv=None):
     entry.add_argument('--server-stopped', action='store_true')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'coverage':
+            from tools.package import auditinterior_coverage as coverage
+            from tools.package import interior_templates as tpl
+            report = coverage.coverage(tpl._read(args.proto, tpl.pts.MAX_STOCK_BYTES),
+                                       tpl._read(args.pos, tpl.pts.MAX_STOCK_BYTES),
+                                       [(p.parent.name + '_' + p.name, tpl._read(p, tpl.pts.MAX_CENSUS_BYTES)) for p in args.census])
+            print(json.dumps(report, sort_keys=True) if args.json else '\n'.join(coverage.lines(report)))
+            return
         if args.command == 'templates':
             if args.templates_command == 'build':
                 from tools.package import interior_templates as tpl
