@@ -6,6 +6,9 @@
 // :7353/:7408 store hooks inspected but NOT extended (no legacy stream guessing).
 // Persistence-ID allocation/stability across reconnect/restart remains PENDING.
 // Shared budget/scheduler evidence: Core/HCUnitBudget.c, World/HCWorkBudget.c.
+// #169: unmapped v1 rows stay in the capped v2 array until a living pickup.
+// Archive raw bytes through HCGroupIO.Read/WriteNew (EnSystem.c:417,425,443,462)
+// so an identical archive is safe to reuse after an interrupted migration.
 // W5 #130 forage familiarity. Tick bound: decay <=4 of <=128 records with a
 // cursor, no routine player scan; routine <=65536-byte checkpoints wait >=60s.
 // Death/Stop are durability barriers. Legacy migration inspects <=16 players.
@@ -26,6 +29,7 @@ class HCProgressionRow
     string Key; // account UID encoding, never a character-generation key
     string CharacterKey;
     bool Dead;
+    bool LegacyDeferred; // Missing in older JSON: native bool defaults to false.
     int Forage;
     int DecayUtc;
     int GainUtc;
@@ -96,6 +100,7 @@ class HCProgressionModule : HCModule
     {
         row.CharacterKey = characterKey;
         row.Dead = dead;
+        row.LegacyDeferred = false;
         row.Forage = 0;
         row.GainUtc = 0;
         row.DecayUtc = now;
@@ -125,24 +130,39 @@ class HCProgressionModule : HCModule
         if (!m_State) { return false; }
         if (m_State.Version == 2) { return true; }
         if (m_State.Version != 1) { return false; }
-        // Preserve the validated v1 image before touching any row. An existing
-        // archive is operator-owned evidence: never overwrite it on retry.
-        if (FileExist(LEGACY_PATH)) { return false; }
+        // Preserve the exact validated v1 image, including absent fields and
+        // whitespace. Reuse an identical archive on retry; never overwrite one.
         if (!HCV2ThreatStore<HCProgressionState>.CanOpen(LEGACY_PATH)) { return false; }
-        if (!HCV2ThreatStore<HCProgressionState>.Save(LEGACY_PATH, m_State, 65536)) { return false; }
+        string legacyImage;
+        if (!HCGroupIO.Read(PATH, 65536, legacyImage)) { return false; }
+        if (FileExist(LEGACY_PATH))
+        {
+            string archivedImage;
+            if (!HCGroupIO.Read(LEGACY_PATH, 65536, archivedImage)) { return false; }
+            if (archivedImage != legacyImage) { return false; }
+        }
+        else
+        {
+            if (!HCGroupIO.WriteNew(LEGACY_PATH, legacyImage, 65536)) { return false; }
+        }
         HCProgressionState migrated = new HCProgressionState;
-        int dropped = 0;
+        int mapped = 0;
+        int deferred = 0;
+        int droppedOverCap = 0;
         foreach (HCProgressionRow row : m_State.Players)
         {
+            if (migrated.Players.Count() >= m_RowCap) { droppedOverCap = droppedOverCap + 1; continue; }
             string characterKey = HCLegacyCharacterKey(row.Key);
-            if (characterKey == "") { dropped = dropped + 1; continue; }
             row.CharacterKey = characterKey;
             row.Dead = false;
+            row.LegacyDeferred = characterKey == "";
+            if (row.LegacyDeferred) { deferred = deferred + 1; }
+            else { mapped = mapped + 1; }
             migrated.Players.Insert(row);
         }
         m_State = migrated;
         HCChanged();
-        Print("[HC Plan] HC-13 legacy rows_dropped=" + dropped.ToString() + " rows_mapped=" + m_State.Players.Count().ToString() + " archive=progression.v1.json runtime=PENDING");
+        Print("[HC Plan] HC-13 legacy migrated=" + mapped.ToString() + " deferred=" + deferred.ToString() + " dropped_over_cap=" + droppedOverCap.ToString() + " archive=progression.v1.json runtime=PENDING");
         return true;
     }
 
@@ -205,7 +225,14 @@ class HCProgressionModule : HCModule
             if (m_State.Version == 2)
             {
                 if (row.CharacterKey != "" && (row.CharacterKey.Length() < 8 || row.CharacterKey.Length() > 49 || row.CharacterKey.Get(0) != "c")) { return false; }
-                if ((row.Dead || row.CharacterKey == "") && row.Forage != 0) { return false; }
+                if (row.LegacyDeferred)
+                {
+                    if (row.CharacterKey != "" || row.Dead) { return false; }
+                }
+                else
+                {
+                    if ((row.Dead || row.CharacterKey == "") && row.Forage != 0) { return false; }
+                }
             }
             if (row.Forage < 0 || row.Forage > 100) { return false; }
             if (row.DecayUtc < 1 || row.DecayUtc > now) { return false; }
@@ -307,6 +334,14 @@ class HCProgressionModule : HCModule
             m_State.Players.Insert(found);
             HCChanged();
         }
+        // Consume the deferred marker in place. Future pickups and restarts
+        // follow the normal generation/rate-limit path, never replay the archive.
+        if (found.LegacyDeferred)
+        {
+            found.CharacterKey = characterKey;
+            found.LegacyDeferred = false;
+            HCChanged();
+        }
         if (found.CharacterKey != characterKey)
         {
             HCResetLife(found, characterKey, false, now);
@@ -343,9 +378,14 @@ class HCProgressionModule : HCModule
         if (characterKey == "") { HCIdentityRefusal(); return; }
         int now = HCGroupClock.Utc();
         if (now < m_SaveUtc || now > 2146000000) { HCFail(); return; }
+        string key = HCSurvivalRuntime.HCIdentityKey(player);
         foreach (HCProgressionRow row : m_State.Players)
         {
-            if (row.CharacterKey != characterKey || row.Dead) { continue; }
+            bool matches = row.CharacterKey == characterKey;
+            // No living pickup yet: an observed account death must consume its
+            // deferred score too, rather than transfer it to the next life.
+            if (row.LegacyDeferred && key != "" && row.Key == key) { matches = true; }
+            if (!matches || row.Dead) { continue; }
             HCResetLife(row, characterKey, true, now);
             // Death must not sit in the routine checkpoint queue. Finish any
             // older snapshot AND persist the tombstone before continuing.
@@ -366,6 +406,7 @@ class HCProgressionModule : HCModule
                 copy.Key = row.Key;
                 copy.CharacterKey = row.CharacterKey;
                 copy.Dead = row.Dead;
+                copy.LegacyDeferred = row.LegacyDeferred;
                 copy.Forage = row.Forage;
                 copy.DecayUtc = row.DecayUtc;
                 copy.GainUtc = row.GainUtc;
