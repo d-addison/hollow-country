@@ -9,6 +9,7 @@
 // 3_Game/Entities/EntityAI.c:882/885 hierarchy; Game.c:1120 IsServer;
 // 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnScript.c:380/394/407 Count/Find/Insert; EnString.c:199 Length.
+// 1_Core/proto/EnSystem.c:397 FileExist; EnScript.c:463 Remove.
 // 1_Core/proto/EnConvert.c:30 int.ToString. All other calls are existing HC ports.
 // No new ranges, query, spawning, lifetime writes, inventory moves or deletion.
 // HC-34 owns any eventual same-item custody transfer (currently refuses loose
@@ -27,11 +28,15 @@ class HCNativeIncidentReceipt
 class HCNativeIncidentSource
 {
     // CE callback provenance, never class/position inference. Native:
-    // 4_World/Entities/Building/CrashBase.c:14 EEOnCECreate, :45 EEDelete;
+    // 4_World/Entities/Building/CrashBase.c:15 EEOnCECreate, :46 EEDelete;
     // EntityAI.c:1414 EEOnCECreate; Inventory.c:138 GetCargo;
-    // 3_Game/Systems/Inventory/Cargo.c:28 GetItemCount, :33 GetItem.
+    // 3_Game/Systems/Inventory/Cargo.c:29 GetItemCount, :34 GetItem.
     // Stock belongs only through direct native cargo ancestry. Vanilla crash
     // loot usually lies on the ground: that missing attribution stays explicit.
+    // EntityAI.c:1414 EEOnCECreate has no source/parent parameter and is also
+    // called for debug creation. CentralEconomy.c:749-768 CEItemProfile carries
+    // economy policy only. Neither can bind a loose item to a crash instance.
+    // Registering an item by callback timing/distance would admit unrelated loot.
     protected static ref array<CrashBase> s_Crashes = new array<CrashBase>;
     protected static bool s_AdmissionPrinted;
     protected static bool s_StockPendingPrinted;
@@ -60,11 +65,17 @@ class HCNativeIncidentSource
             s_AdmissionPrinted = true;
             Print(HCV2Admission.Line("NativeIncidents", enabled, "w38_incidents", false) + " runtime=PENDING");
             s_StockPendingPrinted = true;
-            Print("[HC Situations] CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING anchor_observation=ready runtime=PENDING");
+            Print("[HC Situations] CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING anchor_observation=ready cargo_provenance=direct_ancestry loose_stock=unavailable reason=CE_INSTANCE_MEMBERSHIP_API_UNEXPOSED runtime=PENDING");
         }
         return true;
     }
-    string HCRefusal() { return "CE_CRASH_CALLBACK_PENDING"; }
+    string HCRefusal()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return "NATIVE_INCIDENT_SERVER_REQUIRED"; }
+        if (FileExist("$profile:HollowCountry/acceptance/w38_incidents.disable")) { return "operator_off"; }
+        if (!HCW38SituationPolicy.HCGet()) { return "SITUATION_POLICY_INVALID"; }
+        return "CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING";
+    }
     HCNativeIncidentReceipt HCObserve()
     {
         if (!HCReady() || s_Crashes.Count() == 0) { return null; }
@@ -92,7 +103,7 @@ class HCNativeIncidentSource
         if (receipt.Stock.Count() == 0 && !s_StockPendingPrinted)
         {
             s_StockPendingPrinted = true;
-            Print("[HC Situations] CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING anchor_observation=ready runtime=PENDING");
+            Print("[HC Situations] CE_CRASH_LOOSE_STOCK_ATTRIBUTION_PENDING anchor_observation=ready cargo_provenance=direct_ancestry loose_stock=unavailable reason=CE_INSTANCE_MEMBERSHIP_API_UNEXPOSED runtime=PENDING");
         }
         return receipt;
     }
@@ -103,7 +114,7 @@ class HCNativeIncidentSource
     }
     bool HCContains(EntityAI anchor, ItemBase item)
     {
-        return anchor && item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && item.GetHierarchyParent() == anchor;
+        return HCPresent(anchor) && item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && item.GetHierarchyParent() == anchor;
     }
 }
 
@@ -130,7 +141,7 @@ class HCNativeIncidentLease
     protected ref HCNativeIncidentState m_State;
     protected ref HCNativeIncidentReceipt m_Receipt;
     protected ref HCNativeIncidentRow m_Active;
-    protected ref HCUnitBudget m_Units = new HCUnitBudget;
+    protected ref HCW38SituationPolicy m_Policy;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected bool m_Enabled;
     protected bool m_Fault;
@@ -139,25 +150,31 @@ class HCNativeIncidentLease
     protected string m_Effective = "off";
     protected string m_Reason = "not_started";
     protected int m_Reports;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     static bool HCValid(HCNativeIncidentState state)
     {
+        // Persisted schema ceilings retain spent identities even when an operator
+        // lowers the admission caps. Runtime work uses HCW38SituationPolicy.
         if (!state || state.Version != 1 || !state.Rows || state.Rows.Count() > 64) { return false; }
         array<string> identities = new array<string>();
-        foreach (HCNativeIncidentRow row : state.Rows)
+        array<ref HCNativeIncidentRow> rows = state.Rows;
+        foreach (HCNativeIncidentRow row : rows)
         {
             if (!row || !HCEventDirector.TextValid(row.Id, 96) || !HCEventDirector.TextValid(row.LeaseId, 128)) { return false; }
             if (identities.Find(row.Id) >= 0 || (row.Phase != "leased" && row.Phase != "closed")) { return false; }
             identities.Insert(row.Id);
             if (!row.StockIds || !row.IssuedIds || row.StockIds.Count() > 16 || row.IssuedIds.Count() > row.StockIds.Count()) { return false; }
             array<string> stockSeen = new array<string>();
-            foreach (string stockId : row.StockIds)
+            array<string> stockIds = row.StockIds;
+            foreach (string stockId : stockIds)
             {
                 if (!HCEventDirector.TextValid(stockId, 96) || stockSeen.Find(stockId) >= 0) { return false; }
                 stockSeen.Insert(stockId);
             }
             array<string> issuedSeen = new array<string>();
-            foreach (string issuedId : row.IssuedIds)
+            array<string> issuedIds = row.IssuedIds;
+            foreach (string issuedId : issuedIds)
             {
                 if (stockSeen.Find(issuedId) < 0 || issuedSeen.Find(issuedId) >= 0) { return false; }
                 issuedSeen.Insert(issuedId);
@@ -177,18 +194,27 @@ class HCNativeIncidentLease
         if (m_Active) { incidentId = m_Active.Id; phase = m_Active.Phase; }
         string line = "[HC Plan] HC-41 native_incident=" + incidentId + " lease=" + phase + " stock_owner=native";
         line += " state=" + m_Effective + " refusal=" + m_Reason;
-        Print(line + " retained=" + retained.ToString() + " cap=64 active_cap=1 stock_cap=16 runtime=PENDING");
+        HCW38SituationPolicy policy = m_Policy;
+        string caps = " caps=policy_unavailable";
+        if (policy)
+        {
+            caps = " cap=" + policy.MaxIncidents.ToString() + " active_cap=" + policy.MaxConcurrent.ToString() + " stock_cap=" + policy.MaxIncidentItems.ToString();
+        }
+        line += " retained=" + retained.ToString() + caps;
+        Print(line + " cargo_provenance=direct_ancestry loose_stock=unavailable runtime=PENDING");
     }
 
     HCOperationalStatus HCStatus()
     {
-        HCOperationalStatus status = new HCOperationalStatus;
-        status.HCPublish(m_Effective, m_Reason);
-        return status;
+        // The observer can operate while loose-stock membership is unavailable.
+        // Keep that partial capability in the reason; never call it loot-ready.
+        m_Status.HCPublish(m_Effective, m_Reason);
+        return m_Status;
     }
 
     protected bool HCRefuse(string reason)
     {
+        if (m_Effective == "refused" && m_Reason == reason) { return false; }
         m_Reason = reason;
         m_Effective = "refused";
         HCReport();
@@ -216,8 +242,10 @@ class HCNativeIncidentLease
         m_Opened = true;
         m_Effective = "off";
         m_Reason = "operator_off";
-        if (!HCV2Admission.Admitted(enabled)) { HCReport(); return false; }
+        if (!HCV2Admission.Admitted(enabled) || FileExist("$profile:HollowCountry/acceptance/w38_incidents.disable")) { HCReport(); return false; }
         if (!GetGame() || !GetGame().IsServer()) { return HCRefuse("NATIVE_INCIDENT_SERVER_REQUIRED"); }
+        m_Policy = HCW38SituationPolicy.HCGet();
+        if (!m_Policy) { return HCRefuse("SITUATION_POLICY_INVALID"); }
         if (!source || !source.HCReady())
         {
             string reason = "CE_INCIDENT_LIFECYCLE_UNEXPOSED";
@@ -233,12 +261,13 @@ class HCNativeIncidentLease
         // Hive and journal are not one transaction. Never rebind live intents
         // across restart; all prior identities stay spent even after CE returns.
         bool changed = false;
-        foreach (HCNativeIncidentRow row : m_State.Rows)
+        array<ref HCNativeIncidentRow> restoredRows = m_State.Rows;
+        foreach (HCNativeIncidentRow row : restoredRows)
         {
             if (row.Phase == "leased") { row.Phase = "closed"; changed = true; }
         }
         m_Effective = "ready";
-        m_Reason = "observed_source_port_ready";
+        m_Reason = "anchor_observation_ready_loose_stock_attribution_pending";
         if (changed) { m_Reason = "PAIRED_NATIVE_RESTORE_UNPROVEN"; return HCCommit(); }
         HCReport();
         return true;
@@ -249,24 +278,28 @@ class HCNativeIncidentLease
         if (!m_Enabled || m_Busy || m_Fault || m_Active) { return false; }
         if (!GetGame() || !GetGame().IsServer() || !m_Source.HCReady()) { return false; }
         if (!HCEventDirector.TextValid(partyLease, 128) || !HCWorldMaterializer.HCIdentity(partyLease)) { return HCRefuse("NATIVE_INCIDENT_PARTY_UNOWNED"); }
-        if (m_State.Rows.Count() >= 64) { return HCRefuse("NATIVE_INCIDENT_HISTORY_FULL"); }
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        if (!policy) { return HCRefuse("SITUATION_POLICY_INVALID"); }
+        if (m_State.Rows.Count() >= policy.MaxIncidents) { return HCRefuse("NATIVE_INCIDENT_HISTORY_FULL"); }
         HCNativeIncidentReceipt receipt = m_Source.HCObserve();
         if (!receipt || !receipt.Anchor || receipt.Anchor.IsPendingDeletion()) { return HCRefuse("NATIVE_INCIDENT_DISAPPEARED"); }
         if (!m_Source.HCPresent(receipt.Anchor)) { return HCRefuse("NATIVE_INCIDENT_DISAPPEARED"); }
         string incidentId = HCSearchSupplyRegistry.PersistentId(receipt.Anchor);
         if (!HCEventDirector.TextValid(incidentId, 96)) { return HCRefuse("NATIVE_INCIDENT_ID_UNAVAILABLE"); }
-        foreach (HCNativeIncidentRow prior : m_State.Rows)
+        array<ref HCNativeIncidentRow> priorRows = m_State.Rows;
+        foreach (HCNativeIncidentRow prior : priorRows)
         {
             if (prior.Id == incidentId) { return HCRefuse("NATIVE_INCIDENT_ALREADY_LEASED"); }
         }
-        if (!receipt.Stock || receipt.Stock.Count() > 16) { return HCRefuse("NATIVE_INCIDENT_STOCK_OVERFLOW"); }
+        if (!receipt.Stock || receipt.Stock.Count() > policy.MaxIncidentItems) { return HCRefuse("NATIVE_INCIDENT_STOCK_OVERFLOW"); }
         if (receipt.Stock.Count() == 0) { return HCRefuse("NATIVE_INCIDENT_STOCK_PENDING"); }
         HCNativeIncidentRow row = new HCNativeIncidentRow;
         row.Id = incidentId;
         row.LeaseId = partyLease;
         HCNativeIncidentReceipt snapshot = new HCNativeIncidentReceipt;
         snapshot.Anchor = receipt.Anchor;
-        foreach (ItemBase item : receipt.Stock)
+        array<ItemBase> observedStock = receipt.Stock;
+        foreach (ItemBase item : observedStock)
         {
             if (!HCStockLive(receipt.Anchor, item)) { return HCRefuse("NATIVE_INCIDENT_STOCK_UNOBSERVED"); }
             string itemId = HCSearchSupplyRegistry.PersistentId(item);
@@ -308,8 +341,11 @@ class HCNativeIncidentLease
         if (!HCPresent()) { HCFinish("NATIVE_INCIDENT_DISAPPEARED"); return null; }
         if (!HCWorldMaterializer.HCIdentity(m_Active.LeaseId)) { HCFinish("NATIVE_INCIDENT_PARTY_LOST"); return null; }
         if (m_Active.StockIds.Find(itemId) < 0 || m_Active.IssuedIds.Find(itemId) >= 0) { return null; }
-        if (!m_Receipt.Stock || m_Receipt.Stock.Count() > 16) { HCFinish("NATIVE_INCIDENT_STOCK_CHANGED"); return null; }
-        foreach (ItemBase item : m_Receipt.Stock)
+        HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
+        if (!policy) { return null; }
+        if (!m_Receipt.Stock || m_Receipt.Stock.Count() > policy.MaxIncidentItems) { HCFinish("NATIVE_INCIDENT_STOCK_CHANGED"); return null; }
+        array<ItemBase> retainedStock = m_Receipt.Stock;
+        foreach (ItemBase item : retainedStock)
         {
             if (item && HCSearchSupplyRegistry.PersistentId(item) == itemId)
             {
@@ -343,9 +379,10 @@ class HCNativeIncidentLease
     {
         if (!m_Enabled || m_Busy || !m_Active || m_Active.Phase != "leased") { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
-        m_Units.HCReset(1);
+        HCUnitBudget sharedWork = HCServer.HCTickWork();
+        if (!sharedWork || !sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
         m_Work.HCReset(1);
-        if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
+        if (!m_Work.HCContinue()) { return; }
         if (!HCPresent()) { HCFinish("NATIVE_INCIDENT_DISAPPEARED"); return; }
         if (!HCWorldMaterializer.HCIdentity(m_Active.LeaseId)) { HCFinish("NATIVE_INCIDENT_PARTY_LOST"); }
     }
