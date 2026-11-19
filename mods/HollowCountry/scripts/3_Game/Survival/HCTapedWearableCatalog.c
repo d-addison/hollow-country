@@ -11,7 +11,7 @@ class HCTapedWearableCatalog
     // pair as admitted UNVERIFIED. Cached once at boot; Qualified() below stays the
     // native two-client verdict and is still false.
     protected static bool s_Admitted;
-    static const string MANIFEST = "24abaeed06c1b28ee12a64be5816f0cf5ffd8f2c9716ac66dc035380c5a13038";
+    static const string MANIFEST = "a2fdfe3266ef833c6832ed599c9f7a6822715e17b5798d73ebc5b67a2e971ec2";
 
     static bool Supported(HCTapedLightHostRow row)
     {
@@ -82,6 +82,7 @@ class HCTapedWearableCatalog
 // No descendants, 80-pack/228-helmet claims, or operator-provided transforms.
 class HCTapedPackCatalog
 {
+    static const string MANIFEST = "2afad8af854eaa40db6cb27b3e2a174acdd70ca39a7edcae0d4df83134bacbe1";
     static bool IsPackHost(string host)
     {
         return host == "TortillaBag";

@@ -20,10 +20,13 @@
     "Mode": "native_attachment",
     "HostConfigRoot": "CfgVehicles",
     "BatterySlot": "BatteryD",
-    "LightMemoryPoints": ["beamStart", "beamEnd"],
+    "LightMemoryPoints": [
+      "beamStart",
+      "beamEnd"
+    ],
     "TransformOwner": "Native helmet attachment and UniversalLight; no authored offset, orientation, proxy or light entity.",
     "ModelGeometry": "PENDING; slot/config and script evidence do not establish mounted origin, orientation or cone.",
-    "TransactionOwner": "HC-7 HCTapedLightService/HCTapedLightPort with existing custody, journal and inventory barriers; lead binding pending.",
+    "TransactionOwner": "HC-7 HCTapedLightService/HCTapedLightPort with HCTapedLightV1Qualification wearable rows, existing HCTapedLightV1Custody, shared v1 journal and native move barriers.",
     "Refusal": "helmet_mount_two_client_pending"
   },
   "CompatibilityQueue": [
@@ -62,11 +65,12 @@
     "GeometryLimit": "No complete proxy/LOD or worn-transform evidence. Ground-model string scan is not geometry qualification."
   },
   "AcceptanceQueue": [
-    "Lead binds the separate catalogue/qualification seam to HC-7; no CfgVehicles patch for the selected native pair.",
+    "Observe held helmet mount/remove actions and held/worn native energy-manager toggle; catalogue/qualification is bound to HC-7 without additional CfgVehicles edits.",
     "Exact-source DayZDiag compile/boot; zero script/CE errors; off path and stop/restart cleanup; retain exact source/PBO/mission/config/dependency hashes.",
     "Normal signed PBO/server with two clients: mounted origin/orientation, hands/free look, aim, cone and shadows.",
     "Both clients: removal with full/free cargo, destruction, same light/battery identity and energy, reconnect and persistence; engine inventory and HC journal backed up together.",
     "Qualification remains false until observed receipts justify a separate reviewed promotion. HC-7 local opt-in never promotes helmet pairs."
   ],
-  "DistancesAdded": []
+  "DistancesAdded": [],
+  "BindingProvenance": "ManifestDigest records wearable authoring provenance. MeasurementDigest is empty for these exact unverified native-slot wearable pairs; no native measurement digest or verdict is fabricated. Qualified stays false."
 }

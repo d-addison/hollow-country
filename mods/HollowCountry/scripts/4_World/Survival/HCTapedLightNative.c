@@ -1,4 +1,9 @@
 // #56 W1.3: local acceptance adapter, never production qualification.
+// Additional wearable API evidence (installed scripts-1.30.164289):
+// 3_Game/Entities/Object.c:467 GetType,517 IsAlive,981 IsDamageDestroyed;
+// 3_Game/Entities/Man.c:63 IsUnconscious; 4_World/Entities/DayZPlayerImplement.c:468
+// IsInVehicle; 4_World/Entities/ManBase/PlayerBase.c:6733 GetItemInHands;
+// 3_Game/Entities/EntityAI.c:802 GetHierarchyRootPlayer (native use).
 // API declarations and exact installed evidence are indexed in
 // tests/unit/test_taped_light_v1_evidence.py. No client profile IO.
 // Native 3_Game/Global/Game.c:1120 IsServer. Installed gear_tools.pbo
@@ -88,6 +93,33 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         return HCTapedLightAdmission.Admitted();
     }
 
+    // Exact native-slot wearable adapters, admitted unverified. Native geometry
+    // and two-client verdicts stay pending; no transform/controller is introduced.
+    static HCTapedLightHostRow HCWearableRow(string hostType, string lightType, bool crossSlot = false)
+    {
+        if (lightType != "UniversalLight") { return null; }
+        HCTapedLightHostRow wearable = new HCTapedLightHostRow;
+        wearable.HostClass = hostType;
+        wearable.LightClass = lightType;
+        wearable.SlotName = "helmetFlashlight";
+        if (hostType == "Mich2001Helmet")
+        {
+            if (GetGame().IsServer() && !HCTapedWearableCatalog.Admitted()) { return null; }
+            return wearable;
+        }
+        if (hostType != "TortillaBag") { return null; }
+        wearable.PairId = "tortilla_universal_mount";
+        if (crossSlot) { wearable.PairId = "tortilla_universal_cross"; }
+        if (GetGame().IsServer() && !HCTapedPackMounts.PairQualified(wearable.PairId))
+        {
+            if (crossSlot) { return null; }
+            wearable.PairId = "tortilla_universal_cross";
+            if (!HCTapedPackMounts.PairQualified(wearable.PairId)) { return null; }
+        }
+        if (wearable.PairId == "tortilla_universal_cross") { wearable.SlotName = "Chemlight"; }
+        return wearable;
+    }
+
     // Exact evidence cohort only. Live config and native attachment checks can
     // narrow this set; they never enlarge it to a descendant or a candidate.
     static HCTapedLightHostRow Row(EntityAI host, ItemBase light)
@@ -99,6 +131,11 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         foreach (HCTapedLightHostRow row : rows)
         {
             if (HCTapedLightCatalog.Matches(row, hostType, lightType, row.SlotName)) { return row; }
+        }
+        if (hostType == "Mich2001Helmet" || hostType == "TortillaBag")
+        {
+            bool crossMounted = host.FindAttachmentBySlotName("Chemlight") == light;
+            return HCWearableRow(hostType, lightType, crossMounted);
         }
         return CrossRow(hostType, lightType);
     }
@@ -129,7 +166,9 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         if (!HCBuildIdentity.Matches(build)) { return null; }
         TStringArray hostSlots = new TStringArray;
         TStringArray lightSlots = new TStringArray;
-        GetGame().ConfigGetTextArray("CfgWeapons " + row.HostClass + " attachments", hostSlots);
+        string configRoot = "CfgWeapons";
+        if (row.HostClass == "Mich2001Helmet" || row.HostClass == "TortillaBag") { configRoot = "CfgVehicles"; }
+        GetGame().ConfigGetTextArray(configRoot + " " + row.HostClass + " attachments", hostSlots);
         GetGame().ConfigGetTextArray("CfgVehicles " + row.LightClass + " inventorySlot", lightSlots);
         if (hostSlots.Find(row.SlotName) < 0 || lightSlots.Find(row.SlotName) < 0) { return null; }
         if (row.PrerequisiteSlot != "")
@@ -142,12 +181,20 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
         binding.ManifestDigest = HCTapedLightCatalog.MANIFEST;
         binding.MeasurementDigest = HCTapedLightCatalog.OBSERVATIONS;
         binding.GameBuild = HCBuildIdentity.Canonical();
-        binding.HostConfigRoot = "CfgWeapons";
+        // Authoring provenance is separate from missing native measurements.
+        if (configRoot == "CfgVehicles")
+        {
+            binding.ManifestDigest = HCTapedWearableCatalog.MANIFEST;
+            if (row.HostClass == "TortillaBag") { binding.ManifestDigest = HCTapedPackCatalog.MANIFEST; }
+            binding.MeasurementDigest = "";
+        }
+        binding.HostConfigRoot = configRoot;
         binding.HostClass = row.HostClass;
         binding.LightClass = row.LightClass;
         binding.SlotName = row.SlotName;
         binding.PairId = row.PairId;
         binding.CrossSlot = row.PairId != "";
+        if (row.PairId == "tortilla_universal_mount") { binding.CrossSlot = false; }
         binding.BatterySlotName = "BatteryD";
         binding.TapeUnits = 1;
         binding.MaxDistance = 2;
@@ -274,6 +321,7 @@ class HCTapedLightRuntime
     static bool KnownHost(ItemBase host)
     {
         if (!host) { return false; }
+        if (host.GetType() == "Mich2001Helmet" || host.GetType() == "TortillaBag") { return true; }
         if (!s_HostTypes)
         {
             s_HostTypes = new map<string, bool>;
@@ -334,6 +382,13 @@ class HCTapedLightRuntime
     static ItemBase MountedLight(ItemBase host)
     {
         string hostType = host.GetType();
+        if (hostType == "Mich2001Helmet" || hostType == "TortillaBag")
+        {
+            ItemBase wearableLight = ItemBase.Cast(host.FindAttachmentBySlotName("helmetFlashlight"));
+            if (!wearableLight && hostType == "TortillaBag") { wearableLight = ItemBase.Cast(host.FindAttachmentBySlotName("Chemlight")); }
+            if (!wearableLight || !HCTapedLightV1Qualification.Row(host, wearableLight)) { return null; }
+            return wearableLight;
+        }
         ref array<ref HCTapedLightHostRow> rows = HCTapedLightCatalog.Rows();
         foreach (HCTapedLightHostRow row : rows)
         {
@@ -346,6 +401,39 @@ class HCTapedLightRuntime
             if (HCTapedLightV1Qualification.CrossRow(hostType, candidateType)) { return candidate; }
         }
         return null;
+    }
+
+    // Native evidence: 3_Game/Entities/EntityAI.c:1897 FindAttachmentBySlotName,
+    // :3409 GetCompEM; 3_Game/tools/Component/ComponentEnergyManager.c:
+    // 371 SwitchOn,402 SwitchOff,752 CanSwitchOn,768 CanWork,884 IsSwitchedOn.
+    // The native UniversalLight owns its battery, beam and replication.
+    static ItemBase HCToggleCandidate(PlayerBase actor, ItemBase host)
+    {
+        if (!actor || !host || !actor.IsAlive() || actor.IsUnconscious() || actor.IsInVehicle()) { return null; }
+        if (host.GetHierarchyRootPlayer() != actor || host.IsDamageDestroyed()) { return null; }
+        if (host.GetType() != "Mich2001Helmet" && host.GetType() != "TortillaBag") { return null; }
+        bool accessible = actor.GetItemInHands() == host;
+        if (actor.FindAttachmentBySlotName("Back") == host || actor.FindAttachmentBySlotName("Headgear") == host) { accessible = true; }
+        if (!accessible) { return null; }
+        ItemBase mounted = MountedLight(host);
+        if (!mounted || mounted.IsDamageDestroyed() || !mounted.GetCompEM()) { return null; }
+        return mounted;
+    }
+
+    static bool HCToggle(PlayerBase actor, ItemBase host)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !HCTapedLightAdmission.Admitted()) { return false; }
+        ItemBase mounted = HCToggleCandidate(actor, host);
+        if (!mounted) { return false; }
+        ComponentEnergyManager energy = mounted.GetCompEM();
+        if (energy.IsSwitchedOn())
+        {
+            energy.SwitchOff();
+            return true;
+        }
+        if (!energy.CanSwitchOn() || !energy.CanWork()) { return false; }
+        energy.SwitchOn();
+        return true;
     }
 
     static bool Preview(PlayerBase actor, ItemBase host, bool mounting)

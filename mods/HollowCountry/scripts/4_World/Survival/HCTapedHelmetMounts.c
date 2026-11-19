@@ -12,8 +12,8 @@
 // admitted UNVERIFIED at startup (the HCV2Admission pattern). Named opt-out: the
 // operator file $profile:HollowCountry/acceptance/taped_helmet.disable (the same
 // style as taped_light.disable). A missing native slot reports degraded with its
-// reason. There is still no helmet action, measurement digest or binding, so
-// nothing attaches yet: that is reported once as helmet_action_pending. Nothing
+// reason. The exact-pair held action shares HC-7 custody and journal; native alignment
+// remains unverified. Nothing
 // here was observed in DayZ (runtime=PENDING).
 class HCTapedHelmetMounts : HCModule
 {
@@ -58,7 +58,7 @@ class HCTapedHelmetMounts : HCModule
         int unsupported = HCTapedWearableCatalog.CompatibilityQueue().Count();
         Print(HCV2Admission.Line("TapedHelmetMounts", state != "off", "helmet_mount_two_client_check", HCTapedWearableCatalog.Qualified()));
         string line = "[HC Plan] HC-23 helmet_mounts=" + authored.ToString() + " qualified=0 unsupported=" + unsupported.ToString() + " state=" + state + " reason=" + reason;
-        Print(line + " unsupported_reason=unsupported_helmet_pair queue_reason=no_native_helmet_light_slot action=helmet_action_pending runtime=PENDING");
+        Print(line + " unsupported_reason=unsupported_helmet_pair queue_reason=no_native_helmet_light_slot action=held_mount_remove_native_toggle geometry=native_proxy_unverified runtime=PENDING");
     }
 
     override void OnStop()
@@ -71,9 +71,8 @@ class HCTapedHelmetMounts : HCModule
 
 // Separate HC-7 qualification port: do not append wearable rows to the weapon
 // catalogue or grant them the weapon adapter's default local-acceptance opt-in.
-// Lead integration must retain the same service/port, custody and journal. Ready
-// follows the startup admission (unverified, opt-out file), but no binding is
-// minted until a helmet action and measured geometry exist: Resolve stays null.
+// The held action retains the same service/port, custody and journal. Ready
+// follows native slot availability and unverified startup admission.
 // There is deliberately no synthetic measurement digest or new range.
 class HCTapedHelmetQualification : HCTapedLightQualification
 {
@@ -84,7 +83,14 @@ class HCTapedHelmetQualification : HCTapedLightQualification
 
     override HCTapedLightBinding Resolve(EntityAI host, ItemBase light)
     {
-        return null;
+        if (!Ready() || !host || host.GetType() != "Mich2001Helmet") { return null; }
+        HCTapedLightV1Qualification nativeQualification = new HCTapedLightV1Qualification;
+        return nativeQualification.Resolve(host, light);
+    }
+
+    override bool HasLOS(PlayerBase actor, EntityAI host, HCTapedLightBinding binding)
+    {
+        return Ready() && actor && host && actor.GetItemInHands() == host && host.GetHierarchyRootPlayer() == actor;
     }
 }
 
