@@ -1,8 +1,8 @@
 """s2-tactics: dynamic AI tactics (smoke cover, infected lure) for the HCX addon.
 
-Executes the authored pure HCXAITacticsPolicy through the existing event
-translator with explicit synthetic numbers, pins the shipped config defaults
-against the in-code validated ranges, and checks the source wiring. Offline
+Executes the authored policy and smoke orchestration through the existing event
+translator with explicit synthetic item, transfer and registry ports, pins the
+shipped config defaults against the validated ranges, and checks source wiring. Offline
 tests prove only the authored decision rules and wiring; throw force units, the
 native noise reaction of infected, smoke activation and group behaviour are
 runtime-pending (nothing observed in DayZ).
@@ -17,6 +17,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from tests.unit.test_event_runtime import translate
+from tests.unit.test_group_server import EArray
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKER = "$profile:HollowCountry/acceptance/ai_tactics.disable"
@@ -136,7 +137,7 @@ class SmokeItem(unittest.TestCase):
         self.assertTrue(p.SmokeTypeOk("RDG2SmokeGrenade_Black", "Contaminated"))
         self.assertTrue(p.SmokeTypeOk("M18SmokeGrenade_Red_Contaminated", ""), "an empty exclusion means none")
 
-    def test_activation_consumes_the_real_item_and_gives_up_cleanly(self):
+    def test_activation_policy_waits_retries_and_gives_up(self):
         p = policy()
         # ActivateStep(held, pinned, tries, maxTries, ageMs, maxAgeMs)
         self.assertEqual("wait", p.ActivateStep(True, True, 0, 4, 500, 10000), "still in the thrower's inventory")
@@ -145,7 +146,224 @@ class SmokeItem(unittest.TestCase):
         self.assertEqual("activate", p.ActivateStep(False, True, 3, 4, 900, 10000))
         self.assertEqual("give_up", p.ActivateStep(False, True, 4, 4, 900, 10000), "bounded retries")
         self.assertEqual("done", p.ActivateStep(False, False, 1, 4, 900, 10000), "pin already pulled")
-        self.assertEqual("done", p.ActivateStep(True, False, 0, 4, 100, 10000))
+        self.assertEqual("wait", p.ActivateStep(True, False, 0, 4, 100, 10000),
+                         "an unpinned item still in inventory is not deployed")
+
+
+class SyntheticVector(list):
+    """Explicit vector arithmetic fixture; no engine physics is simulated."""
+    def __add__(self, other): return SyntheticVector(a + b for a, b in zip(self, other))
+    def __sub__(self, other): return SyntheticVector(a - b for a, b in zip(self, other))
+    def __mul__(self, scale): return SyntheticVector(a * scale for a in self)
+    def Normalized(self):
+        length = sum(a * a for a in self) ** 0.5
+        return self * (1 / length) if length else self * 0
+
+
+class SmokeRuntime(unittest.TestCase):
+    """Authored orchestration with synthetic transfer/activation/registry ports.
+
+    The native throw returns void. A fixture can move the same item, delay that
+    movement or never move it. None of these outcomes establishes DayZ behavior.
+    """
+    def setUp(self):
+        self.calls = []
+        self.incidents = []
+        self.refusals = []
+        self.throw_refusal = ""
+        self.transfer = True
+        self.drop_ok = False
+        self.activation_ok = True
+        self.registry_on = True
+        self.actor = SimpleNamespace(GetPosition=lambda: SyntheticVector([10, 0, 20]),
+                                     IsAlive=lambda: True,
+                                     GetGroup=lambda: SimpleNamespace(GetFaction=lambda: "Raiders"))
+        self.item = SimpleNamespace(parent=self.actor, pinned=True, deleted=False,
+                                    position=SyntheticVector([10, 0, 20]))
+        self.item.GetPosition = lambda: self.item.position
+        self.item.IsPendingDeletion = lambda: self.item.deleted
+        self.rec = SimpleNamespace(SmokeLast=0, SmokeUses=0)
+        self.backoff = SimpleNamespace(SmokeUntil=0)
+        self.runtime = SimpleNamespace(s_ScanActor=self.actor, s_ScanGroup=self.rec,
+            s_ScanAim=SyntheticVector([70, 0, 20]), s_ScanSmoke=True, s_ScanStartedMs=1000,
+            s_Pending=EArray(), s_Dropped=0, s_SmokeThrown=0, s_SmokeActivated=0,
+            s_Lost=0, s_LureNoises=0,
+            s_Budget=SimpleNamespace(HCContinue=lambda: True),
+            s_Config=SimpleNamespace(**json.loads(read(DEFAULTS))))
+        self.runtime.s_Scan = SimpleNamespace(HCStep=lambda limit: self.item, Complete=False)
+        self.runtime.HCRefuse = self.refusals.append
+        self.runtime.Backoff = lambda actor: self.backoff
+
+        def throw(actor, item, landing, force, lift):
+            self.calls.append(("throw", actor, item, landing, force, lift))
+            if not self.throw_refusal and self.transfer:
+                item.parent = None
+            return self.throw_refusal
+
+        def drop(actor, item):
+            self.calls.append(("drop", actor, item))
+            if self.drop_ok:
+                item.parent = None
+            return self.drop_ok
+
+        def activate(item):
+            self.calls.append(("activate", item))
+            if self.activation_ok:
+                item.pinned = False
+            return self.activation_ok
+
+        self.registry = SimpleNamespace(HCActive=lambda: self.registry_on,
+                                   HCPublishAs=lambda *args: self.incidents.append(args))
+        env = dict(HCXAITactics=self.runtime, HCXAITacticsPolicy=policy(),
+            HCXAIThrowables=SimpleNamespace(Throw=throw, Drop=drop, ActivateSmoke=activate,
+                Held=lambda item: item.parent is not None, Pinned=lambda item: item.pinned),
+            HCWorldIncidents=SimpleNamespace(HCGet=lambda: self.registry),
+            HCXFactions=SimpleNamespace(Id=lambda value: value, HCWorldId=lambda value: value.lower()),
+            HCEventPending=lambda: SimpleNamespace(Tries=0),
+            vector=SimpleNamespace(Distance=lambda a, b: sum((x-y)**2 for x, y in zip(a, b))**0.5))
+        # Syntax-only adaptation for the shared translator: custom local types,
+        # static fields and increments. All orchestration remains authored code.
+        source = read(TACTICS)
+        source = source.replace("else if (pending) { smoke = pending.Smoke; }",
+                                "else { if (pending) { smoke = pending.Smoke; } }")
+        source = re.sub(r"\b(HCXTacticsPending|HCXTacticsGroup|HCXTacticsBackoff|eAIBase|eAIGroup|HCWorldIncidents)(?= \w+ =)",
+                        "Object", source)
+        source = source.replace("new HCXTacticsPending()", "new HCEventPending()")
+        source = re.sub(r"\b(s_\w+)\b", r"HCXAITactics.\1", source)
+        source = re.sub(r"([\w.]+)\+\+", r"\1 += 1", source)
+        for name in ("EndScan", "Enqueue", "ExecuteSmoke", "ExecuteLure", "StepScan", "StepPending"):
+            setattr(self.runtime, name, translate(source, name, env, owner="HCXAITactics"))
+
+    def start_throw(self):
+        self.runtime.StepScan(1000)
+        self.assertIsNone(self.runtime.s_Scan)
+        self.assertIsNone(self.runtime.s_ScanActor)
+        self.assertIsNone(self.runtime.s_ScanGroup)
+        self.assertEqual("throw", self.calls[0][0])
+        self.assertIs(self.item, self.calls[0][2])
+
+    def test_real_item_transfer_activation_removal_and_one_incident_at_grenade(self):
+        self.start_throw()
+        self.assertIsNone(self.item.parent)
+        self.assertEqual(1, len(self.runtime.s_Pending))
+        self.assertIs(self.item, self.runtime.s_Pending[0].Item)
+        self.assertEqual((1000, 1), (self.rec.SmokeLast, self.rec.SmokeUses))
+        self.assertEqual([], self.incidents, "a throw call alone is not deployment")
+        self.runtime.StepPending(2000)
+        self.assertFalse(self.item.pinned)
+        self.assertEqual(1, len(self.runtime.s_Pending))
+        self.item.position = SyntheticVector([18, 1, 23])  # synthetic post-flight position
+        self.runtime.StepPending(3000)
+        self.runtime.StepPending(4000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, self.runtime.s_SmokeActivated)
+        self.assertEqual([("activate", self.item)], [c for c in self.calls if c[0] == "activate"])
+        self.assertEqual([("signal_smoke", self.item.position, 0, 0, self.item, "raiders")], self.incidents)
+
+    def test_refused_throw_and_drop_leave_no_pending_or_consumption(self):
+        self.throw_refusal = "throw_refused"
+        self.start_throw()
+        self.assertIs(self.actor, self.item.parent)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual((0, 0, 0), (self.rec.SmokeLast, self.rec.SmokeUses, self.runtime.s_SmokeThrown))
+        self.assertEqual(["throw_refused", "drop_refused"], self.refusals)
+        self.assertEqual(91000, self.backoff.SmokeUntil)
+        self.assertEqual(["throw", "drop"], [c[0] for c in self.calls])
+        self.runtime.StepPending(20000)
+        self.assertEqual([], self.incidents)
+
+    def test_refused_throw_uses_real_drop_fallback_then_activates(self):
+        self.throw_refusal = "throw_refused"
+        self.drop_ok = True
+        self.start_throw()
+        self.assertIs(self.item, self.calls[1][2])
+        self.assertIsNone(self.item.parent)
+        self.assertEqual(1, self.runtime.s_Dropped)
+        self.runtime.StepPending(2000)
+        self.runtime.StepPending(3000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, len(self.incidents))
+
+    def test_void_throw_without_transfer_expires_without_activation_or_incident(self):
+        self.transfer = False
+        self.start_throw()
+        self.runtime.StepPending(2000)
+        self.assertEqual(1, len(self.runtime.s_Pending))
+        self.runtime.StepPending(11001)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, self.runtime.s_Lost)
+        self.assertEqual(["throw_not_observed"], self.refusals)
+        self.assertEqual(["throw"], [c[0] for c in self.calls])
+        self.assertEqual([], self.incidents)
+
+    def test_failed_activation_is_bounded_and_removed_without_incident(self):
+        self.activation_ok = False
+        self.start_throw()
+        for now in range(2000, 7000, 1000):
+            self.runtime.StepPending(now)
+        self.assertEqual(4, len([c for c in self.calls if c[0] == "activate"]))
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, self.runtime.s_Lost)
+        self.assertEqual([], self.incidents)
+
+    def test_vanished_pending_item_is_removed_without_activation_or_incident(self):
+        self.start_throw()
+        self.item.deleted = True
+        self.runtime.StepPending(2000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, self.runtime.s_Lost)
+        self.assertEqual(["throw"], [c[0] for c in self.calls])
+        self.assertEqual([], self.incidents)
+
+    def test_registry_off_does_not_prevent_smoke_cleanup(self):
+        self.registry_on = False
+        self.start_throw()
+        self.runtime.StepPending(2000)
+        self.runtime.StepPending(3000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, self.runtime.s_SmokeActivated)
+        self.assertEqual([], self.incidents)
+
+    def test_delayed_transfer_waits_for_release_before_activating(self):
+        self.transfer = False
+        self.start_throw()
+        self.runtime.StepPending(2000)
+        self.assertTrue(self.item.pinned)
+        self.assertEqual(["throw"], [c[0] for c in self.calls])
+        self.item.parent = None  # explicit delayed native transfer fixture
+        self.runtime.StepPending(3000)
+        self.runtime.StepPending(4000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, len(self.incidents))
+
+    def test_missing_registry_does_not_prevent_smoke_cleanup(self):
+        self.registry = None
+        self.start_throw()
+        self.runtime.StepPending(2000)
+        self.runtime.StepPending(3000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(1, self.runtime.s_SmokeActivated)
+        self.assertEqual([], self.incidents)
+
+    def test_lost_actor_still_publishes_real_smoke_without_a_faction(self):
+        self.start_throw()
+        self.runtime.s_Pending[0].Actor = None
+        self.runtime.StepPending(2000)
+        self.runtime.StepPending(3000)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual("", self.incidents[0][-1])
+        self.assertIs(self.item, self.incidents[0][-2])
+
+    def test_unpinned_but_still_carried_item_is_not_reported_deployed(self):
+        self.transfer = False
+        self.start_throw()
+        self.item.pinned = False
+        self.runtime.StepPending(2000)
+        self.assertEqual(1, len(self.runtime.s_Pending))
+        self.runtime.StepPending(11001)
+        self.assertEqual(0, len(self.runtime.s_Pending))
+        self.assertEqual(0, self.runtime.s_SmokeActivated)
+        self.assertEqual([], self.incidents)
 
 
 class GateAndConfig(unittest.TestCase):
