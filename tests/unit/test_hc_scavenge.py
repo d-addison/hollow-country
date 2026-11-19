@@ -183,7 +183,7 @@ class ScavengeBehavior(unittest.TestCase):
         actor.IsAlive = lambda: True
         actor.IsUnconscious = lambda: False
         native_identity = N(HCPartyId=lambda: 'party', HCCargoId=lambda: 'cargo', HCGeneration=lambda: 1)
-        io = N(Actor=actor, Source=source_cache, Home=home, Item=item, LeaseId='lease',
+        io = N(Actor=actor, Source=source_cache, Home=home, Item=item, LeaseId='lease', Survey=None,
                Defaults=N(TransferRangeMeters=2.5))
         native_env = dict(GetGame=lambda: N(IsServer=lambda: True), ItemBase=N(Cast=lambda item: item),
             HCSearchSupplyRegistry=N(PersistentId=lambda entity: entity.pid),

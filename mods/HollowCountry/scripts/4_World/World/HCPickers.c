@@ -10,7 +10,13 @@
 // 1_Core/proto/EnScript.c:380 Count, :407 Insert; EnDebug.c:96 Print.
 // Files/journal use HCSearchHouseJournal/HCEncounterStore, clock uses HCWorldClock.
 // HC-34 retires abstract inventory hops; old journal evidence stays immutable.
-// Provider source/route missing: explicit refusal, runtime acceptance PENDING.
+// Wave 16 w32-pickers: the route survey is mission/hollow-country/ai/picker-routes.json,
+// DERIVED from the scavenger sites of ai/sites.json (waypoints verbatim). The module is
+// `ready` once the journal and the survey load; the one part this file cannot supply
+// (an Expansion AI actor + group walk port) is a named one-time log line, not a refusal.
+// Native evidence: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D, :932 GetWorldName;
+// Inventory.c:138 GetCargo; Cargo.c:28 GetItemCount, :32 GetItem; ItemBase.c:4372 IsTakeable.
+// Runtime acceptance PENDING.
 class HCPickerPolicy
 {
     static int ChargeAfterVisit(int used, int phase)
@@ -136,7 +142,7 @@ class HCCacheMoves
 // 3_Game/Global/Game.c:1120 IsServer; gameplay.c:636 GetGame;
 // 1_Core/proto/EnConvert.c:210 DistanceSq; EnDebug.c:96 Print.
 // N17 is NOT an AI SDK. Installed Expansion source directory supplied for this
-// worker is absent. HCRouteReady/HCWalk explicitly refuse; no invented movement.
+// worker is absent. HCRouteReady needs the survey; HCWalk still refuses (no invented movement).
 // All checkpoint writes are transaction barriers, synchronous verified store
 // writes. No periodic state changes/save job; no second scheduler is needed.
 class HCScavengeDefaults
@@ -162,9 +168,149 @@ class HCScavengeState
     string Refusal;
 }
 
+// Survey point, copied verbatim from a scavenger site waypoint of ai/sites.json.
+class HCPickerPoint
+{
+    float X;
+    float Y;
+    float Z;
+
+    vector HCPosition() { return Vector(X, Y, Z); }
+}
+
+// One surveyed home -> source -> home loop. RouteId is the HC-10 route id the party
+// carries ("route:" + the scavenger site id); HomeIndex/SourceIndex pick anchors out of
+// the site's own waypoint loop, so the patrol's native LOOP order visits both.
+class HCPickerRoute
+{
+    string RouteId;
+    string SiteId;
+    string LocalityId;
+    int HomeIndex;
+    int SourceIndex;
+    ref array<ref HCPickerPoint> Waypoints = new array<ref HCPickerPoint>;
+
+    vector HCHomePoint() { return Waypoints[HomeIndex].HCPosition(); }
+    vector HCSourcePoint() { return Waypoints[SourceIndex].HCPosition(); }
+
+    // Forward loop order, excluding the starting anchor and ending on the other anchor.
+    void HCLegPoints(bool returning, array<vector> points)
+    {
+        int cursor = HomeIndex;
+        int finish = SourceIndex;
+        if (returning)
+        {
+            cursor = SourceIndex;
+            finish = HomeIndex;
+        }
+        int guard = 0;
+        while (guard < Waypoints.Count())
+        {
+            cursor = (cursor + 1) % Waypoints.Count();
+            points.Insert(Waypoints[cursor].HCPosition());
+            if (cursor == finish) { return; }
+            guard++;
+        }
+    }
+}
+
+// Every number the survey uses is a named field of the file (no literal limits in code).
+class HCPickerSurvey
+{
+    static const int MAX_BYTES = 16384;
+    int Version;
+    string WorldName;
+    string DerivedFrom;
+    float MaxLegMeters;
+    float ArrivalRangeMeters;
+    float MapExtentMeters;
+    int MaxRoutes;
+    int MaxWaypoints;
+    int MaxScannedObjects;
+    int MaxCargoScan;
+    ref array<ref HCPickerRoute> Routes = new array<ref HCPickerRoute>;
+
+    // First defect by name, "" when the survey is usable.
+    string HCRefusal()
+    {
+        HCScavengeDefaults pickup = new HCScavengeDefaults;
+        if (Version != 1) { return "PICKER_SURVEY_VERSION"; }
+        if (MaxLegMeters <= 0 || MapExtentMeters <= 0 || ArrivalRangeMeters <= 0 || ArrivalRangeMeters > pickup.TransferRangeMeters) { return "PICKER_SURVEY_LIMITS"; }
+        if (MaxRoutes < 1 || MaxWaypoints < 2 || MaxScannedObjects < 1 || MaxCargoScan < 1) { return "PICKER_SURVEY_LIMITS"; }
+        if (Routes.Count() < 1) { return "PICKER_SURVEY_EMPTY"; }
+        if (Routes.Count() > MaxRoutes) { return "PICKER_SURVEY_ROUTE_CAP"; }
+        for (int routeIndex = 0; routeIndex < Routes.Count(); routeIndex++)
+        {
+            HCPickerRoute route = Routes[routeIndex];
+            if (!route || !HCWorldLimits.Token(route.RouteId) || !HCWorldLimits.Token(route.SiteId)) { return "PICKER_ROUTE_ID_INVALID"; }
+            for (int priorIndex = 0; priorIndex < routeIndex; priorIndex++)
+            {
+                if (Routes[priorIndex].RouteId == route.RouteId) { return "PICKER_ROUTE_ID_DUPLICATE"; }
+            }
+            int count = route.Waypoints.Count();
+            if (count < 2 || count > MaxWaypoints) { return "PICKER_ROUTE_WAYPOINTS"; }
+            if (route.HomeIndex < 0 || route.SourceIndex < 0 || route.HomeIndex >= count || route.SourceIndex >= count || route.HomeIndex == route.SourceIndex) { return "PICKER_ROUTE_ANCHORS"; }
+            for (int pointIndex = 0; pointIndex < count; pointIndex++)
+            {
+                HCPickerPoint point = route.Waypoints[pointIndex];
+                HCPickerPoint following = route.Waypoints[(pointIndex + 1) % count];
+                if (point.X <= 0 || point.Z <= 0 || point.X >= MapExtentMeters || point.Z >= MapExtentMeters) { return "PICKER_ROUTE_POINT_INVALID"; }
+                if (following.X <= 0 || following.Z <= 0 || following.X >= MapExtentMeters || following.Z >= MapExtentMeters) { return "PICKER_ROUTE_POINT_INVALID"; }
+                float deltaX = following.X - point.X;
+                float deltaZ = following.Z - point.Z;
+                if (deltaX * deltaX + deltaZ * deltaZ > MaxLegMeters * MaxLegMeters) { return "PICKER_ROUTE_LEG_TOO_LONG"; }
+            }
+        }
+        return "";
+    }
+
+    HCPickerRoute HCFind(string routeId)
+    {
+        for (int findIndex = 0; findIndex < Routes.Count(); findIndex++)
+        {
+            if (Routes[findIndex].RouteId == routeId) { return Routes[findIndex]; }
+        }
+        return null;
+    }
+
+    // Native JSON zero-fills missing fields (lint HC-S005): every field must be written.
+    static bool HCFieldsPresent(string text)
+    {
+        if (!HCJsonFields.Has(text, "Version") || !HCJsonFields.Has(text, "WorldName") || !HCJsonFields.Has(text, "MaxLegMeters") || !HCJsonFields.Has(text, "ArrivalRangeMeters")) { return false; }
+        if (!HCJsonFields.Has(text, "MapExtentMeters") || !HCJsonFields.Has(text, "MaxRoutes") || !HCJsonFields.Has(text, "MaxWaypoints")) { return false; }
+        if (!HCJsonFields.Has(text, "MaxScannedObjects") || !HCJsonFields.Has(text, "MaxCargoScan")) { return false; }
+        if (!HCJsonFields.Every(text, "RouteId", 3) || !HCJsonFields.Every(text, "SiteId", 3)) { return false; }
+        if (!HCJsonFields.Every(text, "HomeIndex", 3) || !HCJsonFields.Every(text, "SourceIndex", 3)) { return false; }
+        return HCJsonFields.Every(text, "X", 5) && HCJsonFields.Every(text, "Y", 5) && HCJsonFields.Every(text, "Z", 5);
+    }
+
+    // Null and a named refusal when the file is missing, malformed, foreign or invalid.
+    static HCPickerSurvey HCLoad(out string refusal)
+    {
+        refusal = "PICKER_SURVEY_UNAVAILABLE";
+        string text = HCWorldStore.Read("$mission:hollow-country/ai/picker-routes.json");
+        if (text.Length() < 1 || text.Length() > HCPickerSurvey.MAX_BYTES) { return null; }
+        refusal = "PICKER_SURVEY_FIELDS_MISSING";
+        if (!HCPickerSurvey.HCFieldsPresent(text)) { return null; }
+        refusal = "PICKER_SURVEY_PARSE";
+        HCPickerSurvey survey = new HCPickerSurvey;
+        string error;
+        if (!JsonFileLoader<HCPickerSurvey>.LoadData(text, survey, error)) { return null; }
+        refusal = survey.HCRefusal();
+        if (refusal != "") { return null; }
+        string world = GetGame().GetWorldName();
+        world.ToLower();
+        refusal = "PICKER_SURVEY_WORLD";
+        if (survey.WorldName != world) { return null; }
+        refusal = "";
+        return survey;
+    }
+}
+
 // Trusted server native inventory port. Handles are never restored from JSON.
-// The provider adapter must supply a real, surveyed route before overriding the
-// two refusal ports. A preference, radius or client assertion cannot do that.
+// Wave 16: HCRouteReady is answered by the route survey and HCBindSurveyed binds the
+// actor, the two real crates at the surveyed anchors and one real item. HCWalk stays a
+// provider port (an Expansion group walk): the base refuses it and names that refusal.
 class HCScavengeInventory
 {
     PlayerBase Actor;
@@ -174,8 +320,68 @@ class HCScavengeInventory
     string LeaseId;
     ref HCScavengeDefaults Defaults = new HCScavengeDefaults;
 
-    bool HCRouteReady(HCAIPartyIdentity identity, string lease) { return false; }
+    ref HCPickerSurvey Survey;
+
+    // A route is ready only when the survey lists this party's exact HC-10 route id.
+    bool HCRouteReady(HCAIPartyIdentity identity, string lease)
+    {
+        if (!Survey || !HCAIPartyIdentity.HCValid(identity) || lease == "") { return false; }
+        return Survey.HCFind(identity.HCRouteId()) != null;
+    }
+
+    // Provider port: an addon override sets the group's surveyed leg (HCPickerRoute.HCLegPoints)
+    // and returns true once the request is made. Arrival is observed by HCAtSource/HCAtHome only.
     bool HCWalk(bool returning) { return false; }
+    string HCWalkRefusal() { return "PICKER_WALK_PORT_UNBOUND_EXPANSION_GROUP"; }
+
+    // Existing vanilla crate at a surveyed anchor, found with one bounded native scan.
+    ItemBase HCFindCrate(vector anchor)
+    {
+        array<Object> objects = new array<Object>();
+        array<CargoBase> cargos = new array<CargoBase>();
+        GetGame().GetObjectsAtPosition3D(anchor, Survey.ArrivalRangeMeters, objects, cargos);
+        if (objects.Count() > Survey.MaxScannedObjects || cargos.Count() > Survey.MaxScannedObjects) { return null; }
+        for (int scanIndex = 0; scanIndex < objects.Count(); scanIndex++)
+        {
+            ItemBase crate = ItemBase.Cast(objects[scanIndex]);
+            if (crate && crate.IsKindOf("WoodenCrate") && HCAccessible(crate)) { return crate; }
+        }
+        return null;
+    }
+
+    // First real, takeable, identified item of a crate; no list, no copy, no synthesis.
+    ItemBase HCFirstItem(EntityAI crate)
+    {
+        if (!crate || !crate.GetInventory()) { return null; }
+        CargoBase cargo = crate.GetInventory().GetCargo();
+        if (!cargo) { return null; }
+        int count = cargo.GetItemCount();
+        if (count > Survey.MaxCargoScan) { count = Survey.MaxCargoScan; }
+        for (int cargoIndex = 0; cargoIndex < count; cargoIndex++)
+        {
+            ItemBase candidate = ItemBase.Cast(cargo.GetItem(cargoIndex));
+            if (candidate && !candidate.IsRuined() && candidate.IsTakeable() && HCSearchSupplyRegistry.PersistentId(candidate) != "") { return candidate; }
+        }
+        return null;
+    }
+
+    // Binds nothing unless the actor, both crates and an item are all real.
+    bool HCBindSurveyed(PlayerBase actor, HCPickerRoute route, string lease)
+    {
+        HCClear();
+        if (!Survey || !actor || !route || lease == "") { return false; }
+        ItemBase homeCrate = HCFindCrate(route.HCHomePoint());
+        ItemBase sourceCrate = HCFindCrate(route.HCSourcePoint());
+        if (!homeCrate || !sourceCrate || homeCrate == sourceCrate) { return false; }
+        ItemBase stock = HCFirstItem(sourceCrate);
+        if (!stock) { return false; }
+        Actor = actor;
+        Home = homeCrate;
+        Source = sourceCrate;
+        Item = stock;
+        LeaseId = lease;
+        return true;
+    }
 
     bool HCPartyCurrent(HCScavengeState row)
     {
@@ -443,6 +649,9 @@ class HCPickers : HCModule
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
+    protected ref HCPickerSurvey m_Survey;
+    protected string m_SurveyRefusal;
+    protected bool m_ProviderLogged;
 
     static HCPickers Get() { return s_Instance; }
     HCScavengeTrip HCTrip() { return m_Trip; }
@@ -463,9 +672,68 @@ class HCPickers : HCModule
         m_Trip = new HCScavengeTrip;
         m_Trip.HCOpen();
         s_Instance = this;
-        m_Status.HCPublish("refused", "HC34_PROVIDER_SOURCE_MISSING_ROUTE_UNSURVEYED");
-        if (!m_Trip.m_Ready) { m_Status.HCPublish("refused", "HC34_JOURNAL_UNAVAILABLE"); }
-        Print("[HC Plan] HC-34 party=none phase=idle cargo_owner=none state=refused count=0 refusal=PROVIDER_SOURCE_MISSING_ROUTE_UNSURVEYED runtime=PENDING");
+        m_Survey = HCPickerSurvey.HCLoad(m_SurveyRefusal);
+        if (m_Trip.m_IO) { m_Trip.m_IO.Survey = m_Survey; }
+        HCPublishReadiness();
+        string phase = "idle";
+        if (m_Trip.m_State) { phase = m_Trip.m_State.Phase; }
+        string survey = "routes=0";
+        if (m_Survey) { survey = "routes=" + m_Survey.Routes.Count().ToString(); }
+        Print("[HC Plan] HC-34 party=none phase=" + phase + " cargo_owner=none state=" + m_Status.HCState() + " count=0 " + survey + " reason=" + m_Status.HCReason() + " runtime=PENDING");
+        HCLogProvider();
+    }
+
+    // Derived from the real journal and survey state; never hard-coded.
+    void HCPublishReadiness()
+    {
+        if (!m_Trip || !m_Trip.m_Ready) { m_Status.HCPublish("refused", "HC34_JOURNAL_UNAVAILABLE"); return; }
+        if (!m_Survey) { m_Status.HCPublish("degraded", m_SurveyRefusal); return; }
+        m_Status.HCPublish("ready", "journal_and_survey_loaded");
+    }
+
+    // The one part this module cannot supply itself, named once (derived from the bound port).
+    void HCLogProvider()
+    {
+        if (m_ProviderLogged || !m_Trip || !m_Trip.m_IO) { return; }
+        m_ProviderLogged = true;
+        string gap = m_Trip.m_IO.HCWalkRefusal();
+        if (gap == "")
+        {
+            Print("[HC Pickers] provider walk=bound runtime=PENDING");
+            return;
+        }
+        Print("[HC Pickers] provider walk=unbound reason=" + gap + " parts_ready=journal,survey,bind,tick runtime=PENDING");
+    }
+
+    // Addon seam: bind a port whose HCWalk drives the group. Only between trips.
+    bool HCBindProvider(HCScavengeInventory port)
+    {
+        if (!port || !m_Trip || !m_Trip.m_Ready || m_Trip.m_Busy || !m_Trip.m_State || m_Trip.m_State.Phase != "idle") { return false; }
+        port.Survey = m_Survey;
+        m_Trip.m_IO = port;
+        m_ProviderLogged = false;
+        HCLogProvider();
+        return true;
+    }
+
+    // Provider entry: begin the one journaled trip for this exact lease and a live actor.
+    // Returns "" when the trip left, else the named refusal. One native bind + one journal write.
+    string HCBeginSurveyed(HCAIPartyIdentity identity, string lease, PlayerBase actor)
+    {
+        if (!m_Trip || !m_Trip.m_Ready || !m_Trip.m_IO || !m_Survey) { return "PICKER_NOT_READY"; }
+        if (!actor || !HCAIPartyIdentity.HCValid(identity) || lease == "") { return "PICKER_IDENTITY_INVALID"; }
+        m_Units.HCReset(1);
+        if (!m_Units.HCTake(1)) { return "PICKER_BUDGET"; }
+        HCPickerRoute route = m_Survey.HCFind(identity.HCRouteId());
+        if (!route) { return "PICKER_ROUTE_UNSURVEYED"; }
+        HCScavengeInventory port = m_Trip.m_IO;
+        if (!port.HCBindSurveyed(actor, route, lease)) { port.HCClear(); return "PICKER_ANCHOR_STOCK_ABSENT"; }
+        string sourceId = HCSearchSupplyRegistry.PersistentId(port.Source);
+        string homeId = HCSearchSupplyRegistry.PersistentId(port.Home);
+        string itemId = HCSearchSupplyRegistry.PersistentId(port.Item);
+        string actorId = HCSearchSupplyRegistry.PersistentId(port.Actor);
+        if (!m_Trip.HCLeave(identity, lease, sourceId, actorId, homeId, itemId)) { port.HCClear(); return "PICKER_LEAVE_REFUSED"; }
+        return "";
     }
 
     // w29-debugmap #194: read-only debug seam. One picker trip at most; a trip in

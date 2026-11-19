@@ -1,0 +1,64 @@
+{
+  "Version": 1,
+  "WorldName": "chernarusplus",
+  "DerivedFrom": "ai/sites.json",
+  "MaxLegMeters": 400.0,
+  "ArrivalRangeMeters": 2.5,
+  "MapExtentMeters": 16000,
+  "MaxRoutes": 8,
+  "MaxWaypoints": 8,
+  "MaxScannedObjects": 128,
+  "MaxCargoScan": 16,
+  "Routes": [
+    {
+      "RouteId": "route:scav-chernogorsk", "SiteId": "scav-chernogorsk", "LocalityId": "chernogorsk",
+      "HomeIndex": 0, "SourceIndex": 2,
+      "Waypoints": [
+        {"X": 6790.94, "Y": 9.52, "Z": 2580.32},
+        {"X": 6659.41, "Y": 12.08, "Z": 2575.38},
+        {"X": 6534.4, "Y": 14.77, "Z": 2454.83},
+        {"X": 6641.38, "Y": 13.83, "Z": 2357.12}
+      ]
+    },
+    {
+      "RouteId": "route:scav-elektrozavodsk", "SiteId": "scav-elektrozavodsk", "LocalityId": "elektrozavodsk",
+      "HomeIndex": 0, "SourceIndex": 2,
+      "Waypoints": [
+        {"X": 10501.5, "Y": 12.35, "Z": 2323.91},
+        {"X": 10394.59, "Y": 11.21, "Z": 2216.27},
+        {"X": 10384.78, "Y": 8.82, "Z": 2084.54},
+        {"X": 10576.35, "Y": 9.01, "Z": 2119.19}
+      ]
+    },
+    {
+      "RouteId": "route:scav-berezino", "SiteId": "scav-berezino", "LocalityId": "berezino",
+      "HomeIndex": 0, "SourceIndex": 2,
+      "Waypoints": [
+        {"X": 12057.41, "Y": 59.35, "Z": 9070.59},
+        {"X": 11931.68, "Y": 60.15, "Z": 8962.7},
+        {"X": 11810.14, "Y": 65.02, "Z": 9065.0},
+        {"X": 11836.74, "Y": 57.55, "Z": 9208.42}
+      ]
+    },
+    {
+      "RouteId": "route:scav-vybor", "SiteId": "scav-vybor", "LocalityId": "vybor",
+      "HomeIndex": 0, "SourceIndex": 2,
+      "Waypoints": [
+        {"X": 3799.58, "Y": 316.01, "Z": 8835.86},
+        {"X": 3878.33, "Y": 315.06, "Z": 8939.24},
+        {"X": 3784.07, "Y": 316.17, "Z": 9046.71},
+        {"X": 3692.01, "Y": 315.45, "Z": 8923.95}
+      ]
+    },
+    {
+      "RouteId": "route:scav-novodmitrovsk", "SiteId": "scav-novodmitrovsk", "LocalityId": "novodmitrovsk",
+      "HomeIndex": 0, "SourceIndex": 2,
+      "Waypoints": [
+        {"X": 11579.02, "Y": 65.83, "Z": 14599.06},
+        {"X": 11589.84, "Y": 51.52, "Z": 14453.14},
+        {"X": 11702.53, "Y": 42.77, "Z": 14356.06},
+        {"X": 11559.14, "Y": 39.26, "Z": 14272.37}
+      ]
+    }
+  ]
+}
