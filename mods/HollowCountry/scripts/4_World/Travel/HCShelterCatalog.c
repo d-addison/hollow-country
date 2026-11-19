@@ -46,6 +46,7 @@ class HCShelterCatalog
     static const string BUILDING_CLASS = "Land_Barn_Wood2";
     protected static bool s_RegionalLoaded;
     protected static string s_RegionalFault;
+    protected static string s_RegionalReason;
     protected static ref HCShelterRegionalConfig s_Regional;
     protected static ref array<ref HCShelterEntry> s_Entries = new array<ref HCShelterEntry>;
     protected static ref array<ref HCShelterSurvey> s_Candidates = new array<ref HCShelterSurvey>;
@@ -211,6 +212,11 @@ class HCShelterCatalog
 
     static string HCRegionalFault() { return s_RegionalFault; }
 
+    protected static void HCRegionalReport()
+    {
+        Print("[HC Shelters] regional_scenes refused reason=" + s_RegionalReason + " runtime=PENDING");
+    }
+
     // Once per process; finite authored catalog, never persistent scene state.
     protected static void HCLoadRegional()
     {
@@ -220,7 +226,12 @@ class HCShelterCatalog
         string error;
         HCShelterRegionalConfig loaded;
         s_RegionalFault = "regional_scene_data_missing_or_invalid";
-        if (!JsonFileLoader<HCShelterRegionalConfig>.LoadData(content, loaded, error) || !loaded || !loaded.Scenes) { return; }
+        if (!JsonFileLoader<HCShelterRegionalConfig>.LoadData(content, loaded, error) || !loaded || !loaded.Scenes)
+        {
+            s_RegionalReason = "load length=" + content.Length().ToString() + " error=" + error;
+            HCRegionalReport();
+            return;
+        }
         int baseCount = loaded.Scenes.Count();
         int additionalCount = 0;
         if (loaded.AdditionalScenes)
@@ -230,9 +241,9 @@ class HCShelterCatalog
             foreach (HCShelterRegionalScene extraScene : additional) { loaded.Scenes.Insert(extraScene); }
         }
         // Validate the merged image, including every additional Enabled field.
-        if (!HCRegionalValid(loaded)) { return; }
-        if (!HCJsonFields.Has(content, "Enabled") || !HCJsonFields.Has(content, "Scenes")) { return; }
-        if (!HCJsonFields.Every(content, "Enabled", 3)) { return; }
+        if (!HCRegionalValid(loaded)) { HCRegionalReport(); return; }
+        if (!HCJsonFields.Has(content, "Enabled") || !HCJsonFields.Has(content, "Scenes")) { s_RegionalReason = "fields_missing"; HCRegionalReport(); return; }
+        if (!HCJsonFields.Every(content, "Enabled", 3)) { s_RegionalReason = "scene_enabled_missing"; HCRegionalReport(); return; }
         Print("[HC Shelters] regional_scenes base=" + baseCount.ToString() + " additional=" + additionalCount.ToString() + " runtime=PENDING");
         s_Regional = loaded;
         s_RegionalFault = "";
@@ -255,40 +266,49 @@ class HCShelterCatalog
         return HCInteriorTemplates.BoxValid(minimum, maximum);
     }
 
+    // Names the first refused check and scene index in the boot log.
+    static bool HCRegionalRefuse(string check, int sceneIndex)
+    {
+        s_RegionalReason = check + " scene=" + sceneIndex.ToString();
+        return false;
+    }
+
     static bool HCRegionalValid(HCShelterRegionalConfig config)
     {
         HCEnsureCandidates();
-        if (!config || config.SchemaVersion != 1 || !config.Scenes) { return false; }
+        int sceneIndex = -1;
+        if (!config || config.SchemaVersion != 1 || !config.Scenes) { return HCRegionalRefuse("check1", sceneIndex); }
         // Historical catalogs contain exactly the original five identities.
         // Expanded catalogs contain all registered identities in source order.
         int sceneCount = config.Scenes.Count();
-        if (sceneCount != 5 && sceneCount != s_Candidates.Count()) { return false; }
-        if (!HCObserverTransitionGate.Finite(config.ObserverDistance) || config.ObserverDistance < 500 || config.ObserverDistance > 10000) { return false; }
-        if (config.WorkUnits < 24 || config.WorkUnits > 256) { return false; }
-        if (!HCObserverTransitionGate.Finite(config.BoundsToleranceSquared) || config.BoundsToleranceSquared <= 0 || config.BoundsToleranceSquared > 0.04) { return false; }
+        if (sceneCount != 5 && sceneCount != s_Candidates.Count()) { return HCRegionalRefuse("check2", sceneIndex); }
+        if (!HCObserverTransitionGate.Finite(config.ObserverDistance) || config.ObserverDistance < 500 || config.ObserverDistance > 10000) { return HCRegionalRefuse("check3", sceneIndex); }
+        if (config.WorkUnits < 24 || config.WorkUnits > 256) { return HCRegionalRefuse("check4", sceneIndex); }
+        if (!HCObserverTransitionGate.Finite(config.BoundsToleranceSquared) || config.BoundsToleranceSquared <= 0 || config.BoundsToleranceSquared > 0.04) { return HCRegionalRefuse("check5", sceneIndex); }
         array<ref HCShelterRegionalScene> scenes = config.Scenes;
-        int sceneIndex = 0;
+        sceneIndex = 0;
         foreach (HCShelterRegionalScene scene : scenes)
         {
             HCShelterSurvey candidate = GetCandidate(sceneIndex);
-            sceneIndex = sceneIndex + 1;
-            if (!scene || scene.Id != candidate.Id || scene.BuildingClass != candidate.BuildingClass || scene.Name != candidate.Name) { return false; }
-            if (!scene.Position || scene.Position.Count() != 3 || HCInteriorTemplates.AsVector(scene.Position) != candidate.Position) { return false; }
-            if (!HCRegionalBox(scene.ClipMin, scene.ClipMax) || !HCRegionalBox(scene.AccessMin, scene.AccessMax) || !HCRegionalBox(scene.YardMin, scene.YardMax)) { return false; }
-            if (scene.AccessMin[0] > scene.ClipMin[0] - 2 || scene.AccessMax[0] < scene.ClipMax[0] + 2) { return false; }
-            if (scene.AccessMin[2] > scene.ClipMin[2] - 2 || scene.AccessMax[2] < scene.ClipMax[2] + 2) { return false; }
-            if (scene.AccessMin[1] > -20 || scene.AccessMax[1] < 20) { return false; }
-            if (!scene.Slots || scene.Slots.Count() != 3 || scene.History.Length() == 0) { return false; }
+            if (!candidate) { return HCRegionalRefuse("candidate", sceneIndex); }
+            if (!scene || scene.Id != candidate.Id || scene.BuildingClass != candidate.BuildingClass || scene.Name != candidate.Name) { return HCRegionalRefuse("check6", sceneIndex); }
+            if (!scene.Position || scene.Position.Count() != 3 || vector.DistanceSq(HCInteriorTemplates.AsVector(scene.Position), candidate.Position) > config.BoundsToleranceSquared) { return HCRegionalRefuse("check7", sceneIndex); }
+            if (!HCRegionalBox(scene.ClipMin, scene.ClipMax) || !HCRegionalBox(scene.AccessMin, scene.AccessMax) || !HCRegionalBox(scene.YardMin, scene.YardMax)) { return HCRegionalRefuse("check8", sceneIndex); }
+            if (scene.AccessMin[0] > scene.ClipMin[0] - 2 || scene.AccessMax[0] < scene.ClipMax[0] + 2) { return HCRegionalRefuse("check9", sceneIndex); }
+            if (scene.AccessMin[2] > scene.ClipMin[2] - 2 || scene.AccessMax[2] < scene.ClipMax[2] + 2) { return HCRegionalRefuse("check10", sceneIndex); }
+            if (scene.AccessMin[1] > -20 || scene.AccessMax[1] < 20) { return HCRegionalRefuse("check11", sceneIndex); }
+            if (!scene.Slots || scene.Slots.Count() != 3 || scene.History.Length() == 0) { return HCRegionalRefuse("check12", sceneIndex); }
             array<ref array<float>> slots = scene.Slots;
             foreach (array<float> slot : slots)
             {
-                if (!slot || slot.Count() != 3) { return false; }
+                if (!slot || slot.Count() != 3) { return HCRegionalRefuse("check13", sceneIndex); }
                 vector point = HCInteriorTemplates.AsVector(slot);
-                if (!HCInteriorRules.SaneVector(point, 30)) { return false; }
-                if (point[0] + 1.5 >= scene.AccessMin[0]) { return false; }
-                if (point[0] - 1.5 <= scene.YardMin[0] || point[0] + 1.5 >= scene.YardMax[0]) { return false; }
-                if (point[2] - 1.5 <= scene.YardMin[2] || point[2] + 1.5 >= scene.YardMax[2]) { return false; }
+                if (!HCInteriorRules.SaneVector(point, 30)) { return HCRegionalRefuse("check14", sceneIndex); }
+                if (point[0] + 1.5 >= scene.AccessMin[0]) { return HCRegionalRefuse("check15", sceneIndex); }
+                if (point[0] - 1.5 <= scene.YardMin[0] || point[0] + 1.5 >= scene.YardMax[0]) { return HCRegionalRefuse("check16", sceneIndex); }
+                if (point[2] - 1.5 <= scene.YardMin[2] || point[2] + 1.5 >= scene.YardMax[2]) { return HCRegionalRefuse("check17", sceneIndex); }
             }
+            sceneIndex = sceneIndex + 1;
         }
         return true;
     }

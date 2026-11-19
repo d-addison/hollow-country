@@ -60,7 +60,7 @@ class HCInfectedVarietyConfig
         if (HCC1Range.s_Invalid && !s_HCTuningInvalidLogged)
         {
             s_HCTuningInvalidLogged = true;
-            Print("[HC Variety] tunables=invalid_fields_defaulted runtime=PENDING");
+            Print("[HC Variety] tunables=invalid_fields_defaulted first=" + HCC1Range.s_Detail + " runtime=PENDING");
         }
         HCInfectedTuning.SetVariety(this);
     }
@@ -68,11 +68,20 @@ class HCInfectedVarietyConfig
     // The authored JSON predates PosedFreshEvery, and JsonFileLoader zero-fills a
     // missing key to 0 (= off). A missing key keeps the owner-default ON cadence;
     // the acceptance disable marker forces the named opt-out.
+    // Absent tuning blocks may arrive zero-filled from the native loader; they
+    // mean "use the defaults", not invalid operator values.
+    void HCApplyTuningDefaults(string content)
+    {
+        if (!HCJsonFields.Has(content, "GroupScaling")) { GroupScaling = new HCC1GroupScaling; }
+        if (!HCJsonFields.Has(content, "Variety")) { Variety = new HCC1Variety; }
+    }
+
     void HCApplyOptionalDefaults(string content, bool posesOptedOut)
     {
         if (!HCJsonFields.Has(content, "PosedFreshEvery")) { PosedFreshEvery = HCInfectedVarietyPolicy.DEFAULT_POSED_FRESH_EVERY; }
         if (!HCJsonFields.Has(content, "MaxPosed")) { MaxPosed = 12; }
         if (posesOptedOut) { PosedFreshEvery = 0; }
+        HCApplyTuningDefaults(content);
     }
 
     bool HCMaxPosedValid()
@@ -210,6 +219,7 @@ class HCInfectedVariety
             }
             else
             {
+                tuningConfig.HCApplyTuningDefaults(tuningText);
                 tuningConfig.HCNormalizeTunables();
                 config.GroupScaling = tuningConfig.GroupScaling;
                 config.Variety = tuningConfig.Variety;

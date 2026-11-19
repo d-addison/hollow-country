@@ -4,9 +4,12 @@
 class HCC1Range
 {
     static bool s_Invalid;
+    // First refused value and its bounds, for the one-time boot log line.
+    static string s_Detail;
     static float Value(float value, float minimum, float maximum, float fallback)
     {
         if (value >= minimum && value <= maximum) { return value; }
+        if (!s_Invalid) { s_Detail = value.ToString() + " outside " + minimum.ToString() + ".." + maximum.ToString() + " default=" + fallback.ToString(); }
         s_Invalid = true;
         return fallback;
     }
@@ -277,12 +280,14 @@ class HCC1Variety
         WakeMax = HCC1Range.Value(WakeMax, 0.001, 1, 1.0);
         if (DormantMin >= DormantMax)
         {
+            if (!HCC1Range.s_Invalid) { HCC1Range.s_Detail = "DormantMin>=DormantMax"; }
             DormantMin = 0.1;
             DormantMax = 0.6;
             HCC1Range.s_Invalid = true;
         }
         if (WakeMin >= WakeMax)
         {
+            if (!HCC1Range.s_Invalid) { HCC1Range.s_Detail = "WakeMin>=WakeMax"; }
             WakeMin = 0.4;
             WakeMax = 1.0;
             HCC1Range.s_Invalid = true;

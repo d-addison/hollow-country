@@ -59,7 +59,7 @@ class HCInfectedConfig
         if (HCC1Range.s_Invalid && !s_HCTuningInvalidLogged)
         {
             s_HCTuningInvalidLogged = true;
-            Print("[HC Infected] tunables=invalid_fields_defaulted runtime=PENDING");
+            Print("[HC Infected] tunables=invalid_fields_defaulted first=" + HCC1Range.s_Detail + " runtime=PENDING");
         }
         HCInfectedTuning.Set(this);
     }
