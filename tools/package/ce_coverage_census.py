@@ -4,6 +4,11 @@
         --mission <stock mission dir> --out result.json --plan interior-sampler-plan.json \\
         [--min-calibration 0.6] [--reach-source strict|player] [--allow-empty-classes]
 
+HC-57 optionally accepts --input apartments.json after the ordinary native conversion. It selects through
+ce_coverage.select_input, including exact full-result byte/run/pin and stock category checks. Keep the full
+external result when composing with ce_coverage.py --input; a subset is not the original source document.
+Municipal-office survey input refuses explicitly; this converter does not qualify office geometry.
+
 Input is the census.json that tools/setup/interior_sampler.py writes after a NATIVE run (kind
 interior-sampler-census, door_phase_contract 2: floor-cell hit rows in the sampler frame per placement, plus
 calibration placements and frame-check records). Points are never invented: the selection, the native frame
@@ -190,7 +195,7 @@ def _observed_point(document, name, point, frame, reach_source):
 
 
 def convert(census_bytes, request_bytes, mission, plan_bytes=None, min_calibration=pts.DEFAULT_MIN_CALIBRATION,
-            reach_source='strict', allow_empty_classes=False):
+            reach_source='strict', allow_empty_classes=False, input_bytes=None):
     """Return (result bytes, summary). Raise ValueError with the reason on anything not exactly native."""
     request_pin = _check_request(_object(request_bytes, 'request'))
     stock = ce._read_proto(mission)
@@ -224,6 +229,12 @@ def convert(census_bytes, request_bytes, mission, plan_bytes=None, min_calibrati
         raise ValueError(f'converted result rejected by the coverage validator: {error}') from error
     summary = {'points': counts, 'omitted': omitted, 'frame': frame,
                'calibration': report['calibration'].get('min_coverage')}
+    if input_bytes is not None:
+        data = ce.select_input(data, input_bytes, stock)
+        selected = ce.parse_result(data)
+        summary['source_points'] = counts
+        summary['points'] = {name: sum(len(p) for p in spec['containers'].values())
+                             for name, spec in selected['groups'].items()}
     return data, summary
 
 
@@ -314,6 +325,7 @@ def main(argv=None):
     cmd.add_argument('--mission', required=True, help='stock mission directory (calibration needs its stock points)')
     cmd.add_argument('--out', required=True, help='fresh result file; never inside the repo mission/ folder')
     cmd.add_argument('--plan', required=True, help='interior-sampler-plan.json of the run that wrote the census')
+    cmd.add_argument('--input', help='optional HC-57 named subset of this exact converted native result')
     cmd.add_argument('--min-calibration', type=float, default=pts.DEFAULT_MIN_CALIBRATION)
     cmd.add_argument('--reach-source', choices=pts.REACH_SOURCES, default='strict')
     cmd.add_argument('--allow-empty-classes', action='store_true',
@@ -327,7 +339,8 @@ def main(argv=None):
         data, summary = convert(_read(args.census, 'census'), _read(args.request, 'request'), args.mission,
                                 plan_bytes=_read(args.plan, 'plan'),
                                 min_calibration=args.min_calibration, reach_source=args.reach_source,
-                                allow_empty_classes=args.allow_empty_classes)
+                                allow_empty_classes=args.allow_empty_classes,
+                                input_bytes=_read(args.input, 'coverage input') if args.input else None)
         _publish(out, data)  # fresh, no-overwrite publish behind the same shipped-folder guard
     except (OSError, ValueError, OverflowError) as error:
         print(f'refused: {error}', file=sys.stderr)

@@ -23,6 +23,11 @@ back to the prototype frame), and per group a bounding box plus points per exist
 folder hollow-country-ce-coverage collides with no other installer. Install economy first; roll back this
 delta before the economy delta, because the economy rollback pins mapgroupproto.xml as stock input.
 Offline tests never establish DayZ behavior; engine acceptance stays pending.
+
+HC-57: generate/validate accept --input apartments.json to select a bounded, named subset of an
+externally pinned result. Authored inputs are design decisions, never sampler evidence. The municipal-office
+input deliberately refuses generation until a separate survey and converter contract exist. No new CE writer
+or floor/search allocator is introduced. Final effective XML and search manifests belong to lead composition.
 """
 import argparse
 import hashlib
@@ -51,6 +56,8 @@ MANAGED_FILES = {'receipt.json', 'mapgroupproto.backup', 'coverage-delta.json', 
 RESULT_KIND = 'ce-coverage-sampler-result'
 DELTA_KIND = 'ce-coverage-delta'
 REQUEST_KIND = 'ce-coverage-request'
+INPUT_KIND = 'hc-ce-coverage-input'
+OFFICE_GROUP = 'Land_Office_Municipal2'
 PIN_NAMES = ('mapgroupproto_sha256', 'census_sha256', 'hook_sha256')
 # Reviewed caps. Provisional: chosen conservative, to be re-judged against a native baseline.
 MAX_POINTS_PER_CONTAINER = 24
@@ -184,6 +191,110 @@ def _group(name, doc):
             points.append(point)
         result[container] = sorted(points)
     return {'bounds': (low, high), 'containers': result}
+
+
+def parse_input(data):
+    """Read HC-57 design content without promoting it to native evidence or production acceptance."""
+    doc = _json(data, 'coverage input')
+    if (doc.get('schema') != 1 or isinstance(doc.get('schema'), bool)
+            or doc.get('kind') != INPUT_KIND or doc.get('work_package') != 'HC-57'
+            or doc.get('runtime_acceptance') != 'pending' or doc.get('production_enabled') is not False):
+        raise ValueError('coverage input must be HC-57 schema 1, runtime pending and production disabled')
+    state = doc.get('state')
+    if state not in ('candidate', 'pending_survey'):
+        raise ValueError('coverage input state must be candidate or pending_survey')
+    refusal = doc.get('refusal')
+    if not isinstance(refusal, str) or not NAME.fullmatch(refusal):
+        raise ValueError('coverage input needs a named refusal')
+    groups = doc.get('groups')
+    expected = TARGET_GROUPS if state == 'candidate' else (OFFICE_GROUP,)
+    _exact(groups, expected, 'coverage input groups')
+    seen_ids = set()
+    for name, group_spec in groups.items():
+        _exact(group_spec, ('source_points', 'stock_instances', 'container', 'usage', 'categories', 'tags',
+                            'candidates'), f'{name} input')
+        if group_spec['container'] != 'lootFloor' or group_spec['tags'] != ['floor']:
+            raise ValueError(f'{name} input may only select existing lootFloor/floor points')
+        categories = group_spec['categories']
+        if (not isinstance(categories, list) or not categories
+                or any(not isinstance(c, str) or c not in ('tools', 'containers', 'clothes') for c in categories)
+                or len(set(categories)) != len(categories)):
+            raise ValueError(f'{name} input categories must preserve civilian floor supply')
+        usage = group_spec['usage']
+        if (not isinstance(usage, list) or not usage
+                or any(not isinstance(u, str) or not NAME.fullmatch(u) for u in usage)):
+            raise ValueError(f'{name} input needs exact stock usage names')
+        count = group_spec['source_points']
+        instances = group_spec['stock_instances']
+        if not isinstance(instances, int) or isinstance(instances, bool) or instances < 1:
+            raise ValueError(f'{name} input needs a positive stock instance count')
+        candidates = group_spec['candidates']
+        if not isinstance(candidates, list) or len(candidates) > MAX_POINTS_PER_CONTAINER:
+            raise ValueError(f'{name} input candidates exceed the existing cap')
+        if state == 'pending_survey':
+            if candidates or count is not None or doc.get('source') is not None:
+                raise ValueError('pending office survey cannot carry points or native-result evidence')
+        elif (not candidates or not isinstance(count, int) or isinstance(count, bool) or count < len(candidates)):
+            raise ValueError(f'{name} input needs a bounded nonempty subset of source points')
+        seen_points = set()
+        for candidate in candidates:
+            _exact(candidate, ('id', 'position'), f'{name} candidate')
+            label = candidate['id']
+            if not isinstance(label, str) or not NAME.fullmatch(label) or label in seen_ids:
+                raise ValueError('candidate IDs must be unique bounded names')
+            point = _pos(_triple(candidate['position'], f'{label} position'))
+            if point in seen_points:
+                raise ValueError(f'{name} input contains duplicate positions')
+            seen_ids.add(label)
+            seen_points.add(point)
+    if state == 'candidate':
+        source = doc.get('source')
+        _exact(source, ('evidence_role', 'result_sha256', 'native_run_id', 'pins'), 'input source')
+        if (source['evidence_role'] != 'design_input' or not isinstance(source['result_sha256'], str)
+                or not HEX64.fullmatch(source['result_sha256'])):
+            raise ValueError('input source must pin an external design-input result')
+        _exact(source['pins'], PIN_NAMES, 'input source pins')
+        if (not isinstance(source['native_run_id'], str) or not RUN_ID.fullmatch(source['native_run_id'])
+                or any(not isinstance(p, str) or not HEX64.fullmatch(p) for p in source['pins'].values())):
+            raise ValueError('input source needs exact run and SHA-256 pins')
+    return doc
+
+
+def select_input(result_bytes, input_bytes, stock):
+    """Return standard result bytes containing only named, source-backed civilian floor candidates."""
+    authored = parse_input(input_bytes)
+    if authored['state'] != 'candidate':
+        raise ValueError(authored['refusal'] + ': municipal-office floor/rotation survey remains pending')
+    result = parse_result(result_bytes)
+    source = authored['source']
+    if (source['result_sha256'] != sha(result_bytes) or source['native_run_id'] != result['run_id']
+            or source['pins'] != result['pins']):
+        raise ValueError('coverage input source result/run/pins differ from the external sampler result')
+    if result['pins']['mapgroupproto_sha256'] != sha(stock):
+        raise ValueError('coverage input mapgroupproto pin differs from stock')
+    _exact(result['groups'], TARGET_GROUPS, 'input source classes')
+    root = _parse(stock)
+    selected = _json(result_bytes, 'sampler result')
+    for name, decision in authored['groups'].items():
+        spec = result['groups'][name]
+        if decision['source_points'] != sum(len(p) for p in spec['containers'].values()):
+            raise ValueError(f'{name} input source point count differs')
+        _shell(root, name, ('lootFloor',))
+        group = next(g for g in root.iter('group') if g.get('name') == name)
+        floor = next(c for c in group.findall('container') if c.get('name') == 'lootFloor')
+        for tag, expected, parent in (('usage', decision['usage'], group),
+                                      ('category', decision['categories'], floor),
+                                      ('tag', decision['tags'], floor)):
+            if [e.get('name') for e in parent.findall(tag)] != expected:
+                raise ValueError(f'{name} input {tag} names differ from stock')
+        observed = {_pos(p) for p in spec['containers'].get('lootFloor', [])}
+        points = [list(_triple(c['position'], c['id'])) for c in decision['candidates']]
+        if any(_pos(tuple(p)) not in observed for p in points):
+            raise ValueError(f'{name} input selected a point absent from the external floor candidates')
+        selected['groups'][name]['containers'] = {'lootFloor': points}
+    data = encode(selected)
+    parse_result(data)  # reuse bounds, uniqueness and capacity checks
+    return data
 
 
 def lootmax_for(count):
@@ -406,10 +517,12 @@ def write_request(out, data):
         handle.write(data)
 
 
-def generate(result_bytes, mission):
+def generate(result_bytes, mission, input_bytes=None):
     """The delta file set for a native sampler result against the mission's stock mapgroupproto.xml."""
-    result = parse_result(result_bytes)
     stock = _read_proto(mission)
+    if input_bytes is not None:
+        result_bytes = select_input(result_bytes, input_bytes, stock)
+    result = parse_result(result_bytes)
     if result['pins']['mapgroupproto_sha256'] != sha(stock):
         raise ValueError('result pin mapgroupproto_sha256 does not match the mission mapgroupproto.xml')
     root = _parse(stock)
@@ -648,7 +761,20 @@ def rollback(target):
 # ------------------------------------------------------------------------------------------------ validate
 
 
-def validate(result_path=None, mission=None):
+def validate(result_path=None, mission=None, input_path=None):
+    if input_path is not None:
+        input_bytes = Path(input_path).read_bytes()
+        authored = parse_input(input_bytes)
+        counts = {name: len(spec['candidates']) for name, spec in authored['groups'].items()}
+        report = {'status': 'pending', 'reason': authored['refusal'], 'authored': counts,
+                  'admitted': 0, 'observed': 0, 'input_sha256': sha(input_bytes),
+                  'effective_pin': None, 'runtime_acceptance': 'pending'}
+        if authored['state'] != 'candidate' or result_path is None or mission is None:
+            return report
+        files = generate(Path(result_path).read_bytes(), mission, input_bytes=input_bytes)
+        delta = _json(files['coverage-delta.json'], 'delta')
+        report.update(status='input-valid', effective_pin=sha(apply_delta(_read_proto(mission), delta)))
+        return report
     path = Path(result_path) if result_path is not None else REPO_ROOT / SHIPPED_RESULT
     if not path.is_file():
         return {'status': 'pending', 'reason': PENDING, 'groups': list(TARGET_GROUPS),
@@ -673,6 +799,7 @@ def main(argv=None):
     p.add_argument('--mission', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p = sub.add_parser('generate')
+    p.add_argument('--input', type=Path, default=None, help='HC-57 authored subset; external result still required')
     p.add_argument('--sampler-result', type=Path, required=True)
     p.add_argument('--mission', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
@@ -682,6 +809,7 @@ def main(argv=None):
     p = sub.add_parser('rollback')
     p.add_argument('--mission', type=Path, required=True)
     p = sub.add_parser('validate')
+    p.add_argument('--input', type=Path, default=None, help='HC-57 authored subset or pending office survey')
     p.add_argument('--sampler-result', type=Path, default=None)
     p.add_argument('--mission', type=Path, default=None)
     args = parser.parse_args(argv)
@@ -691,7 +819,8 @@ def main(argv=None):
             write_request(args.out, encode(doc))
             print('sampler request written. Run natively: ' + ' '.join(doc['sampler']['command']))
         elif args.command == 'generate':
-            files = generate(args.sampler_result.read_bytes(), args.mission)
+            input_bytes = args.input.read_bytes() if args.input is not None else None
+            files = generate(args.sampler_result.read_bytes(), args.mission, input_bytes=input_bytes)
             write_delta(args.out, files)
             print('coverage delta written (native run %s). Offline operation complete; DayZ runtime acceptance pending.'
                   % json.loads(files['coverage-delta.json'])['native_run_id'])
@@ -702,8 +831,10 @@ def main(argv=None):
             rollback(args.mission)
             print('Rolled back; mapgroupproto.xml restored byte-exactly.')
         else:
-            report = validate(args.sampler_result, args.mission)
-            if report['status'] == 'pending':
+            report = validate(args.sampler_result, args.mission, input_path=args.input)
+            if args.input is not None:
+                print(json.dumps(report, sort_keys=True))
+            elif report['status'] == 'pending':
                 print('ce-coverage: PENDING (%s)' % report['reason'])
             else:
                 print('ce-coverage: sampler result valid (native run %s, points %s); runtime acceptance pending.'
