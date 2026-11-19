@@ -1,10 +1,11 @@
+// HC-26: membership-epoch receipts, bounded lifecycle purge; runtime PENDING.
 // Corpse-run pins, server-owned; no entity serialization or client requests.
 // Installed scripts-1.30.164289 native evidence:
 // 4_World/Entities/ManBase/PlayerBase.c:1214 EEKilled(Object killer),
 // 3_Game/Entities/Man.c:21 GetIdentity; 3_Game/gameplay.c:362/368 GetName/GetId;
 // 3_Game/Entities/Object.c:287 GetPosition; 3_Game/Global/Game.c:1120 IsServer;
-// :934 GetWorldName;
-// 1_Core/proto/EnScript.c:380/394/399/407/463 Count/Find/Get/Insert/Remove;
+// :934 GetWorldName; :914 GetTickTime;
+// 1_Core/proto/EnScript.c:380/394/399/407/463/470 Count/Find/Get/Insert/Remove/RemoveOrdered;
 // 1_Core/proto/EnSystem.c:397/525/528/531 FileExist/MakeDirectory/DeleteFile/CopyFile;
 // :417/425/443/462 OpenFile/ReadFile/CloseFile/FPrint (via HCGroupIO).
 // 1_Core/proto/EnString.c:113/199/240 Substring/Length/IndexOf;
@@ -19,6 +20,8 @@
 class HCDeathPinRow
 {
     int GroupId;
+    // Zero is a legacy receipt with unknown membership; never presented.
+    int Epoch;
     string PlayerId;
     ref HCGroupPlace Pin;
 }
@@ -35,6 +38,14 @@ class HCDeathPins
 {
     protected static const string PATH = "$profile:HollowCountry/Groups/death-pins.json";
     protected ref HCDeathPinState m_State;
+    protected static HCDeathPins s_Instance;
+    protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected ref HCUnitBudget m_Units = new HCUnitBudget;
+    protected int m_PruneCursor;
+    protected int m_Expired;
+    protected float m_LogAfter;
+    protected string m_LastRefusal = "none";
+    static HCDeathPins Get() { return s_Instance; }
 
     void HCDeathPins()
     {
@@ -45,6 +56,7 @@ class HCDeathPins
         if (!FileExist(root) && !MakeDirectory(root)) { return; }
         if (!HCRecoverPending() || (!FileExist(PATH) && FileExist(PATH + ".bak")))
         {
+            HCLog("death_store_recovery");
             Print("[HollowCountry] V2 map pins death recovery failed; preserved; death pins disabled");
             return;
         }
@@ -53,6 +65,7 @@ class HCDeathPins
             HCDeathPinState loaded = HCReadState(PATH);
             if (!loaded)
             {
+                HCLog("death_store_invalid");
                 Print("[HollowCountry] V2 map pins death store invalid; preserved; death pins disabled");
                 return;
             }
@@ -63,6 +76,8 @@ class HCDeathPins
             m_State = new HCDeathPinState;
             m_State.WorldName = GetGame().GetWorldName();
         }
+        s_Instance = this;
+        HCLog("none");
     }
 
     protected HCDeathPinState HCReadState(string path)
@@ -118,6 +133,7 @@ class HCDeathPins
         foreach (HCDeathPinRow row : state.Rows)
         {
             if (!row || row.GroupId < 1 || !HCGroupRules.TextValid(row.PlayerId, 128, false)) { return false; }
+            if (row.Epoch < 0 || row.Epoch > 1000000000) { return false; }
             if (seen.Find(row.PlayerId) >= 0 || !HCGroupRules.PlaceValid(row.Pin)) { return false; }
             if (pinIds.Find(row.Pin.Id) >= 0) { return false; }
             if (row.Pin.Id.IndexOf("hc-death:") != 0 || row.Pin.HCPinExpiresUtc < 1) { return false; }
@@ -134,9 +150,59 @@ class HCDeathPins
         {
             HCDeathPinRow row = m_State.Rows.Get(index);
             bool expired = row.Pin.HCPinExpiresUtc <= now;
-            if (expired || row.PlayerId == replacedPlayer) { m_State.Rows.Remove(index); }
+            if (expired || row.PlayerId == replacedPlayer)
+            {
+                m_State.Rows.Remove(index);
+                if (m_Expired < 1000000) { m_Expired++; }
+            }
             index = index - 1;
         }
+    }
+
+    // Called by existing membership/disconnect/refresh Broadcast, no new tick.
+    // Deferred cleanup never grants permission: HCCollect checks epoch again.
+    void HCInvalidate()
+    {
+        if (!m_State) { return; }
+        HCGroupService service = HCGroupService.Get();
+        m_Work.HCReset(32);
+        m_Units.HCReset(32);
+        int remaining = m_State.Rows.Count();
+        int now = HCGroupClock.Utc();
+        while (remaining > 0 && m_Work.HCContinue() && m_Units.HCTake(1))
+        {
+            if (m_PruneCursor >= m_State.Rows.Count()) { m_PruneCursor = 0; }
+            HCDeathPinRow row = m_State.Rows.Get(m_PruneCursor);
+            remaining--;
+            HCGroupRecord group;
+            if (service) { group = service.HCPresentationGroup(row.PlayerId); }
+            if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || now < 1 || row.Pin.HCPinExpiresUtc <= now)
+            {
+                m_State.Rows.RemoveOrdered(m_PruneCursor);
+                if (m_Expired < 1000000) { m_Expired++; }
+                continue;
+            }
+            m_PruneCursor++;
+        }
+        // Read-side pruning is ephemeral; next real death barrier persists it.
+        // Old disk receipts still fail epoch/TTL checks after restart.
+        HCLog("none");
+    }
+    void HCLog(string reason)
+    {
+        if (reason != "none") { m_LastRefusal = reason; }
+        float now = GetGame().GetTickTime();
+        if (now >= 0 && now < m_LogAfter) { return; }
+        m_LogAfter = now + 60;
+        string state = "ready";
+        if (!m_State) { state = "refused"; }
+        Print("[HC Plan] HC-26 group_recipients=0 expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal + " state=" + state + " component=death_pins runtime=PENDING");
+        m_LastRefusal = "none";
+    }
+    void HCStop()
+    {
+        if (s_Instance == this) { s_Instance = null; }
+        m_State = null;
     }
 
     bool HCPublish(HCGroupRecord group, string uid, string playerName, vector position)
@@ -147,6 +213,7 @@ class HCDeathPins
         if (m_State.NextId >= 1000000000) { return false; }
         HCDeathPinRow row = new HCDeathPinRow;
         row.GroupId = group.Id;
+        row.Epoch = group.Epoch;
         row.PlayerId = uid;
         row.Pin = new HCGroupPlace;
         row.Pin.Id = "hc-death:" + m_State.NextId.ToString();
@@ -170,14 +237,19 @@ class HCDeathPins
 
     void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
     {
-        if (!m_State || !group || !output) { return; }
+        if (!m_State || !group || !output || cap < 1) { return; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
         HCPrune(now);
         foreach (HCDeathPinRow row : m_State.Rows)
         {
             if (output.Count() >= cap) { break; }
-            if (row.GroupId != group.Id || group.Members.Find(row.PlayerId) < 0) { continue; }
+            if (row.GroupId != group.Id || row.Epoch != group.Epoch || group.Members.Find(row.PlayerId) < 0) { continue; }
+            if (HCGroupVisibility.HCSnapshotActive())
+            {
+                HCGroupService service = HCGroupService.Get();
+                if (!service || !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin)) { continue; }
+            }
             output.Insert(row.Pin);
         }
     }
@@ -191,9 +263,23 @@ modded class PlayerBase
         // retain identity before native corpse/mission cleanup runs.
         if (GetGame() && GetGame().IsServer())
         {
+            HCGroupService groups = HCGroupService.Get();
+            if (groups) { groups.HCPresentationFell(this); }
             HCGroupPins pins = HCGroupPins.Get();
             if (pins) { pins.HCPlayerFell(this); }
         }
         super.EEKilled(killer);
+    }
+}
+
+// Reuse existing module stop and group replacement frames; Groups can remain on.
+modded class HCGroupPins
+{
+    override void OnStop()
+    {
+        if (m_DeathPins) { m_DeathPins.HCStop(); }
+        super.OnStop();
+        HCGroupService groups = HCGroupService.Get();
+        if (groups) { groups.Broadcast(); }
     }
 }

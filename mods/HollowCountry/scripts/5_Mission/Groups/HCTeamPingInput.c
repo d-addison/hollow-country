@@ -26,6 +26,9 @@ modded class MissionGameplay
         super.OnUpdate(timeslice);
         if (GetGame().IsServer() || IsControlDisabled() || GetGame().GetUIManager().GetMenu()) { return; }
         HCGroupClient client = HCGroupClient.Get();
+        if (!client) { return; }
+        // Input is intent only; the server rechecks identity/session/membership,
+        // life, rate, recipient range and configured visibility on every request.
         HCGroupSnapshot frame = client.GetSnapshot();
         if (!frame || !frame.Enabled || !frame.Settings) { return; }
         if (!frame.Settings.HCTeamPingEnabled || frame.GroupId < 1 || client.IsBusy()) { return; }

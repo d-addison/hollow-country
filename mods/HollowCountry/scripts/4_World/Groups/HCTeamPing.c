@@ -1,8 +1,12 @@
+// HC-26 spec/plan/task: Wave 2 group presentation privacy. Runtime PENDING.
+// Uses existing Broadcast/Connected/Disconnected callbacks; no new tick/RPC.
+// Auth is canonical server peer + native sender identity, never keybind state.
+// Native references below also cover lifecycle cleanup and bounded logs.
 // #131. No periodic scan/tick work. Per admitted ping: <=90 cache rows and
 // <=90 connected peers, bounded existing group lookup; <=90 pins per collection.
 // Feature disabled: service returns DISABLED before any ping allocation.
 // Native scripts-1.30.164289: 3_Game/gameplay.c:636 GetGame;
-// 3_Game/Global/Game.c:1120 IsServer;
+// 3_Game/Global/Game.c:914 GetTickTime; :1120 IsServer;
 // Entities/Object.c:287/517 GetPosition/IsAlive; Entities/Man.c:21 GetIdentity;
 // 4_World/Entities/ManBase/PlayerBase.c:3925 IsUnconscious;
 // 3_Game/Client/Notifications/NotificationSystem.c:125 SendNotificationToPlayerExtended;
@@ -13,6 +17,7 @@
 class HCTeamPingRow
 {
     string Account;
+    string Session;
     int GroupId;
     int Epoch;
     int At;
@@ -23,20 +28,45 @@ class HCTeamPingModule : HCModule
     protected static HCTeamPingModule s_Instance;
     protected ref array<ref HCTeamPingRow> m_Rows;
     protected bool m_AdmissionPrinted;
+    protected bool m_OffPrinted;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+    protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected ref HCUnitBudget m_Units = new HCUnitBudget;
+    protected int m_PruneCursor;
+    protected int m_Expired;
+    protected int m_Refused;
+    protected float m_LogAfter;
+    protected string m_LastRefusal = "none";
+    void HCTeamPingModule() { m_Status.HCPublish("off", "not_started"); }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
     static HCTeamPingModule Get() { return s_Instance; }
     override string GetName() { return "TeamPing"; }
     override bool IsEnabled(HCSettings settings)
     {
-        if (!settings || !settings.EnableTeamPing) { return false; }
-        return settings.EnableGroups;
+        bool enabled = settings && settings.EnableTeamPing && settings.EnableGroups;
+        if (!enabled && !m_OffPrinted)
+        {
+            m_OffPrinted = true;
+            m_Status.HCPublish("off", "feature_preference");
+            HCReport("none", 0);
+        }
+        return enabled;
     }
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || !GetGame().IsServer() || s_Instance) { return; }
+        HCGroupService groups = HCGroupService.Get();
+        if (!groups || !groups.HCPresentationReady())
+        {
+            m_Status.HCPublish("refused", "group_service_unavailable");
+            HCReport("group_service_unavailable", 0);
+            return;
+        }
         m_Rows = new array<ref HCTeamPingRow>;
         s_Instance = this;
-        HCGroupService groups = HCGroupService.Get();
-        if (groups) { groups.HCPingPreference(true); }
+        groups.HCPingPreference(true);
+        m_Status.HCPublish("ready", "server_handlers_ready_runtime_pending");
+        HCReport("none", 0);
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("TeamPing", true, "W5-131", false));
@@ -54,31 +84,32 @@ class HCTeamPingModule : HCModule
     {
         if (s_Instance != this || !GetGame().IsServer()) { return HCGroupCode.DISABLED; }
         HCGroupService service = HCGroupService.Get();
-        if (!service) { return HCGroupCode.DISABLED; }
+        if (!service || !service.HCPresentationReady()) { HCReport("group_service_unavailable", 0); return HCGroupCode.DISABLED; }
         HCGroupRecord group = service.HCPingGroup(peer);
-        if (!group) { return HCGroupCode.DENIED; }
+        if (!group) { HCReport("sender_identity_membership_or_life", 0); return HCGroupCode.DENIED; }
         string label = HCStatus(status);
-        if (label == "") { return HCGroupCode.INVALID; }
+        if (label == "") { HCReport("status", 0); return HCGroupCode.INVALID; }
         int now = HCGroupClock.Utc();
-        if (now < 1) { return HCGroupCode.DENIED; }
+        if (!HCGroupRules.DeadlineFits(now, 60)) { HCReport("clock", 0); return HCGroupCode.DENIED; }
         HCTeamPingRow previous;
         for (int index = m_Rows.Count() - 1; index >= 0; index--)
         {
             HCTeamPingRow cached = m_Rows.Get(index);
-            if (now < cached.At) { return HCGroupCode.RATE; }
-            if (now - cached.At >= 60) { m_Rows.RemoveOrdered(index); continue; }
+            if (now < cached.At) { HCReport("clock", 0); return HCGroupCode.RATE; }
+            if (now - cached.At >= 60) { m_Rows.RemoveOrdered(index); if (m_Expired < 1000000) { m_Expired++; } continue; }
             if (cached.Account == peer.Id) { previous = cached; }
         }
-        if (previous && now - previous.At < 10) { return HCGroupCode.RATE; }
+        if (previous && now - previous.At < 10) { HCReport("sender_rate", 0); return HCGroupCode.RATE; }
         vector actual = peer.Player.GetPosition();
-        if (!HCGroupRules.PositionValid(actual)) { return HCGroupCode.INVALID; }
+        if (!HCGroupRules.PositionValid(actual)) { HCReport("position", 0); return HCGroupCode.INVALID; }
         if (!previous)
         {
-            if (m_Rows.Count() >= 90) { return HCGroupCode.LIMIT; }
+            if (m_Rows.Count() >= 90) { HCReport("receipt_cap", 0); return HCGroupCode.LIMIT; }
             previous = new HCTeamPingRow;
             previous.Account = peer.Id;
             m_Rows.Insert(previous);
         }
+        previous.Session = peer.Session;
         previous.GroupId = group.Id;
         previous.Epoch = group.Epoch;
         previous.At = now;
@@ -92,13 +123,13 @@ class HCTeamPingModule : HCModule
         previous.Pin.Position = actual;
         previous.Pin.Radius = 5;
         previous.Pin.HCPinExpiresUtc = now + 60;
-        service.HCPingDeliver(group, peer, label);
-        Print("[HollowCountry] W5 team-ping group=" + group.Id.ToString() + " status=" + label + " ttl=60 rate=10");
+        int recipients = service.HCPingDeliver(group, peer, label);
+        HCReport("none", recipients);
         return HCGroupCode.OK;
     }
     void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
     {
-        if (s_Instance != this || !group || !output) { return; }
+        if (s_Instance != this || !m_Rows || !group || !output || cap < 1) { return; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
         foreach (HCTeamPingRow row : m_Rows)
@@ -106,8 +137,83 @@ class HCTeamPingModule : HCModule
             if (output.Count() >= cap) { break; }
             if (row.GroupId != group.Id || row.Epoch != group.Epoch) { continue; }
             if (group.Members.Find(row.Account) < 0 || now < row.At || now - row.At >= 60) { continue; }
+            HCGroupService service = HCGroupService.Get();
+            if (!service) { continue; }
+            HCGroupPeer source = service.Peer(row.Account);
+            HCGroupRecord current = service.HCPingGroup(source);
+            if (!current || current.Id != row.GroupId || current.Epoch != row.Epoch || source.Session != row.Session) { continue; }
+            if (HCGroupVisibility.HCSnapshotActive() && !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin)) { continue; }
             output.Insert(row.Pin);
         }
+    }
+    // No independent scan/tick. Reuse group Broadcast's lifecycle/refresh path.
+    // Authorization is always checked on collection even if cleanup yields.
+    void HCInvalidate()
+    {
+        if (!m_Rows || s_Instance != this) { return; }
+        HCGroupService service = HCGroupService.Get();
+        m_Work.HCReset(32);
+        m_Units.HCReset(32);
+        int remaining = m_Rows.Count();
+        int now = HCGroupClock.Utc();
+        while (remaining > 0 && m_Work.HCContinue() && m_Units.HCTake(1))
+        {
+            if (m_PruneCursor >= m_Rows.Count()) { m_PruneCursor = 0; }
+            HCTeamPingRow row = m_Rows.Get(m_PruneCursor);
+            remaining--;
+            HCGroupPeer peer;
+            HCGroupRecord group;
+            if (service) { peer = service.Peer(row.Account); group = service.HCPingGroup(peer); }
+            if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session || now < row.At || now - row.At >= 60)
+            {
+                m_Rows.RemoveOrdered(m_PruneCursor);
+                if (m_Expired < 1000000) { m_Expired++; }
+                continue;
+            }
+            m_PruneCursor++;
+        }
+        HCReport("none", 0);
+    }
+    void HCForget(string uid)
+    {
+        if (!m_Rows) { return; }
+        for (int index = m_Rows.Count() - 1; index >= 0; index--)
+        {
+            if (m_Rows.Get(index).Account == uid) { m_Rows.RemoveOrdered(index); }
+        }
+    }
+    bool HCVisible(string uid, HCGroupPlace pin)
+    {
+        if (s_Instance != this || !m_Rows || !pin) { return false; }
+        HCGroupService service = HCGroupService.Get();
+        if (!service || !service.HCPresentationRange(uid, pin.Position)) { return false; }
+        HCGroupPeer recipient = service.Peer(uid);
+        int now = HCGroupClock.Utc();
+        foreach (HCTeamPingRow row : m_Rows)
+        {
+            if (row.Pin.Id != pin.Id || now < row.At || now - row.At >= 60) { continue; }
+            HCGroupPeer peer = service.Peer(row.Account);
+            HCGroupRecord group = service.HCPingGroup(peer);
+            if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session) { return false; }
+            return group.Members.Find(uid) >= 0 && service.VisibilityAllows(peer, recipient);
+        }
+        return false;
+    }
+    void HCReport(string reason, int recipients)
+    {
+        if (reason != "none")
+        {
+            if (m_Refused < 1000000) { m_Refused++; }
+            m_LastRefusal = reason;
+        }
+        float now = GetGame().GetTickTime();
+        if (now >= 0 && now < m_LogAfter) { return; }
+        m_LogAfter = now + 60;
+        string state = "off";
+        if (s_Instance == this) { state = "ready"; }
+        if (s_Instance != this && reason != "none") { state = "refused"; }
+        Print("[HC Plan] HC-26 group_recipients=" + recipients.ToString() + " expired=" + m_Expired.ToString() + " refused=" + m_LastRefusal + " state=" + state + " refusals=" + m_Refused.ToString() + " runtime=PENDING");
+        m_LastRefusal = "none";
     }
     override void OnStop()
     {
@@ -115,6 +221,11 @@ class HCTeamPingModule : HCModule
         HCGroupService groups = HCGroupService.Get();
         if (groups) { groups.HCPingPreference(false); }
         m_Rows = null;
+        m_Status.HCPublish("off", "server_stop_requested");
+        m_LogAfter = 0;
+        HCReport("none", 0);
+        // FULL replaces cached Places, including when Groups remains enabled.
+        if (groups) { groups.Broadcast(); }
     }
 }
 modded class HCGroupService
@@ -123,22 +234,104 @@ modded class HCGroupService
     {
         if (m_Config) { m_Config.HCTeamPingEnabled = enabled; }
     }
+    bool HCPresentationReady() { return m_Healthy && m_Config && m_Config.Enabled; }
+    HCGroupRecord HCPresentationGroup(string uid)
+    {
+        if (!HCPresentationReady() || !m_State) { return null; }
+        return HCGroupRules.FindGroup(m_State, uid);
+    }
     HCGroupRecord HCPingGroup(HCGroupPeer peer)
     {
-        if (!m_Healthy || !Live(peer) || !m_State) { return null; }
+        if (!HCPresentationReady() || !Live(peer) || !m_State) { return null; }
+        if (Peer(peer.Id) != peer || peer.Identity.GetId() != peer.Id) { return null; }
         if (!peer.Player.IsAlive() || peer.Player.IsUnconscious()) { return null; }
         return HCGroupRules.FindGroup(m_State, peer.Id);
     }
-    void HCPingDeliver(HCGroupRecord group, HCGroupPeer source, string label)
+    bool HCPresentationRange(string uid, vector position)
     {
-        if (!m_Healthy || !group || !Live(source)) { return; }
+        HCGroupPeer recipient = Peer(uid);
+        if (!HCPingGroup(recipient) || !HasGPS(recipient)) { return false; }
+        // Reuse validated operator MaxIconDistance (default ~1 km network bubble).
+        return HCGroupVisibility.HCWithinRange(position, recipient.Player.GetPosition(), m_Config.MaxIconDistance);
+    }
+    bool HCPresentationAllows(string uid, HCGroupPlace pin)
+    {
+        if (!pin || !HCPresentationRange(uid, pin.Position)) { return false; }
+        if (pin.Id.IndexOf("hc-ping:") == 0)
+        {
+            HCTeamPingModule pings = HCTeamPingModule.Get();
+            return pings && pings.HCVisible(uid, pin);
+        }
+        // No live corpse-session observation exists for cached death pins.
+        // Never invent corpse LOS/radio; refuse when either is required.
+        if (m_Config.RequireLOS || m_Config.RequireRadio)
+        {
+            HCDeathPins deaths = HCDeathPins.Get();
+            if (deaths) { deaths.HCLog("death_los_radio_unavailable"); }
+            return false;
+        }
+        return true;
+    }
+    int HCPingDeliver(HCGroupRecord group, HCGroupPeer source, string label)
+    {
+        HCGroupRecord current = HCPingGroup(source);
+        if (!group || !current || current.Id != group.Id || current.Epoch != group.Epoch) { return 0; }
+        int count = 0;
         foreach (HCGroupPeer recipient : m_Peers)
         {
-            if (!Live(recipient) || group.Members.Find(recipient.Id) < 0) { continue; }
+            if (!HCPingGroup(recipient) || group.Members.Find(recipient.Id) < 0) { continue; }
+            if (!HCPresentationRange(recipient.Id, source.Player.GetPosition()) || !VisibilityAllows(source, recipient)) { continue; }
             NotificationSystem.SendNotificationToPlayerExtended(recipient.Player, 5, "Teammate status", source.Name + ": " + label);
-            // Only the current group gets the fresh pin, no global broadcast.
             SendSnapshot(recipient, HCGroupSnapshotKind.FULL, 0);
+            count++;
         }
+        return count;
+    }
+    override void SendSnapshot(HCGroupPeer peer, int kind, int requestId)
+    {
+        // Gate at collection, independently of KnownPlaces modded-link order.
+        bool previousActive = HCGroupVisibility.HCSnapshotActive();
+        string previousUid = HCGroupVisibility.HCRecipient();
+        string uid = "";
+        if (Live(peer) && Peer(peer.Id) == peer && peer.Identity.GetId() == peer.Id) { uid = peer.Id; }
+        HCGroupVisibility.HCSnapshot(true, uid);
+        super.SendSnapshot(peer, kind, requestId);
+        HCGroupVisibility.HCSnapshot(previousActive, previousUid);
+    }
+    override void Broadcast()
+    {
+        HCTeamPingModule pings = HCTeamPingModule.Get();
+        if (pings) { pings.HCInvalidate(); }
+        HCDeathPins deaths = HCDeathPins.Get();
+        if (deaths) { deaths.HCInvalidate(); }
+        super.Broadcast();
+    }
+    override void Connected(PlayerIdentity identity, PlayerBase player)
+    {
+        if (m_Healthy && identity && player && player.GetIdentity() == identity)
+        {
+            HCTeamPingModule pings = HCTeamPingModule.Get();
+            if (pings) { pings.HCForget(identity.GetId()); }
+        }
+        super.Connected(identity, player);
+    }
+    override void Disconnected(PlayerIdentity identity)
+    {
+        if (identity)
+        {
+            HCGroupPeer peer = Peer(identity.GetId());
+            HCTeamPingModule pings = HCTeamPingModule.Get();
+            if (pings && peer && peer.Identity == identity) { pings.HCForget(peer.Id); }
+        }
+        super.Disconnected(identity);
+    }
+    void HCPresentationFell(PlayerBase player)
+    {
+        if (!m_Healthy || !player || !player.GetIdentity()) { return; }
+        HCGroupPeer peer = Peer(player.GetIdentity().GetId());
+        if (!Live(peer) || peer.Player != player) { return; }
+        HCTeamPingModule pings = HCTeamPingModule.Get();
+        if (pings) { pings.HCForget(peer.Id); Broadcast(); }
     }
 }
 modded class HCModuleRegistry

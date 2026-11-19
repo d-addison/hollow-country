@@ -39,6 +39,30 @@ class HCGroupEquipment
 
 class HCGroupVisibility
 {
+    // Synchronous server snapshot scope. A missing/invalid transport recipient
+    // fails closed; out-of-transport collection remains available to bounded
+    // server diagnostics. Save/restore supports nested calls without a scan.
+    protected static bool s_InSnapshot;
+    protected static string s_Recipient;
+    static bool HCSnapshotActive() { return s_InSnapshot; }
+    static string HCRecipient() { return s_Recipient; }
+    static void HCSnapshot(bool active, string uid)
+    {
+        s_InSnapshot = active;
+        s_Recipient = uid;
+    }
+
+    // HC-26: use the existing validated MaxIconDistance, default ~1000 m
+    // (native network bubble / ordinary rifle report scale). No new range.
+    static bool HCWithinRange(vector source, vector recipient, float maximum)
+    {
+        if (!(maximum > 0) || !HCGroupRules.PositionValid(source) || !HCGroupRules.PositionValid(recipient)) { return false; }
+        float dx = source[0] - recipient[0];
+        float dy = source[1] - recipient[1];
+        float dz = source[2] - recipient[2];
+        return dx * dx + dy * dy + dz * dz <= maximum * maximum;
+    }
+
     static bool RadioMatches(HCGroupEquipment source, HCGroupEquipment recipient)
     {
         foreach (float frequency : source.Frequencies)
