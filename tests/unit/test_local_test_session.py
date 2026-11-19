@@ -93,6 +93,21 @@ def ai_pbo_blob(prefix='HollowCountryExpansionAI', config=None, member='config.c
     return body + b'\0' + hashlib.sha1(body).digest()
 
 
+try:
+    from tests.unit import hash_cache_isolation
+except ImportError:  # run as a script from tests/unit
+    import hash_cache_isolation
+
+
+def setUpModule():
+    # #194: the whole-PBO hashing path reads/writes the hash cache; never the user's.
+    hash_cache_isolation.enter()
+
+
+def tearDownModule():
+    hash_cache_isolation.leave()
+
+
 class FakeGameplay:
     MANAGED = 'hollow-country-gameplay'
 

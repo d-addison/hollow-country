@@ -39,15 +39,20 @@ and reopening the menu work. A second `lootmap` while one runs is refused with
 `lootmap_job_running`. The final marks reply arrives later and is matched by
 the acked ticket; the client keeps its session and ticket for a window derived from
 the deadline the server sent in the ack (`budget_ms`, the job tick cap times the
-slower of the configured `TickIntervalMs` and the cadence `HCServer` last delivered
-to the admin module; `HCAdminLootMap.HCBudgetMs`). `HCAdminLootMap.HCClientWindowSeconds`
+slower of the configured `TickIntervalMs` and a bounded running value of the cadence
+`HCServer` delivers to the admin module, `HCAdminLootMap.HCSmoothTickMs`: each tick
+moves it by `1/ObservedTickDivisor` of the gap and a sample is clamped to
+`ObservedTickMaxMs`, so one slow or fast tick never sets the budget;
+`HCAdminLootMap.HCBudgetMs`). `HCAdminLootMap.HCClientWindowSeconds`
 adds `ReplyGraceSeconds`, never goes below `MinClientWaitSeconds=60` and never above
 the largest-job ceiling `HCClientWaitSeconds()`; an ack without a readable `budget_ms`
 gets the ceiling. The client then logs a client-timeout. A failure after the ack (for
 example the final export write, `lootmap_export_failed`) is sent as that final ticketed
 reply, so the client clears its ticket and shows the notice at once. Any refused or
 failed final reply (`result=refused`) keeps the previous `lootmap` marks on the client
-map and shows the reason (plus `previous lootmap marks kept`); only an `ok` final reply,
+map and shows the reason (plus `previous lootmap marks kept; previous run filter=<filter>`);
+`HCAdminClient.HCLootLayerStatus()` (also in `HCState()`) names the filter of the marks on the
+map and `(previous run)` while they are kept; only an `ok` final reply,
 including one with no matches, replaces the layer. If the session ends first
 (`HCStop`), the client logs the dropped ticket and ignores the late final reply
 (the server may still finish and writes its export). The reply marks replace
@@ -82,6 +87,9 @@ observed, nominal is explicitly unavailable: there is no installed per-class CE
 profile lookup. A ground count of zero never proves a type does not exist.
 `EconomyMap` is a developer/diagnostic TGA exporter, not a positions provider.
 No DIAG-only CE call, spawn, deletion or inventory write is used.
+
+The server prints one `[HC Plan] wp=168-5 state=started ...` line per accepted job with `rows_per_tick` and
+`min_rows_per_tick` (`MinRowUnitsPerTick`).
 
 Defaults live in `HCAdminLootMapLimits` (source defaults, not a JSON-loaded
 configuration). The sole distance is `SubCellM=500`, the square sub-cell edge

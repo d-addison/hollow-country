@@ -285,7 +285,7 @@ class LootmapBehavior(unittest.TestCase):
         self.assertEqual('pending', receipts[-1][1])
         started = [line for line in printed if 'state=started' in line]
         self.assertEqual(1, len(started))
-        for token in ('cells=4', 'sub_cell_m=1000', 'max_ticks=', 'query_cost=unmeasured', 'runtime=PENDING'):
+        for token in ('cells=4', 'sub_cell_m=1000', 'max_ticks=', 'rows_per_tick=2 min_rows_per_tick=1 ', 'query_cost=unmeasured', 'runtime=PENDING'):
             self.assertIn(token, started[0])
         # Immediate ack (the snapshot pattern): started, the request ticket and the
         # derived tick estimate. The marks are NOT sent yet; they come later by ticket.
@@ -394,11 +394,32 @@ class LootmapBehavior(unittest.TestCase):
     def test_module_remembers_the_real_tick_cadence_even_while_idle(self):
         # Wave 12 (#193): the ack budget uses the cadence HCServer actually delivered
         # (OnTick deltaTime, seconds), not only the configured TickIntervalMs.
-        tick = compile_authored(ADMIN/'HCAdminModule.c', 'HCAdminModule', 'OnTick', base_scope(),
-                                modded=False, fields=('m_ObservedTickMs', 'm_Running'))
+        # Wave 13 (#194): the noted value is the bounded running value
+        # HCAdminLootMap.HCSmoothTickMs, so one slow or fast tick does not set it.
+        from tests.unit.test_admin_lootmap_wiring import statics, authored_limits
+        limits = authored_limits()
+        loot = statics(('HCSmoothTickMs',), limits)
+        tick = compile_authored(ADMIN/'HCAdminModule.c', 'HCAdminModule', 'OnTick',
+                                base_scope(HCAdminLootMap=loot), modded=False,
+                                fields=('m_ObservedTickMs', 'm_Running'))
         module = N(m_Running=False, m_ObservedTickMs=0)
         tick(module, 2.5)  # stopped module: nothing else runs, the cadence is still noted
-        self.assertEqual(2500, module.m_ObservedTickMs)
+        self.assertEqual(2500, module.m_ObservedTickMs)  # the first sample seeds the value
+        for _ in range(40):
+            tick(module, 1.0)
+        settled = module.m_ObservedTickMs
+        self.assertLessEqual(abs(settled - 1000), 5)  # converged to the steady cadence
+        tick(module, 30.0)  # one stalled tick (a hitch) must not become the ack budget
+        self.assertLess(module.m_ObservedTickMs, 10000)
+        self.assertGreater(module.m_ObservedTickMs, settled)  # but it is still noticed
+        for _ in range(60):
+            tick(module, 1.0)
+        self.assertLessEqual(abs(module.m_ObservedTickMs - 1000), 5)  # and it decays again
+        tick(module, 0.0)  # one fast tick does not zero the cadence either
+        self.assertGreater(module.m_ObservedTickMs, 800)
+        tick(module, 100000.0)  # a pathological sample is clamped, never overflowing
+        self.assertLessEqual(module.m_ObservedTickMs, limits.ObservedTickMaxMs)
+        self.assertGreater(limits.ObservedTickDivisor, 1)
 
 
 if __name__ == '__main__':

@@ -119,6 +119,31 @@ class JobArithmetic(unittest.TestCase):
         self.assertNotIn('QueryRadiusM', text)
 
 
+class ObservedCadence(unittest.TestCase):
+    """#194: the ack budget uses a bounded running cadence, not one tick sample."""
+
+    def test_running_value_bounds_one_sample_and_is_named_config(self):
+        limits = authored_limits()
+        loot = statics(('HCSmoothTickMs',), limits)
+        self.assertEqual(1000, loot.HCSmoothTickMs(0, 1000))  # first sample seeds
+        self.assertEqual(0, loot.HCSmoothTickMs(0, 0))
+        # One 30 s stall after a steady 1 s cadence moves the value by one divisor share only.
+        stalled = loot.HCSmoothTickMs(1000, 30000)
+        self.assertEqual(1000 + 29000 // limits.ObservedTickDivisor, stalled)
+        self.assertLess(stalled, 10000)
+        # One 0 ms tick lowers it by one share only.
+        self.assertEqual(1000 - 1000 // limits.ObservedTickDivisor, loot.HCSmoothTickMs(1000, 0))
+        # A sustained new cadence is converged on.
+        value = 1000
+        for _ in range(200):
+            value = loot.HCSmoothTickMs(value, 2000)
+        self.assertLessEqual(abs(value - 2000), limits.ObservedTickDivisor)
+        # Pathological samples are clamped.
+        self.assertEqual(limits.ObservedTickMaxMs, loot.HCSmoothTickMs(0, 10 ** 9))
+        self.assertLessEqual(loot.HCSmoothTickMs(limits.ObservedTickMaxMs, 10 ** 9), limits.ObservedTickMaxMs)
+        self.assertEqual(0, loot.HCSmoothTickMs(0, -5))
+
+
 class ClientWiring(unittest.TestCase):
     def build(self):
         limits = authored_limits()
@@ -153,15 +178,18 @@ class ClientWiring(unittest.TestCase):
                             m_LastReply=100.0, m_RequestUntil=0.0, m_Command='', m_SnapshotUntil=0.0,
                             m_LootUntil=0.0, m_LootViewUntil=0.0, m_OpenRequested=False,
                             m_Checks=Arr(), Revision=0, Notice='', View=None, Hidden=Arr(),
-                            Changed=N(Invoke=lambda: None))
+                            Changed=N(Invoke=lambda: None), m_LootRunFilter='', m_LootShownFilter='',
+                            m_LootStale=False)
         self.members = ('HCValid', 'HCSend', 'HCFeedback', 'HCMergeLootMap', 'HCCarryLootMarks',
-                        'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop', 'HCLootMarkCount')
+                        'HCExpireMarks', 'HCExpireLoot', 'HCLog', 'HCLogReply', 'HCStop', 'HCLootMarkCount',
+                        'HCLootFilterOf', 'HCLootLayerStatus')
         self.fields = ('m_Ticket', 'm_Expected', 'm_Pending', 'm_RequestUntil', 'm_Command', 'm_NextSend',
                        'm_LootTicket', 'm_LootUntil', 'm_LootViewUntil', 'm_SnapshotTicket', 'm_Player',
                        'm_Authorized', 'm_SnapshotUntil', 'm_Listening', 'm_OpenRequested', 'm_LastReply',
-                       'Revision', 'Notice', 'View', 'Changed', 'Hidden')
+                       'Revision', 'Notice', 'View', 'Changed', 'Hidden', 'm_LootRunFilter', 'm_LootShownFilter',
+                       'm_LootStale')
         for name in ('HCValid', 'HCSend', 'HCLootMap', 'HCMergeLootMap', 'HCLootMarkCount', 'HCCarryLootMarks',
-                     'HCExpireMarks', 'HCExpireLoot', 'HCStop'):
+                     'HCExpireMarks', 'HCExpireLoot', 'HCStop', 'HCLootFilterOf', 'HCLootLayerStatus'):
             fn = compile_authored(CLIENT, 'HCAdminClient', name, self.env, self.members, modded=False,
                                   native_strings=EStr, fields=self.fields)
             setattr(c, name, lambda *args, fn=fn: fn(c, *args))
@@ -339,6 +367,50 @@ class ClientWiring(unittest.TestCase):
             self.assertEqual(view_until, c.m_LootViewUntil)  # the old view timer is not extended
             self.assertIn('reason=' + reason, c.Notice)
             self.assertIn('previous lootmap marks kept', c.Notice)
+
+    def test_kept_marks_after_a_refused_final_reply_are_labelled_with_their_filter(self):
+        # #194: a refused final reply keeps the previous marks; the status must say which
+        # filter they came from and that they are from the previous run.
+        c = self.build()
+        c.HCLootMap(EStr('Bandage'))
+        first = self.sent[-1].Ticket
+        self.now = 101.0
+        self.receive(c, self.reply(first, notice='started ticket=1 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(first, snapshot=True, marks=2, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual('lootmap marks: filter=Bandage', c.HCLootLayerStatus())
+        c.m_NextSend = 0.0
+        self.now = 200.0
+        c.m_LastReply = 200.0
+        c.HCLootMap(EStr('Rag*'))
+        second = self.sent[-1].Ticket
+        self.receive(c, self.reply(second, notice='started ticket=2 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        # A running job's filter is not yet the marks' filter.
+        self.assertEqual('lootmap marks: filter=Bandage', c.HCLootLayerStatus())
+        self.receive(c, self.reply(second, snapshot=True, marks=0,
+                                   notice='[HC Admin] cmd=lootmap result=refused reason=job_tick_cap'))
+        self.assertIn('previous lootmap marks kept', c.Notice)
+        self.assertIn('previous run', c.Notice)
+        self.assertIn('filter=Bandage', c.Notice)
+        self.assertNotIn('Rag', c.Notice)
+        self.assertEqual('lootmap marks: filter=Bandage (previous run)', c.HCLootLayerStatus())
+        # A later ok run replaces the layer and its label.
+        c.m_NextSend = 0.0
+        self.now = 300.0
+        c.m_LastReply = 300.0
+        c.HCLootMap(EStr('Rag*'))
+        third = self.sent[-1].Ticket
+        self.receive(c, self.reply(third, notice='started ticket=3 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(third, snapshot=True, marks=1, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual('lootmap marks: filter=Rag*', c.HCLootLayerStatus())
+        # No marks on the map means no label (an empty ok run clears the layer).
+        c.m_NextSend = 0.0
+        self.now = 400.0
+        c.m_LastReply = 400.0
+        c.HCLootMap(EStr('Gone'))
+        fourth = self.sent[-1].Ticket
+        self.receive(c, self.reply(fourth, notice='started ticket=4 est_ticks=100 cells=4 tick_ms=1000 budget_ms=100000', marks=0))
+        self.receive(c, self.reply(fourth, snapshot=True, marks=0, notice='[HC Admin] cmd=lootmap result=ok reason='))
+        self.assertEqual('', c.HCLootLayerStatus())
 
     def test_ok_final_reply_with_no_matches_still_clears_the_previous_layer(self):
         c = self.build()

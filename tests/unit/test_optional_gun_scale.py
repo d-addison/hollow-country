@@ -14,6 +14,21 @@ from tests.unit import test_snafu_optional as snafu_fixture
 from tests.unit import test_tactical_flava_optional as tf_fixture
 
 
+try:
+    from tests.unit import hash_cache_isolation
+except ImportError:  # run as a script from tests/unit
+    import hash_cache_isolation
+
+
+def setUpModule():
+    # #194: the whole-PBO hashing path reads/writes the hash cache; never the user's.
+    hash_cache_isolation.enter()
+
+
+def tearDownModule():
+    hash_cache_isolation.leave()
+
+
 class OptionalGunScale(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()

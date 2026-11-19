@@ -41,7 +41,7 @@ class HCAdminModule : HCModule
     protected PlayerIdentity m_LootMapSender;
     protected int m_LootMapTicket;
     protected float m_LootMapAfter;
-    // Real cadence HCServer last delivered to OnTick (ms); sizes the lootmap ack deadline.
+    // Running value of the cadence HCServer delivers to OnTick (ms, HCSmoothTickMs); sizes the lootmap ack deadline.
     protected int m_ObservedTickMs;
     // HC-1 status the core reads after OnStart (#160): every start refusal publishes
     // its reason here instead of returning silently.
@@ -207,6 +207,7 @@ class HCAdminModule : HCModule
         m_LootMapTicket = ticket;
         string startLine = "[HC Plan] wp=168-5 state=started cells=" + job.HCTotalCells().ToString() + " sub_cell_m=" + limits.SubCellM.ToString();
         startLine += " max_ticks=" + job.HCMaxTicks().ToString() + " rows_per_tick=" + limits.MaxRowsPerStep.ToString();
+        startLine += " min_rows_per_tick=" + limits.MinRowUnitsPerTick.ToString();
         startLine += " positions=0 query_cost=unmeasured runtime=PENDING";
         Print("" + startLine);
         // Immediate ack, the snapshot pattern: the client is freed at once, then the
@@ -454,7 +455,9 @@ class HCAdminModule : HCModule
     override void OnTick(float deltaTime)
     {
         // Cheap cadence note (HCServer passes the real elapsed seconds), kept while idle.
-        m_ObservedTickMs = deltaTime * 1000;
+        // #194: a bounded running value (HCAdminLootMap.HCSmoothTickMs), not one sample.
+        int sampleMs = deltaTime * 1000;
+        m_ObservedTickMs = HCAdminLootMap.HCSmoothTickMs(m_ObservedTickMs, sampleMs);
         if (!m_Running) { return; }
         if (!m_Pending && !m_Capture && !m_LootMap) { return; }
         m_Players.Clear();

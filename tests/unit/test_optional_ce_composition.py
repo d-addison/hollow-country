@@ -67,6 +67,21 @@ def bundle(mission, source, base=True):
     loot_boost.install(mission, multiplier=2.0)
 
 
+try:
+    from tests.unit import hash_cache_isolation
+except ImportError:  # run as a script from tests/unit
+    import hash_cache_isolation
+
+
+def setUpModule():
+    # #194: the whole-PBO hashing path reads/writes the hash cache; never the user's.
+    hash_cache_isolation.enter()
+
+
+def tearDownModule():
+    hash_cache_isolation.leave()
+
+
 class ManagedCEComposition(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

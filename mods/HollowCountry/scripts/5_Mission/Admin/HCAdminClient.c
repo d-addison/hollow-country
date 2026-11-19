@@ -34,6 +34,11 @@ class HCAdminClient
     protected float m_SnapshotUntil;
     protected float m_LootUntil;
     protected float m_LootViewUntil;
+    // #194: filter of the job in flight, filter of the marks now on the map, and whether
+    // those marks were kept after a refused final reply (previous run).
+    protected string m_LootRunFilter;
+    protected string m_LootShownFilter;
+    protected bool m_LootStale;
     protected float m_OpenUntil;
     protected float m_WaitNoticeAt;
     protected bool m_WaitNoticeShown;
@@ -103,6 +108,8 @@ class HCAdminClient
         if (!HCValid()) { return "refused / not an admin: session unavailable"; }
         if (HCBusy()) { return "admin | busy: waiting for throttle"; }
         if (m_LootTicket != 0) { return "admin | ready | lootmap job running on the server"; }
+        string layer = HCLootLayerStatus();
+        if (layer != "") { return "admin | ready | " + layer; }
         return "admin | ready";
     }
 
@@ -280,6 +287,7 @@ class HCAdminClient
                 // ceiling in HCClientWindowSeconds); an unreadable ack gets the ceiling.
                 int budgetMs = HCAdminLootMap.HCAckInt(reply.Notice, "budget_ms=");
                 m_LootTicket = reply.Ticket;
+                m_LootRunFilter = HCLootFilterOf(command);
                 m_LootUntil = GetGame().GetTickTime() + HCAdminLootMap.HCClientWindowSeconds(budgetMs);
             }
         }
@@ -292,8 +300,18 @@ class HCAdminClient
         {
             // A refused or failed final reply keeps the previous lootmap marks (owner-safe
             // default) and shows its reason; only an ok reply replaces the layer.
-            if (reply.Notice.IndexOf("result=refused") < 0) { HCMergeLootMap(reply); }
-            else if (HCLootMarkCount() > 0) { Notice = Notice + "; previous lootmap marks kept"; }
+            if (reply.Notice.IndexOf("result=refused") < 0)
+            {
+                HCMergeLootMap(reply);
+                m_LootShownFilter = m_LootRunFilter;
+                m_LootStale = false;
+            }
+            else if (HCLootMarkCount() > 0)
+            {
+                // The kept layer is labelled with the filter of the run that drew it (#194).
+                m_LootStale = true;
+                Notice = Notice + "; previous lootmap marks kept; previous run filter=" + m_LootShownFilter;
+            }
             m_LootTicket = 0;
         }
         else if (reply.Snapshot)
@@ -311,6 +329,25 @@ class HCAdminClient
         }
         Revision++;
         Changed.Invoke();
+    }
+
+    // The filter text of a `lootmap <filter>` command (bounded by Length()).
+    protected string HCLootFilterOf(string command)
+    {
+        int length = command.Length();
+        if (length <= 8) { return ""; }
+        return command.Substring(8, length - 8);
+    }
+
+    // Status text for the lootmap layer on the map: the filter its marks came from,
+    // and that they are from the previous run when a refused final reply kept them.
+    // Empty when no lootmap marks are shown.
+    string HCLootLayerStatus()
+    {
+        if (m_LootShownFilter == "" || HCLootMarkCount() < 1) { return ""; }
+        string text = "lootmap marks: filter=" + m_LootShownFilter;
+        if (m_LootStale) { text = text + " (previous run)"; }
+        return text;
     }
 
     protected int HCLootMarkCount()
@@ -378,7 +415,12 @@ class HCAdminClient
             index--;
         }
         if (snapshotDue) { m_SnapshotUntil = 0; }
-        if (lootDue) { m_LootViewUntil = 0; }
+        if (lootDue)
+        {
+            m_LootViewUntil = 0;
+            m_LootShownFilter = "";
+            m_LootStale = false;
+        }
         Revision++;
         Changed.Invoke();
     }
