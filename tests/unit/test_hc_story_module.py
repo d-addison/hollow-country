@@ -69,6 +69,7 @@ class StoryModuleBehavior(unittest.TestCase):
         self.env = dict(Print=lambda line: self.calls.append(('log', line)),
                         GetGame=lambda: N(IsServer=lambda: True, GetTickTime=lambda: 20.),
                         HCSaveJob=N(STEP_FAILED=-1, STEP_DONE=1),
+                        HCSituationSource=N(HCBind=lambda state, store: None, HCClear=lambda state: None),
                         s_CleanupOwner=None)
         self.env.update(env or {})
         owner = N(m_Running=True, m_Stopping=False, m_Stories=None,

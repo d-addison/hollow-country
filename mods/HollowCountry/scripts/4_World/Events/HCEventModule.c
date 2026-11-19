@@ -73,11 +73,11 @@ class HCEventModule : HCModule
         m_Situations.HCEnableProfile("column", m_Raids.HCProfilesEnabled(), 0);
         HCTransitProfile roadside = m_Transit.HCFind("hc40-roadside-position");
         HCTransitProfile exodus = m_Transit.HCFind("hc40-threatened-exodus");
-        // History admits one row per profile, so an unready transit provider must
-        // not write durable rows that would expire as "unknown" and burn the profile.
-        bool transitReady = m_SituationEnabled && HCSituationActors.HCForProfile("roadside-position").HCReady();
-        if (roadside) { m_Situations.HCEnableProfile("roadside-position", transitReady, roadside.LifetimeSeconds); }
-        if (exodus) { m_Situations.HCEnableProfile("threatened-exodus", transitReady, exodus.LifetimeSeconds); }
+        // Configuration enables profiles; HCOffer checks EVERY live actor port
+        // after addon starts, before consuming the profile's one durable row.
+        // Raid/column also require HCProfilesEnabled() above.
+        if (roadside) { m_Situations.HCEnableProfile("roadside-position", m_SituationEnabled, roadside.LifetimeSeconds); }
+        if (exodus) { m_Situations.HCEnableProfile("threatened-exodus", m_SituationEnabled, exodus.LifetimeSeconds); }
         m_SurvivorOwner = HCOperationalContributors.HCRegisterOwner("HC-38 survivor");
         m_RaidOwner = HCOperationalContributors.HCRegisterOwner("HC-39 raid,column");
         m_TransitOwner = HCOperationalContributors.HCRegisterOwner("HC-40 roadside,exodus");
@@ -92,7 +92,11 @@ class HCEventModule : HCModule
         HCOperationalStatus survivorStatus = m_Situations.HCStatus();
         HCOperationalStatus raidStatus = m_Raids.HCStatus();
         HCOperationalStatus transitStatus = m_Transit.HCStatus();
-        m_SituationStatus.HCPublish(survivorStatus.HCState(), survivorStatus.HCReason());
+        // Events stays started for the independent director. Its module receipt
+        // still reports legacy Events off when disabled; HC-38 retains its own
+        // contributor receipt. With legacy Events enabled, use director state.
+        if (!m_Config || !m_Config.Enabled) { m_SituationStatus.HCPublish("off", "operator_off"); }
+        else { m_SituationStatus.HCPublish(survivorStatus.HCState(), survivorStatus.HCReason()); }
         float observedAt = -1;
         if (GetGame()) { observedAt = GetGame().GetTickTime(); }
         if (m_SurvivorOwner) { m_SurvivorOwner.HCObserve(m_SituationEnabled, survivorStatus, observedAt); }

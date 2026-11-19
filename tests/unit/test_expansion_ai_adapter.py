@@ -231,6 +231,21 @@ class ExpansionAdapterTests(unittest.TestCase):
             Open=lambda settings, port: self.calls.append(("caravan", "open")),
             Step=lambda: None,
             HCClose=lambda: self.calls.append(("caravan", "close")))
+        # Synthetic registry boundaries; readiness/refusals execute shipping C bodies.
+        self.situation_bindings = N(survivor=None, raid=None, camp_raid=None, transit=None)
+        def bind_situation(key, port):
+            setattr(self.situation_bindings, key, port)
+        self.env["HCSituationActors"] = N(
+            HCBind=lambda port: bind_situation('survivor', port),
+            HCBindRaid=lambda port: bind_situation('raid', port),
+            HCBindTransit=lambda port: bind_situation('transit', port))
+        self.env["HCCampRaidActors"] = N(HCBind=lambda port: bind_situation('camp_raid', port))
+        def situation_port(class_name):
+            authored = Authored((SCRIPTS / ('4_World/' + class_name + '.c')).read_text(), {})
+            return N(**{name: (lambda *args, n=name: authored.call(n, None, *args))
+                        for name in ('HCReady', 'HCRefusal', 'HCSelect', 'HCBegin', 'HCObserve')})
+        for class_name in ('HCXAISituationAdapter', 'HCXAIRaidAdapter', 'HCXAITransitAdapter'):
+            self.env[class_name] = lambda name=class_name: situation_port(name)
         self.engine=Authored(self.runtime_source,self.env)
         self.mod=N(m_Caravan=None,m_CaravanRequested=False,m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
@@ -797,6 +812,15 @@ class ExpansionAdapterTests(unittest.TestCase):
                          [c for c in self.calls if c[0] in ("sites", "encounters")])
         self.assertIsNone(svc.Hooks())  # The local receipt port is no longer installed.
         self.assertIs(self.mod, svc.Adapter())
+        ports = self.situation_bindings
+        self.assertIsNotNone(ports.survivor, 'successful addon bind must install the survivor port')
+        self.assertIs(ports.raid, ports.camp_raid, 'raid and column share the camp raid adapter')
+        for port, reason in ((ports.survivor, 'SURVIVOR_PLACEMENT_ACTION_API_UNVERIFIED'),
+                             (ports.raid, 'RAID_FOOT_ROUTE_COMBAT_CUSTODY_UNVERIFIED'),
+                             (ports.transit, 'TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED')):
+            self.assertIsNotNone(port)
+            self.assertFalse(port.HCReady())
+            self.assertEqual(reason, port.HCRefusal())
         lines = self.diagnostics()
         ready = [l for l in lines if "readiness" in l]
         self.assertIn("[HC Plan] HC-18 synthetic runtime=PENDING", lines)
@@ -821,7 +845,17 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertEqual("ChernarusPlus", self.encounter_state.worlds[-1])
         self.mod.OnStop()
         self.assertIn(("encounters", "close"), self.calls)
+        self.mod.OnStop()
+        self.assertTrue(all(value is None for value in vars(ports).values()))
         self.assertEqual([], self.created)
+        # Rejected/replaced owners cannot install or clear another owner's ports.
+        previous = N(synthetic='other owner')
+        ports.survivor = previous
+        svc.Bind = lambda adapter: False
+        svc.Adapter = lambda: previous
+        self.mod.OnStart(None)
+        self.mod.OnStop()
+        self.assertIs(previous, ports.survivor)
 
     def test_both_global_reload_masks_refuse_admission(self):
         for field in ("s_eAI_UnlimitedReload", "s_eAI_UnlimitedReloadAll"):
