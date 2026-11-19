@@ -112,6 +112,8 @@ class HCBaseRaid
     static HCOperationalStatus HCGetOperationalStatus()
     {
         if (!HCBaseRaid.HCEnabled()) { return s_Status; }
+        // Every raid step also needs the parent probe feature; its opt-out turns raids off.
+        if (!HCCampProbes.HCEnabled()) { s_Status.HCPublish("off", "camp_probes_operator_disabled"); return s_Status; }
         HCBaseRaidPort port = HCBaseRaid.HCGet();
         if (!port) { s_Status.HCPublish("degraded", "PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); return s_Status; }
         if (!port.HCReady()) { s_Status.HCPublish("degraded", port.HCRefusal()); return s_Status; }

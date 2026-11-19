@@ -348,6 +348,7 @@ class LODWorkBudget(unittest.TestCase):
         self.assertEqual(9, getattr(klass, 'HC_WORK_CONFLICT', None))
         self.assertEqual(10, getattr(klass, 'HC_WORK_TRADE', None))
         self.assertEqual(11, getattr(klass, 'HC_WORK_SITUATIONS', None))
-        self.assertEqual(12, klass.HC_WORK_CONSUMERS)
+        self.assertEqual(12, getattr(klass, 'HC_WORK_BASE_RAID', None))
+        self.assertEqual(13, klass.HC_WORK_CONSUMERS)
         conflict = (ROOT / 'mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c').read_text(encoding='utf-8')
         self.assertIn('HCTakeFor(HCUnitBudget.HC_WORK_CONFLICT, 1)', conflict)

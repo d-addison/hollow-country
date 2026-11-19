@@ -66,9 +66,15 @@ class BaseRaidBehavior(unittest.TestCase):
             published = []
             status = NS(HCPublish=lambda *args: published.append(args))
             env = dict(HCBaseRaid=NS(HCEnabled=lambda: True, HCGet=lambda: port),
-                       s_Status=status)
+                       HCCampProbes=NS(HCEnabled=lambda: True), s_Status=status)
             self.assertIs(status, invoke('HCGetOperationalStatus', NS(), env))
             self.assertEqual([expected], published)
+        published = []
+        status = NS(HCPublish=lambda *args: published.append(args))
+        env = dict(HCBaseRaid=NS(HCEnabled=lambda: True, HCGet=lambda: NS(HCReady=lambda: True)),
+                   HCCampProbes=NS(HCEnabled=lambda: False), s_Status=status)
+        invoke('HCGetOperationalStatus', NS(), env)
+        self.assertEqual([('off', 'camp_probes_operator_disabled')], published)
 
     def test_perception_checks_range_before_raycast_and_never_selects_from_camps(self):
         path = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIBaseRaid.c'
@@ -260,11 +266,9 @@ class BaseRaidAdmissionAndAttendance(unittest.TestCase):
 
 
 class BaseRaidSettingsIntegration(unittest.TestCase):
-    def test_lead_settings_edits_in_local_fixture_match_source(self):
+    def test_registry_owns_the_base_raid_settings_and_stays_consistent(self):
         import json
-        from unittest.mock import patch
         from tools.validate import settings_consistency as sc
-        # Explicit LOCAL copy only: shared registry/mirror/validator are read-only.
         fields = [('Version', 'int', 1, 1, 1), ('NoticeRangeMeters', 'float', 40, 2, 100),
                   ('AttendanceRangeMeters', 'float', 500, 500, 1000),
                   ('ObserverRangeMeters', 'float', 500, 500, 1000),
@@ -272,15 +276,12 @@ class BaseRaidSettingsIntegration(unittest.TestCase):
                   ('RaidSeconds', 'int', 600, 60, 600), ('MaxPlayers', 'int', 32, 1, 32),
                   ('MaxObjects', 'int', 128, 1, 128), ('MaxDoors', 'int', 32, 1, 32),
                   ('MaxRouteNodes', 'int', 32, 1, 32), ('MaxCargoScan', 'int', 32, 1, 32)]
-        added = [dict(key='BaseRaid.'+key, type=kind, default=value, min=low, max=high,
-                      owner='HCBaseRaidConfig') for key, kind, value, low, high in fields]
-        rows = json.loads(sc.REGISTRY.read_text()) + added
-        native = sc.NATIVE.read_text().replace('        // END GENERATED SETTINGS REGISTRY',
-                    sc.render_native_registry(added) + '\n        // END GENERATED SETTINGS REGISTRY')
-        with patch.dict(sc.EXTERNAL_OWNERS, {'HCBaseRaidConfig':
-             ('mods/HollowCountry/scripts/4_World/Camps/HCBaseRaid.c', 'BaseRaid', 'config.')}):
-            self.assertEqual([], sc.check_consistency(registry=rows, native=native))
-
+        expected = [dict(key='BaseRaid.'+key, type=kind, default=value, min=low, max=high,
+                         owner='HCBaseRaidConfig') for key, kind, value, low, high in fields]
+        owned = [row for row in json.loads(sc.REGISTRY.read_text()) if row['owner'] == 'HCBaseRaidConfig']
+        self.assertEqual(expected, owned)
+        self.assertIn('HCBaseRaidConfig', sc.EXTERNAL_OWNERS)
+        self.assertEqual([], sc.check_consistency())
 
 if __name__ == '__main__':
     unittest.main()

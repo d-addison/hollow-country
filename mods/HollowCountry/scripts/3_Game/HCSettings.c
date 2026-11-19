@@ -203,6 +203,18 @@ class HCOperatorSettingsRegistry
         HCAdd("CampTheft.MaxAttendancePlayers", "int", 32, 1, 32, "HCTheftConfig");
         HCAdd("CampTheft.AttendanceRangeMeters", "float", 500, 500, 1000, "HCTheftConfig");
         HCAdd("CampTheft.ObserverRangeMeters", "float", 500, 500, 1000, "HCTheftConfig");
+        HCAdd("BaseRaid.Version", "int", 1, 1, 1, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.NoticeRangeMeters", "float", 40, 2, 100, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.AttendanceRangeMeters", "float", 500, 500, 1000, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.ObserverRangeMeters", "float", 500, 500, 1000, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.SourceRangeMeters", "float", 12, 2, 12, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.WarningSeconds", "int", 300, 60, 600, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.RaidSeconds", "int", 600, 60, 600, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.MaxPlayers", "int", 32, 1, 32, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.MaxObjects", "int", 128, 1, 128, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.MaxDoors", "int", 32, 1, 32, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.MaxRouteNodes", "int", 32, 1, 32, "HCBaseRaidConfig");
+        HCAdd("BaseRaid.MaxCargoScan", "int", 32, 1, 32, "HCBaseRaidConfig");
         // END GENERATED SETTINGS REGISTRY
     }
 
