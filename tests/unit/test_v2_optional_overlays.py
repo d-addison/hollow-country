@@ -6,6 +6,39 @@ import xml.etree.ElementTree as ET
 
 
 class OptionalOverlaysSmoke(unittest.TestCase):
+    def assert_missing_habitat_stock_refused(self, missing):
+        import json
+        from tools.package import optional_overlays as overlays
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-habitat-precondition-') as directory:
+            root = Path(directory)
+            bundle, mission = root / 'bundle', root / 'mission'
+            bundle.mkdir()
+            mission.mkdir()
+            (bundle / 'mission-patches.json').write_text(json.dumps({'core': [], 'gameplay': []}))
+            ecology = bundle / 'mission-overlay/hollow-country/ecology'
+            ecology.mkdir(parents=True)
+            (ecology / 'habitat-overrides.json').write_text('{"Enabled": false}')
+            (ecology / 'events.append.xml').write_text('<events/>')
+            stock = {'cfgeconomycore.xml': b'<economycore/>',
+                     'cfgenvironment.xml': b'<env><territories/></env>', 'db/events.xml': b'<events/>'}
+            for name, data in stock.items():
+                if name != missing:
+                    target = mission / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+            before = {p.relative_to(mission).as_posix(): p.read_bytes()
+                      for p in mission.rglob('*') if p.is_file()}
+            with self.assertRaisesRegex(ValueError, 'HC149_HABITAT_STOCK_MISSING: ' + missing):
+                overlays.bundle_candidate(bundle, mission)
+            self.assertEqual({p.relative_to(mission).as_posix(): p.read_bytes()
+                              for p in mission.rglob('*') if p.is_file()}, before)
+
+    def test_bundle_refuses_missing_habitat_environment(self):
+        self.assert_missing_habitat_stock_refused('cfgenvironment.xml')
+
+    def test_bundle_refuses_missing_habitat_events(self):
+        self.assert_missing_habitat_stock_refused('db/events.xml')
+
     def test_cellar_measurement_generates_native_triggers_and_reversible_merge(self):
         # Synthetic geometry only: this does not establish cellar fit or darkness.
         import json

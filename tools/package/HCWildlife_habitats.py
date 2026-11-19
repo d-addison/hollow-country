@@ -8,6 +8,7 @@ A successful candidate is source evidence, with runtime acceptance PENDING.
 from copy import deepcopy
 import hashlib
 import xml.etree.ElementTree as ET
+from tools.package import xml_text
 
 MAX_XML_BYTES = 16 * 1024 * 1024
 MAX_EVENTS = 4096
@@ -94,5 +95,5 @@ def build(manifest, delta, environment_data, events_data, available_classes):
         raise ValueError('habitat hare declarations differ from inspected baseline')
     for duplicate in hare[1:]:
         territories.remove(duplicate)
-    return {path: ET.tostring(root, encoding='utf-8', xml_declaration=True) + b'\n'
+    return {path: xml_text.document(root) + b'\n'
             for path, root in (('db/events.xml', events), ('cfgenvironment.xml', environment))}
