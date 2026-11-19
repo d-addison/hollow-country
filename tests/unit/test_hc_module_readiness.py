@@ -40,6 +40,23 @@ class ModuleReadiness(unittest.TestCase):
         state.Start()  # idempotent start must not print another set
         self.assertEqual(lines, [line for line in logs if line in lines])
 
+    def test_settings_failure_prints_one_off_line_per_module_without_admission(self):
+        logs, reads = [], []
+        modules = [N(GetName=lambda name=name: name, IsEnabled=lambda settings: reads.append('enabled'),
+                     HCGetOperationalStatus=lambda: reads.append('status'),
+                     OnStart=lambda settings: reads.append('start'), OnStop=lambda: None)
+                   for name in ('Alpha', 'Beta', 'Gamma')]
+        state, _ = core.fixture(modules=modules, loaded=False, ports={'Print': logs.append})
+        state.Start()
+        lines = [line for line in logs if line.startswith('[HC ')]
+        self.assertEqual(['[HC Alpha] off reason=settings_unavailable',
+                          '[HC Beta] off reason=settings_unavailable',
+                          '[HC Gamma] off reason=settings_unavailable'], lines)
+        self.assertEqual([], reads, 'no IsEnabled, status or OnStart without settings')
+        self.assertFalse(state.m_Started)
+        state.Start()  # a retried start must not repeat the refusal set
+        self.assertEqual(3, len([line for line in logs if line.startswith('[HC ')]))
+
 
 class ReadinessLint(unittest.TestCase):
     def test_registered_modules_need_names_and_engine_types_cannot_name_variables(self):

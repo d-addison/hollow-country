@@ -659,5 +659,55 @@ class W5ToolsSmoke(unittest.TestCase):
             self.assertIn('configured_only_runtime_pending', csv_text)
 
 
+class CostSummaryBehavior(unittest.TestCase):
+    """HC-189: Stop and window emission summarise per-module costs instead of printing every module.
+
+    Synthetic modules and ticks only; this is source control flow, not DayZ evidence.
+    """
+
+    def filled(self, count=64, window=60):
+        sampler, clock, logs = sampler_fixture()
+        sampler.Start(window)
+        for index in range(count):
+            sampler.RegisterModule('M%02d' % index)
+        return sampler, clock, logs
+
+    def test_stop_prints_one_total_and_only_the_top_modules_sorted(self):
+        sampler, _, logs = self.filled()
+        sampler.SampleCost(5, 2, 900)
+        sampler.SampleCost(7, 0, 100)
+        sampler.SampleCost(7, 1, 900)   # ties M05 on peak; registration order breaks the tie
+        sampler.SampleCost(40, 3, 5000)
+        sampler.SampleCost(63, 0, 1)
+        del logs[:]
+        sampler.Stop()
+        costs = [line for line in logs if '[HC Cost]' in line]
+        totals = [line for line in logs if '[HC CostTotal]' in line]
+        self.assertEqual(1, len(totals), logs)
+        self.assertEqual(8, len(costs), 'top N must stay a named constant of 8')
+        self.assertEqual(['M40', 'M05', 'M07', 'M63'], [line.split()[2][7:] for line in costs[:4]])
+        self.assertEqual(['M00', 'M01', 'M02', 'M03'], [line.split()[2][7:] for line in costs[4:]],
+                         'unobserved modules rank last in registration order')
+        self.assertIn('modules=64 observed=4 shown=8 omitted=56', totals[0])
+        self.assertIn('startup_sum_ticks=101 callback_sum_ticks=900 save_sum_ticks=900 admission_sum_ticks=5000',
+                      totals[0])
+        self.assertIn('runtime=PENDING', totals[0])
+        self.assertTrue(logs.index(totals[0]) < logs.index(costs[0]))
+
+    def test_few_modules_all_print_and_calibrated_window_uses_ms(self):
+        sampler, clock, logs = self.filled(3, 1)
+        sampler.SampleCost(1, 2, 3000)
+        clock.now = 1.
+        clock.ticks = 1000000
+        sampler.Sample(1., 0)
+        self.assertEqual(3, len([line for line in logs if '[HC Cost]' in line]))
+        total = [line for line in logs if '[HC CostTotal]' in line][-1]
+        self.assertIn('modules=3 observed=1 shown=3 omitted=0', total)
+        self.assertIn('save_sum_ms=3.00', total)
+        first = [line for line in logs if '[HC Cost]' in line][0]
+        self.assertIn('module=M01', first)
+        self.assertIn('save_ms=3.00', first)
+
+
 if __name__ == '__main__':
     unittest.main()
