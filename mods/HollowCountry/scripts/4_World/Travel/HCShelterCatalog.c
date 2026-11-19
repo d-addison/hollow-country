@@ -292,10 +292,12 @@ class HCShelterCatalog
             HCShelterSurvey candidate = GetCandidate(sceneIndex);
             if (!candidate) { return HCRegionalRefuse("candidate", sceneIndex); }
             if (!scene || scene.Id != candidate.Id || scene.BuildingClass != candidate.BuildingClass || scene.Name != candidate.Name) { return HCRegionalRefuse("check6", sceneIndex); }
+            // Authored access boxes sit exactly 2 m outside the clip box; a 1 mm
+            // allowance absorbs float32 rounding of that boundary.
             if (!scene.Position || scene.Position.Count() != 3 || vector.DistanceSq(HCInteriorTemplates.AsVector(scene.Position), candidate.Position) > config.BoundsToleranceSquared) { return HCRegionalRefuse("check7", sceneIndex); }
             if (!HCRegionalBox(scene.ClipMin, scene.ClipMax) || !HCRegionalBox(scene.AccessMin, scene.AccessMax) || !HCRegionalBox(scene.YardMin, scene.YardMax)) { return HCRegionalRefuse("check8", sceneIndex); }
-            if (scene.AccessMin[0] > scene.ClipMin[0] - 2 || scene.AccessMax[0] < scene.ClipMax[0] + 2) { return HCRegionalRefuse("check9", sceneIndex); }
-            if (scene.AccessMin[2] > scene.ClipMin[2] - 2 || scene.AccessMax[2] < scene.ClipMax[2] + 2) { return HCRegionalRefuse("check10", sceneIndex); }
+            if (scene.AccessMin[0] > scene.ClipMin[0] - 1.999 || scene.AccessMax[0] < scene.ClipMax[0] + 1.999) { return HCRegionalRefuse("check9", sceneIndex); }
+            if (scene.AccessMin[2] > scene.ClipMin[2] - 1.999 || scene.AccessMax[2] < scene.ClipMax[2] + 1.999) { return HCRegionalRefuse("check10", sceneIndex); }
             if (scene.AccessMin[1] > -20 || scene.AccessMax[1] < 20) { return HCRegionalRefuse("check11", sceneIndex); }
             if (!scene.Slots || scene.Slots.Count() != 3 || scene.History.Length() == 0) { return HCRegionalRefuse("check12", sceneIndex); }
             array<ref array<float>> slots = scene.Slots;
