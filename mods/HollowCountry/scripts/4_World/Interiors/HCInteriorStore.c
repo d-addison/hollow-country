@@ -32,6 +32,7 @@ class HCInteriorStore
 {
     protected string m_Root;
     protected bool m_Fault;
+    protected string m_LastRefusal;
     protected ref HCInteriorSearchPool m_Pool;
 
     bool Fail(string reason)
@@ -40,6 +41,19 @@ class HCInteriorStore
         m_Fault = true;
         return false;
     }
+
+    // A grant refusal that is not a new fault: logged once per reason change, never a player id.
+    bool Refuse(string reason)
+    {
+        if (m_LastRefusal != reason)
+        {
+            m_LastRefusal = reason;
+            Print("[HC Interiors] grant refused: " + reason);
+        }
+        return false;
+    }
+
+    string Refusal() { return m_LastRefusal; }
 
     int Quarantine(HCInteriorSite site, string reason)
     {
@@ -272,7 +286,8 @@ class HCInteriorStore
     // commit; no attempt (including a null native return) is ever retried.
     bool BeginGrant(HCInteriorSite site, string playerId)
     {
-        if (m_Fault || !site || !m_Pool || !m_Pool.Reserved(site)) return false;
+        if (m_Fault) return Refuse("store faulted; no grant");
+        if (!site || !m_Pool || !m_Pool.Reserved(site)) return Refuse("no reserved site for this grant");
         HCInteriorClaim claim;
         if (!HCInteriorJson<HCInteriorClaim>.Load(ClaimPath(site.SlotId), claim) || !MatchesClaim(claim, site) || claim.SchemaVersion != 2 || claim.Phase != 1 || claim.PlayerId != playerId) return FaultSite(site, "grant has no exact reservation");
         if (FileExist(AttemptPath(site.SlotId)) || FileExist(ResultPath(site.SlotId))) return FaultSite(site, "grant already attempted or completed; never retry");

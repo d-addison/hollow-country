@@ -51,7 +51,7 @@ def invoke(name, env, instance, *args, path=None):
     # startup tests supply explicit synthetic proof/API ports below.
     text = re.sub(r'#ifdef DIAG_DEVELOPER\s*.*?#endif', '', text, flags=re.S)
     # HCInteriorStore: native JSON out-parameters become walrus assignments from synthetic ports.
-    text = re.sub(r'HCInteriorJson<\w+>\.Load\((m_Root \+ "[^"]*"|path), (\w+)\)',
+    text = re.sub(r'HCInteriorJson<\w+>\.Load\((m_Root \+ "[^"]*"|path|\w+\([^()]*\)), (\w+)\)',
                   r'((\2 := load_json(\1)) is not null)', text)
     text = re.sub(r'HCInteriorJson<\w+>\.WriteNew\(', 'write_new(', text)
     text = re.sub(r'JsonFileLoader<\w+>\.MakeData\((\w+), (\w+), error\)',
@@ -72,7 +72,7 @@ def invoke(name, env, instance, *args, path=None):
                    'Reject', 'SearchBindingValid', 'SearchSession', 'SessionValid',
                    'PreserveLegacyManifest', 'RestoreLayoutManifest', 'SetSession',
                    'IsEnabled', 'ValidateConfig', 'AllocateManifest', 'PlaceCandidate',
-                   'ResolveBuilding', 'InspectProp', 'Fail', 'OpenJournal', 'ReconcileAll'):
+                   'ResolveBuilding', 'InspectProp', 'Fail', 'Refuse', 'OpenJournal', 'ReconcileAll'):
         text = re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(', text)
     # PlaceCandidate-only syntax: untyped locals, managed arrays, and the native
     # `out Object reusable` parameter (the synthetic port returns (decision, object)).

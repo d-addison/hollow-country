@@ -397,6 +397,7 @@ class HCSearchHouses
         if (!journal.Open(SOURCE_ID, pin, worldName, build))
         {
             m_Fault = true;
+            Print("[HC Search Houses] journal refused; house search stays refused");
             return false;
         }
         m_Journal = journal;
@@ -405,9 +406,17 @@ class HCSearchHouses
 
     bool EnsureJournal()
     {
-        if (!OpenJournal()) return false;
+        if (!OpenJournal())
+        {
+            m_Refusal = HCRefusal.STORAGE;
+            return false;
+        }
         if (m_Registry) return true;
-        if (m_Fault) return false;
+        if (m_Fault)
+        {
+            m_Refusal = HCRefusal.STORAGE;
+            return false;
+        }
         string pin = HCInteriorTemplates.SourcePin();
         string worldName = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName());
         string build = HCBuildIdentity.Canonical();
@@ -416,6 +425,7 @@ class HCSearchHouses
         {
             m_Fault = true;
             Print("[HC Search Houses] lazy registry refused; house search stays refused");
+            m_Refusal = HCRefusal.STORAGE;
             return false;
         }
         m_Registry = registry;
@@ -675,7 +685,12 @@ class HCSearchHouses
     void Begin(ActionData data)
     {
         HCInteriorActionData action = HCInteriorActionData.Cast(data);
-        if (!action || !data.m_Player) return;
+        if (!action || !data.m_Player)
+        {
+            // No player to tell: the reason stays readable through Refusal().
+            m_Refusal = HCRefusal.SESSION;
+            return;
+        }
         HCSearchHouseHit hit = Resolve(data.m_Player, data.m_Target);
         if (!Admit(data.m_Player, hit))
         {
@@ -745,12 +760,15 @@ class HCSearchHouses
     bool CanContinue(ActionData data)
     {
         HCSearchHouseSession session = SessionOf(data);
+        m_Refusal = HCRefusal.SESSION;
         if (!session || !SessionValid(data, session) || !session.Site) return false;
         float now = GetGame().GetTickTime();
         if (now < session.Site.StartedAt || now > session.Site.Deadline) return false;
         // The same cursor target must still be a valid hit inside the same site sphere.
         HCSearchHouseHit hit = Resolve(data.m_Player, data.m_Target);
-        return hit && hit.SiteId == session.Site.Id;
+        if (hit && hit.SiteId == session.Site.Id) return true;
+        if (m_Refusal == "") m_Refusal = HCRefusal.SESSION;
+        return false;
     }
 
     bool StillAuthorized(PlayerBase player, string actorId)
@@ -783,7 +801,12 @@ class HCSearchHouses
         }
         HCSearchHouseSession session = SessionOf(data);
         HCInteriorSite site = session.Site;
-        if (site.Phase != 0) { return; }
+        if (site.Phase != 0)
+        {
+            // Already claimed or finished: a repeated commit never moves a second item.
+            m_Refusal = HCRefusal.BUSY;
+            return;
+        }
         if (GetGame().GetTickTime() - site.StartedAt < COMMIT_AFTER)
         {
             HCRefusalReport.ActionRefusalMessage(data, HCRefusal.TOO_EARLY, "Search stopped; action completed too early. Please try again.");
