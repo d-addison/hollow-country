@@ -5,6 +5,107 @@
 // 1_Core/proto/EnMath.c:413 Math.Round(float). Limits remain in director ledger.
 class HCXAISiteRules
 {
+    // Catalog cardinality is independent of native actor/group budgets. Files
+    // also have a bounded byte read; excess input is refused, never truncated.
+    static int HCMaxCatalogRows() { return 1024; }
+    static int HCDefaultPageSize() { return 4; }
+    static int HCDefaultAttemptsPerTick() { return 1; }
+    static int HCDefaultSelectionIntervalSeconds() { return 30; }
+    static int HCDefaultOpportunitySeconds() { return 3600; }
+    static int HCDefaultRetrySeconds() { return 300; }
+    static int HCPageSize(HCXAILocalityCatalog catalog, int cap)
+    {
+        int size = catalog.PageSize;
+        if (size == 0) { size = HCXAISiteRules.HCDefaultPageSize(); }
+        if (size > cap) { size = cap; }
+        return size;
+    }
+    static int HCAttemptsPerTick(HCXAILocalityCatalog catalog)
+    {
+        if (catalog.AttemptsPerTick == 0) { return HCXAISiteRules.HCDefaultAttemptsPerTick(); }
+        return catalog.AttemptsPerTick;
+    }
+    static int HCOpportunitySeconds(HCXAILocalityCatalog catalog)
+    {
+        if (catalog.OpportunitySeconds == 0) { return HCXAISiteRules.HCDefaultOpportunitySeconds(); }
+        return catalog.OpportunitySeconds;
+    }
+    static int HCSelectionIntervalSeconds(HCXAILocalityCatalog catalog)
+    {
+        if (catalog.SelectionIntervalSeconds == 0) { return HCXAISiteRules.HCDefaultSelectionIntervalSeconds(); }
+        return catalog.SelectionIntervalSeconds;
+    }
+    static int HCRetrySeconds(HCXAILocalityCatalog catalog)
+    {
+        if (catalog.RetrySeconds == 0) { return HCXAISiteRules.HCDefaultRetrySeconds(); }
+        return catalog.RetrySeconds;
+    }
+    static HCXAILocalityCoverage HCCoverage(HCXAILocalityRotation rotation, string id)
+    {
+        foreach (HCXAILocalityCoverage row : rotation.Rows)
+        {
+            if (row.LocalityId == id) { return row; }
+        }
+        return null;
+    }
+    // One cursor step, bounded by HCMaxCatalogRows. Persist NextId BEFORE geometry or
+    // provider work. A refused row stays pending but cannot pin the cursor.
+    static int HCNextLocality(HCXAILocalityCatalog catalog, HCXAILocalityRotation rotation)
+    {
+        int index = 0;
+        int found = 0;
+        while (index < catalog.Localities.Count())
+        {
+            if (catalog.Localities[index].Id == rotation.NextId) { found = index; break; }
+            index++;
+        }
+        int next = (found + 1) % catalog.Localities.Count();
+        rotation.NextId = catalog.Localities[next].Id;
+        return found;
+    }
+    static string HCOldestPending(HCXAILocalityRotation rotation)
+    {
+        string oldest;
+        int pendingSince = 2147483647;
+        foreach (HCXAILocalityCoverage row : rotation.Rows)
+        {
+            if (row.Pending && row.PendingSinceSerial < pendingSince)
+            {
+                oldest = row.LocalityId;
+                pendingSince = row.PendingSinceSerial;
+            }
+        }
+        return oldest;
+    }
+    static string HCLocalityProblem(HCXAILocalityCatalog catalog, HCXAISitePolicy policy)
+    {
+        if (!catalog || catalog.SchemaVersion != 1 || catalog.WorldName != policy.WorldName) { return "catalog_schema_or_world"; }
+        if (!catalog.Localities || catalog.Localities.Count() < 1 || catalog.Localities.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return "catalog_row_budget"; }
+        if (catalog.PageSize < 0 || catalog.PageSize > 64 || catalog.AttemptsPerTick < 0 || catalog.AttemptsPerTick > 4) { return "catalog_work_budget"; }
+        if (catalog.SelectionIntervalSeconds < 0 || catalog.SelectionIntervalSeconds > 3600 || catalog.OpportunitySeconds < 0 || catalog.OpportunitySeconds > 86400 || catalog.RetrySeconds < 0 || catalog.RetrySeconds > 86400) { return "catalog_time_budget"; }
+        array<string> ids = new array<string>();
+        array<string> sites = new array<string>();
+        foreach (HCXAILocality locality : catalog.Localities)
+        {
+            if (!locality || !HCXAIRules.Token(locality.Id) || locality.Id.Length() > 48 || ids.Find(locality.Id) >= 0) { return "catalog_locality_id"; }
+            ids.Insert(locality.Id);
+            if (!locality.SiteIds || locality.SiteIds.Count() > 8) { return "catalog_site_budget"; }
+            foreach (string siteId : locality.SiteIds)
+            {
+                if (sites.Find(siteId) >= 0) { return "catalog_duplicate_site"; }
+                bool known = false;
+                foreach (HCXAISite site : policy.Sites)
+                {
+                    if (site.Id == siteId) { known = true; break; }
+                }
+                if (!known) { return "catalog_unknown_site"; }
+                sites.Insert(siteId);
+            }
+        }
+        // No authored site silently disappears when rotation is selected.
+        if (sites.Count() != policy.Sites.Count()) { return "catalog_unmapped_site"; }
+        return "";
+    }
     static float HCGroupFactor(int players)
     {
         if (players <= 1) { return 0.6; }
@@ -75,7 +176,7 @@ class HCXAISiteRules
         if (!HCXAIRules.Finite(p.CacheClearRadius) || p.CacheClearRadius < 100 || p.CacheClearRadius > 1000) { return "CacheClearRadius must be 100..1000"; }
         if (p.RaidCooldownFloorSeconds != 0 && (p.RaidCooldownFloorSeconds < 1800 || p.RaidCooldownFloorSeconds > 604800)) { return "RaidCooldownFloorSeconds must be 0 or 1800..604800"; }
         if (!HCXAIRules.Finite(p.ActivationRadiusScale) || (p.ActivationRadiusScale != 0 && (p.ActivationRadiusScale < 0.5 || p.ActivationRadiusScale > 2.0))) { return "ActivationRadiusScale must be 0 or 0.5..2.0"; }
-        if (!p.Sites || p.Sites.Count() < 1 || p.Sites.Count() > 64) { return "1..64 sites are required"; }
+        if (!p.Sites || p.Sites.Count() < 1 || p.Sites.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return "site catalog row budget exceeded"; }
         int index = 0;
         while (index < p.Sites.Count())
         {

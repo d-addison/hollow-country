@@ -1,0 +1,577 @@
+{
+  "SchemaVersion": 1,
+  "Enabled": true,
+  "WorldName": "chernarusplus",
+  "PageSize": 4,
+  "AttemptsPerTick": 1,
+  "SelectionIntervalSeconds": 30,
+  "OpportunitySeconds": 3600,
+  "RetrySeconds": 300,
+  "Localities": [
+    {
+      "Id": "chernogorsk",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Chernogorsk",
+      "SiteIds": [
+        "police-chernogorsk",
+        "scav-chernogorsk"
+      ]
+    },
+    {
+      "Id": "novodmitrovsk",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Novodmitrovsk",
+      "SiteIds": [
+        "scav-novodmitrovsk"
+      ]
+    },
+    {
+      "Id": "novoselki",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Novoselki",
+      "SiteIds": []
+    },
+    {
+      "Id": "dubovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Dubovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "vysotovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Vysotovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "zelenogorsk",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Zelenogorsk",
+      "SiteIds": [
+        "police-zelenogorsk"
+      ]
+    },
+    {
+      "Id": "berezino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Berezino",
+      "SiteIds": [
+        "police-berezino",
+        "scav-berezino"
+      ]
+    },
+    {
+      "Id": "elektrozavodsk",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Elektrozavodsk",
+      "SiteIds": [
+        "police-elektrozavodsk",
+        "scav-elektrozavodsk"
+      ]
+    },
+    {
+      "Id": "novaya-petrovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_NovayaPetrovka",
+      "SiteIds": [
+        "police-novaya-petrovka",
+        "checkpoint-novaya-south"
+      ]
+    },
+    {
+      "Id": "gorka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Gorka",
+      "SiteIds": [
+        "holdout-gorka"
+      ]
+    },
+    {
+      "Id": "solnechny",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Solnechny",
+      "SiteIds": []
+    },
+    {
+      "Id": "stary-sobor",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_StarySobor",
+      "SiteIds": []
+    },
+    {
+      "Id": "vybor",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Vybor",
+      "SiteIds": [
+        "scav-vybor"
+      ]
+    },
+    {
+      "Id": "severograd",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Severograd",
+      "SiteIds": []
+    },
+    {
+      "Id": "bor",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Bor",
+      "SiteIds": []
+    },
+    {
+      "Id": "svetloyarsk",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Svetloyarsk",
+      "SiteIds": []
+    },
+    {
+      "Id": "krasnostav",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Krasnostav",
+      "SiteIds": []
+    },
+    {
+      "Id": "chernaya-polyana",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_ChernayaPolyana",
+      "SiteIds": []
+    },
+    {
+      "Id": "polana",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Polyana",
+      "SiteIds": [
+        "holdout-polana"
+      ]
+    },
+    {
+      "Id": "tulga",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Tulga",
+      "SiteIds": []
+    },
+    {
+      "Id": "msta",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Msta",
+      "SiteIds": []
+    },
+    {
+      "Id": "staroye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Staroye",
+      "SiteIds": []
+    },
+    {
+      "Id": "shakhovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Shakhovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "dolina",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Dolina",
+      "SiteIds": []
+    },
+    {
+      "Id": "orlovets",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Orlovets",
+      "SiteIds": []
+    },
+    {
+      "Id": "novy-sobor",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_NovySobor",
+      "SiteIds": []
+    },
+    {
+      "Id": "kabanino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kabanino",
+      "SiteIds": []
+    },
+    {
+      "Id": "mogilevka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Mogilevka",
+      "SiteIds": [
+        "holdout-mogilevka"
+      ]
+    },
+    {
+      "Id": "nadezhdino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Nadezhdino",
+      "SiteIds": [
+        "holdout-nadezhdino"
+      ]
+    },
+    {
+      "Id": "guglovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Guglovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "kamyshovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kamyshovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "pusta",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Pusta",
+      "SiteIds": []
+    },
+    {
+      "Id": "dubrovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Dubrovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "vyshnaya-dubrovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_VyshnayaDubrovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "khelm",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Khelm",
+      "SiteIds": []
+    },
+    {
+      "Id": "olsha",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Olsha",
+      "SiteIds": []
+    },
+    {
+      "Id": "gvozdno",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Gvozdno",
+      "SiteIds": []
+    },
+    {
+      "Id": "grishino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Grishino",
+      "SiteIds": []
+    },
+    {
+      "Id": "rogovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Rogovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "pogorevka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Pogorevka",
+      "SiteIds": [
+        "holdout-pogorevka"
+      ]
+    },
+    {
+      "Id": "pustoshka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Pustoshka",
+      "SiteIds": []
+    },
+    {
+      "Id": "kozlovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kozlovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "karmanovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Karmanovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "balota",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Balota",
+      "SiteIds": []
+    },
+    {
+      "Id": "komarovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Komarovo",
+      "SiteIds": [
+        "police-komarovo",
+        "checkpoint-komarovo-east"
+      ]
+    },
+    {
+      "Id": "kamenka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kamenka",
+      "SiteIds": []
+    },
+    {
+      "Id": "myshkino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Myshkino",
+      "SiteIds": []
+    },
+    {
+      "Id": "pavlovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Pavlovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "lopatino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Lopatino",
+      "SiteIds": []
+    },
+    {
+      "Id": "vyshnoye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Vyshnoye",
+      "SiteIds": []
+    },
+    {
+      "Id": "prigorodki",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Prigorodki",
+      "SiteIds": []
+    },
+    {
+      "Id": "drozhino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Drozhino",
+      "SiteIds": []
+    },
+    {
+      "Id": "sosnovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Sosnovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "nizhnee",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Nizhneye",
+      "SiteIds": []
+    },
+    {
+      "Id": "pulkovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Pulkovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "berezhki",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Berezhki",
+      "SiteIds": []
+    },
+    {
+      "Id": "turovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Turovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "belaya-polyana",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_BelayaPolyana",
+      "SiteIds": []
+    },
+    {
+      "Id": "dobroye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Dobroye",
+      "SiteIds": []
+    },
+    {
+      "Id": "nagornoye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Nagornoye",
+      "SiteIds": []
+    },
+    {
+      "Id": "svergino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Svergino",
+      "SiteIds": []
+    },
+    {
+      "Id": "ratnoye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Ratnoye",
+      "SiteIds": []
+    },
+    {
+      "Id": "kamensk",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kamensk",
+      "SiteIds": []
+    },
+    {
+      "Id": "krasnoye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Krasnoye",
+      "SiteIds": []
+    },
+    {
+      "Id": "stary-yar",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_StaryYar",
+      "SiteIds": []
+    },
+    {
+      "Id": "polesovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Polesovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "tisy",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Tisy",
+      "SiteIds": []
+    },
+    {
+      "Id": "topolniki",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Topolniki",
+      "SiteIds": []
+    },
+    {
+      "Id": "zaprudnoye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Zaprudnoye",
+      "SiteIds": []
+    },
+    {
+      "Id": "sinystok",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Sinystok",
+      "SiteIds": []
+    },
+    {
+      "Id": "vavilovo",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Vavilovo",
+      "SiteIds": []
+    },
+    {
+      "Id": "kumyrna",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kumyrna",
+      "SiteIds": []
+    },
+    {
+      "Id": "kalinovka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Kalinovka",
+      "SiteIds": []
+    },
+    {
+      "Id": "bogatyrka",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Bogatyrka",
+      "SiteIds": []
+    },
+    {
+      "Id": "svyatoy-roman-ski-resort",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_SvyatoyRomanSkiResort",
+      "SiteIds": []
+    },
+    {
+      "Id": "skvsch-biathlon-arena",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_SKVSChBiathlonArena",
+      "SiteIds": []
+    },
+    {
+      "Id": "zvir",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Zvir",
+      "SiteIds": []
+    },
+    {
+      "Id": "zabolotye",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Zabolotye",
+      "SiteIds": []
+    },
+    {
+      "Id": "galkino",
+      "Island": false,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Galkino",
+      "SiteIds": []
+    },
+    {
+      "Id": "skalisty",
+      "Island": true,
+      "Source": "stock CfgWorlds/ChernarusPlus/Names/Settlement_Skalisty",
+      "SiteIds": []
+    },
+    {
+      "Id": "drakon",
+      "Island": true,
+      "Source": "stock Names/Local_Drakon",
+      "SiteIds": []
+    },
+    {
+      "Id": "otmel",
+      "Island": true,
+      "Source": "stock Names/Local_Otmel",
+      "SiteIds": []
+    },
+    {
+      "Id": "prison-island",
+      "Island": true,
+      "Source": "stock Names/Ruin_Storozh",
+      "SiteIds": []
+    },
+    {
+      "Id": "nw-airfield",
+      "Island": false,
+      "Source": "existing ai/sites.json mil-nwaf",
+      "SiteIds": [
+        "mil-nwaf"
+      ]
+    },
+    {
+      "Id": "tisy-military",
+      "Island": false,
+      "Source": "existing ai/sites.json mil-tisy",
+      "SiteIds": [
+        "mil-tisy"
+      ]
+    },
+    {
+      "Id": "vybor-military",
+      "Island": false,
+      "Source": "existing ai/sites.json mil-vybor",
+      "SiteIds": [
+        "mil-vybor"
+      ]
+    },
+    {
+      "Id": "green-mountain",
+      "Island": false,
+      "Source": "existing HCWorldData.Fresh locality",
+      "SiteIds": []
+    },
+    {
+      "Id": "devils-castle",
+      "Island": false,
+      "Source": "existing HCWorldData.Fresh locality",
+      "SiteIds": []
+    }
+  ]
+}

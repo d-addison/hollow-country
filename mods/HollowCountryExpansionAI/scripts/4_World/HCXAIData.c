@@ -187,6 +187,49 @@ class HCXAISitePolicy
     float ActivationRadiusScale = 0; // absent/zero means 1.0
     ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
 }
+// HC-18 / #143..#147 shared catalog v1. Stable locality IDs are coverage
+// identities, SiteIds reference existing reviewed gameplay inputs only. An
+// empty SiteIds list is pending route/access work, never a quiet exclusion.
+// HC-16 consumes these IDs; authored/selected/observed remain separate.
+class HCXAILocality
+{
+    string Id;
+    bool Island = false;
+    string Source;
+    ref array<string> SiteIds = new array<string>();
+}
+class HCXAILocalityCatalog
+{
+    int SchemaVersion = 1;
+    bool Enabled = true;
+    string WorldName;
+    // JsonFileLoader absent ints are zero: resolve via named rule defaults.
+    int PageSize = 0;
+    int AttemptsPerTick = 0;
+    int SelectionIntervalSeconds = 0;
+    int OpportunitySeconds = 0;
+    int RetrySeconds = 0;
+    ref array<ref HCXAILocality> Localities = new array<ref HCXAILocality>();
+}
+class HCXAILocalityCoverage
+{
+    string LocalityId;
+    int NextSite = 0;
+    int LastSelected = 0;
+    int LastObserved = 0;
+    int PendingSinceSerial = 0;
+    int RetryAt = 0;
+    bool Pending = true;
+    string Refusal = "route_not_reviewed";
+}
+class HCXAILocalityRotation
+{
+    int SchemaVersion = 1;
+    string WorldName;
+    string NextId;
+    int SelectionSerial = 0;
+    ref array<ref HCXAILocalityCoverage> Rows = new array<ref HCXAILocalityCoverage>();
+}
 // Gathered natively at startup; never read from profile or RPC data.
 class HCXAISiteAdmission
 {
