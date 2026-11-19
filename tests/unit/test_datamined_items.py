@@ -692,6 +692,49 @@ class UsefulSupply(Base):
                     self.generate()
         self.assertEqual(self.before, tree(self.root))
 
+    def test_install_floor_flag_exception_is_exact_and_does_not_widen_other_fields(self):
+        cases = (
+            ('DrysackBag_Green', 'crafted', '1'),
+            ('TortillaBag_Desert', 'deloot', '1'),
+            ('LeatherHat_Beige', 'deloot', '1'),
+            ('DrysackBag_Green', 'count_in_player', '1'),
+            ('DrysackBag_Green', 'unexpected', '0'),
+            ('Bandana_Blue', 'crafted', '1'),
+            ('Iceaxe', 'crafted', '1'),
+        )
+        for name, flag, value in cases:
+            with self.subTest(name=name, flag=flag):
+                files = self.generate()
+                types = ET.fromstring(files['ce/types.xml'])
+                types.find("type[@name='%s']/flags" % name).set(flag, value)
+                files['ce/types.xml'] = ET.tostring(types)
+                self.refuse_install(files, 'FLOOR_FLAGS_DRIFT|NEW_TYPE_DRIFT|retain')
+                shutil.rmtree(Path(self.tmp.name) / 'delta')
+        files = self.generate()
+        types = ET.fromstring(files['ce/types.xml'])
+        types.find("type[@name='DrysackBag_Green']/cost").text = '999'
+        files['ce/types.xml'] = ET.tostring(types)
+        self.refuse_install(files, 'retain')
+
+    def test_route_audit_uses_emitted_flags_without_class_name_exceptions(self):
+        from tools.audit import loot_routes
+        # Explicit synthetic mission containing only the generated rows, to avoid
+        # assuming CE precedence between stock and overlay definitions.
+        mission = Path(self.tmp.name) / 'audit'
+        (mission / 'db').mkdir(parents=True)
+        types_path = mission / 'db/types.xml'
+        files = self.generate()
+        types_path.write_bytes(files['ce/types.xml'])
+        names = ['DrysackBag_Green', 'TortillaBag_Desert']
+        rows = loot_routes.report_rows(mission, essentials=names)
+        self.assertEqual([(r[0], r[1]) for r in rows], [('TortillaBag_Desert', 1)])
+        types = ET.fromstring(files['ce/types.xml'])
+        types.find("type[@name='DrysackBag_Green']/flags").set('crafted', '1')
+        types.find("type[@name='TortillaBag_Desert']/flags").set('deloot', '1')
+        types_path.write_bytes(ET.tostring(types))
+        rows = loot_routes.report_rows(mission, essentials=names)
+        self.assertEqual([(r[0], r[1]) for r in rows], [(name, 0) for name in names])
+
     def test_other_profile_retains_legacy_rows_without_reading_supply_ledger(self):
         with mock.patch.object(dm, 'SUPPLY_DATA', Path(self.tmp.name) / 'absent-ledger.json'):
             files = economy.generate(self.root, profile())

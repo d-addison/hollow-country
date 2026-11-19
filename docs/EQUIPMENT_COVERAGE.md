@@ -10,12 +10,12 @@ unused-item rows and their new-type permissions. Existing stock remains intact.
 
 | Requirement / dependency | Implemented slice | Acceptance / follow-up |
 | --- | --- | --- |
-| HC-22 useful clothing/storage | 55 authored proposals; 38 admitted candidate rows; 17 named floor refusals | Every newly admitted family needs native equip/store/repair/restart |
+| HC-22 useful clothing/storage | 55 authored and admitted candidate rows; zero floor refusals | Every newly admitted family needs native equip/store/repair/restart |
 | HC-4/9 native supply, ordinary loot about 2x | 21 additional usage-only contextual entries; existing HC-9 multiplier unchanged | Measure acquisition and world counts at 3–6 players |
 | HC-21 firearm scarcity/support | Existing roster, family accounting and firearm new-type permissions unchanged | Reuse its qualification gates |
 | HC-28 recovery | Reuse existing economy staged delta, receipt, backup, collision checks and rollback | Stop/restart and exact package rollback pending |
 | Native water/meds/sharpening | Native vessels, purification, IV ingredients, emergency meds, Whetstone and repair-kit routes | Contents, potability, consumption, quantities and persistence pending |
-| Leather/crafted/derived flags | Native flags retained; unsupported floor entries withheld | Named recipe/eligibility work remains open |
+| Leather/crafted/derived flags | 17 exact floor overrides clear crafted; TortillaBag_Desert also clears deloot | Named recipe/eligibility work remains open |
 | 2,001 candidate review | Explicit queue in loot-dispositions.json; remaining count unknown | Identity-complete review is pending; these 131 decisions are not 131 qualified candidates |
 | No seasonal cold / native armour | `extra_cold=0`; native insulation/protection unchanged | No new thermal requirement |
 
@@ -36,7 +36,11 @@ finite-supply, revisit and journal checks before transfer. The cache and sender
 throttle keep their existing caps. Positive cabinet replies expire using the
 existing three-second retry interval; the last positive remains usable while
 renewing so renewal cannot cancel the six-second action. A negative reply removes
-the prompt. Empty replies keep the existing 60-second retry. Existing EnableInteriors/EnableSearch settings and interior_search.disable
+the prompt. Empty replies keep the existing 60-second retry while resident.
+At cache pressure, a bounded sweep reclaims a completed negative reply or an
+unsent empty entry so an unseen cabinet can request; in-flight requests and
+positive sites remain resident. Existing EnableInteriors/EnableSearch settings
+and interior_search.disable
 remain the operator opt-outs. No setting, distance, work limit or module slot is
 added. Two-client replication and native action acceptance remain pending.
 
@@ -63,38 +67,27 @@ outside W46 ownership. Pack hashes are retained rather than hand-editing an
 invalid generated manifest. The per-class runtime refusal is the safe fallback;
 additional furniture remains open for the placement owner.
 
-The 17 floor proposals are **not enabled in this checkout**. The unchanged
-generator rejects admitting their native crafted/deloot flags with
-`HC22_UNQUALIFIED_FLOOR_FLAGS`; changing only this worker's ledger would break
-all contextual-pilot generation. W46 requested ownership of the tooling and
-has not received that scope extension. A concrete integration patch is staged
-for the lead at `.banso-writer/loot-floor-admission.patch` (not a committed
-artifact). It changes only:
+The 17 floor proposals are enabled in the integrated `contextual-pilot`
+generator. Exactly the reviewed DrysackBag colours, 13 leather rows and
+TortillaBag_Desert emit `crafted=0`; TortillaBag_Desert also emits `deloot=0`.
+The source manifest retains stock flags for stock validation. Other profiles
+retain those flags, and unrelated proposals cannot obtain this exception.
+The installer compares the entire flags node against stock with only those
+specific changes, retaining count flags, quantities, cost and other protected
+fields. It does not add flags to the general mutable-field set.
 
-1. `tools/package/datamined_items.py`: admit the exact shipped 17 proposals
-   through a fixed allowlist and whole-row equality check, retaining all native
-   flags. Altered/unreviewed crafted/deloot proposals still refuse.
-2. `config/loot-dispositions.json`: for those 17 classes only, set
-   route=native-floor, floor_admitted=true, refusal=null; retain pending-native
-   eligibility and append the owner's unverified-admission evidence.
-3. `tests/unit/test_datamined_items.py`: update the two old refusal/count tests
-   to 55 admitted / zero refused; retain the altered-bandana flag rejection.
+The 17 rows retain nominal/min 2/1 for the 13 leather rows and TortillaBag_Desert,
+and 3/1 for the three DrysackBag colours: nominal 37 / min 17 before HC-9.
+All 55 proposals total nominal 133 before HC-9. Generation and installation
+remain repo-only, using the staged economy workflow below. Regenerate an older
+staged delta to include these floor flags. `--no-datamined` removes the additions.
+Stock files are never rewritten, and rollback restores the mission byte-exactly.
 
-The proposed admission retains nominal/min 2/1 for the 13 leather proposals and
-TortillaBag_Desert, and 3/1 for the three DrysackBag colours: nominal 37 / min 17
-additional proposals before HC-9, total nominal 133 across 55 rows. No flag is
-cleared to manufacture native floor eligibility. In particular, ordinary floor
-acquisition with crafted/deloot flags remains runtime=PENDING; native testing
-must establish whether another native physical route is needed. The existing
-`--no-datamined` opt-out still removes the additions.
-
-`tests/unit/test_loot_w46.py::FloorAdmissionIntegrationFixture` applies that
-exact policy to a **local fixture copy** of the tool and ledger over an explicit
-synthetic stock mission. It verifies 55 finite proposals, stock-identical flags,
-operator opt-out, installation and byte-exact rollback. This passing fixture is
-not production integration or DayZ evidence. The existing refusal tests remain
-unchanged in the checkout because its production policy remains unchanged.
-No source outside W46's assigned files/new Loot-prefixed sources was edited.
+`tests/unit/test_loot_w46.py::FloorAdmissionIntegration` runs the integrated
+generator over an explicit synthetic stock mission. It checks all 55 rows,
+exact flag changes, finite budgets, opt-out, installation and byte-exact rollback.
+It no longer rewrites an obsolete copy of generator source. These tests establish
+package behavior only; ordinary CE acquisition remains runtime=PENDING.
 
 Native follow-up: compile with DayZDiag, boot the normal PBO/server, then use two
 clients at a configured original and refresh-pilot cabinet. Confirm that only
@@ -103,7 +96,7 @@ restart preserves depletion, disabled search removes grants, and an unavailable
 provider produces no prompt. Check furnishing refusal classes individually;
 open doors and use stairs at every subsequently qualified placement. The 17
 floor rows require separate acquisition, finite world-count and rollback tests
-after the lead integrates their patch.
+using the regenerated overlay.
 
 ## Small inputs and accounting
 
@@ -123,16 +116,14 @@ also distinct from the plan's 2,001-candidate queue. Raw inputs stay external.
 
 The generator reuses the essential-route parser, stock budget validator,
 `datamined_items` row/config parser and the single economy delta. In the
-`economy-report.json` supply section, `authored=55`, `admitted=38`,
-`floor_refused=17`, `observed=0`, `extra_cold=0`; admission counts XML proposals,
-not CE observations. The 38 rows total nominal 96 **before HC-9**. Counts are
+`economy-report.json` supply section, `authored=55`, `admitted=55`,
+`floor_refused=0`, `observed=0`, `extra_cold=0`; admission counts XML proposals,
+not CE observations. The 55 rows total nominal 133 **before HC-9**. Counts are
 configuration budgets, not simultaneous loot or supply measured in play.
-`refused_by_route` distinguishes 13 unresolved routes, three native-craft routes
-and one native-carrier route. `refused_by_reason` counts 16
-`HC22_CRAFTED_FLOOR_UNPROVEN` and one `HC22_EVENT_CARRIER_UNQUALIFIED`.
+`refused_by_route` and `refused_by_reason` are empty for these proposals.
 The broader ledger separately retains twelve unresolved leather definitions,
-water contents uncertainty and stock/craft supply. These are outside the
-17 withheld proposals; the counts must not be presented as a complete census.
+water contents uncertainty and stock/craft supply. These counts are not a
+complete census and do not accept missing native experiments.
 
 Three absent bandanas use an independent, fixed non-weapon allowlist and the
 `supply_new_type_classes` manifest field. The installer compares their complete
@@ -163,7 +154,7 @@ separate from the optional economy delta workflow.
 | Medical | Medic blue scrubs shirt/pants/hat gain Town; native paramedic and nurse stock retained | Full outfit acquisition, native slots and repair pending |
 | Military | Native BDU/USMC woodland stock; selected coats, pilot/Gorka variants and packs below | Native armour protection unchanged; no extra armour class restored |
 | Civilian storage | TaloonBag_Blue gains Town; DryBag_Blue and all three WaterproofBag colours gain Village | Actual cargo fit, wetness behavior, capacity and persistence pending |
-| Native drysack | WaterproofBag colour + Rope → DrysackBag colour; no extra floor copy | Empty-container craft/decraft, ingredient consumption and restart pending |
+| Native drysack | WaterproofBag colour + Rope → DrysackBag colour; finite floor rows also admitted | Empty-container craft/decraft, ingredient consumption and restart pending |
 | Repair / sharpening | LeatherSewingKit gains Hunting; Whetstone gains Industrial/Hunting alongside Farm | Native kit matching and finite tool wear pending; no new recipe |
 
 The following table enumerates every HC-22 admitted unused-item proposal.
@@ -209,40 +200,40 @@ All purposes retain native wear/use/repair/cargo qualification as pending.
 | `WinterMilitaryCoat_Brown` | native clothing / visual variant | Military | 2 / 1 |
 | `WinterMilitaryCoat_DarkGrey` | native clothing / visual variant | Military | 2 / 1 |
 | `WinterMilitaryCoat_Grey` | native clothing / visual variant | Military | 2 / 1 |
+| `LeatherJacket_Natural` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherJacket_Beige` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherJacket_Brown` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherJacket_Black` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherShoes_Natural` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherShoes_Beige` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherShoes_Brown` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherShoes_Black` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherHat_Natural` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherHat_Beige` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherHat_Brown` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherHat_Black` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `LeatherShirt_Natural` | native clothing / visual variant | Hunting / Village | 2 / 1 |
+| `DrysackBag_Green` | cargo pack | Coast / Village | 3 / 1 |
+| `DrysackBag_Orange` | cargo pack | Coast / Village | 3 / 1 |
+| `DrysackBag_Yellow` | cargo pack | Coast / Village | 3 / 1 |
+| `TortillaBag_Desert` | cargo pack | Military | 2 / 1 |
 
-## Refusals and unknown eligibility
+## Floor flag overrides and unknown eligibility
 
-These proposals retain their authored budgets for review, but the named pilot
-emits no replacement row for them. Their native stock zero nominals and flags
-remain untouched; no flags are cleared to manufacture a floor route.
-
-| Class | Retained route | Named refusal |
-| --- | --- | --- |
-| `LeatherJacket_Natural` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherJacket_Beige` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherJacket_Brown` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherJacket_Black` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherShoes_Natural` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherShoes_Beige` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherShoes_Brown` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherShoes_Black` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherHat_Natural` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherHat_Beige` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherHat_Brown` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherHat_Black` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `LeatherShirt_Natural` | unresolved | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `DrysackBag_Green` | native-craft | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `DrysackBag_Orange` | native-craft | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `DrysackBag_Yellow` | native-craft | `HC22_CRAFTED_FLOOR_UNPROVEN` |
-| `TortillaBag_Desert` | native-carrier | `HC22_EVENT_CARRIER_UNQUALIFIED` |
+The 17 rows above use ordinary floor flags in the candidate overlay. Only their
+`crafted` flag may clear; only TortillaBag_Desert may also clear `deloot`.
+The other four count flags remain stock-identical. No name-based exception
+exists in the route audit: it counts only usages whose actual XML flags permit
+floor supply. Multiple stock/overlay definitions still contribute only common
+routes because CE merge order remains unobserved.
 
 LeatherPants and LeatherStorageVest (Natural/Beige/Brown/Black), plus
 LeatherGloves in those four colours, retain
 `HC22_LEATHER_RECIPE_UNESTABLISHED`. Crafted config/category, a public
 definition or a suggestive name does not establish an active clothing recipe.
 Craft-owner work must establish a real route; none is invented here.
-TortillaBag_Desert retains native `deloot=1`; event/carrier identity and
-acquisition remain unqualified.
+TortillaBag_Desert emits `deloot=0` in the named pilot overlay; actual floor
+acquisition and finite replenishment remain unqualified.
 
 The new bandanas add nominal 15 to the existing five-pattern native family
 nominal 60 before HC-9. This is an explicit ordinary-clothing addition; the
@@ -294,7 +285,7 @@ No new Enforce API call is authored by this content/tooling slice.
 | N3 | `4_World/Classes/Recipes/Recipes/CraftDrysackBag.c:23-55` ingredients, consumed inputs, colour-derived result and empty-bag condition; `PluginRecipesManagerBase.c:160` registration. `4_World/Classes/UserActionsComponent/Actions/Continuous/ActionDeCraftDrysackBag.c:37-54` server-side empty-container decraft. |
 | N3 repair | `4_World/Plugins/PluginBase/PluginRepairing.c:92-128` health/kit checks; `4_World/Classes/Recipes/Recipes/SharpenMelee.c:27,67-94` Whetstone plus native repair handler; `RepairWithSewingKit.c:61-66` and `RepairWithLeatherSewingKit.c:61-66` item-specific crafting eligibility. |
 | N3 meds | `4_World/Classes/Recipes/Recipes/PurifyWater.c:27-44,70-78`; `CraftSalineBagIV.c:27-46`; `CraftBloodBagIV.c:27-46`; `PluginRecipesManagerBase.c:91-105,166-167` native registrations. |
-| N10 | `3_Game/CE/CentralEconomy.c:310` SpawnAnalyze and `:394` SpawnLoot are diagnostic/native spawning declarations, not an eligibility getter or proof of normal CE acquisition. No new spawning call is introduced. Crafted/deloot flags stay unchanged. |
+| N10 | `3_Game/CE/CentralEconomy.c:310` SpawnAnalyze and `:394` SpawnLoot are diagnostic/native spawning declarations, not an eligibility getter or proof of normal CE acquisition. No new spawning call is introduced. Only the 17 reviewed HC-22 floor rows override crafted/deloot as described above. |
 
 ## Lead integration (HC-62; reserved shared files)
 
@@ -312,7 +303,7 @@ The lead must make this exact integration through its bounded manifest path:
    `mods/HollowCountry/scripts/4_World/Operations/HCOperationalContributors.c`
    (not yet present at this base), add the fixed content entry and one bounded
    diagnostic. Expected candidate fields for this source are:
-   `[HC Plan] HC-22 supply admitted=38 floor_refused=17 extra_cold=0 state=on authored=55 observed=0 runtime=PENDING`.
+   `[HC Plan] HC-22 supply admitted=55 floor_refused=0 extra_cold=0 state=on authored=55 observed=0 runtime=PENDING`.
    Off (`--no-datamined`) must report `state=off admitted=0 floor_refused=0`.
    Missing/drifted manifest must report `state=refused admitted=0` with a named
    manifest/hash refusal. Do not hard-code these counts as native observations.
@@ -348,7 +339,10 @@ a native class export nor a debug-spawned item establishes ordinary acquisition.
 The full candidate review, target-load budget and production promotion remain
 pending. Distances added by HC-22: **none**.
 
-## Offline RED / GREEN record
+## Historical HC-22 offline RED / GREEN record
+
+The following records describe earlier refusal policy; current W46 behavior and
+counts are documented above and tested against the integrated generator.
 
 Round 1 added no persistent test module under its original content-only brief. The
 existing in-memory generator/parser fixtures and a focused executable assertion
@@ -386,8 +380,8 @@ Review trace: HC-22 / P2-1, P3-1, P3-2 and P3-4.
 
 - [x] P2-1: persistent stdlib behavioral coverage in
   `tests/unit/test_datamined_items.py::UsefulSupply`, using the explicitly
-  synthetic `stock_mission` fixture. Covers all three bandanas, all 17 named
-  floor refusals, rehashed nominal drift, stock spelling/case collisions,
+  synthetic `stock_mission` fixture. Covers all three bandanas, all 17 admitted
+  floor overrides, rehashed nominal drift, stock spelling/case collisions,
   unreviewed permissions, missing decisions, crafted/deloot flags and legacy
   non-pilot behavior. Rejected installs retain exact target bytes.
 - [x] P3-1: validate the named new-type proposal only; require the report's
@@ -480,7 +474,7 @@ Commit message supplied to the Banso writer in `.banso-writer/commit-message`:
 `fix(economy): test HC-22 supply and bind installs to ledger policy`.
 No staging, commit or publication was performed by this worker.
 
-## W46 verification record
+## W46 round 1 verification record (historical)
 
 RED before cabinet implementation:
 
@@ -518,4 +512,62 @@ Final W46 results: the focused command above ran **149 tests, OK**;
 `enforce_lint: pass findings=1 new=0 stale=0 native=no`.
 No setting was changed, so settings-registry validation was not required.
 No new mission data file, module slot or shared package registration is needed.
+Nothing observed in DayZ yet.
+
+
+## W46 round 2 review fixes
+
+P1: the integrated generator now clears the floor-blocking flags only for the
+17 reviewed rows. P2: cache pressure reclaims negative/unsent entries without
+evicting in-flight requests or positive sites. The obsolete source-rewriting
+fixture was replaced by integrated generation/install/rollback behavior.
+P3: current accounting and overlay regeneration instructions are updated above.
+
+Actual RED command:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46.FloorAdmissionIntegration tests.unit.test_loot_w46.CabinetSites.test_decorative_cabinets_cannot_starve_a_bound_cabinet -v
+```
+
+Result: `Ran 2 tests`, `FAILED (failures=2)`. Actual assertions:
+`AssertionError: '1' != '0'` for the generated Drysack crafted flag;
+`AssertionError: Lists differ: ['StaticObj_Furniture_case_a_x255y0z0w0'] != ['StaticObj_Furniture_case_a_x256y0z0w0']`
+when decorative cabinet 257 could not send a request.
+The additional throttled-unsent behavioral test also failed before its fix:
+`AssertionError: 1 != 2` (one request instead of the required second request).
+
+GREEN cache/source/common-brief command:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_v1_combined_rpc tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+```
+
+Result: `Ran 91 tests`, `OK`. The integrated floor test additionally passes
+with the independent exact-17 allowlist and stock-preservation assertion.
+Installer regression cases reject changed count flags, restored crafted/deloot,
+unreviewed-row flag changes, extra flag attributes and changed cost before writes.
+The audit test credits only actual emitted floor flags and retains conservative
+common-route accounting for conflicting definitions.
+
+`python3 -B -m tools.validate.enforce_lint --no-native`:
+`enforce_lint: pass findings=1 new=0 stale=0 native=no`.
+The full focused/affected commands and their results are recorded in the writer
+commit message. No shared registry, mission-file list or settings edit is needed.
+DayZDiag, normal PBO/server, two-client checks and target-load measurements
+remain pending. Nothing observed in DayZ yet.
+
+Broad focused/package/friend run: 841 reported checks, including one loader error
+and one Windows-only PowerShell skip; 839 executed tests passed. The only loader
+error was the firearm-family suite's sibling import (`test_firearms_roster`).
+The required path fixes the invocation without source changes:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest tests.unit.test_hc_firearm_families -v
+```
+
+Result: `Ran 1 test`, `OK`. Across that broad run and the corrected module rerun,
+840 tests passed and one Windows-only check was skipped. The additional affected
+economy/package group ran 270 tests, `OK`. The final cache/source group ran 91
+tests, `OK`. The independent exact-17 integration test also ran once, `OK`.
+These are overlapping suites; their counts must not be summed as unique tests.
 Nothing observed in DayZ yet.

@@ -391,10 +391,10 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
         "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "DrysackBag_Green"
@@ -405,10 +405,10 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
         "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "DrysackBag_Orange"
@@ -419,10 +419,10 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
         "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "DrysackBag_Yellow"
@@ -676,9 +676,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherHat_Beige"
@@ -689,9 +689,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherHat_Black"
@@ -702,9 +702,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherHat_Brown"
@@ -715,9 +715,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherHat_Natural"
@@ -728,9 +728,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherJacket_Beige"
@@ -741,9 +741,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherJacket_Black"
@@ -754,9 +754,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherJacket_Brown"
@@ -767,9 +767,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherJacket_Natural"
@@ -846,9 +846,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherShirt_Natural"
@@ -859,9 +859,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherShoes_Beige"
@@ -872,9 +872,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherShoes_Black"
@@ -885,9 +885,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherShoes_Brown"
@@ -898,9 +898,9 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "tools/package/datamined_items.json: Stock source crafted flag retained for validation; HC-22 overlay clears crafted for this reviewed floor row. No active native clothing recipe established; craft-owner follow-up pending.",
         "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "LeatherShoes_Natural"
@@ -1340,8 +1340,8 @@
       "floor_admitted": true,
       "eligibility": "pending-native",
       "evidence": [
-        "tools/package/datamined_items.json: Native deloot flag retained; no ordinary floor admission; event/carrier qualification pending.",
-        "Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING"
+        "tools/package/datamined_items.json: Stock source deloot flag retained for validation; HC-22 overlay clears deloot for this reviewed floor row; acquisition qualification pending.",
+        "Owner 2026-11-19 round 2: emit crafted=0 for these 17 exact finite proposals and deloot=0 for TortillaBag_Desert; ordinary floor acquisition runtime=PENDING"
       ],
       "refusal": null,
       "class": "TortillaBag_Desert"

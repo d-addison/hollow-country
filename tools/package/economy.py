@@ -219,7 +219,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
             'deferred_datamined': roster['deferred_datamined']}
     datamined_report = None
     if include_datamined:
-        datamined = datamined_items.type_rows(types, vocabulary, rows=item_rows, include_new=supply)
+        datamined = datamined_items.type_rows(types, vocabulary, rows=item_rows, include_new=supply, floor=supply)
         emitted = {n.get('name') for n in datamined}
         absent = sorted(r['class'] for r in item_rows if r['class'] not in emitted)
         out.extend(datamined)
@@ -801,6 +801,8 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     Reviewed variants already in stock (including case aliases) use that same strict parent comparison
     when widened by the roster; unrelated stock classes retain the original per-field rules.
     ``supply_new_types`` separately admits only the exact HC-22 bandana rows.
+    An authored HC-22 supply report permits only the 17 fixed floor rows to clear
+    crafted, with deloot additionally cleared only for TortillaBag_Desert.
     """
     mutable = frozenset(mutable)
     widened = frozenset(widened) | frozenset(datamined)
@@ -817,6 +819,7 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     target = _target(target)
     files, manifest = _load_delta(stage)
     _check_supply_ledger(files, manifest, supply_new_types)
+    floor_supply = json.loads(files['economy-report.json']).get('supply', {}).get('state') == 'authored'
     data = snapshot(target)
     if {n: sha(d) for n, d in data.items()} != manifest['sources']:
         raise ValueError('target source hashes differ; regenerate/reconcile')
@@ -873,7 +876,21 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
             if len(cats) > 1 or any(dict(c.attrib) != {'name': CATEGORY_ADDED[name]} or len(c) or (c.text or '').strip()
                                     for c in cats):
                 raise ValueError(f'invalid category addition (only {CATEGORY_ADDED[name]!r} is declared): {name}')
-        if _retained(item, allowed, add_category) != _retained(stock[name], allowed, add_category):
+        retained_item = item
+        if floor_supply and name in datamined and name in datamined_items.SUPPLY_UNVERIFIED_FLOOR:
+            # Only these reviewed rows may clear crafted (and Tortilla's deloot).
+            # Compare the complete flags node, including structure and every count flag.
+            expected_flags = copy.deepcopy(stock[name].find('flags'))
+            expected_flags.set('crafted', '0')
+            if name == 'TortillaBag_Desert':
+                expected_flags.set('deloot', '0')
+            candidate_flags = item.findall('flags')
+            if len(candidate_flags) != 1 or _full(candidate_flags[0]) != _full(expected_flags):
+                raise ValueError('HC22_FLOOR_FLAGS_DRIFT: ' + name)
+            retained_item = copy.deepcopy(item)
+            retained_item.find('flags').attrib.clear()
+            retained_item.find('flags').attrib.update(stock[name].find('flags').attrib)
+        if _retained(retained_item, allowed, add_category) != _retained(stock[name], allowed, add_category):
             raise ValueError('candidate must retain every stock field except the mutable set')
         for n in item:  # a changed tag is a plain value: no attributes beyond the name, no descendants
             if n.tag in allowed and (len(n) or set(n.attrib) != ({'name'} if n.tag in {'usage', 'value'} else set())):

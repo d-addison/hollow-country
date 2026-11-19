@@ -3,8 +3,10 @@
 Reads mission db/types.xml and type=types CE declarations, plus explicit candidate
 --overlay types XML files. Does not install, change counts or claim spawn evidence.
 Distinct usages count once; categories label a route, never multiply it. A route
-requires nominal >0, category and usage, and no crafted/deloot-only flag. Conflicting
-definitions contribute only common routes: CE override ordering is not assumed.
+requires nominal >0, category and usage, and crafted=0/deloot=0. The HC-22
+floor proposals must clear those flags in their emitted XML; class names never
+bypass this policy. Conflicting definitions contribute only common routes:
+CE override ordering is not assumed.
 Bounded to 128 files of 32 MiB each, 128 MiB total and the existing CE node/depth
 limits. No engine API or runtime tick. Output only; no metrics artifact is written.
 HC-33 --habitats appends authored flora/native-use dispositions with zero CE
@@ -144,6 +146,7 @@ def report_rows(mission, overlays=(), essentials=ESSENTIALS):
             if any(not TOKEN.fullmatch(token) for token in categories | usages):
                 raise ValueError('invalid category or usage')
             flags = entry.find('flags')
+            # Read actual XML flags, including for the 17 HC-22 floor overrides.
             special = flags is not None and (flags.get('crafted', '0') != '0' or flags.get('deloot', '0') != '0')
             routes = usages if int(nominal) > 0 and categories and not special else set()
             route_sets.append(routes)
