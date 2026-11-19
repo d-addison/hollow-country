@@ -3,7 +3,7 @@
 Reuses the economy delta model: generate reads installed stock and never writes it; the delta is a
 complete-entry ``types.xml`` delta in the managed ``hollow-country/ce`` folder. Ordinary entries
 copy their stock row and change only roster budget/tier fields. Reviewed #48/#30 variants copy
-their stock parent's entire row with nominal/min halved (floor); stock case aliases are reused.
+their stock parent's row with explicit family-budget shares; stock case aliases are reused.
 Optics are superseded by the optional pack's mod-side config. Install/rollback target an explicit
 stopped, private mission copy (never Steam) and restore bytes exactly. No placement edits.
 
@@ -22,11 +22,9 @@ import xml.etree.ElementTree as ET
 try:
     from tools.package import economy
     from tools.package import xml_text
-    from tools.package import xml_text
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import economy
-    from tools.package import xml_text
     from tools.package import xml_text
 
 ROSTER_PATH = Path(__file__).with_name('firearms_roster.json')
@@ -35,12 +33,13 @@ SET_FIELDS = ('nominal', 'min', 'lifetime', 'restock')
 KINDS = {'weapon': {'wood', 'modern'}, 'magazine': {'support'}, 'ammo': {'support'}}
 TIERS = {'common', 'uncommon', 'rare'}
 TOP = {'schema', 'name', 'players', 'entries', 'deferred_datamined'}
-TOP_OPTIONAL = {'optics'}
+TOP_OPTIONAL = {'optics', 'family_budgets', 'refusals'}
 # Optics are supplied by the separately accepted optional pack's mod-side config (#30).
 OPTICS_SUPERSEDED = {'status': 'superseded', 'entries': []}
 REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'justification'}
 OPTIONAL = {'add_usage', 'set_value', 'ammo', 'magazines', 'datamined', 'acceptance',
-            'new_type_parent', 'runtime_acceptance', 'status'}
+            'new_type_parent', 'runtime_acceptance', 'status', 'family', 'disposition',
+            'unit_rounds', 'parts'}
 PENDING_LOCAL = 'pending-local'
 CLASS = re.compile(r'[A-Za-z0-9_]{1,80}')
 MAX_ENTRIES = 400
@@ -75,13 +74,16 @@ def validate_roster(roster):
         if ('datamined' in e) != ('acceptance' in e) or ('datamined' in e and (
                 e['datamined'] is not True or e['acceptance'] != PENDING_LOCAL)):
             raise ValueError(f'datamined rows need datamined: true with acceptance: {PENDING_LOCAL}: {name}')
-        if {'new_type_parent', 'runtime_acceptance', 'status'} & set(e):
+        if 'new_type_parent' in e:
             if (e.get('new_type_parent') != economy.datamined_items.NEW_TYPE_PARENTS.get(name)
                     or name not in economy.datamined_items.NEW_TYPE_PARENTS
                     or e.get('runtime_acceptance') != 'pending'
                     or e.get('status') != 'requires-local-acceptance' or not e.get('datamined')
                     or set(e['set']) != {'nominal', 'min'} or 'add_usage' in e or 'set_value' in e):
                 raise ValueError(f'new type needs reviewed parent, unchanged placement and pending acceptance: {name}')
+        elif ('status' in e or ('runtime_acceptance' in e and
+                (e.get('disposition') != 'review-native-budget' or e['runtime_acceptance'] != 'pending'))):
+            raise ValueError(f'unsupported runtime acceptance: {name}')
         if kind not in KINDS or e['role'] not in KINDS[kind] or e['tier'] not in TIERS:
             raise ValueError(f'invalid kind/role/tier: {name}')
         if any(name in names for names in by_kind.values()):
@@ -124,6 +126,162 @@ def validate_roster(roster):
             raise ValueError('deferred datamined entries must stay pending local acceptance')
         if d['class'] in taken:
             raise ValueError('deferred class overlaps an enabled entry')
+    family_totals(roster)
+
+
+def family_totals(roster, rows=None):
+    """Validate authored shares, or effective rows, in item / maximum-cartridge units.
+
+    These are CE nominal envelopes, never a promise of hard native world caps. Legacy synthetic
+    callers without the HC-21 policy keep their previous schema and behaviour.
+    """
+    if 'family_budgets' not in roster:
+        if any({'family', 'unit_rounds', 'disposition', 'parts'} & e.keys() for e in roster['entries']):
+            raise ValueError('family budget policy missing')
+        return {}
+    budgets = roster['family_budgets']
+    if not isinstance(budgets, list) or not 0 < len(budgets) <= MAX_ENTRIES:
+        raise ValueError('invalid family budget list')
+    caps = {}
+    for budget in budgets:
+        if (not isinstance(budget, dict) or set(budget) != {'family', 'kind', 'nominal', 'min'}
+                or not isinstance(budget['family'], str) or not CLASS.fullmatch(budget['family'].replace('-', '_'))
+                or budget['kind'] not in KINDS or not _int(budget['nominal'], 0)
+                or not _int(budget['min'], 0) or budget['min'] > budget['nominal']
+                or budget['family'] in caps):
+            raise ValueError('invalid or duplicate family budget')
+        caps[budget['family']] = budget
+    sums = {family: {'nominal': 0, 'min': 0} for family in caps}
+    effective = {r['class']: r['candidate'] for r in rows} if rows is not None else None
+    members = set()
+    for entry in roster['entries']:
+        family = entry.get('family')
+        if family not in caps or caps[family]['kind'] != entry['kind']:
+            raise ValueError(f'family budget membership missing: {entry["class"]}')
+        members.add(family)
+        if entry.get('disposition') not in {'curated-family-split', 'keep-native-budget', 'review-native-budget'}:
+            raise ValueError(f'family disposition missing: {entry["class"]}')
+        weight = entry.get('unit_rounds', 1)
+        if not _int(weight, 1) or (entry['kind'] == 'ammo' and 'unit_rounds' not in entry) \
+                or (entry['kind'] != 'ammo' and weight != 1):
+            raise ValueError('family budget needs native ammo unit_rounds, or one item per weapon/magazine')
+        parts = entry.get('parts', [])
+        if not isinstance(parts, list) or len(parts) > 16 or (parts and entry['kind'] != 'weapon'):
+            raise ValueError('invalid family part routes')
+        for part in parts:
+            if (not isinstance(part, dict) or set(part) != {'class', 'route'}
+                    or not isinstance(part['class'], str) or not CLASS.fullmatch(part['class'])
+                    or part['route'] not in {'native-integral', 'native-carrier'}):
+                raise ValueError('unsupported family part route')
+        candidate = entry['set'] if effective is None else effective.get(entry['class'])
+        if candidate is not None:
+            for field in sums[family]:
+                sums[family][field] += candidate[field] * weight
+    if members != set(caps):
+        raise ValueError('family budget without members')
+    for family, counts in sums.items():
+        if any(counts[field] > caps[family][field] for field in counts):
+            raise ValueError(f'family budget exceeded: {family}')
+    refusals = roster.get('refusals', [])
+    if (not isinstance(refusals, list) or len(refusals) > 16
+            or any(not isinstance(code, str) or not re.fullmatch(r'HC21_[A-Z0-9_]{1,70}', code) for code in refusals)):
+        raise ValueError('invalid HC-21 refusal list')
+    return {'family_count': sum(c['kind'] == 'weapon' for c in caps.values()),
+            'family_budget': sum(c['nominal'] for c in caps.values() if c['kind'] == 'weapon'),
+            'families': [{'family': family, 'kind': cap['kind'], 'cap': {k: cap[k] for k in ('nominal', 'min')},
+                          'candidate': sums[family], 'unit': 'max-cartridges' if cap['kind'] == 'ammo' else 'items'}
+                         for family, cap in caps.items()],
+            'boost': 'excluded', 'refusals': refusals, 'runtime_acceptance': 'pending',
+            'policy_sha256': economy.sha(economy.encode(roster)),
+            'operational_state': 'authored-runtime-pending',
+            'admitted_families': None, 'observed_families': None}
+
+
+def render_family_summary(roster):
+    """Bounded generated documentation from the same validated policy used by both CE paths."""
+    validate_roster(roster)
+    totals = family_totals(roster)
+    if not totals:
+        raise ValueError('HC-21 summary requires family budgets')
+    entries = roster['entries']
+    weapons = [e for e in entries if e['kind'] == 'weapon']
+    counts = {kind: sum(e['kind'] == kind for e in entries) for kind in KINDS}
+    lines = ['<!-- HC21-GENERATED-BEGIN -->', '## Current authored family policy', '',
+             f"Generated from `tools/package/firearms_roster.json`: {counts['weapon']} weapon classes, "
+             f"{totals['family_count']} weapon families, {counts['magazine']} magazine classes and "
+             f"{counts['ammo']} ammo sources (loose, boxed, tracer and specialist).", '',
+             f"Weapon nominal ceiling: **{totals['family_budget']}**; with datamined rows omitted: "
+             f"**{sum(e['set']['nominal'] for e in weapons if not e.get('datamined'))}**. "
+             'These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.', '',
+             '| Family | Nominal / min cap | Explicit member shares (nominal / min) |',
+             '| --- | --- | --- |']
+    for budget in roster['family_budgets']:
+        if budget['kind'] == 'weapon':
+            members = [f"`{e['class']}` {e['set']['nominal']}/{e['set']['min']}" for e in weapons
+                       if e['family'] == budget['family']]
+            lines.append(f"| {budget['family']} | {budget['nominal']} / {budget['min']} | " + '; '.join(members) + ' |')
+    lines += ['', '### Cartridge ceilings', '',
+              'Each nominal/min is multiplied by `unit_rounds`: native pile maximum or box resource count. '
+              'Detachable magazines have separate item budgets; loaded rounds and carrier throughput remain unmeasured.', '',
+              '| Ammo family | Nominal / min maximum cartridges | Sources |', '| --- | --- | --- |']
+    for budget in roster['family_budgets']:
+        if budget['kind'] == 'ammo':
+            names = [f"`{e['class']}` {e['set']['nominal']}/{e['set']['min']} × {e['unit_rounds']}"
+                     for e in entries if e['family'] == budget['family']]
+            lines.append(f"| {budget['family']} | {budget['nominal']} / {budget['min']} | " + '; '.join(names) + ' |')
+    lines += ['', '### Formerly off-roster positives', '',
+              'All 32 are retained explicitly. `keep-native-budget` preserves their native route; '
+              'skin members share the family ceiling. `review-native-budget` preserves SV98 while refusing functional acceptance.', '',
+              '| Class | Disposition | Family |', '| --- | --- | --- |']
+    lines += [f"| `{e['class']}` | {e['disposition']} | {e['family']} |" for e in weapons
+              if e['disposition'] in {'keep-native-budget', 'review-native-budget'}]
+    lines += ['', 'Named pending refusals:', ''] + [f'- `{code}`' for code in totals['refusals']]
+    lines += ['', '<!-- HC21-GENERATED-END -->']
+    return '\n'.join(lines) + '\n'
+
+
+def reviewed_type(name, stock, roster=None):
+    """Narrow installer seam: full reviewed parent row with only authored nominal/min shares.
+
+    The lead must replace economy.install's old half-parent expectation with this helper. All
+    other fields, the independent NEW_TYPE_PARENTS allowlist and new-entry permissions stay exact.
+    """
+    roster = roster if roster is not None else json.loads(ROSTER_PATH.read_bytes())
+    validate_roster(roster)
+    item = economy.datamined_items.reviewed_new_type(name, stock)
+    if 'family_budgets' in roster:
+        entry = next(e for e in roster['entries'] if e['class'] == name)
+        for field in ('nominal', 'min'):
+            item.find(field).text = str(entry['set'][field])
+    return item
+
+
+def check_family_routes(source, roster, rows):
+    """Verify declared native carrier references without creating parts or claiming assembly.
+
+    Parent-cloned CE rows do not inherit their parent's cfgspawnabletypes definitions.
+    Integral/default assemblies are deliberately never demanded as loose loot.
+    """
+    if 'family_budgets' not in roster:
+        return
+    needed = [(e, part) for e in roster['entries'] for part in e.get('parts', [])
+              if part['route'] == 'native-carrier' and any(
+                  r['class'] == e['class'] and r['candidate']['nominal'] > 0 for r in rows)]
+    if not needed:
+        return
+    path = 'cfgspawnabletypes.xml'
+    if not os.path.lexists(economy.child(source, path)):
+        raise ValueError('HC21_PART_ROUTE_MISSING: cfgspawnabletypes.xml')
+    root = economy.xml(economy.read_plain(source, path), 'spawnabletypes')
+    wanted = {entry['class'] for entry, _ in needed}
+    hosts = economy._unique([host for host in root.findall('type') if host.get('name') in wanted])
+    for entry, part in needed:
+        host = hosts.get(entry['class'])
+        groups = [] if host is None else host.findall('attachments')
+        if not any(float(group.get('chance', '0')) > 0 and any(
+                item.get('name') == part['class'] and float(item.get('chance', '0')) > 0
+                for item in group.findall('item')) for group in groups):
+            raise ValueError(f'HC21_PART_ROUTE_MISSING: {entry["class"]}/{part["class"]}')
 
 
 def _row(item):
@@ -216,6 +374,19 @@ def check_effective_support(source, stock, entries, generated, managed_folders=(
     check_support(support_entries,
                   lambda name: _nominal(effective_lower, name),
                   ammo_fields=ammo_fields)
+    if any('family' in entry for entry in entries):
+        roster = json.loads(ROSTER_PATH.read_bytes())
+        validate_roster(roster)
+        effective_rows = _effective_family_rows(roster, effective_lower)
+        family_totals(roster, effective_rows)
+        check_family_routes(source, roster, effective_rows)
+
+
+def _effective_family_rows(roster, effective_lower):
+    return [{'class': entry['class'], 'candidate': {
+        field: int(effective_lower[entry['class'].lower()].findtext(field) or 0)
+        if entry['class'].lower() in effective_lower else 0 for field in ('nominal', 'min')}}
+        for entry in roster['entries']]
 
 
 def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True):
@@ -229,6 +400,13 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
     stock_lower = {class_name.lower(): type_item for class_name, type_item in stock.items()}
     if len(stock_lower) != len(stock):
         raise ValueError('case-insensitive duplicate stock class')
+    if 'family_budgets' in roster:
+        named = {e['class'].lower() for e in roster['entries']}
+        unaccounted = sorted(item.get('name') for low, item in stock_lower.items()
+                             if low.startswith(('ammo_', 'ammobox_', 'mag_')) and low not in named
+                             and int(item.findtext('nominal') or 0) > 0)
+        if unaccounted:
+            raise ValueError('HC21_UNACCOUNTED_SUPPORT: ' + ','.join(unaccounted[:16]))
     for entry in roster['entries']:
         name = entry['class']
         if entry.get('datamined') and not include_datamined:
@@ -236,7 +414,7 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
         stock_row = None
         if 'new_type_parent' in entry:
             original = stock_lower.get(name.lower())
-            item = economy.datamined_items.reviewed_new_type(name, stock)
+            item = reviewed_type(name, stock, roster)
             if original is not None:
                 stock_row = _row(original)
             if any(node.get('name') not in usage_vocab for node in item.findall('usage')):
@@ -244,12 +422,13 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
             if any(node.get('name') not in value_vocab for node in item.findall('value')):
                 raise ValueError(f'unknown parent value tier: {name}')
             changed = True
-        elif name in stock:
-            economy._validate_budget(stock[name])
-            item = copy.deepcopy(stock[name])
+        elif name.lower() in stock_lower:
+            original = stock_lower[name.lower()]
+            economy._validate_budget(original)
+            item = copy.deepcopy(original)
             _apply(item, entry, usage_vocab, value_vocab)
-            stock_row = _row(stock[name])
-            changed = ET.tostring(item) != ET.tostring(stock[name])
+            stock_row = _row(original)
+            changed = ET.tostring(item) != ET.tostring(original)
         else:
             raise ValueError(f'class absent from stock types.xml: {name}')
         economy._validate_budget(item)
@@ -265,6 +444,10 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
             rows[-1].update(new_type_parent=entry['new_type_parent'], runtime_acceptance='pending',
                             status='requires-local-acceptance', new_type=stock_row is None,
                             emitted_class=item.get('name'))
+        if 'family' in entry:
+            rows[-1].update(family=entry['family'], disposition=entry['disposition'],
+                            unit_rounds=entry.get('unit_rounds'), parts=entry.get('parts', []),
+                            runtime_acceptance='pending')
         if entry['kind'] == 'weapon':
             if stock_row is not None:
                 totals['weapon_nominal_stock'] += stock_row['nominal']
@@ -274,6 +457,7 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
     effective_lower = {class_name.lower(): type_item for class_name, type_item in effective.items()}
     check_support([e for e in roster['entries'] if include_datamined or not e.get('datamined')],
                   lambda name: _nominal(effective_lower, name))
+    totals.update(family_totals(roster, _effective_family_rows(roster, effective_lower)))
     return changed_elements, rows, totals
 
 
@@ -290,6 +474,7 @@ def generate(source, roster, include_datamined=True):
     out = ET.Element('types')
     datamined = sorted(e['class'] for e in roster['entries'] if e.get('datamined'))
     changed, rows, totals = roster_items(stock, usage_vocab, value_vocab, roster, include_datamined)
+    check_family_routes(source, roster, rows)
     out.extend(changed)
     fragment = ET.Element('economycore')
     if len(out):
@@ -319,8 +504,11 @@ def generate_combined(source, roster, include_datamined=True, include_items=True
     """Profile + roster + datamined items as one delta (delegates to economy.generate)."""
     validate_roster(roster)
     profile = profile or {'schema': 1, 'name': roster['name'], 'add_usage': {}, 'diagnostics': []}
-    return economy.generate(source, profile, include_datamined=include_items, roster=roster,
-                            include_roster_datamined=include_datamined)
+    files = economy.generate(source, profile, include_datamined=include_items, roster=roster,
+                             include_roster_datamined=include_datamined)
+    report = json.loads(files['economy-report.json'])
+    check_family_routes(source, roster, report['firearms']['entries'])
+    return files
 
 
 write_delta = economy.write_delta
@@ -335,6 +523,8 @@ def install(stage, target):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
+    p = sub.add_parser('summary', help='print current authored HC-21 documentation; no native claims')
+    p.add_argument('--roster', type=Path, default=ROSTER_PATH)
     p = sub.add_parser('generate')
     p.add_argument('--source', type=Path, required=True)
     p.add_argument('--roster', type=Path, default=ROSTER_PATH)
@@ -352,7 +542,10 @@ def main(argv=None):
     p.add_argument('--target', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        if args.command == 'generate':
+        if args.command == 'summary':
+            print(render_family_summary(json.loads(args.roster.read_bytes())), end='')
+            return
+        elif args.command == 'generate':
             roster = json.loads(args.roster.read_bytes())
             if args.with_items or args.profile:
                 profile = json.loads(args.profile.read_bytes()) if args.profile else None

@@ -1,1202 +1,311 @@
 {
- "schema": 1,
- "name": "hollow-country-firearms",
- "players": "3-6",
- "entries": [
-  {
-   "class": "Mosin9130",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "common",
-   "set": {
-    "nominal": 24,
-    "min": 18
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [],
-   "justification": "Wood-stock bolt rifle; vanilla 45 is a 60-player count."
-  },
-  {
-   "class": "Mosin9130_Woodland",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 10,
-    "min": 6
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [],
-   "justification": "Camouflaged Mosin; keeps a variant without doubling the 762x54 pool."
-  },
-  {
-   "class": "SKS",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 12,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "Wood-stock semi-auto carbine; military usage stays, count scaled to the player band."
-  },
-  {
-   "class": "SKS_Woodland",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "Camouflaged SKS; rarer variant."
-  },
-  {
-   "class": "Izh18",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "common",
-   "set": {
-    "nominal": 28,
-    "min": 22
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "Break-action farm rifle; the common starter long gun."
-  },
-  {
-   "class": "Izh18Shotgun",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "common",
-   "set": {
-    "nominal": 20,
-    "min": 16
-   },
-   "ammo": [
-    "Ammo_12gaPellets",
-    "Ammo_12gaSlug"
-   ],
-   "magazines": [],
-   "justification": "Sawn-off-capable farm shotgun; town and village stock."
-  },
-  {
-   "class": "Izh43Shotgun",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "ammo": [
-    "Ammo_12gaPellets",
-    "Ammo_12gaSlug"
-   ],
-   "magazines": [],
-   "justification": "Double-barrel farm shotgun."
-  },
-  {
-   "class": "Repeater",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "ammo": [
-    "Ammo_357"
-   ],
-   "magazines": [],
-   "justification": "Lever-action carbine; farm usage retained."
-  },
-  {
-   "class": "Winchester70",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 10,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_308Win"
-   ],
-   "magazines": [],
-   "justification": "Wood-stock hunting rifle."
-  },
-  {
-   "class": "CZ527",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "common",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_CZ527_5rnd"
-   ],
-   "justification": "Wood-stock bolt rifle with detachable magazine."
-  },
-  {
-   "class": "CZ527_Woodland",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 10,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_CZ527_5rnd"
-   ],
-   "justification": "Hunting-usage CZ 527 variant."
-  },
-  {
-   "class": "B95",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 10,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_308Win"
-   ],
-   "magazines": [],
-   "justification": "Wood-stock hunting rifle."
-  },
-  {
-   "class": "LeeEnfield",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 12,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [
-    "Mag_LeeEnfield_10Rnd"
-   ],
-   "justification": "Wood-stock bolt rifle; stock nominal 0 (census nominal-zero) so this enables a finished vanilla class that normal CE never spawns.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "MP18",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 4,
-    "min": 2
-   },
-   "ammo": [
-    "Ammo_9x19"
-   ],
-   "magazines": [
-    "Mag_MP18_Drum32Rnd"
-   ],
-   "justification": "Wood-stock WW1 submachine gun; stock nominal 0 (census nominal-zero), rare and local-acceptance sensitive.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Luger",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "ammo": [
-    "Ammo_9x19"
-   ],
-   "magazines": [
-    "Mag_Luger_8Rnd"
-   ],
-   "justification": "Wood-grip WW1 pistol; stock nominal 0 (census nominal-zero).",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "SKS_Black",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "SKS skin variant (stock Military usage, Tier3/Tier4). Census nominal-zero; rare count.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "SKS_Desert",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "SKS skin variant; stock has no value tier. Census nominal-zero; rare count.",
-   "set_value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "SKS_Green",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "SKS skin variant (stock Military usage, Tier2/Tier3). Census nominal-zero; rare count.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "SKS_Winter",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [],
-   "justification": "SKS skin variant; stock has no value tier. Census nominal-zero; rare count.",
-   "set_value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Mosin9130_Black",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [],
-   "justification": "Mosin skin variant; stock has no usage or value, so it follows the base Mosin usage at the higher tiers. Census nominal-zero; rare count.",
-   "add_usage": [
-    "Town",
-    "Village"
-   ],
-   "set_value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Mosin9130_Winter",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [],
-   "justification": "Mosin skin variant; stock has no usage or value, so it follows the base Mosin usage at the higher tiers. Census nominal-zero; rare count.",
-   "add_usage": [
-    "Town",
-    "Village"
-   ],
-   "set_value": [
-    "Tier3",
-    "Tier4"
-   ],
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "SVD_Wooden",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 2,
-    "min": 1
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [
-    "Mag_SVD_10Rnd"
-   ],
-   "justification": "Wood-stock Dragunov; stock has no usage or value, so it follows the SVD Military usage at Tier4. Census nominal-zero; rare count.",
-   "add_usage": [
-    "Military"
-   ],
-   "set_value": [
-    "Tier4"
-   ],
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Mp133Shotgun",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 8,
-    "min": 6
-   },
-   "ammo": [
-    "Ammo_12gaPellets",
-    "Ammo_12gaSlug"
-   ],
-   "magazines": [],
-   "justification": "Wood-stock pump shotgun, police usage."
-  },
-  {
-   "class": "Magnum",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 10,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_357"
-   ],
-   "magazines": [],
-   "justification": "Wood-grip revolver, town usage."
-  },
-  {
-   "class": "AKM",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 4,
-    "min": 2
-   },
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_AKM_30Rnd"
-   ],
-   "justification": "Wood-furniture assault rifle; stays the rare military prize."
-  },
-  {
-   "class": "Colt1911",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "ammo": [
-    "Ammo_45ACP"
-   ],
-   "magazines": [
-    "Mag_1911_7Rnd"
-   ],
-   "justification": "Conventional sidearm; military usage."
-  },
-  {
-   "class": "MakarovIJ70",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "common",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "ammo": [
-    "Ammo_380"
-   ],
-   "magazines": [
-    "Mag_IJ70_8Rnd"
-   ],
-   "justification": "Common town pistol; vanilla 70 reduced."
-  },
-  {
-   "class": "P1",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "common",
-   "set": {
-    "nominal": 12,
-    "min": 10
-   },
-   "ammo": [
-    "Ammo_9x19"
-   ],
-   "magazines": [
-    "Mag_P1_8Rnd"
-   ],
-   "justification": "Common town pistol."
-  },
-  {
-   "class": "Glock19",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 12,
-    "min": 10
-   },
-   "ammo": [
-    "Ammo_9x19"
-   ],
-   "magazines": [
-    "Mag_Glock_15Rnd"
-   ],
-   "justification": "Police sidearm."
-  },
-  {
-   "class": "FNX45",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "ammo": [
-    "Ammo_45ACP"
-   ],
-   "magazines": [
-    "Mag_FNX45_15Rnd"
-   ],
-   "justification": "Modern military sidearm."
-  },
-  {
-   "class": "CZ75",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 8,
-    "min": 6
-   },
-   "ammo": [
-    "Ammo_9x19"
-   ],
-   "magazines": [
-    "Mag_CZ75_15Rnd"
-   ],
-   "justification": "Military sidearm."
-  },
-  {
-   "class": "Ruger1022",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "common",
-   "set": {
-    "nominal": 12,
-    "min": 8
-   },
-   "ammo": [
-    "Ammo_22"
-   ],
-   "magazines": [
-    "Mag_Ruger1022_15Rnd"
-   ],
-   "justification": "Small-calibre rifle; town and village stock."
-  },
-  {
-   "class": "M16A2",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 4,
-    "min": 2
-   },
-   "ammo": [
-    "Ammo_556x45"
-   ],
-   "magazines": [
-    "Mag_STANAG_30Rnd"
-   ],
-   "justification": "Conventional military rifle."
-  },
-  {
-   "class": "AK74",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "ammo": [
-    "Ammo_545x39"
-   ],
-   "magazines": [
-    "Mag_AK74_30Rnd"
-   ],
-   "justification": "Conventional military rifle."
-  },
-  {
-   "class": "MP5K",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "ammo": [
-    "Ammo_9x19"
-   ],
-   "magazines": [
-    "Mag_MP5_15Rnd",
-    "Mag_MP5_30Rnd"
-   ],
-   "justification": "Conventional submachine gun."
-  },
-  {
-   "class": "Saiga",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 4,
-    "min": 2
-   },
-   "ammo": [
-    "Ammo_12gaPellets",
-    "Ammo_12gaSlug"
-   ],
-   "magazines": [
-    "Mag_Saiga_8Rnd"
-   ],
-   "justification": "Semi-auto shotgun; rare."
-  },
-  {
-   "class": "SVD",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 4,
-    "min": 2
-   },
-   "ammo": [
-    "Ammo_762x54"
-   ],
-   "magazines": [
-    "Mag_SVD_10Rnd"
-   ],
-   "justification": "Conventional marksman rifle; rare."
-  },
-  {
-   "class": "Mag_CZ527_5rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "justification": "CZ 527 magazine."
-  },
-  {
-   "class": "Mag_LeeEnfield_10Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 8,
-    "min": 4
-   },
-   "justification": "Lee-Enfield magazine; stock nominal 0.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Mag_MP18_Drum32Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 4,
-    "min": 2
-   },
-   "justification": "MP18 drum; stock nominal 0.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Mag_Luger_8Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 4
-   },
-   "justification": "Luger magazine; stock nominal 0.",
-   "datamined": true,
-   "acceptance": "pending-local"
-  },
-  {
-   "class": "Mag_AKM_30Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "justification": "AKM magazine (stock count kept)."
-  },
-  {
-   "class": "Mag_1911_7Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 20,
-    "min": 16
-   },
-   "justification": "1911 magazine."
-  },
-  {
-   "class": "Mag_IJ70_8Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 28,
-    "min": 20
-   },
-   "justification": "IJ-70 magazine; vanilla 60."
-  },
-  {
-   "class": "Mag_P1_8Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 20,
-    "min": 16
-   },
-   "justification": "P1 magazine."
-  },
-  {
-   "class": "Mag_Glock_15Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "justification": "Glock 19 magazine."
-  },
-  {
-   "class": "Mag_FNX45_15Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 6
-   },
-   "justification": "FNX-45 magazine."
-  },
-  {
-   "class": "Mag_CZ75_15Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 12,
-    "min": 8
-   },
-   "justification": "CZ 75 magazine."
-  },
-  {
-   "class": "Mag_Ruger1022_15Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 16,
-    "min": 12
-   },
-   "justification": "Ruger 10/22 magazine."
-  },
-  {
-   "class": "Mag_STANAG_30Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 4
-   },
-   "justification": "STANAG magazine (stock count kept near stock)."
-  },
-  {
-   "class": "Mag_AK74_30Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 12,
-    "min": 8
-   },
-   "justification": "AK-74 magazine; vanilla 25."
-  },
-  {
-   "class": "Mag_MP5_15Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 8,
-    "min": 6
-   },
-   "justification": "MP5 15-round magazine."
-  },
-  {
-   "class": "Mag_MP5_30Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "justification": "MP5 30-round magazine."
-  },
-  {
-   "class": "Mag_Saiga_8Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "justification": "Saiga magazine."
-  },
-  {
-   "class": "Mag_SVD_10Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 6,
-    "min": 4
-   },
-   "justification": "SVD magazine."
-  },
-  {
-   "class": "Ammo_762x54",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 48,
-    "min": 36
-   },
-   "justification": "Mosin, Lee-Enfield, SVD. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_762x39",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 60,
-    "min": 44
-   },
-   "justification": "SKS, Izh18, CZ 527, AKM. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_308Win",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 40,
-    "min": 28
-   },
-   "justification": "Winchester, B95. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_22",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 60,
-    "min": 44
-   },
-   "justification": "Ruger 10/22. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_12gaSlug",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 56,
-    "min": 40
-   },
-   "justification": "Shotguns, slugs. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_12gaPellets",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 60,
-    "min": 44
-   },
-   "justification": "Shotguns, buckshot. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_45ACP",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 50,
-    "min": 36
-   },
-   "justification": "1911 and FNX-45. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_9x19",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 60,
-    "min": 44
-   },
-   "justification": "Luger, MP18, P1, Glock, CZ 75, MP5. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_357",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 48,
-    "min": 36
-   },
-   "justification": "Repeater and Magnum. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_380",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "common",
-   "set": {
-    "nominal": 60,
-    "min": 44
-   },
-   "justification": "IJ-70. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_556x45",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 40,
-    "min": 28
-   },
-   "justification": "M16A2. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "Ammo_545x39",
-   "kind": "ammo",
-   "role": "support",
-   "tier": "uncommon",
-   "set": {
-    "nominal": 28,
-    "min": 18
-   },
-   "justification": "AK-74. Vanilla pool scaled to 3-6 players."
-  },
-  {
-   "class": "MakarovPB",
-   "kind": "weapon",
-   "role": "modern",
-   "tier": "rare",
-   "set": {
-    "nominal": 35,
-    "min": 30
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock MakarovIJ70 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "MakarovIJ70",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_380"
-   ],
-   "magazines": [
-    "Mag_MakarovPB_8Rnd"
-   ]
-  },
-  {
-   "class": "Mag_MakarovPB_8Rnd",
-   "kind": "magazine",
-   "role": "support",
-   "tier": "rare",
-   "set": {
-    "nominal": 30,
-    "min": 25
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock Mag_IJ70_8Rnd row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "Mag_IJ70_8Rnd",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance"
-  },
-  {
-   "class": "Winchester70_Black",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 3,
-    "min": 2
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock Winchester70 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "Winchester70",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_308Win"
-   ],
-   "magazines": []
-  },
-  {
-   "class": "Winchester70_Green",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 3,
-    "min": 2
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock Winchester70 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "Winchester70",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_308Win"
-   ],
-   "magazines": []
-  },
-  {
-   "class": "B95_Black",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 9,
-    "min": 7
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock B95 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "B95",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_308Win"
-   ],
-   "magazines": []
-  },
-  {
-   "class": "B95_Green",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 9,
-    "min": 7
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock B95 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "B95",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_308Win"
-   ],
-   "magazines": []
-  },
-  {
-   "class": "CZ527_Camo",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 12,
-    "min": 11
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "CZ527",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_CZ527_5rnd"
-   ]
-  },
-  {
-   "class": "CZ527_Green",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 12,
-    "min": 11
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "CZ527",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_CZ527_5rnd"
-   ]
-  },
-  {
-   "class": "CZ527_desert",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 12,
-    "min": 11
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "CZ527",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_CZ527_5rnd"
-   ]
-  },
-  {
-   "class": "CZ527_winter",
-   "kind": "weapon",
-   "role": "wood",
-   "tier": "rare",
-   "set": {
-    "nominal": 12,
-    "min": 11
-   },
-   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
-   "datamined": true,
-   "acceptance": "pending-local",
-   "new_type_parent": "CZ527",
-   "runtime_acceptance": "pending",
-   "status": "requires-local-acceptance",
-   "ammo": [
-    "Ammo_762x39"
-   ],
-   "magazines": [
-    "Mag_CZ527_5rnd"
-   ]
-  }
- ],
- "optics": {
-  "status": "superseded",
-  "entries": []
- },
- "deferred_datamined": []
+  "schema": 1,
+  "name": "hollow-country-firearms",
+  "players": "3-6",
+  "entries": [
+    {"class":"Mosin9130","kind":"weapon","role":"wood","tier":"common","set":{"nominal":22,"min":16},"ammo":["Ammo_762x54"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"Mosin9130","disposition":"curated-family-split","parts":[]},
+    {"class":"Mosin9130_Woodland","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":8,"min":6},"ammo":["Ammo_762x54"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"Mosin9130","disposition":"curated-family-split","parts":[]},
+    {"class":"SKS","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":8,"min":4},"ammo":["Ammo_762x39"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"SKS","disposition":"curated-family-split","parts":[]},
+    {"class":"SKS_Woodland","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":6,"min":4},"ammo":["Ammo_762x39"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"SKS","disposition":"curated-family-split","parts":[]},
+    {"class":"Izh18","kind":"weapon","role":"wood","tier":"common","set":{"nominal":28,"min":22},"ammo":["Ammo_762x39"],"magazines":[],"justification":"Break-action farm rifle; the common starter long gun.","family":"Izh18","disposition":"curated-family-split","parts":[]},
+    {"class":"Izh18Shotgun","kind":"weapon","role":"wood","tier":"common","set":{"nominal":20,"min":16},"ammo":["Ammo_12gaPellets","Ammo_12gaSlug"],"magazines":[],"justification":"Sawn-off-capable farm shotgun; town and village stock.","family":"Izh18Shotgun","disposition":"curated-family-split","parts":[]},
+    {"class":"Izh43Shotgun","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":16,"min":12},"ammo":["Ammo_12gaPellets","Ammo_12gaSlug"],"magazines":[],"justification":"Double-barrel farm shotgun.","family":"Izh43Shotgun","disposition":"curated-family-split","parts":[]},
+    {"class":"Repeater","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":16,"min":12},"ammo":["Ammo_357"],"magazines":[],"justification":"Lever-action carbine; farm usage retained.","family":"Repeater","disposition":"curated-family-split","parts":[]},
+    {"class":"Winchester70","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":6,"min":4},"ammo":["Ammo_308Win"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"Winchester70","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ527","kind":"weapon","role":"wood","tier":"common","set":{"nominal":10,"min":8},"ammo":["Ammo_762x39"],"magazines":["Mag_CZ527_5rnd"],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"CZ527","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ527_Woodland","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":8,"min":6},"ammo":["Ammo_762x39"],"magazines":["Mag_CZ527_5rnd"],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"CZ527","disposition":"curated-family-split","parts":[]},
+    {"class":"B95","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":6,"min":4},"ammo":["Ammo_308Win"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"B95","disposition":"curated-family-split","parts":[]},
+    {"class":"LeeEnfield","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":12,"min":8},"ammo":["Ammo_762x54"],"magazines":["Mag_LeeEnfield_10Rnd"],"justification":"Wood-stock bolt rifle; stock nominal 0 (census nominal-zero) so this enables a finished vanilla class that normal CE never spawns.","datamined":true,"acceptance":"pending-local","family":"LeeEnfield","disposition":"curated-family-split","parts":[]},
+    {"class":"MP18","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_9x19"],"magazines":["Mag_MP18_Drum32Rnd"],"justification":"Wood-stock WW1 submachine gun; stock nominal 0 (census nominal-zero), rare and local-acceptance sensitive.","datamined":true,"acceptance":"pending-local","family":"MP18","disposition":"curated-family-split","parts":[]},
+    {"class":"Luger","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":6,"min":4},"ammo":["Ammo_9x19"],"magazines":["Mag_Luger_8Rnd"],"justification":"Wood-grip WW1 pistol; stock nominal 0 (census nominal-zero).","datamined":true,"acceptance":"pending-local","family":"Luger","disposition":"curated-family-split","parts":[]},
+    {"class":"SKS_Black","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_762x39"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","datamined":true,"acceptance":"pending-local","family":"SKS","disposition":"curated-family-split","parts":[]},
+    {"class":"SKS_Desert","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_762x39"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","set_value":["Tier3","Tier4"],"datamined":true,"acceptance":"pending-local","family":"SKS","disposition":"curated-family-split","parts":[]},
+    {"class":"SKS_Green","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_762x39"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","datamined":true,"acceptance":"pending-local","family":"SKS","disposition":"curated-family-split","parts":[]},
+    {"class":"SKS_Winter","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_762x39"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","set_value":["Tier3","Tier4"],"datamined":true,"acceptance":"pending-local","family":"SKS","disposition":"curated-family-split","parts":[]},
+    {"class":"Mosin9130_Black","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"ammo":["Ammo_762x54"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","add_usage":["Town","Village"],"set_value":["Tier3","Tier4"],"datamined":true,"acceptance":"pending-local","family":"Mosin9130","disposition":"curated-family-split","parts":[]},
+    {"class":"Mosin9130_Winter","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"ammo":["Ammo_762x54"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","add_usage":["Town","Village"],"set_value":["Tier3","Tier4"],"datamined":true,"acceptance":"pending-local","family":"Mosin9130","disposition":"curated-family-split","parts":[]},
+    {"class":"SVD_Wooden","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"ammo":["Ammo_762x54"],"magazines":["Mag_SVD_10Rnd"],"justification":"Wood-stock Dragunov; stock has no usage or value, so it follows the SVD Military usage at Tier4. Census nominal-zero; rare count.","add_usage":["Military"],"set_value":["Tier4"],"datamined":true,"acceptance":"pending-local","family":"SVD","disposition":"curated-family-split","parts":[]},
+    {"class":"Mp133Shotgun","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":8,"min":6},"ammo":["Ammo_12gaPellets","Ammo_12gaSlug"],"magazines":[],"justification":"Wood-stock pump shotgun, police usage.","family":"Mp133Shotgun","disposition":"curated-family-split","parts":[]},
+    {"class":"Magnum","kind":"weapon","role":"wood","tier":"uncommon","set":{"nominal":9,"min":7},"ammo":["Ammo_357"],"magazines":[],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"Magnum","disposition":"curated-family-split","parts":[{"class":"Magnum_Cylinder","route":"native-integral"},{"class":"Magnum_Ejector","route":"native-integral"}]},
+    {"class":"AKM","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_762x39"],"magazines":["Mag_AKM_30Rnd"],"justification":"Wood-furniture assault rifle; stays the rare military prize.","family":"AKM","disposition":"curated-family-split","parts":[{"class":"AK_PlasticHndgrd","route":"native-carrier"}]},
+    {"class":"Colt1911","kind":"weapon","role":"modern","tier":"uncommon","set":{"nominal":12,"min":9},"ammo":["Ammo_45ACP"],"magazines":["Mag_1911_7Rnd"],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"Colt1911","disposition":"curated-family-split","parts":[]},
+    {"class":"MakarovIJ70","kind":"weapon","role":"modern","tier":"common","set":{"nominal":14,"min":11},"ammo":["Ammo_380"],"magazines":["Mag_IJ70_8Rnd"],"justification":"HC-21 provisional family-cap split; native placement and function remain pending local acceptance.","family":"Makarov","disposition":"curated-family-split","parts":[]},
+    {"class":"P1","kind":"weapon","role":"modern","tier":"common","set":{"nominal":12,"min":10},"ammo":["Ammo_9x19"],"magazines":["Mag_P1_8Rnd"],"justification":"Common town pistol.","family":"P1","disposition":"curated-family-split","parts":[]},
+    {"class":"Glock19","kind":"weapon","role":"modern","tier":"uncommon","set":{"nominal":12,"min":10},"ammo":["Ammo_9x19"],"magazines":["Mag_Glock_15Rnd"],"justification":"Police sidearm.","family":"Glock19","disposition":"curated-family-split","parts":[]},
+    {"class":"FNX45","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":6,"min":4},"ammo":["Ammo_45ACP"],"magazines":["Mag_FNX45_15Rnd"],"justification":"Modern military sidearm.","family":"FNX45","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ75","kind":"weapon","role":"modern","tier":"uncommon","set":{"nominal":8,"min":6},"ammo":["Ammo_9x19"],"magazines":["Mag_CZ75_15Rnd"],"justification":"Military sidearm.","family":"CZ75","disposition":"curated-family-split","parts":[]},
+    {"class":"Ruger1022","kind":"weapon","role":"modern","tier":"common","set":{"nominal":12,"min":8},"ammo":["Ammo_22"],"magazines":["Mag_Ruger1022_15Rnd"],"justification":"Small-calibre rifle; town and village stock.","family":"Ruger1022","disposition":"curated-family-split","parts":[]},
+    {"class":"M16A2","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_556x45"],"magazines":["Mag_STANAG_30Rnd"],"justification":"Conventional military rifle.","family":"M16A2","disposition":"curated-family-split","parts":[]},
+    {"class":"AK74","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":6,"min":4},"ammo":["Ammo_545x39"],"magazines":["Mag_AK74_30Rnd"],"justification":"Conventional military rifle.","family":"AK74","disposition":"curated-family-split","parts":[{"class":"AK74_Hndgrd","route":"native-carrier"}]},
+    {"class":"MP5K","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":6,"min":4},"ammo":["Ammo_9x19"],"magazines":["Mag_MP5_15Rnd","Mag_MP5_30Rnd"],"justification":"Conventional submachine gun.","family":"MP5K","disposition":"curated-family-split","parts":[]},
+    {"class":"Saiga","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_12gaPellets","Ammo_12gaSlug"],"magazines":["Mag_Saiga_8Rnd"],"justification":"Semi-auto shotgun; rare.","family":"Saiga","disposition":"curated-family-split","parts":[]},
+    {"class":"SVD","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_762x54"],"magazines":["Mag_SVD_10Rnd"],"justification":"Conventional marksman rifle; rare.","family":"SVD","disposition":"curated-family-split","parts":[]},
+    {"class":"Mag_CZ527_5rnd","kind":"magazine","role":"support","tier":"common","set":{"nominal":16,"min":12},"justification":"CZ 527 magazine.","family":"magazine-Mag_CZ527_5rnd","disposition":"curated-family-split"},
+    {"class":"Mag_LeeEnfield_10Rnd","kind":"magazine","role":"support","tier":"uncommon","set":{"nominal":8,"min":4},"justification":"Lee-Enfield magazine; stock nominal 0.","datamined":true,"acceptance":"pending-local","family":"magazine-Mag_LeeEnfield_10Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_MP18_Drum32Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"justification":"MP18 drum; stock nominal 0.","datamined":true,"acceptance":"pending-local","family":"magazine-Mag_MP18_Drum32Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_Luger_8Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":4},"justification":"Luger magazine; stock nominal 0.","datamined":true,"acceptance":"pending-local","family":"magazine-Mag_Luger_8Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_AKM_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"justification":"AKM magazine (stock count kept).","family":"magazine-Mag_AKM_30Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_1911_7Rnd","kind":"magazine","role":"support","tier":"uncommon","set":{"nominal":20,"min":16},"justification":"1911 magazine.","family":"magazine-Mag_1911_7Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_IJ70_8Rnd","kind":"magazine","role":"support","tier":"common","set":{"nominal":28,"min":20},"justification":"IJ-70 magazine; vanilla 60.","family":"magazine-Mag_IJ70_8Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_P1_8Rnd","kind":"magazine","role":"support","tier":"common","set":{"nominal":20,"min":16},"justification":"P1 magazine.","family":"magazine-Mag_P1_8Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_Glock_15Rnd","kind":"magazine","role":"support","tier":"uncommon","set":{"nominal":16,"min":12},"justification":"Glock 19 magazine.","family":"magazine-Mag_Glock_15Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_FNX45_15Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":6},"justification":"FNX-45 magazine.","family":"magazine-Mag_FNX45_15Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_CZ75_15Rnd","kind":"magazine","role":"support","tier":"uncommon","set":{"nominal":12,"min":8},"justification":"CZ 75 magazine.","family":"magazine-Mag_CZ75_15Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_Ruger1022_15Rnd","kind":"magazine","role":"support","tier":"common","set":{"nominal":16,"min":12},"justification":"Ruger 10/22 magazine.","family":"magazine-Mag_Ruger1022_15Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_STANAG_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":4},"justification":"STANAG magazine (stock count kept near stock).","family":"magazine-Mag_STANAG_30Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_AK74_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":12,"min":8},"justification":"AK-74 magazine; vanilla 25.","family":"magazine-Mag_AK74_30Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_MP5_15Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":6},"justification":"MP5 15-round magazine.","family":"magazine-Mag_MP5_15Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_MP5_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"justification":"MP5 30-round magazine.","family":"magazine-Mag_MP5_30Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_Saiga_8Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"justification":"Saiga magazine.","family":"magazine-Mag_Saiga_8Rnd","disposition":"curated-family-split"},
+    {"class":"Mag_SVD_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"justification":"SVD magazine.","family":"magazine-Mag_SVD_10Rnd","disposition":"curated-family-split"},
+    {"class":"Ammo_762x54","kind":"ammo","role":"support","tier":"common","set":{"nominal":23,"min":17},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x54","unit_rounds":20,"disposition":"curated-family-split"},
+    {"class":"Ammo_762x39","kind":"ammo","role":"support","tier":"common","set":{"nominal":27,"min":19},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x39","unit_rounds":20,"disposition":"curated-family-split"},
+    {"class":"Ammo_308Win","kind":"ammo","role":"support","tier":"uncommon","set":{"nominal":16,"min":11},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_308Win","unit_rounds":20,"disposition":"curated-family-split"},
+    {"class":"Ammo_22","kind":"ammo","role":"support","tier":"common","set":{"nominal":31,"min":22},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_22","unit_rounds":50,"disposition":"curated-family-split"},
+    {"class":"Ammo_12gaSlug","kind":"ammo","role":"support","tier":"common","set":{"nominal":41,"min":29},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_12gaSlug","unit_rounds":10,"disposition":"curated-family-split"},
+    {"class":"Ammo_12gaPellets","kind":"ammo","role":"support","tier":"common","set":{"nominal":45,"min":33},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_12gaPellets","unit_rounds":10,"disposition":"curated-family-split"},
+    {"class":"Ammo_45ACP","kind":"ammo","role":"support","tier":"common","set":{"nominal":35,"min":25},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_45ACP","unit_rounds":25,"disposition":"curated-family-split"},
+    {"class":"Ammo_9x19","kind":"ammo","role":"support","tier":"common","set":{"nominal":40,"min":29},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_9x19","unit_rounds":25,"disposition":"curated-family-split"},
+    {"class":"Ammo_357","kind":"ammo","role":"support","tier":"common","set":{"nominal":29,"min":21},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_357","unit_rounds":20,"disposition":"curated-family-split"},
+    {"class":"Ammo_380","kind":"ammo","role":"support","tier":"common","set":{"nominal":45,"min":33},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_380","unit_rounds":35,"disposition":"curated-family-split"},
+    {"class":"Ammo_556x45","kind":"ammo","role":"support","tier":"uncommon","set":{"nominal":16,"min":11},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_556x45","unit_rounds":20,"disposition":"curated-family-split"},
+    {"class":"Ammo_545x39","kind":"ammo","role":"support","tier":"uncommon","set":{"nominal":9,"min":5},"justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_545x39","unit_rounds":20,"disposition":"curated-family-split"},
+    {"class":"MakarovPB","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"MakarovIJ70","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_380"],"magazines":["Mag_MakarovPB_8Rnd"],"family":"Makarov","disposition":"curated-family-split","parts":[]},
+    {"class":"Mag_MakarovPB_8Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"Mag_IJ70_8Rnd","runtime_acceptance":"pending","status":"requires-local-acceptance","family":"magazine-Mag_MakarovPB_8Rnd","disposition":"curated-family-split"},
+    {"class":"Winchester70_Black","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"Winchester70","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_308Win"],"magazines":[],"family":"Winchester70","disposition":"curated-family-split","parts":[]},
+    {"class":"Winchester70_Green","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"Winchester70","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_308Win"],"magazines":[],"family":"Winchester70","disposition":"curated-family-split","parts":[]},
+    {"class":"B95_Black","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"B95","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_308Win"],"magazines":[],"family":"B95","disposition":"curated-family-split","parts":[]},
+    {"class":"B95_Green","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"B95","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_308Win"],"magazines":[],"family":"B95","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ527_Camo","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"CZ527","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_762x39"],"magazines":["Mag_CZ527_5rnd"],"family":"CZ527","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ527_Green","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"CZ527","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_762x39"],"magazines":["Mag_CZ527_5rnd"],"family":"CZ527","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ527_desert","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"CZ527","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_762x39"],"magazines":["Mag_CZ527_5rnd"],"family":"CZ527","disposition":"curated-family-split","parts":[]},
+    {"class":"CZ527_winter","kind":"weapon","role":"wood","tier":"rare","set":{"nominal":2,"min":1},"justification":"Provisional family share; donor fields retained; runtime pending.","datamined":true,"acceptance":"pending-local","new_type_parent":"CZ527","runtime_acceptance":"pending","status":"requires-local-acceptance","ammo":["Ammo_762x39"],"magazines":["Mag_CZ527_5rnd"],"family":"CZ527","disposition":"curated-family-split","parts":[]},
+    {"class":"AK101","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_AK101_30Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"AK101","parts":[{"class":"AK_PlasticHndgrd","route":"native-carrier"}]},
+    {"class":"AKS74U","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":8,"min":5},"ammo":["Ammo_545x39","Ammo_545x39Tracer"],"magazines":["Mag_AK74_30Rnd","Mag_AK74_45Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"AKS74U","parts":[]},
+    {"class":"ASVAL","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":3,"min":2},"ammo":["Ammo_9x39","Ammo_9x39AP"],"magazines":["Mag_VSS_10Rnd","Mag_VAL_20Rnd","Mag_Vikhr_30Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"ASVAL","parts":[]},
+    {"class":"Aug","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_Aug_30Rnd","Mag_STANAG_30Rnd","Mag_STANAG_60Rnd","Mag_CMAG_10Rnd","Mag_CMAG_20Rnd","Mag_CMAG_30Rnd","Mag_CMAG_40Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Aug","parts":[]},
+    {"class":"AugShort","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":3},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_Aug_30Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"AugShort","parts":[{"class":"AugOptic","route":"native-integral"}]},
+    {"class":"CZ550","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":14,"min":12},"ammo":["Ammo_308Win","Ammo_308WinTracer"],"magazines":["Mag_CZ550_10Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"CZ550","parts":[]},
+    {"class":"CZ61","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":5,"min":4},"ammo":["Ammo_380"],"magazines":["Mag_CZ61_20Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"CZ61","parts":[]},
+    {"class":"Crossbow_Autumn","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":5,"min":3},"ammo":["Ammo_HuntingBolt"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Crossbow","parts":[]},
+    {"class":"Crossbow_Black","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":5,"min":3},"ammo":["Ammo_HuntingBolt"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Crossbow","parts":[]},
+    {"class":"Crossbow_Wood","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":3,"min":1},"ammo":["Ammo_HuntingBolt"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Crossbow","parts":[]},
+    {"class":"Deagle","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":21,"min":17},"ammo":["Ammo_357"],"magazines":["Mag_Deagle_9rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Deagle","parts":[]},
+    {"class":"Deagle_Gold","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":3},"ammo":["Ammo_357"],"magazines":["Mag_Deagle_9rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Deagle","parts":[]},
+    {"class":"Derringer_Grey","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":20,"min":15},"ammo":["Ammo_357"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Derringer_Grey","parts":[]},
+    {"class":"Engraved1911","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":3},"ammo":["Ammo_45ACP"],"magazines":["Mag_1911_7Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Colt1911","parts":[]},
+    {"class":"FAL","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":2,"min":1},"ammo":["Ammo_308Win","Ammo_308WinTracer"],"magazines":["Mag_FAL_20Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"FAL","parts":[{"class":"Fal_OeBttstck","route":"native-carrier"}]},
+    {"class":"FAMAS","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":8,"min":6},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_FAMAS_25Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"FAMAS","parts":[]},
+    {"class":"LongHorn","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":25,"min":20},"ammo":["Ammo_308Win","Ammo_308WinTracer"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"LongHorn","parts":[]},
+    {"class":"M14","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":2,"min":1},"ammo":["Ammo_308Win","Ammo_308WinTracer"],"magazines":["Mag_M14_10Rnd","Mag_M14_20Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"M14","parts":[]},
+    {"class":"M4A1","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_STANAG_30Rnd","Mag_STANAG_60Rnd","Mag_CMAG_10Rnd","Mag_CMAG_20Rnd","Mag_CMAG_30Rnd","Mag_CMAG_40Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"M4A1","parts":[{"class":"M4_OEBttstck","route":"native-carrier"},{"class":"M4_PlasticHndgrd","route":"native-carrier"},{"class":"M4_CarryHandleOptic","route":"native-carrier"}]},
+    {"class":"M79","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":3,"min":1},"ammo":["Ammo_40mm_Explosive","Ammo_40mm_Chemgas","Ammo_40mm_Smoke_Red","Ammo_40mm_Smoke_Green","Ammo_40mm_Smoke_White","Ammo_40mm_Smoke_Black"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"M79","parts":[]},
+    {"class":"MKII","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":30,"min":27},"ammo":["Ammo_22"],"magazines":["Mag_MKII_10Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"MKII","parts":[]},
+    {"class":"Magnum_Gold","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_357"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Magnum","parts":[{"class":"Magnum_Cylinder_Gold","route":"native-integral"},{"class":"Magnum_Ejector_Gold","route":"native-integral"}]},
+    {"class":"PM73Rak","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":5,"min":4},"ammo":["Ammo_380"],"magazines":["Mag_PM73_25Rnd","Mag_PM73_15Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"PM73Rak","parts":[]},
+    {"class":"PP19","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":14,"min":11},"ammo":["Ammo_380"],"magazines":["Mag_PP19_64Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"PP19","parts":[]},
+    {"class":"R12","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":6,"min":5},"ammo":["Ammo_12gaPellets","Ammo_12gaSlug","Ammo_12gaRubberSlug"],"magazines":[],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"R12","parts":[]},
+    {"class":"SSG82","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":12,"min":10},"ammo":["Ammo_545x39","Ammo_545x39Tracer"],"magazines":["Mag_SSG82_5rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"SSG82","parts":[]},
+    {"class":"SV98","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":2,"min":1},"ammo":["Ammo_762x54","Ammo_762x54Tracer"],"magazines":["Mag_SV98_10Rnd"],"disposition":"review-native-budget","justification":"Preserve native supply inside explicit family accounting; scarcity label does not change native geographic tiers.","runtime_acceptance":"pending","family":"SV98","parts":[]},
+    {"class":"Scout","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":1,"min":1},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_Scout_5Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Scout","parts":[]},
+    {"class":"Scout_Chernarus","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":5,"min":3},"ammo":["Ammo_556x45","Ammo_556x45Tracer"],"magazines":["Mag_Scout_5Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Scout","parts":[]},
+    {"class":"UMP45","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":12,"min":10},"ammo":["Ammo_45ACP"],"magazines":["Mag_UMP_25Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"UMP45","parts":[]},
+    {"class":"VSS","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":6,"min":4},"ammo":["Ammo_9x39","Ammo_9x39AP"],"magazines":["Mag_VSS_10Rnd","Mag_VAL_20Rnd","Mag_Vikhr_30Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"VSS","parts":[]},
+    {"class":"Vikhr","kind":"weapon","role":"modern","tier":"rare","set":{"nominal":4,"min":2},"ammo":["Ammo_9x39","Ammo_9x39AP"],"magazines":["Mag_VSS_10Rnd","Mag_VAL_20Rnd","Mag_Vikhr_30Rnd"],"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"Vikhr","parts":[]},
+    {"class":"AmmoBox_00buck_10rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":11},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_12gaPellets","unit_rounds":10},
+    {"class":"AmmoBox_12gaRubberSlug_10Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":12,"min":10},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_12gaRubberSlug","unit_rounds":10},
+    {"class":"AmmoBox_12gaSlug_10Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":10},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_12gaSlug","unit_rounds":10},
+    {"class":"AmmoBox_22_50Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":29,"min":21},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_22","unit_rounds":50},
+    {"class":"AmmoBox_308WinTracer_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_308Win","unit_rounds":20},
+    {"class":"AmmoBox_308Win_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":8,"min":5},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_308Win","unit_rounds":20},
+    {"class":"AmmoBox_357_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":19,"min":14},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_357","unit_rounds":20},
+    {"class":"AmmoBox_380_35rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":11},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_380","unit_rounds":35},
+    {"class":"AmmoBox_45ACP_25rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":10},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_45ACP","unit_rounds":25},
+    {"class":"AmmoBox_545x39Tracer_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_545x39","unit_rounds":20},
+    {"class":"AmmoBox_545x39_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":6,"min":3},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_545x39","unit_rounds":20},
+    {"class":"AmmoBox_556x45Tracer_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_556x45","unit_rounds":20},
+    {"class":"AmmoBox_556x45_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":9,"min":6},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_556x45","unit_rounds":20},
+    {"class":"AmmoBox_762x39Tracer_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x39","unit_rounds":20},
+    {"class":"AmmoBox_762x39_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":9,"min":6},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x39","unit_rounds":20},
+    {"class":"AmmoBox_762x54Tracer_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":4,"min":3},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x54","unit_rounds":20},
+    {"class":"AmmoBox_762x54_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":8,"min":6},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x54","unit_rounds":20},
+    {"class":"AmmoBox_9x19_25rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":20,"min":14},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_9x19","unit_rounds":25},
+    {"class":"AmmoBox_9x39AP_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":3,"min":1},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_9x39","unit_rounds":20},
+    {"class":"AmmoBox_9x39_20Rnd","kind":"ammo","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_9x39","unit_rounds":20},
+    {"class":"Ammo_12gaRubberSlug","kind":"ammo","role":"support","tier":"rare","set":{"nominal":28,"min":24},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_12gaRubberSlug","unit_rounds":10},
+    {"class":"Ammo_308WinTracer","kind":"ammo","role":"support","tier":"rare","set":{"nominal":12,"min":8},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_308Win","unit_rounds":20},
+    {"class":"Ammo_40mm_Chemgas","kind":"ammo","role":"support","tier":"rare","set":{"nominal":5,"min":3},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_40mm_Chemgas","unit_rounds":1},
+    {"class":"Ammo_40mm_Explosive","kind":"ammo","role":"support","tier":"rare","set":{"nominal":8,"min":5},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_40mm_Explosive","unit_rounds":1},
+    {"class":"Ammo_40mm_Smoke_Black","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":8},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_40mm_Smoke_Black","unit_rounds":1},
+    {"class":"Ammo_40mm_Smoke_Green","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":8},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_40mm_Smoke_Green","unit_rounds":1},
+    {"class":"Ammo_40mm_Smoke_Red","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":8},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_40mm_Smoke_Red","unit_rounds":1},
+    {"class":"Ammo_40mm_Smoke_White","kind":"ammo","role":"support","tier":"rare","set":{"nominal":15,"min":8},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_40mm_Smoke_White","unit_rounds":1},
+    {"class":"Ammo_545x39Tracer","kind":"ammo","role":"support","tier":"rare","set":{"nominal":9,"min":5},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_545x39","unit_rounds":20},
+    {"class":"Ammo_556x45Tracer","kind":"ammo","role":"support","tier":"rare","set":{"nominal":11,"min":7},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_556x45","unit_rounds":20},
+    {"class":"Ammo_762x39Tracer","kind":"ammo","role":"support","tier":"rare","set":{"nominal":20,"min":14},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x39","unit_rounds":20},
+    {"class":"Ammo_762x54Tracer","kind":"ammo","role":"support","tier":"rare","set":{"nominal":13,"min":9},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_762x54","unit_rounds":20},
+    {"class":"Ammo_9x39","kind":"ammo","role":"support","tier":"rare","set":{"nominal":9,"min":5},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_9x39","unit_rounds":20},
+    {"class":"Ammo_9x39AP","kind":"ammo","role":"support","tier":"rare","set":{"nominal":6,"min":3},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_9x39","unit_rounds":20},
+    {"class":"Ammo_HuntingBolt","kind":"ammo","role":"support","tier":"rare","set":{"nominal":25,"min":18},"disposition":"keep-native-budget","justification":"Shared loose/box/tracer cartridge ceiling.","family":"Ammo_HuntingBolt","unit_rounds":5},
+    {"class":"Mag_AK101_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":16,"min":13},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_AK101_30Rnd"},
+    {"class":"Mag_AK74_45Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_AK74_45Rnd"},
+    {"class":"Mag_AKM_Drum75Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":1,"min":0},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_AKM_Drum75Rnd"},
+    {"class":"Mag_AKM_Palm30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":3,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_AKM_Palm30Rnd"},
+    {"class":"Mag_Aug_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Aug_30Rnd"},
+    {"class":"Mag_CMAG_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":12,"min":10},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_CMAG_10Rnd"},
+    {"class":"Mag_CMAG_20Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":5},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_CMAG_20Rnd"},
+    {"class":"Mag_CMAG_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_CMAG_30Rnd"},
+    {"class":"Mag_CMAG_40Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_CMAG_40Rnd"},
+    {"class":"Mag_CZ550_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":5},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_CZ550_10Rnd"},
+    {"class":"Mag_CZ61_20Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":14,"min":10},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_CZ61_20Rnd"},
+    {"class":"Mag_Deagle_9rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":30,"min":20},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Deagle_9rnd"},
+    {"class":"Mag_FAL_20Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":9,"min":6},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_FAL_20Rnd"},
+    {"class":"Mag_FAMAS_25Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":12,"min":10},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_FAMAS_25Rnd"},
+    {"class":"Mag_M14_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_M14_10Rnd"},
+    {"class":"Mag_M14_20Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_M14_20Rnd"},
+    {"class":"Mag_MKII_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":30,"min":20},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_MKII_10Rnd"},
+    {"class":"Mag_PM73_15Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":12,"min":8},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_PM73_15Rnd"},
+    {"class":"Mag_PM73_25Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":7,"min":5},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_PM73_25Rnd"},
+    {"class":"Mag_PP19_64Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":12,"min":10},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_PP19_64Rnd"},
+    {"class":"Mag_Ruger1022_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":30,"min":20},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Ruger1022_30Rnd"},
+    {"class":"Mag_SSG82_5rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":10,"min":7},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_SSG82_5rnd"},
+    {"class":"Mag_STANAG_60Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":3,"min":1},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_STANAG_60Rnd"},
+    {"class":"Mag_SV98_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_SV98_10Rnd"},
+    {"class":"Mag_Saiga_5Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":10,"min":7},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Saiga_5Rnd"},
+    {"class":"Mag_Saiga_Drum20Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":3,"min":1},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Saiga_Drum20Rnd"},
+    {"class":"Mag_Scout_5Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":8,"min":4},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Scout_5Rnd"},
+    {"class":"Mag_UMP_25Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":18,"min":15},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_UMP_25Rnd"},
+    {"class":"Mag_VAL_20Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":4,"min":2},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_VAL_20Rnd"},
+    {"class":"Mag_VSS_10Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":6,"min":4},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_VSS_10Rnd"},
+    {"class":"Mag_Vikhr_30Rnd","kind":"magazine","role":"support","tier":"rare","set":{"nominal":3,"min":1},"disposition":"keep-native-budget","justification":"Retain native source; explicit family cap.","family":"magazine-Mag_Vikhr_30Rnd"}
+  ],
+  "optics": {"status": "superseded", "entries": []},
+  "deferred_datamined": [],
+  "family_budgets": [
+    {"family":"AK101","kind":"weapon","nominal":4,"min":2},
+    {"family":"AK74","kind":"weapon","nominal":6,"min":4},
+    {"family":"AKM","kind":"weapon","nominal":4,"min":2},
+    {"family":"AKS74U","kind":"weapon","nominal":8,"min":5},
+    {"family":"ASVAL","kind":"weapon","nominal":3,"min":2},
+    {"family":"Ammo_12gaPellets","kind":"ammo","nominal":600,"min":440},
+    {"family":"Ammo_12gaRubberSlug","kind":"ammo","nominal":400,"min":340},
+    {"family":"Ammo_12gaSlug","kind":"ammo","nominal":560,"min":390},
+    {"family":"Ammo_22","kind":"ammo","nominal":3000,"min":2150},
+    {"family":"Ammo_308Win","kind":"ammo","nominal":800,"min":520},
+    {"family":"Ammo_357","kind":"ammo","nominal":960,"min":700},
+    {"family":"Ammo_380","kind":"ammo","nominal":2100,"min":1540},
+    {"family":"Ammo_40mm_Chemgas","kind":"ammo","nominal":5,"min":3},
+    {"family":"Ammo_40mm_Explosive","kind":"ammo","nominal":8,"min":5},
+    {"family":"Ammo_40mm_Smoke_Black","kind":"ammo","nominal":15,"min":8},
+    {"family":"Ammo_40mm_Smoke_Green","kind":"ammo","nominal":15,"min":8},
+    {"family":"Ammo_40mm_Smoke_Red","kind":"ammo","nominal":15,"min":8},
+    {"family":"Ammo_40mm_Smoke_White","kind":"ammo","nominal":15,"min":8},
+    {"family":"Ammo_45ACP","kind":"ammo","nominal":1250,"min":875},
+    {"family":"Ammo_545x39","kind":"ammo","nominal":560,"min":300},
+    {"family":"Ammo_556x45","kind":"ammo","nominal":800,"min":520},
+    {"family":"Ammo_762x39","kind":"ammo","nominal":1200,"min":820},
+    {"family":"Ammo_762x54","kind":"ammo","nominal":960,"min":700},
+    {"family":"Ammo_9x19","kind":"ammo","nominal":1500,"min":1075},
+    {"family":"Ammo_9x39","kind":"ammo","nominal":440,"min":220},
+    {"family":"Ammo_HuntingBolt","kind":"ammo","nominal":125,"min":90},
+    {"family":"Aug","kind":"weapon","nominal":1,"min":1},
+    {"family":"AugShort","kind":"weapon","nominal":4,"min":3},
+    {"family":"B95","kind":"weapon","nominal":10,"min":6},
+    {"family":"CZ527","kind":"weapon","nominal":26,"min":18},
+    {"family":"CZ550","kind":"weapon","nominal":14,"min":12},
+    {"family":"CZ61","kind":"weapon","nominal":5,"min":4},
+    {"family":"CZ75","kind":"weapon","nominal":8,"min":6},
+    {"family":"Colt1911","kind":"weapon","nominal":16,"min":12},
+    {"family":"Crossbow","kind":"weapon","nominal":13,"min":7},
+    {"family":"Deagle","kind":"weapon","nominal":25,"min":20},
+    {"family":"Derringer_Grey","kind":"weapon","nominal":20,"min":15},
+    {"family":"FAL","kind":"weapon","nominal":2,"min":1},
+    {"family":"FAMAS","kind":"weapon","nominal":8,"min":6},
+    {"family":"FNX45","kind":"weapon","nominal":6,"min":4},
+    {"family":"Glock19","kind":"weapon","nominal":12,"min":10},
+    {"family":"Izh18","kind":"weapon","nominal":28,"min":22},
+    {"family":"Izh18Shotgun","kind":"weapon","nominal":20,"min":16},
+    {"family":"Izh43Shotgun","kind":"weapon","nominal":16,"min":12},
+    {"family":"LeeEnfield","kind":"weapon","nominal":12,"min":8},
+    {"family":"LongHorn","kind":"weapon","nominal":25,"min":20},
+    {"family":"Luger","kind":"weapon","nominal":6,"min":4},
+    {"family":"M14","kind":"weapon","nominal":2,"min":1},
+    {"family":"M16A2","kind":"weapon","nominal":4,"min":2},
+    {"family":"M4A1","kind":"weapon","nominal":1,"min":1},
+    {"family":"M79","kind":"weapon","nominal":3,"min":1},
+    {"family":"MKII","kind":"weapon","nominal":30,"min":27},
+    {"family":"MP18","kind":"weapon","nominal":4,"min":2},
+    {"family":"MP5K","kind":"weapon","nominal":6,"min":4},
+    {"family":"Magnum","kind":"weapon","nominal":10,"min":8},
+    {"family":"Makarov","kind":"weapon","nominal":16,"min":12},
+    {"family":"Mosin9130","kind":"weapon","nominal":34,"min":24},
+    {"family":"Mp133Shotgun","kind":"weapon","nominal":8,"min":6},
+    {"family":"P1","kind":"weapon","nominal":12,"min":10},
+    {"family":"PM73Rak","kind":"weapon","nominal":5,"min":4},
+    {"family":"PP19","kind":"weapon","nominal":14,"min":11},
+    {"family":"R12","kind":"weapon","nominal":6,"min":5},
+    {"family":"Repeater","kind":"weapon","nominal":16,"min":12},
+    {"family":"Ruger1022","kind":"weapon","nominal":12,"min":8},
+    {"family":"SKS","kind":"weapon","nominal":18,"min":12},
+    {"family":"SSG82","kind":"weapon","nominal":12,"min":10},
+    {"family":"SV98","kind":"weapon","nominal":2,"min":1},
+    {"family":"SVD","kind":"weapon","nominal":6,"min":3},
+    {"family":"Saiga","kind":"weapon","nominal":4,"min":2},
+    {"family":"Scout","kind":"weapon","nominal":6,"min":4},
+    {"family":"UMP45","kind":"weapon","nominal":12,"min":10},
+    {"family":"VSS","kind":"weapon","nominal":6,"min":4},
+    {"family":"Vikhr","kind":"weapon","nominal":4,"min":2},
+    {"family":"Winchester70","kind":"weapon","nominal":10,"min":6},
+    {"family":"magazine-Mag_1911_7Rnd","kind":"magazine","nominal":20,"min":16},
+    {"family":"magazine-Mag_AK101_30Rnd","kind":"magazine","nominal":16,"min":13},
+    {"family":"magazine-Mag_AK74_30Rnd","kind":"magazine","nominal":12,"min":8},
+    {"family":"magazine-Mag_AK74_45Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_AKM_30Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_AKM_Drum75Rnd","kind":"magazine","nominal":1,"min":0},
+    {"family":"magazine-Mag_AKM_Palm30Rnd","kind":"magazine","nominal":3,"min":2},
+    {"family":"magazine-Mag_Aug_30Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_CMAG_10Rnd","kind":"magazine","nominal":12,"min":10},
+    {"family":"magazine-Mag_CMAG_20Rnd","kind":"magazine","nominal":8,"min":5},
+    {"family":"magazine-Mag_CMAG_30Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_CMAG_40Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_CZ527_5rnd","kind":"magazine","nominal":16,"min":12},
+    {"family":"magazine-Mag_CZ550_10Rnd","kind":"magazine","nominal":8,"min":5},
+    {"family":"magazine-Mag_CZ61_20Rnd","kind":"magazine","nominal":14,"min":10},
+    {"family":"magazine-Mag_CZ75_15Rnd","kind":"magazine","nominal":12,"min":8},
+    {"family":"magazine-Mag_Deagle_9rnd","kind":"magazine","nominal":30,"min":20},
+    {"family":"magazine-Mag_FAL_20Rnd","kind":"magazine","nominal":9,"min":6},
+    {"family":"magazine-Mag_FAMAS_25Rnd","kind":"magazine","nominal":12,"min":10},
+    {"family":"magazine-Mag_FNX45_15Rnd","kind":"magazine","nominal":8,"min":6},
+    {"family":"magazine-Mag_Glock_15Rnd","kind":"magazine","nominal":16,"min":12},
+    {"family":"magazine-Mag_IJ70_8Rnd","kind":"magazine","nominal":28,"min":20},
+    {"family":"magazine-Mag_LeeEnfield_10Rnd","kind":"magazine","nominal":8,"min":4},
+    {"family":"magazine-Mag_Luger_8Rnd","kind":"magazine","nominal":8,"min":4},
+    {"family":"magazine-Mag_M14_10Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_M14_20Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_MKII_10Rnd","kind":"magazine","nominal":30,"min":20},
+    {"family":"magazine-Mag_MP18_Drum32Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_MP5_15Rnd","kind":"magazine","nominal":8,"min":6},
+    {"family":"magazine-Mag_MP5_30Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_MakarovPB_8Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_P1_8Rnd","kind":"magazine","nominal":20,"min":16},
+    {"family":"magazine-Mag_PM73_15Rnd","kind":"magazine","nominal":12,"min":8},
+    {"family":"magazine-Mag_PM73_25Rnd","kind":"magazine","nominal":7,"min":5},
+    {"family":"magazine-Mag_PP19_64Rnd","kind":"magazine","nominal":12,"min":10},
+    {"family":"magazine-Mag_Ruger1022_15Rnd","kind":"magazine","nominal":16,"min":12},
+    {"family":"magazine-Mag_Ruger1022_30Rnd","kind":"magazine","nominal":30,"min":20},
+    {"family":"magazine-Mag_SSG82_5rnd","kind":"magazine","nominal":10,"min":7},
+    {"family":"magazine-Mag_STANAG_30Rnd","kind":"magazine","nominal":8,"min":4},
+    {"family":"magazine-Mag_STANAG_60Rnd","kind":"magazine","nominal":3,"min":1},
+    {"family":"magazine-Mag_SV98_10Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_SVD_10Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_Saiga_5Rnd","kind":"magazine","nominal":10,"min":7},
+    {"family":"magazine-Mag_Saiga_8Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_Saiga_Drum20Rnd","kind":"magazine","nominal":3,"min":1},
+    {"family":"magazine-Mag_Scout_5Rnd","kind":"magazine","nominal":8,"min":4},
+    {"family":"magazine-Mag_UMP_25Rnd","kind":"magazine","nominal":18,"min":15},
+    {"family":"magazine-Mag_VAL_20Rnd","kind":"magazine","nominal":4,"min":2},
+    {"family":"magazine-Mag_VSS_10Rnd","kind":"magazine","nominal":6,"min":4},
+    {"family":"magazine-Mag_Vikhr_30Rnd","kind":"magazine","nominal":3,"min":1}
+  ],
+  "refusals": ["HC21_NATIVE_WORLD_CAP_UNOBSERVED", "HC21_CARRIER_SUPPLY_UNMEASURED", "HC21_LOADED_MAGAZINE_ROUNDS_UNMEASURED", "HC21_AI_AMMO_RUNTIME_PENDING", "HC21_SV98_FUNCTION_PENDING", "HC21_NATIVE_CLASS_COVERAGE_UNQUALIFIED"]
 }
