@@ -35,12 +35,14 @@ class HCEcologyRuntimeModule : HCModule
         {
             Print("[HC Ecology] settings unreadable or invalid; disabled");
             HCEcologyRuntime.CloseCollection();
+            HCWildlifeObservation.HCStart(false);
             return false;
         }
         if (!m_Settings.Enabled)
         {
             Print("[HC Ecology] explicitly disabled by operator");
             HCEcologyRuntime.CloseCollection();
+            HCWildlifeObservation.HCStart(false);
             return false;
         }
         return true;
@@ -52,21 +54,25 @@ class HCEcologyRuntimeModule : HCModule
         if (m_Started)
         {
             HCEcologyMigration.Start(GetGame().GetWorldName());
+            HCWildlifeObservation.HCStart(true);
         }
         if (!m_Started)
         {
             Print("[HC Ecology] admission rejected; observation service not running");
             HCEcologyRuntime.CloseCollection();
+            HCWildlifeObservation.HCStart(false);
         }
     }
 
     override void OnTick(float deltaTime)
     {
         HCEcologyRuntime.Tick(GetGame().GetTime());
+        if (m_Started) { HCWildlifeObservation.HCTick(GetGame().GetTime()); }
     }
 
     override void OnStop()
     {
+        HCWildlifeObservation.HCStop();
         HCEcologyMigration.Stop();
         HCEcologyRuntime.Stop();
         m_Started = false;

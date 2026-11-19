@@ -140,6 +140,9 @@ class EcologyNativeResourceBehaviorTests(unittest.TestCase):
             env["HCEcologyRuntime"]=SimpleNamespace(
                 Register=lambda entity,kind:trace.append(("register",kind)) or accept[0],
                 Unregister=lambda entity:trace.append("unregister"))
+            # Synthetic HC-15 observation registry; its own tests cover it.
+            env["HCWildlifeObservation"]=SimpleNamespace(HCRegister=lambda entity:True,
+                                                         HCUnregister=lambda entity:None)
             init=translated(fragment,"EEInit",env,"HCEcologyHooks",True)
             delete=translated(fragment,"EEDelete",env,"HCEcologyHooks",True)
             entity=SimpleNamespace(m_HCEcoRegistered=False)

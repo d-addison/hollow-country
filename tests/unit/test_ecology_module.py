@@ -31,6 +31,11 @@ class EcologyModuleBehavior(unittest.TestCase):
         self.e['HCEcologyMigration'] = SimpleNamespace(
             Start=lambda world: self.migration_calls.append(('start', world)),
             Stop=lambda: self.migration_calls.append('stop'))
+        self.wildlife_calls = []  # Synthetic HC-15 observation collaborator.
+        self.e['HCWildlifeObservation'] = SimpleNamespace(
+            HCStart=lambda enabled: self.wildlife_calls.append(('start', enabled)),
+            HCTick=lambda now: self.wildlife_calls.append(('tick', now)),
+            HCStop=lambda: self.wildlife_calls.append('stop'))
         self.source = SOURCE.read_text()
         self.module = SimpleNamespace(m_Settings=None, m_Started=False, Session=lambda: "s20261117-010203-77")
 

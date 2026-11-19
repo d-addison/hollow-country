@@ -7,7 +7,7 @@
   "WorkUnits": 128,
   "MaxPlayerChecks": 16,
   "TickMs": 1000,
-  "FactLifetimeMs": 30000,
+  "FactLifetimeMs": 60000,
   "PlayerObservationRadiusM": 1000.0,
   "RangeBasis": "Observation envelope only: approximate vanilla network bubble 1000 m and rifle gunshot hearing about 1 km; never an animal perception range.",
   "Species": [

@@ -11,6 +11,8 @@ modded class AnimalBase
 	{
 		super.EEInit();
 		if (!m_HCEcoRegistered) { m_HCEcoRegistered = HCEcologyRuntime.Register(this, true); }
+		// HC-15: only animals the ecology cohort accepted; HCRegister is a no-op off the server.
+		if (m_HCEcoRegistered) { HCWildlifeObservation.HCRegister(this); }
 	}
 
 	override void EEKilled(Object killer)
@@ -30,6 +32,9 @@ modded class AnimalBase
 			m_HCEcoRegistered = false;
 			HCEcologyRuntime.Unregister(this);
 		}
+		// HC-15 keeps killed animals (carcass facts) after EEKilled cleared the ecology flag,
+		// so the wildlife row is released here unconditionally (no-op without an instance).
+		HCWildlifeObservation.HCUnregister(this);
 		super.EEDelete(parent);
 	}
 }
