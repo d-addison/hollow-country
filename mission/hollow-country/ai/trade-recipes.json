@@ -4,5 +4,7 @@
   "LeftClass": "BandageDressing",
   "RightClass": "SodaCan_Kvass",
   "TimeoutSeconds": 120,
-  "TransferRangeMeters": 2.5
+  "TransferRangeMeters": 2.5,
+  "GestureRequests": 3,
+  "InventoryScanLimit": 64
 }

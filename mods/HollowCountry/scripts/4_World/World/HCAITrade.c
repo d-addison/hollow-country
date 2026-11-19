@@ -36,6 +36,19 @@ class HCTradeRecipe
     // Same 2.5 m local pickup envelope as HC-34, 0.25% of the approximately
     // 1000 m vanilla network bubble/rifle report range. Never perception.
     float TransferRangeMeters = 2.5;
+    // Wave 16: emote requests per exchange, and the item-scan bound for the
+    // provider bind. Named fields; the default applies only when the authored
+    // file omits the key (native JSON zero-fills a missing int).
+    int GestureRequests = 3;
+    int InventoryScanLimit = 64;
+    static const int DEFAULT_GESTURE_REQUESTS = 3;
+    static const int DEFAULT_INVENTORY_SCAN_LIMIT = 64;
+
+    void HCApplyDefaults(string encoded)
+    {
+        if (!HCJsonFields.Has(encoded, "GestureRequests")) { GestureRequests = HCTradeRecipe.DEFAULT_GESTURE_REQUESTS; }
+        if (!HCJsonFields.Has(encoded, "InventoryScanLimit")) { InventoryScanLimit = HCTradeRecipe.DEFAULT_INVENTORY_SCAN_LIMIT; }
+    }
 
     bool HCValid()
     {
@@ -43,7 +56,71 @@ class HCTradeRecipe
         if (Version != 1 || RecipeId != "bandage-for-drink") { return false; }
         if (LeftClass != "BandageDressing" || RightClass != "SodaCan_Kvass") { return false; }
         if (TimeoutSeconds < 1 || TimeoutSeconds > 300) { return false; }
+        if (GestureRequests < 1 || GestureRequests > 10 || InventoryScanLimit < 1 || InventoryScanLimit > 256) { return false; }
         return TransferRangeMeters > 0 && TransferRangeMeters <= pickup.TransferRangeMeters;
+    }
+}
+
+// Wave 16: the emote acknowledgement is admitted unverified. The server-side
+// observation is a NEW emote callback on BOTH actors after the request (the
+// addon's EmoteManager serial); a request alone, or one actor, is never enough.
+// The client-visible acknowledgement has no recorded native/two-client verdict
+// (runtime=PENDING). Request count per exchange is the recipe's GestureRequests.
+class HCTradeGestureGate
+{
+    string m_Trade;
+    int m_LeftSerial;
+    int m_RightSerial;
+    int m_Requests;
+    int m_MaxRequests;
+
+    static string HCKey(HCTradeState row)
+    {
+        if (!row) { return ""; }
+        return row.Id + ":" + row.StartedAt.ToString();
+    }
+
+    bool HCArmedFor(string key) { return m_Trade != "" && m_Trade == key; }
+
+    void HCArm(string key, int leftSerial, int rightSerial, int maxRequests)
+    {
+        m_Trade = key;
+        m_LeftSerial = leftSerial;
+        m_RightSerial = rightSerial;
+        m_Requests = 0;
+        m_MaxRequests = maxRequests;
+    }
+
+    bool HCTakeRequest()
+    {
+        if (m_Trade == "" || m_Requests >= m_MaxRequests) { return false; }
+        m_Requests++;
+        return true;
+    }
+
+    bool HCObserved(int leftSerial, int rightSerial)
+    {
+        return m_Trade != "" && leftSerial > m_LeftSerial && rightSerial > m_RightSerial;
+    }
+
+    void HCReset()
+    {
+        m_Trade = "";
+        m_LeftSerial = 0;
+        m_RightSerial = 0;
+        m_Requests = 0;
+        m_MaxRequests = 0;
+    }
+}
+
+// Module readiness reason from the real provider state (never hard-coded).
+class HCTradeReadiness
+{
+    static string HCTradeReadinessReason(bool providerBound, bool providerReady)
+    {
+        if (!providerBound) { return "provider_absent_base_only"; }
+        if (!providerReady) { return "provider_bound_waiting_site_director"; }
+        return "provider_bound_awaiting_funded_pair";
     }
 }
 
@@ -481,7 +558,7 @@ class HCTradeTransaction
         m_Reports++;
         string effective = "refused";
         if (!m_Enabled) { effective = "off"; }
-        else if (m_Ready && m_IO && m_IO.HCReady() && m_State.Phase != "quarantined") { effective = "ready"; }
+        else if (m_Ready && m_State.Phase != "quarantined") { effective = "ready"; }
         string id = "none";
         string bound = "0";
         string observed = "0";
@@ -515,9 +592,46 @@ class HCAITrade : HCModule
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected string m_StatusReason;
+    protected bool m_ProviderLogged;
+    static const string OPT_OUT = "$profile:HollowCountry/acceptance/ai_trade_emote_ack.disable";
 
     static HCAITrade HCGet() { return s_Instance; }
-    static void HCBindProvider(HCTradeInventory port) { s_Provider = port; }
+    static void HCBindProvider(HCTradeInventory port)
+    {
+        s_Provider = port;
+        if (s_Instance) { s_Instance.HCRefreshStatus(); }
+    }
+
+    // Wave 16: module state is derived from the real provider state each tick
+    // (cheap string compare; publishes only on change). Ready means started, recipe
+    // and journal loaded, tick running. A quarantined journal or failed save keeps
+    // its own refusal and is never overwritten here.
+    void HCRefreshStatus()
+    {
+        if (!m_Trade || !m_Trade.m_Enabled || !m_Trade.m_Ready || !m_Trade.m_State || m_Trade.m_State.Phase == "quarantined") { return; }
+        bool bound = false;
+        bool providerReady = false;
+        if (s_Provider) { bound = true; providerReady = s_Provider.HCReady(); }
+        string reason = HCTradeReadiness.HCTradeReadinessReason(bound, providerReady);
+        if (reason == m_StatusReason) { return; }
+        m_StatusReason = reason;
+        m_Status.HCPublish("ready", reason);
+    }
+
+    // One line, first tick: every module has started by then, so a missing addon
+    // is a fact and not a start-order artefact. Never repeats.
+    protected void HCProviderLine()
+    {
+        if (m_ProviderLogged) { return; }
+        m_ProviderLogged = true;
+        if (s_Provider)
+        {
+            Print("[HC Plan] HC-35 provider=bound trade=ai_only rendezvous_route=unsurveyed runtime=PENDING");
+            return;
+        }
+        Print("[HC Plan] HC-35 provider=absent reason=expansion_ai_addon_not_loaded trade=none runtime=PENDING");
+    }
     override string GetName() { return "AITrade"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
@@ -532,6 +646,12 @@ class HCAITrade : HCModule
         }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         Print(HCV2Admission.Line("AITrade", true, "HC35-NATIVE-BARTER", false));
+        if (FileExist(HCAITrade.OPT_OUT)) // EnSystem.c:397
+        {
+            m_Status.HCPublish("off", "operator_opt_out");
+            Print("[HC Plan] HC-35 trade=none phase=off transfer=none state=off refusal=OPERATOR_OPT_OUT count=0 runtime=PENDING");
+            return;
+        }
         m_Trade = new HCTradeTransaction;
         m_Trade.m_Status = m_Status;
         string error;
@@ -542,6 +662,7 @@ class HCAITrade : HCModule
         {
             parsed = JsonFileLoader<HCTradeRecipe>.LoadData(encoded, recipe, error);
         }
+        if (parsed && recipe) { recipe.HCApplyDefaults(encoded); }
         if (!parsed || !recipe || !recipe.HCValid())
         {
             m_Status.HCPublish("refused", "TRADE_RECIPE_INVALID");
@@ -561,22 +682,23 @@ class HCAITrade : HCModule
         m_Trade.m_Ready = true;
         m_Trade.HCRestore();
         s_Instance = this;
-        if (m_Trade.m_State.Phase != "quarantined")
-        {
-            m_Status.HCPublish("refused", "TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED");
-            m_Trade.m_State.Refusal = "TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED";
-        }
+        // Wave 16 owner decision: the emote acknowledgement has no recorded native or
+        // two-client verdict, so it is admitted unverified (never claimed as proven).
+        // Operator opt-out: acceptance/ai_trade_emote_ack.disable in the profile.
+        string admission = "[HC Plan] HC-35 emote_ack=admitted unverified gate=TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED";
+        Print(admission + " opt_out=acceptance/ai_trade_emote_ack.disable runtime=PENDING");
+        if (m_Trade.m_State.Phase != "quarantined") { m_Status.HCPublish("ready", "awaiting_provider_bind"); }
         else { m_Status.HCPublish("refused", m_Trade.m_State.Refusal); }
         m_Trade.HCLog();
     }
 
     // Lead's provider activity calls with two already claimed/funded leases.
-    // Shipping adapter refuses, so there is no scan or repeated offer loop.
+    // The adapter only starts a swap when the pair is funded; no scan or repeated offer loop.
     // CONSUMER NOTE (#193): ANY HCBegin releases a terminal journal (cancelled, rolled_back
     // or complete) to idle before it admits the next exchange. A consumer that wants the
     // result of a complete exchange must read HCObservedComplete(tradeId) BEFORE its next
-    // HCBegin, or latch its own result; after the release the completion is gone. The
-    // provider adapter (HCXAITradeAdapter) stays unbound, so trade remains refusal-only.
+    // HCBegin, or latch its own result; after the release the completion is gone.
+    // Wave 16: HCXAITradeAdapter binds itself from the addon (modded HCXAIAdapter.OnStart).
     bool HCBegin(string leftLease, string rightLease)
     {
         if (!GetGame() || !GetGame().IsServer() || !m_Trade || !s_Provider) { return false; }
@@ -593,7 +715,10 @@ class HCAITrade : HCModule
 
     override void OnTick(float deltaTime)
     {
-        if (!m_Trade || !m_Trade.m_Enabled || !m_Trade.m_Ready || !m_Trade.HCActive()) { return; }
+        if (!m_Trade || !m_Trade.m_Enabled || !m_Trade.m_Ready) { return; }
+        HCProviderLine();
+        HCRefreshStatus();
+        if (!m_Trade.HCActive()) { return; }
         m_Units.HCReset(1);
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }

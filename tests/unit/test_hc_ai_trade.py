@@ -338,15 +338,27 @@ class TradeBehavior(unittest.TestCase):
         self.assertEqual(16, len([line for line in loop.logs if 'slot released' in line]),
                          'release log line is bounded at 16 per run')
 
-        # Shipping provider refuses capabilities that cannot be inspected here.
-        adapter = N()
+        # Wave 16: the addon adapter is ready exactly while the site director runs, and
+        # its rendezvous walk is declined (logged once) unless the pair is already in
+        # range. The emote-ack gate is admitted unverified in the module, not refused here.
+        adapter = N(m_RouteNoted=False)
+        meeting = [False]
+        director = N(Phase=lambda: 'wait')
+        printed = []
+        env = {'HCXAISiteDirector': N(Active=lambda: director),
+               'HCXAIQualification': N(EncountersEnabled=lambda: True), 'Print': printed.append,
+               'HCAtMeeting': lambda: meeting[0]}
         bind(ADAPTER.read_text(), 'HCXAITradeAdapter', adapter,
-             ('HCReady', 'HCRefusal', 'HCBeginWalk', 'HCObservedGestures', 'HCBind'), {})
+             ('HCReady', 'HCRefusal', 'HCDirectorRuns', 'HCBeginWalk'), env)
         self.assertFalse(adapter.HCReady())
-        self.assertFalse(adapter.HCBind(N()))
+        self.assertEqual('TRADE_SITE_DIRECTOR_NOT_RUNNING', adapter.HCRefusal())
+        director.Phase = lambda: 'run'
+        self.assertTrue(adapter.HCReady())
+        self.assertFalse(adapter.HCBeginWalk(N()), 'parties out of range: no unsurveyed route is commanded')
         self.assertFalse(adapter.HCBeginWalk(N()))
-        self.assertFalse(adapter.HCObservedGestures(N()))
-        self.assertEqual('TRADE_RENDEZVOUS_EMOTE_ACK_UNVERIFIED', adapter.HCRefusal())
+        self.assertEqual(1, len([line for line in printed if 'TRADE_RENDEZVOUS_ROUTE_UNSURVEYED' in line]))
+        meeting[0] = True
+        self.assertTrue(adapter.HCBeginWalk(N()))
 
         # Actual authored N2 handler against explicit synthetic native handles.
         # These ports only expose location/capacity/mutation, never trade policy.

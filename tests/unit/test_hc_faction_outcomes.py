@@ -166,22 +166,24 @@ class FactionOutcomes(unittest.TestCase):
         adapted = adapted.replace('array<Object>', 'HCObjects')
         adapted = adapted.replace('override ', '')
         translate(adapted, 'HCFactionConflict', benv,
-                  only=('HCBind', 'HCSave', 'HCRefuse', 'HCLog', 'HCCallbackAllowed',
+                  only=('HCBind', 'HCSave', 'HCRefuse', 'HCDecline', 'HCLog', 'HCCallbackAllowed',
                         'OnTick', 'HCFinishObserved', 'OnStop'))
         state = N(Version=1, NextEncounter=1, Rows=EArray())
-        module = N(m_Healthy=True, s_Active=True, s_CombatPort=None,
+        module = N(m_Healthy=True, s_Active=True, s_CombatPort=None, m_Declined='',
+                   m_StatusReason='', m_ProviderLogged=False, HCRefreshStatus=lambda: None,
                    m_Outcomes=state, m_Current=None, m_LeftActors=EArray(),
                    m_RightActors=EArray(), m_ActorCursor=0, m_CallbackFrame=-1,
                    m_CallbackUnits=budget, m_Units=budget, m_Work=budget,
                    m_Operational=N(HCPublish=lambda *a: None),
                    m_Store=N(Save=lambda d: writes.append(deepcopy(d)) or True))
-        for name in ('HCBind', 'HCSave', 'HCRefuse', 'HCLog', 'HCCallbackAllowed',
+        for name in ('HCBind', 'HCSave', 'HCRefuse', 'HCDecline', 'HCLog', 'HCCallbackAllowed',
                      'HCFinishObserved'):
             setattr(module, name, lambda *args, n=name: benv[n](module, *args))
         args = ('synthetic-site', EStr('a'*64), 'lease:10', 'locals', EArray([actors[0]]),
                 'lease:11', 'raiders', EArray([actors[1]]))
         self.assertEqual('', module.HCBind(*args))
-        self.assertIn('COMBAT_PROVIDER_UNVERIFIED', lines[-1])
+        self.assertIn('COMBAT_PROVIDER_ABSENT', lines[-1])
+        self.assertIn('state=ready', lines[-1], 'a missing provider is a wait, not a refusal (wave 16)')
         self.assertEqual([], writes)
         module.s_CombatPort = provider
         provider.HCSurveyed = lambda *a: False
