@@ -806,7 +806,10 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("m_Store.SaveStep(m_State)", routine)
         self.assertLess(routine.index("HCInFlight = false"), routine.index("OnStop()"))
         commit = module.split("bool Commit(int now)")[1].split("\n    }\n")[0]
-        self.assertIn("m_SaveJob.HCInFlight = false", commit)
+        self.assertIn("SaveBarrierDone()", commit)
+        barrier = module.split("void SaveBarrierDone()")[1].split("\n    }\n")[0]
+        self.assertIn("m_SaveJob.HCInFlight = false", barrier)
+        self.assertIn("m_SaveJob.HCDirty = false", barrier)
         stop = module.split("override void OnStop()")[1].split("\n    }\n")[0]
         self.assertIn("SaveAbandon()", stop)
         self.assertLess(stop.index("SaveAbandon()"), stop.index("HCFlush(m_SaveJob)"))

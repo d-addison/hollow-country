@@ -53,8 +53,8 @@ class HCSceneChainState
     string WorldName;
     int Revision;
     int LastNow;
-    // Optional additive v1 migration; same verified store and staged save job.
-    ref HCStoryProgress Stories;
+    // Empty progress is unmigrated v1; never serialize null into the native loader.
+    ref HCStoryProgress Stories = new HCStoryProgress;
     // Pin the complete authored plan: edits to mission data cannot shorten a
     // running stage, revive a cancelled chain or silently replace its kit/site.
     ref HCSceneCatalog Catalog;
