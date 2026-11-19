@@ -327,7 +327,7 @@ def load_supply_dispositions(path=None):
 
 
 def supply_rows(rows, dispositions):
-    """Select proposals; flags are never cleared to manufacture a floor route."""
+    """Select reviewed finite proposals; floor flag overrides are applied only at emission."""
     decisions = {e['class']: e for e in dispositions['entries']}
     selected, refused = [], []
     for row in rows:
@@ -338,7 +338,7 @@ def supply_rows(rows, dispositions):
             refused.append({'class': row['class'], 'route': entry['route'],
                             'reason': entry['refusal'] or 'HC22_NON_FLOOR_ROUTE'})
             continue
-        # Owner 2026-11-19: exact shipped proposals admitted unverified; retain native flags.
+        # Owner 2026-11-19: exact shipped proposals admitted; emission clears floor-blocking flags.
         reviewed = next((r for r in load_rows() if r['class'] == row['class']), None)
         if row['flags'][4:] != '00' and (row['class'] not in SUPPLY_UNVERIFIED_FLOOR or row != reviewed):
             _fail('HC22_UNQUALIFIED_FLOOR_FLAGS: ' + row['class'])
@@ -441,13 +441,16 @@ def _build(row, original):
     return element
 
 
-def type_rows(stock, vocabulary=None, include_new=False, rows=None):
+def type_rows(stock, vocabulary=None, include_new=False, rows=None, floor=False):
     """Return ``<type>`` elements for economy.py: stock entries with the row's budget/usage/tiers.
 
     stock: ``{name: <type>}`` (economy's ``types`` mapping). Stock-present rows keep every stock
     field except nominal/min/lifetime/restock/usage/value (and category only where stock has none).
     Stock-absent item rows are returned only with ``include_new`` for inspection; the installer
     admits only NEW_TYPE_PARENTS additions, built separately by reviewed_new_type for the roster.
+    ``floor`` admits only the exact 17 reviewed HC-22 proposals to clear crafted;
+    TortillaBag_Desert also clears deloot. Source rows retain their stock flags
+    for validation, and other profiles retain those flags.
     Pure: never mutates ``stock``.
     """
     rows = load_rows() if rows is None else rows
@@ -467,7 +470,15 @@ def type_rows(stock, vocabulary=None, include_new=False, rows=None):
         original = _check_stock(row, stock_lower)
         if original is None and not include_new:
             continue
-        out.append(_build(row, original))
+        element = _build(row, original)
+        if floor and name in SUPPLY_UNVERIFIED_FLOOR:
+            reviewed = next((r for r in load_rows() if r['class'] == name), None)
+            if row != reviewed:
+                _fail('HC22_UNQUALIFIED_FLOOR_FLAGS: ' + name)
+            element.find('flags').set('crafted', '0')
+            if name == 'TortillaBag_Desert':
+                element.find('flags').set('deloot', '0')
+        out.append(element)
     return sorted(out, key=lambda e: e.get('name'))
 
 

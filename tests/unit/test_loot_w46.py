@@ -92,6 +92,53 @@ class CabinetSites(unittest.TestCase):
         self.assertFalse(h.client.PilotMatches(h.player, h.target()))
         self.assertEqual(len(h.sent), 2)
 
+    def test_decorative_cabinets_cannot_starve_a_bound_cabinet(self):
+        h = self.harness()
+        for index in range(300):
+            cabinet = preview.houses.FakeHouse(h.house.cls, [float(index), 0., 0.])
+            key = h.env['HCSearchPreviewSites'].PilotKey(cabinet)
+            h.client.EntryForTarget(key, cabinet)
+            self.assertEqual(h.sent[-1][0], [key])
+            h.receive(key, 0)
+            h.game.now += .5
+            self.assertLessEqual(h.client.m_Cache.Count(), 256)
+        self.assertFalse(h.client.PilotMatches(h.player, h.target()))
+        key = h.env['HCSearchPreviewSites'].PilotKey(h.house)
+        self.assertEqual(h.sent[-1][0], [key])
+        h.receive(key, 1, [0., 1., 0.], 2.5)
+        self.assertTrue(h.client.PilotMatches(h.player, h.target()))
+
+    def test_throttled_unsent_entries_cannot_starve_the_next_request(self):
+        h = self.harness()
+        h.client.EntryFor('SyntheticInFlight')
+        pending = h.client.m_Cache.Get('SyntheticInFlight')
+        for index in range(300):
+            h.client.EntryFor('SyntheticUnsent' + str(index))
+        self.assertEqual(len(h.sent), 1)
+        h.game.now += .5
+        h.client.PilotMatches(h.player, h.target())
+        self.assertEqual(len(h.sent), 2)
+        self.assertIs(h.client.m_Cache.Get('SyntheticInFlight'), pending)
+        self.assertLessEqual(h.client.m_Cache.Count(), 256)
+
+    def test_cache_pressure_preserves_in_flight_and_positive_entries(self):
+        h = self.harness()
+        h.client.PilotMatches(h.player, h.target())
+        pending_key = h.sent[-1][0][0]
+        pending = h.client.m_Cache.Get(pending_key)
+        h.game.now += .5
+        h.client.EntryFor('SyntheticPositive')
+        h.receive('SyntheticPositive', 1, [0., 1., 0.], 1.)
+        positive = h.client.m_Cache.Get('SyntheticPositive')
+        for index in range(300):
+            h.game.now += .5
+            key = 'SyntheticNegative' + str(index)
+            h.client.EntryFor(key)
+            h.receive(key, 0)
+        self.assertIs(h.client.m_Cache.Get(pending_key), pending)
+        self.assertIs(h.client.m_Cache.Get('SyntheticPositive'), positive)
+        self.assertLessEqual(h.client.m_Cache.Count(), 256)
+
 
 class InteriorCoverage(unittest.TestCase):
     def test_refusal_cursor_uses_loaded_rows_and_shared_budget(self):
@@ -184,85 +231,45 @@ class CabinetBindingPolicy(unittest.TestCase):
         self.assertEqual(calls, ['server-start'])
 
 
-class FloorAdmissionIntegrationFixture(unittest.TestCase):
-    """The unowned-tool edit is applied ONLY to a local fixture copy, never production.
-
-    This exercises the proposed lead integration; it does not assert that the
-    checkout's generator admits these routes or that native flags yield floor loot.
-    """
-    def test_proposed_policy_keeps_finite_stock_flags_and_exact_rollback(self):
+class FloorAdmissionIntegration(unittest.TestCase):
+    """Integrated generator over an explicit synthetic stock mission; no CE proof."""
+    def test_floor_flags_finite_stock_and_byte_exact_rollback(self):
         import json
         import tempfile
-        import types
         from pathlib import Path
-        from unittest import mock
         from tools.package import datamined_items as dm, economy
         from tests.unit.test_datamined_items import stock_mission, profile, tree
-        fixture_source, fixture_ledger = floor_integration_fixture()
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            source = root / 'datamined_items.py'
-            source.write_text(fixture_source)
-            policy = root / 'loot-dispositions.json'
-            policy.write_text(json.dumps(fixture_ledger))
-            module = types.ModuleType('w46_fixture_datamined_items')
-            module.__file__ = str(source)
-            exec(compile(source.read_text(), str(source), 'exec'), module.__dict__)
-            module.DATA = dm.DATA
-            module.SUPPLY_DATA = policy
             mission = root / 'mission'
-            mission.mkdir()
             stock_mission(mission, dm.load_rows())
             before = tree(mission)
-            with mock.patch.object(economy, 'datamined_items', module):
-                files = economy.generate(mission, (profile() | {'name': 'contextual-pilot'}))
-                report = json.loads(files['economy-report.json'])['supply']
-                self.assertEqual((report['admitted'], report['floor_refused'], report['observed']), (55, 0, 0))
-                emitted = economy._unique(economy.xml(files['ce/types.xml'], 'types'))
-                for row in dm.load_rows():
-                    if row['class'] not in FLOOR_CLASSES: continue
-                    item = emitted[row['class']]
-                    self.assertEqual(int(item.findtext('nominal')), row['nominal'])
-                    self.assertEqual(''.join(item.find('flags').get(k) for k in dm.FLAG_ORDER), row['flags'])
-                    self.assertGreater(row['nominal'], 0)
-                    self.assertGreaterEqual(row['nominal'], row['min'])
-                stage = root / 'stage'
-                stage.mkdir()
-                for name, data in files.items():
-                    path = stage / name
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(data)
-                economy.install_delta(stage, mission)
-                economy.rollback(mission)
-                self.assertEqual(tree(mission), before)
-                off = economy.generate(mission, (profile() | {'name': 'contextual-pilot'}), include_datamined=False)
-                self.assertEqual(json.loads(off['economy-report.json'])['supply']['admitted'], 0)
-
-
-FLOOR_CLASSES = frozenset(
-    family + '_' + colour
-    for family in ('LeatherJacket', 'LeatherShoes', 'LeatherHat')
-    for colour in ('Natural', 'Beige', 'Brown', 'Black')) | {
-        'LeatherShirt_Natural', 'DrysackBag_Green', 'DrysackBag_Orange',
-        'DrysackBag_Yellow', 'TortillaBag_Desert'}
-
-
-def floor_integration_fixture():
-    """Exact proposed patch, isolated because tools/package is not worker-owned."""
-    import json
-    from tools.package import datamined_items as dm
-    from pathlib import Path
-    source = Path(dm.__file__).read_text()
-    old = "        if row['flags'][4:] != '00':"
-    new = """        # Owner 2026-11-19: exact shipped proposals admitted unverified; retain native flags.
-        reviewed = next((r for r in load_rows() if r['class'] == row['class']), None)
-        if row['flags'][4:] != '00' and (row['class'] not in SUPPLY_UNVERIFIED_FLOOR or row != reviewed):"""
-    assert source.count(old) == 1
-    constant = 'SUPPLY_UNVERIFIED_FLOOR = frozenset(' + repr(sorted(FLOOR_CLASSES)) + ')\n'
-    source = source.replace('ACCEPTANCE = ', constant + 'ACCEPTANCE = ', 1).replace(old, new)
-    ledger = json.loads(dm.SUPPLY_DATA.read_text())
-    for entry in ledger['entries']:
-        if entry['class'] in FLOOR_CLASSES:
-            entry.update(route='native-floor', floor_admitted=True, refusal=None)
-            entry['evidence'].append('Owner 2026-11-19: admit exact finite proposal unverified; crafted/deloot flags retained; ordinary floor acquisition runtime=PENDING')
-    return source, ledger
+            expected_floor = {
+                family + '_' + colour
+                for family in ('LeatherJacket', 'LeatherShoes', 'LeatherHat')
+                for colour in ('Natural', 'Beige', 'Brown', 'Black')
+            } | {'LeatherShirt_Natural', 'DrysackBag_Green', 'DrysackBag_Orange',
+                 'DrysackBag_Yellow', 'TortillaBag_Desert'}
+            self.assertEqual(dm.SUPPLY_UNVERIFIED_FLOOR, expected_floor)
+            files = economy.generate(mission, profile() | {'name': 'contextual-pilot'})
+            emitted = economy._unique(economy.xml(files['ce/types.xml'], 'types'))
+            self.assertEqual(emitted['DrysackBag_Green'].find('flags').get('crafted'), '0')
+            report = json.loads(files['economy-report.json'])['supply']
+            self.assertEqual((report['admitted'], report['floor_refused'], report['observed']), (55, 0, 0))
+            for row in dm.load_rows():
+                item = emitted[row['class']]
+                self.assertEqual(int(item.findtext('nominal')), row['nominal'])
+                expected = row['flags']
+                if row['class'] in expected_floor:
+                    expected = expected[:4] + '00'
+                self.assertEqual(''.join(item.find('flags').get(k) for k in dm.FLAG_ORDER), expected)
+                self.assertGreater(row['nominal'], 0)
+                self.assertGreaterEqual(row['nominal'], row['min'])
+            self.assertEqual(tree(mission), before, 'generation must preserve stock bytes')
+            stage = root / 'stage'
+            economy.write_delta(stage, files)
+            economy.install_delta(stage, mission)
+            economy.rollback(mission)
+            self.assertEqual(tree(mission), before)
+            off = economy.generate(mission, profile() | {'name': 'contextual-pilot'}, include_datamined=False)
+            self.assertEqual(json.loads(off['economy-report.json'])['supply']['admitted'], 0)

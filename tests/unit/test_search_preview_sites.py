@@ -37,6 +37,9 @@ class NativeSyntax(houses.Translator):
 
 class CacheMap(houses.HMap):
     def Get(self, key): return self.get(key)
+    def GetElement(self, index): return list(self.values())[index]
+    def GetKey(self, index): return list(self)[index]
+    def Remove(self, key): del self[key]
 
 
 class Wire:

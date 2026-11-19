@@ -137,14 +137,32 @@ class HCSearchPreviewSites
         return null;
     }
 
+    // Bounded pressure sweep: map access/removal in native 1_Core/proto/EnScript.c:887,897,906.
+    // Completed negatives and unsent empty entries can yield to an unseen target.
+    // Pending requests and positive sites retain their identity and reply destination.
+    void ReclaimNegative()
+    {
+        int index = m_Cache.Count() - 1;
+        while (index >= 0)
+        {
+            HCSearchPreviewEntry cached = m_Cache.GetElement(index);
+            if ((!cached.Requested || cached.Ready) && cached.Sites.Count() == 0)
+            {
+                string key = m_Cache.GetKey(index);
+                m_Cache.Remove(key);
+                return;
+            }
+            index = index - 1;
+        }
+    }
+
     HCSearchPreviewEntry EntryForTarget(string cls, Object cabinet)
     {
         if (!m_Listening || !HCSearchRules.TextValid(cls, 128)) return null;
         HCSearchPreviewEntry entry = m_Cache.Get(cls);
         if (!entry)
         {
-            // Pending and negative entries share the same hard cap. At capacity refuse
-            // new classes until mission finish; never evict an in-flight class.
+            if (m_Cache.Count() >= CACHE_LIMIT) ReclaimNegative();
             if (m_Cache.Count() >= CACHE_LIMIT) return null;
             entry = new HCSearchPreviewEntry;
             entry.Cabinet = cabinet;
