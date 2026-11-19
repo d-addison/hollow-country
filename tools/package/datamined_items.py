@@ -281,11 +281,20 @@ def total_nominal(rows):
     return sum(r['nominal'] for r in rows)
 
 
-def load_supply_dispositions(path=None):
-    """Small authored HC-22 decisions, not a census or native eligibility verdict."""
-    raw = Path(path or SUPPLY_DATA).read_bytes()
+def supply_disposition_bytes(path=None):
+    """Repo-only policy input; portable tool exports intentionally omit this ledger."""
+    try:
+        raw = Path(path or SUPPLY_DATA).read_bytes()
+    except FileNotFoundError:
+        raise ValueError('HC22_DISPOSITIONS_MISSING: economy generate/install requires the repository ledger') from None
     if len(raw) > MAX_JSON_BYTES:
         _fail('HC22_DISPOSITIONS_SIZE')
+    return raw
+
+
+def load_supply_dispositions(path=None):
+    """Small authored HC-22 decisions, not a census or native eligibility verdict."""
+    raw = supply_disposition_bytes(path)
     doc = json.loads(raw)
     if (not isinstance(doc, dict) or type(doc.get('schema')) is not int or doc['schema'] != 1
             or doc.get('kind') != 'hollow-country-loot-dispositions'
@@ -340,7 +349,7 @@ def reviewed_supply_type(name):
     """Exact shipped bandana proposal; no caller-supplied row can grant permission."""
     if name not in SUPPLY_NEW_TYPES:
         _fail('HC22_NEW_TYPE_NOT_REVIEWED: ' + name)
-    rows, _ = supply_rows(load_rows(), load_supply_dispositions())
+    rows, _ = supply_rows([r for r in load_rows() if r['class'] == name], load_supply_dispositions())
     row = next((r for r in rows if r['class'] == name), None)
     if row is None or row['stock'] != 'absent':
         _fail('HC22_NEW_TYPE_NOT_ADMITTED: ' + name)

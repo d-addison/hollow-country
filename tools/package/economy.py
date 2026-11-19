@@ -4,6 +4,7 @@ Generate reads installed stock. Install/rollback target an explicitly chosen
 stopped, private mission copy, never the Steam installation. No placement edits.
 """
 import argparse
+from collections import Counter
 import contextlib
 import copy
 import csv
@@ -262,9 +263,11 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
             'wp': 'HC-22', 'state': 'authored' if include_datamined else 'off',
             'authored': len(datamined_items.load_rows()),
             'admitted': len(datamined_report['classes']) if datamined_report else 0,
-            'unresolved': len(supply_refused), 'refusals': supply_refused,
+            'floor_refused': len(supply_refused), 'refusals': supply_refused,
+            'refused_by_route': dict(Counter(r['route'] for r in supply_refused)),
+            'refused_by_reason': dict(Counter(r['reason'] for r in supply_refused)),
             'observed': 0, 'extra_cold': 0, 'runtime_acceptance': 'pending',
-            'dispositions_sha256': sha(datamined_items.SUPPLY_DATA.read_bytes()),
+            'dispositions_sha256': sha(datamined_items.supply_disposition_bytes()),
             'note': 'admitted counts candidate XML rows, never native spawns; off leaves native stock intact'}
     patches = {n: {'before': defaults[n].get('value'), 'after': 'true'} for n in profile['diagnostics']}
     files = {'ce/types.xml': xml_text.document(out) + b'\n',
@@ -776,6 +779,16 @@ def _retained(item, allowed, skip_category=False):
             tuple(_full(n) for n in item if n.tag not in allowed and not (skip_category and n.tag == 'category')))
 
 
+def _check_supply_ledger(files, manifest, supply_new_types):
+    """Bind HC-22 install admission to the same authored ledger used by generation."""
+    report = json.loads(files['economy-report.json'])
+    if ('supply' in report or manifest.get('profile') == 'contextual-pilot' or supply_new_types):
+        digest = sha(datamined_items.supply_disposition_bytes())
+        supply = report.get('supply')
+        if not isinstance(supply, dict) or supply.get('dispositions_sha256') != digest:
+            raise ValueError('HC22_DISPOSITIONS_HASH_MISMATCH')
+
+
 def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamined=frozenset(),
             new_types=frozenset(), supply_new_types=frozenset()):
     """Install a staged delta.
@@ -803,6 +816,7 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
         raise ValueError('unsupported mutable field set')
     target = _target(target)
     files, manifest = _load_delta(stage)
+    _check_supply_ledger(files, manifest, supply_new_types)
     data = snapshot(target)
     if {n: sha(d) for n, d in data.items()} != manifest['sources']:
         raise ValueError('target source hashes differ; regenerate/reconcile')
@@ -912,6 +926,9 @@ def install_delta(stage, target):
                                                 for n in listed) or len(set(listed)) != len(listed)):
             raise ValueError(f'delta manifest has an invalid {key}')
         lists[key] = frozenset(listed)
+    # Fail with the missing-ledger diagnostic even from a portable export that
+    # omits the repo-only roster tooling. No target writes precede this check.
+    _check_supply_ledger(_files, manifest, lists['supply_new_type_classes'])
     from tools.package import firearms
     roster = json.loads(firearms.ROSTER_PATH.read_bytes())
     firearms.validate_roster(roster)
