@@ -20,6 +20,9 @@ import xml.etree.ElementTree as ET
 
 SCHEMA = 1
 DATA = Path(__file__).with_name('datamined_items.json')
+SUPPLY_DATA = Path(__file__).resolve().parents[2] / 'config/loot-dispositions.json'
+# HC-22 non-weapon permission. Never widen the HC-21 firearm parent allowlist.
+SUPPLY_NEW_TYPES = frozenset({'Bandana_Blue', 'Bandana_Pink', 'Bandana_Yellow'})
 ACCEPTANCE = 'pending-local'
 FLAG_ORDER = ('count_in_cargo', 'count_in_hoarder', 'count_in_map', 'count_in_player', 'crafted', 'deloot')
 ROW_KEYS = ('class', 'nominal', 'min', 'lifetime', 'restock', 'quantmin', 'quantmax', 'cost', 'flags',
@@ -276,6 +279,75 @@ def craft_output_candidates(path=None):
 
 def total_nominal(rows):
     return sum(r['nominal'] for r in rows)
+
+
+def load_supply_dispositions(path=None):
+    """Small authored HC-22 decisions, not a census or native eligibility verdict."""
+    raw = Path(path or SUPPLY_DATA).read_bytes()
+    if len(raw) > MAX_JSON_BYTES:
+        _fail('HC22_DISPOSITIONS_SIZE')
+    doc = json.loads(raw)
+    if (not isinstance(doc, dict) or type(doc.get('schema')) is not int or doc['schema'] != 1
+            or doc.get('kind') != 'hollow-country-loot-dispositions'
+            or doc.get('runtime_acceptance') != 'pending'
+            or not isinstance(doc.get('entries'), list) or not 1 <= len(doc['entries']) <= 256):
+        _fail('HC22_DISPOSITIONS_SCHEMA')
+    seen = set()
+    for entry in doc['entries']:
+        if (not isinstance(entry, dict) or set(entry) != {'class', 'purpose', 'route', 'floor_admitted',
+                                                        'eligibility', 'evidence', 'refusal'}
+                or not isinstance(entry['class'], str)
+                or not re.fullmatch(r'[A-Za-z0-9_]{1,80}', entry['class'])
+                or entry['class'].lower() in seen
+                or not isinstance(entry['route'], str)
+                or entry['route'] not in {'native-floor', 'native-craft', 'native-carrier', 'derived',
+                                          'unresolved', 'excluded'}
+                or type(entry['floor_admitted']) is not bool
+                or entry['eligibility'] != 'pending-native'
+                or not isinstance(entry['purpose'], str) or not entry['purpose'].strip()
+                or not isinstance(entry['evidence'], list) or not entry['evidence']
+                or any(not isinstance(e, str) or not e.strip() for e in entry['evidence'])
+                or (entry['refusal'] is not None and
+                    (not isinstance(entry['refusal'], str) or not entry['refusal'].startswith('HC22_')))
+                or (entry['floor_admitted'] and
+                    (entry['route'] != 'native-floor' or entry['refusal'] is not None))):
+            _fail('HC22_DISPOSITIONS_ENTRY')
+        seen.add(entry['class'].lower())
+    return doc
+
+
+def supply_rows(rows, dispositions):
+    """Select proposals; flags are never cleared to manufacture a floor route."""
+    decisions = {e['class']: e for e in dispositions['entries']}
+    selected, refused = [], []
+    for row in rows:
+        entry = decisions.get(row['class'])
+        if entry is None:
+            _fail('HC22_MISSING_DISPOSITION: ' + row['class'])
+        if not entry['floor_admitted']:
+            refused.append({'class': row['class'], 'route': entry['route'],
+                            'reason': entry['refusal'] or 'HC22_NON_FLOOR_ROUTE'})
+            continue
+        if row['flags'][4:] != '00':
+            _fail('HC22_UNQUALIFIED_FLOOR_FLAGS: ' + row['class'])
+        if row['stock'] == 'absent' and row['class'] not in SUPPLY_NEW_TYPES:
+            _fail('HC22_NEW_TYPE_NOT_REVIEWED: ' + row['class'])
+        selected.append(row)
+    return selected, refused
+
+
+def reviewed_supply_type(name):
+    """Exact shipped bandana proposal; no caller-supplied row can grant permission."""
+    if name not in SUPPLY_NEW_TYPES:
+        _fail('HC22_NEW_TYPE_NOT_REVIEWED: ' + name)
+    rows, _ = supply_rows(load_rows(), load_supply_dispositions())
+    row = next((r for r in rows if r['class'] == name), None)
+    if row is None or row['stock'] != 'absent':
+        _fail('HC22_NEW_TYPE_NOT_ADMITTED: ' + name)
+    _check_shape(row)
+    _check_name(name)
+    _check_budget_rules(row)
+    return _build(row, None)
 
 
 def read_types(path):

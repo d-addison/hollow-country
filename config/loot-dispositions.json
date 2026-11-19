@@ -1,0 +1,1476 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-loot-dispositions",
+  "wp": "HC-22",
+  "runtime_acceptance": "pending",
+  "extra_cold": 0,
+  "queue": {
+    "candidate_count": 2001,
+    "status": "pending-whole-candidate-review",
+    "remaining_count": null,
+    "note": "Plan denominator only; this curated slice is not an identity-complete candidate join or usefulness verdict."
+  },
+  "entries": [
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; winter recolour, rare"
+      ],
+      "refusal": null,
+      "class": "AssaultBag_Winter"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; rare long-haul pack colour"
+      ],
+      "refusal": null,
+      "class": "Attack2Bag_Black"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; rare long-haul pack colour"
+      ],
+      "refusal": null,
+      "class": "Attack2Bag_Yeger"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BDUJacket"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BDUPants"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BakedBeansCan"
+    },
+    {
+      "purpose": "medical",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BandageDressing"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village; HC-22 explicit new-type permission, exact shipped row; native equip/model/repair pending."
+      ],
+      "refusal": null,
+      "class": "Bandana_Blue"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village; HC-22 explicit new-type permission, exact shipped row; native equip/model/repair pending."
+      ],
+      "refusal": null,
+      "class": "Bandana_Pink"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village; HC-22 explicit new-type permission, exact shipped row; native equip/model/repair pending."
+      ],
+      "refusal": null,
+      "class": "Bandana_Yellow"
+    },
+    {
+      "purpose": "clothing",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BaseballCap_Black"
+    },
+    {
+      "purpose": "utility",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Battery9V"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BloodBagEmpty"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "derived",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BloodBagFull"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "derived",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BloodBagIV"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "BloodTestKit"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Hunting; winter recolour, low"
+      ],
+      "refusal": null,
+      "class": "BoonieHat_Winter"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village; low"
+      ],
+      "refusal": null,
+      "class": "BudenovkaHat_Gray"
+    },
+    {
+      "purpose": "cutting and opening",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "CanOpener"
+    },
+    {
+      "purpose": "water",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Canteen"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "CargoPants_Blue"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "CharcoalTablets"
+    },
+    {
+      "purpose": "cutting and opening",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Cleaver"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; cold boots, low (stock tiers kept)"
+      ],
+      "refusal": null,
+      "class": "ColdOperationBoots_Camo"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; cold boots, low (stock tiers kept)"
+      ],
+      "refusal": null,
+      "class": "ColdOperationBoots_Green"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; cold boots, low (stock tiers kept)"
+      ],
+      "refusal": null,
+      "class": "ColdOperationBoots_Grey"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; winter recolour, rare"
+      ],
+      "refusal": null,
+      "class": "CoyoteBag_Winter"
+    },
+    {
+      "purpose": "Canned food; native opening and consumption pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Coast and Village food shelves; below the vanilla canned fish"
+      ],
+      "refusal": null,
+      "class": "CrabCan"
+    },
+    {
+      "purpose": "medical",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "DisinfectantSpray"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter jacket, low"
+      ],
+      "refusal": null,
+      "class": "DownJacket_Blue"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter jacket, low"
+      ],
+      "refusal": null,
+      "class": "DownJacket_Green"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter jacket, low"
+      ],
+      "refusal": null,
+      "class": "DownJacket_Orange"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter jacket, low"
+      ],
+      "refusal": null,
+      "class": "DownJacket_Red"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "DryBag_Blue"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "DrysackBag_Green"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "DrysackBag_Orange"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag",
+        "N3 Recipes/CraftDrysackBag.c; Recipes/PluginRecipesManagerBase.c:160; Actions/Continuous/ActionDeCraftDrysackBag.c:37-54"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "DrysackBag_Yellow"
+    },
+    {
+      "purpose": "utility",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "DuctTape"
+    },
+    {
+      "class": "Epinephrine",
+      "purpose": "Native emergency medicine; Medic stock plus Town contextual opportunity, clinical effects unchanged",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed stock types.xml plus contextual-pilot usage addition; consumption and persistence pending"
+      ],
+      "refusal": null
+    },
+    {
+      "purpose": "Water-carrying vessel; contents and potability require native observation",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Medic and Hunting; rare, Sakhal restock 1800 and Medic/Tier3 hint",
+        "N2 Bottle_Base/FilteringBottle.c:61-77; N3 Recipes/PurifyWater.c:70-78"
+      ],
+      "refusal": null,
+      "class": "FilteringBottle"
+    },
+    {
+      "purpose": "utility",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Flashlight"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; winter recolour rarer than the native Gorka recolours (nominal 4)"
+      ],
+      "refusal": null,
+      "class": "GorkaEJacket_Winter"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; winter recolour rarer than the native Gorka recolours (nominal 4)"
+      ],
+      "refusal": null,
+      "class": "GorkaPants_Winter"
+    },
+    {
+      "purpose": "fire",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Hatchet"
+    },
+    {
+      "purpose": "clothing",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Hoodie_Blue"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Hunting; stock usage and tiers kept, nominal below the native recolours"
+      ],
+      "refusal": null,
+      "class": "HunterPants_Spring"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Hunting; one-off unique-style bag, long restock (Livonia restock 43200 kept)"
+      ],
+      "refusal": null,
+      "class": "HuntingBag_Hannah"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Hunting; stock usage and tiers kept, nominal below the native recolours"
+      ],
+      "refusal": null,
+      "class": "HuntingJacket_Spring"
+    },
+    {
+      "purpose": "cutting and opening",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "HuntingKnife"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Hunting; winter recolour, low"
+      ],
+      "refusal": null,
+      "class": "HuntingVest_Winter"
+    },
+    {
+      "purpose": "Native melee/tool; actual use and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Industrial and Farm tool sheds; rare, restock 1200 as on Sakhal"
+      ],
+      "refusal": null,
+      "class": "Iceaxe"
+    },
+    {
+      "purpose": "medical",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "IodineTincture"
+    },
+    {
+      "purpose": "clothing",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Jeans_Blue"
+    },
+    {
+      "purpose": "cutting and opening",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "KitchenKnife"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "LeatherCourierBag"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherGloves_Beige"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherGloves_Black"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherGloves_Brown"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherGloves_Natural"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherHat_Beige"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherHat_Black"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherHat_Brown"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherHat_Natural"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherJacket_Beige"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherJacket_Black"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherJacket_Brown"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherJacket_Natural"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherPants_Beige"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherPants_Black"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherPants_Brown"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherPants_Natural"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "LeatherSack_Natural"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "LeatherSewingKit"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherShirt_Natural"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherShoes_Beige"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherShoes_Black"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherShoes_Brown"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
+        "Installed stock types.xml crafted=1; N10 exposes no floor-eligibility getter for this flag"
+      ],
+      "refusal": "HC22_CRAFTED_FLOOR_UNPROVEN",
+      "class": "LeatherShoes_Natural"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherStorageVest_Beige"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherStorageVest_Black"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherStorageVest_Brown"
+    },
+    {
+      "purpose": "Leather wearable; keep outside floor loot until an attainable native or reviewed craft route is established",
+      "route": "unresolved",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed public definition/crafted cohort; active native clothing recipe not established"
+      ],
+      "refusal": "HC22_LEATHER_RECIPE_UNESTABLISHED",
+      "class": "LeatherStorageVest_Natural"
+    },
+    {
+      "purpose": "fire",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Matchbox"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "MedicalScrubsHat_Blue"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "MedicalScrubsPants_Blue"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "MedicalScrubsShirt_Blue"
+    },
+    {
+      "class": "Morphine",
+      "purpose": "Native emergency medicine; Medic stock plus Town contextual opportunity, clinical effects unchanged",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Installed stock types.xml plus contextual-pilot usage addition; consumption and persistence pending"
+      ],
+      "refusal": null
+    },
+    {
+      "purpose": "medical",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "PainkillerTablets"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "PeachesCan"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "PetrolLighter"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military airfield and Hunting (stock usage kept); low"
+      ],
+      "refusal": null,
+      "class": "PilotJacket_Black"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military airfield and Village (stock usage kept); low"
+      ],
+      "refusal": null,
+      "class": "PilotJacket_Brown"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military airfield and Village (stock usage kept); low"
+      ],
+      "refusal": null,
+      "class": "PilotJacket_Yellow"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "PurificationTablets"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Rag"
+    },
+    {
+      "purpose": "clothing",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Raincoat_Orange"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Rice"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SalineBag"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SalineBagIV"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SardinesCan"
+    },
+    {
+      "purpose": "utility",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SewingKit"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter gloves, low"
+      ],
+      "refusal": null,
+      "class": "SkiGloves_90s"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter gloves, low"
+      ],
+      "refusal": null,
+      "class": "SkiGloves_Blue"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter gloves, low"
+      ],
+      "refusal": null,
+      "class": "SkiGloves_Red"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter eyewear, low"
+      ],
+      "refusal": null,
+      "class": "SkiGoggles_BlackYellow"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter eyewear, low"
+      ],
+      "refusal": null,
+      "class": "SkiGoggles_WhiteClear"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Town and Village houses; winter eyewear, low"
+      ],
+      "refusal": null,
+      "class": "SkiGoggles_WhiteDark"
+    },
+    {
+      "purpose": "clothing",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Sneakers_Gray"
+    },
+    {
+      "purpose": "water",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SodaCan_Cola"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SpaghettiCan"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "StartKitIV"
+    },
+    {
+      "purpose": "cutting and opening",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "SteakKnife"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "StoneKnife"
+    },
+    {
+      "purpose": "clothing",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "TShirt_Beige"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "TaloonBag_Blue"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-craft",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "TannedLeather"
+    },
+    {
+      "purpose": "medical",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "TetracyclineAntibiotics"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-carrier",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Native deloot flag retained; no ordinary floor admission; event/carrier qualification pending."
+      ],
+      "refusal": "HC22_EVENT_CARRIER_UNQUALIFIED",
+      "class": "TortillaBag_Desert"
+    },
+    {
+      "purpose": "Wearable cargo/storage; native capacity and custody pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military; winter recolour, rare"
+      ],
+      "refusal": null,
+      "class": "TortillaBag_Winter"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "TunaCan"
+    },
+    {
+      "purpose": "food",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "UnknownFoodCan"
+    },
+    {
+      "purpose": "water",
+      "route": "native-carrier",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": "HC22_WATER_CONTENTS_UNOBSERVED",
+      "class": "WaterBottle"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "WaterproofBag_Green"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "WaterproofBag_Orange"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "WaterproofBag_Yellow"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "Whetstone"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military barracks and camps; visual variety, native insulation unchanged; no HC thermal requirement."
+      ],
+      "refusal": null,
+      "class": "WinterMilitaryCoat_Brown"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military barracks and camps; visual variety, native insulation unchanged; no HC thermal requirement."
+      ],
+      "refusal": null,
+      "class": "WinterMilitaryCoat_DarkGrey"
+    },
+    {
+      "purpose": "Practical native clothing/visual variant; native slot, wear and repair pending",
+      "route": "native-floor",
+      "floor_admitted": true,
+      "eligibility": "pending-native",
+      "evidence": [
+        "tools/package/datamined_items.json: Military barracks and camps; visual variety, native insulation unchanged; no HC thermal requirement."
+      ],
+      "refusal": null,
+      "class": "WinterMilitaryCoat_Grey"
+    },
+    {
+      "purpose": "Native equipment/material/derived supply",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "WorkingBoots_Brown"
+    },
+    {
+      "purpose": "Native occupational clothing, supply, storage or repair route",
+      "route": "native-floor",
+      "floor_admitted": false,
+      "eligibility": "pending-native",
+      "evidence": [
+        "Existing essential-route policy/contextual profile/native stock; floor counts and carrier contents are separate evidence"
+      ],
+      "refusal": null,
+      "class": "WorkingGloves_Brown"
+    }
+  ]
+}

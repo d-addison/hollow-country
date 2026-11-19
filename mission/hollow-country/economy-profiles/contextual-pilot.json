@@ -2,14 +2,96 @@
   "schema": 1,
   "name": "contextual-pilot",
   "add_usage": {
-    "BandageDressing": ["Town", "Village"],
-    "Battery9V": ["Town", "Military"],
-    "CanOpener": ["Hunting"],
-    "DuctTape": ["Military"],
-    "Jeans_Blue": ["Village"],
-    "KitchenKnife": ["Village"],
-    "SewingKit": ["Military"],
-    "TShirt_Beige": ["Town"]
+    "BandageDressing": [
+      "Town",
+      "Village"
+    ],
+    "Battery9V": [
+      "Town",
+      "Military"
+    ],
+    "BloodBagEmpty": [
+      "Village"
+    ],
+    "BloodTestKit": [
+      "Village"
+    ],
+    "CanOpener": [
+      "Hunting"
+    ],
+    "CargoPants_Blue": [
+      "Village"
+    ],
+    "CharcoalTablets": [
+      "Village"
+    ],
+    "DryBag_Blue": [
+      "Village"
+    ],
+    "DuctTape": [
+      "Military"
+    ],
+    "Epinephrine": [
+      "Town"
+    ],
+    "Jeans_Blue": [
+      "Village"
+    ],
+    "KitchenKnife": [
+      "Village"
+    ],
+    "LeatherSewingKit": [
+      "Hunting"
+    ],
+    "MedicalScrubsHat_Blue": [
+      "Town"
+    ],
+    "MedicalScrubsPants_Blue": [
+      "Town"
+    ],
+    "MedicalScrubsShirt_Blue": [
+      "Town"
+    ],
+    "Morphine": [
+      "Town"
+    ],
+    "PetrolLighter": [
+      "Village"
+    ],
+    "PurificationTablets": [
+      "Village"
+    ],
+    "SalineBag": [
+      "Village"
+    ],
+    "SewingKit": [
+      "Military"
+    ],
+    "StartKitIV": [
+      "Village"
+    ],
+    "TShirt_Beige": [
+      "Town"
+    ],
+    "TaloonBag_Blue": [
+      "Town"
+    ],
+    "WaterproofBag_Green": [
+      "Village"
+    ],
+    "WaterproofBag_Orange": [
+      "Village"
+    ],
+    "WaterproofBag_Yellow": [
+      "Village"
+    ],
+    "Whetstone": [
+      "Industrial",
+      "Hunting"
+    ],
+    "WorkingGloves_Brown": [
+      "Village"
+    ]
   },
   "diagnostics": []
 }

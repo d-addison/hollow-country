@@ -48,7 +48,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -78,7 +78,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -108,7 +108,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -138,7 +138,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -168,7 +168,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -198,7 +198,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -228,7 +228,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -258,7 +258,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -288,7 +288,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -318,7 +318,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -348,7 +348,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -378,7 +378,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -408,7 +408,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Hunting and Village cabins and houses; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. No active native clothing recipe established; craft-owner follow-up pending.",
    "acceptance": "pending-local"
   },
   {
@@ -503,7 +503,7 @@
     "sakhal": 8
    },
    "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
-   "placement": "Military barracks and camps; warm late-game tier, low",
+   "placement": "Military barracks and camps; visual variety, native insulation unchanged; no HC thermal requirement.",
    "acceptance": "pending-local"
   },
   {
@@ -533,7 +533,7 @@
     "sakhal": 8
    },
    "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
-   "placement": "Military barracks and camps; warm late-game tier, low",
+   "placement": "Military barracks and camps; visual variety, native insulation unchanged; no HC thermal requirement.",
    "acceptance": "pending-local"
   },
   {
@@ -563,7 +563,7 @@
     "sakhal": 8
    },
    "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
-   "placement": "Military barracks and camps; warm late-game tier, low",
+   "placement": "Military barracks and camps; visual variety, native insulation unchanged; no HC thermal requirement.",
    "acceptance": "pending-local"
   },
   {
@@ -624,7 +624,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Coast and Village boat houses and cabins; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
    "acceptance": "pending-local"
   },
   {
@@ -654,7 +654,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Coast and Village boat houses and cabins; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
    "acceptance": "pending-local"
   },
   {
@@ -684,7 +684,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Coast and Village boat houses and cabins; low",
+   "placement": "Native crafted flag retained; no HC-22 floor admission. CraftDrysackBag plus WaterproofBag colour and Rope; native craft/use pending.",
    "acceptance": "pending-local"
   },
   {
@@ -1468,7 +1468,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); absent from Chernarus types.xml",
-   "placement": "Town and Village; common civilian, under half the native pattern bandanas",
+   "placement": "Town and Village; HC-22 explicit new-type permission, exact shipped row; native equip/model/repair pending.",
    "acceptance": "pending-local"
   },
   {
@@ -1499,7 +1499,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); absent from Chernarus types.xml",
-   "placement": "Town and Village; common civilian, under half the native pattern bandanas",
+   "placement": "Town and Village; HC-22 explicit new-type permission, exact shipped row; native equip/model/repair pending.",
    "acceptance": "pending-local"
   },
   {
@@ -1530,7 +1530,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); absent from Chernarus types.xml",
-   "placement": "Town and Village; common civilian, under half the native pattern bandanas",
+   "placement": "Town and Village; HC-22 explicit new-type permission, exact shipped row; native equip/model/repair pending.",
    "acceptance": "pending-local"
   },
   {
@@ -1703,7 +1703,7 @@
    },
    "source_maps": {},
    "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
-   "placement": "Military; desert recolour (vanilla pbo, not the Nasdara DLC packs), rare",
+   "placement": "Native deloot flag retained; no ordinary floor admission; event/carrier qualification pending.",
    "acceptance": "pending-local"
   }
  ]
