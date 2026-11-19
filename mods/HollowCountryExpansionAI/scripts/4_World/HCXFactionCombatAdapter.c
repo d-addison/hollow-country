@@ -20,6 +20,8 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
     // Weak group handles recorded by HCOwns for the current offer; HCDisengaged
     // reads them. Cleared by every new HCSurveyed. Never persisted.
     protected ref array<eAIGroup> m_Groups = new array<eAIGroup>();
+    // DeceasedCount is cumulative for the group's lifetime, not this encounter.
+    protected ref array<int> m_InitialDeceased = new array<int>();
 
     protected HCXAISiteDirector HCRunningDirector()
     {
@@ -80,6 +82,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
     override bool HCSurveyed(string placeId, string survey)
     {
         m_Groups.Clear();
+        m_InitialDeceased.Clear();
         m_SeenCombat = false;
         return HCSurveyState(placeId, survey) != null;
     }
@@ -99,6 +102,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         if (m_Groups.Find(group) >= 0) { return true; }
         if (m_Groups.Count() >= HCXFactionCombatAdapter.MAX_RECORDED_GROUPS) { return false; }
         m_Groups.Insert(group);
+        m_InitialDeceased.Insert(group.DeceasedCount());
         return true;
     }
 
@@ -111,7 +115,7 @@ class HCXFactionCombatAdapter : HCFactionCombatPort
         {
             eAIGroup group = m_Groups[index];
             if (group && group.IsInCombat()) { m_SeenCombat = true; return false; }
-            if (group && group.DeceasedCount() > 0) { m_SeenCombat = true; }
+            if (group && group.DeceasedCount() > m_InitialDeceased[index]) { m_SeenCombat = true; }
         }
         return m_SeenCombat;
     }

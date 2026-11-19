@@ -156,7 +156,7 @@ class FactionOutcomes(unittest.TestCase):
         provider = N(HCSurveyed=lambda *a: True, HCOwns=owned, HCDisengaged=lambda e: False)
         def fresh_row():
             return N(State='OBSERVING', LeftSurvivors=-1, RightSurvivors=-1,
-                     LeftDead=Slots(), RightDead=Slots())
+                     LeftDead=Slots(), RightDead=Slots(), TerritoryEpoch=0, TerritoryApplied=False)
         benv = dict(HCTerritoryOutcomes=api, HCWorldLimits=penv['HCWorldLimits'],
                     HCWorldFactionCatalog=factions, HCAILimits=penv['HCAILimits'],
                     HCWorldMaterializer=N(HCIdentity=identities), HCTerritoryOutcomeRow=fresh_row,
@@ -176,6 +176,11 @@ class FactionOutcomes(unittest.TestCase):
                    m_CallbackUnits=budget, m_Units=budget, m_Work=budget,
                    m_Operational=N(HCPublish=lambda *a: None),
                    m_Store=N(Save=lambda d: writes.append(deepcopy(d)) or True))
+        pending_env = dict(s_Instance=module)
+        pending_source = syntax(source).replace('protected ', '')
+        pending_source = re.sub(r'array<[^;=]+> (?=\w+ =)', 'HCArray ', pending_source)
+        translate(pending_source, 'HCFactionConflict', pending_env, only=('HCTerritoryPending',))
+        benv['HCTerritoryPending'] = pending_env['HCTerritoryPending']
         for name in ('HCBind', 'HCSave', 'HCRefuse', 'HCDecline', 'HCLog', 'HCCallbackAllowed',
                      'HCFinishObserved'):
             setattr(module, name, lambda *args, n=name: benv[n](module, *args))
