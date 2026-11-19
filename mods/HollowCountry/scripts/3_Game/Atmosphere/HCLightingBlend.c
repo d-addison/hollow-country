@@ -28,9 +28,9 @@ class HCLightingBlend
     {
         // Invalid time fails to vanilla. Fade at both edges of the weather
         // owner's night interval, never carry a darkening blend into night.
-        if (hour != hour || hour <= 5.0 || hour >= 20.0) return 0.0;
-        if (hour < 6.0) return hour - 5.0;
-        if (hour > 19.0) return 20.0 - hour;
+        if (hour != hour || hour <= HCc2PresentationConfig.HCGet().LightDawnStart || hour >= HCc2PresentationConfig.HCGet().LightDuskEnd) return 0.0;
+        if (hour < HCc2PresentationConfig.HCGet().LightDawnEnd) return (hour - HCc2PresentationConfig.HCGet().LightDawnStart) / (HCc2PresentationConfig.HCGet().LightDawnEnd - HCc2PresentationConfig.HCGet().LightDawnStart);
+        if (hour > HCc2PresentationConfig.HCGet().LightDuskStart) return (HCc2PresentationConfig.HCGet().LightDuskEnd - hour) / (HCc2PresentationConfig.HCGet().LightDuskEnd - HCc2PresentationConfig.HCGet().LightDuskStart);
         return 1.0;
     }
 
@@ -38,28 +38,28 @@ class HCLightingBlend
     {
         // A four-hour authored warm-to-cold envelope, rather than a short
         // sunset flash. Two user tables are switched only at zero weight.
-        if (hour != hour || hour <= 16.0 || hour >= 20.0) return 0.0;
-        if (hour < 18.0) return (hour - 16.0) / 2.0;
-        return (20.0 - hour) / 2.0;
+        if (hour != hour || hour <= HCc2PresentationConfig.HCGet().DuskStart || hour >= HCc2PresentationConfig.HCGet().DuskEnd) return 0.0;
+        if (hour < HCc2PresentationConfig.HCGet().DuskPeak) return (hour - HCc2PresentationConfig.HCGet().DuskStart) / (HCc2PresentationConfig.HCGet().DuskPeak - HCc2PresentationConfig.HCGet().DuskStart);
+        return (HCc2PresentationConfig.HCGet().DuskEnd - hour) / (HCc2PresentationConfig.HCGet().DuskEnd - HCc2PresentationConfig.HCGet().DuskPeak);
     }
 
     static float Cloud(float overcast, float fog)
     {
-        return HCLightingBlend.Unit((HCLightingBlend.Unit(overcast) - 0.55) / 0.45 + HCLightingBlend.Unit(fog) * 0.15);
+        return HCLightingBlend.Unit((HCLightingBlend.Unit(overcast) - HCc2PresentationConfig.HCGet().CloudThreshold) / (1.0 - HCc2PresentationConfig.HCGet().CloudThreshold) + HCLightingBlend.Unit(fog) * HCc2PresentationConfig.HCGet().FogCloudWeight);
     }
 
     static float Storm(float overcast, float rain)
     {
-        return HCLightingBlend.Unit((HCLightingBlend.Unit(overcast) - 0.65) / 0.35) * HCLightingBlend.Unit(rain);
+        return HCLightingBlend.Unit((HCLightingBlend.Unit(overcast) - HCc2PresentationConfig.HCGet().StormThreshold) / (1.0 - HCc2PresentationConfig.HCGet().StormThreshold)) * HCLightingBlend.Unit(rain);
     }
 
     static string Name(float hour, float overcast, float rain, float fog)
     {
         if (HCLightingBlend.Daylight(hour) <= 0.0) return "vanilla";
-        if (HCLightingBlend.Storm(overcast, rain) > 0.15) return "storm";
-        if (HCLightingBlend.Cloud(overcast, fog) > 0.25) return "overcast";
+        if (HCLightingBlend.Storm(overcast, rain) > HCc2PresentationConfig.HCGet().StormBand) return "storm";
+        if (HCLightingBlend.Cloud(overcast, fog) > HCc2PresentationConfig.HCGet().CloudBand) return "overcast";
         if (HCLightingBlend.Dusk(hour) <= 0.0) return "vanilla";
-        if (hour < 18.5) return "dusk_warm";
+        if (hour < HCc2PresentationConfig.HCGet().DuskColdHour) return "dusk_warm";
         return "dusk_cold";
     }
 
@@ -67,9 +67,9 @@ class HCLightingBlend
     {
         string name = HCLightingBlend.Name(hour, overcast, rain, fog);
         float daylight = HCLightingBlend.Daylight(hour);
-        if (name == "storm") return daylight * (0.12 + HCLightingBlend.Storm(overcast, rain) * 0.38);
-        if (name == "overcast") return daylight * HCLightingBlend.Cloud(overcast, fog) * 0.35;
-        if (name == "dusk_warm" || name == "dusk_cold") return daylight * HCLightingBlend.Dusk(hour) * 0.30;
+        if (name == "storm") return daylight * (HCc2PresentationConfig.HCGet().StormWeightBase + HCLightingBlend.Storm(overcast, rain) * HCc2PresentationConfig.HCGet().StormWeightGain);
+        if (name == "overcast") return daylight * HCLightingBlend.Cloud(overcast, fog) * HCc2PresentationConfig.HCGet().CloudWeight;
+        if (name == "dusk_warm" || name == "dusk_cold") return daylight * HCLightingBlend.Dusk(hour) * HCc2PresentationConfig.HCGet().DuskWeight;
         return 0.0;
     }
 
@@ -79,8 +79,8 @@ class HCLightingBlend
         if (daylight <= 0.0) return 0.0;
         float boundedCurrent = HCLightingBlend.Unit(current);
         float boundedTarget = HCLightingBlend.Unit(target);
-        if (boundedCurrent < boundedTarget - 0.10) return boundedCurrent + 0.10;
-        if (boundedCurrent > boundedTarget + 0.10) return boundedCurrent - 0.10;
+        if (boundedCurrent < boundedTarget - HCc2PresentationConfig.HCGet().BlendStep) return boundedCurrent + HCc2PresentationConfig.HCGet().BlendStep;
+        if (boundedCurrent > boundedTarget + HCc2PresentationConfig.HCGet().BlendStep) return boundedCurrent - HCc2PresentationConfig.HCGet().BlendStep;
         return boundedTarget;
     }
 }

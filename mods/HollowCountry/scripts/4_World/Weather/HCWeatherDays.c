@@ -87,47 +87,47 @@ class HCWeatherDays
         if (seed < 0 || !HCAtmospherePolicy.Finite(hour) || hour < 0 || hour >= 24) return "plain";
         if (calmHours > 0) return "calm";
         if (HCAtmospherePolicy.IsNight(hour)) return "plain";
-        if (seed % 5 == 0) return "bad";
-        if (hour >= 5 && hour < 9 && seed % 5 <= 2) return "fog";
+        if (seed % 5 < HCWeatherConfig.HCGet().BadDayBuckets) return "bad";
+        if (hour >= HCWeatherConfig.HCGet().FogStartHour && hour < HCWeatherConfig.HCGet().FogEndHour && seed % 5 < HCWeatherConfig.HCGet().FogMorningBuckets) return "fog";
         return "plain";
     }
 
     static float FogTarget(int day, float hour, float calmHours)
     {
-        if (HCWeatherDays.Profile(day, hour, calmHours) != "fog") return 0.04;
-        if (hour <= 7) return 0.60;
-        return 0.04 + 0.56 * (9 - hour) / 2;
+        if (HCWeatherDays.Profile(day, hour, calmHours) != "fog") return HCWeatherConfig.HCGet().FogBaseline;
+        if (hour <= HCWeatherConfig.HCGet().FogPeakHour) return HCWeatherConfig.HCGet().FogMorningLevel;
+        return HCWeatherConfig.HCGet().FogBaseline + (HCWeatherConfig.HCGet().FogMorningLevel - HCWeatherConfig.HCGet().FogBaseline) * (HCWeatherConfig.HCGet().FogEndHour - hour) / (HCWeatherConfig.HCGet().FogEndHour - HCWeatherConfig.HCGet().FogPeakHour);
     }
 
     static float CloudTarget(string profile, float elapsed, float hour)
     {
-        if (profile == "calm" || profile == "fog") return 0.25;
+        if (profile == "calm" || profile == "fog") return HCWeatherConfig.HCGet().CalmCloud;
         float phase = HCAtmospherePolicy.CyclePosition(elapsed);
         // Double the storm band on bad days, while retaining a clearing interval.
-        if (profile == "bad" && phase >= 1800 && phase < 5400)
-            return HCAtmospherePolicy.NightCapped(0.98, hour);
+        if (profile == "bad" && phase >= HCWeatherConfig.HCGet().BadStormStartSeconds && phase < HCWeatherConfig.HCGet().StormEndSeconds)
+            return HCAtmospherePolicy.NightCapped(HCWeatherConfig.HCGet().BadCloud, hour);
         return HCAtmospherePolicy.CloudTarget(elapsed, hour);
     }
 
     static float RainTarget(string profile, float cloud, float hour)
     {
         if (profile == "calm" || profile == "fog" || HCAtmospherePolicy.IsNight(hour)) return 0;
-        if (profile == "bad" && cloud >= 0.85) return 0.9;
+        if (profile == "bad" && cloud >= HCWeatherConfig.HCGet().StormCloudThreshold) return HCWeatherConfig.HCGet().BadRain;
         return HCAtmospherePolicy.RainTarget(cloud);
     }
 
     static float WindTarget(string profile, float cloud, float hour)
     {
-        if (profile == "calm" || profile == "fog") return 2;
-        if (HCAtmospherePolicy.IsNight(hour)) return 4;
-        if (profile == "bad" && cloud >= 0.65) return 16;
+        if (profile == "calm" || profile == "fog") return HCWeatherConfig.HCGet().CalmWind;
+        if (HCAtmospherePolicy.IsNight(hour)) return HCWeatherConfig.HCGet().NightWind;
+        if (profile == "bad" && cloud >= HCWeatherConfig.HCGet().BadWindCloudThreshold) return HCWeatherConfig.HCGet().BadWind;
         return HCAtmospherePolicy.WindTarget(cloud);
     }
 
     static float CalmRemaining(float remaining, float gameHours, bool wasWet, float rain, float cloud)
     {
         // Require observed rain/storm ending, never the planned forecast alone.
-        if (wasWet && rain <= 0.02 && cloud < 0.85) return 3;
+        if (wasWet && rain <= HCWeatherConfig.HCGet().WetEndRainThreshold && cloud < HCWeatherConfig.HCGet().StormCloudThreshold) return HCWeatherConfig.HCGet().CalmHours;
         if (!HCAtmospherePolicy.Finite(gameHours) || gameHours < 0 || gameHours >= 24) return 0;
         if (remaining <= gameHours) return 0;
         return remaining - gameHours;

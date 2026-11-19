@@ -23,17 +23,17 @@ class HCGradePolicy
     static void Evaluate(float hour, float overcast, float fog, float rain, float intensity, HCGradeParameters grade)
     {
         float strength = Math.Clamp(intensity, 0.0, 1.0);
-        float dawn = Math.Clamp((hour - 8.0) / 2.0, 0.0, 1.0);
-        float dusk = Math.Clamp((18.0 - hour) / 4.0, 0.0, 1.0);
+        float dawn = Math.Clamp((hour - HCc2PresentationConfig.HCGet().GradeDawnHour) / HCc2PresentationConfig.HCGet().GradeDawnBlendHours, 0.0, 1.0);
+        float dusk = Math.Clamp((HCc2PresentationConfig.HCGet().GradeDuskHour - hour) / HCc2PresentationConfig.HCGet().GradeDuskBlendHours, 0.0, 1.0);
         float daylight = dawn * dusk;
-        float damp = 0.45 * Math.Clamp(overcast, 0.0, 1.0) + 0.25 * Math.Clamp(fog, 0.0, 1.0) + 0.30 * Math.Clamp(rain, 0.0, 1.0);
+        float damp = HCc2PresentationConfig.HCGet().GradeCloudWeight * Math.Clamp(overcast, 0.0, 1.0) + HCc2PresentationConfig.HCGet().GradeFogWeight * Math.Clamp(fog, 0.0, 1.0) + HCc2PresentationConfig.HCGet().GradeRainWeight * Math.Clamp(rain, 0.0, 1.0);
         float amount = strength * daylight;
-        grade.Desaturation = amount * (0.12 + 0.10 * damp);
-        grade.TintRed = 1.0 - amount * (0.025 + 0.015 * damp);
-        grade.TintGreen = 1.0 - amount * 0.005;
-        grade.TintBlue = 1.0 - amount * 0.012;
-        grade.Contrast = 1.0 + amount * (0.025 + 0.015 * damp);
-        grade.Vignette = amount * (0.025 + 0.025 * damp);
+        grade.Desaturation = amount * (HCc2PresentationConfig.HCGet().GradeDesaturation + HCc2PresentationConfig.HCGet().GradeDampDesaturation * damp);
+        grade.TintRed = 1.0 - amount * (HCc2PresentationConfig.HCGet().GradeTintRed + HCc2PresentationConfig.HCGet().GradeDampTintRed * damp);
+        grade.TintGreen = 1.0 - amount * HCc2PresentationConfig.HCGet().GradeTintGreen;
+        grade.TintBlue = 1.0 - amount * HCc2PresentationConfig.HCGet().GradeTintBlue;
+        grade.Contrast = 1.0 + amount * (HCc2PresentationConfig.HCGet().GradeContrast + HCc2PresentationConfig.HCGet().GradeDampContrast * damp);
+        grade.Vignette = amount * (HCc2PresentationConfig.HCGet().GradeVignette + HCc2PresentationConfig.HCGet().GradeDampVignette * damp);
         grade.Exposure = 1.0;
     }
 }

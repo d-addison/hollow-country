@@ -14,7 +14,7 @@
 // committed snapshot (including queue delay). A stalled saver pauses instead
 // of growing this loss. Checkpoint eligibility is 60 seconds; shared scheduler
 // timing is provisional. Fractional seconds survive a normal stop/restart.
-class HCVisualSeasonConfig
+class HCVisualSeasonConfig : HCc2SeasonTuning
 {
     int SchemaVersion = 1;
     bool EnableVisualSeasons = true;

@@ -6,6 +6,7 @@ from types import SimpleNamespace as N
 import unittest
 
 from tests.unit.test_event_runtime import translate
+from tests.unit.test_c2_atmoscfg import defaults_env
 from tests.unit.test_v1_weather import authored_policy
 
 SOURCE = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/Weather/HCWeatherDays.c'
@@ -17,6 +18,7 @@ class WeatherDaysSmoke(unittest.TestCase):
         text = SOURCE.read_text()
         policy = N()
         env = dict(HCWeatherDays=policy, HCAtmospherePolicy=authored_policy(), Math=N(Floor=math.floor))
+        env.update(defaults_env())
         for name in re.findall(r'static (?:int|float|bool|string) (\w+)\(', text):
             setattr(policy, name, translate(text, name, env, 'HCWeatherDays'))
         profiles = [policy.Profile(day, 7., 0.) for day in range(20700, 20800)]

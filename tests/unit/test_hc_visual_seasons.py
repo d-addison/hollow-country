@@ -143,6 +143,7 @@ from types import SimpleNamespace as N
 import unittest
 
 from tests.unit.test_event_runtime import translate
+from tests.unit.test_c2_atmoscfg import defaults_env
 from tests.unit.test_group_server import body
 from tests.unit.test_hc_unit_budget import unit_budget
 
@@ -363,11 +364,11 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         client_path = scripts / '5_Mission/Atmosphere/HCSeasonVisualClient.c'
         self.assertTrue(policy_path.is_file(), 'HC-51 seasonal forecast policy missing')
         self.assertTrue(client_path.is_file(), 'HC-51 bounded phase cache missing')
-        env = dict(str=str, Print=lambda line: None)
+        env = dict(defaults_env(), str=str, Print=lambda line: None)
         policy = N()
         env['HCSeasonVisualPolicy'] = policy
         source = policy_path.read_text()
-        for kind, name, value in re.findall(r'static const (int|float) (\w+) = ([\d.]+);', source):
+        for kind, name, value in re.findall(r'static (?:const )?(int|float) (\w+) = ([\d.]+);', source):
             setattr(policy, name, {'int': int, 'float': float}[kind](value))
             env[name] = getattr(policy, name)  # Enforce class constant lookup
         for name in re.findall(r'static (?:bool|int|float|string) (\w+)\(', source):

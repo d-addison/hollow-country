@@ -1,4 +1,4 @@
-// #35 pure policy. Native scalar surface: 1_Core/proto/EnConvert.c:112
+// #35 policy over cached optional weather tuning. Native scalar surface: 1_Core/proto/EnConvert.c:112
 // float.MAX; 1_Core/proto/EnMath.c:427 Math.Floor. Installed snapshot:
 // ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/.
 // These provisional bounds are design choices, not measured visual/acoustic facts.
@@ -14,19 +14,19 @@ class HCAtmospherePolicy
         // Avoid huge-clock subtraction/cancellation; normal server uptime only.
         if (!HCAtmospherePolicy.Finite(elapsed) || elapsed < 0 || elapsed > 31536000)
             return 0;
-        return elapsed - Math.Floor(elapsed / 7200) * 7200;
+        return elapsed - Math.Floor(elapsed / HCWeatherConfig.HCGet().CycleSeconds) * HCWeatherConfig.HCGet().CycleSeconds;
     }
 
     static bool IsNight(float daytime)
     {
         // Dusk to dawn: 20:00 inclusive to 05:00 exclusive. Out-of-range or
         // non-finite hours count as day.
-        return HCAtmospherePolicy.Finite(daytime) && daytime >= 0 && daytime < 24 && (daytime < 5 || daytime >= 20);
+        return HCAtmospherePolicy.Finite(daytime) && daytime >= 0 && daytime < 24 && (daytime < HCWeatherConfig.HCGet().NightEndHour || daytime >= HCWeatherConfig.HCGet().NightStartHour);
     }
 
     static float NightCloudCap()
     {
-        return 0.55;
+        return HCWeatherConfig.HCGet().NightCloudCap;
     }
 
     static float NightCapped(float cloud, float daytime)
@@ -41,55 +41,55 @@ class HCAtmospherePolicy
     static float CloudTarget(float elapsed, float daytime)
     {
         float phase = HCAtmospherePolicy.CyclePosition(elapsed);
-        if (phase >= 3600 && phase < 5400)
-            return HCAtmospherePolicy.NightCapped(0.95, daytime);
-        if (phase >= 2700 && phase < 3600)
-            return HCAtmospherePolicy.NightCapped(0.72, daytime);
-        if (phase >= 5400)
-            return 0.25;
-        return 0.35;
+        if (phase >= HCWeatherConfig.HCGet().StormStartSeconds && phase < HCWeatherConfig.HCGet().StormEndSeconds)
+            return HCAtmospherePolicy.NightCapped(HCWeatherConfig.HCGet().StormCloud, daytime);
+        if (phase >= HCWeatherConfig.HCGet().WetStartSeconds && phase < HCWeatherConfig.HCGet().StormStartSeconds)
+            return HCAtmospherePolicy.NightCapped(HCWeatherConfig.HCGet().WetCloud, daytime);
+        if (phase >= HCWeatherConfig.HCGet().StormEndSeconds)
+            return HCWeatherConfig.HCGet().CalmCloud;
+        return HCWeatherConfig.HCGet().PlainCloud;
     }
 
     static float RainTarget(float cloud)
     {
-        if (!HCAtmospherePolicy.Finite(cloud) || cloud < 0.65 || cloud > 1)
+        if (!HCAtmospherePolicy.Finite(cloud) || cloud < HCWeatherConfig.HCGet().RainCloudThreshold || cloud > 1)
             return 0;
-        if (cloud >= 0.85)
-            return 0.85;
-        return 0.25;
+        if (cloud >= HCWeatherConfig.HCGet().StormCloudThreshold)
+            return HCWeatherConfig.HCGet().StormRain;
+        return HCWeatherConfig.HCGet().WetRain;
     }
 
     static float WindTarget(float cloud)
     {
         if (!HCAtmospherePolicy.Finite(cloud) || cloud < 0 || cloud > 1)
-            return 4;
-        if (cloud >= 0.85)
-            return 14;
-        if (cloud >= 0.65)
-            return 8;
-        return 4;
+            return HCWeatherConfig.HCGet().PlainWind;
+        if (cloud >= HCWeatherConfig.HCGet().StormCloudThreshold)
+            return HCWeatherConfig.HCGet().StormWind;
+        if (cloud >= HCWeatherConfig.HCGet().RainCloudThreshold)
+            return HCWeatherConfig.HCGet().WetWind;
+        return HCWeatherConfig.HCGet().PlainWind;
     }
 
     static float WindDirectionTarget(float elapsed)
     {
         float phase = HCAtmospherePolicy.CyclePosition(elapsed);
-        if (phase >= 3600 && phase < 5400)
-            return 0.8;
-        return -1.2;
+        if (phase >= HCWeatherConfig.HCGet().StormStartSeconds && phase < HCWeatherConfig.HCGet().StormEndSeconds)
+            return HCWeatherConfig.HCGet().StormWindDirection;
+        return HCWeatherConfig.HCGet().PlainWindDirection;
     }
 
     static float MorningWeight(float daytime)
     {
-        if (!HCAtmospherePolicy.Finite(daytime) || daytime <= 5 || daytime >= 9)
+        if (!HCAtmospherePolicy.Finite(daytime) || daytime <= HCWeatherConfig.HCGet().FogStartHour || daytime >= HCWeatherConfig.HCGet().FogEndHour)
             return 0;
-        if (daytime <= 7)
-            return (daytime - 5) / 2;
-        return (9 - daytime) / 2;
+        if (daytime <= HCWeatherConfig.HCGet().FogPeakHour)
+            return (daytime - HCWeatherConfig.HCGet().FogStartHour) / (HCWeatherConfig.HCGet().FogPeakHour - HCWeatherConfig.HCGet().FogStartHour);
+        return (HCWeatherConfig.HCGet().FogEndHour - daytime) / (HCWeatherConfig.HCGet().FogEndHour - HCWeatherConfig.HCGet().FogPeakHour);
     }
 
     static float FogTarget(float daytime)
     {
-        return 0.04 + HCAtmospherePolicy.MorningWeight(daytime) * 0.20;
+        return HCWeatherConfig.HCGet().FogBaseline + HCAtmospherePolicy.MorningWeight(daytime) * HCWeatherConfig.HCGet().MorningFogLift;
     }
 
     static float DistanceDensity(float daytime, float cloud, float windSpeed)
@@ -100,13 +100,13 @@ class HCAtmospherePolicy
             windSpeed = 16;
         if (windSpeed > 16)
             windSpeed = 16;
-        float damping = 1 - windSpeed / 20;
-        return (0.015 + 0.04 * HCAtmospherePolicy.MorningWeight(daytime) + 0.01 * cloud) * damping;
+        float damping = 1 - windSpeed / HCWeatherConfig.HCGet().WindDampingDivisor;
+        return (HCWeatherConfig.HCGet().DistanceBase + HCWeatherConfig.HCGet().DistanceMorningLift * HCAtmospherePolicy.MorningWeight(daytime) + HCWeatherConfig.HCGet().DistanceCloudLift * cloud) * damping;
     }
 
     static float HeightBias(float daytime)
     {
-        return 50 + 40 * HCAtmospherePolicy.MorningWeight(daytime);
+        return HCWeatherConfig.HCGet().HeightBase + HCWeatherConfig.HCGet().HeightMorningLift * HCAtmospherePolicy.MorningWeight(daytime);
     }
 
     static float TransitionTime(float requested)

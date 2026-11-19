@@ -19,7 +19,7 @@
 class HCGradeSettingsClient
 {
     static const string PROFILE_KEY = "HollowCountryGradeIntensity";
-    protected int m_Percent = 60;
+    protected int m_Percent;
     protected int m_LastReportedPercent = -1;
     protected bool m_LastReportedRunning;
     protected float m_Elapsed;
@@ -35,10 +35,12 @@ class HCGradeSettingsClient
 
     void Start()
     {
+        m_Percent = HCc2PresentationConfig.HCGet().GradeDefaultPercent;
+        HCSeasonVisualPolicy.HCConfigure(HCc2SeasonTuning.HCGet());
         string saved;
         if (GetGame().GetProfileString(PROFILE_KEY, saved))
         {
-            // Accept only exact 10% steps; corrupt/missing values retain 60%.
+            // Saved preferences use exact 10% steps; otherwise retain configured default.
             for (int candidate = 0; candidate <= 100; candidate += 10)
             {
                 if (saved == candidate.ToString()) { m_Percent = candidate; }
@@ -103,7 +105,7 @@ class HCGradeSettingsClient
         GetGame().GetWorld().GetDate(year, month, day, hour, minute);
         float worldHour = hour + minute / 60.0;
         // Never let a smoothed previous daytime frame linger into night.
-        if (worldHour <= 8.0 || worldHour >= 18.0)
+        if (worldHour <= HCc2PresentationConfig.HCGet().GradeDawnHour || worldHour >= HCc2PresentationConfig.HCGet().GradeDuskHour)
         {
             Stop();
             return;

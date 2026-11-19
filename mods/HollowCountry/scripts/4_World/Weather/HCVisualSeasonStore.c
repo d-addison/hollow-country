@@ -34,10 +34,22 @@ class HCVisualSeasonIO
         HCVisualSeasonConfig config = new HCVisualSeasonConfig;
         if (FileExist(CONFIG_PATH))
         {
-            if (!HCV2ThreatStore<HCVisualSeasonConfig>.Load(CONFIG_PATH, LIMIT, config)) { return null; }
+            string image;
+            string error;
+            HCVisualSeasonConfig loaded;
+            if (!HCGroupIO.Read(CONFIG_PATH, LIMIT, image) || !JsonFileLoader<HCVisualSeasonConfig>.LoadData(image, loaded, error) || !loaded) { return null; }
+            // Required clock fields retain their previous validation semantics.
+            config.SchemaVersion = loaded.SchemaVersion;
+            config.EnableVisualSeasons = loaded.EnableVisualSeasons;
+            config.PhaseSeconds = loaded.PhaseSeconds;
+            config.CheckpointSeconds = loaded.CheckpointSeconds;
+            config.MaxUncheckpointedSeconds = loaded.MaxUncheckpointedSeconds;
+            config.MaxClockDeltaSeconds = loaded.MaxClockDeltaSeconds;
+            config.HCApply(image, loaded);
         }
         else if (!HCV2ThreatStore<HCVisualSeasonConfig>.Save(CONFIG_PATH, config, LIMIT)) { return null; }
         if (!config || !config.HCValid()) { return null; }
+        HCSeasonVisualPolicy.HCConfigure(config);
         return config;
     }
 

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import unittest
 
 from tests.unit.test_event_runtime import translate
+from tests.unit.test_c2_atmoscfg import defaults_env
 
 SOURCE = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/3_Game/Atmosphere/HCLightingBlend.c'
 
@@ -15,7 +16,7 @@ class LightingSmoke(unittest.TestCase):
         policy = SimpleNamespace()
         source = SOURCE.read_text()
         for name in re.findall(r'static (?:bool|float|string) (\w+)\(', source):
-            setattr(policy, name, translate(source, name, {'HCLightingBlend': policy}))
+            setattr(policy, name, translate(source, name, dict(defaults_env(), HCLightingBlend=policy)))
         # Explicit synthetic hours/weather, including a stale storm on entering night.
         for hour in (0, 4.99, 20, 23.99):
             for cloud, rain, fog in ((0, 0, 0), (1, 1, 1)):
