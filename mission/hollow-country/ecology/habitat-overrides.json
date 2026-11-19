@@ -1,0 +1,739 @@
+{
+  "Version": 1,
+  "Plan": "HC-48",
+  "Issue": 149,
+  "World": "chernarusplus",
+  "Enabled": true,
+  "ProductionEnabled": false,
+  "RuntimeAcceptance": "PENDING",
+  "Trace": {
+    "Spec": "FR-008/FR-011; #149 native wildlife; binding owner decisions 2026-11-18",
+    "Plan": "Consolidated coverage plan Wave 3 HC-48",
+    "Task": "Native habitats, predator and directional target dispositions; HC-15/29 shared observation, HC-60 optional findings only",
+    "MissingLocalSpecPaths": [
+      "docs/SPECIFICATION.md",
+      "docs/specs/001-survival-overhaul/spec.md"
+    ],
+    "SpecReadFrom": "Read-only lead checkout; active worker brief supersedes stale preferences."
+  },
+  "Application": {
+    "Mode": "install_time_content_delta_only",
+    "RuntimeLoader": false,
+    "OperatorChoices": "Explicit disable wins. Generate from operator-owned installed sources, validate hashes/schema and preserve unrelated native and dependency entries. Refuse changed inputs rather than silently replacing operator choices.",
+    "Rollback": "Restore backed-up environment and event references together; never delete native CE population/history to apply or undo this overlay."
+  },
+  "Sources": [
+    {
+      "Path": "cfgenvironment.xml",
+      "Sha256": "3f73c9f3abe7ed3811811a147ecfcc596af6170552e372c5eaff27dd92fbf135"
+    },
+    {
+      "Path": "db/events.xml",
+      "Sha256": "4089710dfa15515261167dc769206059b426ab9c7a28b06cb3af505195f869a6"
+    }
+  ],
+  "EnvironmentEdits": [
+    {
+      "Operation": "deduplicate_file_declaration",
+      "Path": "env/hare_territories.xml",
+      "KeepOccurrences": 1,
+      "Preserve": "First declaration and existing AmbientHare binding, native event, counts and territory rows. Apply idempotently during install; never duplicate event or population.",
+      "BaselineOccurrences": 2
+    }
+  ],
+  "DomesticHabitat": {
+    "Path": "env/domestic_animals_territories.xml",
+    "Disposition": "legacy_unreferenced_pending_survey",
+    "Reason": "215 legacy rows overlap 200 cattle rows exactly. Binding or merging all 215 would double-count habitat. Retain native cattle binding; keep 15 differing legacy rows pending geometry and native route survey.",
+    "ComparedWith": "env/cattle_territories.xml",
+    "ExactZoneOverlapWithCattle": 200,
+    "UnsurveyedDifferentZones": 15,
+    "CountInEffectiveHabitat": false,
+    "BindOrMerge": false
+  },
+  "Ranges": {
+    "InheritedHerdSafeRadiusM": 200,
+    "ReferenceNetworkBubbleM": 1000,
+    "ReferenceRifleGunshotHearingM": 1000,
+    "RangeBasis": "The overlay retains the stock AnimalSheep saferadius of 200 m (one fifth of the approximate 1000 m network bubble / 1 km rifle gunshot hearing reference). No new perception, travel, target, observation or territory range; other event radii remain native zero."
+  },
+  "Overlay": {
+    "Path": "hollow-country/ecology/events.append.xml",
+    "Type": "events",
+    "Mode": "replace_existing_event_by_name_after_native_qualification",
+    "RequiredCfgPatches": [
+      "DZ_Animals_ovis_gmelini"
+    ],
+    "RequiredCfgVehicles": [
+      "Animal_OvisAries",
+      "Animal_OvisAriesF",
+      "Animal_OvisGmelini"
+    ],
+    "Admitted": false,
+    "Event": "AnimalSheep",
+    "SelectedVariant": "Animal_OvisGmelini",
+    "Reason": "Installed public scope=2 class and model entry inspected in animals_nasdara.pbo. Presence on disk does not prove it is loaded on Chernarus. Keep this XML unreferenced unless the addon is loaded and native qualification passes.",
+    "PopulationAccounting": "Retain nominal=5/min=4/max=5 and global AnimalMaxCount. Replace one optional ram slot with an optional mouflon slot; keep stock ewe minimum and do not create another event or loot supply."
+  },
+  "Species": [
+    {
+      "ClassName": "Animal_BosTaurusF_Brown",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_BosTaurusF_Brown",
+      "Event": "AnimalCow",
+      "Binding": "Cow",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_BosTaurusF_Spotted",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_BosTaurusF_Spotted",
+      "Event": "AnimalCow",
+      "Binding": "Cow",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_BosTaurusF_White",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_BosTaurusF_White",
+      "Event": "AnimalCow",
+      "Binding": "Cow",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_BosTaurus_Brown",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_BosTaurus_Brown",
+      "Event": "AnimalCow",
+      "Binding": "Cow",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_BosTaurus_Spotted",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_BosTaurus_Spotted",
+      "Event": "AnimalCow",
+      "Binding": "Cow",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_BosTaurus_White",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_BosTaurus_White",
+      "Event": "AnimalCow",
+      "Binding": "Cow",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_Dobermann_Bald",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_Dobermann_Bald",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_Dobermann_Bloody",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_Dobermann_Bloody",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_Dobermann_Brown",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_Dobermann_Brown",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_Dobermann_Skinny",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_Dobermann_Skinny",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_Dobermann_Vest",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_Dobermann_Vest",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_GermanShepherd_Balding",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_GermanShepherd_Balding",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_GermanShepherd_Bloody",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_GermanShepherd_Bloody",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_GermanShepherd_Harness",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_GermanShepherd_Harness",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisFamiliaris_GermanShepherd_Skinny",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_CanisFamiliaris_GermanShepherd_Skinny",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Nasdara dog: no inspected Chernarus native territory/brain assignment or provider faction qualification. Pending habitat and pair survey, not a permanent exclusion.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisLupus_Grey",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CanisLupus_Grey",
+      "Event": "AnimalWolf",
+      "Binding": "Wolf",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CanisLupus_White",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CanisLupus_White",
+      "Event": "AnimalWolf",
+      "Binding": "Wolf",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapraHircusF",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapraHircusF",
+      "Event": "AnimalGoat",
+      "Binding": "Goat",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapraHircus_Black",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapraHircus_Black",
+      "Event": "AnimalGoat",
+      "Binding": "Goat",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapraHircus_Brown",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapraHircus_Brown",
+      "Event": "AnimalGoat",
+      "Binding": "Goat",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapraHircus_Spooky",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapraHircus_Spooky",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Seasonal goat: pending explicit encounter suitability; no ordinary herd injection.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapraHircus_White",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapraHircus_White",
+      "Event": "AnimalGoat",
+      "Binding": "Goat",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapreolusCapreolus",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapreolusCapreolus",
+      "Event": "AnimalRoeDeer",
+      "Binding": "RoeDeer",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CapreolusCapreolusF",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CapreolusCapreolusF",
+      "Event": "AnimalRoeDeer",
+      "Binding": "RoeDeer",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CervusElaphus",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CervusElaphus",
+      "Event": "AnimalDeer",
+      "Binding": "Deer",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_CervusElaphusF",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_CervusElaphusF",
+      "Event": "AnimalDeer",
+      "Binding": "Deer",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_GallusGallusDomesticus",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_GallusGallusDomesticus",
+      "Event": "AmbientHen",
+      "Binding": "AmbientHen",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_GallusGallusDomesticusF_Brown",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_GallusGallusDomesticusF_Brown",
+      "Event": "AmbientHen",
+      "Binding": "AmbientHen",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_GallusGallusDomesticusF_Spotted",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_GallusGallusDomesticusF_Spotted",
+      "Event": "AmbientHen",
+      "Binding": "AmbientHen",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_GallusGallusDomesticusF_White",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_GallusGallusDomesticusF_White",
+      "Event": "AmbientHen",
+      "Binding": "AmbientHen",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_LepusEuropaeus",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_LepusEuropaeus",
+      "Event": "AmbientHare",
+      "Binding": "AmbientHare",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_OvisAries",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_OvisAries",
+      "Event": "AnimalSheep",
+      "Binding": "Sheep",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_OvisAriesF",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_OvisAriesF",
+      "Event": "AnimalSheep",
+      "Binding": "Sheep",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_OvisGmelini",
+      "Disposition": "selected_pending_addon_and_native",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_OvisGmelini",
+      "Event": "AnimalSheep",
+      "Binding": "Sheep",
+      "Reason": "Temperate upland mouflon candidate in existing sheep/goat habitat. No new controller or population event; shares existing AnimalSheep quota. Requires loaded addon, HC-15 allowlist integration and native mixed-herd qualification.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_RangiferTarandus",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_RangiferTarandus",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Alternate-climate reindeer: pending suitable Chernarus habitat and native brain survey; no seasonal spawning from HCVisualSeasons inferred.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_RangiferTarandusF",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_RangiferTarandusF",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Alternate-climate reindeer: pending suitable Chernarus habitat and native brain survey; no seasonal spawning from HCVisualSeasons inferred.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_RangiferTarandus_Xmas",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_RangiferTarandus_Xmas",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Alternate-climate reindeer: pending suitable Chernarus habitat and native brain survey; no seasonal spawning from HCVisualSeasons inferred.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_SusDomesticus",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_SusDomesticus",
+      "Event": "AnimalPig",
+      "Binding": "Pig",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_SusScrofa",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_SusScrofa",
+      "Event": "AnimalWildBoar",
+      "Binding": "WildBoar",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_UrsusArctos",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals_bliss.pbo:CfgVehicles/Animal_UrsusArctos",
+      "Event": "AnimalBear",
+      "Binding": "Bear",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_VaranusGriseus",
+      "Disposition": "pending_suitability",
+      "NativeConfig": "nasdara/addons/animals_nasdara.pbo:CfgVehicles/Animal_VaranusGriseus",
+      "Event": "",
+      "Binding": "",
+      "Reason": "Warm-climate monitor lizard: pending Chernarus habitat and native brain suitability; no ordinary herd injection.",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "ClassName": "Animal_VulpesVulpes",
+      "Disposition": "retain_native",
+      "NativeConfig": "addons/animals.pbo:CfgVehicles/Animal_VulpesVulpes",
+      "Event": "AmbientFox",
+      "Binding": "AmbientFox",
+      "Reason": "Existing native event and brain; behavior acceptance pending.",
+      "RuntimeAcceptance": "PENDING"
+    }
+  ],
+  "Habitats": [
+    {
+      "Path": "env/cattle_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 215,
+      "Bindings": [
+        {
+          "Name": "Cow",
+          "Type": "Herd",
+          "Behavior": "DZdomesticGroupBeh"
+        }
+      ],
+      "SourceSha256": "e785fcb76f7c1129b98786914af7b10c8cf41b9a4fcc1dd46d35fbf790e1a0bd",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/sheep_goat_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 151,
+      "Bindings": [
+        {
+          "Name": "Goat",
+          "Type": "Herd",
+          "Behavior": "DZSheepGroupBeh"
+        },
+        {
+          "Name": "Sheep",
+          "Type": "Herd",
+          "Behavior": "DZSheepGroupBeh"
+        }
+      ],
+      "SourceSha256": "a63a967396b703c311725b85dc8d16cd3250ff00528e9800700d9965e8ef647a",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/red_deer_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 255,
+      "Bindings": [
+        {
+          "Name": "Deer",
+          "Type": "Herd",
+          "Behavior": "DZDeerGroupBeh"
+        }
+      ],
+      "SourceSha256": "363bf229ee6a22dd5a8018532f919a485f7478eb9671fd05c60144d8bfd656d7",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/roe_deer_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 276,
+      "Bindings": [
+        {
+          "Name": "RoeDeer",
+          "Type": "Herd",
+          "Behavior": "DZDeerGroupBeh"
+        }
+      ],
+      "SourceSha256": "221e2cbced8f39d08b48d0e3ad82188bfa7f0491ed472519be5d854fe58a88db",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/wild_boar_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 207,
+      "Bindings": [
+        {
+          "Name": "WildBoar",
+          "Type": "Herd",
+          "Behavior": "DZDeerGroupBeh"
+        }
+      ],
+      "SourceSha256": "aa05fba0ca6e45df639fd2e105fb56be5a8590a3d5911fafb9a3f7ca6a98b297",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/pig_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 182,
+      "Bindings": [
+        {
+          "Name": "Pig",
+          "Type": "Herd",
+          "Behavior": "DZSheepGroupBeh"
+        }
+      ],
+      "SourceSha256": "663a680028e17f3cb6e062731684c1a9f53492096d080a702fe667f5b7576806",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/hen_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 355,
+      "Bindings": [
+        {
+          "Name": "AmbientHen",
+          "Type": "Ambient",
+          "Behavior": "DZAmbientLifeGroupBeh"
+        }
+      ],
+      "SourceSha256": "8474ae86e74a0b355f2f123c306acb5b05392c083d076857e70577078b194048",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/wolf_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 276,
+      "Bindings": [
+        {
+          "Name": "Wolf",
+          "Type": "Herd",
+          "Behavior": "DZWolfGroupBeh"
+        }
+      ],
+      "SourceSha256": "36738538717e378a13e0566b9888e58d06a80193506d8bd5a12bf57949aad935",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/hare_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 882,
+      "Bindings": [
+        {
+          "Name": "AmbientHare",
+          "Type": "Ambient",
+          "Behavior": "DZAmbientLifeGroupBeh"
+        }
+      ],
+      "SourceSha256": "885fc361597bf7e669bbc99aef6e4ff7e9553481c73d5733cd44caf09099737f",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/bear_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 71,
+      "Bindings": [
+        {
+          "Name": "Bear",
+          "Type": "Herd",
+          "Behavior": "BlissBearGroupBeh"
+        }
+      ],
+      "SourceSha256": "9aa16e734d49d70e835ebe8161f59f0d2386602f9cfc026b42471a1826a9bbf8",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/fox_territories.xml",
+      "Disposition": "retain_native",
+      "AuthoredZoneCount": 384,
+      "Bindings": [
+        {
+          "Name": "AmbientFox",
+          "Type": "Ambient",
+          "Behavior": "DZAmbientLifeGroupBeh"
+        }
+      ],
+      "SourceSha256": "b5824e840e7f61d60c0316d607afaab462e5db8d87e5af2dddcdc67f0632bb82",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Path": "env/domestic_animals_territories.xml",
+      "Disposition": "legacy_unreferenced_pending_survey",
+      "AuthoredZoneCount": 215,
+      "Bindings": [],
+      "SourceSha256": "b8e373905024dd172c6499b2fb615678184ea24d1b8b9d189a1dcc0a422f1b60",
+      "RuntimeAcceptance": "PENDING"
+    }
+  ],
+  "TargetPairs": [
+    {
+      "Source": "animal",
+      "Target": "animal",
+      "Supported": false,
+      "Disposition": "native_predator_prey_observation_pending_no_target_accessor",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Source": "animal",
+      "Target": "ai",
+      "Supported": false,
+      "Disposition": "native_human_reaction_pending_no_provider_faction_override",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Source": "ai",
+      "Target": "animal",
+      "Supported": false,
+      "Disposition": "provider_source_unavailable_no_target_or_faction_hook_admitted",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Source": "animal",
+      "Target": "infected",
+      "Supported": false,
+      "Disposition": "native_pair_matrix_pending_no_target_accessor",
+      "RuntimeAcceptance": "PENDING"
+    },
+    {
+      "Source": "infected",
+      "Target": "animal",
+      "Supported": false,
+      "Disposition": "native_pair_matrix_pending_no_supported_retarget_adapter",
+      "RuntimeAcceptance": "PENDING"
+    }
+  ],
+  "Refusals": [
+    {
+      "Capability": "animal_destination",
+      "Reason": "no_inspected_animal_destination_api"
+    },
+    {
+      "Capability": "animal_migration",
+      "Reason": "native_brains_retained_no_destination_provider"
+    },
+    {
+      "Capability": "animal_target_pairs",
+      "Reason": "no_inspected_animal_target_accessor"
+    },
+    {
+      "Capability": "provider_target_pairs",
+      "Reason": "provider_source_unavailable_at_supplied_path"
+    }
+  ],
+  "Counts": {
+    "AuthoredSpecies": 42,
+    "StockEventSpecies": 27,
+    "SelectedUnusedVariants": 1,
+    "AuthoredHabitatFiles": 12,
+    "BaselineEffectiveHabitatFiles": 11,
+    "BaselineEffectiveZoneRows": 3254,
+    "AdmittedOverlaySpecies": 0,
+    "AdmittedNewHabitatFiles": 0,
+    "TargetPairsSupported": 0,
+    "ObservedAnimals": null,
+    "ObservedNativeReactions": null
+  },
+  "BootReceipt": {
+    "Owner": "HC-1/25 bounded content status path; HC-62 lead integration",
+    "Prefix": "[HC Plan] HC-48",
+    "Fields": [
+      "species",
+      "habitats",
+      "target_pairs_supported",
+      "state",
+      "authored_species",
+      "authored_habitats",
+      "admitted_overlay_species",
+      "observed_reactions",
+      "runtime"
+    ],
+    "Meaning": "species/habitats are validated effective native content counts, not observed animals or verified territory occupancy. Use state=off when ecology is off, refused on input mismatch, ready only for admitted observation/content. Always target_pairs_supported=0 and observed_reactions=unobserved until qualified native evidence exists. Source manifest alone is not CE success.",
+    "ProposedOnLine": "[HC Plan] HC-48 species=27 habitats=11 target_pairs_supported=0 state=ready authored_species=42 authored_habitats=12 admitted_overlay_species=0 observed_reactions=unobserved runtime=PENDING",
+    "ProposedOffLine": "[HC Plan] HC-48 species=0 habitats=0 target_pairs_supported=0 state=off authored_species=42 authored_habitats=12 admitted_overlay_species=0 observed_reactions=unobserved runtime=PENDING"
+  },
+  "NativeAcceptance": [
+    "Exact-source DayZDiag compile/boot: no script/CE errors; native control versus candidate environment and events with exact hashes.",
+    "Observe grazing, travel, flee, regroup, wolf/bear predation and carcasses in suitable native habitats in day/night, across stop/restart.",
+    "Two clients: animal-to-AI, AI-to-animal, animal-to-infected and infected-to-animal reactions; record real perception, damage and native/provider origin separately. Unsupported pairs remain pending.",
+    "Verify loaded mouflon config/model and native mixed-herd behavior before referencing the conditional event overlay. Preserve sheep quotas and global population cap.",
+    "Normal signed PBO/server repeats exact-source checks, off path, stop/restart cleanup and source/PBO/mission/config/dependency hashes. Performance budgets remain provisional at 3-6 players."
+  ],
+  "GameBuild": "1.30.164289",
+  "ManifestMaxBytes": 32768,
+  "NativeConfigSources": [
+    {
+      "Path": "addons/animals.pbo",
+      "Sha256": "3da205b245cfe0b136b61c360b53a4e158404addb478ed5d45f87545a059650f",
+      "Inspected": "Public scope=2 CfgVehicles class metadata only; no assets or sources copied."
+    },
+    {
+      "Path": "addons/animals_bliss.pbo",
+      "Sha256": "b87cfa55581fd37c39d98f415e5edd4b79c94705dda1674bd83ee0996ade290c",
+      "Inspected": "Public scope=2 CfgVehicles class metadata only; no assets or sources copied."
+    },
+    {
+      "Path": "nasdara/addons/animals_nasdara.pbo",
+      "Sha256": "fd3ddcd53e534e7267a48fd53f8af7a3850a1c707de1cf40f03e945308919688",
+      "Inspected": "Public scope=2 CfgVehicles class metadata only; no assets or sources copied."
+    }
+  ]
+}
