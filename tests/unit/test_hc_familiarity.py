@@ -5,7 +5,10 @@ Actual RED (2026-11-18):
   AssertionError: 0 != 2 : death retains score
 GREEN: same command, Ran 1 test, OK. Native acceptance remains PENDING.
 """
+import copy
+import json
 from pathlib import Path
+import re
 from types import SimpleNamespace as N
 import unittest
 
@@ -21,7 +24,7 @@ POLICY = ROOT / 'mods/HollowCountry/scripts/4_World/Survival/HCSurvivalPolicy.c'
 
 
 class FamiliarityLife(unittest.TestCase):
-    def test_death_resets_generation_reconnect_retains_and_legacy_cannot_reward(self):
+    def test_death_resets_generation_reconnect_retains_and_legacy_maps_once(self):
         self.now = 5000
         saved = []
         write_fails = [False]
@@ -39,9 +42,11 @@ class FamiliarityLife(unittest.TestCase):
                                        HCCharacterKey=lambda p: p.life),
                    HCProgressionState=lambda: N(Version=2, Players=EArray()),
                    HCProgressionRow=lambda: N(Key='', CharacterKey='', Dead=False,
-                                               Forage=0, DecayUtc=0, GainUtc=0),
+                                               LegacyDeferred=False, Forage=0, DecayUtc=0, GainUtc=0),
                    HCSaveJob=N(STEP_DONE=0, STEP_MORE=1, STEP_FAILED=2),
                    HCV2ThreatStore=N(Save=save, CanOpen=lambda path:True),
+                   HCGroupIO=N(Read=lambda path,limit:json.dumps(module.m_State,default=vars),
+                               WriteNew=lambda *args:save(None,copy.deepcopy(module.m_State),65536)),
                    PATH='synthetic/progression', LEGACY_PATH='synthetic/progression.v1.json',
                    FileExist=lambda path:False, HCPerfPlayers=N(HCGet=lambda:EArray()),
                    s_HCInstance=None)
@@ -59,7 +64,9 @@ class FamiliarityLife(unittest.TestCase):
             if ' ' + name + '(' in SOURCE.read_text():
                 names.append(name)
         # Generic store type is a syntax-only binding in the same restricted port.
-        bind(SOURCE, 'HCProgressionModule', module, env, names)
+        source = re.sub(r'if \(!HCGroupIO.Read\(([^,]+), ([^,]+), (\w+)\)\)',
+                        r'\3 = HCGroupIO.Read(\1, \2); if (!\3)',SOURCE.read_text())
+        bind(SOURCE, 'HCProgressionModule', module, env, names, source=source)
         def flush(job):
             for _ in range(16):
                 step = module.HCStepCheckpoint()
@@ -69,7 +76,7 @@ class FamiliarityLife(unittest.TestCase):
             return False
         env['HCSaveScheduler'] = N(HCFlush=flush)
         # bind copies env, so supply scheduler before binding handlers.
-        bind(SOURCE, 'HCProgressionModule', module, env, names)
+        bind(SOURCE, 'HCProgressionModule', module, env, names, source=source)
         living = N(uid='p'+'61'*16, life='c:1:2:3:4', IsAlive=lambda: True)
         self.assertEqual(1, module.HCAwardForage(living))
         self.assertEqual(1, module.HCAwardForage(living))  # rate limit
@@ -106,16 +113,17 @@ class FamiliarityLife(unittest.TestCase):
         # A late death notification for the old corpse cannot reset its replacement.
         module.HCObserveDeath(living)
         self.assertEqual(1, module.m_State.Players[0].Forage)
-        # Unmapped account-wide rows are archived, logged and omitted; no shared reward.
+        # Unmapped account-wide rows are archived and deferred for the first living pickup.
         module.m_State = N(Version=1, Players=EArray([N(Key=living.uid,
             Forage=100, DecayUtc=self.now-100, GainUtc=self.now-60,
-            CharacterKey='', Dead=False)]))
+            CharacterKey='', Dead=False, LegacyDeferred=False)]))
         self.assertTrue(module.HCMigrate(self.now))
         self.assertEqual(2, module.m_State.Version)
-        self.assertEqual([], module.m_State.Players)
+        self.assertTrue(module.m_State.Players[0].LegacyDeferred)
         self.assertEqual(1, saved[-1].Version)
         self.assertEqual(100, saved[-1].Players[0].Forage)
-        self.assertEqual(1, module.HCAwardForage(replacement))
+        self.assertEqual(100, module.HCAwardForage(replacement))
+        self.assertFalse(module.m_State.Players[0].LegacyDeferred)
         for _ in range(110):
             self.now += 60
             self.assertLessEqual(module.HCAwardForage(replacement), 100)

@@ -11,8 +11,24 @@ P2/P3 GREEN: Ran 7 tests; OK.
 Identity restart RED (single method): AssertionError: 2 != 1 : a later Start
 gets one fresh bounded diagnostic. GREEN (whole module): Ran 8 tests; OK.
 Native outputs, clock, files and handles below are explicit synthetic fixtures.
+
+#169 actual RED (2026-11-18), command:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_forage_round2.ForageRound2.test_empty_startup_roster_persists_bounded_deferred_rows tests.unit.test_hc_forage_round2.ForageRound2.test_first_living_pickup_maps_deferred_row_once_across_restart tests.unit.test_hc_forage_round2.ForageRound2.test_byte_identical_archive_continues_and_mismatch_preserves_files -v
+AssertionError: 2 != 0 : empty startup roster must retain capped legacy rows
+AssertionError: 38 != 1 : first living pickup must retain 37 legacy points plus one gain
+AssertionError: True != False : byte-identical archive must allow crash retry
+GREEN: same command, Ran 3 tests, OK. Native acceptance remains PENDING.
+Death-barrier follow-up RED, command:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_forage_round2.ForageRound2.test_deferred_row_cannot_cross_an_observed_death_before_first_pickup -v
+AssertionError: 0 != 37 : death must reset an unresolved legacy row too
+Final GREEN (includes death barrier and inconsistent-state refusal):
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_familiarity tests.unit.test_hc_forage_round2 tests.unit.test_hc_forage -v
+Ran 15 tests, OK.
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene tests.unit.test_enforce_formula_complexity -v
+Ran 56 tests, OK. Native runtime acceptance remains PENDING.
 """
 import copy
+import json
 import math
 from pathlib import Path
 from types import SimpleNamespace as N
@@ -42,6 +58,7 @@ class SyntheticRuntime:
         self.now = 5000
         self.logs, self.writes, self.created = [], [], []
         self.files = {}
+        self.images = {}  # Explicit synthetic raw-file bytes (separate from DTOs).
         self.players = EArray()
         self.month, self.roll = 6, 1
         self.surface, self.water, self.collision, self.slope = 'cp_conifer_moss', False, False, 0
@@ -64,11 +81,13 @@ class SyntheticRuntime:
             FileExist=lambda path:path in self.files,
             HCV2ThreatStore=N(CanOpen=lambda path:True, Save=self.save,
                               Load=lambda path,limit:copy.deepcopy(self.files.get(path))),
+            HCGroupIO=N(Read=self.read_image, WriteNew=self.write_image),
             HCForageState=lambda:N(Version=1, WorldName='', Spots=EArray()),
             HCForageSpot=lambda:N(CellX=0, CellZ=0, NodeSlot=0, ReadyUtc=0),
             HCForageNode=lambda:N(Spot=None, Item=None, WasLive=False),
             HCProgressionState=lambda:N(Version=2, Players=EArray()),
-            HCProgressionRow=lambda:N(Key='', CharacterKey='', Dead=False, Forage=0, DecayUtc=0, GainUtc=0),
+            HCProgressionRow=lambda:N(Key='', CharacterKey='', Dead=False, LegacyDeferred=False,
+                                     Forage=0, DecayUtc=0, GainUtc=0),
             HCForageSaveJob=lambda:N(Owner=None,HCDirty=False),
             HCProgressionSaveJob=lambda:N(Owner=None,HCDirty=False))
         self.game = N(GetWorldName=lambda:'chernarusplus', GetWorld=lambda:self,
@@ -92,6 +111,27 @@ class SyntheticRuntime:
 
     def save(self, path, state, limit):
         self.files[path] = copy.deepcopy(state)
+        self.images[path] = self.encode(state)
+        self.writes.append((path,copy.deepcopy(state)))
+        return True
+
+    @staticmethod
+    def encode(state):
+        return json.dumps(state, default=vars, sort_keys=True)
+
+    def read_image(self, path, limit):
+        if path not in self.files:
+            return ''
+        image = self.images.get(path, self.encode(self.files[path]))
+        return image if 0 < len(image) <= limit else ''
+
+    def write_image(self, path, image, limit):
+        if path in self.files or not 0 < len(image) <= limit:
+            return False
+        state = json.loads(image, object_hook=lambda fields:N(**fields))
+        state.Players = EArray(state.Players)
+        self.files[path] = state
+        self.images[path] = image
         self.writes.append((path,copy.deepcopy(state)))
         return True
 
@@ -133,6 +173,8 @@ class SyntheticRuntime:
         source = source.replace('(payload / 2)', '(native_int(payload / 2))')
         source = re.sub(r'if \(!HCV2ThreatStore<\w+>\.Load\(([^,]+), ([^,]+), (\w+)\)\)',
             r'\3 = HCV2ThreatStore.Load(\1, \2); if (!\3)',source)
+        source = re.sub(r'if \(!HCGroupIO.Read\(([^,]+), ([^,]+), (\w+)\)\)',
+            r'\3 = HCGroupIO.Read(\1, \2); if (!\3)',source)
         class_body = body(source, re.search(r'class '+cls+r'\b[^\{]*\{',source).end())
         names = re.findall(r'^    (?:protected |override )?(?:bool|void|int|string|vector|HCForageNode) (\w+)\(',class_body,re.M)
         bind(path,cls,module,env,names,source=source)
@@ -146,8 +188,129 @@ class SyntheticRuntime:
         return N(uid='p'+format(index,'032x'),life=life,IsAlive=lambda:True,
                  GetPosition=lambda:Vec([cell*200,0,10000]))
 
+    def legacy(self, count=1):
+        """Synthetic v1 rows; new bool is false when absent from native JSON."""
+        state = N(Version=1, Players=EArray([
+            N(Key=self.player(index).uid, CharacterKey='', Dead=False, LegacyDeferred=False,
+              Forage=36+index, DecayUtc=self.now-100, GainUtc=self.now-60)
+            for index in range(1,count+1)]))
+        self.files['synthetic/progression'] = copy.deepcopy(state)
+        return state
+
 
 class ForageRound2(unittest.TestCase):
+    def test_empty_startup_roster_persists_bounded_deferred_rows(self):
+        r = SyntheticRuntime()
+        original = r.legacy(3)
+        r.settings.MaxFamiliarityRows = 2
+        r.progression.OnStart(r.settings)
+        self.assertTrue(r.progression.m_Healthy)
+        rows = r.progression.m_State.Players
+        self.assertEqual(2,len(rows),'empty startup roster must retain capped legacy rows')
+        self.assertEqual([37,38],[row.Forage for row in rows])
+        self.assertTrue(all(row.LegacyDeferred and row.CharacterKey == '' for row in rows))
+        self.assertEqual(original,r.files['synthetic/progression.v1.json'])
+        self.assertEqual(rows,r.files['synthetic/progression'].Players)
+        lines = [line for line in r.logs if 'legacy migrated=' in line]
+        self.assertEqual(1,len(lines))
+        self.assertIn('migrated=0 deferred=2 dropped_over_cap=1',lines[0])
+        self.assertTrue(all(row.Key not in lines[0] for row in original.Players))
+        r.now += 86400
+        r.progression.OnTick(1)  # Dirty checkpoint must copy deferred markers too.
+        r.progression.OnStop()
+        r.progression.OnStart(r.settings)
+        self.assertTrue(r.progression.m_Healthy,'deferred v2 rows must validate after restart')
+        self.assertEqual(rows,r.progression.m_State.Players)
+
+    def test_first_living_pickup_maps_deferred_row_once_across_restart(self):
+        r = SyntheticRuntime()
+        r.legacy()
+        r.progression.OnStart(r.settings)
+        player = r.player()
+        player.life = ''
+        self.assertEqual(0,r.progression.HCAwardForage(player))
+        player.life = 'c:1:2:3:4'
+        player.IsAlive = lambda:False
+        self.assertEqual(0,r.progression.HCAwardForage(player))
+        player.IsAlive = lambda:True
+        self.assertEqual(38,r.progression.HCAwardForage(player),
+                         'first living pickup must retain 37 legacy points plus one gain')
+        row = r.progression.m_State.Players[0]
+        self.assertEqual((False,player.life),(row.LegacyDeferred,row.CharacterKey))
+        self.assertEqual(38,r.progression.HCAwardForage(player))
+        self.assertEqual(1,len(r.progression.m_State.Players))
+        # Persist an in-flight copy and restart: the archive must never replay.
+        r.progression.OnStop()
+        r.progression.OnStart(r.settings)
+        self.assertEqual(38,r.progression.HCAwardForage(player))
+        r.now += 60
+        self.assertEqual(39,r.progression.HCAwardForage(player))
+        r.progression.HCObserveDeath(player)
+        self.assertEqual(0,r.progression.HCAwardForage(player))
+        self.assertEqual(1,r.progression.HCAwardForage(r.player(life='c:5:6:7:8')))
+
+    def test_byte_identical_archive_continues_and_mismatch_preserves_files(self):
+        for identical in (True,False):
+            with self.subTest(identical=identical):
+                r = SyntheticRuntime()
+                original = r.legacy()
+                image = ' \n' + r.encode(original) + '\n'  # Preserve noncanonical bytes.
+                r.images['synthetic/progression'] = image
+                r.files['synthetic/progression.v1.json'] = copy.deepcopy(original)
+                r.images['synthetic/progression.v1.json'] = image if identical else image + ' '
+                before = copy.deepcopy(r.images)
+                r.progression.OnStart(r.settings)
+                self.assertEqual(identical,r.progression.m_Healthy,
+                                 'byte-identical archive must allow crash retry')
+                if identical:
+                    self.assertEqual(37,r.progression.m_State.Players[0].Forage)
+                    self.assertTrue(r.progression.m_State.Players[0].LegacyDeferred)
+                    self.assertEqual(image,r.images['synthetic/progression.v1.json'])
+                    self.assertEqual(['synthetic/progression'],[path for path,_ in r.writes])
+                else:
+                    self.assertEqual(before,r.images)
+                    self.assertFalse(r.writes)
+
+    def test_deferred_row_cannot_cross_an_observed_death_before_first_pickup(self):
+        r = SyntheticRuntime()
+        r.legacy()
+        r.progression.OnStart(r.settings)
+        player = r.player()
+        player.IsAlive = lambda:False
+        r.progression.HCObserveDeath(player)
+        row = r.progression.m_State.Players[0]
+        self.assertEqual(0,row.Forage,'death must reset an unresolved legacy row too')
+        self.assertTrue(row.Dead)
+        self.assertFalse(row.LegacyDeferred)
+        self.assertEqual(0,r.files['synthetic/progression'].Players[0].Forage)
+        self.assertEqual(1,r.progression.HCAwardForage(r.player(life='c:5:6:7:8')))
+
+    def test_inconsistent_deferred_state_still_fails_closed(self):
+        for corruption in ('character','dead','unmarked','duplicate','future','over_cap'):
+            with self.subTest(corruption=corruption):
+                r = SyntheticRuntime()
+                state = r.legacy()
+                state.Version = 2
+                row = state.Players[0]
+                row.LegacyDeferred = True
+                if corruption == 'character':
+                    row.CharacterKey = r.player().life
+                elif corruption == 'dead':
+                    row.Dead = True
+                elif corruption == 'unmarked':
+                    row.LegacyDeferred = False
+                elif corruption == 'duplicate':
+                    state.Players.Insert(copy.deepcopy(row))
+                elif corruption == 'future':
+                    row.GainUtc = r.now+1
+                else:
+                    state.Players = EArray([copy.deepcopy(row) for _ in range(129)])
+                r.files['synthetic/progression'] = copy.deepcopy(state)
+                r.progression.OnStart(r.settings)
+                self.assertFalse(r.progression.m_Healthy)
+                self.assertEqual(state,r.files['synthetic/progression'])
+                self.assertFalse(r.writes,'inconsistent input must be preserved without rewriting')
+
     def test_default_candidate_materializes_reclaims_and_rewards_character_life(self):
         r = SyntheticRuntime()
         r.players.Insert(r.player())
@@ -212,33 +375,41 @@ class ForageRound2(unittest.TestCase):
         r = SyntheticRuntime()
         living = r.player()
         r.players.Insert(living)
-        mapped = N(Key=living.uid,CharacterKey='',Dead=False,Forage=37,DecayUtc=r.now-100,GainUtc=r.now-60)
-        unknown = N(Key=r.player(2).uid,CharacterKey='',Dead=False,Forage=81,DecayUtc=r.now-100,GainUtc=r.now-60)
-        r.progression.m_State = N(Version=1,Players=EArray([mapped,unknown]))
+        r.progression.m_State = r.legacy(2)
+        mapped, unknown = r.progression.m_State.Players
+        unknown.Forage = 81
         original = copy.deepcopy(r.progression.m_State)
+        r.files['synthetic/progression'] = copy.deepcopy(original)
+        image = ' \n' + r.encode(original) + '\n'
+        r.images['synthetic/progression'] = image
         self.assertTrue(r.progression.HCMigrate(r.now))
         self.assertIn('synthetic/progression.v1.json',r.files,'legacy rows must be archived before conversion')
         self.assertEqual(original,r.files['synthetic/progression.v1.json'])
+        self.assertEqual(image,r.images['synthetic/progression.v1.json'])
         self.assertEqual(2,r.progression.m_State.Version)
-        self.assertEqual(1,len(r.progression.m_State.Players))
+        self.assertEqual(2,len(r.progression.m_State.Players))
         self.assertEqual((37,living.life),(mapped.Forage,mapped.CharacterKey))
-        lines = [line for line in r.logs if '[HC Plan]' in line and 'rows_dropped=' in line]
+        self.assertFalse(mapped.LegacyDeferred)
+        self.assertTrue(unknown.LegacyDeferred)
+        self.assertEqual(81,unknown.Forage)
+        lines = [line for line in r.logs if '[HC Plan]' in line and 'legacy migrated=' in line]
         self.assertEqual(1,len(lines))
-        self.assertIn('rows_dropped=1',lines[0])
-        self.assertIn('rows_mapped=1',lines[0])
+        self.assertIn('migrated=1 deferred=1 dropped_over_cap=0',lines[0])
         self.assertTrue(r.progression.HCMigrate(r.now))
-        self.assertEqual(1,len([line for line in r.logs if 'rows_dropped=' in line]))
+        self.assertEqual(1,len([line for line in r.logs if 'legacy migrated=' in line]))
         self.assertEqual(1,len(r.writes),'v2 migration must be idempotent')
         # An existing archive must never be overwritten by unrelated v1 rows.
         r.progression.m_State = copy.deepcopy(original)
         r.progression.m_State.Players[0].Forage = 99
+        r.files['synthetic/progression'] = copy.deepcopy(r.progression.m_State)
+        r.images['synthetic/progression'] = r.encode(r.progression.m_State)
         self.assertFalse(r.progression.HCMigrate(r.now))
         self.assertEqual(original,r.files['synthetic/progression.v1.json'])
         # An archive write fault must leave the legacy DTO unmodified.
         broken = SyntheticRuntime()
         broken.progression.m_State = copy.deepcopy(original)
-        broken.save = lambda *args:False
-        broken.env['HCV2ThreatStore'].Save = broken.save
+        broken.files['synthetic/progression'] = copy.deepcopy(original)
+        broken.env['HCGroupIO'].WriteNew = lambda *args:False
         self.assertFalse(broken.progression.HCMigrate(broken.now))
         self.assertEqual(original,broken.progression.m_State)
 
