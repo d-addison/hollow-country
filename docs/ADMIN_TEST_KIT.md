@@ -609,9 +609,10 @@ CfgWorlds Names read pattern as `HCGroupPlaces.NativeNames`, with a retained
 cursor instead of a synchronous scan. Sites use the operator's
 `$profile:HollowCountry/expansion-ai-sites.json`, falling back to the existing
 `$mission:hollow-country/ai/sites.json`. These are authored destinations, not a
-claim of currently active AI. Sites are listed first, then camps, holdouts and
-localities, up to `MaxDestinations`; the Names scan examines the first
-`MaxNameEntries` entries. Refresh samples current camps/holdouts; it does not
+claim of currently active AI. Incidents and events come first, then camps,
+holdouts and localities; AI sites fill the slots left under `MaxDestinations`,
+sampled at an even stride across the site list so every region stays
+reachable. The Names scan examines the first `MaxNameEntries` entries. Refresh samples current camps/holdouts; it does not
 reload site policy. Restart after changing site policy.
 
 There is no public read-only active-situation position accessor on

@@ -119,6 +119,7 @@ class HCAdminTeleport
     protected bool m_CatalogStarted;
     protected int m_Stage;
     protected int m_Cursor;
+    protected int m_SiteStride = 1;
     protected int m_NameCount;
     protected string m_Names;
     protected string m_Fault;
@@ -252,17 +253,6 @@ class HCAdminTeleport
             }
             else if (m_Stage == 2)
             {
-                // HCAdd caps the list at MaxDestinations; stop reading sites once it is full.
-                if (m_Sites && m_Cursor < m_Sites.Sites.Count() && m_Destinations.Count() < m_Config.MaxDestinations)
-                {
-                    HCAdminTeleportSite site = m_Sites.Sites[m_Cursor];
-                    m_Cursor = m_Cursor + 1;
-                    if (site && site.Waypoints && site.Waypoints.Count() > 0) { HCAdd("AI " + site.Id, site.Waypoints[0]); }
-                    continue;
-                }
-            }
-            else if (m_Stage == 3)
-            {
                 HCCampModule camps = HCCampModule.Get();
                 if (camps && m_Cursor < camps.HCEncounterCount())
                 {
@@ -272,7 +262,7 @@ class HCAdminTeleport
                     continue;
                 }
             }
-            else if (m_Stage == 4)
+            else if (m_Stage == 3)
             {
                 HCHoldouts homes = HCHoldouts.Get();
                 if (homes && m_Cursor < homes.Count())
@@ -283,7 +273,7 @@ class HCAdminTeleport
                     continue;
                 }
             }
-            else if (m_Stage == 5)
+            else if (m_Stage == 4)
             {
                 if (m_Cursor < m_NameCount)
                 {
@@ -300,6 +290,24 @@ class HCAdminTeleport
                     array<float> coordinates = new array<float>;
                     GetGame().ConfigGetFloatArray(root + " position", coordinates);
                     if (coordinates.Count() == 2) { HCAdd(title, Vector(coordinates[0], 0, coordinates[1])); }
+                    continue;
+                }
+            }
+            else if (m_Stage == 5)
+            {
+                // #235: AI sites come last and share the slots the short lists left,
+                // strided across the whole catalogue so every region stays reachable.
+                if (m_Sites && m_Cursor == 0)
+                {
+                    int freeSlots = m_Config.MaxDestinations - m_Destinations.Count();
+                    m_SiteStride = 1;
+                    if (freeSlots > 0 && m_Sites.Sites.Count() > freeSlots) { m_SiteStride = (m_Sites.Sites.Count() + freeSlots - 1) / freeSlots; }
+                }
+                if (m_Sites && m_Cursor < m_Sites.Sites.Count() && m_Destinations.Count() < m_Config.MaxDestinations)
+                {
+                    HCAdminTeleportSite site = m_Sites.Sites[m_Cursor];
+                    m_Cursor = m_Cursor + m_SiteStride;
+                    if (site && site.Waypoints && site.Waypoints.Count() > 0) { HCAdd("AI " + site.Id, site.Waypoints[0]); }
                     continue;
                 }
                 m_Complete = true;
