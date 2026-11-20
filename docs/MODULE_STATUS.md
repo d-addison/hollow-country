@@ -67,6 +67,28 @@ Target-load budgets remain provisional; stop/start handles are session-only and
 cross-process body persistence must be checked natively. No shared HCSettings,
 serverDZ network defaults or global settings JSON edits are required.
 
+## Round r6 — 2026-11-20 (source landed; native boot 115 pending)
+
+All of these ship default-on. None has been observed in DayZ yet; "pending"
+means the gameplay is unverified, not that it is switched off.
+
+- Settings (#268): horde caps 4 active / 160 members in shipped defaults and mission settings.
+- Lint (#244 #266 #269 #270): HC-E014..E017; HC-E016 also covers bracketed and grouped handle checks (#273 open).
+- Compile gate: friendcycle runs the native gate under Wine (12 GiB cap); missing-data JSON reports after Mission loads do not fail it.
+- Infected doors: door pressure policy plus a client pressure cue. Pending.
+- Camp allegiance (#267): respawned camp members keep their camp's allegiance. Pending.
+- Shared pacing (#256): hordes, scene stages and AI situations reserve through one director (2 per 1 km, 300 s spacing, 900 s decay; CE events exempt); finished stages release their active slot. Pending; #272 open.
+- Clues: lead notes name direction and distance from 88 named localities. Pending.
+- Group ping: bounded teammate map ping with server-relative expiry. Pending.
+- Hints: contextual recipe and action tips plus a recipe help list. Pending.
+- Story index: parsing continues while Scenes waits for a checkpoint. Pending.
+- First common car: CE part rows so one common car is repairable (docs/VEHICLES.md). Pending.
+- Journeys: caravans and herds walk real native paths (multi-point waypoints use ONCE). Pending.
+- AI affiliation: faction armbands and up to 16 site flags (docs/AI_FACTIONS.md); pre-engagement warnings deferred. Pending.
+- Military zones: the 17 primary zones split into 30 envelopes of at most 2 km, so all 98 guard sites sit inside one. Pending.
+- Boot perf (#271): Holdouts publication, interior resolve misses, save promotion and HCX readiness diagnostics are staged or sampled. Timings pending.
+- Interior surface loot: 917 audited above-floor points in 121 classes; 3,000-point target and furniture-aware audit open (#274). Pending.
+
 ## Living Country — V2
 
 V2 preferences admit their modules by default; experiment verdicts are logged
