@@ -137,9 +137,10 @@ class HCAILimits
     {
         int hash = seed % 1000003;
         string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.:/";
-        for (int index = 0; index < rowId.Length(); index++)
+        HCTextWindow rowText = new HCTextWindow(rowId);
+        for (int index = 0; index < rowText.Length(); index++)
         {
-            hash = (hash * 31 + alphabet.IndexOf(rowId.Get(index)) + 1) % 1000003;
+            hash = (hash * 31 + alphabet.IndexOf(rowText.At(index)) + 1) % 1000003;
         }
         int low = Minimum(kind);
         return low + hash % (Maximum(kind) - low + 1);

@@ -255,9 +255,23 @@ class HCWorldIncidents : HCModule
     }
 
     // Operator opt-out (start-order independent) or a refused/off registry.
+    // Operator file is restart-scoped; never probe the filesystem per tick.
+    protected static bool s_OptOutRead;
+    protected static bool s_OptedOut;
+
+    protected static bool HCOptedOut()
+    {
+        if (!s_OptOutRead)
+        {
+            s_OptOutRead = true;
+            s_OptedOut = FileExist("$profile:HollowCountry/acceptance/world_incidents.disable");
+        }
+        return s_OptedOut;
+    }
+
     static bool HCOff()
     {
-        if (FileExist("$profile:HollowCountry/acceptance/world_incidents.disable")) { return true; }
+        if (HCOptedOut()) { return true; }
         return s_Instance && s_Instance.m_Off;
     }
 
@@ -272,7 +286,7 @@ class HCWorldIncidents : HCModule
         m_Refusal = "";
         m_Running = false;
         m_Off = false;
-        bool optedOut = FileExist("$profile:HollowCountry/acceptance/world_incidents.disable");
+        bool optedOut = HCOptedOut();
         Print(HCV2Admission.Line("world_incidents", !optedOut, "native_incident_survey", false) + " runtime=PENDING");
         if (!GetGame() || !GetGame().IsServer())
         {

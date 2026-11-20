@@ -14,9 +14,18 @@ class HCPickPolicy
     static const string NEED_REFUSAL = "PICKER_NO_SUPPLY_NEED";
     static const string DANGER_REFUSAL = "PICKER_ROUTE_DANGER";
 
+    // Operator file is restart-scoped; never probe the filesystem per tick.
+    protected static bool s_OptOutRead;
+    protected static bool s_Enabled;
+
     static bool Enabled()
     {
-        return !FileExist(HCPickPolicy.OPT_OUT);
+        if (!s_OptOutRead)
+        {
+            s_OptOutRead = true;
+            s_Enabled = !FileExist(HCPickPolicy.OPT_OUT);
+        }
+        return s_Enabled;
     }
 
     // Season phase read only: 0 spring, 1 summer, 2 autumn, 3 winter, -1 when the

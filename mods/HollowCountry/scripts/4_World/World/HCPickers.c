@@ -83,9 +83,12 @@ modded class HCSearchHouses
 // but no identical source-cache/item pair can ever replay here.
 class HCCacheMoveJournal : HCSearchHouseJournal
 {
+    protected bool m_OpenAttempted;
     override bool Open(string sourceId, string sourcePin, string worldName, string build)
     {
         if (m_Open || m_Fault || !GetGame().IsServer()) return false;
+        if (m_OpenAttempted) { return false; }
+        m_OpenAttempted = true;
         m_SourceId = sourceId;
         m_SourcePin = sourcePin;
         m_WorldName = worldName;

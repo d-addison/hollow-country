@@ -77,12 +77,13 @@ class HCWorldStore
     static bool KeysAllowed(string text)
     {
         string keys = "|Meta|SchemaVersion|Epoch|LastTick|BuildId|Places|Id|Name|Position|Facts|Kind|PlaceId|Severity|At|Expires|FactHead|Factions|Ethos|ProviderFaction|Strength|Territory|Hostile|Neutral|Alert|LastAlertDecay|LastRegrowth|Holdouts|FactionId|HouseClass|HousePos|CacheRef|Occupants|State|Since|ReoccupyAfter|Routine|Parties|Size|Route|Edge|Progress|Carry|Home|DailyTransfers|TransferDay|LastMoved|Materialized|SiteMemory|Event|MemoryHead|Leads|TargetPlaceId|Source|GroupId|TextId|Scenes|SiteId|ChainId|Stage|NoteId|Notes|SceneId|EntityRef|CreatedAt|Camps|FireRef|Tier|Members|LastLit|Flag|LastVisit|LastProbe|LastTheft|NeighboursLost|TheftRows|CampId|ContainerRef|ItemRef|PartyId|Phase|Salvage|WreckId|Remaining|Journal|Escalation|Day|PressureCaps|Maximum|";
+        HCTextWindow window = new HCTextWindow(text);
         bool quoted;
         bool escaped;
         int start;
-        for (int keyIndex = 0; keyIndex < text.Length(); keyIndex++)
+        for (int keyIndex = 0; keyIndex < window.Length(); keyIndex++)
         {
-            string character = text.Get(keyIndex);
+            string character = window.At(keyIndex);
             if (quoted)
             {
                 if (escaped) { escaped = false; continue; }
@@ -90,12 +91,12 @@ class HCWorldStore
                 if (character != "\"") { continue; }
                 quoted = false;
                 int after = keyIndex + 1;
-                while (after < text.Length() && (text.Get(after) == " " || text.Get(after) == "\n" || text.Get(after) == "\r" || text.Get(after) == "\t")) { after++; }
-                if (after < text.Length() && text.Get(after) == ":")
+                while (after < window.Length() && (window.At(after) == " " || window.At(after) == "\n" || window.At(after) == "\r" || window.At(after) == "\t")) { after++; }
+                if (after < window.Length() && window.At(after) == ":")
                 {
                     // No allowed key is longer than the whole allow-list; refuse before copying.
                     if (keyIndex - start > 64) { return false; }
-                    string key = text.Substring(start, keyIndex - start);
+                    string key = window.Range(start, keyIndex - start);
                     if (key.Length() < 1 || keys.IndexOf("|" + key + "|") < 0) { return false; }
                 }
             }
@@ -290,20 +291,16 @@ class HCWorldStore
             HCSaveJob.HCOperation = "read_prior";
             // Only a validated paired primary can reach saving. Never automatically
             // restore a prior world or overwrite a backup after a load refusal.
-            if (!m_Fresh && !m_KeepBackup && FileExist(m_Path))
-            {
-                m_PendPrior = Read(m_Path);
-                // Compare with the exact image validated on load/last write. This
-                // preserves external-edit refusal without reparsing every old key
-                // and every DTO during each checkpoint (W5-PERF-2).
-                if (m_PendPrior == "" || m_PendPrior != m_VerifiedText) { return SaveFailed(); }
-            }
+            // Keep the exact validated prior image. The shared writer checks it
+            // in its read_prior stage, before any backup/primary promotion.
+            if (!m_Fresh && !m_KeepBackup) { m_PendPrior = m_VerifiedText; }
+            // Preparing the expected image is O(1); spend this slice on the
+            // writer's prior check so synchronous barriers still fit eight stages.
             m_SaveStage = 2;
-            return HCSaveJob.STEP_MORE;
         }
         if (m_SaveStage == 2)
         {
-            if (!m_SaveImage.Begin(m_Path, m_PendText, MAX_BYTES, m_PendPrior != "", false)) { return SaveFailed(); }
+            if (!m_SaveImage.Begin(m_Path, m_PendText, MAX_BYTES, m_PendPrior != "", m_PendPrior != "", m_PendPrior)) { return SaveFailed(); }
             m_SaveStage = 3;
         }
         int result = m_SaveImage.HCStepImage();

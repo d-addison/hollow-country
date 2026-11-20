@@ -302,10 +302,11 @@ class HCStagedSaveImage
     protected int m_Phase = -1;
     protected bool m_Backup;
     protected bool m_CheckPrior;
+    protected string m_ExpectedPrior;
     protected bool m_Failed;
 
     bool Active() { return m_Phase >= 0; }
-    bool Begin(string path, string text, int limit, bool backup = true, bool checkPrior = true)
+    bool Begin(string path, string text, int limit, bool backup = true, bool checkPrior = true, string expectedPrior = "")
     {
         if (m_Failed || Active() || text.Length() < 1 || text.Length() > limit || limit > HCGroupIO.HC_RAW_READ_CAP)
         {
@@ -322,6 +323,7 @@ class HCStagedSaveImage
         m_Limit = limit;
         m_Backup = backup;
         m_CheckPrior = checkPrior;
+        m_ExpectedPrior = expectedPrior;
         m_Phase = 0;
         return true;
     }
@@ -347,10 +349,13 @@ class HCStagedSaveImage
         {
             HCSaveJob.HCOperation = "read_prior";
             string prior;
-            if (FileExist(m_Path) && !HCGroupIO.Read(m_Path, m_Limit, prior))
+            if (FileExist(m_Path))
             {
-                m_Failed = true;
-                return HCSaveJob.STEP_FAILED;
+                if (!HCGroupIO.Read(m_Path, m_Limit, prior) || (m_ExpectedPrior != "" && prior != m_ExpectedPrior))
+                {
+                    m_Failed = true;
+                    return HCSaveJob.STEP_FAILED;
+                }
             }
             m_CheckPrior = false;
             return HCSaveJob.STEP_MORE;
