@@ -1,0 +1,235 @@
+"""Streaming privacy-filtered RPT verdict and module/performance summary.
+
+python3 -B -m tools.release.rpt_summary server.RPT [--json]
+Exit: 0 connect-enabled/no observed failure, 2 compile, 3 crash, 4 not-ready,
+5 incomplete, 6 input error. Historical evidence is not runtime acceptance.
+"""
+import argparse
+import json
+from pathlib import Path
+import re
+import sqlite3
+import tempfile
+
+from tools.setup.server_report import redact, DROPPED
+from tools.validate.tick_cost_report import aggregate
+
+DROP = re.compile(r'steam ?id|uid|name=|[0-9]{17}|Player "|id=|password|admin.?id', re.I)
+HOME = re.compile(r'(?:/home/[^/\s"\'<>]+|/Users/[^/\s"\'<>]+|/root(?=/|\s|$)|[A-Z]:[\\/]+Users[\\/]+[^\\/\s"\'<>]+|/mnt/[a-z]/Users/[^/\s"\'<>]+)', re.I)
+SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
+CASCADE = re.compile(r"Bad type|Can.t find (?:class|variable)|Unknown type|Wrong number of template|Error in parameters|Failed to load .*script", re.I)
+CRASH = re.compile(r'NULL pointer|Unhandled exception|Access[_ ]violation|Exception code:|\bcrash(?:ed)?\b|\.mdmp\b|\.dmp\b|minidump|stack overflow', re.I)
+HC = re.compile(r'\[HC(?:\s+([^\]]+))?\]')
+READINESS = re.compile(r'ready|readiness|refus|unavailable|bind failed|degrad|missing|invalid|disabled|blocked|not available', re.I)
+NOT_READY = re.compile(r'\bready\s*=\s*false\b', re.I)
+PERF = re.compile(r'\b(tick_max|work_max|slowest_module_max_ms)\s*=\s*([0-9]+(?:\.[0-9]+)?)', re.I)
+TICKS = re.compile(r'\b([a-z_]*(?:ticks|tick_ms)[a-z_]*)\s*[=:]\s*([0-9]+(?:\.[0-9]+)?)', re.I)
+
+
+def filtered(line):
+    """Strict audit drop policy, then existing report redaction and home masking.
+
+    Player-quoted lines are dropped under the strict rule, rather than exposing
+    any part of a player event. Other callers can replace names before filtering.
+    """
+    if DROP.search(line):
+        return None
+    safe = redact(HOME.sub('~', line.rstrip()))
+    return None if safe == DROPPED else HOME.sub('~', safe)
+
+
+def lines(path):
+    """Bound memory even for malformed RPTs with multi-megabyte lines."""
+    with Path(path).open(encoding='utf-8', errors='replace') as stream:
+        while True:
+            line = stream.readline(16385)
+            if not line:
+                break
+            if len(line) > 16384:
+                while line and not line.endswith('\n'):
+                    line = stream.readline(16385)
+                continue
+            yield line
+
+
+def module_line(line):
+    marker = HC.search(line)
+    if not marker or not READINESS.search(line[marker.start():]):
+        return None
+    module = marker.group(1) or 'Core'
+    if module in ('Ready', 'Reached'):
+        field = re.search(r'\b(?:module|feature)=([^\s;]+)', line)
+        module = field.group(1) if field else module
+    return module, line[marker.start():]
+
+
+def failure(line):
+    """Inspect raw text so privacy filtering cannot hide a failing verdict."""
+    lowered = line.lower()
+    if "can't compile" in lowered or ('script' in lowered and SCRIPT_ERROR.search(line)):
+        return 'compile_failed'
+    if any(token in lowered for token in ('null pointer', 'unhandled exception', 'access violation',
+                                          'access_violation', 'exception code:', 'crash', '.mdmp',
+                                          '.dmp', 'minidump', 'stack overflow')) and CRASH.search(line):
+        return 'crashed'
+    # Only the per-module [HC Ready] line decides; internal phase lines such as
+    # "[HC Expansion AI] readiness (server start) ... Ready=false" are progress.
+    if '[HC Ready]' in line and NOT_READY.search(line) and not re.search(r'\benabled\s*=\s*false\b', line, re.I):
+        return 'not_ready'
+    return None
+
+
+class Summary:
+    """Disk-backed distinct diagnostics: every filtered line, bounded RAM.
+
+    The temporary database contains only filtered HC lines and is removed on
+    close. JSON/text are streamed too; as_dict intentionally not provided.
+    """
+    def __init__(self, path):
+        self.path = Path(path)
+        self.temp = tempfile.TemporaryDirectory(prefix='hc-rpt-')
+        self.db = sqlite3.connect(str(Path(self.temp.name) / 'summary.sqlite'))
+        self.db.execute('PRAGMA cache_size=-1024')
+        self.db.execute('CREATE TABLE diagnostics(module TEXT, line TEXT, n INTEGER, PRIMARY KEY(module,line))')
+        self.errors = []
+        self.cascades = []
+        self.compile_markers = []
+        self.crashes = []
+        self.connected = False
+        self.failures = set()
+        self.worst = {}
+        self.saves = {}
+        self.readiness_count = 0
+        self.tick_rows = {}
+        self.tick_rejected = 0
+
+    def close(self):
+        self.db.close()
+        self.temp.cleanup()
+
+    def scan(self):
+        for raw in lines(self.path):
+            verdict = failure(raw)
+            if verdict:
+                self.failures.add(verdict)
+            if 'Player connect enabled' in raw:
+                self.connected = True
+            # Only retain the first root/cascade/compiler/crash examples.
+            # Runtime error storms can contain a million SCRIPT (E) lines.
+            needs_error = False
+            if verdict == 'compile_failed' and SCRIPT_ERROR.search(raw):
+                needs_error = len(self.cascades if CASCADE.search(raw) else self.errors) < 8
+            needs_marker = "can't compile" in raw.lower() and len(self.compile_markers) < 8
+            needs_crash = len(self.crashes) < 8 and verdict in ('compile_failed', 'crashed') and CRASH.search(raw)
+            if not ('[HC' in raw or needs_error or needs_marker or needs_crash):
+                continue
+            line = filtered(raw)
+            if not line:
+                continue
+            if "can't compile" in line.lower():
+                if len(self.compile_markers) < 8:
+                    self.compile_markers.append(line)
+            elif SCRIPT_ERROR.search(line):
+                target = self.cascades if CASCADE.search(line) else self.errors
+                if len(target) < 8:
+                    target.append(line)
+            if CRASH.search(line) and len(self.crashes) < 8:
+                self.crashes.append(line)
+            item = module_line(line)
+            if item:
+                self.readiness_count += 1
+                self.db.execute('INSERT INTO diagnostics VALUES(?,?,1) ON CONFLICT(module,line) DO UPDATE SET n=n+1', item)
+            metrics = list(PERF.findall(line)) if '[HC Perf]' in line else [
+                (field, value) for field, value in TICKS.findall(line)
+                if field in ('worst_tick_ticks', 'heaviest_item_ticks', 'max_stage_ticks', 'ticks_max')]
+            for field, value in metrics:
+                if len(self.worst) < 16 or field in self.worst:
+                    rows = self.worst.setdefault(field, [])
+                    rows.append((float(value), line))
+                    rows[:] = sorted(rows, reverse=True)[:10]
+            if '[HC Save]' in line:
+                job = re.search(r'\bjob=([^\s;]+)', line)
+                key = job.group(1) if job else 'unknown'
+                if key in self.saves or len(self.saves) < 256:
+                    entry = self.saves.setdefault(key, {})
+                    for field, value in TICKS.findall(line):
+                        value = float(value)
+                        if value >= entry.get(field, (float('-inf'), ''))[0]:
+                            entry[field] = (value, line)
+        self.db.commit()
+        self.tick_rows, self.tick_rejected = aggregate(self.path)
+        return self
+
+    @property
+    def outcome(self):
+        for value in ('compile_failed', 'crashed', 'not_ready'):
+            if value in self.failures:
+                return value
+        return 'connect_enabled' if self.connected else 'incomplete'
+
+    def diagnostics(self):
+        return self.db.execute('SELECT module,line,n FROM diagnostics ORDER BY module,line')
+
+    def header(self):
+        return dict(outcome=self.outcome, connected=self.connected,
+                    compile_result='compile_failed' if 'compile_failed' in self.failures else 'no_compile_error_observed',
+                    # Root errors precede cascades and the generic module failure.
+                    compile_errors=self.errors + self.compile_markers + self.cascades,
+                    crash_indicators=self.crashes, readiness_lines=self.readiness_count,
+                    worst_ticks=self.worst, save_peaks=self.saves,
+                    tick_cost={k: {a: sorted(b) if isinstance(b, set) else b for a, b in v.items()}
+                               for k, v in self.tick_rows.items()},
+                    tick_cost_rejected=self.tick_rejected)
+
+    def print(self, as_json=False):
+        if as_json:
+            # Do not materialize all module diagnostics in memory.
+            prefix = json.dumps(self.header())
+            print(prefix[:-1] + ', "modules": [', end='')
+            separator = ''
+            for module, line, count in self.diagnostics():
+                print(separator + json.dumps(dict(module=module, line=line, count=count)), end='')
+                separator = ','
+            print(']}')
+            return
+        print('outcome=' + self.outcome)
+        for line in self.errors + self.compile_markers + self.cascades:
+            print(line)
+        for line in self.crashes:
+            print(line)
+        for module, line, count in self.diagnostics():
+            print(f'{module} ({count}x): {line}')
+        print('Worst ticks (Perf maxima in ms, *_ticks in raw engine units; no target-load acceptance):')
+        for field, rows in self.worst.items():
+            for peak, line in rows:
+                print(f'{field}={peak:g}: {line}')
+        print('[HC Save] peaks:')
+        for job, fields in self.saves.items():
+            for field, (peak, line) in fields.items():
+                print(f'{job} {field}={peak:g}: {line}')
+        print('[HC TickCost] totals: consumer windows used starved ticks_sum ticks_max')
+        for name, row in self.tick_rows.items():
+            print(f"{name} {row['windows']} {row['used']:g} {row['starved']:g} {row['ticks']:g} {row['ticks_max']:g}")
+        if not self.tick_rows:
+            print('no_data')
+        print(f'readiness_lines={self.readiness_count}; absent readiness markers do not establish readiness')
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('rpt', type=Path)
+    parser.add_argument('--json', action='store_true')
+    args = parser.parse_args(argv)
+    summary = Summary(args.rpt)
+    try:
+        summary.scan().print(args.json)
+        return dict(connect_enabled=0, compile_failed=2, crashed=3, not_ready=4, incomplete=5)[summary.outcome]
+    except (OSError, sqlite3.Error):
+        print('RPT summary input/storage unavailable')
+        return 6
+    finally:
+        summary.close()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
