@@ -902,6 +902,9 @@ def check_weapon_packs(mission, packs):
         with tempfile.TemporaryDirectory(prefix='hc-weapon-check-') as temporary:
             scratch = Path(temporary) / 'mission'
             shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'), symlinks=True)
+            # hc_events installs after the weapon packs; unwind it first, as the installer does.
+            from tools.package import hc_events
+            hc_events.rollback(scratch)
             rollback_weapon_packs(scratch)
     return present
 

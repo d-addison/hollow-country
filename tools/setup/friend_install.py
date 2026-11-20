@@ -1370,25 +1370,27 @@ def plan_overlays_map(ctx, a):
 
 
 def do_overlays_map(ctx, mission, source, state):
-    track_target(ctx, mission.relative_to(ctx.server).as_posix(), tree=True)
-    hc_events.rollback(mission)
-    # Weapon receipts snapshot map inputs; remove them before replacing those bytes.
-    tactical_flava_optional.rollback_weapon_packs(mission)
-    if state == 'different':
-        code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
+    # Every mission write here (hc_events and weapon-pack rollbacks, hc_events install)
+    # must be fingerprinted, or recovery refuses those bytes as unknown.
+    with tree_writer(ctx, mission):
+        hc_events.rollback(mission)
+        # Weapon receipts snapshot map inputs; remove them before replacing those bytes.
+        tactical_flava_optional.rollback_weapon_packs(mission)
+        if state == 'different':
+            code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
+            if code != 0:
+                raise Refused('overlays-map', 'rollback of the earlier map overlay was refused: %s' % err.strip())
+        present = all((mission / name).is_file() for name in map_overlay.INPUTS + ('mapgroupproto.xml',))
+        if state == 'different':
+            code, text, err = run_map(ctx, map_validate_args(ctx, source, mission, present))
+            if code != 0:
+                raise Refused('overlays-map', 'validate refused the new layers (the earlier overlay is already rolled '
+                              'back): %s' % err.strip())
+        code, text, err = run_map(ctx, ['install', '--source', str(source), '--target', str(mission)])
         if code != 0:
-            raise Refused('overlays-map', 'rollback of the earlier map overlay was refused: %s' % err.strip())
-    present = all((mission / name).is_file() for name in map_overlay.INPUTS + ('mapgroupproto.xml',))
-    if state == 'different':
-        code, text, err = run_map(ctx, map_validate_args(ctx, source, mission, present))
-        if code != 0:
-            raise Refused('overlays-map', 'validate refused the new layers (the earlier overlay is already rolled '
-                          'back): %s' % err.strip())
-    code, text, err = run_map(ctx, ['install', '--source', str(source), '--target', str(mission)])
-    if code != 0:
-        raise Refused('overlays-map', 'map_overlay install refused: %s' % err.strip())
-    hc_events.install(ctx.bundle / 'mission/hollow-country', mission)
-    ctx.say('  ' + text.strip().splitlines()[-1] if text.strip() else '  map overlay installed')
+            raise Refused('overlays-map', 'map_overlay install refused: %s' % err.strip())
+        hc_events.install(ctx.bundle / 'mission/hollow-country', mission)
+        ctx.say('  ' + text.strip().splitlines()[-1] if text.strip() else '  map overlay installed')
     return 'done'
 
 
