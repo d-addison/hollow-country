@@ -63,7 +63,12 @@ def install(bundle, server_root, workshop):
         require_stopped()
         command = (f'cd /d {bundle_win} && set PYTHONDONTWRITEBYTECODE=1&& '
                    f'py -3 -B -m tools.setup.friend_install --server-root {server_root} {options}')
-        run([cmd, '/d', '/c', command], Path('/mnt/c'))
+        try:
+            run([cmd, '/d', '/c', command], Path('/mnt/c'))
+        except ValueError as error:
+            # The installer's own output can carry private paths; name only the failed step.
+            raise ValueError('friend_install ' + options.split()[0] + ' failed; rerun it from the bundle '
+                             'folder to see its report') from error
     print('Friend install and --check succeeded')
 
 
@@ -129,8 +134,11 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         cycle(args)
-    except (OSError, ValueError, subprocess.SubprocessError):
-        parser.exit(1, 'Friend cycle refused or failed; verify inputs and the stopped-server state.\n')
+    except ValueError as error:
+        # ValueError messages here are authored text without paths or identifiers.
+        parser.exit(1, 'Friend cycle refused or failed: ' + str(error) + '\n')
+    except (OSError, subprocess.SubprocessError) as error:
+        parser.exit(1, 'Friend cycle refused or failed (' + type(error).__name__ + '); verify inputs and the stopped-server state.\n')
 
 
 if __name__ == '__main__':
