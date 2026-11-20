@@ -58,6 +58,11 @@ class HCInfectedDoorPolicy
     static const int MAX_OBJECTS_PER_QUERY = 128;
     static const int MAX_INFECTED_PER_DOOR = 8;
     static const int MAX_NOISE_PER_TICK = 1;
+    // #256 cosmetic server-to-client cue; independent of native AI noise.
+    static const int RPC_PRESSURE_CUE = 4854020;
+    static const int CUE_VERSION = 1;
+    static const float CUE_INTERVAL = 3;
+    static const float CUE_RADIUS_SQ = 900;
 
     static bool HeavyClass(string className)
     {
@@ -128,6 +133,21 @@ class HCInfectedDoorPressure
     int m_HitsNeeded = 5;
     float m_CooldownUntil;
     float m_VisitedAt = -1;
+    float m_NextCueAt;
+
+    // Read the same progress that decides opening; never advances pressure.
+    // Called only after a hot visit which has not opened/broken the door.
+    int HCCueLevel(int kind)
+    {
+        float progress = m_Pressure / Math.Max(1, m_OpenNeeded);
+        if (kind == HCInfectedDoorPolicy.KIND_HEAVY)
+        {
+            progress = m_Hits / (1.0 * Math.Max(1, m_HitsNeeded));
+        }
+        if (progress >= 0.66) { return 3; }
+        if (progress >= 0.33) { return 2; }
+        return 1;
+    }
 
     // kind: strongest qualifying infected at the door this visit (KIND_NONE
     // when none). Returns one ACTION_*; the caller performs native calls.

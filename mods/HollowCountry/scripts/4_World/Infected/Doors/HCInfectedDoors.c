@@ -50,11 +50,13 @@
 //
 // Rules held: no teleport/forced movement of anyone, never closes, locks or
 // blocks a door, only server-side OpenDoor/UnlockDoor (doors replicate
-// natively), no persistence, no new RPC/settings/config. No infected attack
+// natively), no persistence or new settings/config. A bounded cosmetic RPC
+// sends pressure progress to nearby clients; it grants no gameplay authority.
+// No infected attack
 // animation is started: StartCommand_Attack (DayZInfected.c:112) is consumed
 // inside the native command handler, whose FightLogic (ZombieBase.c:629-660)
 // would apply melee damage to m_ActualTarget (the player) rather than the door,
-// so visuals rely on PlayDoorSound only.
+// so the warning uses client-side vanilla attack foley at the door instead.
 class HCInfectedDoorsModule : HCModule
 {
     protected bool m_Running;
@@ -448,8 +450,42 @@ class HCInfectedDoorsModule : HCModule
         int lockState = HCInfectedDoorPolicy.LOCK_NONE;
         if (kind != HCInfectedDoorPolicy.KIND_NONE) { lockState = LockState(building, doorIndex); }
         int action = entry.HCAdvance(kind, lockState, m_Clock);
+        // A cue is sent on first contact and as pressure builds, including
+        // common infected visits with ACTION_NONE. No cue on the giving hit,
+        // refused lock, stale contact, cooldown or already-open door.
+        if (chosen && entry.m_LastHot == m_Clock && m_Clock >= entry.m_CooldownUntil)
+        {
+            if (action == HCInfectedDoorPolicy.ACTION_NONE || action == HCInfectedDoorPolicy.ACTION_HIT)
+            {
+                HCWarnPressure(entry, kind, doorPos);
+            }
+        }
         if (action == HCInfectedDoorPolicy.ACTION_NONE || !chosen) { return; }
         Apply(entry, action, chosen, doorPos);
+    }
+
+    // <=4 visited doors/tick, <=32 roster entries per cue, one RPC per nearby
+    // identity (never broadcast). No new native query or retained player list.
+    // Native gameplay.c:104-117 ScriptRPC.Write/Send; DayZGame.Event_OnRPC
+    // is registered by the 5_Mission receiver. Unreliable: no stale cue backlog.
+    protected void HCWarnPressure(HCInfectedDoorPressure entry, int kind, vector doorPos)
+    {
+        if (m_Clock < entry.m_NextCueAt) { return; }
+        entry.m_NextCueAt = m_Clock + HCInfectedDoorPolicy.CUE_INTERVAL;
+        ScriptRPC rpc = new ScriptRPC;
+        rpc.Write(HCInfectedDoorPolicy.CUE_VERSION);
+        rpc.Write(doorPos);
+        rpc.Write(entry.HCCueLevel(kind));
+        array<Man> players = HCPerfPlayers.HCGet();
+        int count = Math.Min(players.Count(), HCInfectedDoorPolicy.MAX_PLAYERS);
+        for (int playerIndex = 0; playerIndex < count; playerIndex++)
+        {
+            PlayerBase recipient = PlayerBase.Cast(players[playerIndex]);
+            if (!recipient || !recipient.IsAlive()) { continue; }
+            PlayerIdentity identity = recipient.GetIdentity();
+            if (!identity || vector.DistanceSq(recipient.GetPosition(), doorPos) > HCInfectedDoorPolicy.CUE_RADIUS_SQ) { continue; }
+            rpc.Send(null, HCInfectedDoorPolicy.RPC_PRESSURE_CUE, false, identity);
+        }
     }
 
     protected void Apply(HCInfectedDoorPressure entry, int action, ZombieBase chosen, vector doorPos)
