@@ -87,9 +87,40 @@ class HCAtmospherePolicy
         return (HCWeatherConfig.HCGet().FogEndHour - daytime) / (HCWeatherConfig.HCGet().FogEndHour - HCWeatherConfig.HCGet().FogPeakHour);
     }
 
-    static float FogTarget(float daytime)
+    // Native 3_Game/Global/Game.c:931 GetWorld; Global/World.c:28 GetDate.
+    // One constant-time read on the existing weather path. A calendar key, not
+    // elapsed/UTC time: accelerated days and restarts retain their own selection.
+    static int FogDay()
     {
-        return HCWeatherConfig.HCGet().FogBaseline + HCAtmospherePolicy.MorningWeight(daytime) * HCWeatherConfig.HCGet().MorningFogLift;
+        if (!GetGame() || !GetGame().GetWorld()) { return -1; }
+        int year, month, day, hour, minute;
+        GetGame().GetWorld().GetDate(year, month, day, hour, minute);
+        if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) { return -1; }
+        // Distinct dates over 64 years; stays inside Seed's bounded integer domain.
+        return (year % 64) * 372 + (month - 1) * 31 + day - 1;
+    }
+
+    // Native 1_Core/proto/EnMath.c:540 Clamp, :553 Min, :566 Max.
+    // Daily eligibility is a pure date hash, never a per-tick random roll.
+    // Weather only fades its amplitude: clear (<=0.35) or windy (>=3 m/s) is zero.
+    static float FogWeatherWeight(float cloud, float windSpeed)
+    {
+        if (!HCAtmospherePolicy.Finite(cloud) || !HCAtmospherePolicy.Finite(windSpeed) || windSpeed < 0) { return 0; }
+        return Math.Clamp((cloud - 0.35) / 0.30, 0, 1) * Math.Clamp(3 - windSpeed, 0, 1);
+    }
+
+    static float FogTarget(float daytime, int day, float cloud, float windSpeed)
+    {
+        float baseline = HCWeatherConfig.HCGet().FogBaseline;
+        if (!HCWeatherDays.IsFogDay(day)) { return baseline; }
+        float lift = Math.Min(HCWeatherConfig.HCGet().MorningFogLift, Math.Max(0, HCWeatherConfig.HCGet().FogMorningLevel - baseline));
+        return baseline + lift * HCAtmospherePolicy.MorningWeight(daytime) * HCAtmospherePolicy.FogWeatherWeight(cloud, windSpeed);
+    }
+
+    static float FogStrength(float fog)
+    {
+        // Same normalized target drives both volumetric components. No 0.95 floor.
+        return Math.Clamp((fog - HCWeatherConfig.HCGet().FogBaseline) / 0.30, 0, 1);
     }
 
     static float DistanceDensity(float daytime, float cloud, float windSpeed)
