@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "request": "Owner playtest 2026-11-18; original vanilla-derived values only",
+  "schema_version": 2,
+  "request": "Owner global ancestry-based inventory sizing, 2026-11-20",
   "backpack_row_multiplier": 1.5,
   "medical_max_area": 2,
   "general_areas": [
@@ -56,7 +56,10 @@
     "ItemStock",
     "ItemHandguard",
     "ItemBayonet",
-    "ItemOptics_Base"
+    "ItemOptics_Base",
+    "Magazine",
+    "Magazine_Base",
+    "Ammunition_Base"
   ],
   "exclude_addon_prefixes": [
     "DZ_Weapons_Firearms",
@@ -79,8 +82,9 @@
     "Area 2: medical; consumables (food/drink/material/seed addons or explicit matches/lighter/candle/filter includes); or tools strictly below 500g (tools/navigation/handheld optics/traps addons). Weapon attachment slots always exclude an item.",
     "Only scope=2 inventory descendants are shrunk. Every backpack definition, including hidden bases and inherited variants, receives its own vanilla-derived cargo override so scaling never compounds.",
     "Unknown ancestry, ambiguous defining addon, and unsupported numeric dimensions fail closed; original addon requiredAddons are preserved.",
-    "No Workshop content or cache is a generation input. Reviewed overrides are a bounded evidence manifest, not a vanilla config dump. Runtime acceptance pending.",
-    "Public vanilla diagnostic variants follow the same size rules as their family; changing a public parent must not silently resize excluded or hidden descendants."
+    "Public vanilla diagnostic variants follow the same size rules as their family; changing a public parent must not silently resize excluded or hidden descendants.",
+    "Ancestry selects medical/consumable/tool groups before addon hints. Inventory slot and original weight constrain eligibility. Source list order breaks ties after CfgPatches dependencies; disabled sources are audited but never emitted.",
+    "Workshop aliases resolve in tools/package/inventory_sources.py. Output is rejected if it contains restricted provider tokens. All size inputs precede HC overrides; scaling never compounds."
   ],
   "exclude_inventory_slot_prefixes": [
     "weapon",
@@ -9775,6 +9779,1018 @@
       "new": [
         1,
         2
+      ],
+      "category": "general"
+    }
+  ],
+  "medical_ancestors": [
+    "AntiChemInjector",
+    "BandageDressing",
+    "BloodBagEmpty",
+    "BloodBagFull",
+    "BloodBagIV",
+    "BloodSyringe",
+    "CharcoalTablets",
+    "ChelatingTablets",
+    "ClearSyringe",
+    "DisinfectantAlcohol",
+    "DisinfectantSpray",
+    "Epinephrine",
+    "IodineTincture",
+    "Medical_Base",
+    "Morphine",
+    "PainkillerTablets",
+    "PurificationTablets",
+    "Rag",
+    "SalineBag",
+    "SalineBagIV",
+    "SewingKit",
+    "StartKitIV",
+    "Syringe",
+    "TetracyclineAntibiotics",
+    "Thermometer",
+    "VitaminBottle"
+  ],
+  "consumable_ancestors": [
+    "Edible_Base",
+    "Bottle_Base",
+    "SeedBase",
+    "Matchbox",
+    "PetrolLighter",
+    "Candle",
+    "GasMask_Filter_Improvised"
+  ],
+  "tool_ancestors": [
+    "ToolBase",
+    "ItemOptics",
+    "FishingRod_Base",
+    "Compass",
+    "OrienteeringCompass",
+    "CanOpener",
+    "KitchenKnife",
+    "SteakKnife",
+    "HuntingKnife",
+    "Screwdriver",
+    "Pliers",
+    "Wrench",
+    "Lockpick",
+    "AlarmClock_ColorBase",
+    "Chemlight_ColorBase",
+    "Battery9V"
+  ],
+  "inventory_ancestors": [
+    "Inventory_Base",
+    "Clothing",
+    "Clothing_Base",
+    "Edible_Base"
+  ],
+  "sources": [
+    {
+      "folder": "vanilla",
+      "enabled": true,
+      "target_addon": "HollowCountry"
+    },
+    {
+      "folder": "@CF",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@COT",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@DabsFramework",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@Expansion-Core",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@Expansion-Licensed",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@Expansion-Vehicles",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@Expansion-AI",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@Expansion-Navigation",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@SurvivorAnimations",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@AmbientAnimals",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@DayZ-Bicycle",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@RaG_Core",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@RaG_Immersive_Vehicles",
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@WeaponPackA",
+      "enabled": false,
+      "target_addon": "HollowCountryExpansionAI"
+    },
+    {
+      "folder": "@WeaponPackB",
+      "enabled": false,
+      "target_addon": "HollowCountryExpansionAI"
+    }
+  ],
+  "reviewed_stack_overrides": [
+    {
+      "name": "AntiChemInjector",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "Bark_Birch",
+      "parent": "Bark_ColorBase",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "Bark_Oak",
+      "parent": "Bark_ColorBase",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "BearSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "BirdTrap",
+      "parent": "Inventory_Base",
+      "addon": "DayZ_Raven",
+      "pbo": "Dayz_Raven.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "general"
+    },
+    {
+      "name": "BloodBagEmpty",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "BoarSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "CarpFilletMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "CharcoalTablets",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "ChickenBreastMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "CowSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "DeadRat_Grey",
+      "parent": "DeadRat_ColorBase",
+      "addon": "DayZ_Rat",
+      "pbo": "Dayz_Rat.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "DeadRat_White",
+      "parent": "DeadRat_ColorBase",
+      "addon": "DayZ_Rat",
+      "pbo": "Dayz_Rat.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "DeadSquirrel",
+      "parent": "DeadSquirrel_ColorBase",
+      "addon": "DayZ_Squirrel",
+      "pbo": "Dayz_Squirrel.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "DeerSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "DisinfectantAlcohol",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "Epinephrine",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "ExpansionCircuitBoard_MK1",
+      "parent": "ExpansionCircuitBoardBase",
+      "addon": "DayZExpansion_Core_Objects_CircuitBoard",
+      "pbo": "core_objects_circuitboard.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "ExpansionCircuitBoard_MK2",
+      "parent": "ExpansionCircuitBoardBase",
+      "addon": "DayZExpansion_Core_Objects_CircuitBoard",
+      "pbo": "core_objects_circuitboard.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "ExpansionCircuitBoard_MK3",
+      "parent": "ExpansionCircuitBoardBase",
+      "addon": "DayZExpansion_Core_Objects_CircuitBoard",
+      "pbo": "core_objects_circuitboard.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "Flashlight",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "FoxSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "GoatSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "HumanSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "IodineTincture",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "Lard",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "MackerelFilletMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "Morphine",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "MouflonSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "OtterSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "DayZ_Otter",
+      "pbo": "Dayz_Otter.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "PainkillerTablets",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "PigSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "Pliers",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "PurificationTablets",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "RabbitLegMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "rag_oil_dipstick",
+      "parent": "Inventory_Base",
+      "addon": "rag_immersive_vehicles",
+      "pbo": "rag_immersive_vehicles.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "Rat_Trap",
+      "parent": "Inventory_Base",
+      "addon": "DayZ_Rat",
+      "pbo": "Dayz_Rat.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "general"
+    },
+    {
+      "name": "ReindeerSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "SalineBag",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "SalineBagIV",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "Screwdriver",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "general"
+    },
+    {
+      "name": "SheepSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "SkinnedRat",
+      "parent": "Edible_Base",
+      "addon": "DayZ_Rat",
+      "pbo": "Dayz_Rat.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "SkinnedSquirrel",
+      "parent": "Edible_Base",
+      "addon": "DayZ_Squirrel",
+      "pbo": "Dayz_Squirrel.pbo",
+      "member": "config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "StartKitIV",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "SteelheadTroutFilletMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "TetracyclineAntibiotics",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "Thermometer",
+      "parent": "Inventory_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "VitaminBottle",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "medical"
+    },
+    {
+      "name": "WalleyePollockFilletMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "general"
+    },
+    {
+      "name": "WolfSteakMeat",
+      "parent": "Edible_Base",
+      "addon": "RaG_Core_Scripts",
+      "pbo": "RaG_Core.pbo",
+      "member": "scripts\\config.bin",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
       ],
       "category": "general"
     }
