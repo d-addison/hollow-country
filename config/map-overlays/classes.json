@@ -1,292 +1,1284 @@
 {
   "classes": {
     "Land_Container_1Mo": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard collision; keep both end-door aprons accessible.",
+      "footprint_reserve_m": [
+        4,
+        8
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "container",
       "loot_group": true,
+      "model": "\\dz\\structures\\industrial\\containers\\container_1mo.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "container"
+      "role": "container",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Container_1Moh": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard collision; keep both end-door aprons accessible.",
+      "footprint_reserve_m": [
+        4,
+        8
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "container",
       "loot_group": true,
+      "model": "\\dz\\structures\\industrial\\containers\\container_1moh.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "container"
+      "role": "container",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Medical_Tent_Big": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "\\DZ\\structures\\Residential\\Medical\\Medical_Tent_Big.p3d",
       "pbo": "structures_residential.pbo",
-      "role": "medical"
+      "role": "medical",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Medical_Tent_Shower": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "\\DZ\\structures\\Residential\\Medical\\Medical_Tent_Shower.p3d",
       "pbo": "structures_residential.pbo",
-      "role": "medical"
+      "role": "medical",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Fortified_Nest_Small": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "footprint_reserve_m": [
+        8,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "building",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Fortified_Nest_Small.p3d",
       "pbo": "structures_military.pbo",
-      "role": "nest"
+      "role": "nest",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_GuardShed": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "footprint_reserve_m": [
+        8,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "building",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_GuardShed.p3d",
       "pbo": "structures_military.pbo",
-      "role": "shed"
+      "role": "shed",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_GuardTower": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "footprint_reserve_m": [
+        8,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "building",
       "loot_group": true,
+      "model": "\\dz\\structures\\military\\houses\\mil_guardtower.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tower"
+      "role": "tower",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Radar_Mobile1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "footprint_reserve_m": [
+        8,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "\\dz\\structures\\Military\\airfield\\Mil_Radar_Mobile1.p3d",
       "pbo": "structures_military.pbo",
-      "role": "radar"
+      "role": "radar",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big1_1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big1_1.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big1_2": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big1_2.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big1_3": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big1_3.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big1_4": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big1_4.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big1_5": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big1_5.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big2_1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big2_1.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big2_2": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big2_2.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big2_3": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big2_3.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big2_4": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big2_4.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big2_5": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big2_5.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big3": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big3.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Mil_Tent_Big4": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Canvas and poles may collide; reserve external door aprons and central aisle.",
+      "footprint_reserve_m": [
+        14,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "tent",
       "loot_group": true,
+      "model": "dz\\structures\\military\\improvised\\Mil_Tent_Big4.p3d",
       "pbo": "structures_military.pbo",
-      "role": "tent"
+      "role": "tent",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Roadblock_Table": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "\\dz\\structures\\Military\\Improvised\\Roadblock_Table.p3d",
       "pbo": "structures_military.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "Land_Roadblock_WoodenCrate": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "\\dz\\structures\\Military\\Improvised\\Roadblock_WoodenCrate.p3d",
       "pbo": "structures_military.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
-    "Land_Wreck_Uaz": {
-      "kind": "wreck",
-      "loot_group": false,
-      "pbo": "structures_wrecks.pbo",
-      "role": "wreck"
-    },
-    "Land_Wreck_offroad02_aban2": {
+    "Land_Wreck_Caravan_MGreen": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "wreck",
       "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Caravan_MGreen.p3d",
       "pbo": "structures_wrecks.pbo",
-      "role": "wreck"
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "Land_Wreck_Ikarus": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Ikarus.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "Land_Wreck_Lada_Green": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Lada_Green.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "Land_Wreck_Uaz": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Uaz.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "wreck",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "Land_Wreck_offroad02_aban2": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 2,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\wreck_offroad02_aban2.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "wreck",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "Land_Wreck_sed01_aban1_police": {
+      "cfg_parent": "Land_Wreck_hb01_aban1_police",
+      "cfg_scope": 2,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_sed01_aban1_police.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "Land_Wreck_sed01_aban2_police": {
+      "cfg_parent": "Land_Wreck_hb01_aban1_police",
+      "cfg_scope": 2,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_sed01_aban2_police.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Airfield_Light_Edge": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Specific\\Airfields\\Airfield_Light_Edge.p3d",
+      "pbo": "structures_specific.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Airfield_Light_Reflector": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Poles/legs or overhead fabric; avoid entrances, observe actual footprint and pivot in native run.",
+      "footprint_reserve_m": [
+        10,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Specific\\Airfields\\Airfield_Light_Reflector.p3d",
+      "pbo": "structures_specific.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Container_1C": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard collision; keep both end-door aprons accessible.",
+      "footprint_reserve_m": [
+        4,
+        8
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "container",
       "loot_group": false,
+      "model": "DZ\\structures\\Industrial\\Containers\\Container_1C.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "container"
+      "role": "container",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Container_1D": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard collision; keep both end-door aprons accessible.",
+      "footprint_reserve_m": [
+        4,
+        8
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "container",
       "loot_group": false,
+      "model": "DZ\\structures\\Industrial\\Containers\\Container_1D.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "container"
+      "role": "container",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Dead_MassGrave_8m": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Large irregular solid or terrain-like footprint; native terrain fit and walkability must be surveyed.",
+      "footprint_reserve_m": [
+        18,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Specific\\DeadBodies\\Dead_MassGrave_8m.p3d",
+      "pbo": "structures_specific.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Decon_HazmatBag_01_F": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Medical\\Decon_HazmatBag_01_F.p3d",
+      "pbo": "structures_residential.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_MedicalGarbage_Bandage": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\medical\\Medical_Garbage\\MedicalGarbage_Bandage.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_box_c": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\Decoration\\box_c\\box_c.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_canister_DZ": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\Various\\canister_DZ.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_fireplace_grill": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\kitchen\\Fireplace_grill\\fireplace_grill.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_foldingbed_open": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\folding_beds\\foldingbed_open.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_hospital_transport_bed": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\Hospital_transport_bed\\hospital_transport_bed.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_medical_table": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\medical\\medical_table\\medical_table.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_metalcrate": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\Cases\\metalcrate\\metalcrate.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Furniture_radio_b": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Furniture\\Eletrical_appliances\\radio_b\\radio_b.p3d",
+      "pbo": "structures_furniture.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Garbage_GroundSq_3m": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Garbage_GroundSq_3m.p3d",
+      "pbo": "structures_residential.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Garbage_Pile1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Garbage_Pile1.p3d",
+      "pbo": "structures_residential.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Mil_Artilery_Nest": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Large irregular solid or terrain-like footprint; native terrain fit and walkability must be surveyed.",
+      "footprint_reserve_m": [
+        18,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\Mil_Artillery_Nest.p3d",
+      "pbo": "structures_military.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Mil_Artilery_Rampart": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Large irregular solid or terrain-like footprint; native terrain fit and walkability must be surveyed.",
+      "footprint_reserve_m": [
+        18,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\Mil_Artilery_Rampart.p3d",
+      "pbo": "structures_military.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Mil_CamoNet_Side_east": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Poles/legs or overhead fabric; avoid entrances, observe actual footprint and pivot in native run.",
+      "footprint_reserve_m": [
+        10,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\Mil_CamoNet_Side_east.p3d",
       "pbo": "structures_military.pbo",
-      "role": "net"
+      "role": "net",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Mil_CamoNet_Side_nato": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Poles/legs or overhead fabric; avoid entrances, observe actual footprint and pivot in native run.",
+      "footprint_reserve_m": [
+        10,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\Mil_CamoNet_Side_nato.p3d",
       "pbo": "structures_military.pbo",
-      "role": "net"
+      "role": "net",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Mil_HBarrier_4m": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\HBarrier_4m.p3d",
       "pbo": "structures_military.pbo",
-      "role": "barrier"
+      "role": "barrier",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Mil_HBarrier_6m": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\HBarrier_6m.p3d",
       "pbo": "structures_military.pbo",
-      "role": "barrier"
+      "role": "barrier",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Antenna": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Poles/legs or overhead fabric; avoid entrances, observe actual footprint and pivot in native run.",
+      "footprint_reserve_m": [
+        10,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_Antenna.p3d",
       "pbo": "structures_military.pbo",
-      "role": "mast"
+      "role": "mast",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_BagFence_3m": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_BagFence_3m.p3d",
       "pbo": "structures_military.pbo",
-      "role": "wall"
+      "role": "wall",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Misc_BagFence_Round": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_BagFence_Round.p3d",
+      "pbo": "structures_military.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Chair_Camp1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_Chair_Camp1.p3d",
       "pbo": "structures_residential.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Misc_Chair_Camp2": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_Chair_Camp2.p3d",
+      "pbo": "structures_residential.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Flagpole": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Poles/legs or overhead fabric; avoid entrances, observe actual footprint and pivot in native run.",
+      "footprint_reserve_m": [
+        10,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_Flagpole.p3d",
       "pbo": "structures_military.pbo",
-      "role": "mast"
+      "role": "mast",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Hedgehog_Concrete": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_Hedgehog_Concrete.p3d",
       "pbo": "structures_military.pbo",
-      "role": "barrier"
+      "role": "barrier",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Hedgehog_Iron": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_Hedgehog_Iron.p3d",
       "pbo": "structures_military.pbo",
-      "role": "barrier"
+      "role": "barrier",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Pallets1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Industrial\\Misc\\Misc_Pallets1.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Pallets2": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Industrial\\Misc\\Misc_Pallets2.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Razorwire": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Misc\\Misc_Razorwire.p3d",
       "pbo": "structures_military.pbo",
-      "role": "fence"
+      "role": "fence",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_RoadBarrier": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_RoadBarrier.p3d",
       "pbo": "structures_residential.pbo",
-      "role": "barrier"
+      "role": "barrier",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Table_Camp": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_Table_Camp.p3d",
       "pbo": "structures_residential.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Misc_Table_Camp_Small": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_Table_Camp_Small.p3d",
       "pbo": "structures_residential.pbo",
-      "role": "furnishing"
+      "role": "furnishing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Misc_WoodPile1": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Small solid dressing; keep off doors and CE point surfaces. Pivot and collision unmeasured.",
+      "footprint_reserve_m": [
+        3,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "prop",
+      "loot_group": false,
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_WoodPile1.p3d",
+      "pbo": "structures_residential.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Roadblock_Bags_Long": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\Roadblock_Bags_Long.p3d",
       "pbo": "structures_military.pbo",
-      "role": "wall"
+      "role": "wall",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Roadblock_CncBlocks_Long": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid or wire collision; model long axis unmeasured, keep outside access lanes and doors.",
+      "footprint_reserve_m": [
+        7,
+        3
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Military\\Improvised\\Roadblock_CncBlocks_Long.p3d",
       "pbo": "structures_military.pbo",
-      "role": "barrier"
+      "role": "barrier",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Tank_Small_Rusty": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "footprint_reserve_m": [
+        8,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Industrial\\Tanks\\Tank_Small_Rusty.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "fuel"
+      "role": "fuel",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     },
     "StaticObj_Tank_Small_White": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Solid structure; doorway, ladder, equipment access and model pivot require native verification.",
+      "footprint_reserve_m": [
+        8,
+        10
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
       "kind": "prop",
       "loot_group": false,
+      "model": "DZ\\structures\\Industrial\\Tanks\\Tank_Small_White.p3d",
       "pbo": "structures_industrial.pbo",
-      "role": "fuel"
+      "role": "fuel",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_BMP2": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "DZ\\structures\\Wrecks\\Vehicles\\Wreck_BMP2.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_Digger": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "DZ\\structures\\Wrecks\\Vehicles\\Wreck_Digger.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_MTVR_Cargo": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_MTVR_Cargo.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_Mi8_Crashed": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Large irregular solid or terrain-like footprint; native terrain fit and walkability must be surveyed.",
+      "footprint_reserve_m": [
+        18,
+        18
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "DZ\\structures\\Wrecks\\Aircraft\\Wreck_Mi8_Crashed.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_PowGen": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "DZ\\structures\\Wrecks\\Vehicles\\Wreck_PowGen.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_Stryker": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": true,
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Stryker.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_Trailer_Cistern": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "DZ\\structures\\Wrecks\\Vehicles\\Wreck_Trailer_Cistern.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
+    },
+    "StaticObj_Wreck_Ural": {
+      "cfg_parent": "HouseNoDestruct",
+      "cfg_scope": 1,
+      "collision_notes": "Hard irregular wreck collision; leave access on both flanks; never use as a lane closure.",
+      "footprint_reserve_m": [
+        5,
+        12
+      ],
+      "geometry_status": "authoring reserve only; not measured model bounds",
+      "kind": "wreck",
+      "loot_group": false,
+      "model": "DZ\\structures\\Wrecks\\Vehicles\\Wreck_Ural.p3d",
+      "pbo": "structures_wrecks.pbo",
+      "role": "scene dressing",
+      "spawn_status": "CfgVehicles definition verified; native ObjectSpawner spawn pending"
     }
   },
   "kind": "hollow-country-overlay-classes",
   "provenance": {
     "addons": [
+      "structures_furniture.pbo",
       "structures_industrial.pbo",
       "structures_military.pbo",
       "structures_residential.pbo",
+      "structures_specific.pbo",
       "structures_wrecks.pbo"
     ],
-    "method": "tools/package/map_overlay.py validate --server-root: each name was found as a byte string in the addon PBO named per class (name presence only).",
-    "source": "Class names (names only) read from the installed DayZ server 1.30 structures_*.pbo addons; loot_group is true when the stock Chernarus+ mapgroupproto.xml has a group of that name. Tents are classes the stock mapgrouppos.xml already places; the props and buildings are the military, checkpoint, container, wreck and camp classes the compositions use.",
-    "verified": "name-in-pbo and mapgroupproto group only; scope and CreateObjectEx spawnability are NOT verified until a native run"
+    "footprints": "Conservative authoring reserves in metres, not measured bounds; actual scene geometry, terrain fit and approach orientation require one server and at most one client.",
+    "loot": "Only pieces explicitly marked proto emit mapgrouppos rows. Static furniture/crates/cots/radios do not generate loot. Tier hints are placement guidance only.",
+    "method": "tools.audit.pbo_config.read_configs/read_pbo_index; inherited model/scope resolved within addon; no PBO byte-name-only admission. tools.package.map_overlay.read_proto_names for mission group evidence.",
+    "source": "Installed DayZ client addons, read-only CfgVehicles config.bin derap; installed Chernarus+ mission mapgroupproto.xml exact group-name join (2026-11-20).",
+    "verified": "CfgVehicles definition, resolved scope/model, all 79 referenced models found as .p3d members in installed structure PBO indexes, and exact loot prototype presence. Scope 1 world props are retained (not inventory items). This does not establish CreateObjectEx success, collision, pivot, entrance orientation, light emission or CE spawning."
   }
 }
