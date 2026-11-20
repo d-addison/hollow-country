@@ -1,0 +1,3725 @@
+{
+  "schema": 1,
+  "findings": [
+    {
+      "id": "W001b",
+      "subject": "Cannabis",
+      "file": "~/.cache/hollow-country/datamine-2026-11-17/cfg.pkl",
+      "line": 1,
+      "why": "Public CE-referenced class has nominal=0 in every HC types row; event/attachment routes require review",
+      "reason": "Authored CE row is crafted=1 and nominal=0; herb is a foraging output rather than ambient CE loot."
+    },
+    {
+      "id": "W004",
+      "subject": "CAContinuousHCSiphonFuel",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
+      "line": 151,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HC43AuditRanges",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 215,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HC43ContentSources",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 222,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HC43LocalityContent",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 241,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HC43ResidentialContent",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 254,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HC43RoleContent",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 232,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAICampRespawnConfig",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCAICampLifecycle.c",
+      "line": 43,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAIReservation",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCAILimits.c",
+      "line": 150,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionFlipVehicle",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionFlipVehicle.c",
+      "line": 19,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionFlipVehicleCB",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionFlipVehicle.c",
+      "line": 12,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionMountTapedLight",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c",
+      "line": 3,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionRemoveTapedLight",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c",
+      "line": 42,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionSalvageWreck",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSalvageWreck.c",
+      "line": 30,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionSalvageWreckCB",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSalvageWreck.c",
+      "line": 22,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionSearchInteriorCB",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorAction.c",
+      "line": 6,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionSiphonFuelCB",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
+      "line": 131,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionSiphonFuelFromCar",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
+      "line": 405,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionSiphonFuelFromCarCB",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
+      "line": 396,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionToggleTapedHelmetLight",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c",
+      "line": 179,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCActionToggleTapedPackLight",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c",
+      "line": 133,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminCard",
+      "file": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c",
+      "line": 12,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminDeniedPeer",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
+      "line": 122,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminLootPoint",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminLootMap.c",
+      "line": 80,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminLootType",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminLootMap.c",
+      "line": 73,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminTab",
+      "file": "mods/HollowCountry/scripts/5_Mission/Admin/HCAdminMenu.c",
+      "line": 93,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminTeleport",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 108,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminTeleportConfig",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 22,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminTeleportDestination",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 102,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminTeleportSite",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 91,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminTeleportSites",
+      "file": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "line": 96,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAdminVisitorParty",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIBaseRaid.c",
+      "line": 429,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAlertRoot",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c",
+      "line": 18,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherPantsBeige",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 177,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherPantsBlack",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 185,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherPantsBrown",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 193,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherPantsNatural",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 201,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherPolicy",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 76,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherRecipe",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 141,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherVestBeige",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 209,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherVestBlack",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 217,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherVestBrown",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 225,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCAuditLeatherVestNatural",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
+      "line": 233,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCBasesContainers",
+      "file": "mods/HollowCountry/scripts/4_World/Camps/HCBasesContainers.c",
+      "line": 16,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCBodyStoryObservation",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c",
+      "line": 59,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCBuildingClaimSave",
+      "file": "mods/HollowCountry/scripts/4_World/Camps/HCBuildingClaim.c",
+      "line": 479,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy local save adapter; live claim service uses owner.HCCheckpointJob()."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCacheMoveJournal",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 84,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy cache-move seam; HC-34 retired abstract inventory hops."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCacheMoves",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 103,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCampRaidProfile",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCCampRaidSituation.c",
+      "line": 15,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCampRecognition",
+      "file": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
+      "line": 748,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCampRespawnState",
+      "file": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
+      "line": 19,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCampRespawnUse",
+      "file": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
+      "line": 14,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCampSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
+      "line": 755,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCaravanReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCAICaravan.c",
+      "line": 198,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCellarSampler",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "line": 37,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCellarTriggerDefaults",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSamplerData.c",
+      "line": 52,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCellarsModule",
+      "file": "mods/HollowCountry/scripts/4_World/Atmosphere/HCCellarsModule.c",
+      "line": 10,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCClaimBuildingAction",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCClaimBuildingActions.c",
+      "line": 22,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCClaimBuildingCB",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCClaimBuildingActions.c",
+      "line": 14,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCClueLocalities",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCClueLocation.c",
+      "line": 8,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCCommonRecoveryRecipe",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCCommonRecoveryRecipes.c",
+      "line": 198,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCConflictPlaceStamp",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCTerritoryOutcomes.c",
+      "line": 204,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCConflictReadiness",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c",
+      "line": 16,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCDeadDropState",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c",
+      "line": 28,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCDeathPinRow",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCDeathPinState",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCDeathPin.c",
+      "line": 29,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCDebugJsonStore",
+      "file": "mods/HollowCountry/scripts/4_World/Debug/HCDebugJsonStore.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy synchronous writer; live debug snapshot uses its scheduled save job."
+    },
+    {
+      "id": "W004",
+      "subject": "HCDebugSnapshotModule",
+      "file": "mods/HollowCountry/scripts/4_World/Debug/HCDebugSnapshotModule.c",
+      "line": 15,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCDoorPressureCue",
+      "file": "mods/HollowCountry/scripts/5_Mission/Polish/HCDoorPressureCue.c",
+      "line": 11,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEarplugs",
+      "file": "mods/HollowCountry/scripts/5_Mission/QoL/HCEarplugs.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEcologyDisposition",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeModule.c",
+      "line": 3,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEcologyLiveBinding",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "line": 19,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEcologyMigrationIO",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigrationStore.c",
+      "line": 14,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEcologyMigrationSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyMigration.c",
+      "line": 218,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEscalationSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCEscalationClock.c",
+      "line": 326,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventCodec",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "line": 75,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventConfigurationIO",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventConfiguration.c",
+      "line": 1,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventDwell",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventNativeObserver.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventMenu",
+      "file": "mods/HollowCountry/scripts/5_Mission/Events/HCEventMenu.c",
+      "line": 2,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "HC-38 intentionally inert quest UI compatibility type."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventNativeLease",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventNativeObserver.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventPeer",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRPC.c",
+      "line": 1,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventPoliceNav",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 55,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventPoliceRewardIO",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 7,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventPoliceStockLedger",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
+      "line": 16,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventRewards",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventRewards.c",
+      "line": 203,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy quest-reward ledger has no producer after HC-38 environmental-event retirement."
+    },
+    {
+      "id": "W004",
+      "subject": "HCEventSettingsCodec",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCEventConfiguration.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCFlipJob",
+      "file": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c",
+      "line": 71,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCForageSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 201,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCForageSpot",
+      "file": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 178,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCForageState",
+      "file": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c",
+      "line": 186,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapBodySceneProducer",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_body_scene.c",
+      "line": 11,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeRoutesData",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 44,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeRoutesDocument",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 54,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeRoutesGraph",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 26,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeRoutesPins",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 65,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeRoutesSourceFile",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 58,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeRoutesSources",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "line": 21,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeStoryCandidate",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 74,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeStoryHeader",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 57,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeStoryLimits",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 24,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeStoryRegistry",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 10,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGapcodeStorySite",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/gapcode_story_Index.c",
+      "line": 64,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGradeModule",
+      "file": "mods/HollowCountry/scripts/4_World/Atmosphere/HCGradeModule.c",
+      "line": 4,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroundCELoot",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCGroundCELoot.c",
+      "line": 2,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupBatchSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
+      "line": 978,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupInviteAction",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupInviteAction.c",
+      "line": 11,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupLOSResult",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
+      "line": 25,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupNativeChecks",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupNativeChecks.c",
+      "line": 4,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupPendingIndex",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
+      "line": 3,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupPendingVisit",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
+      "line": 37,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupPinPolicy",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c",
+      "line": 15,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupPingCooldown",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPing.c",
+      "line": 23,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroupPingRow",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPing.c",
+      "line": 16,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHearthRecord",
+      "file": "mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c",
+      "line": 83,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHintGuide",
+      "file": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 34,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHintHelpView",
+      "file": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 412,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHintLoad",
+      "file": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 115,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHintState",
+      "file": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "line": 105,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHoldoutBody",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "line": 191,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHoldoutSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "line": 1268,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHoldoutState",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "line": 182,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHordeSpawnLease",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCHordeReinforce.c",
+      "line": 31,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCHordeSweep",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c",
+      "line": 5,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCIncidentSources",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCIncidentSources.c",
+      "line": 21,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedDeathLog",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedDeath.c",
+      "line": 47,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedDeathQualification",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedDeath.c",
+      "line": 7,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedDoorsModule",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c",
+      "line": 60,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedLODContributor",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
+      "line": 914,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedLODModule",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
+      "line": 409,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedLODSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLODStore.c",
+      "line": 314,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedMemoryModule",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
+      "line": 329,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedMemoryState",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
+      "line": 25,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedOwnedProductionRoomAnchor",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 104,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedProductionRoomAnchor",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 81,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedProductionRoomClass",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 74,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedProductionRoomDocument",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 121,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedProductionRoomRecord",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 111,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedReachVehicle",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
+      "line": 138,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedRoomAnchor",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 15,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedRoomBinding",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 44,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedRoomDocument",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 63,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedRoomRecord",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 56,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedRoomSurvey",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "line": 33,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c",
+      "line": 1366,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedVarietyContributor",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c",
+      "line": 159,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedVarietyRoutePack",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyRoutes.c",
+      "line": 216,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfectedVision",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedVision.c",
+      "line": 145,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInfoEventSites",
+      "file": "mods/HollowCountry/scripts/5_Mission/Groups/HCInfoLayers.c",
+      "line": 67,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy event UI helper; HC-38 client event presentation is retired."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInteriorKeyCensus",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 14,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInteriorMeasuredCatalogBinding",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 10,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInteriorPackSource",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPackIndex.c",
+      "line": 28,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInteriorSearchSession",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+      "line": 21,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCInteriorSourceLookup",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "line": 2,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityAudit",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 165,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Disposable-profile diagnostic entry point; no production startup hook by design."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityChunk",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 109,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityChunkReference",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 128,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityChunkWork",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 121,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityField",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 18,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityHeader",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 63,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityIndexEntry",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 100,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityManifest",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 140,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityRoot",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 53,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilityRow",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 42,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemCompatibilitySpec",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "line": 36,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemUtilityDiagnostic",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "line": 97,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "DIAG_DEVELOPER diagnostic requires explicit disposable-profile invocation."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemUtilityObservation",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "line": 37,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemUtilityRequest",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "line": 10,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemUtilityState",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "line": 19,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCItemUtilitySummary",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "line": 81,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLODJourney",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
+      "line": 67,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLODLease",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
+      "line": 55,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLODStopLeases",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
+      "line": 87,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLeadData",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
+      "line": 50,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLeadSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCLeadStore.c",
+      "line": 470,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLightingModule",
+      "file": "mods/HollowCountry/scripts/4_World/Atmosphere/HCLightingModule.c",
+      "line": 4,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCLootInteriorCoverage",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCLootInteriorCoverage.c",
+      "line": 15,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMealBuffsModule",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCMealBuffs.c",
+      "line": 43,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMeleeAmmoData",
+      "file": "mods/HollowCountry/scripts/4_World/Core/Melee/HCMeleeState.c",
+      "line": 66,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMeleeClientSync",
+      "file": "mods/HollowCountry/scripts/5_Mission/Melee/HCMeleeClientSync.c",
+      "line": 11,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMeleeShove",
+      "file": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeShove.c",
+      "line": 27,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMeleeTurn",
+      "file": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeTurn.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMeleeWeaponWeight",
+      "file": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeFightLogic.c",
+      "line": 29,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMorseClient",
+      "file": "mods/HollowCountry/scripts/5_Mission/Leads/HCMorseClient.c",
+      "line": 5,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "HC-20 intentionally retired presentation compatibility shim."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMorseClues",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCMorseClues.c",
+      "line": 99,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "HC-20 intentionally unregistered shell; environmental facts use HCRadioChatter."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMorseRateData",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCMorseClues.c",
+      "line": 13,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMorseReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCMorseClues.c",
+      "line": 7,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCMorseRpc",
+      "file": "mods/HollowCountry/scripts/3_Game/Leads/HCMorseRpc.c",
+      "line": 3,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "HC-20 retired wire identifier remains reserved for old packages."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNativeCraftingSafety",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCNativeCraftingSafety.c",
+      "line": 65,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNativeIncidentReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNativeIncidentRow",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
+      "line": 130,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNativeIncidentState",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
+      "line": 139,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNoConstruction",
+      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCNoConstruction.c",
+      "line": 14,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNonPlayerMoves",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 37,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy abstract inventory-hop helper retired by HC-34."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNoteEntities",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
+      "line": 26,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCNoteTextMatches",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
+      "line": 79,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCObserverTransitionRuntime",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
+      "line": 98,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCObserverTransitionSample",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
+      "line": 29,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCObserverTransitionSite",
+      "file": "mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
+      "line": 87,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCOperatorSettingRule",
+      "file": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
+      "line": 151,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCOptionalPacksModule",
+      "file": "mods/HollowCountry/scripts/4_World/Atmosphere/HCOptionalPacksModule.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPendingNote",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
+      "line": 97,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPickCarryInventory",
+      "file": "mods/HollowCountry/scripts/4_World/World/auditpick_Carry.c",
+      "line": 17,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPickHouseAuthority",
+      "file": "mods/HollowCountry/scripts/4_World/World/auditpick_HouseBinding.c",
+      "line": 6,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPickHouseScan",
+      "file": "mods/HollowCountry/scripts/4_World/World/auditpick_Houses.c",
+      "line": 30,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPickerPoint",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 185,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPickerPolicy",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Legacy visit policy retained beside the current finite-trip implementation."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPolishModule",
+      "file": "mods/HollowCountry/scripts/4_World/Polish/HCPolishModule.c",
+      "line": 5,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPoseCommand",
+      "file": "mods/HollowCountryAnims/scripts/4_World/HCPoseInfected.c",
+      "line": 31,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCProgressionConfig",
+      "file": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 5,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCProgressionRow",
+      "file": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 67,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCProgressionSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 84,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCProgressionState",
+      "file": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c",
+      "line": 78,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCRecoveryHCReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 10,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCRecoveryNativeReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Core/HCPersistenceDisposition.c",
+      "line": 26,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCRefusalWindow",
+      "file": "mods/HollowCountry/scripts/4_World/Core/HCRefusalReport.c",
+      "line": 7,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCReleaseBuildingAction",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCClaimBuildingActions.c",
+      "line": 71,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSceneCheckpointJob",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/HCSceneChains.c",
+      "line": 541,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSceneProp",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/HCSceneKits.c",
+      "line": 31,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchBindingReview",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
+      "line": 13,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchLimitsRegistry",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchNoisePolicy",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchNoise.c",
+      "line": 18,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchPreviewBudget",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCSearchPreviewSites.c",
+      "line": 258,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchPreviewEntry",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCSearchPreviewSites.c",
+      "line": 18,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchPreviewPeer",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCSearchPreviewSites.c",
+      "line": 277,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchPreviewSite",
+      "file": "mods/HollowCountry/scripts/4_World/Interiors/HCSearchPreviewSites.c",
+      "line": 12,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRefreshPilotJournal",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 1074,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRefreshSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 845,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRefreshState",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 411,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRefreshStore",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 418,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRetirementEntry",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 167,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRetirementPolicy",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 183,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSearchRetirementState",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "line": 173,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSettlementDecayStore",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+      "line": 36,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSettlementSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+      "line": 407,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSettlementState",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+      "line": 27,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCShelterModule",
+      "file": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
+      "line": 31,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSignalReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionAskForNews.c",
+      "line": 54,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSignsOfLifeEffect",
+      "file": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c",
+      "line": 27,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSiphonDiagnosticLocks",
+      "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
+      "line": 51,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSituationLimits",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
+      "line": 13,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSituationPacingReceipt",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
+      "line": 44,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSituationProfileRow",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
+      "line": 128,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStaminaHUD",
+      "file": "mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c",
+      "line": 3,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStaminaProfile",
+      "file": "mods/HollowCountry/scripts/3_Game/Survival/HCStaminaConfiguration.c",
+      "line": 5,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCStorySettings",
+      "file": "mods/HollowCountry/scripts/4_World/Scenes/HCStorySchedule.c",
+      "line": 16,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCSurvivalAlignmentModule",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCMealBuffs.c",
+      "line": 11,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTapedHelmetMounts",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c",
+      "line": 18,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTapedLightStartup",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
+      "line": 55,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTapedLightV1Custody",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
+      "line": 223,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTapedReceiptRow",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 25,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTapedReceiptRows",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "line": 31,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTeamPingRow",
+      "file": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
+      "line": 17,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTraceDefaults",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
+      "line": 71,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTradeReadiness",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c",
+      "line": 138,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTradeTransaction",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c",
+      "line": 302,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTransitManifest",
+      "file": "mods/HollowCountry/scripts/4_World/Events/HCTransitSituation.c",
+      "line": 33,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCUnitCost",
+      "file": "mods/HollowCountry/scripts/4_World/Core/HCUnitProfile.c",
+      "line": 8,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCVehicleFlipConfig",
+      "file": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c",
+      "line": 5,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCVisualSeasonSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasonStore.c",
+      "line": 97,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCVisualSeasonState",
+      "file": "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasonStore.c",
+      "line": 12,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWeaponJam",
+      "file": "mods/HollowCountry/scripts/4_World/Firearms/HCWeaponJam.c",
+      "line": 8,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeBinding",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
+      "line": 68,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeCarcassIO",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c",
+      "line": 76,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeConfig",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
+      "line": 30,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeContact",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/auditwild_Ecosystem.c",
+      "line": 81,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeDebugContributor",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
+      "line": 75,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeProviderSite",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c",
+      "line": 37,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeProviderState",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c",
+      "line": 69,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeSceneConfig",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
+      "line": 23,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeSceneDebug",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
+      "line": 60,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeSceneRow",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
+      "line": 37,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeSceneState",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeScenes.c",
+      "line": 51,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeTargetPair",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeObservation.c",
+      "line": 23,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldEscalation",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 419,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldIncidentKind",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
+      "line": 21,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldMeta",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 192,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldPressureCap",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 413,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldSalvage",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 406,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldSaveJob",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCWorldModule.c",
+      "line": 587,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWorldScene",
+      "file": "mods/HollowCountry/scripts/3_Game/World/HCWorldData.c",
+      "line": 359,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWreckSalvageImage",
+      "file": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "line": 129,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWreckSalvageRow",
+      "file": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "line": 111,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWreckSalvageState",
+      "file": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "line": 120,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIBaseRaidInventory",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIBaseRaid.c",
+      "line": 23,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIBetrayalData",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXBetrayalStore.c",
+      "line": 14,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAICarJob",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICarRepair.c",
+      "line": 67,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAICarStep",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAICarRepair.c",
+      "line": 60,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIFormationConfig",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 35,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIFormationController",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 453,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIFormationLoader",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 418,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIFormationRules",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 76,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIGroupStyle",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 393,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIIncidentCooldown",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c",
+      "line": 182,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIIncidentLease",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c",
+      "line": 162,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIIncidentPolicy",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c",
+      "line": 40,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIIncidentRow",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c",
+      "line": 29,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILive",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAILiveMap.c",
+      "line": 21,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILiveDebug",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAILiveMap.c",
+      "line": 160,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILiveModule",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAILiveMap.c",
+      "line": 179,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAILocalitySave",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 303,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRespawnSchema",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRespawnDefaults.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleActivities",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 404,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleActivity",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 26,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleConfig",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 101,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleJson",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 244,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleLease",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 306,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRolePolicy",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 38,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleRule",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 17,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRoleTradePort",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "line": 367,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIRouteSave",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 396,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIScavengeAdapter",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIScavengeAdapter.c",
+      "line": 9,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAISiteSpawnConfig",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 39,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIStyleFormation",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
+      "line": 351,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAITactics",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 332,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAITacticsConfig",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 198,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAITacticsModule",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 820,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXBetrayalIO",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXBetrayalStore.c",
+      "line": 20,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXCampRespawnAllegiance",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCampRespawnAllegiance.c",
+      "line": 54,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXCheckpointProp",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
+      "line": 2581,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXConvoyRun",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXConvoyRuntime.c",
+      "line": 31,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXConvoyService",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXConvoyRuntime.c",
+      "line": 498,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXCotPermissionPort",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCotPermissions.c",
+      "line": 29,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXFaction",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXFactions.c",
+      "line": 61,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXLivingModule",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c",
+      "line": 257,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXShotGate",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
+      "line": 103,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXSignalProvider",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXEmoteObservation.c",
+      "line": 106,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXTacticsBackoff",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 292,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXTacticsGroup",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 277,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXTacticsPending",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 299,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXTacticsView",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "line": 310,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXWarning",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c",
+      "line": 74,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXWarningShout",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXWarningShout.c",
+      "line": 4,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXZoneGuardsDebug",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c",
+      "line": 22,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXZoneGuardsPack",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c",
+      "line": 7,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXZoneGuardsSpawnFormation",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuardsSites.c",
+      "line": 12,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "auditleaves_Client",
+      "file": "mods/HollowCountry/scripts/5_Mission/Weather/auditleaves_Client.c",
+      "line": 22,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "auditsearch_SupplyRegistry",
+      "file": "mods/HollowCountry/scripts/4_World/Loot/auditsearch_PickerReservations.c",
+      "line": 19,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "auditseason_Phase",
+      "file": "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasons.c",
+      "line": 245,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "eAIFactionHCLocals",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXFactions.c",
+      "line": 78,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "eAIFactionHCRaiders",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXFactions.c",
+      "line": 96,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "eAIFactionHCScavengers",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXFactions.c",
+      "line": 90,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "eAIFactionHCTravellers",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXFactions.c",
+      "line": 103,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "eAIFactionHCVolunteers",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXFactions.c",
+      "line": 84,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W005",
+      "subject": "HCMorseClues",
+      "file": "mods/HollowCountry/scripts/4_World/Leads/HCMorseClues.c",
+      "line": 99,
+      "why": "HCModule subclass never constructed; not passed to module registry",
+      "reason": "HC-20 intentionally unregistered shell; environmental facts use HCRadioChatter."
+    },
+    {
+      "id": "W006",
+      "subject": "HCEventWire.RPC_REQUEST",
+      "file": "mods/HollowCountry/scripts/3_Game/Events/HCEventTransportData.c",
+      "line": 6,
+      "why": "RPC sender=false receiver=true",
+      "reason": "HC-38 client event protocol retired; server compatibility endpoint retained, no player event UI."
+    },
+    {
+      "id": "W006",
+      "subject": "HCEventWire.RPC_VIEW",
+      "file": "mods/HollowCountry/scripts/3_Game/Events/HCEventTransportData.c",
+      "line": 7,
+      "why": "RPC sender=true receiver=false",
+      "reason": "HC-38 client event protocol retired; server compatibility endpoint retained, no player event UI."
+    },
+    {
+      "id": "W006",
+      "subject": "HCMorseRpc.CLUE",
+      "file": "mods/HollowCountry/scripts/3_Game/Leads/HCMorseRpc.c",
+      "line": 5,
+      "why": "RPC sender=false receiver=false",
+      "reason": "HC-20 reserved retired Morse wire; no endpoints by design."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBigGyrocopter",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2821,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBigGyrocopter",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 4,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBus",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2831,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBus",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 14,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBusWheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2841,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBusWheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 24,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBusWheelDouble",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2853,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBusWheelDouble",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 36,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBus_Blue",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2865,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBus_Blue",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 48,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBus_Red",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2875,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionBus_Red",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 58,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionGyrocopter",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2885,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionGyrocopter",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 68,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBird",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2895,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBird",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 78,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdDoors_CoDriver",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2905,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdDoors_CoDriver",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 88,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdDoors_Driver",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2917,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdDoors_Driver",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 100,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdHood",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2929,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdHood",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 112,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdTrunk",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2941,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHatchBirdTrunk",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 124,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHelicopterBattery",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2953,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHelicopterBattery",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 136,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHydraulicHoses",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2965,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionHydraulicHoses",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 148,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionIgniterPlug",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2977,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionIgniterPlug",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 160,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMerlin",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2989,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMerlin",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 172,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMerlinBackWheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 2999,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMerlinBackWheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 182,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMerlinFrontWheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3011,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMerlinFrontWheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 194,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMh6",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3023,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionMh6",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 206,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3033,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 216,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorBackWheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3043,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorBackWheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 226,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorDoorsCodriver",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3055,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorDoorsCodriver",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 238,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorDoorsDriver",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3067,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorDoorsDriver",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 250,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorFrontWheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3079,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractorFrontWheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 262,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor_Blue",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3091,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor_Blue",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 274,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor_Green",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3101,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor_Green",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 284,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor_Red",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3111,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionTractor_Red",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 294,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZ",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3121,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZ",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 304,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZCargo",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3131,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZCargo",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 314,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorCargo1",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3141,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorCargo1",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 324,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorCargo2",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3153,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorCargo2",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 336,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorCoDriver",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3165,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorCoDriver",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 348,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorDriver",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3177,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorDriver",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 360,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorHood",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3189,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZDoorHood",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 372,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZRoofless",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3201,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZRoofless",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 384,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZWheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3211,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZWheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 394,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZ_Green",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3223,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUAZ_Green",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 406,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1h",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3233,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1h",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 416,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_1_1",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3243,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_1_1",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 426,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_1_2",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3255,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_1_2",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 438,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_2_1",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3267,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_2_1",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 450,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_2_2",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3279,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUh1hDoor_2_2",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 462,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUtilityBoat",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3291,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUtilityBoat",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 474,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUtilityBoat_Green",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3301,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionUtilityBoat_Green",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 484,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionZodiacBoat",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3311,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "ExpansionZodiacBoat",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 494,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3321,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 504,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Codriverdoor",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3331,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Codriverdoor",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 514,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Driverdoor",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3343,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Driverdoor",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 526,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Green",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3355,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Green",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 538,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Hood",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3365,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Hood",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 548,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Left",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3377,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Left",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 560,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Right",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3389,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Right",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 572,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Trunk",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3401,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Trunk",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 584,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Wheel",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3413,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Wheel",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 596,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Yellow",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3425,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Landrover_Yellow",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 608,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_1_1",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3435,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_1_1",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 618,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_1_2",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3447,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_1_2",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 630,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_2_1",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3459,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_2_1",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 642,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_2_2",
+      "file": "mission/hollow-country/ce/types.xml",
+      "line": 3471,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W007",
+      "subject": "Expansion_Mh6_Door_2_2",
+      "file": "mission/hollow-country/vehicles/vehexp-types.append.xml",
+      "line": 654,
+      "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
+      "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    }
+  ]
+}

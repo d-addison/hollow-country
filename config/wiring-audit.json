@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "checks": {
+    "W001": true,
+    "W001b": true,
+    "W002": true,
+    "W003": true,
+    "W004": true,
+    "W005": true,
+    "W006": true,
+    "W007": true,
+    "W008": true,
+    "W009": true,
+    "W010": true
+  },
+  "roots": {
+    "configs": [
+      "mods/*/config.cpp"
+    ],
+    "scripts": [
+      "mods/*/scripts/**/*.c"
+    ],
+    "data": [
+      "mission/**/*.xml",
+      "mission/**/*.json",
+      "config/*.json"
+    ],
+    "audit_data": [
+      "mission/hollow-country/**/*"
+    ],
+    "tools": [
+      "tools/**/*.py"
+    ]
+  },
+  "ignore_patterns": [],
+  "allowlists": {
+    "W001": {},
+    "W001b": {},
+    "W002": {},
+    "W003": {},
+    "W004": {},
+    "W005": {},
+    "W006": {},
+    "W007": {},
+    "W008": {},
+    "W009": {},
+    "W010": {}
+  },
+  "config_roots": [
+    "CfgVehicles",
+    "CfgWeapons",
+    "CfgMagazines",
+    "CfgAmmo"
+  ],
+  "generated_blocks": [
+    [
+      "// BEGIN HC inventory sizes",
+      "// END HC inventory sizes"
+    ]
+  ],
+  "settings_mirror": "tools/validate/shared_settings.json",
+  "registry_call": "HCAdd",
+  "settings_registry_class": "HCOperatorSettingsRegistry",
+  "setting_read_helpers": [
+    "HCGet\\w*",
+    "GetBool",
+    "GetInt",
+    "GetFloat",
+    "GetString"
+  ],
+  "setting_metadata_owners": [
+    "HCOperatorSettingsRegistry",
+    "HCJsonFields"
+  ],
+  "setting_write_only_variables": [
+    "settings",
+    "defaults",
+    "decoded"
+  ],
+  "minimum_path_literal_length": 5,
+  "setting_metadata_helpers": [
+    "HCValid",
+    "HCDefault",
+    "HCMinimum",
+    "HCMaximum",
+    "Has",
+    "HasKey"
+  ],
+  "module_base": "HCModule",
+  "module_register": "Register",
+  "module_registry_class": "HCModuleRegistry",
+  "readiness_base_patterns": [
+    "HCModuleReadiness.HCPrint("
+  ],
+  "readiness_dispatch_patterns": [
+    ".HCReadyCapture(",
+    ".HCReadyReport("
+  ],
+  "rpc_definition_pattern": "\\b(\\w+)\\s*=\\s*(485\\d{4})\\b",
+  "rpc_send_calls": [
+    "Send",
+    "RPCSingleParam",
+    "RPC"
+  ],
+  "rpc_receive_variables": [
+    "rpcType",
+    "rpc_type"
+  ],
+  "spawn_calls": [
+    "CreateObject",
+    "CreateObjectEx",
+    "CreateInInventory"
+  ],
+  "ce_type_patterns": [
+    "mission/**/*types*.xml"
+  ],
+  "bundle_profile_catalogue": true,
+  "reference_exclude_patterns": [
+    "config/wiring-audit.json",
+    "tools/validate/wiring_audit_baseline.json",
+    "config/zeroed-items.json"
+  ],
+  "class_sources": [
+    {
+      "path": "~/.cache/hollow-country/datamine-2026-11-17/cfg.pkl",
+      "format": "primitive-pickle",
+      "required": false,
+      "label": "vanilla cached config census (2026-11-17; no CfgAmmo)"
+    }
+  ],
+  "workshop_manifest": "tools/setup/workshop_mods.json",
+  "baseline": "tools/validate/wiring_audit_baseline.json",
+  "baseline_reason": "Reviewed static candidate; inspect documented limitations before treating as a runtime defect."
+}
