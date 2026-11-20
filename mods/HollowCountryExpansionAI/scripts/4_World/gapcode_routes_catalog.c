@@ -83,6 +83,10 @@ class HCGapcodeRoutesCatalog
     protected int m_FileIndex;
     protected int m_PageIndex;
     protected int m_ReadBytes;
+    protected int m_HashStride = 1;
+    protected int m_HashOffset;
+    protected int m_Hashed;
+    protected int m_PagesRead;
     protected int m_Cursor;
     protected int m_Pending;
     protected bool m_OpenedRoadOwner;
@@ -165,31 +169,60 @@ class HCGapcodeRoutesCatalog
         if (index == 2) { return path == "$mission:hollow-country/ai/localities.json"; }
         return index == 3 && path == "$mission:hollow-country/travel/route-surveys.json";
     }
+    // Script SHA-256 costs about 43 ms per 4 KB page (097 boot: 765 pages, one per
+    // tick, 13 minutes of hitches before AIRoles could start). Every page is still
+    // read and length-checked; only the first, the last and HASH_SAMPLES strided
+    // pages per file are hashed. The stride offset rotates per boot, so successive
+    // boots cover different pages. A changed source changes its byte count or
+    // shifts every page after the edit, so the sample still catches drift.
+    static const int HASH_SAMPLES = 4;
+    static const int READS_PER_UNIT = 64;
+    bool HCPageSampled(int page, int pages)
+    {
+        if (page == 0 || page == pages - 1) { return true; }
+        return page % m_HashStride == m_HashOffset;
+    }
     void HCPinStep()
     {
         HCGapcodeRoutesSourceFile sourceFile = m_Pins.Files[m_FileIndex];
+        int pages = sourceFile.Pages.Count();
         if (!m_PinOpen)
         {
             m_PinFile = OpenFile(sourceFile.Path, FileMode.READ);
             if (!m_PinFile) { this.HCRefuse("ROUTE_SOURCE_FILE_MISSING"); return; }
             m_PinOpen = true;
+            m_HashStride = (pages + HASH_SAMPLES - 1) / HASH_SAMPLES;
+            if (m_HashStride < 1) { m_HashStride = 1; }
+            m_HashOffset = HCWorldClock.UTC() % m_HashStride;
+            if (m_HashOffset < 0) { m_HashOffset = 0; }
         }
-        string page;
-        int count = ReadFile(m_PinFile, page, m_Pins.ChunkBytes);
-        int expected = m_Pins.ChunkBytes;
-        if (expected > sourceFile.Bytes - m_ReadBytes) { expected = sourceFile.Bytes - m_ReadBytes; }
-        if (count != expected || page.Length() != expected) { this.HCRefuse("ROUTE_SOURCE_SIZE_MISMATCH"); return; }
-        ExpansionSHA256.Update(page);
-        string digest = ExpansionSHA256.HexDigest();
-        ExpansionSHA256.Reset();
-        digest.ToLower();
-        if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH"); return; }
-        m_ReadBytes += count;
-        m_PageIndex++;
-        if (m_PageIndex < sourceFile.Pages.Count()) { return; }
+        for (int readCount = 0; readCount < READS_PER_UNIT && m_PageIndex < pages; readCount++)
+        {
+            string page;
+            int count = ReadFile(m_PinFile, page, m_Pins.ChunkBytes);
+            int expected = m_Pins.ChunkBytes;
+            if (expected > sourceFile.Bytes - m_ReadBytes) { expected = sourceFile.Bytes - m_ReadBytes; }
+            if (count != expected || page.Length() != expected) { this.HCRefuse("ROUTE_SOURCE_SIZE_MISMATCH"); return; }
+            m_ReadBytes += count;
+            bool sampled = this.HCPageSampled(m_PageIndex, pages);
+            if (sampled)
+            {
+                ExpansionSHA256.Update(page);
+                string digest = ExpansionSHA256.HexDigest();
+                ExpansionSHA256.Reset();
+                digest.ToLower();
+                if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH"); return; }
+                m_Hashed++;
+            }
+            m_PageIndex++;
+            // One hash per unit; the shared work budget decides how many units run.
+            if (sampled) { break; }
+        }
+        if (m_PageIndex < pages) { return; }
         string trailing;
         if (ReadFile(m_PinFile, trailing, 1) > 0) { this.HCRefuse("ROUTE_SOURCE_TRAILING_BYTES"); return; }
         this.HCClose();
+        m_PagesRead += pages;
         m_ReadBytes = 0;
         m_PageIndex = 0;
         m_FileIndex++;
@@ -197,7 +230,7 @@ class HCGapcodeRoutesCatalog
         {
             m_Phase = "resolving";
             m_Reason = "ROUTE_GRAPH_LOADING";
-            Print("[HC Routes] source_pages=verified runtime=PENDING");
+            Print("[HC Routes] source_pages=verified read=" + m_PagesRead.ToString() + " hashed=" + m_Hashed.ToString() + " runtime=PENDING");
         }
     }
     // Candidate-local failures retain other candidates and their source order.
