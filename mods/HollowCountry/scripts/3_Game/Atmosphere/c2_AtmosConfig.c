@@ -2,8 +2,8 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
 // Bounded read through HCGroupIO (EnSystem.c:417/425/443). No profile writes.
-// Loaded once per process; restart to apply changes. No new tick work or RPC.
-// Client profiles are local. HC-27 transports feature bits, not numeric tuning.
+// Season tuning is loaded once per process. Presentation tuning is server-owned;
+// HCPresentationTuningSync transports validated values and polls for file changes.
 class HCc2SeasonTuning
 {
     static const int READ_LIMIT = 8192;
@@ -244,8 +244,9 @@ class HCc2PresentationConfig
 
     static HCc2PresentationConfig HCLoad()
     {
-        Print("[HC Config] client_tuning=local_profile reason=numeric_server_transport_unavailable runtime=PENDING");
         HCc2PresentationConfig defaults = new HCc2PresentationConfig;
+        // Clients never read their local tuning file, including before receipt.
+        if (!GetGame() || !GetGame().IsServer()) { return defaults; }
         string path = "$profile:HollowCountry/atmosphere-presentation.json";
         if (!FileExist(path)) { return defaults; }
         string image;
