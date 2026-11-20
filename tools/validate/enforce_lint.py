@@ -441,6 +441,44 @@ def _null_handle_comparisons(code):
         yield start, code[start:end], parts
 
 
+def _grouped_declarators(code, position, end):
+    """Yield later names/offsets, skipping balanced, already string-masked initializers."""
+    closing = {'(': ')', '[': ']', '{': '}'}
+    while position < end:
+        while position < end and code[position].isspace():
+            position += 1
+        if position < end and code[position] == '=':
+            position += 1
+            stack = []
+            while position < end:
+                ch = code[position]
+                if ch in closing:
+                    stack.append(closing[ch])
+                elif stack and ch == stack[-1]:
+                    stack.pop()
+                elif not stack and ch in ',;)]}':
+                    break
+                position += 1
+        following = re.match(r',\s*([A-Za-z_]\w*)\s*(?=[,;=])', code[position:end])
+        if not following:
+            return
+        yield following[1], position + following.start(1)
+        position += following.end()
+
+
+def _handle_locals(source, method):
+    """Extend existing local scopes without changing the shared source model."""
+    declarations = source.local_declarations(method)
+    bindings = {start: (name, kind, start, end) for name, kind, start, end in declarations}
+    for name, kind, start, end in declarations:
+        match = _LOCAL.match(source.code, start)
+        if match is None or match[2] != name:
+            continue
+        for grouped, offset in _grouped_declarators(source.code, match.end(), end):
+            bindings[offset] = (grouped, kind, offset, end)
+    return [bindings[start] for start in sorted(bindings)]
+
+
 def _handle_nonlocals(source, owner=None):
     """Supplement HC-E016's field/global bindings with grouped declarations."""
     start, end = (owner.body_start + 1, owner.body_end) if owner else (0, len(source.code))
@@ -456,13 +494,8 @@ def _handle_nonlocals(source, owner=None):
         if kind in es.MODIFIERS or kind in {'return', 'new', 'delete', 'else', 'case', 'throw'}:
             continue
         bindings[match[2]] = kind
-        position = match.end()
-        while True:
-            following = re.match(r',\s*([A-Za-z_]\w*)\s*(?=[,;=])', source.code[position:end])
-            if not following:
-                break
-            bindings[following[1]] = kind
-            position += following.end()
+        for name, _ in _grouped_declarators(source.code, match.end(), end):
+            bindings[name] = kind
     return bindings
 
 
@@ -499,7 +532,7 @@ def rule_handle_null(project, source):
                  next((d for d in source.classes if d.body_start < offset < d.body_end), None))
         fields = fields_for(owner.name) if owner else {}
         parameters = {name: kind for kind, name, _ in method.parameters()} if method else {}
-        declarations = source.local_declarations(method) if method else []
+        declarations = _handle_locals(source, method) if method else []
         first = parts.pop(0)
         bindings = [kind for name, kind, start, end in declarations
                     if name == first and start <= offset < end]
