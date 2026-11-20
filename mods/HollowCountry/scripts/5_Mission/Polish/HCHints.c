@@ -26,6 +26,82 @@
 // Group gameplay uses UAMapToggle; the retired event input is no longer bound.
 // First hour means accumulated playtime since this client first sees this character.
 // API presence is source evidence only; native compile, reconnect and EXP-POL-1 pending.
+// #256: one authored text source for contextual notices and the native Tutorials help list.
+// Recipe/action evidence: HCNoConstruction, HCTapedLightActions/HCTapedLightRuntime,
+// HCClaimBuildingActions, HCCampModule.Candidate, HCCampScan, HCInteriorAction,
+// HCMeleeShove and HCMeleeInfectedHit. Native CraftFireplace uses one unit of
+// each ingredient; CarScript.CheckOperationalRequirements/ActionFillCoolant own car basics.
+class HCHintGuide
+{
+    static const int TOPIC_COUNT = 8;
+
+    static int HintId(int row)
+    {
+        switch (row)
+        {
+            case 0: return 4;
+            case 1: return 14;
+            case 2: return 15;
+            case 3: return 16;
+            case 4: return 1;
+            case 5: return 17;
+            case 6: return 0;
+            case 7: return 18;
+        }
+        return -1;
+    }
+
+    static string Title(int row)
+    {
+        switch (row)
+        {
+            case 0: return "Taped lights";
+            case 1: return "Shelters";
+            case 2: return "Camp hearth";
+            case 3: return "Building claim";
+            case 4: return "Group invite";
+            case 5: return "Melee: block, shove, execute";
+            case 6: return "Scavenging and loot search";
+            case 7: return "First vehicle repair";
+        }
+        return "";
+    }
+
+    static string Text(int hint)
+    {
+        switch (hint)
+        {
+            case 4: return "Hold a compatible weapon, helmet or pack. Carry a loose Universal Light or pistol light and duct tape, then choose 'Tape light to held item'. Only supported pairs offer it. 'Remove taped light' needs room for the light; tape is not returned.";
+            case 14: return "Use existing buildings, rural barn shelters or pitch a found tent for shelter. Shelter-kit crafting and improvised shelter construction are disabled in Hollow Country; rope and sticks do not make a shelter kit.";
+            case 15: return "Combine one short stick with one rag or piece of bark to make a fireplace. Place it, add fuel and ignite it. A burning ground fireplace near a group member can become the group's hearth. A pitched tent and storage within 12 metres improve the camp; a building claim alone does not provide camp respawn.";
+            case 16: return "A group owner or officer can aim at an unlocked door of an eligible building and hold 'Claim building for group'. Each group can hold one building. Use 'Release group's building claim' there to release it. Claiming does not lock doors; use a lockpick for native door locking.";
+            case 1: return "Use your map key to open the group roster, even without a map item. Create a group, select a nearby player and choose Invite. The recipient selects the invitation and accepts or declines it. Carry a map item to use map layers and shared markers.";
+            case 17: return "With fists or a melee weapon raised, walk backwards to block. Attack while blocking upright to shove; it costs stamina and briefly pushes infected back. A strong heavy melee hit to an unarmoured infected head can execute it; heavy leg hits can cripple infected. Head and leg bonuses apply only to infected.";
+            case 0: return "With empty hands, aim at eligible storage within reach and hold 'Search storage' until it finishes. Searches draw from finite supplies, can be empty and make noise. With a wrench, screwdriver or pliers, eligible wrecks also offer 'Salvage wreck'. Loose loot still uses normal pickup.";
+            case 18: return "For a common petrol car, fit matching wheels, a charged car battery, spark plug and usable radiator. Add petrol at the fuel point and water at the radiator before driving. Repair a damaged engine with a blowtorch fitted with gas; ruined engines cannot be repaired. Find replacement parts in the world or use 'Salvage wreck' on eligible wrecks with a wrench, screwdriver or pliers.";
+            case 19: return "Choose 'Hollow Country help' in the pause menu or Tutorials screen for the recipe and action list. Contextual tips appear once per life, with at least three minutes between notices.";
+        }
+        return "";
+    }
+
+    // Fixed number of type checks; no inventory walk, area query or gameplay mutation.
+    static int ItemTopics(EntityAI item)
+    {
+        if (!item) { return 0; }
+        int bits;
+        ItemBase held = ItemBase.Cast(item);
+        if (item.IsKindOf("DuctTape") || item.IsKindOf("UniversalLight") || item.IsKindOf("TLRLight") || HCTapedLightRuntime.KnownHost(held)) { bits = bits | (1 << 4); }
+        if (item.IsKindOf("Rope") || item.IsKindOf("LongWoodenStick") || item.IsKindOf("ShelterKit") || item.IsKindOf("TentBase") || item.IsKindOf("Fabric")) { bits = bits | (1 << 14); }
+        if (item.IsKindOf("WoodenStick") || item.IsKindOf("Firewood") || item.IsKindOf("Rag") || item.IsKindOf("Bark_ColorBase") || item.IsKindOf("FireplaceBase") || item.IsKindOf("Matchbox")) { bits = bits | (1 << 15); }
+        if (item.IsKindOf("Lockpick")) { bits = bits | (1 << 16); }
+        if (item.IsKindOf("ItemMap")) { bits = bits | (1 << 1); }
+        if (held && held.IsMeleeWeapon()) { bits = bits | (1 << 17); }
+        if (item.IsKindOf("CarBattery") || item.IsKindOf("SparkPlug") || item.IsKindOf("CarRadiator") || item.IsKindOf("CarWheel") || item.IsKindOf("Wrench") || item.IsKindOf("Screwdriver") || item.IsKindOf("Pliers") || item.IsKindOf("TireRepairKit")) { bits = bits | (1 << 18); }
+        if (item.IsKindOf("Wrench") || item.IsKindOf("Screwdriver") || item.IsKindOf("Pliers")) { bits = bits | 1; }
+        return bits;
+    }
+}
+
 class HCHintState
 {
     int SchemaVersion;
@@ -107,7 +183,26 @@ class HCHintLoad
 
 class HCHints
 {
-    static const int HINT_COUNT = 14;
+    // Append bits only: existing schema-1 life records retain all fourteen old topics.
+    static const int HINT_COUNT = 20;
+    protected static int s_PendingTopics;
+    protected static string s_ObservedLife;
+
+    static void HCObserveItem(EntityAI item)
+    {
+        HCObserveTopics(HCHintGuide.ItemTopics(item));
+    }
+
+    static void HCObserveTopics(int topics)
+    {
+        if (!GetGame() || GetGame().IsServer()) { return; }
+        PlayerBase observer = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!observer || !observer.IsAlive()) { return; }
+        string life = GetDayZGame().GetDatabaseID();
+        if (life == "") { return; }
+        if (life != s_ObservedLife) { s_PendingTopics = 0; s_ObservedLife = life; }
+        s_PendingTopics = s_PendingTopics | topics;
+    }
 
     static int HCAllShownMask() { return (1 << HINT_COUNT) - 1; }
 
@@ -159,7 +254,7 @@ class HCHints
             PlayerBase recipient = PlayerBase.Cast(GetGame().GetPlayer());
             if (recipient && recipient.IsAlive() && GetDayZGame().GetDatabaseID() == m_State.CharacterId && NotificationSystem.GetInstance())
             {
-                NotificationSystem.AddNotificationExtended(10, "Hollow Country", m_Notification);
+                NotificationSystem.AddNotificationExtended(14, "Hollow Country", m_Notification);
                 m_Shown++;
             }
             m_Notification = "";
@@ -169,7 +264,7 @@ class HCHints
 
     bool Offer(int hint, string message)
     {
-        if (m_Fault || !m_State || m_SaveImage.Active() || hint < 0 || hint > 13) { return false; }
+        if (m_Fault || !m_State || m_SaveImage.Active() || hint < 0 || hint >= HINT_COUNT) { return false; }
         int bit = 1 << hint;
         if ((m_State.ShownBits & bit) != 0 || m_State.PlayedSeconds < m_State.NextHintSecond) return false;
         m_State.ShownBits = m_State.ShownBits | bit;
@@ -210,14 +305,21 @@ class HCHints
         if (warmth >= DSLevelsTemp.WARNING_MINUS && warmth <= DSLevelsTemp.BLINKING_MINUS && Offer(9, "You are cold. Dry clothing, insulation and a safe fire help restore warmth.")) return;
         int hunger = NativeLevel(player, eDisplayElements.DELM_TDCY_ENERGY);
         if (hunger == EStatLevels.CRITICAL && Offer(10, "You are starving. Eat safely prepared food soon; an empty stomach can cost health.")) return;
+        // Observed topics stay queued across the shared cooldown/menu suppression, but
+        // never across lives. Contextual help remains available after the first hour.
+        for (int row = 0; row < HCHintGuide.TOPIC_COUNT; row++)
+        {
+            int topic = HCHintGuide.HintId(row);
+            if ((s_PendingTopics & (1 << topic)) != 0 && Offer(topic, HCHintGuide.Text(topic))) { return; }
+        }
         if (m_State.PlayedSeconds >= 3600) return;
-        if (Offer(0, "Search eligible cupboards and containers as well as loose loot. Searches draw from the finite search economy; an empty result is possible.")) return;
-        if (Offer(1, "Use your map key to open the group roster. Create a group, invite nearby players or accept an invitation there.")) return;
+        if (Offer(19, HCHintGuide.Text(19))) return;
+        if (Offer(0, HCHintGuide.Text(0))) return;
+        if (Offer(1, HCHintGuide.Text(1))) return;
         if (Offer(2, "Carry a map to see group map layers and shared markers. The group roster opens without one.")) return;
         if (Offer(3, "Select a player in the group roster before inviting them. Select an invitation before accepting or declining it.")) return;
-        if (Offer(4, "Hold a compatible weapon and carry duct tape and a Universal Light or pistol light. Tape the light to the weapon; removing it by hand does not return the tape.")) { return; }
         if (Offer(5, "Searches, gunshots and other noise can draw infected. Break sight and move carefully; noise can bring more than one.")) return;
-        if (Offer(6, "Firearms are scarce. Search likely locations, conserve ammunition and keep useful tools while you work toward a weapon.")) { return; }
+        if (Offer(6, "Search likely locations for firearms and ammunition. Keep useful tools and check a weapon's condition before relying on it.")) { return; }
         if (Offer(11, "Press K by default to change Hollow Country grade intensity in 10% steps, including off. Rebind it in Controls.")) { return; }
         if (Offer(12, "Watch for signs of life: abandoned camps, chairs and cold hearths can tell you who passed through. Follow the details; supplies are not guaranteed.")) { return; }
         Offer(13, "Rural barn shelters offer a stopping place. Approach one to discover its history and share a trail pin with your group.");
@@ -263,6 +365,8 @@ class HCHints
         m_Check = m_Check + timeslice;
         if (m_Check < 5) return;
         m_Check = 0;
+        HCObserveItem(player.GetItemInHands());
+        if (!player.GetItemInHands() && player.IsRaised()) { HCObserveTopics(1 << 17); }
         if (player.IsUnconscious() || GetGame().GetUIManager().GetMenu() || !NotificationSystem.GetInstance()) return;
         if (m_State.PlayedSeconds >= m_State.NextHintSecond) Check(player);
     }
@@ -286,5 +390,107 @@ class HCHints
             Print("[HC Plan] HC-27 presentation=refused handles=0 off_callbacks=0 reason=hint_cancel_unsupported scope=hints native_expiry=retained runtime=PENDING");
         }
         Print("[HollowCountry] V2 client hints shown=" + m_Shown.ToString());
+    }
+}
+
+// Native scripts-1.30.164289: 5_Mission/GUI/InspectMenuNew.c SetItem;
+// GUI/NewUI/MainMenu/TutorialsMenu.c Init/OnClick/Update; UIScriptedMenu.c
+// OnItemSelected; 1_Core/proto/EnWidgets.c CreateWidgets/FindAnyWidget/SetText.
+// GUI/InGameMenu.c Init. All modded classes remain in their native 5_Mission module.
+modded class InspectMenuNew
+{
+    override void SetItem(EntityAI item)
+    {
+        super.SetItem(item);
+        // Queue only. Inspecting never pushes notifications over an open menu.
+        HCHints.HCObserveItem(item);
+    }
+}
+
+// Menu-local handler: the same hint layout/text is available during play and
+// from the existing Tutorials surface, without registering another scripted menu.
+class HCHintHelpView : ScriptedWidgetEventHandler
+{
+    protected Widget m_HCRecipeHelp;
+    protected ButtonWidget m_HCRecipeHelpToggle;
+    protected TextListboxWidget m_HCRecipeTopics;
+    protected RichTextWidget m_HCRecipeDetail;
+    protected bool m_HCRecipeHelpOpen;
+
+    void Init(Widget root)
+    {
+        Widget helpRoot = GetGame().GetWorkspace().CreateWidgets("HollowCountry/gui/layouts/hc_recipe_help.layout", root);
+        if (!helpRoot) { return; }
+        m_HCRecipeHelp = helpRoot.FindAnyWidget("HCRecipeHelpPanel");
+        m_HCRecipeHelpToggle = ButtonWidget.Cast(helpRoot.FindAnyWidget("HCRecipeHelpToggle"));
+        m_HCRecipeTopics = TextListboxWidget.Cast(helpRoot.FindAnyWidget("HCRecipeTopics"));
+        m_HCRecipeDetail = RichTextWidget.Cast(helpRoot.FindAnyWidget("HCRecipeDetail"));
+        if (!m_HCRecipeHelp || !m_HCRecipeHelpToggle || !m_HCRecipeTopics || !m_HCRecipeDetail)
+        {
+            helpRoot.Show(false);
+            return;
+        }
+        for (int row = 0; row < HCHintGuide.TOPIC_COUNT; row++)
+        {
+            m_HCRecipeTopics.AddItem(HCHintGuide.Title(row), null, 0);
+        }
+        helpRoot.SetHandler(this);
+        m_HCRecipeTopics.SelectRow(0);
+        m_HCRecipeDetail.SetText(HCHintGuide.Text(HCHintGuide.HintId(0)));
+    }
+
+    override bool OnClick(Widget w, int x, int y, int button)
+    {
+        if (w == m_HCRecipeHelpToggle && m_HCRecipeHelp && button == MouseState.LEFT)
+        {
+            m_HCRecipeHelpOpen = !m_HCRecipeHelpOpen;
+            m_HCRecipeHelp.Show(m_HCRecipeHelpOpen);
+            if (m_HCRecipeHelpOpen) { m_HCRecipeHelpToggle.SetText("Close HC help"); }
+            else { m_HCRecipeHelpToggle.SetText("Hollow Country help"); }
+            return true;
+        }
+        return super.OnClick(w, x, y, button);
+    }
+
+    override bool OnItemSelected(Widget w, int x, int y, int row, int column, int oldRow, int oldColumn)
+    {
+        if (w == m_HCRecipeTopics && m_HCRecipeDetail && row >= 0 && row < HCHintGuide.TOPIC_COUNT)
+        {
+            m_HCRecipeDetail.SetText(HCHintGuide.Text(HCHintGuide.HintId(row)));
+            return true;
+        }
+        return super.OnItemSelected(w, x, y, row, column, oldRow, oldColumn);
+    }
+}
+
+modded class TutorialsMenu
+{
+    protected ref HCHintHelpView m_HCHintHelp;
+
+    override Widget Init()
+    {
+        Widget root = super.Init();
+        if (root)
+        {
+            m_HCHintHelp = new HCHintHelpView;
+            m_HCHintHelp.Init(root);
+        }
+        return root;
+    }
+}
+
+modded class InGameMenu
+{
+    protected ref HCHintHelpView m_HCHintHelp;
+
+    override Widget Init()
+    {
+        Widget root = super.Init();
+        if (root)
+        {
+            m_HCHintHelp = new HCHintHelpView;
+            m_HCHintHelp.Init(root);
+        }
+        return root;
     }
 }
