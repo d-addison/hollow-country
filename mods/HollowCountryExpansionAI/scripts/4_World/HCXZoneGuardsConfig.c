@@ -1,19 +1,5 @@
-// ZoneGuards owns its scoped settings; HCSettings remains unchanged.
-modded class HCOperatorSettingsRegistry
-{
-    protected static bool s_HCZonesRegistered;
-    static void HCZoneGuardsInit()
-    {
-        HCInit();
-        if (s_HCZonesRegistered) { return; }
-        s_HCZonesRegistered = true;
-        HCAdd("HCZoneGuards.Disabled", "bool", 0, 0, 1, "HCXZoneGuardsConfig");
-        HCAdd("HCZoneGuards.CooldownDays", "int", 2, 1, 30, "HCXZoneGuardsConfig");
-        HCAdd("HCZoneGuards.MaxChangesPerDay", "int", 2, 1, 2, "HCXZoneGuardsConfig");
-        HCAdd("HCZoneGuards.MaxZones", "int", 128, 1, 128, "HCXZoneGuardsConfig");
-        HCAdd("HCZoneGuards.MaxOverrunMembers", "int", 6, 3, 6, "HCXZoneGuardsConfig");
-    }
-}
+// ZoneGuards settings keys register in HollowCountry 3_Game
+// (AI/HCZoneGuardsSettingsRegistry.c): a modded class must share its base's script module.
 class HCXZoneGuardsConfig
 {
     bool Disabled;
