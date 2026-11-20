@@ -7,7 +7,8 @@
 // Groups/HCGroupService.c:76 HCGroupClock.Utc() calendar helper.
 // There is NO native rename API in this snapshot. Verified temp -> backup ->
 // copy promotion with a retained temp intent is fail-closed, NOT OS-atomic
-// rename/fsync. Interrupted promotion quarantines and never rolls back loot.
+// rename/fsync. Load finishes a verified interrupted promotion or drops a partial
+// intent (RecoverIntent); any other interrupted pair quarantines.
 class HCWorldClock
 {
     static int UTC()
@@ -134,6 +135,56 @@ class HCWorldStore
         return true;
     }
 
+    // Finishes or drops a save interrupted by a crash or hard stop (#237). Each
+    // HCStagedSaveImage.HCStepImage boundary leaves one of these on disk:
+    //   write_tmp: partial intent, old primary and backup untouched -> drop intent;
+    //   read_tmp/copy_backup: verified intent, old primary intact, backup maybe
+    //     partial -> back up the old primary again, then promote the intent;
+    //   copy_primary: verified intent, primary missing or partial, backup = old
+    //     primary -> promote the intent;
+    //   read_primary/clear_intent: primary already equals the intent -> clear it.
+    // A verified intent only ever moves the world forward (same epoch, LastTick
+    // not older); a dropped partial intent leaves the last completed save, as if
+    // the crash came just before the save began. Anything else stays quarantined.
+    protected bool RecoverIntent()
+    {
+        string intent = Read(m_Temp);
+        HCWorldData next = Decode(intent);
+        string primaryText = Read(m_Path);
+        HCWorldData primary = Decode(primaryText);
+        if (!next)
+        {
+            if (!primary && (FileExist(m_Path) || FileExist(m_Backup))) { return false; }
+            if (!DeleteFile(m_Temp)) { return false; }
+            Print("[HollowCountry] V2 world interrupted save recovered action=dropped_partial_intent");
+            return true;
+        }
+        if (next.Meta.Epoch > HCWorldClock.UTC()) { return false; }
+        if (primary)
+        {
+            if (primary.Meta.Epoch != next.Meta.Epoch || primary.Meta.LastTick > next.Meta.LastTick) { return false; }
+            if (primaryText != intent)
+            {
+                if (FileExist(m_Backup) && !DeleteFile(m_Backup)) { return false; }
+                if (!CopyFile(m_Path, m_Backup) || Read(m_Backup) != primaryText) { return false; }
+                if (!DeleteFile(m_Path) || !CopyFile(m_Temp, m_Path)) { return false; }
+            }
+        }
+        else
+        {
+            if (FileExist(m_Backup))
+            {
+                HCWorldData previous = Decode(Read(m_Backup));
+                if (!previous || previous.Meta.Epoch != next.Meta.Epoch || previous.Meta.LastTick > next.Meta.LastTick) { return false; }
+            }
+            if (FileExist(m_Path) && !DeleteFile(m_Path)) { return false; }
+            if (!CopyFile(m_Temp, m_Path)) { return false; }
+        }
+        if (Read(m_Path) != intent || !DeleteFile(m_Temp)) { return false; }
+        Print("[HollowCountry] V2 world interrupted save recovered action=promoted_intent");
+        return true;
+    }
+
     bool Load()
     {
         m_Data = null;
@@ -141,7 +192,12 @@ class HCWorldStore
         if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
         m_Fault = false;
         if (!Prepare()) { return Fault(); }
-        if (FileExist(m_Temp) || (!FileExist(m_Path) && FileExist(m_Backup)))
+        if (FileExist(m_Temp) && !RecoverIntent())
+        {
+            m_Fault = true;
+            return HCPersistenceDisposition.HCQuarantine("world", "world_interrupted_pair");
+        }
+        if (!FileExist(m_Path) && FileExist(m_Backup))
         {
             m_Fault = true;
             return HCPersistenceDisposition.HCQuarantine("world", "world_interrupted_pair");
@@ -204,7 +260,7 @@ class HCWorldStore
 
     // Stages 0/1 encode/check prior: original files untouched. Stage 2 begins
     // the intent transaction; HCStagedSaveImage.HCStepImage documents each subsequent
-    // crash boundary. Any .tmp still quarantines on Load; backup checks unchanged.
+    // crash boundary. Load recovers those boundaries (RecoverIntent); backup checks unchanged.
     // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
     // copy_backup retains old primary/backup + intent; copy_primary/read_primary
     // retain new primary, old backup and intent; clear_intent admits new primary.

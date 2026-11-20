@@ -133,7 +133,11 @@ Get-Process DayZServer_x64 -ErrorAction SilentlyContinue
 
 If it is running, warn players, stop it with the operator's usual method (RCon
 `#shutdown` or closing the console window), and wait until the command above
-prints nothing.
+prints nothing. Avoid killing the process (Task Manager, `Stop-Process`): a kill
+during a save leaves `profiles/HollowCountry/*.json.tmp` files. The world store
+finishes or drops an interrupted save on the next start and logs
+`world interrupted save recovered`; other stores stay quarantined until you move
+their `.tmp` file aside with the server stopped.
 
 ## 3. Back up
 
