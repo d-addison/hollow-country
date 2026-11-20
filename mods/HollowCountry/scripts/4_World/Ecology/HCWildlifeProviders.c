@@ -1,11 +1,12 @@
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
-// #149 / w39: finite carcass economy + native wildlife activity/target providers.
+// #149 / #295: bounded recurring carcass allowance + native wildlife providers.
 // Spec/plan/task: supplied #149 brief; central spec paths absent in this worktree.
 // Installed scripts-1.30.164289 native evidence:
 // 2_GameLib/gameLib.c:4 GetGame; 1_Core/proto/EnConvert.c:210 vector.DistanceSq;
 // 3_Game/Global/Game.c:703 CreateObjectEx, :705 ObjectDelete, :1120 IsServer,
 // :914 GetTickTime, :1176 SurfaceY, :1535 GetTime; 3_Game/Entities/Object.c:215 IsPendingDeletion,
 // :287 GetPosition, :511 IsKindOf, :517 IsAlive, :1015 SetHealth;
+// EntityAI.c:1115 ReplaceOnDeath (false; red deer have no override).
 // 3_Game/Entities/Man.c:21 GetIdentity; EntityAI.c:754 CanBeTargetedByAI;
 // 4_World/Entities/ManBase/PlayerBase.c:3935 CanBeTargetedByAI;
 // 3_Game/Entities/DayZAnimalInputController.c:3-24 behaviour slot enum;
@@ -68,9 +69,10 @@ class HCWildlifeProviderConfig
 
 class HCWildlifeProviderState
 {
-    int Version = 1;
-    // Permanent finite allocation: never pruned/reset at boot or after looting.
+    int Version = 2;
+    // One bounded generation, retained across restart and operator toggles.
     ref array<string> SpentSites = new array<string>;
+    int RefillAfterUtc;
 }
 
 class HCWildlifeCarcassIO : HCEventRewardIO
@@ -81,13 +83,49 @@ class HCWildlifeCarcassIO : HCEventRewardIO
     }
 }
 
+// Keep the shared grant-before-creation barrier. Only this owner may renew an
+// exhausted/part-used generation, after verified release and no surviving body.
+class HCWildlifeCarcassLedger : HCEventRewardLedger
+{
+    bool HCRenew()
+    {
+        if (!m_Ready || m_Fault || m_Boot >= 2147483646) { return false; }
+        int next = m_Boot + 1;
+        string marker = next.ToString() + "-boot.txt";
+        if (!m_IO.WriteNew(marker, "HC-EVENT-REWARDS v1 boot " + next.ToString(), 128)) { return Fault(); }
+        // Known filenames only: no Names/FindFile/Start on a tick. At most
+        // eight grants + one marker; the new marker precedes every removal.
+        for (int serial = 1; serial <= m_Granted.Count(); serial++)
+        {
+            string name = m_Boot.ToString() + "-grant-" + serial.ToString() + ".txt";
+            if (!m_IO.Remove(name)) { return Fault(); }
+        }
+        if (!m_IO.Remove(m_Boot.ToString() + "-boot.txt")) { return Fault(); }
+        m_Boot = next;
+        m_Granted.Clear();
+        m_Remaining.Clear();
+        foreach (HCEventRewardEntry entry : m_Pool.Entries)
+        {
+            m_Remaining.Insert(entry.Count);
+        }
+        return true;
+    }
+}
+
 class HCWildlifeProviders
 {
     protected static ref HCWildlifeProviders s_Owner;
     protected ref HCWildlifeProviderConfig m_Config;
     protected ref HCWildlifeProviderState m_State;
     protected ref HCEncounterStore<HCWildlifeProviderState> m_Store;
-    protected ref HCEventRewardLedger m_Ledger;
+    protected ref HCWildlifeCarcassLedger m_Ledger;
+    // Weak native handles, never serialized. All authored bodies use
+    // ECE_NOPERSISTENCY_WORLD, so none can survive a process restart.
+    protected ref array<AnimalBase> m_Carcasses = new array<AnimalBase>;
+    protected int m_Refills;
+    // Conservative retry floor, including failed creation and legacy claims.
+    // Actual native deletion is additionally required for every retained body.
+    static const int CARCASS_REFILL_SECONDS = 3600;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCOperationalStatus m_GoalsStatus = new HCOperationalStatus;
     protected bool m_Running;
@@ -100,7 +138,7 @@ class HCWildlifeProviders
     protected int m_LastTick = -1;
     protected int m_LastNow = -1;
     protected int m_Cursor;
-    // Alternate the finite creation item with maintenance on the existing slot.
+    // Alternate creation/refill with maintenance on the existing slot.
     // Neither path can consume the other path's starvation allowance first.
     protected bool m_CarcassTurn = true;
     protected int m_LastReport = -1;
@@ -265,7 +303,7 @@ class HCWildlifeProviders
                 HCWildlifeProviderState fresh = new HCWildlifeProviderState;
                 m_State = m_Store.Load(fresh, "SpentSites");
             }
-            if (!m_State || m_State.Version != 1 || !m_State.SpentSites || m_State.SpentSites.Count() > 8) { m_Fault = true; return HCRefuse("allocation_state_invalid"); }
+            if (!m_State || (m_State.Version != 1 && m_State.Version != 2) || !m_State.SpentSites || m_State.SpentSites.Count() > 8) { m_Fault = true; return HCRefuse("allocation_state_invalid"); }
             array<string> spent = m_State.SpentSites;
             map<string, bool> seen = new map<string, bool>;
             foreach (string spentId : spent)
@@ -273,17 +311,18 @@ class HCWildlifeProviders
                 if (!HCEventDirector.TextValid(spentId, 48) || seen.Contains(spentId)) { m_Fault = true; return HCRefuse("allocation_identity_invalid"); }
                 seen.Set(spentId, true);
             }
-            if (!m_Ledger)
+            if (m_State.Version == 1)
             {
-                HCEventRewardPool pool = new HCEventRewardPool;
-                pool.MaxCaches = m_Config.MaxCarcasses;
-                pool.ItemsPerCache = 1;
-                HCEventRewardEntry entry = HCEventRewardPools.Entry(m_Config.CarcassClass, m_Config.MaxCarcasses);
-                pool.Entries.Insert(entry);
-                HCWildlifeCarcassIO io = new HCWildlifeCarcassIO;
-                m_Ledger = new HCEventRewardLedger;
-                if (!m_Ledger.Configure(io, pool) || !m_Ledger.Start()) { m_Fault = true; return HCRefuse("carcass_economy_unavailable"); }
+                int migrationUtc = HCEcologyMigrationNative.Utc();
+                if (migrationUtc < 1577836801) { return HCRefuse("carcass_clock_unavailable"); }
+                // Old bodies were nonpersistent too. Quarantine old claims for
+                // a full interval instead of granting a restart refill.
+                m_State.RefillAfterUtc = migrationUtc + CARCASS_REFILL_SECONDS;
+                m_State.Version = 2;
+                if (!m_Store.Save(m_State)) { m_Fault = true; return HCRefuse("allocation_migration_failed"); }
             }
+            if (m_State.RefillAfterUtc < 0 || (spent.Count() > 0 && m_State.RefillAfterUtc < 1577836801)) { m_Fault = true; return HCRefuse("allocation_deadline_invalid"); }
+            if (!m_Ledger && !HCOpenCarcassLedger()) { return false; }
         }
         if (!HCEcosystemOpen()) { return false; }
         m_Running = true;
@@ -293,19 +332,67 @@ class HCWildlifeProviders
         {
             m_AdmissionPrinted = true;
             Print(HCV2Admission.Line("WildlifeProviders", true, "N9-wildlife", false) + " runtime=PENDING");
-            Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=finite pair_selection=native interaction_observation=bounded combat_cap=unavailable runtime=PENDING");
+            Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=bounded_recurring pair_selection=native interaction_observation=bounded combat_cap=unavailable runtime=PENDING");
             Print("[HC Wildlife] provider_budget creation_units=8 maintenance_items=" + m_Config.WorkUnits.ToString() + " scheduling=alternating target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " pair_mode=damage_contacts_only runtime=PENDING");
         }
         HCObserve();
         return true;
     }
 
+    bool HCOpenCarcassLedger()
+    {
+        HCEventRewardPool pool = new HCEventRewardPool;
+        pool.MaxCaches = m_Config.MaxCarcasses;
+        pool.ItemsPerCache = 1;
+        pool.Entries.Insert(HCEventRewardPools.Entry(m_Config.CarcassClass, m_Config.MaxCarcasses));
+        HCWildlifeCarcassLedger next = new HCWildlifeCarcassLedger;
+        if (!next.Configure(new HCWildlifeCarcassIO, pool) || !next.Start())
+        {
+            m_Fault = true;
+            return HCRefuse("carcass_economy_unavailable");
+        }
+        m_Ledger = next;
+        return true;
+    }
+
+    bool HCRefillDue()
+    {
+        if (!m_State || m_State.SpentSites.Count() == 0) { return false; }
+        int utc = HCEcologyMigrationNative.Utc();
+        return utc >= 1577836801 && utc >= m_State.RefillAfterUtc;
+    }
+
+    bool HCRefill()
+    {
+        // Caller owns one cost-eight creation slice. At most eight handles
+        // and nine known journal files are visited; no directory enumeration.
+        // Never release by elapsed time alone: a still-existing body retains
+        // its slot even if native lifetime cleanup was delayed near players.
+        foreach (AnimalBase body : m_Carcasses)
+        {
+            if (body) { return false; }
+        }
+        m_State.SpentSites.Clear();
+        m_State.RefillAfterUtc = 0;
+        // Release only after verified persistence. Uncertain saves fail closed;
+        // no body exists here, including after a crash before the next ledger.
+        if (!m_Store.Save(m_State)) { m_Fault = true; HCRefuse("allocation_refill_failed"); return true; }
+        m_Carcasses.Clear();
+        if (!m_Ledger.HCRenew()) { m_Fault = true; HCRefuse("carcass_economy_renewal_failed"); return true; }
+        m_Refills++;
+        Print("[HC Wildlife] carcass_allowance_refilled cap=" + m_Config.MaxCarcasses.ToString() + " minimum_interval_s=" + CARCASS_REFILL_SECONDS.ToString() + " runtime=PENDING");
+        return true;
+    }
+
     bool HCClaim(string siteId)
     {
         if (m_Fault || m_State.SpentSites.Count() >= m_Config.MaxCarcasses || m_State.SpentSites.Find(siteId) >= 0) { return false; }
+        int utc = HCEcologyMigrationNative.Utc();
+        if (utc < 1577836801) { return false; }
         m_State.SpentSites.Insert(siteId);
-        // The permanent claim is spent even when economy admission or creation
-        // fails. A crash between either barrier and native creation cannot replay.
+        // A failed grant/creation still occupies this generation. Extend the
+        // deadline on each claim so even its last body gets a full interval.
+        m_State.RefillAfterUtc = utc + CARCASS_REFILL_SECONDS;
         if (!m_Store.Save(m_State)) { m_Fault = true; return false; }
         return true;
     }
@@ -341,12 +428,23 @@ class HCWildlifeProviders
             HCRefuse("carcass_creation_failed_allocation_spent");
             return null;
         }
+        // Red deer inherit ReplaceOnDeath=false in inspected native scripts.
+        // Fail closed if the installed stack changes that: losing a handle to
+        // an untracked replacement would make renewal unsafe.
+        if (body.ReplaceOnDeath())
+        {
+            GetGame().ObjectDelete(body);
+            m_RefusedCreation++;
+            HCRefuse("carcass_replacement_unsupported_allocation_spent");
+            return null;
+        }
+        m_Carcasses.Insert(body);
         body.SetHealth("", "Health", 0);
         m_Spawned++;
         HCReached.Mark("wildlife.carcass.spawn");
         Print("[HC Plan] HC-149 authored_carcass site=" + site.Id + " allocation=spent creation=issued death=issued runtime=PENDING");
-        // Some animal deaths replace the body (native AnimalBase.c:32-40).
-        // No retained handle, forced skinning, inventory writes or replay here.
+        // Retain only a weak handle until native corpse deletion. No forced
+        // skinning, inventory writes, lifetime extension or deletion timer.
         return body;
     }
 
@@ -358,7 +456,8 @@ class HCWildlifeProviders
         m_LastNow = nowMs;
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
-        bool pending = m_Config.CarcassesEnabled && m_State && m_State.SpentSites.Count() < m_Config.MaxCarcasses;
+        bool refill = m_Config.CarcassesEnabled && HCRefillDue();
+        bool pending = m_Config.CarcassesEnabled && m_State && (m_State.SpentSites.Count() < m_Config.MaxCarcasses || refill);
         if (pending && m_CarcassTurn)
         {
             // One atomic creation attempt, including at most 16 current
@@ -369,6 +468,18 @@ class HCWildlifeProviders
             if (work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 8))
             {
                 m_CarcassTurn = false;
+                // Completed renewal is its own slice. A surviving body can
+                // block renewal without starving another unspent site.
+                if (refill)
+                {
+                    bool renewed = HCRefill();
+                    if (renewed || m_State.SpentSites.Count() >= m_Config.MaxCarcasses)
+                    {
+                        HCReport(false);
+                        HCObserve();
+                        return;
+                    }
+                }
                 if (m_Cursor >= m_Config.Sites.Count()) { m_Cursor = 0; }
                 HCWildlifeProviderSite authored = m_Config.Sites.Get(m_Cursor);
                 m_Cursor = m_Cursor + 1;
@@ -395,6 +506,12 @@ class HCWildlifeProviders
         HCObserve();
     }
 
+    int HCRefillDeadline()
+    {
+        if (!m_State) { return 0; }
+        return m_State.RefillAfterUtc;
+    }
+
     // Session counters: first attempted slice, then at most once per ten
     // minutes, plus stop. Fixed fields distinguish idle, spent and refused.
     void HCReport(bool force)
@@ -403,7 +520,7 @@ class HCWildlifeProviders
         m_LastReport = m_LastNow;
         int spent = 0;
         if (m_State) { spent = m_State.SpentSites.Count(); }
-        Print("[HC Wildlife] carcasses attempts=" + m_Attempts.ToString() + " spawned=" + m_Spawned.ToString() + " spent=" + spent.ToString() + " cap=" + m_Config.MaxCarcasses.ToString() + " enabled=" + m_Config.CarcassesEnabled.ToString() + " refused_budget=" + m_RefusedBudget.ToString() + " refused_observers=" + m_RefusedPlayers.ToString() + " refused_near=" + m_RefusedNear.ToString() + " refused_visible=" + m_RefusedVisible.ToString() + " refused_position=" + m_RefusedPosition.ToString() + " skipped_spent=" + m_RefusedSpent.ToString() + " refused_allocation=" + m_RefusedAllocation.ToString() + " refused_economy=" + m_RefusedEconomy.ToString() + " refused_creation=" + m_RefusedCreation.ToString() + " pairs_admitted=" + m_PairsAdmitted.ToString() + " pairs_refused=" + m_PairsRefused.ToString() + " target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " runtime=PENDING");
+        Print("[HC Wildlife] carcasses attempts=" + m_Attempts.ToString() + " spawned=" + m_Spawned.ToString() + " spent=" + spent.ToString() + " cap=" + m_Config.MaxCarcasses.ToString() + " refills=" + m_Refills.ToString() + " refill_after_utc=" + HCRefillDeadline().ToString() + " enabled=" + m_Config.CarcassesEnabled.ToString() + " refused_budget=" + m_RefusedBudget.ToString() + " refused_observers=" + m_RefusedPlayers.ToString() + " refused_near=" + m_RefusedNear.ToString() + " refused_visible=" + m_RefusedVisible.ToString() + " refused_position=" + m_RefusedPosition.ToString() + " skipped_spent=" + m_RefusedSpent.ToString() + " refused_allocation=" + m_RefusedAllocation.ToString() + " refused_economy=" + m_RefusedEconomy.ToString() + " refused_creation=" + m_RefusedCreation.ToString() + " pairs_admitted=" + m_PairsAdmitted.ToString() + " pairs_refused=" + m_PairsRefused.ToString() + " target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " runtime=PENDING");
     }
 
     protected ref HCWildlifeInteractions m_Interactions;
