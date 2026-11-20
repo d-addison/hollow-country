@@ -122,8 +122,8 @@ class HCInfectedVariety
 {
     protected static ref HCInfectedVarietyConfig s_Config;
     protected static ref array<ZombieBase> s_Bodies = new array<ZombieBase>;
-    protected static ref array<int> s_Used = new array<int>;
-    protected static ref array<int> s_Tried = new array<int>;
+    protected static ref map<int, bool> s_Used = new map<int, bool>;
+    protected static ref map<int, bool> s_Tried = new map<int, bool>;
     protected static bool s_Running;
     protected static bool s_Pending;
     protected static bool s_Admin;
@@ -295,7 +295,7 @@ class HCInfectedVariety
         float nearest = s_Config.RequestRange * s_Config.RequestRange;
         for (int siteIndex = 0; siteIndex < s_Config.Sites.Count(); siteIndex++)
         {
-            if (s_Used.Find(siteIndex) >= 0 || s_Tried.Find(siteIndex) >= 0) { continue; }
+            if (s_Used.Contains(siteIndex) || s_Tried.Contains(siteIndex)) { continue; }
             float distance = vector.DistanceSq(s_Request, s_Config.Sites[siteIndex].Position);
             if (distance > nearest) { continue; }
             selected = siteIndex;
@@ -366,7 +366,7 @@ class HCInfectedVariety
         bool interested = s_Admin || (interest >= 0 && interest <= s_Config.InterestRange);
         if (!interested || !HCHidden(pos, players) || !HCAdminPlacement.HCClear(pos))
         {
-            s_Tried.Insert(s_Selected);
+            s_Tried.Insert(s_Selected, true);
             s_Selected = -1;
             if (s_Made > 0) { s_Pending = false; }
             HCRefuse("place_observed_or_clearance_refused");
@@ -384,7 +384,7 @@ class HCInfectedVariety
         s_Bodies.Insert(body);
         // Never retry a body or source site: failed native entry leaves a
         // normal tracked living actor, without replacement or deletion.
-        if (s_Made == 0) { s_Used.Insert(s_Selected); }
+        if (s_Made == 0) { s_Used.Insert(s_Selected, true); }
         s_Made++;
         bool entered;
         int role = HCInfectedVarietyPolicy.HCContextRole(site.Context, false);
