@@ -1,6 +1,7 @@
 // LC-T206, EXP-T5 / EXP-S3. Server-owned static exterior scenes.
-// Regional scenes: one three-prop transaction per shared-budget tick; no retry
-// after a real placement refusal. Native API citations below also cover this path.
+// Regional scenes: one three-prop transaction per shared-budget tick; bounded
+// nearby layouts keep collision/terrain refusals from discarding an entire site.
+// Native API citations below also cover this path.
 // Verified installed native-scripts/scripts-1.30.164289 interfaces:
 // 3_Game/Global/Game.c:612 ConfigIsExisting, :703 CreateObjectEx, :705 ObjectDelete,
 // :930 GetObjectsAtPosition3D, :934 GetWorldName(), :1120 IsServer, :1176 SurfaceY,
@@ -34,7 +35,13 @@ class HCShelterModule : HCModule
     protected bool m_CandidateSurveyReported;
     protected int m_RegionalCursor;
     protected int m_RegionalFailed;
-    protected string m_RegionalReason;
+    protected int m_RegionalPlaced;
+    protected int m_RegionalRemaining;
+    protected float m_RegionalSummarySeconds;
+    protected ref map<string, int> m_RegionalRefusals = new map<string, int>;
+    protected ref map<string, int> m_RegionalCandidateRefusals = new map<string, int>;
+    // Four outward rows, five lateral offsets; one transaction per budget grant.
+    static const int HC_REGIONAL_LAYOUTS = 20;
     protected ref HCShelterRegionalScene m_RegionalScene;
     protected int m_Placed;
     protected int m_Refused;
@@ -112,11 +119,17 @@ class HCShelterModule : HCModule
         regionalWorld.ToLower();
         if (regionalWorld != "chernarusplus") { return; }
         HCRegionalTick();
+        m_RegionalSummarySeconds += deltaTime;
+        if (m_RegionalSummarySeconds >= 300)
+        {
+            m_RegionalSummarySeconds = 0;
+            HCRegionalSummary();
+        }
         HCReached.Mark("shelters.regional_tick");
     }
 
-    // No recurring retries for failed scenes; startup tries at most eight layouts,
-    // one 16-candidate terrain screen and HC_RING_ATTEMPTS ring placements.
+    // Legacy startup tries at most eight layouts, one 16-candidate terrain
+    // screen and HC_RING_ATTEMPTS ring placements. Regional retries are finite.
     override void OnStop()
     {
         if (!m_Started) return;
@@ -130,6 +143,11 @@ class HCShelterModule : HCModule
         m_Refused = 0;
         m_Started = false;
         m_RegionalFailed = 0;
+        m_RegionalPlaced = 0;
+        m_RegionalRemaining = 0;
+        m_RegionalSummarySeconds = 0;
+        m_RegionalRefusals.Clear();
+        m_RegionalCandidateRefusals.Clear();
         m_RegionalCursor = 0;
         m_RegionalScene = null;
     }
@@ -389,6 +407,14 @@ class HCShelterModule : HCModule
             if (localZ < 0) { regionalSlot = 1; }
             if (localZ > 0) { regionalSlot = 2; }
             offset = HCInteriorTemplates.AsVector(m_RegionalScene.Slots[regionalSlot]);
+            int outward = m_LayoutVariant / 5;
+            int lateral = m_LayoutVariant % 5;
+            float shiftZ = 0;
+            if (lateral == 1) { shiftZ = 3; }
+            if (lateral == 2) { shiftZ = -3; }
+            if (lateral == 3) { shiftZ = 6; }
+            if (lateral == 4) { shiftZ = -6; }
+            offset = offset + Vector(-3 * outward, 0, shiftZ);
         }
         vector point = house.ModelToWorld(offset);
         point[1] = GetGame().SurfaceY(point[0], point[2]);
@@ -396,7 +422,10 @@ class HCShelterModule : HCModule
         if (m_RegionalScene && !HCObserverTransitionGate.CanTransition(point, HCShelterCatalog.HCRegionalConfig().ObserverDistance)) { return RefuseProp("observed_regional_prop"); }
         if (!GetGame().ConfigIsExisting("CfgVehicles " + propType) || !GetGame().IsKindOf(propType, "HouseNoDestruct")) { return RefuseProp("static_class_missing"); }
         if (!m_RegionalScene && HCInBarnAccessStrip(offset)) { return RefuseProp("access_strip"); }
-        if (!GroundFlat(point)) { return RefuseProp("terrain"); }
+        // Regional props use their actual footprint below. The legacy yard's
+        // terrain screen intentionally retains its conservative 2.4m footprint.
+        if (!m_RegionalScene && !GroundFlat(point)) { return RefuseProp("terrain"); }
+        if (GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { return RefuseProp("water"); }
         if (!Available(point)) { return null; }
         Object prop = HCInteriorTemplatePlacement.Spawn(propType, point, house.GetOrientation());
         if (!prop) return RefuseProp("create_failed");
@@ -428,8 +457,18 @@ class HCShelterModule : HCModule
         }
         point[1] = point[1] - propMin[1];
         prop.SetPosition(point);
-        HCGroundSnap.Snap(prop);
+        if (!HCGroundSnap.Snap(prop))
+        {
+            DeleteProp(prop);
+            return RefuseProp("ground_support");
+        }
         point = prop.GetPosition();
+        m_RefusalPoint = point;
+        if (m_RegionalScene && !HCRegionalFootprintFlat(prop, propMin, propMax))
+        {
+            DeleteProp(prop);
+            return RefuseProp("terrain");
+        }
         HCInteriorTemplatePropSlot slot = new HCInteriorTemplatePropSlot;
         slot.Room = 1;
         slot.Position = Coordinates(house.WorldToModel(point));
@@ -470,6 +509,28 @@ class HCShelterModule : HCModule
             }
         }
         return prop;
+    }
+
+    // Sample the observed prop footprint, not the legacy 2.4m yard square.
+    // SurfaceRoadY includes stock road support; HCGroundSnap still requires a
+    // native support ray and the original 0.25m slope limit remains in force.
+    protected bool HCRegionalFootprintFlat(Object prop, vector minimum, vector maximum)
+    {
+        float lowest = 1000000;
+        float highest = -1000000;
+        for (int corner = 0; corner < 4; corner++)
+        {
+            vector sample = minimum;
+            if (corner & 1) { sample[0] = maximum[0]; }
+            if (corner & 2) { sample[2] = maximum[2]; }
+            vector world = prop.ModelToWorld(sample);
+            if (GetGame().SurfaceIsSea(world[0], world[2]) || GetGame().SurfaceIsPond(world[0], world[2])) { m_BlockingClass = "water"; return false; }
+            float height = GetGame().SurfaceRoadY(world[0], world[2]);
+            if (height < lowest) { lowest = height; }
+            if (height > highest) { highest = height; }
+        }
+        m_GroundRise = highest - lowest;
+        return m_GroundRise <= 0.25;
     }
 
     protected Object RefuseProp(string reason)
@@ -526,7 +587,15 @@ class HCShelterModule : HCModule
         if (index == 0) { HCReportCandidateSurveys(); }
         HCShelterEntry entry = HCShelterCatalog.Get(index);
         if (!entry) { return; }
-        if (entry.Scene) { entry.Attempted = false; return; }
+        if (entry.Scene)
+        {
+            entry.Attempted = false;
+            entry.PlacementVariant = 0;
+            entry.Placed = false;
+            entry.PlacementAnchor = null;
+            if (entry.Scene.Enabled) { m_RegionalRemaining++; }
+            return;
+        }
         entry.Placed = false;
         entry.PlacementAnchor = null;
         m_RefusalReason = "";
@@ -615,7 +684,8 @@ class HCShelterModule : HCModule
 
     // Dedicated consumer preserves progress after Interiors spends its slice.
     // One complete 3-prop attempt costs configured units.
-    // Observer veto leaves the row pending; all other failures are tried once.
+    // Observer veto leaves the same candidate pending; placement refusals advance
+    // through at most HC_REGIONAL_LAYOUTS candidates across separate ticks.
     protected void HCRegionalTick()
     {
         HCShelterRegionalConfig config = HCShelterCatalog.HCRegionalConfig();
@@ -631,15 +701,32 @@ class HCShelterModule : HCModule
         HCPlaceRegional(entry);
     }
 
-    protected bool HCRegionalRefuse(string reason)
+    protected void HCRegionalSummary()
     {
-        m_RegionalFailed = m_RegionalFailed + 1;
-        if (reason != m_RegionalReason)
+        // Reasons come only from the finite placement checks, never world rows.
+        // One bounded line per five minutes and when the queue completes.
+        string refusedReasons = "";
+        foreach (string reason, int count : m_RegionalRefusals)
         {
-            m_RegionalReason = reason;
-            Print("[HC Shelters] regional_refused=" + reason + " runtime=PENDING");
+            refusedReasons += reason + ":" + count.ToString() + ",";
         }
-        return false;
+        string candidateReasons = "";
+        foreach (string candidateReason, int candidateCount : m_RegionalCandidateRefusals)
+        {
+            candidateReasons += candidateReason + ":" + candidateCount.ToString() + ",";
+        }
+        string line = "[HC Shelters] regional_summary placed=" + m_RegionalPlaced.ToString() + " refused=" + m_RegionalFailed.ToString() + " pending=" + m_RegionalRemaining.ToString();
+        line += " layouts_per_site=" + HC_REGIONAL_LAYOUTS.ToString() + " refused_by_reason=" + refusedReasons + " candidate_refused_by_reason=" + candidateReasons;
+        Print(line + " runtime=PENDING");
+    }
+
+    protected void HCRegionalRefuse(HCShelterEntry entry, string reason)
+    {
+        m_RegionalFailed++;
+        m_RegionalRemaining--;
+        m_RegionalRefusals.Set(reason, m_RegionalRefusals.Get(reason) + 1);
+        Print("[HC Shelters] regional_refused=" + reason + ":" + entry.Scene.Id + HCRefusalDetails() + " runtime=PENDING");
+        if (m_RegionalRemaining == 0) { HCRegionalSummary(); }
     }
 
     protected void HCPlaceRegional(HCShelterEntry entry)
@@ -650,13 +737,24 @@ class HCShelterModule : HCModule
         binding.BuildingClass = scene.BuildingClass;
         binding.Position = scene.Position;
         Object house = HCInteriorTemplatePlacement.Resolve(binding);
-        if (!house) { HCRegionalRefuse("building_unresolved_or_tilted:" + scene.Id); return; }
+        m_RefusalReason = "";
+        m_BlockingClass = "none";
+        m_PropType = "none";
+        m_QueryObjects = 0;
+        m_QueryCargos = 0;
+        m_CollisionCount = 0;
+        m_GroundRise = 0;
+        m_RefusalPoint = entry.Position;
+        m_SoftVegetation = 0;
+        m_RingCandidate = -1;
+        m_LayoutVariant = entry.PlacementVariant;
+        if (!house) { HCRegionalRefuse(entry, "building_unresolved_or_tilted"); return; }
         vector regionalClip[2];
         house.ClippingInfo(regionalClip);
         float tolerance = HCShelterCatalog.HCRegionalConfig().BoundsToleranceSquared;
         if (vector.DistanceSq(regionalClip[0], HCInteriorTemplates.AsVector(scene.ClipMin)) > tolerance || vector.DistanceSq(regionalClip[1], HCInteriorTemplates.AsVector(scene.ClipMax)) > tolerance)
         {
-            HCRegionalRefuse("building_bounds:" + scene.Id);
+            HCRegionalRefuse(entry, "building_bounds");
             return;
         }
         HCInteriorTemplate layout = new HCInteriorTemplate;
@@ -670,7 +768,7 @@ class HCShelterModule : HCModule
         Keepout(layout, "walkway", 0, accessMinimum, accessMaximum);
         array<Object> batch = new array<Object>;
         m_RingCandidate = -1;
-        m_LayoutVariant = 0;
+        m_LayoutVariant = entry.PlacementVariant;
         m_RegionalScene = scene;
         if (!HCPlaceBatch(house, layout, batch))
         {
@@ -682,7 +780,21 @@ class HCShelterModule : HCModule
                 entry.Attempted = false;
                 return;
             }
-            HCRegionalRefuse(m_RefusalReason + ":" + scene.Id);
+            m_RegionalCandidateRefusals.Set(m_RefusalReason, m_RegionalCandidateRefusals.Get(m_RefusalReason) + 1);
+            bool retryable = m_RefusalReason == "terrain" || m_RefusalReason == "collision" || m_RefusalReason == "occupied" || m_RefusalReason == "cargo_query" || m_RefusalReason == "ground_support" || m_RefusalReason == "water";
+            if (retryable && entry.PlacementVariant + 1 < HC_REGIONAL_LAYOUTS)
+            {
+                if (entry.PlacementVariant == 0)
+                {
+                    Print("[HC Shelters] regional_layout_refused=" + m_RefusalReason + ":" + scene.Id + HCRefusalDetails() + " retry=nearby runtime=PENDING");
+                }
+                entry.PlacementVariant++;
+                entry.Attempted = false;
+                // Continue this site on the next budgeted tick, never in a loop.
+                m_RegionalCursor--;
+                return;
+            }
+            HCRegionalRefuse(entry, m_RefusalReason);
             return;
         }
         m_RegionalScene = null;
@@ -697,7 +809,10 @@ class HCShelterModule : HCModule
         entry.PlacementAnchor = batch.Get(0);
         entry.Placed = true;
         m_Placed = m_Placed + 1;
-        Print("[HC Shelters] regional_placed=" + scene.Id + " props=3 runtime=PENDING");
+        m_RegionalPlaced++;
+        m_RegionalRemaining--;
+        Print("[HC Shelters] regional_placed=" + scene.Id + " props=3 variant=" + entry.PlacementVariant.ToString() + " runtime=PENDING");
+        if (m_RegionalRemaining == 0) { HCRegionalSummary(); }
     }
 
     // Places the three yard props of the current variant or ring candidate,

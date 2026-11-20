@@ -17,6 +17,7 @@ class HCShelterEntry
 {
     ref HCShelterRegionalScene Scene;
     bool Attempted;
+    int PlacementVariant;
     string Name;
     vector Position;
     string History;
