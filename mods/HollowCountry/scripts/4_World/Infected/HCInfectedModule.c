@@ -332,6 +332,7 @@ class HCInfectedModule : HCModule
         {
             return false;
         }
+        if (!entity.HCLODTrackingDue()) { return false; }
         // Check before increment: rejected callbacks cannot wrap a native int.
         if (m_RegistrationAttempts >= m_WorkCap)
         {
@@ -341,6 +342,14 @@ class HCInfectedModule : HCModule
         if (FindActor(entity))
         {
             return true;
+        }
+        // Do not let distant calm CE callbacks refill released slots. Unknown
+        // observer distance is admitted; native AI keeps running either way.
+        float nearest = HCInfectedLOD.NearestDistance(HCPerfPlayers.HCGet(), entity.GetPosition());
+        if (nearest > HCInfectedLOD.TrackingRange() && entity.GetMindStateSynced() == DayZInfectedConstants.MINDSTATE_CALM)
+        {
+            entity.HCLODDeferTracking();
+            return false;
         }
         int slot = -1;
         for (int i = 0; i < m_Actors.Count(); i++)

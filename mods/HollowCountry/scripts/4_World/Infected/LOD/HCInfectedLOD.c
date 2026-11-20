@@ -110,6 +110,14 @@ class HCInfectedLOD
 
     static bool Active() { return s_Config != null && s_Config.EnableLOD; }
 
+    // Keep at least the shipped 1 km interest bubble even with a shorter
+    // operator idle range. This releases script attention, never native AI.
+    static float TrackingRange()
+    {
+        if (!HCInfectedLOD.Active()) { return 1000; }
+        return Math.Max(1000, s_Config.IdleRange);
+    }
+
     // Tiered posed budget; 12/12/12 (the shipped fixed cap) when inactive.
     static int PosedBudget()
     {
@@ -230,19 +238,44 @@ modded class ZombieBase
     // Server tick time of the latest hit; -1 never hit. Read by the fold
     // decision and experiment 1 only.
     protected float m_HCLODHitAt = -1;
+    protected float m_HCLODTrackRetryAt;
 
     float HCLODHitAt() { return m_HCLODHitAt; }
+
+    bool HCLODTrackingDue()
+    {
+        if (GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { return true; }
+        return GetGame().GetTickTime() >= m_HCLODTrackRetryAt;
+    }
+
+    // Calm distant callbacks must not consume all registration attempts each
+    // core round. A returning calm body retries within 30 seconds; native
+    // alert/combat state and hits bypass that distant-idle retry delay.
+    void HCLODDeferTracking() { m_HCLODTrackRetryAt = GetGame().GetTickTime() + 30; }
+
+    // An evicted living body must be able to register again on returning to
+    // the interest bubble. HCRegisterActive still retries at most once/round.
+    void HCLODReleaseTracking()
+    {
+        m_HCRegistered = false;
+        HCLODDeferTracking();
+    }
 
     override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
     {
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
-        if (GetGame().IsServer()) { m_HCLODHitAt = GetGame().GetTickTime(); }
+        if (GetGame().IsServer())
+        {
+            m_HCLODHitAt = GetGame().GetTickTime();
+            m_HCLODTrackRetryAt = 0;
+        }
     }
 }
 
 modded class HCInfectedModule
 {
     protected int m_HCLODCursor;
+    protected int m_HCLODEvicted;
     // Recyclable history has its own FIFO cap; never consumes live slots.
     // Assigned, unresolved evidence remains with the recovery owner.
     protected ref array<ref HCInfectedActor> m_HCLODTombstones = new array<ref HCInfectedActor>;
@@ -287,6 +320,8 @@ modded class HCInfectedModule
         if (!m_Healthy || m_Actors.Count() == 0) { return 0; }
         int count = m_Actors.Count();
         int spent = 0;
+        int evict = -1;
+        float farthest = HCInfectedLOD.TrackingRange();
         HCUnitBudget lodWork = HCServer.HCTickWork();
         while (spent < work && spent < count && lodWork.HCTakeFor(HCUnitBudget.HC_WORK_LOD_CLASSIFY, 1))
         {
@@ -307,8 +342,40 @@ modded class HCInfectedModule
             actor.LODDistance = nearest;
             actor.LODTier = HCLODPolicy.Tier(nearest, fullRange, idleRange);
             actor.LODAt = now;
+            // Prefer the farthest eligible actor in this bounded slice. Never
+            // lose membership evidence, a route, live attention or a fresh hit.
+            if (nearest <= farthest || actor.GroupId != 0 || actor.EverAssigned || actor.SearchPack) { continue; }
+            // A director offer retains actor references across ticks. Do not
+            // change its roster until the adoption owner finishes/cancels it.
+            if (m_PacingHordeId != "") { continue; }
+            if (entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { continue; }
+            if (entity.HCLODHitAt() >= 0 && now - entity.HCLODHitAt() < HCInfectedTuning.Get().LevelOfDetail.HitQuiet) { continue; }
+            if (actor.Clue && actor.Clue.IsLive(m_Now)) { continue; }
+            if (actor.Visual && actor.Visual.IsLive(m_Now)) { continue; }
+            if (actor.Heard && actor.Heard.IsLive(m_Now)) { continue; }
+            evict = m_HCLODCursor - 1;
+            farthest = nearest;
+        }
+        // At most one tracking release per tick. No deletion, pack release or
+        // movement call; preserve cursor progress through the remaining pool.
+        if (evict >= 0)
+        {
+            m_Actors[evict].InfectedEntity.HCLODReleaseTracking();
+            m_Actors.RemoveOrdered(evict);
+            if (m_HCLODCursor > evict) { m_HCLODCursor--; }
+            if (m_AdoptionCursor > evict) { m_AdoptionCursor--; }
+            if (m_RecoveryCursor > evict) { m_RecoveryCursor--; }
+            ResetSweep();
+            m_HCLODEvicted++;
         }
         return spent;
+    }
+
+    int HCLODTakeEvictions()
+    {
+        int evicted = m_HCLODEvicted;
+        m_HCLODEvicted = 0;
+        return evicted;
     }
 
     void HCLODCounts(out int full, out int idle, out int far, out int unknown)
@@ -334,20 +401,13 @@ modded class HCInfectedModule
         return m_Actors.Count();
     }
 
-    // Leases leave four tracked slots for CE infected.
-    int HCLODTrackCap()
-    {
-        if (!m_Healthy || !m_Config) { return 0; }
-        return Math.Max(0, m_Config.MaxTracked - 4);
-    }
-
-    // Mirrors HCAdminSitter (Admin/HCAdminDirectors.c): same caps, flags,
-    // cast and tracking contract; deletes only a body it just created.
+    // Caller reserves its independent MaxMaterialized lease before the next
+    // attempt. CE tracking is best-effort; a full attention pool must not
+    // destroy a newly materialized native body. No horde journal is needed.
     ZombieBase HCLODMaterialize(string type, vector pos)
     {
-        if (!m_Healthy || !m_Config || !m_State) { return null; }
+        if (!m_Healthy || !m_Config) { return null; }
         HCLODPrune();
-        if (m_Actors.Count() >= m_Config.MaxTracked || m_RegistrationAttempts >= m_WorkCap) { return null; }
         Object body = GetGame().CreateObjectEx(type, pos, ECE_INITAI | ECE_PLACE_ON_SURFACE);
         ZombieBase infected = ZombieBase.Cast(body);
         if (!infected)
@@ -355,7 +415,7 @@ modded class HCInfectedModule
             if (body) { GetGame().ObjectDelete(body); }
             return null;
         }
-        if (!FindActor(infected) && !Track(infected)) { GetGame().ObjectDelete(body); return null; }
+        if (!FindActor(infected)) { infected.HCRegisterActive(); }
         return infected;
     }
 
@@ -780,7 +840,7 @@ class HCInfectedLODModule : HCModule
         if (nearest >= 0) { edge = Math.Max(0, nearest - herd.Radius); }
         int leasedHerd = LeasedFor(herd.Id);
         int desired = HCLODPolicy.DesiredMembers(herd.Alive, edge, m_Config.MaterializeRange, m_Config.MaxPerHerd);
-        if (!HCLODPolicy.MayMaterialize(desired, leasedHerd, m_Leases.Count(), m_Config.MaxMaterialized, infected.HCLODTracked(), infected.HCLODTrackCap())) { return; }
+        if (!HCLODPolicy.MayMaterialize(desired, leasedHerd, m_Leases.Count(), m_Config.MaxMaterialized)) { return; }
         float angle = Math.RandomFloat01() * Math.PI2;
         float distance = Math.Sqrt(Math.RandomFloat01()) * herd.Radius;
         float x = herd.X + Math.Cos(angle) * distance;
@@ -840,9 +900,11 @@ class HCInfectedLODModule : HCModule
         if (players) { playerCount = players.Count(); }
         string line = "[HC InfectedLOD] stats tracked=" + infected.HCLODTracked().ToString() + " full=" + full.ToString() + " idle=" + idle.ToString() + " virtual=" + far.ToString() + " unknown=" + unknown.ToString();
         line = line + " herds=" + herds.ToString() + " herd_alive=" + herdAlive.ToString() + " leased=" + m_Leases.Count().ToString();
+        line = line + " evicted_per_min=" + infected.HCLODTakeEvictions().ToString() + " lease_cap=" + m_Config.MaxMaterialized.ToString();
         line = line + " materialized_per_min=" + m_Materialized.ToString() + " folded_per_min=" + m_Folded.ToString() + " released_per_min=" + m_Released.ToString() + " deaths_per_min=" + m_Deaths.ToString() + " vanished_per_min=" + m_Vanished.ToString();
-        line = line + " refused_sight=" + m_RefusedSight.ToString() + " refused_place=" + m_RefusedPlace.ToString() + " players=" + playerCount.ToString() + " runtime=PENDING";
+        line = line + " refused_sight=" + m_RefusedSight.ToString() + " refused_place=" + m_RefusedPlace.ToString() + " players=" + playerCount.ToString();
         line = line + " rays_per_min=" + m_Rays.ToString() + " ray_peak=" + m_RayPeak.ToString() + " ray_budget=" + (m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER).ToString();
+        line = line + " runtime=PENDING";
         Print("" + line);
         m_Rays = 0;
         m_RayPeak = 0;

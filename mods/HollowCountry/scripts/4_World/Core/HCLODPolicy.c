@@ -55,11 +55,13 @@ class HCLODPolicy
         return Math.Max(0, Math.Min(alive, perHerd));
     }
 
-    static bool MayMaterialize(int desired, int leasedHerd, int leasedTotal, int maxTotal, int tracked, int trackedCap)
+    // Herd leases have their own cap. CE attention tracking is optional for a
+    // leased body and must never veto its native AI/materialization.
+    static bool MayMaterialize(int desired, int leasedHerd, int leasedTotal, int maxTotal)
     {
         if (leasedHerd >= desired) { return false; }
         if (leasedTotal >= maxTotal) { return false; }
-        return tracked < trackedCap;
+        return true;
     }
 
     // A spawn point is hidden only beyond the minimum distance from every
