@@ -26,6 +26,7 @@
     <label for="loot-filter">Loot class or prefix (viewer filter)</label>
     <input id="loot-filter" type="text" maxlength="96" placeholder="Bandage">
     <label><input id="loot-exact" type="checkbox"> Exact class</label>
+    <p id="overlay-status" role="status" class="muted">RPT overlay: no layer read.</p>
     <p id="loot-status" role="status" class="muted">Loot map: no export read.</p>
     <p class="muted">Ground observations across ticks; cargo/hoarder CE census unavailable. Nominal is the native type target, not a guaranteed ground count.</p>
     <p id="background" class="muted">Grid background · approximate authored town centres</p>
@@ -51,7 +52,9 @@ const towns = [['Chernogorsk',6700,2600],['Elektrozavodsk',10400,2200],['Berezin
  ['Zelenogorsk',2800,5300],['Pavlovo',1700,3800],['Balota',4500,2500],
  ['Green Mountain',3700,6000],['Devils Castle',6900,11400],['Tisy',1700,14200]];
 let snapshot = null, received = 0, busy = false, imageReady = false;
-let lootmap = null;
+let lootmap = null, overlay = null;
+const overlayName = kind => "rpt/"+kind;
+const overlayStatus = document.getElementById("overlay-status");
 // Legend text per layer. Rows state ledger/catalog meaning, never a live-body claim.
 const legendText = {
   camps: 'camp sites: ledger state only, overlays holdouts and ai-camps; bounded layer',
@@ -72,6 +75,7 @@ function xy(x,z) { return [x/worldSize*canvas.width,(1-z/worldSize)*canvas.heigh
 function syncLayers() {
   const names = new Set([...Object.keys(snapshot ? snapshot.layers : {}), ...(snapshot ? snapshot.routes.map(route => route.layer) : [])]);
   if (lootmap) names.add('lootmap');
+  if (overlay) for (const row of overlay.features) names.add(overlayName(row.properties.kind));
   layerBox.replaceChildren();
   for (const name of [...names].sort()) {
     if (!enabled.has(name)) enabled.set(name,true);
@@ -114,7 +118,7 @@ function draw() {
   }
   ctx.fillStyle = '#c0cec1';
   for (const [name,x,z] of towns) { const [px,py] = xy(x,z); ctx.fillText(name,px+3,py-4); }
-  if (!snapshot && !lootmap) return;
+  if (!snapshot && !lootmap && !overlay) return;
   for (const route of (snapshot ? snapshot.routes : [])) {
     if (!enabled.get(route.layer)) continue;
     const vertices = route.points.map(p => xy(p[0],p[1]));
@@ -130,6 +134,12 @@ function draw() {
       return {...point,id:'loot-'+index,label:point.className,
         detail:`${lootmap.state} · ground observed ${row.count} / nominal ${row.nominal}\n${lootmap.reason} · captured ${new Date(lootmap.time*1000).toLocaleString()}`};
     });
+  }
+  if (overlay) for (const row of overlay.features) {
+    const p = row.properties, name = overlayName(p.kind);
+    if (!layers[name]) layers[name] = [];
+    layers[name].push({id:'RPT', x:p.position[0], z:p.position[1], label:p.module,
+      detail:`Reason: ${p.reason}\nCount: ${p.count} (occurrences at this position)`});
   }
   for (const [layer,points] of Object.entries(layers)) {
     if (!enabled.get(layer)) continue;
@@ -165,6 +175,20 @@ async function refreshLoot() {
   }
   syncLayers(); draw();
 }
+async function refreshOverlay() {
+  try {
+    const response = await fetch('/overlay.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if (!response.ok) throw new Error('layer unavailable or not configured');
+    const incoming = await response.json();
+    if (incoming.version !== 1 || incoming.type !== 'FeatureCollection') throw new Error('unsupported layer');
+    overlay = incoming;
+    overlayStatus.textContent = `RPT overlay: ${overlay.features.length} aggregated positions. Historical log observations, not live state. Read ${new Date().toLocaleTimeString()}.`;
+  } catch (error) {
+    overlay = null;
+    overlayStatus.textContent = `RPT overlay unavailable: ${error.message}.`;
+  }
+  syncLayers(); draw();
+}
 function segmentDistance(x,y,a,b) {
   const dx=b[0]-a[0], dy=b[1]-a[1], square=dx*dx+dy*dy;
   const t = square ? Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/square)) : 0;
@@ -186,7 +210,7 @@ canvas.addEventListener('mouseleave',() => { hover.textContent = 'Hover a marker
 async function refresh() {
   if (busy) return;
   busy = true;
-  const lootRead = refreshLoot();
+  const otherReads = Promise.all([refreshLoot(), refreshOverlay()]);
   try {
     const response = await fetch('/snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});
     if (!response.ok) throw new Error('export unavailable or write/recovery pending');
@@ -198,7 +222,7 @@ async function refresh() {
   } catch (error) {
     const previous = received ? ` Last valid read ${new Date(received).toLocaleTimeString()}.` : '';
     status.textContent = `Waiting: ${error.message}.${previous}`;
-  } finally { await lootRead; busy = false; }
+  } finally { await otherReads; busy = false; }
 }
 lootFilter.addEventListener('input',draw);
 lootExact.addEventListener('change',draw);

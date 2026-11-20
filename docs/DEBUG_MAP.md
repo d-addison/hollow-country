@@ -277,3 +277,32 @@ failure path, stale timestamps, byte/route limits and client rendering budget
 before wiring. Requires native Windows compile, normal server/PBO testing and
 one client for authentication, replication and visibility checks. #122 itself adds
 no RPC, permission gate or UI; the admin map that followed lives under `Admin/`.
+
+
+## Process audit 13: historical RPT overlay
+
+The tooling-only refusal overlay reuses the existing
+`$profile:HollowCountry/debug/snapshot.json` writer and contributor layers;
+no new server writer, settings or game commands are needed. Run:
+
+```sh
+python3 -B -m tools.webmap.rpt_overlay /path/to/server.RPT --out /tmp/hollow-country-rpt-overlay.json
+python3 -B -m tools.webmap.server --snapshot /path/to/profile/HollowCountry/debug/snapshot.json --overlay /tmp/hollow-country-rpt-overlay.json
+```
+
+The viewer adds one toggle per RPT kind and hover details with module, reason
+and aggregated occurrence count. It displays historical coordinate-bearing
+refusals/incidents beside the current contributed AI points/routes. Coordinates
+are x,z metres, never lat/lon; missing positions are counted as unplaced rather
+than guessed. The parser drops whole lines matching
+`steam ?id|uid|name=|[0-9]{17}|Player "|id=` (case insensitive), with bounded
+streaming and sanitized output. Regenerate the layer to include newer log
+entries; polling only rereads the generated file.
+
+See [webmap usage and validation](../tools/webmap/README.md#rpt-refusals-beside-world-state)
+for format, limits and exact read-only log counts. The two newest RPTs inspected
+on 2026-11-19 yielded zero entries in every kind and no retained player names
+or ids; two lines were privacy-dropped. The existing snapshot validated with
+16 AI camp points and zero routes. Populated native refusal parsing, live AI
+routes, browser alignment and server/single-client acceptance remain pending.
+No multiplayer proof or accepted engine experiment is claimed.

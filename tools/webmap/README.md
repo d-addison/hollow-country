@@ -10,7 +10,7 @@ Open `http://127.0.0.1:8765/`. The listener always binds `127.0.0.1`; there is
 no remote-bind option. `--port 8765` selects the port. Optional
 `--map-image '/path/to/your-own/chernarus.png'` accepts a local PNG/JPG up to
 32 MiB. No third-party packages, external scripts, map tiles or CDN are used.
-Only the index, snapshot, sibling loot map and explicitly supplied image can be served. This is
+Only the index, snapshot, sibling loot map, explicitly supplied RPT overlay and image can be served. This is
 a read-only operator tool with no game commands or admin authentication.
 
 The viewer re-reads the snapshot on each request (1 MiB maximum), checks the
@@ -170,3 +170,64 @@ not the eligible `materializer_candidates` rows). A `layerStats` row may carry a
 optional `unplaced` count (rows with no drawable position, kept out of `total`);
 it is validated when present and shown in the legend. Offline check only:
 `tests/unit/test_debug_map_layers.py`; nothing observed in DayZ yet.
+
+
+## RPT refusals beside world state
+
+Generate a layer from one or more **server RPTs**, keeping the output outside
+this repository (the default is `/tmp/hollow-country-rpt-overlay.json` on this host):
+
+```sh
+python3 -B -m tools.webmap.rpt_overlay /path/to/server.RPT --out /tmp/hollow-country-rpt-overlay.json
+python3 -B -m tools.webmap.server --snapshot /path/to/profile/HollowCountry/debug/snapshot.json --overlay /tmp/hollow-country-rpt-overlay.json
+```
+
+`--overlay` also works without `--snapshot`. With both options, the existing
+snapshot layers (including contributed AI positions/routes) and sibling loot
+map remain available. The viewer polls the supplied files every 15 seconds;
+rerun the parser to update its historical RPT layer. It does not tail logs or
+request an engine snapshot. An unavailable overlay is cleared with a visible
+status, independently of the last valid world snapshot.
+
+Each `rpt/<kind>` checkbox controls one of `route-refusal`, `ai-refusal`,
+`event-bind`, `shelter-refusal`, `interior-warning`, or `incident`. Hover a point
+for module, reason, occurrence count and metre coordinates. Refused-leg endpoints
+are plotted as separate points, without inventing a traversable route. Counts
+aggregate identical kind/module/reason/position observations across all input
+files; repeated/overlapping logs will count twice. The CLI prints counts of
+classified **lines** per kind, including `unplacedByKind` for diagnostics with
+no valid coordinates; endpoint counts must not be summed as event counts.
+
+The version-1 `FeatureCollection` uses DayZ **x,z metres**, not geographic
+longitude/latitude. Each point has `kind`, `module`, `reason`, `position: [x,z]`
+and `count` properties. Coordinates come only from the same log line: labelled
+`pos/position/at/from/to/start/end/anchor/point/center/centre/waypoint` pairs or
+x,y,z vectors, bracketed vectors, or `x=… z=…`. Native route `from=|x,y,z` and
+`to=|x,y,z` are supported. Missing coordinates are reported, never inferred from
+site ids, nearby lines or a catalog. Reasons retain a reason/refusal token or a
+short sanitized diagnostic suffix, never the raw RPT line.
+
+Before classification, whole lines matching the case-insensitive expression
+`steam ?id|uid|name=|[0-9]{17}|Player "|id=` are dropped, even if `id=` names a
+non-player object. No filenames, timestamps, raw lines or source identities are
+written to the layer. UTF-8 and BOM-marked UTF-16 RPTs stream with a 64 KiB line
+cap; oversized lines are skipped whole. The layer caps at 2,048 distinct points
+and 1 MiB, reports omitted positions, and replaces the output via a sibling
+temporary file. The loopback server bounds and validates each read, rejects
+identity markers and serves only the approved feature fields.
+
+Read-only validation on 2026-11-19 used the two newest files in
+`/mnt/d/HollowCountryLocal/friend-local-1/profiles/`:
+
+| RPT | Route | AI | Event bind | Shelter | Interior | Incident | Privacy-dropped lines |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `DayZServer_x64_2026-11-19_18-27-14.RPT` | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
+| `DayZServer_x64_2026-11-19_18-17-00.RPT` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+Both generated empty layers: no player names or ids were retained, and the
+serialized output had no privacy-pattern matches. This is not positive native
+coverage of diagnostic formats. The existing snapshot passed schema validation
+and had 16 `ai-camps` points and zero routes, with no pending intent at read time.
+That confirms file compatibility only. Real populated refusal logs, live AI
+routes, interactive browser alignment and native server/single-client behavior
+remain unverified. No game process was launched, stopped or signalled.

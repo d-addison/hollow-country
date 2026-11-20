@@ -6,6 +6,8 @@ import math
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from tools.webmap.rpt_overlay import MAX_BYTES as MAX_OVERLAY_BYTES, validate_layer
+
 BIND_ADDRESS = "127.0.0.1"
 MAX_SNAPSHOT_BYTES = 1048576
 MAX_LOOTMAP_BYTES = 65536
@@ -117,13 +119,14 @@ def _validate_lootmap(data):
             raise ValueError("inconsistent lootmap points")
 
 
-def make_handler(snapshot, map_image=None):
+def make_handler(snapshot, map_image=None, overlay=None):
     """Only these explicit resources are served; never expose a directory."""
-    snapshot_path = Path(snapshot)
+    snapshot_path = Path(snapshot) if snapshot is not None else None
+    overlay_path = Path(overlay) if overlay is not None else None
     image_path = Path(map_image) if map_image is not None else None
-    intent_path = Path(str(snapshot_path) + ".tmp")
-    lootmap_path = snapshot_path.with_name("lootmap.json")
-    lootmap_intent = Path(str(lootmap_path) + ".tmp")
+    intent_path = Path(str(snapshot_path) + ".tmp") if snapshot_path else None
+    lootmap_path = snapshot_path.with_name("lootmap.json") if snapshot_path else None
+    lootmap_intent = Path(str(lootmap_path) + ".tmp") if lootmap_path else None
 
     class Handler(BaseHTTPRequestHandler):
         map_image = image_path
@@ -146,7 +149,7 @@ def make_handler(snapshot, map_image=None):
                 if path in ("/", "/index.html"):
                     body = Path(__file__).with_name("index.html").read_bytes()
                     status, kind = 200, "text/html; charset=utf-8"
-                elif path == "/snapshot.json":
+                elif path == "/snapshot.json" and snapshot_path is not None:
                     if intent_path.exists():
                         raise ValueError("snapshot write/recovery pending")
                     with snapshot_path.open("rb") as source:
@@ -155,7 +158,7 @@ def make_handler(snapshot, map_image=None):
                         raise ValueError("snapshot incomplete or too large")
                     _validate(json.loads(body.decode("utf-8")))
                     status, kind = 200, "application/json; charset=utf-8"
-                elif path == "/lootmap.json":
+                elif path == "/lootmap.json" and lootmap_path is not None:
                     if lootmap_intent.exists():
                         raise ValueError("lootmap write/recovery pending")
                     with lootmap_path.open("rb") as source:
@@ -163,6 +166,21 @@ def make_handler(snapshot, map_image=None):
                     if len(body) > MAX_LOOTMAP_BYTES or lootmap_intent.exists():
                         raise ValueError("lootmap incomplete or too large")
                     _validate_lootmap(json.loads(body.decode("utf-8")))
+                    status, kind = 200, "application/json; charset=utf-8"
+                elif path == "/overlay.json" and overlay_path is not None:
+                    with overlay_path.open("rb") as source:
+                        body = source.read(MAX_OVERLAY_BYTES + 1)
+                    if len(body) > MAX_OVERLAY_BYTES:
+                        raise ValueError("overlay too large")
+                    data = json.loads(body.decode("utf-8"))
+                    validate_layer(data)
+                    # No arbitrary metadata from an operator-supplied file is exposed.
+                    body = json.dumps({"version": 1, "type": "FeatureCollection",
+                                       "map": "chernarusplus", "features": [
+                        {"type": "Feature", "geometry": {"type": "Point", "coordinates": row["properties"]["position"]},
+                         "properties": {key: row["properties"][key] for key in
+                                        ("kind", "module", "reason", "position", "count")}}
+                        for row in data["features"]]}).encode("utf-8")
                     status, kind = 200, "application/json; charset=utf-8"
                 elif path == "/map-image" and image_path is not None:
                     with image_path.open("rb") as source:
@@ -193,15 +211,18 @@ def make_handler(snapshot, map_image=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--snapshot", required=True, type=Path)
+    parser.add_argument("--snapshot", type=Path, help="existing profile HollowCountry/debug/snapshot.json")
+    parser.add_argument("--overlay", type=Path, help="layer from tools.webmap.rpt_overlay")
     parser.add_argument("--map-image", type=Path, help="operator's full-map PNG/JPG (not distributed)")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args(argv)
+    if args.snapshot is None and args.overlay is None:
+        parser.error("provide --snapshot and/or --overlay")
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
     if args.map_image is not None and args.map_image.suffix.lower() not in (".png", ".jpg", ".jpeg"):
         parser.error("map image must be PNG/JPG")
-    with HTTPServer((BIND_ADDRESS, args.port), make_handler(args.snapshot, args.map_image)) as server:
+    with HTTPServer((BIND_ADDRESS, args.port), make_handler(args.snapshot, args.map_image, args.overlay)) as server:
         server.timeout = 1
         print(f"Hollow Country debug map: http://{BIND_ADDRESS}:{args.port}/", flush=True)
         try:
