@@ -266,6 +266,43 @@ class HCBuildingClaim
         return false;
     }
 
+    // #252: completion-only, bounded ownership admission; no lock writes.
+    // Native Building.c:31/55 GetDoorCount/IsDoorLocked; Object.c:370/874
+    // GetCollisionBox/WorldToModel (scripts-1.30.164289).
+    string HCFirstClaimRefusal(Building building, int groupId)
+    {
+        if (groupId < 1) { return "Only a group owner or officer can claim a building."; }
+        int doors = building.GetDoorCount();
+        if (doors < 1 || doors > 128) { return "Building door check unavailable."; }
+        for (int doorIndex = 0; doorIndex < doors; doorIndex++)
+        {
+            if (building.IsDoorLocked(doorIndex)) { return "Cannot claim a building with a locked door."; }
+        }
+        if (!m_Data.Camps || m_Data.Camps.Count() > HCAILimits.Get().MaxCamps) { return "Camp ownership check unavailable."; }
+        vector bounds[2];
+        if (!building.GetCollisionBox(bounds) || bounds[0][0] > bounds[1][0] || bounds[0][1] > bounds[1][1] || bounds[0][2] > bounds[1][2]) { return "Building bounds check unavailable."; }
+        string actorGroup = groupId.ToString();
+        foreach (HCCampRecord camp : m_Data.Camps)
+        {
+            if (!camp) { return "Camp ownership check unavailable."; }
+            if (camp.GroupId == actorGroup) { continue; }
+            // Same 12m hearth envelope as HCCampScan.Read. Test against the
+            // whole building's local box, not its potentially distant origin.
+            vector campLocal = building.WorldToModel(camp.Position);
+            vector nearest = campLocal;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                if (nearest[axis] < bounds[0][axis]) { nearest[axis] = bounds[0][axis]; }
+                if (nearest[axis] > bounds[1][axis]) { nearest[axis] = bounds[1][axis]; }
+            }
+            if (vector.DistanceSq(campLocal, nearest) <= 144)
+            {
+                return "Cannot claim a building overlapping another group's hearth camp.";
+            }
+        }
+        return "";
+    }
+
     // #151: ownership controls who may SET a native lock. Unlock/forced entry
     // remain entirely native, including tool damage and broken-door state.
     // No periodic lock replay: a breached door stays breached until relocked
@@ -311,6 +348,11 @@ class HCBuildingClaim
         if (!groups || !groups.HCClaimHealthy()) { return "Claim service unavailable."; }
         // Re-read authenticated live peer and manager role at completion.
         int groupId = groups.HCClaimActorGroup(player, true);
+        if (!release)
+        {
+            string refusal = HCFirstClaimRefusal(building, groupId);
+            if (refusal != "") { return refusal; }
+        }
         string result = HCApply(groupId, true, HCIdentity(building), building.GetPosition(), HCWorldClock.UTC(), release);
         if (result == "")
         {

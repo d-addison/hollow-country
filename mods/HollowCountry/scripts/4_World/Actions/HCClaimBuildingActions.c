@@ -40,6 +40,9 @@ class HCClaimBuildingAction : ActionContinuousBase
         if (!HCBuildingClaim.HCActor(player) || !target || target.GetParent() || !IsInReach(player, target, UAMaxDistances.DEFAULT)) { return false; }
         Building building = Building.Cast(target.GetObject());
         if (!building || !HCBuildingClaim.HCDoor(building, building.GetDoorIndex(target.GetComponentIndex()))) { return false; }
+        // Native 3_Game/Entities/Building.c:55 IsDoorLocked. Full bounded
+        // building/camp checks run at completion, never in per-frame scans.
+        if (!HCReleaseRequest() && building.IsDoorLocked(building.GetDoorIndex(target.GetComponentIndex()))) { return false; }
         // #239: the client shows Claim only to a group owner or officer whose group holds no
         // claim, and Release only on the held building (server hint, HCBuildingClaimHint).
         // The server checks geometry only, so a stale hint ends with HCRequest's message at
@@ -58,7 +61,7 @@ class HCClaimBuildingAction : ActionContinuousBase
         if (claims) { reason = claims.HCRequest(action_data.m_Player, action_data.m_Target, HCReleaseRequest()); }
         if (reason == "")
         {
-            reason = "Building claimed for your group.";
+            reason = "Claimed: your group controls door locking; no auto-locks; respawn needs a hearth camp.";
             if (HCReleaseRequest()) { reason = "Building claim released."; }
         }
         action_data.m_Player.MessageStatus(reason);
