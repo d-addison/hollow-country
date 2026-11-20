@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<prototype>
+  <group name="StaticObj_Misc_SupplyBox2_DE" lootmax="3">
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+    <container name="loot" lootmax="3">
+      <category name="weapons" />
+      <tag name="shelves" />
+      <point pos="0.002854 0.438721 0.542980" range="0.134375" height="0.335938" />
+      <point pos="0.010212 0.431763 -0.010903" range="0.409375" height="1.023438" />
+      <point pos="-0.190548 0.425385 -0.506625" range="0.125495" height="0.335938" />
+    </container>
+  </group>
+</prototype>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- vehexp: CE-only replacement event definitions. active=0 is the per-family operator opt-out; install-time EnableTravel=false opts out of the overlay. Cars 9/family, motorbikes 28, boats 6 shared across native and Expansion, trucks/bus/tractor 7, air 4 total. Provisional budgets; visibility and placement runtime=PENDING. -->
+<!-- HC encounter scenes are registered separately from hc-events.xml by tools.package.hc_events; travel owns this vehicle roster. -->
 <events>
   <event name="VehicleCivilianSedan">
     <nominal>9</nominal>

@@ -1,0 +1,153 @@
+<?xml version='1.0' encoding='utf-8'?>
+<events>
+  <event name="StaticHCConvoyAmbush">
+    <nominal>3</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCArmorRecovery">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCSupplyTruck">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCPoliceEvidence">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCPrisonTransfer">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCBanditCache">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCSniperExtraction">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2400</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCFieldHospital">
+    <nominal>2</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2700</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCTransportDown">
+    <nominal>4</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2700</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+  <event name="StaticHCCargoSpill">
+    <nominal>3</nominal>
+    <min>0</min>
+    <max>0</max>
+    <lifetime>2700</lifetime>
+    <restock>0</restock>
+    <saferadius>500</saferadius>
+    <distanceradius>800</distanceradius>
+    <cleanupradius>1000</cleanupradius>
+    <flags deletable="1" init_random="0" remove_damaged="0" />
+    <position>fixed</position>
+    <limit>child</limit>
+    <active>1</active>
+    <children />
+  </event>
+</events>
