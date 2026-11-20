@@ -1267,6 +1267,9 @@ class CfgVehicles
 class CfgAmmo
 {
     class MeleeDamage;
+    class Dummy_Heavy;
+    // MEL-14 guard shove: the vanilla push/kick stagger with zero damage, renamed so HC melee rules skip it.
+    class HCMeleeShove: Dummy_Heavy {};
     class HCMeleeExecute: MeleeDamage
     {
         hitAnimation = 1;
