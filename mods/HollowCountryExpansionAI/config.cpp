@@ -5,7 +5,7 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"HollowCountry", "DayZExpansion_AI_Scripts", "DayZExpansion_Vehicles_Scripts", "DayZExpansion_AI_Animations", "DayZExpansion_Sounds_AI", "DayZExpansion_Core_Scripts", "DayZExpansion_ModStorage_Scripts", "JM_CF_Scripts", "DF_Scripts", "DF_GUI", /* BEGIN HC inventory dependencies */ "DayZ_Otter", "DayZ_Rat", "DayZ_Raven", "DayZ_Squirrel", "DayZExpansion_Core_Objects_CircuitBoard", "RaG_Core_Scripts", "rag_immersive_vehicles" /* END HC inventory dependencies */};
+        requiredAddons[] = {"HollowCountry", "DayZExpansion_AI_Scripts", "DayZExpansion_Vehicles_Scripts", "DayZExpansion_AI_Animations", "DayZExpansion_Sounds_AI", "DayZExpansion_Core_Scripts", "DayZExpansion_ModStorage_Scripts", "JM_CF_Scripts", "JM_COT_Scripts", "DF_Scripts", "DF_GUI", /* BEGIN HC inventory dependencies */ "DayZ_Otter", "DayZ_Rat", "DayZ_Raven", "DayZ_Squirrel", "DayZExpansion_Core_Objects_CircuitBoard", "RaG_Core_Scripts", "rag_immersive_vehicles" /* END HC inventory dependencies */};
     };
 };
 class CfgMods

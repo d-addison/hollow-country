@@ -1,5 +1,10 @@
-// #228. Public API evidence from installed COT item 1564026768, addons/scripts.pbo:
+// #228/#289. Public API evidence from installed COT item 1564026768, addons/scripts.pbo:
+// config.bin: CfgPatches/JM_COT_Scripts. HCX must require JM_COT_Scripts
+// alongside JM_CF_Scripts so COT's World classes load before this binding.
 // 3_Game/CommunityOnlineTools/StaticFunctions.c:2 defines JM_COT_LOADED.
+// COT is a declared HCX dependency in tools/setup/workshop_mods.json.
+// Bind unconditionally: a missing dependency must fail compilation instead of
+// silently removing the provider behind a preprocessor guard (#289).
 // 4_World/CommunityOnlineTools/Classes/Permissions/JMPermissionManager.c:
 // :27-34 constructor initializes service collections/root; :14 m_MissionLoaded;
 // :363-365 SetMissionLoaded; :659-677 RegisterPermission (INHERIT default,
@@ -8,7 +13,6 @@
 // Native scripts-1.30.164289/3_Game/gameplay.c:636 GetGame, :368 GetId;
 // 3_Game/Global/Game.c:1120 IsServer. No Expansion calls or vendor code copied.
 // Constant work per check, no tick controller, no identity logging/profile reads.
-#ifdef JM_COT_LOADED
 modded class JMPermissionManager
 {
     protected bool m_HCXCotRegistered;
@@ -57,4 +61,3 @@ modded class HCAdminPermissionAdapter
         return port;
     }
 }
-#endif
