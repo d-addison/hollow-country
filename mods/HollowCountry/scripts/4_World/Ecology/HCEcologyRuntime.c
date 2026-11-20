@@ -35,6 +35,7 @@ class HCEcologyRuntime
 	protected ref HCEcologyPolicy m_Policy;
 	protected ref HCEcologyState m_State;
 	protected bool m_Running;
+	protected bool m_Stopping;
 	// Collect initial EEInit callbacks before Start; Stop/admission failure closes
 	// this window until another successful Start. Late teardown hooks cannot refill it.
 	protected bool m_Collecting = true;
@@ -221,6 +222,7 @@ class HCEcologyRuntime
 
 	bool Begin(HCEcologyRuntimeSettings settings, string worldName, string session)
 	{
+        if (m_Stopping) { m_StartRefusal = "checkpoint_draining"; return false; }
 		int admissionStart = TickCount(0);
 		m_StartRefusal = "";
 		if (m_Running) { m_StartRefusal = "already_running"; return false; }
@@ -322,7 +324,7 @@ class HCEcologyRuntime
 
 	static void Tick(int nowMs)
 	{
-		if (!s_Instance || !s_Instance.m_Running) { return; }
+		if (!s_Instance || (!s_Instance.m_Running && !s_Instance.m_Stopping)) { return; }
 		int tickStart = TickCount(0);
 		s_Instance.m_Visited = 0;
 		s_Instance.Pump(nowMs);
@@ -332,11 +334,20 @@ class HCEcologyRuntime
 
 	void Pump(int nowMs)
 	{
+        // A refused observer still drains its diagnostic checkpoint through the
+        // scheduler. No observation/native route work runs during this drain.
+        if (m_Stopping)
+        {
+            if (!m_SaveJob || m_SaveJob.HCFailed()) { HCRelease(); return; }
+            if (m_Dirty) { m_SaveJob.HCDirty = true; return; }
+            HCRelease();
+            return;
+        }
 		if (!m_Running) { return; }
 		if (m_SaveJob && m_SaveJob.HCFailed())
 		{
 			m_Running = false;
-			Finish();
+			HCRequestFinish();
 			return;
 		}
 		// Scheduler completion clears HCDirty; a newer counter mutation may have
@@ -344,13 +355,13 @@ class HCEcologyRuntime
 		if (m_SaveJob && m_Dirty) { m_SaveJob.HCDirty = true; }
 		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(m_Policy.WorldName, GetGame().GetWorldName()))
 		{
-			Finish();
+			HCRequestFinish();
 			return;
 		}
 		if (!HCEcologyRuntimeRules.ClockValid(nowMs) || nowMs < m_LastNow)
 		{
 			Print("[HC Ecology] native session clock invalid; stopped");
-			Finish();
+			HCRequestFinish();
 			return;
 		}
 		m_LastNow = nowMs;
@@ -487,7 +498,7 @@ class HCEcologyRuntime
 		if (code != HCEcologyCode.OK || directives.Count() != 0)
 		{
 			Print("[HC Ecology] scheduling contract rejected");
-			Finish();
+			HCRequestFinish();
 			return;
 		}
 		// Commit requires a qualified native provider even for an empty set.
@@ -510,7 +521,7 @@ class HCEcologyRuntime
 		if (!HCEcologyRuntimeRules.CountersFit(m_Checkpoint, m_CycleSamples, m_CycleQueries))
 		{
 			Print("[HC Ecology] bounded diagnostic counters exhausted");
-			Finish();
+			HCRequestFinish();
 			return;
 		}
 		m_Checkpoint.Samples += m_CycleSamples;
@@ -530,7 +541,7 @@ class HCEcologyRuntime
 		{
 			// The failed store is poisoned; release handles without retrying it.
 			m_Running = false;
-			Finish();
+			HCRequestFinish();
 		}
 		m_LastSave = nowMs;
 	}
@@ -729,9 +740,19 @@ class HCEcologyRuntime
 		if (s_Instance) { s_Instance.Finish(); }
 	}
 
+    void HCRequestFinish()
+    {
+        m_Running = false;
+        m_Stopping = true;
+        m_Collecting = false;
+        m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
+        if (!m_SaveJob || m_SaveJob.HCFailed()) { HCRelease(); return; }
+        if (m_Dirty) { m_SaveJob.HCDirty = true; }
+    }
+
 	void Finish()
 	{
-		bool wasRunning = m_Running;
+		bool wasRunning = m_Running || m_Stopping;
 		m_Running = false;
 		m_Collecting = false;
 		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
@@ -742,6 +763,12 @@ class HCEcologyRuntime
 			// continuation first, then synchronously persist only that delta.
 			if (flushed) { HCWriteCheckpoint(); }
 		}
+        HCRelease();
+    }
+
+    void HCRelease()
+    {
+        m_Stopping = false;
 		if (m_SaveJob)
 		{
 			HCSaveScheduler.HCUnregister(m_SaveJob);

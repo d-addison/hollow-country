@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // Pure scheduling policy only: this source is intentionally unregistered and
 // performs no entity, population, command, transform, or persistence mutation.
 //
@@ -94,6 +95,7 @@ class HCEcologyRules
 			return false;
 		}
 		int i = 0;
+		map<string, bool> hintIds = new map<string, bool>;
 		while (i < policy.RouteHints.Count())
 		{
 			HCEcologyRouteHint hint = policy.RouteHints.Get(i);
@@ -101,15 +103,8 @@ class HCEcologyRules
 			{
 				return false;
 			}
-			int j = i + 1;
-			while (j < policy.RouteHints.Count())
-			{
-				if (!policy.RouteHints.Get(j) || policy.RouteHints.Get(j).Id == hint.Id)
-				{
-					return false;
-				}
-				j++;
-			}
+			if (hintIds.Contains(hint.Id)) { return false; }
+			hintIds.Set(hint.Id, true);
 			i++;
 		}
 		return true;
@@ -186,6 +181,7 @@ class HCEcologyRules
 			return false;
 		}
 		int i = 0;
+		map<string, bool> assignmentIds = new map<string, bool>;
 		while (i < state.Assignments.Count())
 		{
 			HCEcologyAssignment assignment = state.Assignments.Get(i);
@@ -197,15 +193,8 @@ class HCEcologyRules
 			{
 				return false;
 			}
-			int j = i + 1;
-			while (j < state.Assignments.Count())
-			{
-				if (!state.Assignments.Get(j) || state.Assignments.Get(j).ActorId == assignment.ActorId)
-				{
-					return false;
-				}
-				j++;
-			}
+			if (assignmentIds.Contains(assignment.ActorId)) { return false; }
+			assignmentIds.Set(assignment.ActorId, true);
 			i++;
 		}
 		return true;
@@ -234,6 +223,7 @@ class HCEcologyRules
 			return false;
 		}
 		int i = 0;
+		map<string, bool> actorIds = new map<string, bool>;
 		while (i < batch.Actors.Count())
 		{
 			HCEcologyActorObservation actor = batch.Actors.Get(i);
@@ -241,18 +231,12 @@ class HCEcologyRules
 			{
 				return false;
 			}
-			int j = i + 1;
-			while (j < batch.Actors.Count())
-			{
-				if (!batch.Actors.Get(j) || batch.Actors.Get(j).Id == actor.Id)
-				{
-					return false;
-				}
-				j++;
-			}
+			if (actorIds.Contains(actor.Id)) { return false; }
+			actorIds.Set(actor.Id, true);
 			i++;
 		}
 		i = 0;
+		map<string, bool> zoneIds = new map<string, bool>;
 		while (i < batch.Zones.Count())
 		{
 			HCEcologyZoneObservation zone = batch.Zones.Get(i);
@@ -260,15 +244,8 @@ class HCEcologyRules
 			{
 				return false;
 			}
-			int k = i + 1;
-			while (k < batch.Zones.Count())
-			{
-				if (!batch.Zones.Get(k) || batch.Zones.Get(k).Id == zone.Id)
-				{
-					return false;
-				}
-				k++;
-			}
+			if (zoneIds.Contains(zone.Id)) { return false; }
+			zoneIds.Set(zone.Id, true);
 			i++;
 		}
 		return true;
@@ -626,6 +603,8 @@ class HCEcologyRules
 		int confirmed = 0;
 		bool rejected = false;
 		int observationAtMs = state.LastObservationMs;
+		map<string, bool> directiveActors = new map<string, bool>;
+		map<string, bool> directiveZones = new map<string, bool>;
 		while (i < directives.Count())
 		{
 			HCEcologyDirective directive = directives.Get(i);
@@ -669,15 +648,9 @@ class HCEcologyRules
 			{
 				newAssignments++;
 			}
-			int j = i + 1;
-			while (j < directives.Count())
-			{
-				if (!directives.Get(j) || directives.Get(j).ActorId == directive.ActorId || directives.Get(j).ZoneId == directive.ZoneId)
-				{
-					return HCEcologyCode.INVALID;
-				}
-				j++;
-			}
+			if (directiveActors.Contains(directive.ActorId) || directiveZones.Contains(directive.ZoneId)) { return HCEcologyCode.INVALID; }
+			directiveActors.Set(directive.ActorId, true);
+			directiveZones.Set(directive.ZoneId, true);
 			i++;
 		}
 		if (state.Assignments.Count() + newAssignments > policy.MaxActors)
@@ -740,6 +713,7 @@ class HCEcologyRules
 		}
 		int i = 0;
 		int observationAtMs = state.LastObservationMs;
+		map<string, bool> retiredActors = new map<string, bool>;
 		while (i < receipts.Count())
 		{
 			HCEcologyRetirementReceipt receipt = receipts.Get(i);
@@ -764,15 +738,8 @@ class HCEcologyRules
 			{
 				return HCEcologyCode.INVALID;
 			}
-			int j = 0;
-			while (j < i)
-			{
-				if (receipts.Get(j).ActorId == receipt.ActorId)
-				{
-					return HCEcologyCode.INVALID;
-				}
-				j++;
-			}
+			if (retiredActors.Contains(receipt.ActorId)) { return HCEcologyCode.INVALID; }
+			retiredActors.Set(receipt.ActorId, true);
 			if (receipt.ObservedAtMs > observationAtMs)
 			{
 				observationAtMs = receipt.ObservedAtMs;
@@ -788,17 +755,7 @@ class HCEcologyRules
 		while (i < state.Assignments.Count())
 		{
 			HCEcologyAssignment candidate = state.Assignments.Get(i);
-			bool remove = false;
-			int k = 0;
-			while (k < receipts.Count())
-			{
-				if (receipts.Get(k).ActorId == candidate.ActorId)
-				{
-					remove = true;
-				}
-				k++;
-			}
-			if (!remove)
+			if (!retiredActors.Contains(candidate.ActorId))
 			{
 				retained.Insert(candidate);
 			}

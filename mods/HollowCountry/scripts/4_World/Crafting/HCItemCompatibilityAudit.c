@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // #52/#56 diagnostic acquisition ONLY; no module registration or startup hook.
 // Installed 1.30.164289 APIs inspected: 3_Game/Global/Game.c:445-614,
 // 1_Core/proto/EnSystem.c:382-531, EnString.c:184-212,
@@ -355,14 +356,14 @@ class HCItemCompatibilityAudit
     protected static bool ReadAncestry(string root, HCItemCompatibilityRow row, out string error)
     {
         string currentClass = row.ItemClass;
-        array<string> visitedClasses = new array<string>;
-        visitedClasses.Insert(currentClass);
+        map<string, bool> visitedClasses = new map<string, bool>;
+        visitedClasses.Set(currentClass, true);
         for (int ancestorIndex = 0; ancestorIndex <= MAX_ANCESTORS; ancestorIndex++)
         {
             string parentName;
             if (!g_Game.ConfigGetBaseName(root + " " + currentClass, parentName))
                 return true;
-            if (parentName == "" || visitedClasses.Find(parentName) >= 0)
+            if (parentName == "" || visitedClasses.Contains(parentName))
             {
                 error = "invalid_or_cyclic_ancestry";
                 return false;
@@ -380,7 +381,7 @@ class HCItemCompatibilityAudit
             if (ancestorIndex == 0)
                 row.ParentClass = parentName;
             row.ConfigAncestors.Insert(parentName);
-            visitedClasses.Insert(parentName);
+            visitedClasses.Set(parentName, true);
             currentClass = parentName;
         }
         error = "ancestry_budget";

@@ -118,6 +118,10 @@ class HCEcologyRuntimeStore
     // retained; Open archives pending and validates primary, refusing corruption.
     // 4: primary verified. 5: pending removed, new primary admitted as before.
     // Exactly one full write/read per stage; result codes 0 done/1 more/2 failed.
+    // Perf batch E / #261: bounded staged writer, not a synchronous Save drain.
+    // HCEcologySaveJob.HCAdvance invokes exactly one phase per scheduler stage;
+    // each read/write is capped at 2048 bytes and pending names must stay intact.
+    // Analyzer currently recognizes only HCStagedSaveImage as a stage boundary.
 	int HCStepSave()
 	{
 		if (m_Fault && m_SavePhase <= 0) { return 2; }

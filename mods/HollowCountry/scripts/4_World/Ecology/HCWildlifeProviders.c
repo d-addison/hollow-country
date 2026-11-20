@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // #149 / w39: finite carcass economy + native wildlife activity/target providers.
 // Spec/plan/task: supplied #149 brief; central spec paths absent in this worktree.
 // Installed scripts-1.30.164289 native evidence:
@@ -157,13 +158,13 @@ class HCWildlifeProviders
         // Only the inspected stock red deer body; no arbitrary operator loot class.
         if (config.CarcassClass != "Animal_CervusElaphus") { return false; }
         if (config.Sites.Count() < 1 || config.Sites.Count() > config.MaxCarcasses) { return false; }
-        array<string> seen = new array<string>;
+        map<string, bool> seen = new map<string, bool>;
         array<ref HCWildlifeProviderSite> sites = config.Sites;
         foreach (HCWildlifeProviderSite site : sites)
         {
             if (!site || !HCEventDirector.TextValid(site.Id, 48) || !HCEcologyRuntimeRules.PositionValid(site.Position)) { return false; }
-            if (seen.Find(site.Id) >= 0) { return false; }
-            seen.Insert(site.Id);
+            if (seen.Contains(site.Id)) { return false; }
+            seen.Set(site.Id, true);
         }
         return true;
     }
@@ -242,11 +243,11 @@ class HCWildlifeProviders
             }
             if (!m_State || m_State.Version != 1 || !m_State.SpentSites || m_State.SpentSites.Count() > 8) { m_Fault = true; return HCRefuse("allocation_state_invalid"); }
             array<string> spent = m_State.SpentSites;
-            array<string> seen = new array<string>;
+            map<string, bool> seen = new map<string, bool>;
             foreach (string spentId : spent)
             {
-                if (!HCEventDirector.TextValid(spentId, 48) || seen.Find(spentId) >= 0) { m_Fault = true; return HCRefuse("allocation_identity_invalid"); }
-                seen.Insert(spentId);
+                if (!HCEventDirector.TextValid(spentId, 48) || seen.Contains(spentId)) { m_Fault = true; return HCRefuse("allocation_identity_invalid"); }
+                seen.Set(spentId, true);
             }
             if (!m_Ledger)
             {

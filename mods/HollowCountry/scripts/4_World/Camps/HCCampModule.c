@@ -264,6 +264,10 @@ class HCCampModule : HCModule
         Print("[HollowCountry] V2 camps disabled: UTC/schema/world/persistence fault; preserve camps.json, .tmp and .bak");
     }
 
+    // Perf batch E / #261: custody barrier, also called by HCBuildingClaim,
+    // HCBaseRaid, HCCampVisitors and HCCampProbes before their side effects.
+    // Those owners need durable continuations before this can become a request.
+    // Routine maintenance already uses HCStepCheckpoint below.
     bool Commit(int now)
     {
         bool hadCheckpoint = m_CheckpointWriter.SaveInFlight();

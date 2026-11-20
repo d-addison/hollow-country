@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
@@ -218,9 +219,11 @@ class HCWreckSalvage
         GetGame().ConfigGetTextArray("CfgVehicles " + wheel + " inventorySlot", slots);
         GetGame().ConfigGetTextArray("CfgVehicles " + vehicle + " attachments", attachments);
         if (slots.Count() > HC_MAX_WHEEL_SLOTS || attachments.Count() > HC_MAX_VEHICLE_ATTACHMENTS) return false;
+        map<string, bool> attachmentIndex = new map<string, bool>;
+        foreach (string attachment : attachments) { attachmentIndex.Set(attachment, true); }
         foreach (string slotName : slots)
         {
-            if (attachments.Find(slotName) >= 0) return true;
+            if (attachmentIndex.Contains(slotName)) return true;
         }
         return false;
     }
