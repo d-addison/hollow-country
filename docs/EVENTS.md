@@ -6,14 +6,14 @@ Nominal is a CE population target; no active count has been observed in DayZ.
 
 | Event (`StaticHC` prefix) | Nominal | Anchors | Story composition |
 | --- | ---: | ---: | --- |
-| ConvoyAmbush | 3 | 13 | Ural and abandoned UAZ with scattered supply crates |
+| ConvoyAmbush | 3 | 12 | Ural and abandoned UAZ with scattered supply crates |
 | ArmorRecovery | 3 | 13 | BMP and recovery Ural abandoned with weapons cargo |
-| SupplyTruck | 3 | 13 | Ural carrying weapons, medical and ration crates |
-| PoliceEvidence | 3 | 13 | Police wreck and UAZ carrying seized weapons |
+| SupplyTruck | 3 | 12 | Ural carrying weapons, medical and ration crates |
+| PoliceEvidence | 3 | 12 | Police wreck and UAZ carrying seized weapons |
 | PrisonTransfer | 3 | 13 | Bus and police escort stopped with transfer supplies |
 | BanditCache | 3 | 13 | UAZ beside two weapons crates and provisions |
-| SniperExtraction | 3 | 13 | BRDM extraction point with weapons and provisions |
-| FieldHospital | 3 | 13 | Medical van, UAZ and medical supply crates |
+| SniperExtraction | 3 | 12 | BRDM extraction point with weapons and provisions |
+| FieldHospital | 3 | 12 | Medical van, UAZ and medical supply crates |
 | TransportDown | 3 | 13 | UH-1Y crash and scattered elevated cargo |
 | CargoSpill | 3 | 13 | Mi-8 crash with two weapons crates and provisions |
 | APCColumn | 3 | 13 | BMP-2 and Stryker column abandoned with recovery cargo |
@@ -21,8 +21,8 @@ Nominal is a CE population target; no active count has been observed in DayZ.
 | HuntersLastStand | 3 | 13 | Abandoned offroad vehicle and hidden weapons stock |
 | SmugglerExchange | 3 | 13 | Closed trailer and police wreck at a failed exchange |
 | FireResponse | 3 | 13 | Fire truck and ambulance stranded with response supplies |
-| SupplyTrailer | 3 | 13 | Cargo truck, flat trailer and dispersed supply boxes |
-| **Total** | **48** | **208** | **16 groups; 100 authored object entries** |
+| SupplyTrailer | 3 | 12 | Cargo truck, flat trailer and dispersed supply boxes |
+| **Total** | **48** | **202** | **16 groups; 100 authored object entries** |
 
 The previous policy was 10 types, nominal 24, 200 anchors and 62 object entries.
 All new identities resolve as scope 2 in the installed vanilla

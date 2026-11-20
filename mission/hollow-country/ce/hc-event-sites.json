@@ -68,23 +68,6 @@
     },
     {
       "event": "StaticHCConvoyAmbush",
-      "source_event": "StaticMilitaryConvoy",
-      "source_position": {
-        "x": "10927.198",
-        "z": "13403.151",
-        "a": "0",
-        "y": "219.720",
-        "group": "Abandoned_Novo"
-      },
-      "authored_position": {
-        "x": "10837.198",
-        "z": "13403.151",
-        "a": "0"
-      },
-      "offset_m": 90.0
-    },
-    {
-      "event": "StaticHCConvoyAmbush",
       "source_event": "StaticHeliCrash",
       "source_position": {
         "x": "6297.924804",
@@ -406,21 +389,6 @@
     },
     {
       "event": "StaticHCSupplyTruck",
-      "source_event": "StaticPoliceCar",
-      "source_position": {
-        "x": "782.449402",
-        "z": "1914.130004",
-        "a": "40.403145"
-      },
-      "authored_position": {
-        "x": "850.985",
-        "z": "1855.795",
-        "a": "40.403145"
-      },
-      "offset_m": 90.0
-    },
-    {
-      "event": "StaticHCSupplyTruck",
       "source_event": "StaticBonfire",
       "source_position": {
         "x": "13237.445313",
@@ -612,21 +580,6 @@
         "a": "279.330658"
       },
       "offset_m": 90.0
-    },
-    {
-      "event": "StaticHCPoliceEvidence",
-      "source_event": "StaticPoliceCar",
-      "source_position": {
-        "x": "3567.862061",
-        "z": "2444.040528",
-        "a": "263.032471"
-      },
-      "authored_position": {
-        "x": "3583.632",
-        "z": "2315.001",
-        "a": "263.032471"
-      },
-      "offset_m": 130.0
     },
     {
       "event": "StaticHCPoliceEvidence",
@@ -1306,21 +1259,6 @@
     },
     {
       "event": "StaticHCSniperExtraction",
-      "source_event": "StaticPoliceCar",
-      "source_position": {
-        "x": "6573.369141",
-        "z": "2958.331787",
-        "a": "349.043274"
-      },
-      "authored_position": {
-        "x": "6700.999",
-        "z": "2983.041",
-        "a": "349.043274"
-      },
-      "offset_m": 130.0
-    },
-    {
-      "event": "StaticHCSniperExtraction",
       "source_event": "StaticBonfire",
       "source_position": {
         "x": "8425.390625",
@@ -1577,21 +1515,6 @@
         "a": "0"
       },
       "offset_m": 0.0
-    },
-    {
-      "event": "StaticHCFieldHospital",
-      "source_event": "StaticPoliceCar",
-      "source_position": {
-        "x": "13609.795898",
-        "z": "13342.584962",
-        "a": "260.361725"
-      },
-      "authored_position": {
-        "x": "13594.727",
-        "z": "13431.315",
-        "a": "260.361725"
-      },
-      "offset_m": 90.0
     },
     {
       "event": "StaticHCTransportDown",
@@ -3009,21 +2932,6 @@
         "a": "270.976105"
       },
       "offset_m": 90.0
-    },
-    {
-      "event": "StaticHCSupplyTrailer",
-      "source_event": "StaticPoliceCar",
-      "source_position": {
-        "x": "13101.706055",
-        "z": "10371.005859",
-        "a": "28.282209"
-      },
-      "authored_position": {
-        "x": "12987.225",
-        "z": "10432.602",
-        "a": "28.282209"
-      },
-      "offset_m": 130.0
     },
     {
       "event": "StaticHCSupplyTrailer",

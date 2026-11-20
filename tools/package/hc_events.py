@@ -79,7 +79,8 @@ def validate(source=SOURCE):
                 raise ValueError('encounter anchors less than 340 m apart')
             coords.add((x, z))
             count += 1
-    if count < 208 or used != group_names:
+    # 208 authored; anchors within building clearance of the shipped map overlays are retired.
+    if count < 200 or used != group_names:
         raise ValueError('incomplete encounter coverage')
     for g in groups:
         if not 6 <= len(g) <= 12 or not any(c.get('type') == CRATE for c in g):
