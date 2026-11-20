@@ -44,7 +44,7 @@ WORKSHOP_ID = '2646817942'
 MANAGED = 'hollow-country-tactical-flava'
 SNAFU_MANAGED = 'hollow-country-snafu'
 ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo', 'CfgVehicles')
-VANILLA_ROOTS = ('CfgMagazines', 'CfgAmmo')
+VANILLA_ROOTS = ROOTS
 KIND = 'tactical-flava-optional'
 SPAWNABLE = 'ce/cfgspawnabletypes.xml'
 DELTA_FILES = economy.DELTA_FILES | {SPAWNABLE}
@@ -53,14 +53,14 @@ RIGHTS_REQUIRED = {'license', 'redistribution', 'dependency_use', 'review', 'ter
 RIGHTS_FIXED = {'license': 'none-recorded', 'redistribution': 'none', 'dependency_use': 'unstated',
                 'review': 'pending'}
 ENTRY_REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'usage', 'value', 'justification'}
-EXTRA = {'weapon': {'vanilla_ammo', 'magazines', 'optic_requires'}, 'magazine': set(),
+EXTRA = {'weapon': {'vanilla_ammo', 'magazines', 'optic_requires'}, 'magazine': set(), 'ammo': set(),
          'optic': {'slot', 'fits'}, 'attachment': {'slot', 'fits'}}
-ROLES = {'weapon': {'modern', 'civilian'}, 'magazine': {'support'}, 'optic': {'modern'}, 'attachment': {'support'}}
+ROLES = {'weapon': {'modern', 'civilian', 'police'}, 'magazine': {'support'}, 'ammo': {'support'}, 'optic': {'modern'}, 'attachment': {'support'}}
 TIERS = {'common', 'uncommon', 'rare'}
 SET_FIELDS = ('nominal', 'min', 'lifetime', 'restock')
 MODERN_USAGE = {'Military', 'Police'}
 CLASS = re.compile(r'[A-Za-z0-9_]{1,80}')
-MAX_ENTRIES = 64
+MAX_ENTRIES = 1024
 MAX_PBOS = 64
 MAX_VANILLA_PBOS = 1024
 MAX_TERMS_BYTES = 8 * 1024 * 1024
@@ -96,7 +96,7 @@ def _safe_relative(text):
 
 
 def validate_allowlist(allowlist):
-    if not isinstance(allowlist, dict) or not TOP <= set(allowlist) <= TOP | {'hc61'} \
+    if not isinstance(allowlist, dict) or not TOP <= set(allowlist) <= TOP | {'hc61', 'test_abundance_multiplier'} \
             or type(allowlist['schema']) is not int or allowlist['schema'] != 1:
         raise ValueError('unsupported allowlist schema/fields')
     if not isinstance(allowlist['name'], str) or not re.fullmatch(r'[a-z0-9-]{1,64}', allowlist['name']):
@@ -116,6 +116,7 @@ def validate_allowlist(allowlist):
     if 'notes' in rights and (not isinstance(rights['notes'], list)
                               or any(not isinstance(n, str) for n in rights['notes'])):
         raise ValueError('invalid rights notes')
+    snafu_optional._nominal_scale(allowlist.get('test_abundance_multiplier', 1))
     entries = allowlist['entries']
     if not isinstance(entries, list) or not 0 < len(entries) <= MAX_ENTRIES:
         raise ValueError('allowlist entries missing or over budget')
@@ -177,7 +178,7 @@ def _validate_usage_rules(rows):
         if e['kind'] in {'weapon', 'optic'} and e['role'] == 'modern':
             if 'Military' not in usage or not usage <= MODERN_USAGE:
                 raise ValueError(f'modern pick must be Military (and Police only): {name}')
-        elif e['kind'] == 'weapon' and usage & MODERN_USAGE:
+        elif e['kind'] == 'weapon' and e['role'] == 'civilian' and usage & MODERN_USAGE:
             raise ValueError(f'civilian pick may not use Military or Police: {name}')
     for name, e in weapons.items():
         if not set(e['magazines']) <= set(magazines):
@@ -275,7 +276,7 @@ def _load_addons(root, problems, max_pbos, whole_hash=True):
                     defined[r].setdefault(cname, set()).add((p.name, member))
                     merged[r].setdefault(cname, row)
     duplicates = {r: {c for c, owners in defined[r].items() if len(owners) > 1} for r in ROOTS}
-    return merged, duplicates, models, listed
+    return snafu_optional.canonical_config(merged), duplicates, models, listed
 
 
 def load_vanilla(addons_dir, max_pbos=MAX_VANILLA_PBOS):
@@ -285,13 +286,15 @@ def load_vanilla(addons_dir, max_pbos=MAX_VANILLA_PBOS):
     if len(pbos) > max_pbos:
         raise ValueError('vanilla addon PBO count exceeds budget')
     table = {r: {} for r in VANILLA_ROOTS}
-    table['problems'], table['pbo_count'] = [], len(pbos)
+    table['problems'], table['pbo_count'], table['models'] = [], len(pbos), set()
     for p in pbos:
         if p.is_symlink() or not p.is_file():
             table['problems'].append(f'{p.name}: not a regular file')
             continue
         try:
-            configs = pbo_config.read_configs(p, VANILLA_ROOTS)
+            index = pbo_config.read_pbo_index(p)
+            configs = pbo_config.read_configs(p, VANILLA_ROOTS, index=index)
+            table['models'].update(pbo_config.model_paths(index))
         except Exception as e:
             table['problems'].append(f'{p.name}: {type(e).__name__}: {str(e)[:120]}')
             continue
@@ -356,13 +359,13 @@ def _need(array, appended, item, reason, reasons):
 
 def _evaluate(entry, merged, duplicates, models, vanilla, state):
     kind, name = entry['kind'], entry['class']
-    root = {'weapon': 'CfgWeapons', 'magazine': 'CfgMagazines'}.get(kind, 'CfgVehicles')
+    root = {'weapon': 'CfgWeapons', 'magazine': 'CfgMagazines', 'ammo': 'CfgMagazines'}.get(kind, 'CfgVehicles')
     classes = merged[root]
     reasons, notes = [], []
     if name not in classes:
         return {'status': 'missing', 'reasons': [f'not-defined-in-{root}'], 'notes': []}
     _common(entry, classes, root, duplicates, models, reasons, notes)
-    if kind == 'magazine':
+    if kind in {'magazine', 'ammo'}:
         bullet = pbo_config.resolve_field(classes, name, 'ammo')
         if bullet is None or (bullet not in vanilla['CfgAmmo'] and bullet not in merged['CfgAmmo']):
             reasons.append(f'bullet-class-missing:{bullet}')
@@ -385,10 +388,12 @@ def _evaluate(entry, merged, duplicates, models, vanilla, state):
         allowed = set()
         for a in entry['vanilla_ammo']:
             _need(chamber, chamber_app, a, ('chamberableFrom', f'ammo-not-chamberable:{a}'), reasons)
-            if a not in vanilla['CfgMagazines']:
-                reasons.append(f'ammo-not-in-vanilla:{a}')
-            else:
+            if a in vanilla['CfgMagazines']:
                 allowed.add(pbo_config.resolve_field(vanilla['CfgMagazines'], a, 'ammo'))
+            elif a in merged['CfgMagazines'] and state.get(a) == 'verified':
+                allowed.add(pbo_config.resolve_field(merged['CfgMagazines'], a, 'ammo'))
+            else:
+                reasons.append(f'ammo-not-in-vanilla:{a}')
         for m in entry['magazines']:
             _need(mags, mags_app, m, ('magazines', f'magazine-not-accepted:{m}'), reasons)
             if state.get(m) != 'verified':
@@ -400,12 +405,14 @@ def _evaluate(entry, merged, duplicates, models, vanilla, state):
             if state.get(need) != 'verified':
                 reasons.append(f'optic-requires-unverified:{need}')
     result = {'status': 'unverified' if reasons else 'verified', 'reasons': reasons, 'notes': notes}
+    if kind == 'ammo':
+        result['unit_rounds'] = pbo_config.resolve_field(classes, name, 'count')
     if kind == 'weapon':
         result['compatible_magazines'] = [m for m in (mags or []) if m]
     return result
 
 
-def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
+def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS, evidence_root=None):
     """Read-only, bounded verification of an installed Tactical Flava copy against the allowlist."""
     validate_allowlist(allowlist)
     root = _plain_dir(install, 'install')
@@ -421,7 +428,10 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
             problems.append('publishedid-mismatch')
     merged, duplicates, models, listed = _load_addons(root, problems, max_pbos,
                                                       whole_hash=snafu_optional._needs_whole_hash(allowlist))
-    terms = _terms(root, allowlist['rights'])
+    pack_weapons = set(merged['CfgWeapons'])
+    merged = snafu_optional.native_parents(merged, vanilla)
+    evidence = _plain_dir(evidence_root, 'Workshop evidence') if evidence_root is not None else root
+    terms = _terms(evidence, allowlist['rights'])
     if not terms['present']:
         problems.append('terms-file-missing')
     elif not terms['matches_reviewed']:
@@ -434,9 +444,10 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
         vanilla_report = {'checked': False, 'problems': [], 'magazines': 0, 'ammo': 0}
         vanilla = {'CfgMagazines': {}, 'CfgAmmo': {}}
     else:
+        models |= vanilla.get('models', set())
         vanilla_report = {'checked': True, 'problems': list(vanilla.get('problems', [])),
                           'magazines': len(vanilla['CfgMagazines']), 'ammo': len(vanilla['CfgAmmo'])}
-    order = {'magazine': 0, 'optic': 1, 'attachment': 1, 'weapon': 2}
+    order = {'ammo': 0, 'magazine': 0, 'optic': 1, 'attachment': 1, 'weapon': 2}
     state, classes = {}, {}
     for entry in sorted(allowlist['entries'], key=lambda e: order[e['kind']]):
         row = _evaluate(entry, merged, duplicates, models, vanilla, state)
@@ -457,7 +468,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
                        'static_verified_weapons': sum(e['kind'] == 'weapon' and classes[e['class']]['status'] == 'verified'
                                                       for e in allowlist['entries']),
                        'installed_public_weapons': sum((pbo_config.resolve_scope(merged['CfgWeapons'], name) or 0) >= 2
-                                                       for name in merged['CfgWeapons']),
+                                                       for name in pack_weapons),
                        'runtime_accepted_weapons': 0, 'full_pack_admitted': False},
             'runtime_acceptance': 'pending'}
 
@@ -523,10 +534,12 @@ def _spawnable_types(entries):
     return root
 
 
-def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
+def generate(source, allowlist, report, nominal_scale=snafu_optional.DEFAULT_SCALE, tier_scales=None):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
     snafu_optional._check_hc61_report(allowlist, report)
+    if nominal_scale is snafu_optional.DEFAULT_SCALE:
+        nominal_scale = allowlist.get('test_abundance_multiplier', 1)
     entries, totals, scale_policy = snafu_optional._scaled_entries(allowlist['entries'], nominal_scale, tier_scales)
     data = economy.snapshot(source)
     core = _checked_core(data['cfgeconomycore.xml'])
@@ -810,6 +823,94 @@ def main(argv=None):
         print('Offline operation complete; DayZ runtime acceptance pending.')
     except (ValueError, OSError, KeyError, TypeError) as e:
         parser.exit(1, f'{e}\n')
+
+
+
+def apply_weapon_packs(mission, packs, vanilla_addons, report_root, say=print):
+    """Verify each local dependency, generate and install its CE layer independently.
+
+    Reports/staging stay outside Git. Installed evidence/receipts use each writer's
+    existing byte-exact rollback protocol. Call only on a stopped private mission;
+    later layers must be removed before replacing this stack.
+    """
+    from tools.package import snafu_optional as sf
+    report_root = Path(report_root)
+    sf._refuse_git(report_root)
+    report_root.mkdir(parents=True, exist_ok=True)
+    failures = []
+    vanilla = load_vanilla(vanilla_addons) if packs else None
+    for label, writer in (('SNAFU', sf), ('TF', sys.modules[__name__])):
+        install_root = packs.get(writer.WORKSHOP_ID)
+        if install_root is None:
+            say(f'optional weapons {label}: absent; skipped (no CE entries installed)')
+            continue
+        allowlist = json.loads(writer.ALLOWLIST_PATH.read_bytes())
+        try:
+            evidence_root = None
+            if isinstance(install_root, dict):
+                evidence_root = install_root['evidence']
+                install_root = install_root['install']
+            kwargs = {'vanilla': vanilla} if writer is sys.modules[__name__] else {'vanilla': vanilla}
+            report = writer.verify_install(install_root, allowlist, evidence_root=evidence_root, **kwargs)
+            report_path = report_root / (label + '-verification.json')
+            if report_path.exists() or report_path.is_symlink():
+                raise ValueError('verification output already exists; use a fresh report directory')
+            report_path.write_bytes(economy.encode(report))
+            if report['status'] != 'verified':
+                details = report['install']['problems'][:8]
+                details += [name + ': ' + ','.join(row['reasons'])
+                            for name, row in report['classes'].items() if row['status'] != 'verified'][:8]
+                for detail in details:
+                    say(f'optional weapons {label}: verification refusal: {detail}')
+            writer._check_report(allowlist, report)
+            say(f'optional weapons {label}: verify {report["status"]} types={report["counts"]["verified"]}')
+            stage = report_root / (label + '-delta')
+            files = writer.generate(mission, allowlist, report)
+            writer.write_delta(stage, files)
+            meta = json.loads(files['economy-report.json'])
+            say(f'optional weapons {label}: generate types={len(allowlist["entries"])} '
+                f'firearm_nominal={meta["totals"]["weapon_nominal"]}')
+            writer.install(stage, mission)
+            say(f'optional weapons {label}: installed; receipt and rollback backup written; runtime=PENDING')
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            # Never bypass a verification/generation refusal. Do not print local paths.
+            detail = str(error) if isinstance(error, ValueError) else type(error).__name__
+            say(f'optional weapons {label}: REFUSED (fail closed): {detail}')
+            failures.append(label)
+    return failures
+
+
+
+def check_weapon_packs(mission, packs):
+    """Read-only receipt/policy check, including a scratch reverse-stack rehearsal."""
+    import tempfile
+    mission = Path(mission)
+    present = []
+    for label, writer in (('SNAFU', snafu_optional), ('TF', sys.modules[__name__])):
+        managed = mission / writer.MANAGED
+        expected = writer.WORKSHOP_ID in packs
+        if not expected and not os.path.lexists(managed):
+            continue
+        if not expected or not managed.is_dir() or managed.is_symlink():
+            raise ValueError('optional weapons ' + label + ': dependency/layer mismatch; run installer')
+        allowlist = json.loads(writer.ALLOWLIST_PATH.read_bytes())
+        report = json.loads(economy.read_plain(managed, 'verification.json'))
+        writer._check_report(allowlist, report)
+        snafu_optional._check_hc61_report(allowlist, report)
+        present.append(label)
+    if present:
+        with tempfile.TemporaryDirectory(prefix='hc-weapon-check-') as temporary:
+            scratch = Path(temporary) / 'mission'
+            shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'), symlinks=True)
+            rollback_weapon_packs(scratch)
+    return present
+
+def rollback_weapon_packs(mission):
+    """Reverse the optional weapon stack before any earlier CE installer."""
+    from tools.package import snafu_optional as sf
+    for writer in (sys.modules[__name__], sf):
+        if os.path.lexists(Path(mission) / writer.MANAGED):
+            writer.rollback(mission)
 
 
 if __name__ == '__main__':

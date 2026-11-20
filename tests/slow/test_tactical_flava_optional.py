@@ -1114,22 +1114,32 @@ class CommittedAllowlist(unittest.TestCase):
         self.assertEqual(rights['terms_file'], 'extra files/readme.txt')
         self.assertTrue(any('licence file' in n or 'license file' in n for n in rights['notes']))
 
-    def test_subset_matches_the_owner_keep_list_and_numbers(self):
-        self.assertEqual({k: (v['set']['nominal'], v['set']['min']) for k, v in self.rows.items()}, self.KEEP)
+    def test_expanded_pack_meets_owner_test_abundance(self):
+        weapons = [e for e in self.rows.values() if e['kind'] == 'weapon']
+        self.assertGreaterEqual(len(weapons), 50)
+        self.assertGreaterEqual(sum(e['set']['nominal'] for e in weapons), 250)
+        for e in weapons:
+            self.assertEqual(e['set']['min'], e['set']['nominal'] // 2)
+        self.assertEqual(self.data['test_abundance_multiplier'], 1.0)
 
     def test_snafu_lifetime_and_restock_convention(self):
         for name, e in self.rows.items():
-            expected = (14400, 0) if e['kind'] == 'magazine' else (7200, 1800)
+            expected = (14400, 0) if e['kind'] != 'weapon' else (7200, 1800)
             self.assertEqual((e['set']['lifetime'], e['set']['restock']), expected, name)
 
-    def test_modern_picks_are_military_and_town_never_appears(self):
+    def test_modern_rifles_and_civilian_picks_use_owner_tiers(self):
         for name, e in self.rows.items():
-            self.assertNotIn('Town', e['usage'], name)
+            if e['kind'] != 'weapon':
+                continue
             if e['role'] == 'modern':
-                self.assertIn('Military', e['usage'], name)
-        self.assertEqual(self.rows['TF_M1A_Black']['role'], 'civilian')
-        self.assertEqual(self.rows['TF_VPO190']['role'], 'civilian')
-        self.assertEqual(set(self.rows['TF_MP443']['usage']), {'Military', 'Police'})
+                self.assertEqual(e['usage'], ['Military'], name)
+                self.assertEqual(e['value'], ['Tier3', 'Tier4'], name)
+            elif e['role'] == 'civilian':
+                self.assertIn('Town', e['usage'], name)
+                self.assertIn('Village', e['usage'], name)
+            else:
+                self.assertEqual(set(e['usage']), {'Military', 'Police'}, name)
+                self.assertEqual(e['value'], ['Tier2', 'Tier3'], name)
 
     def test_every_spawning_weapon_has_ammo_and_spawning_magazines(self):
         for name, e in self.rows.items():
@@ -1138,24 +1148,21 @@ class CommittedAllowlist(unittest.TestCase):
                 for m in e['magazines']:
                     self.assertGreater(self.rows[m]['set']['nominal'], 0, (name, m))
 
-    def test_m14_needs_the_adapter_for_any_optic_and_the_adapter_never_spawns(self):
+    def test_m14_keeps_verified_native_optic_adapter(self):
         self.assertEqual(self.rows['TF_M14_STD']['optic_requires'], ['TF_M14_Adapter'])
         adapter = self.rows['TF_M14_Adapter']
-        self.assertEqual((adapter['kind'], adapter['slot'], adapter['fits']),
-                         ('attachment', 'weaponDMRAdapter', ['TF_M14_STD']))
-        self.assertEqual(adapter['set']['nominal'], 0)
+        self.assertEqual((adapter['kind'], adapter['slot']), ('attachment', 'weaponDMRAdapter'))
+        self.assertIn('TF_M14_STD', adapter['fits'])
         for name in ('TF_ElcanSpecterDROptic_Black', 'TF_ElcanSpecterDR_6xOptic_FDE'):
-            self.assertNotIn('TF_M24', self.rows[name]['fits'])  # the M24 has no weaponOptics slot
+            self.assertNotIn('TF_M24', self.rows[name]['fits'])
             self.assertEqual(self.rows[name]['slot'], 'weaponOptics')
 
-    def test_excluded_lists_the_cut_groups_with_reasons_and_no_selected_class(self):
-        groups = {x['group']: x for x in self.data['excluded']}
-        listed = {c for x in self.data['excluded'] for c in x.get('classes', [])}
-        for name in ('TF_PKM', 'TF_Anzio20', 'TF_M79', 'TF_AEK999', 'TF_FiveSeven', 'TF_AN94', 'TF_SCAR_H_Black'):
-            self.assertIn(name, listed)
+    def test_excluded_definitions_remain_traceable_and_unselected(self):
+        listed = {x['group'] for x in self.data['excluded']}
         self.assertFalse(listed & set(self.rows))
-        self.assertTrue(all(x['reason'].strip() for x in groups.values()))
-        self.assertTrue(any('grenade' in g.lower() for g in groups))
+        self.assertTrue(all(x['reason'].strip() for x in self.data['excluded']))
+        self.assertIn('M4A1', listed)  # native patch, not a new pack firearm
+        self.assertIn('TF_Mag_AK74_60Rnd', listed)  # duplicate config definitions
 
     def test_no_overlap_with_the_roster_or_snafu_subsets(self):
         snafu = {e['class'] for e in json.loads((REPO / 'tools/package/snafu_allowlist.json').read_text())['entries']}
@@ -1198,7 +1205,8 @@ class RealInstall(unittest.TestCase):
             stock = ET.parse(source / 'db/types.xml').getroot()
             existing = {n.get('name') for n in stock}
             ammo = {a for e in data['entries'] if e['kind'] == 'weapon' for a in e['vanilla_ammo']}
-            for name in sorted(ammo - existing):
+            ammo |= {m for row in report['classes'].values() for m in row.get('compatible_magazines', [])}
+            for name in sorted(ammo - existing - {e['class'] for e in data['entries']}):
                 stock.append(ET.fromstring(stock_entry(name, 50, 30, 14400, 0, ['Military'], ['Tier3'])))
             (source / 'db/types.xml').write_bytes(ET.tostring(stock))
             files = tfo.generate(source, data, report)
