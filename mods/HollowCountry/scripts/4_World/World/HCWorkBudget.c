@@ -319,13 +319,16 @@ modded class HCModuleRegistry
 // primary readback completes; interrupted promotion remains fail-closed.
 class HCStagedSaveImage
 {
-    static const int HC_CHUNK_BYTES = 65536;
+    // Build 113 boot: every 64 KiB chunk landed as exactly 8191 bytes (holdouts.json.tmp
+    // 16382 = 2 x 8191; routes/snapshot .tmp 8191), so native string/FPrint transfer is
+    // capped below 8 KiB per call. Keep each chunk well under that cap.
+    static const int HC_CHUNK_BYTES = 4096;
     static const int HC_IMAGE_REPLACE = 0;
     static const int HC_IMAGE_CREATE = 1;
     static const int HC_IMAGE_REMOVE = 2;
     protected int m_Mode;
-    // Six streaming passes at 8 MiB, including EOF stages and metadata.
-    static const int HC_MAX_STAGES = 800;
+    // Six streaming passes at 8 MiB in 4 KiB chunks, including EOF stages and metadata.
+    static const int HC_MAX_STAGES = 12400;
     protected string m_Path;
     protected string m_Temporary;
     protected string m_Text;
@@ -487,7 +490,11 @@ class HCStagedSaveImage
             if (compare)
             {
                 if (m_Offset + count > expected.Length()) { return HCFail(); }
-                if (count > 0 && piece != expected.Substring(m_Offset, count)) { return HCFail(); }
+                if (count > 0)
+                {
+                    string want = expected.Substring(m_Offset, count);
+                    if (want.Length() != count || piece != want) { return HCFail(); }
+                }
             }
             if (count == 0)
             {
@@ -500,6 +507,7 @@ class HCStagedSaveImage
             int remaining = m_Text.Length() - m_Offset;
             int length = Math.Min(remaining, HC_CHUNK_BYTES);
             piece = m_Text.Substring(m_Offset, length);
+            if (piece.Length() != length) { return HCFail(); }
             done = length == remaining;
         }
         else { done = true; }
