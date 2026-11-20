@@ -225,12 +225,12 @@ class HCConflictQuota
             if (!HCJsonFields.Every(encoded, "Day", 1) || !HCJsonFields.Every(encoded, "Count", 1)) { return false; }
             if (!HCJsonFields.Every(encoded, "At", 3)) { return false; }
         }
-        array<string> ids = new array<string>;
+        map<string, bool> ids = new map<string, bool>;
         array<ref HCConflictPlaceStamp> rows = data.Rows;
         foreach (HCConflictPlaceStamp row : rows)
         {
-            if (!row || !HCWorldLimits.Token(row.Id) || row.At < 1 || ids.Find(row.Id) >= 0) { return false; }
-            ids.Insert(row.Id);
+            if (!row || !HCWorldLimits.Token(row.Id) || row.At < 1 || ids.Contains(row.Id)) { return false; }
+            ids.Set(row.Id, true);
         }
         return true;
     }

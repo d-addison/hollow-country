@@ -283,6 +283,9 @@ class HCWorldMaterializer : HCModule
     protected bool HCValidCustody(HCAIPartyCustodyData data)
     {
         if (!data || (data.SchemaVersion != 1 && data.SchemaVersion != 2) || data.NextLease < 1 || !data.Rows || data.Rows.Count() > HCAIPartyCustody.MAX_ROWS) { return false; }
+        map<string, bool> partyIds = new map<string, bool>;
+        map<string, bool> cargoIds = new map<string, bool>;
+        map<string, bool> leaseIds = new map<string, bool>;
         foreach (HCAIPartyCustodyRow row : data.Rows)
         {
             if (!row || row.ActorCap < 1 || row.ActorCap > HCAILimits.SIZE_CEILING || !HCWorldLimits.Token(row.LeaseId)) { return false; }
@@ -290,11 +293,10 @@ class HCWorldMaterializer : HCModule
             if (row.Outcome != "CLAIMED" && row.Outcome != "FINISHED" && row.Outcome != "FINISHED_UNKNOWN" && row.Outcome != "QUARANTINED") { return false; }
             if (row.Survivors < 0 || row.Survivors > row.ActorCap || (!row.Materialized && row.Survivors != 0)) { return false; }
             if ((row.Outcome == "CLAIMED" || row.Outcome == "FINISHED_UNKNOWN") && (row.Materialized || row.Survivors != 0)) { return false; }
-            foreach (HCAIPartyCustodyRow other : data.Rows)
-            {
-                if (other == row) { break; }
-                if (other.PartyId == row.PartyId || other.CargoId == row.CargoId || other.LeaseId == row.LeaseId) { return false; }
-            }
+            if (partyIds.Contains(row.PartyId) || cargoIds.Contains(row.CargoId) || leaseIds.Contains(row.LeaseId)) { return false; }
+            partyIds.Set(row.PartyId, true);
+            cargoIds.Set(row.CargoId, true);
+            leaseIds.Set(row.LeaseId, true);
         }
         return true;
     }
@@ -362,15 +364,15 @@ class HCWorldMaterializer : HCModule
     {
         int debt = 0;
         if (!m_Custody || !m_Custody.Rows) { return 0; }
+        map<string, bool> heldLeases = new map<string, bool>;
+        foreach (HCWorldProposalLease activeLease : m_Active)
+        {
+            if (activeLease && activeLease.Proposal) { heldLeases.Set(activeLease.Proposal.Id, true); }
+        }
         foreach (HCAIPartyCustodyRow debtRow : m_Custody.Rows)
         {
             if (debtRow.Outcome == "FINISHED" || debtRow.Outcome == "FINISHED_UNKNOWN") { continue; }
-            bool held = false;
-            foreach (HCWorldProposalLease activeLease : m_Active)
-            {
-                if (activeLease.Proposal.Id == debtRow.LeaseId) { held = true; break; }
-            }
-            if (held) { continue; }
+            if (heldLeases.Contains(debtRow.LeaseId)) { continue; }
             if (actorUnits) { debt += debtRow.ActorCap; }
             else { debt++; }
         }

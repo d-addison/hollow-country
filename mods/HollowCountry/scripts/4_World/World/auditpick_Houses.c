@@ -85,7 +85,7 @@ class HCPickRunner
     string GapLogged;
     Class HouseToken;
     ref array<ref HCPickHouseTarget> Targets = new array<ref HCPickHouseTarget>;
-    ref array<string> Visited = new array<string>;
+    ref map<string, bool> Visited = new map<string, bool>;
 
     void HCReset(HCScavengeInventory port)
     {
@@ -208,7 +208,7 @@ class HCPickRunner
         float bestGap = 0;
         for (int index = 0; index < Targets.Count(); index++)
         {
-            if (Visited.Find(Targets[index].Key) >= 0) { continue; }
+            if (Visited.Contains(Targets[index].Key)) { continue; }
             float gap = vector.DistanceSq(port.Actor.GetPosition(), Targets[index].Point);
             if (best < 0 || gap < bestGap)
             {
@@ -225,7 +225,7 @@ class HCPickRunner
         if (Searched < survey.RunMaxHousesPerRun && Attempts < survey.RunMaxHouseAttempts) { next = HCNearest(port); }
         if (next < 0) { return HCGoBack(port, tick); }
         HCPickHouseTarget target = Targets[next];
-        Visited.Insert(target.Key);
+        Visited.Set(target.Key, true);
         Attempts++;
         // A refused walk skips this house; Attempts and Visited bound the loop.
         if (!port.HCWalkTo(target.Point)) { return HCPickRunner.HOLD; }
