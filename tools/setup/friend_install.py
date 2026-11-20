@@ -435,7 +435,50 @@ def classify_file(ctx, rel, source):
     return ('upgrade' if current == recorded else 'drift'), want
 
 
+# Shipped as a partial key set: Expansion owns the rest of the file and rewrites a partial file with its
+# own upgrade defaults, so an existing file gets these keys merged in (other fields kept) instead of replaced.
+MERGE_PROFILES = {'profiles/ExpansionMod/Settings/AISettings.json'}
+
+
+def merge_value(live, want):
+    """The wanted value in the live file's own form (Expansion writes bools as 0/1)."""
+    if isinstance(want, bool) and type(live) is int:
+        return int(want)
+    return want
+
+
+def same_value(live, want):
+    if isinstance(want, bool) or isinstance(live, bool):
+        return type(live) in (bool, int) and bool(live) == bool(want)
+    if isinstance(want, (int, float)) and isinstance(live, (int, float)):
+        return abs(float(live) - float(want)) <= 1e-4 * max(1.0, abs(float(want)))
+    return live == want
+
+
+def merged_profile(target, source):
+    """(merged bytes, changed keys) for a MERGE_PROFILES file, or None when either side is not a JSON object."""
+    try:
+        live = json.loads(target.read_text(encoding='utf-8-sig'))
+        want = json.loads(source.read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(live, dict) or not isinstance(want, dict):
+        return None
+    changed = [k for k, v in want.items() if k not in live or not same_value(live[k], v)]
+    for key in changed:
+        live[key] = merge_value(live.get(key), want[key])
+    return (json.dumps(live, indent=4) + '\n').encode('utf-8'), changed
+
+
 def classify_profile(ctx, rel, source, adopt=False):
+    target = ctx.server / rel
+    if rel in MERGE_PROFILES and target.is_file() and not target.is_symlink():
+        ws.check_no_symlink_below(ctx.server, rel)
+        merged = merged_profile(target, source)
+        if merged is None:
+            return 'drift', sha256_file(target)
+        data, changed = merged
+        return ('merge' if changed else 'same'), (sha256_bytes(data) if changed else sha256_file(target))
     action, want = classify_file(ctx, rel, source)
     if action in ('new', 'same'):
         return action, want
@@ -1296,7 +1339,13 @@ def plan_profiles(ctx, a):
             lines.append('move to the backup folder: ' + rel)
     elif a.holdouts_state == 'unsupported holdouts schema':
         lines.append('unsupported holdouts schema; kept %s; inspect before starting the server' % HOLDOUT_PATH)
-    todo = [r for r in a.profiles if r[2] in ('new', 'upgrade', 'confirm')]
+    for rel, _s, action, _h in a.profiles:
+        if action == 'merge':
+            lines.append('merge the Hollow Country keys into %s (other Expansion fields kept, backup first)' % rel)
+        elif action == 'new' and rel in MERGE_PROFILES:
+            lines.append('WARN  profile_defaults  %s is partial; start the server once so Expansion writes the full '
+                         'file, stop it, then run --apply again to merge the keys' % rel)
+    todo = [r for r in a.profiles if r[2] in ('new', 'upgrade', 'confirm', 'merge')]
     if not todo and not a.holdouts_moves:
         return 'already-done', lines, None
     return 'planned', lines, lambda: do_profiles(ctx, a)
@@ -1321,7 +1370,13 @@ def do_files(ctx, rows):
     for rel, source, action, sha in rows:
         if action == 'drift':
             continue
-        if action != 'same':
+        if action == 'merge':
+            target = ctx.server / rel
+            data, _changed = merged_profile(target, source)
+            sha = sha256_bytes(data)
+            record_written(ctx, rel, sha)
+            ws.write_bytes_atomic(target, data)
+        elif action != 'same':
             write_file(ctx, rel, source, action)
         if rel.startswith('profiles/'):
             hashes = ctx.receipt.setdefault('profile_defaults', {}).setdefault(rel, [])
