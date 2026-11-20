@@ -17,9 +17,9 @@
 // are invoked. Refuse live CE observation/mutation rather than invent an API.
 class HCNativeVariantAdmission
 {
-    // Counts and inspected classes are asserted against variants.json in
-    // test_infected_variety_install; no runtime manifest/config-tree scan.
-    int Authored = 6;
+    // Authored count and expected entries mirror variants.json;
+    // no runtime manifest/config-tree scan.
+    int Authored = 20;
     int ConfigVerified;
     int ConfigRefused;
     // The unresolved stock UrbanB_BlueBright spelling is NOT renamed to C.
@@ -63,14 +63,28 @@ class HCNativeVariantAdmission
         Refusal = "NATIVE_BUILD_UNSUPPORTED";
         if (!HCInfectedProfiles.NativeBuildSupported(build)) { return; }
         Refusal = "none";
-        // Exactly six inspected base-addon appearances, no config-tree scan.
-        // Expected models/profiles mirror variants.json's selected entries.
+        // Fixed selected roster from the pinned addon config.bin; no config-tree scan.
+        // Stock types.xml uses Zmbm_Mummy; config/script define ZmbM_Mummy.
+        HCInspectCandidate("ZmbF_ArmyOfficer", "ZmbF_SoldierNormal_Base", "\\DZ\\characters\\zombies\\ArmyOfficer_fat_f.p3d", "InfectedSoldier_Officer");
         HCInspectCandidate("ZmbF_ClerkFat_Black", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
         HCInspectCandidate("ZmbF_ClerkFat_BluePattern", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
         HCInspectCandidate("ZmbF_ClerkFat_GreyPattern", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
         HCInspectCandidate("ZmbF_ClerkFat_White", "ZmbF_ClerkFat_Base", "\\DZ\\characters\\zombies\\clerkB_fat_f.p3d", "InfectedFemale");
-        HCInspectCandidate("ZmbF_ArmyOfficer", "ZmbF_SoldierNormal_Base", "\\DZ\\characters\\zombies\\ArmyOfficer_fat_f.p3d", "InfectedSoldier_Officer");
+        HCInspectCandidate("ZmbF_MilkMaidOld_Green", "ZmbF_MilkMaidOld_LT_Base", "\\DZ\\characters\\zombies\\milkmaid_old_f.p3d", "InfectedFemale");
+        HCInspectCandidate("ZmbF_eastSoldier_Heavy_Navy", "ZmbF_eastSoldier_Normal_Navy", "dz\\characters\\zombies\\eastSoldier_normal_Navy_f.p3d", "InfectedMSoldier");
         HCInspectCandidate("ZmbF_eastSoldier_Normal_Navy", "ZmbF_eastSoldier_Base", "dz\\characters\\zombies\\eastSoldier_normal_Navy_f.p3d", "InfectedMSoldier");
+        HCInspectCandidate("ZmbF_usSoldier_Heavy_Woodland", "ZmbF_usSoldier_normal_Woodland", "\\DZ\\characters\\zombies\\ZmbF_usSoldier_normal.p3d", "InfectedMSoldier");
+        HCInspectCandidate("ZmbF_usSoldier_normal_Woodland", "ZmbF_usSoldier_normal_Base", "\\DZ\\characters\\zombies\\ZmbF_usSoldier_normal.p3d", "InfectedMSoldier");
+        HCInspectCandidate("ZmbM_HunterOld_Autumn", "ZmbM_HunterOld_Base", "\\DZ\\characters\\zombies\\Hunter_old_M.p3d", "InfectedMHunter");
+        HCInspectCandidate("ZmbM_HunterOld_Winter", "ZmbM_HunterOld_Base", "\\DZ\\characters\\zombies\\Hunter_old_M.p3d", "InfectedMHunter");
+        HCInspectCandidate("ZmbM_NBC_Grey", "ZmbM_SoldierNormal_Base", "\\DZ\\characters\\zombies\\NBCInfected_Grey.p3d", "InfectedMSoldier");
+        HCInspectCandidate("ZmbM_NBC_White", "ZmbF_ParamedicNormal_Base", "\\DZ\\characters\\zombies\\NBCInfected_Yellow.p3d", "InfectedFParamedic");
+        HCInspectCandidate("ZmbM_PatrolNormal_Winter", "ZmbM_PatrolNormal_Base", "\\DZ\\characters\\zombies\\Patrol_normal_winter_m.p3d", "InfectedMSoldier");
+        HCInspectCandidate("ZmbM_PolicemanSpecForce", "ZmbM_PolicemanSpecForce_Base", "\\DZ\\characters\\zombies\\PolicemanSpecialForce_Normal_m.p3d", "InfectedMPolice");
+        HCInspectCandidate("ZmbM_PrisonerSkinny", "ZmbM_PrisonerSkinny_Base", "\\DZ\\characters\\zombies\\prisoner_skinny_m.p3d", "InfectedMale");
+        HCInspectCandidate("ZmbM_Santa", "ZmbM_priestPopSkinny_Base", "\\DZ\\characters\\zombies\\santa.p3d", "InfectedPriest");
+        HCInspectCandidate("ZmbM_usSoldier_Officer_Convoy", "ZmbM_usSoldier_Officer_Desert", "\\DZ\\characters\\zombies\\ArmyOfficer_fat_m.p3d", "InfectedSoldier_Officer");
+        HCInspectCandidate("Zmbm_Mummy", "ZombieMaleBase", "\\DZ\\characters\\zombies\\Mummy.p3d", "InfectedMMummy");
         if (ConfigVerified != Authored || ConfigRefused != 0) { return; }
         State = "ready";
         // Ready means inspected config only. CE consumption, entitlement on

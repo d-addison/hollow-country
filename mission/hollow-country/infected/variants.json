@@ -1,31 +1,31 @@
 {
   "schema_version": 1,
   "work_package": "HC-14",
-  "issue": 121,
+  "issue": 248,
   "world": "chernarusplus",
   "trace": {
-    "spec": "selected_native_unused_variants_owner_decision_2026-11-18; required_spec_paths_absent_in_worker_checkout",
-    "plan": "consolidated_coverage_Wave_2_HC-14",
-    "task": "round2_in_place_child_substitution_stock_pin_receipt_byte_exact_off_rollback_and_cached_admission; HC-11_owns_shared_trace"
+    "spec": "issue_248_owner_2026-11-20_mixed_native_roster; required_spec_paths_absent_in_checkout",
+    "plan": "reuse_stock_CE_events; conserve_child_budgets; rare_mummies; bundled_install_receipt_and_off",
+    "task": "author_verified_native_roster; apply_after_mission_copy; idempotent_install_and_byte_exact_rollback; runtime_PENDING"
   },
   "runtime_acceptance": "PENDING",
-  "production_enabled": false,
+  "production_enabled": true,
   "population_delta": 0,
   "counts": {
     "stock_ce": 260,
     "native_only_exact_names": 18,
     "exact_names": 278,
     "case_only_duplicates": 2,
-    "selected_authored": 6,
+    "selected_authored": 20,
     "dispositions": {
-      "excluded": 4,
-      "kept": 169,
-      "pending": 105
+      "kept": 177,
+      "pending": 93,
+      "excluded": 8
     },
     "admitted": "UNKNOWN; CE_has_no_event_child_query",
     "observed": "UNMEASURED",
     "unresolved_spelling_groups": 1,
-    "unresolved_scope": "BlueBright_only; 105_pending_dispositions_are_separate_from_name_resolution"
+    "unresolved_scope": "BlueBright retained excluded; no B/C rename; missing config definitions excluded with evidence"
   },
   "evidence": {
     "native_scripts": "~/.cache/hollow-country/native-scripts/scripts-1.30.164289",
@@ -96,7 +96,9 @@
       "comparison": "Zmbm_Mummy",
       "kind": "case_only",
       "automatic_rename": false,
-      "disposition": "excluded_duplicate"
+      "disposition": "resolved_stock_CE_spelling",
+      "selected": "Zmbm_Mummy",
+      "evidence": "pinned characters_zombies.pbo config.bin CfgVehicles defines ZmbM_Mummy; stock db/types.xml type name=Zmbm_Mummy; stock db/events.xml has no mummy child; native ZombieMaleBase.c:315 script class ZmbM_Mummy; exactly one spelling emitted per event"
     },
     {
       "requested": "ZmbF_ShortSkirt_Black",
@@ -140,6 +142,78 @@
       "max_delta": 0
     },
     {
+      "event": "InfectedCity",
+      "from": "ZmbM_JournalistSkinny",
+      "to": "Zmbm_Mummy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_CitizenASkinny_Brown",
+      "to": "Zmbm_Mummy",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_ClerkFat_Brown",
+      "to": "ZmbM_Santa",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_MotobikerFat_Black",
+      "to": "ZmbF_ClerkFat_BluePattern",
+      "share": 3,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_beige",
+      "to": "Zmbm_Mummy",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbF_JoggerSkinny_Blue",
+      "to": "ZmbF_MilkMaidOld_Green",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_black",
+      "to": "ZmbM_HunterOld_Winter",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_Jacket_magenta",
+      "to": "Zmbm_Mummy",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_Jacket_bluechecks",
+      "to": "ZmbM_HunterOld_Autumn",
+      "share": 3,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
       "event": "InfectedArmy",
       "from": "ZmbM_usSoldier_normal_Woodland",
       "to": "ZmbF_eastSoldier_Normal_Navy",
@@ -148,6 +222,62 @@
       "max_delta": 0
     },
     {
+      "event": "InfectedArmy",
+      "from": "ZmbM_SoldierNormal",
+      "to": "ZmbF_eastSoldier_Heavy_Navy",
+      "share": 3,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_SoldierNormal",
+      "to": "ZmbF_usSoldier_Heavy_Woodland",
+      "share": 3,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_SoldierNormal",
+      "to": "ZmbF_usSoldier_normal_Woodland",
+      "share": 4,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_Autumn",
+      "to": "ZmbM_PatrolNormal_Winter",
+      "share": 4,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_PautRev",
+      "to": "ZmbM_NBC_Grey",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_PautRev",
+      "to": "ZmbF_ArmyOfficer",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmy",
+      "from": "ZmbM_PatrolNormal_PautRev",
+      "to": "ZmbM_usSoldier_Officer_Convoy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
       "event": "InfectedArmyHard",
       "from": "ZmbM_usSoldier_normal_Woodland",
       "to": "ZmbF_eastSoldier_Normal_Navy",
@@ -157,11 +287,85 @@
     },
     {
       "event": "InfectedArmyHard",
-      "from": "ZmbM_usSoldier_Officer_Desert",
+      "from": "ZmbM_SoldierNormal",
+      "to": "ZmbF_eastSoldier_Heavy_Navy",
+      "share": 3,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_SoldierNormal",
+      "to": "ZmbF_usSoldier_Heavy_Woodland",
+      "share": 3,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_SoldierNormal",
+      "to": "ZmbF_usSoldier_normal_Woodland",
+      "share": 4,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_Autumn",
+      "to": "ZmbM_PatrolNormal_Winter",
+      "share": 4,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_PautRev",
+      "to": "ZmbM_NBC_Grey",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_PautRev",
       "to": "ZmbF_ArmyOfficer",
       "share": 2,
       "min_delta": 0,
       "max_delta": 0
+    },
+    {
+      "event": "InfectedArmyHard",
+      "from": "ZmbM_PatrolNormal_PautRev",
+      "to": "ZmbM_usSoldier_Officer_Convoy",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedNBC",
+      "from": "ZmbM_NBC_Grey",
+      "to": "ZmbM_NBC_White",
+      "share": 10,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedPolice",
+      "from": "ZmbF_PoliceWomanNormal",
+      "to": "ZmbM_PolicemanSpecForce",
+      "share": 10,
+      "min_delta": 0,
+      "max_delta": 0,
+      "existing_destination": true
+    },
+    {
+      "event": "InfectedPoliceHard",
+      "from": "ZmbM_PolicemanSpecForce_Heavy",
+      "to": "ZmbM_PrisonerSkinny",
+      "share": 5,
+      "min_delta": 0,
+      "max_delta": 0,
+      "existing_destination": true
     }
   ],
   "acceptance_required": [
@@ -169,7 +373,7 @@
     "normal_signed_PBO_server_same_mission_config_dependency_hashes",
     "off_path_restores_original_db/events.xml_byte_for_byte_before_CE_initialization",
     "stop_restart_retains_stock_population_and_no_duplicate_event_children",
-    "sample_all_six_new_appearances_and_three_families_for_skin_model_audio_death_crawl_native_door_profile",
+    "sample_every_selected_appearance_and_native_family_for_skin_model_audio_death_crawl_native_door_profile",
     "two_clients_rendering_and_late_join",
     "observe_IsZombieMilitary_on_real_newly_admitted_civilian_and_soldier_actors; no_name_based_assertion"
   ],
@@ -178,7 +382,7 @@
       "class": "ZmbF_ArmyOfficer",
       "source": "native_only",
       "disposition": "kept",
-      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
       "selected": true,
       "case_alias_of": "",
       "stock_events": [],
@@ -198,7 +402,9 @@
         "military": true,
         "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
         "source_addon": "addons/characters_zombies.pbo",
-        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING",
+        "config_class": "ZmbF_ArmyOfficer",
+        "definition_present": true
       }
     },
     {
@@ -327,7 +533,7 @@
       "class": "ZmbF_ClerkFat_Black",
       "source": "native_only",
       "disposition": "kept",
-      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
       "selected": true,
       "case_alias_of": "",
       "stock_events": [],
@@ -348,14 +554,16 @@
         "military": false,
         "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
         "source_addon": "addons/characters_zombies.pbo",
-        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING",
+        "config_class": "ZmbF_ClerkFat_Black",
+        "definition_present": true
       }
     },
     {
       "class": "ZmbF_ClerkFat_BluePattern",
       "source": "native_only",
       "disposition": "kept",
-      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
       "selected": true,
       "case_alias_of": "",
       "stock_events": [],
@@ -376,14 +584,16 @@
         "military": false,
         "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
         "source_addon": "addons/characters_zombies.pbo",
-        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING",
+        "config_class": "ZmbF_ClerkFat_BluePattern",
+        "definition_present": true
       }
     },
     {
       "class": "ZmbF_ClerkFat_GreyPattern",
       "source": "native_only",
       "disposition": "kept",
-      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
       "selected": true,
       "case_alias_of": "",
       "stock_events": [],
@@ -404,14 +614,16 @@
         "military": false,
         "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
         "source_addon": "addons/characters_zombies.pbo",
-        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING",
+        "config_class": "ZmbF_ClerkFat_GreyPattern",
+        "definition_present": true
       }
     },
     {
       "class": "ZmbF_ClerkFat_White",
       "source": "native_only",
       "disposition": "kept",
-      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
       "selected": true,
       "case_alias_of": "",
       "stock_events": [],
@@ -432,7 +644,9 @@
         "military": false,
         "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
         "source_addon": "addons/characters_zombies.pbo",
-        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING",
+        "config_class": "ZmbF_ClerkFat_White",
+        "definition_present": true
       }
     },
     {
@@ -785,8 +999,8 @@
       "class": "ZmbF_MilkMaidOld_Green",
       "source": "stock_ce",
       "disposition": "kept",
-      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
-      "selected": false,
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedVillageTier1"
@@ -794,7 +1008,17 @@
       "active_stock_events": [
         "InfectedVillageTier1"
       ],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_MilkMaidOld_Green",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\milkmaid_old_f.p3d",
+        "ai_agent_template": "InfectedFemale",
+        "profile_base": "ZmbF_MilkMaidOld_LT_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_MilkMaidOld_Grey",
@@ -911,46 +1135,86 @@
     {
       "class": "ZmbF_PatrolNormal_Autumn",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "disposition": "excluded",
+      "reason": "not_defined_in_pinned_base_game_CfgVehicles; no_guessed_class_or_automatic_rename",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_PatrolNormal_Autumn",
+        "definition_present": false,
+        "scope": null,
+        "model": null,
+        "ai_agent_template": null,
+        "profile_base": null,
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_PatrolNormal_PautRev",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "disposition": "excluded",
+      "reason": "not_defined_in_pinned_base_game_CfgVehicles; no_guessed_class_or_automatic_rename",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_PatrolNormal_PautRev",
+        "definition_present": false,
+        "scope": null,
+        "model": null,
+        "ai_agent_template": null,
+        "profile_base": null,
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_PatrolNormal_Summer",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "disposition": "excluded",
+      "reason": "not_defined_in_pinned_base_game_CfgVehicles; no_guessed_class_or_automatic_rename",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_PatrolNormal_Summer",
+        "definition_present": false,
+        "scope": null,
+        "model": null,
+        "ai_agent_template": null,
+        "profile_base": null,
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_PatrolNormal_Winter",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
+      "disposition": "excluded",
+      "reason": "not_defined_in_pinned_base_game_CfgVehicles; no_guessed_class_or_automatic_rename",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_PatrolNormal_Winter",
+        "definition_present": false,
+        "scope": null,
+        "model": null,
+        "ai_agent_template": null,
+        "profile_base": null,
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_PoliceWomanNormal",
@@ -976,7 +1240,17 @@
       "case_alias_of": "ZmbF_ShortSkirt_black",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_ShortSkirt_Black",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\shortskirt_above0.p3d",
+        "ai_agent_template": "InfectedFemale",
+        "profile_base": "ZmbF_ShortSkirt_LT_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_ShortSkirt_beige",
@@ -1307,19 +1581,29 @@
     {
       "class": "ZmbF_eastSoldier_Heavy_Navy",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "HEAVY_LABEL_PROFILE_MISMATCH; inherits_InfectedMSoldier_not_InfectedSoldier_Heavy; no_automatic_heavy_substitution",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_eastSoldier_Heavy_Navy",
+        "definition_present": true,
+        "scope": 2,
+        "model": "dz\\characters\\zombies\\eastSoldier_normal_Navy_f.p3d",
+        "ai_agent_template": "InfectedMSoldier",
+        "profile_base": "ZmbF_eastSoldier_Normal_Navy",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_eastSoldier_Normal_Navy",
       "source": "native_only",
       "disposition": "kept",
-      "reason": "selected_grounded_role; authored_CE_share_substitution; native_acceptance_pending",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
       "selected": true,
       "case_alias_of": "",
       "stock_events": [],
@@ -1339,7 +1623,9 @@
         "military": true,
         "entitlement": "base_game_addon_no_dlc_tag; two_client_pending",
         "source_addon": "addons/characters_zombies.pbo",
-        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING",
+        "config_class": "ZmbF_eastSoldier_Normal_Navy",
+        "definition_present": true
       }
     },
     {
@@ -1745,13 +2031,23 @@
     {
       "class": "ZmbF_usSoldier_Heavy_Woodland",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_usSoldier_Heavy_Woodland",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\ZmbF_usSoldier_normal.p3d",
+        "ai_agent_template": "InfectedMSoldier",
+        "profile_base": "ZmbF_usSoldier_normal_Woodland",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbF_usSoldier_normal_Desert",
@@ -1771,13 +2067,23 @@
     {
       "class": "ZmbF_usSoldier_normal_Woodland",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbF_usSoldier_normal_Woodland",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\ZmbF_usSoldier_normal.p3d",
+        "ai_agent_template": "InfectedMSoldier",
+        "profile_base": "ZmbF_usSoldier_normal_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_CitizenASkinny_Blue",
@@ -2470,8 +2776,8 @@
       "class": "ZmbM_HunterOld_Autumn",
       "source": "stock_ce",
       "disposition": "kept",
-      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
-      "selected": false,
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedSolitude"
@@ -2479,18 +2785,38 @@
       "active_stock_events": [
         "InfectedSolitude"
       ],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_HunterOld_Autumn",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\Hunter_old_M.p3d",
+        "ai_agent_template": "InfectedMHunter",
+        "profile_base": "ZmbM_HunterOld_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_HunterOld_Desert",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
+      "disposition": "excluded",
+      "reason": "not_defined_in_pinned_base_game_CfgVehicles; no_guessed_class_or_automatic_rename",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_HunterOld_Desert",
+        "definition_present": false,
+        "scope": null,
+        "model": null,
+        "ai_agent_template": null,
+        "profile_base": null,
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_HunterOld_Spring",
@@ -2526,8 +2852,8 @@
       "class": "ZmbM_HunterOld_Winter",
       "source": "stock_ce",
       "disposition": "kept",
-      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
-      "selected": false,
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedSolitude"
@@ -2535,7 +2861,17 @@
       "active_stock_events": [
         "InfectedSolitude"
       ],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_HunterOld_Winter",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\Hunter_old_M.p3d",
+        "ai_agent_template": "InfectedMHunter",
+        "profile_base": "ZmbM_HunterOld_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_IonSoldier_Normal_1_Green",
@@ -2929,19 +3265,29 @@
       "class": "ZmbM_Mummy",
       "source": "native_only",
       "disposition": "excluded",
-      "reason": "case_only_definition_duplicate; exact_stock_spelling_preserved; never_add_second_child",
+      "reason": "native_config_defines_this_case; stock_types_uses_Zmbm_Mummy; select_stock_CE_spelling_once",
       "selected": false,
       "case_alias_of": "Zmbm_Mummy",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_Mummy",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\Mummy.p3d",
+        "ai_agent_template": "InfectedMMummy",
+        "profile_base": "ZombieMaleBase",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_NBC_Grey",
       "source": "stock_ce",
       "disposition": "kept",
-      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
-      "selected": false,
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedNBC"
@@ -2949,18 +3295,38 @@
       "active_stock_events": [
         "InfectedNBC"
       ],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_NBC_Grey",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\NBCInfected_Grey.p3d",
+        "ai_agent_template": "InfectedMSoldier",
+        "profile_base": "ZmbM_SoldierNormal_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_NBC_White",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_NBC_White",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\NBCInfected_Yellow.p3d",
+        "ai_agent_template": "InfectedFParamedic",
+        "profile_base": "ZmbF_ParamedicNormal_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_NBC_Yellow",
@@ -3197,13 +3563,23 @@
     {
       "class": "ZmbM_PatrolNormal_Winter",
       "source": "stock_ce",
-      "disposition": "pending",
-      "reason": "LIVE_SEASONAL_CE_MUTATION_UNSUPPORTED; restart_bound_seasonal_content_review_pending",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_PatrolNormal_Winter",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\Patrol_normal_winter_m.p3d",
+        "ai_agent_template": "InfectedMSoldier",
+        "profile_base": "ZmbM_PatrolNormal_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_PolicemanFat",
@@ -3224,8 +3600,8 @@
       "class": "ZmbM_PolicemanSpecForce",
       "source": "stock_ce",
       "disposition": "kept",
-      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
-      "selected": false,
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedPolice"
@@ -3233,7 +3609,17 @@
       "active_stock_events": [
         "InfectedPolice"
       ],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_PolicemanSpecForce",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\PolicemanSpecialForce_Normal_m.p3d",
+        "ai_agent_template": "InfectedMPolice",
+        "profile_base": "ZmbM_PolicemanSpecForce_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_PolicemanSpecForce_Heavy",
@@ -3256,8 +3642,8 @@
       "class": "ZmbM_PrisonerSkinny",
       "source": "stock_ce",
       "disposition": "kept",
-      "reason": "existing_active_stock_role; native_policy_retained; runtime_acceptance_pending",
-      "selected": false,
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedPoliceHard",
@@ -3267,20 +3653,40 @@
         "InfectedPoliceHard",
         "InfectedPrisoner"
       ],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_PrisonerSkinny",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\prisoner_skinny_m.p3d",
+        "ai_agent_template": "InfectedMale",
+        "profile_base": "ZmbM_PrisonerSkinny_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_Santa",
       "source": "stock_ce",
-      "disposition": "excluded",
-      "reason": "costume_theme_not_selected_for_grounded_ordinary_roles; stock_configuration_unchanged",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [
         "InfectedSanta"
       ],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_Santa",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\santa.p3d",
+        "ai_agent_template": "InfectedPriest",
+        "profile_base": "ZmbM_priestPopSkinny_Base",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_SkaterYoung_Blue",
@@ -3675,13 +4081,23 @@
     {
       "class": "ZmbM_takiCitizenUrbanC_BlueBright",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "BLUEBRIGHT_SPELLING_UNRESOLVED; B_and_C_are_not_automatic_aliases",
+      "disposition": "excluded",
+      "reason": "not_defined_in_pinned_base_game_CfgVehicles; no_guessed_class_or_automatic_rename",
       "selected": false,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_takiCitizenUrbanC_BlueBright",
+        "definition_present": false,
+        "scope": null,
+        "model": null,
+        "ai_agent_template": null,
+        "profile_base": null,
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_takiCitizenUrbanC_Green",
@@ -3932,13 +4348,23 @@
     {
       "class": "ZmbM_usSoldier_Officer_Convoy",
       "source": "native_only",
-      "disposition": "pending",
-      "reason": "unused_alternate_map_candidate; role_scope_model_entitlement_and_native_sampling_pending",
-      "selected": false,
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
       "case_alias_of": "",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_usSoldier_Officer_Convoy",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\ArmyOfficer_fat_m.p3d",
+        "ai_agent_template": "InfectedSoldier_Officer",
+        "profile_base": "ZmbM_usSoldier_Officer_Desert",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     },
     {
       "class": "ZmbM_usSoldier_Officer_Desert",
@@ -4001,14 +4427,32 @@
     {
       "class": "Zmbm_Mummy",
       "source": "stock_ce",
-      "disposition": "excluded",
-      "reason": "costume_theme_not_selected_for_grounded_ordinary_roles; stock_configuration_unchanged",
-      "selected": false,
-      "case_alias_of": "",
+      "disposition": "kept",
+      "reason": "issue_248_native_config_verified; restart_bound_share_substitution; runtime_PENDING",
+      "selected": true,
+      "case_alias_of": "ZmbM_Mummy",
       "stock_events": [],
       "active_stock_events": [],
-      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged"
+      "profile_policy": "native_fallback; empty_HC_civilian_military_maps_unchanged",
+      "native_config": {
+        "config_class": "ZmbM_Mummy",
+        "definition_present": true,
+        "scope": 2,
+        "model": "\\DZ\\characters\\zombies\\Mummy.p3d",
+        "ai_agent_template": "InfectedMMummy",
+        "profile_base": "ZombieMaleBase",
+        "source_addon": "addons/characters_zombies.pbo",
+        "skin_model_audio_death_crawl_doors_two_clients": "PENDING"
+      }
     }
   ],
-  "population_delta_scope": "authored_event_budgets_only; native_population_measurement_PENDING"
+  "population_delta_scope": "authored_event_budgets_only; native_population_measurement_PENDING",
+  "mix_policy": {
+    "mummy": "2/106 city shares (1.89%); 1/100 cityTier1/village/villageTier1 shares (1%); weights are not a live count cap; few-per-server expectation requires sampling",
+    "seasonal_patrol": "stock male Autumn/PautRev/Summer retained; native male Winter added at army sites; female patrol class names absent from pinned addon; no season clock",
+    "NBC": "retain toxic/contaminated stock events and yellow medic/firefighter placements; White shares in InfectedNBC; Grey 2/95 and 2/90 army shares",
+    "heavy_labels": "native female Heavy classes use InfectedMSoldier; substitute normal soldier shares, never promise heavy AI",
+    "Santa": "native class exists; rare year_round cityTier1 share; no winter scheduling",
+    "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once"
+  }
 }
