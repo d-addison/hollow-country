@@ -85,6 +85,8 @@ Thumbs.db
 !/docs/MAP_OVERLAYS.md
 !/docs/LOOT_POINTS.md
 !/docs/EVENTS.md
+!/docs/VEHICLES.md
+!/docs/AI_FACTIONS.md
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py
