@@ -176,7 +176,9 @@ class LootBoostSmoke(unittest.TestCase):
         self.assertEqual(defaults, {'group': '12', 'container': '8'})
         house = next(g for g in root.iter('group') if g.get('name') == 'Land_House_Synthetic')
         containers = {c.get('name'): c for c in house.findall('container')}
-        self.assertEqual(containers['lootFloor'].get('lootmax'), '4')
+        self.assertEqual(containers['lootFloor'].get('lootmax'), '3',
+                         'doubled to 4, then the shipped floor policy moves one displaced tool slot to shelves; '
+                         'still above the stock 2')
         self.assertEqual(containers['lootweapons'].get('lootmax'), '4',
                          'a weapons-only container keeps the stock default it inherited, written explicitly')
         floor, surface = containers['lootHCFloor'], containers['lootHCSurface']
