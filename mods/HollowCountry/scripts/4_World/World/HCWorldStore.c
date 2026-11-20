@@ -93,6 +93,8 @@ class HCWorldStore
                 while (after < text.Length() && (text.Get(after) == " " || text.Get(after) == "\n" || text.Get(after) == "\r" || text.Get(after) == "\t")) { after++; }
                 if (after < text.Length() && text.Get(after) == ":")
                 {
+                    // No allowed key is longer than the whole allow-list; refuse before copying.
+                    if (keyIndex - start > 64) { return false; }
                     string key = text.Substring(start, keyIndex - start);
                     if (key.Length() < 1 || keys.IndexOf("|" + key + "|") < 0) { return false; }
                 }

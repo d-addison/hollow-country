@@ -119,13 +119,13 @@ class HCPickPolicy
         if (!(survey.RunDangerHeatAvoid > 0) || survey.RunDangerHeatAvoid > 1) { return "PICKER_SURVEY_RUN_DANGER"; }
         if (survey.RunDangerClueSeconds < 1 || survey.RunDangerMaxClues < 1 || survey.RunCombatAbortSeconds < 1) { return "PICKER_SURVEY_RUN_DANGER"; }
         if (survey.RunMaxActiveRuns < 1 || survey.RunMaxPartiesPerCamp < 1) { return "PICKER_SURVEY_RUN_CAPS"; }
+        map<string, int> partiesByCamp = new map<string, int>;
         for (int routeIndex = 0; routeIndex < survey.Routes.Count(); routeIndex++)
         {
             int inCamp = 0;
-            for (int otherIndex = 0; otherIndex < survey.Routes.Count(); otherIndex++)
-            {
-                if (survey.Routes[otherIndex].LocalityId == survey.Routes[routeIndex].LocalityId) { inCamp++; }
-            }
+            if (!partiesByCamp.Find(survey.Routes[routeIndex].LocalityId, inCamp)) { inCamp = 0; }
+            inCamp++;
+            partiesByCamp.Set(survey.Routes[routeIndex].LocalityId, inCamp);
             if (inCamp > survey.RunMaxPartiesPerCamp) { return "PICKER_SURVEY_CAMP_PARTY_CAP"; }
         }
         return "";
