@@ -498,6 +498,7 @@ class HCProgressionModule : HCModule
             m_Cursor = m_Cursor + 1;
             if (row.DecayUtc > now || row.GainUtc > now) { HCFail(); return; }
             HCDecay(row, now);
+            HCReached.Mark("progression.row");
         }
         if (m_Dirty && now - m_SaveUtc >= HCProgressionConfig.Get().SavePeriodSeconds) { m_SaveJob.HCDirty = true; }
     }

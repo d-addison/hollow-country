@@ -73,6 +73,7 @@ class HCTapedLightStartup : HCModule
         else { m_Status.HCPublish("off", "operator_disable_file"); }
         Print(HCV2Admission.Line("TapedLight", admitted, "TAPED-LIGHT-V1", HCTapedLightAdmission.Qualified()));
         int weaponPairs = HCTapedLightCatalog.Rows().Count();
+        HCReached.Mark("taped_light.catalog_read");
         Print("[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client runtime=PENDING");
     }
 }

@@ -94,6 +94,7 @@ class HCWeatherDaysModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (m_Data) m_Data.HCTickWeatherDays();
+        if (m_Data) { HCReached.Mark("weather_days.tick"); }
         HCUpdateOperationalStatus();
     }
 

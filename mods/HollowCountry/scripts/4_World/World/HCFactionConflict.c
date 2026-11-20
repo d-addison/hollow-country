@@ -393,6 +393,7 @@ class HCFactionConflict : HCModule
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
         int total = m_LeftActors.Count() + m_RightActors.Count();
+        HCReached.Mark("faction_conflict.actor_step");
         int slot = m_ActorCursor % total;
         m_ActorCursor = (slot + 1) % total;
         int side = 0;

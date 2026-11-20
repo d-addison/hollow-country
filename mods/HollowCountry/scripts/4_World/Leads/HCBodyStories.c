@@ -255,6 +255,7 @@ class HCBodyStories : HCModule
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
         HCProcessObservedDeath();
+        HCReached.Mark("body_stories.death_check");
         if (!m_Store.Healthy() || m_Store.Data.Bodies.Count() == 0) { return; }
         if (m_Cursor >= m_Store.Data.Bodies.Count()) { m_Cursor = 0; }
         int bodyIndex = m_Cursor;

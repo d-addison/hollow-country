@@ -40,6 +40,7 @@ class HCGroupModule extends HCModule
             return;
         }
         DayZGame.Event_OnRPC.Insert(m_Service.OnRPC);
+        HCReached.Mark("groups.rpc_bind");
     }
 
     override void OnTick(float deltaTime)

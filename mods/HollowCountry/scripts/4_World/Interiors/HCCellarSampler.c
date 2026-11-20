@@ -453,6 +453,7 @@ class HCCellarSampler : HCModule
         if (!FileExist(MARKER)) { HCAbort("measurement marker removed"); return; }
         m_Units.HCReset(24);
         m_Work.HCReset(24);
+        HCReached.Mark("cellar_sampler.survey_tick");
         if (m_Summarizing)
         {
             if (m_Work.HCContinue() && m_Units.HCTake(24)) { HCSummaryTick(); }

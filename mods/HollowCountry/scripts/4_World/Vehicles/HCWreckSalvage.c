@@ -676,6 +676,7 @@ class HCWreckSalvageModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (m_Active) Purge(); // At most 16 sessions; no world scans.
+        if (m_Active) { HCReached.Mark("wreck_salvage.maintenance_tick"); }
     }
 
     override void OnStop()

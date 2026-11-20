@@ -623,6 +623,7 @@ class HCTapedPackMounts : HCModule
             stateReason = loadReason;
         }
         mHCStatus.HCPublish(state, stateReason);
+        HCReached.Mark("taped_pack.admission_logged");
         Print(HCV2Admission.Line("TapedPackMounts", mHCSettingOn, "light_mount_two_client_check", verified > 0));
         string line = "[HC TapedPackMounts] pairs=" + pairs.ToString() + " weapon_pairs=" + weaponPairs.ToString() + " receipt_pairs=" + receiptPairs.ToString();
         line = line + " receipts_checked=" + receiptsChecked.ToString() + " pack_checked=" + packChecked.ToString() + " weapon_checked=" + weaponChecked.ToString();

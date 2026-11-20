@@ -253,6 +253,7 @@ class HCSaveScheduler : HCModule
         if (m_Active)
         {
             HCRunStep(m_Active, now);
+            HCReached.Mark("world_saves.stage");
             return;
         }
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();

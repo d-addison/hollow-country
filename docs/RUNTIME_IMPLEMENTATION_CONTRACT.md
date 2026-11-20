@@ -67,3 +67,54 @@ Search/crafting use native actions/recipes and server inventory authority; do
 not invent a generic client command RPC. Cross-module requests must be narrow,
 validated and bounded. Unknown native feasibility is recorded and gated, not
 filled with physics cheats, phantom sounds or unsupported methods.
+
+### Bounded readiness and first-reached receipts
+
+After all module start hooks return, the shared core emits:
+
+```text
+[HC Ready] module=<name> enabled=<true|false> ready=<true|false> reason=<token> runtime=PENDING
+[HC Reached] feature=<token> first_s=<seconds since core start>
+```
+
+Readiness snapshots the existing `HCGetOperationalStatus()` result; only an enabled,
+started module reporting `ready` gets `ready=true`. Refused, degraded and unknown
+states remain false. Disabled modules also get a receipt. Names/reasons are at most
+64 characters; characters outside ASCII letters, digits, underscore, dot and hyphen
+become underscores. No additional module admission/configuration reads are made.
+The existing 15-second status refresh emits at most one additional receipt when an
+initially non-ready module becomes ready. These bounds survive core stop/start
+retries within the same script lifetime. Existing detailed state-change diagnostics
+remain available. Settings-load failure reports `enabled=false ready=false
+reason=settings_unavailable` because preferences could not be read; this is not
+proof of an operator opt-out.
+
+`HCReached.Mark("search_binding.supply_bound");` is a shared **3_Game** API, usable
+from World/Mission and from addons already depending on HollowCountry. ExpansionAI
+already declares that dependency in `requiredAddons`; no dependency was added.
+Core calls `HCReached.Begin()` before starting modules. Marks are server-only,
+accept literal tokens of 1–64 characters from the alphabet above, and print only
+the first occurrence of each token. At most 64 tokens are retained per boot.
+Further valid, unretained calls increment a saturating counter (not an unbounded
+set of distinct overflow strings). On core stop, `HCReached.Summary()` emits once:
+`[HC Reached Summary] token_cap=64 overflow_calls=<count>`. A crash/forced exit
+cannot guarantee that shutdown summary. Repeated retained tokens cost only a
+bounded lookup and never print again.
+
+Marker names describe the observed operation: `.row`, `.job`, `.lease`, `.spawn`
+and `.supply_bound` identify concrete work; `.tick`, `.sweep` and `.maintenance`
+identify entry into that maintenance path. Startup-only owners use explicit
+`.admission_logged`, `.catalog_read`, `.config_probed` or `.definitions_checked`
+markers. These do not prove successful client presentation, crafting, mounting,
+spawn, or native gameplay acceptance. Morse is disabled/folded into Radio and has
+no separate main path to mark. `runtime=PENDING` remains unchanged by any marker.
+
+Events instrumentation is deferred to its directory owner (no Events files changed):
+put `HCReached.Mark("events.police_bind");` in
+`HCEventWorldBinding.BindPolice` after successful target/container registration
+beside the `police supply bound` diagnostic, including its already-bound success
+branch when a real target/container is confirmed. A generic `Bind` return alone
+is insufficient: some families return true without a physical source.
+Native compilation, readiness/late-update ordering, time values, overflow shutdown
+summary and actual marker paths still require an engine run; offline lint does not
+establish those behaviours.

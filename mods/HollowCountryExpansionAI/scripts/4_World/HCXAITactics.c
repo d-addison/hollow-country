@@ -794,6 +794,7 @@ class HCXAITactics
         int nowMs = GetGame().GetTime();
         s_Budget.HCReset(s_Config.TickActors * 4 + HCXAITacticsPolicy.MAX_PENDING);
         HCXAITactics.StepPending(nowMs);
+        HCReached.Mark("ai_tactics.pending_step");
         HCXAITactics.StepScan(nowMs);
         if (nowMs >= s_NextCheckMs)
         {

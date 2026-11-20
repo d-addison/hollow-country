@@ -572,6 +572,7 @@ class HCCampModule : HCModule
         if (!m_Running || !(deltaTime > 0)) { return; }
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
         if (claims) { claims.HCStep(deltaTime); }
+        HCReached.Mark("camps.maintenance");
         m_Elapsed += Math.Min(deltaTime, HCGCCampGroupConfig.Get().CampTickSeconds);
         if (m_Elapsed < HCGCCampGroupConfig.Get().CampTickSeconds) { return; }
         m_Elapsed = 0;

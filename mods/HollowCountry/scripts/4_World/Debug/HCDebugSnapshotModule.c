@@ -111,6 +111,7 @@ class HCDebugSnapshotModule : HCModule
             while (m_SaveBudget.HCContinue())
             {
                 int result = m_Save.HCStep();
+                HCReached.Mark("debug_snapshot.save_step");
                 if (result == HCSaveJob.STEP_FAILED) { m_Save = null; HCRefuse(); return; }
                 if (result == HCSaveJob.STEP_DONE)
                 {

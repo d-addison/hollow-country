@@ -214,6 +214,7 @@ class HCXAILiveModule : HCModule
     {
         if (!m_Live) { return; }
         string line = m_Live.Report(deltaTime);
+        HCReached.Mark("ai_live_map.report_tick");
         if (line != "") { Print("" + line); }
     }
 

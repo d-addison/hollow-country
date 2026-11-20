@@ -59,6 +59,7 @@ class HCTapedHelmetMounts : HCModule
         }
         HCTapedWearableCatalog.HCSetAdmitted(state == "ready");
         mHCStatus.HCPublish(state, reason);
+        HCReached.Mark("taped_helmet.admission_logged");
         int authored = HCTapedWearableCatalog.Rows().Count();
         int unsupported = HCTapedWearableCatalog.CompatibilityQueue().Count();
         Print(HCV2Admission.Line("TapedHelmetMounts", state != "off", "helmet_mount_two_client_check", HCTapedWearableCatalog.Qualified()));

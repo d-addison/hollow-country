@@ -999,6 +999,7 @@ class HCHoldouts : HCModule
         m_TickMeasuredStage = m_TickPhase;
         int index = m_TickIndex;
         HCHoldoutRow row = m_State.Rows[index];
+        HCReached.Mark("holdouts.row");
         int now = HCWorldClock.UTC();
         if (now < row.Ledger.Since || now < 1) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_clock_rollback"); HCSyncLights(); return; }
         // Repair a cross-store interrupted publish even when a house/cache

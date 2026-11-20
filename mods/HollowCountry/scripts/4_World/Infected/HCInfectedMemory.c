@@ -366,6 +366,7 @@ class HCInfectedMemoryModule : HCModule
         if (m_Elapsed < 60) return;
         m_Elapsed = 0;
         m_Memory.Tick();
+        HCReached.Mark("infected_memory.maintenance");
     }
 
     override void OnStop()

@@ -140,6 +140,7 @@ class HCInfectedDoorsModule : HCModule
         WatchPlayers();
         ExpireDoors();
         VisitDoors();
+        HCReached.Mark("infected_doors.visit");
         if (m_Clock >= m_LogAt)
         {
             m_LogAt = m_Clock + 600;

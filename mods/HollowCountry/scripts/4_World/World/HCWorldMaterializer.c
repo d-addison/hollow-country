@@ -184,6 +184,7 @@ class HCWorldMaterializer : HCModule
         m_RingSeconds += deltaTime;
         m_LogSeconds += deltaTime;
         Expire();
+        HCReached.Mark("materializer.expire");
         if (m_RingSeconds >= RING_SECONDS)
         {
             m_RingSeconds = 0;

@@ -780,6 +780,7 @@ class HCAITrade : HCModule
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
         m_Trade.HCStep(HCWorldClock.UTC());
+        HCReached.Mark("ai_trade.step");
     }
 
     override void OnStop()

@@ -112,6 +112,7 @@ class HCShelterModule : HCModule
         regionalWorld.ToLower();
         if (regionalWorld != "chernarusplus") { return; }
         HCRegionalTick();
+        HCReached.Mark("shelters.regional_tick");
     }
 
     // No recurring retries for failed scenes; startup tries at most eight layouts,

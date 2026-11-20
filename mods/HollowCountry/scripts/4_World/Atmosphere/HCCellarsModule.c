@@ -118,6 +118,7 @@ class HCCellarsModule : HCModule
         if (!HCCellarAdmission.HCAdmitted()) { state = "off"; reason = "cellar_admission_closed"; }
         if (!HCReadCounts()) { state = "degraded"; reason = "measurement_counts_unavailable"; }
         HCReceipt(state, reason);
+        HCReached.Mark("cellars.admission_logged");
         m_Survey = null;
         m_Measurement = null;
     }

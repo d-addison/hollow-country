@@ -141,6 +141,7 @@ class HCGroupPins : HCModule
         HCGroupService groups = HCGroupService.Get();
         if (!groups) { return; }
         if (m_Trail) { groups.HCPinsDiscover(); }
+        HCReached.Mark("map_pins.refresh");
         // Refresh FULL through the existing group path, including newly
         // received leads when no membership or discovery mutation occurs.
         m_RefreshSeconds += deltaTime;

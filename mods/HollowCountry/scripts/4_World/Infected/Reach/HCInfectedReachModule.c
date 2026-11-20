@@ -297,6 +297,7 @@ class HCInfectedReachModule : HCModule
                     break;
                 }
                 Evaluate(m_Cursor, state, now);
+                HCReached.Mark("infected_reach.evaluate");
             }
             m_Cursor = (m_Cursor + 1) % m_Limits.Slots;
         }

@@ -178,6 +178,7 @@ class HCVehicleFlipModule : HCModule
         if (s_Instance != this || !m_Jobs || m_Jobs.Count() == 0 || !(deltaTime > 0)) { return; }
         if (m_Cursor >= m_Jobs.Count()) { m_Cursor = 0; }
         HCFlipJob job = m_Jobs.Get(m_Cursor);
+        HCReached.Mark("vehicle_flip.job");
         float now = GetGame().GetTickTime();
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);

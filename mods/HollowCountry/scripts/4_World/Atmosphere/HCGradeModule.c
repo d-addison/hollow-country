@@ -24,6 +24,7 @@ class HCGradeModule extends HCModule
     {
         Print(HCV2Admission.Line("Grade", true, "EXP-A1", HCV2Gates.Qualified("EXP-A1")));
         m_Started = true;
+        HCReached.Mark("grade.admission_logged");
     }
 
     override void OnStop() { m_Started = false; }

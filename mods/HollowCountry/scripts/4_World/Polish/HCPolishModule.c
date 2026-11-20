@@ -29,6 +29,7 @@ class HCPolishModule : HCModule
         Print(HCV2Admission.Line("Hints", true, "EXP-POL-1", HCV2Gates.Qualified("EXP-POL-1")));
         Print(HCV2Admission.Line("EnvSound", true, "EXP-POL-2", HCV2Gates.Qualified("EXP-POL-2")));
         m_Started = true;
+        HCReached.Mark("polish.admission_logged");
     }
 
     override void OnStop() { m_Started = false; }

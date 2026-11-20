@@ -465,6 +465,7 @@ class HCInteriorsModule : HCModule
             m_LockCursor++;
             visited++;
             ExpireLock(lockSite);
+            HCReached.Mark("interiors.site");
         }
     }
 

@@ -1104,6 +1104,7 @@ class HCPickers : HCModule
         m_WorkBudget.HCReset(1);
         if (!m_Units.HCTake(1) || !m_WorkBudget.HCContinue()) { return; }
         m_Trip.HCStep();
+        HCReached.Mark("pickers.trip_step");
         HCPublishReadiness();
     }
 

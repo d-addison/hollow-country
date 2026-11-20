@@ -629,6 +629,7 @@ class HCAdminModule : HCModule
         if (!m_Running) { return; }
         if (!m_Pending && !m_Capture && !m_LootMap) { return; }
         m_Players.Clear();
+        HCReached.Mark("admin.request");
         GetGame().GetPlayers(m_Players);
         if (m_Pending)
         {

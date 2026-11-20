@@ -303,6 +303,7 @@ class HCWorldIncidents : HCModule
         if (!m_Running) { return; }
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { return; }
         HCSweep(HCWorldIncidents.HCNowSeconds());
+        HCReached.Mark("world_incidents.sweep");
     }
 
     override void OnStop()

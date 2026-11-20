@@ -616,6 +616,7 @@ class HCForageModule : HCModule
             if (!m_Work.HCContinue() || !m_Units.HCTake(1)) { return; }
             if (m_NodeCursor >= m_Nodes.Count()) { m_NodeCursor = 0; }
             HCForageNode current = m_Nodes[m_NodeCursor];
+            HCReached.Mark("forage.node");
             m_NodeCursor = m_NodeCursor + 1;
             if (!current.WasLive) { continue; }
             if (!current.Item) { HCReleaseNode(current, null); }

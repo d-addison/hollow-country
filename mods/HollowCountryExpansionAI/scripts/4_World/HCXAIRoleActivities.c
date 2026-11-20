@@ -551,6 +551,7 @@ class HCXAIRoleActivities : HCModule
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROLES, 1)) { return; }
             m_LeaseCursor = m_LeaseCursor % m_Leases.Count();
             HCXAIRoleLease expiring = m_Leases[m_LeaseCursor];
+            HCReached.Mark("ai_roles.lease");
             bool expired = HCWorldClock.UTC() >= expiring.Until;
             if (expired && expiring.HCProviderBusy()) { expired = false; }
             if (expired || !expiring.Group || expiring.Group.Count() < 1)

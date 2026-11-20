@@ -542,6 +542,7 @@ class HCScenesModule : HCModule
         foreach (HCSceneLease buildingLease : m_Leases)
         {
             if (HCSceneKits.HCPlacementComplete(buildingLease)) { continue; }
+            HCReached.Mark("scenes.placement_lease");
             // Review hardening: a lease whose kit failed to place waits for its Fail pass; never dereference it.
             if (!buildingLease.PlacementKit) { continue; }
             if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }

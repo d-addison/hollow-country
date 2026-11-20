@@ -60,6 +60,7 @@ class HCCraftingModule extends HCModule
         HCCraftingGate.m_Started = HCCraftingGate.m_Validated;
         HCActionSiphonFuel.ProductionStart(HCCraftingGate.m_Validated);
         HCCommonRecoveryPolicy.HCReport(true, HCCraftingGate.m_Validated);
+        HCReached.Mark("crafting.definitions_checked");
         if (!HCCraftingGate.m_Validated)
         {
             m_Refusal = "native_definition_checks_failed";

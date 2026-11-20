@@ -303,6 +303,7 @@ class HCXLivingModule : HCModule
         m_ActorCursor++;
         if (!HCXStance.Owns(actor)) { return; }
         HCXEmoteObservation.Tick(actor);
+        HCReached.Mark("living_ai.actor");
         string problem = HCXAIQualification.ProviderProblem();
         if (problem == "" && (!actor.HCXAI_Fair() || actor.m_eAI_LootingBehavior != 0)) { problem = "actor finite-ammo/fairness/looting NONE assertion"; }
         bool controlFault = problem != "";

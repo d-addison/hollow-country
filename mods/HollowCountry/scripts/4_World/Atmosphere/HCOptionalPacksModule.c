@@ -37,6 +37,7 @@ class HCOptionalPacksModule : HCModule
         if (GetGame().ConfigIsExisting("CfgVehicles Old_Bike")) bicyclesLoaded = "1";
         Print("[HollowCountry] V2 optional pack AmbientAnimals loaded=" + animalsLoaded);
         Print("[HollowCountry] V2 optional pack Bicycles loaded=" + bicyclesLoaded);
+        HCReached.Mark("optional_packs.config_probed");
     }
 
     override void OnStop() { m_Started = false; }

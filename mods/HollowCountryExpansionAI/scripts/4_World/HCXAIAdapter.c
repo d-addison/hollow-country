@@ -129,6 +129,7 @@ class HCXAIAdapter extends HCModule
         HCSituationActors.HCBindRaid(raidPort);
         HCXAITransitAdapter transitPort = new HCXAITransitAdapter();
         HCSituationActors.HCBindTransit(transitPort);
+        HCReached.Mark("expansion_ai.service_bind");
         this.LogAddonChecks();
         m_Status = "lease spawner retired; AI_ENCOUNTER binds HC site patrols";
         Print("[HC Expansion AI] retired: expansion-ai.json lease profile, local hook port and receipt verifiers are not loaded; AI_ENCOUNTER gates on site director run + per-process session + a qualified site patrol");

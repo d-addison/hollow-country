@@ -134,6 +134,7 @@ class HCTeamPingModule : HCModule
         previous.Pin.HCPinExpiresUtc = now + HCGCCampGroupConfig.Get().TeamPingSeconds;
         int recipients = service.HCPingDeliver(group, peer, label);
         HCReport("none", recipients);
+        HCReached.Mark("team_ping.received");
         return HCGroupCode.OK;
     }
     void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)

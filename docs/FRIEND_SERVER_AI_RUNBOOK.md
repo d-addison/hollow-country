@@ -401,7 +401,7 @@ $log = Get-ChildItem "$SERVER\profiles\script_*.log" | Sort-Object LastWriteTime
 Select-String -Path $log -Pattern 'SCRIPT\s+\(E\)' | Select-Object -First 20
 Select-String -Path $log -Pattern 'V1 admission feature=|V2 admission feature=' | Measure-Object
 Select-String -Path $log -Pattern '\[HollowCountry\] (Invalid settings|Settings rejected|Cannot)'
-Select-String -Path $log -Pattern '\[HC Doors\] ready|\[HC Reach\] started|camera|WARNING' | Select-Object -First 20
+Select-String -Path $log -Pattern '\[HC Ready\] module=(Doors|Reach) |camera|WARNING' | Select-Object -First 20
 ```
 
 Expected:

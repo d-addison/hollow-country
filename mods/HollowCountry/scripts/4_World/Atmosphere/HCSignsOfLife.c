@@ -346,6 +346,7 @@ class HCSignsOfLife extends HCModule
             ref array<Object> lit = new array<Object>;
             ref array<Object> smoke = new array<Object>;
             SelectHouses(m_Viewers[m_Area], today, lit, smoke);
+            HCReached.Mark("signs_of_life.area_sample");
             m_LitCount = Math.Max(m_LitCount, lit.Count());
             m_SmokeCount = Math.Max(m_SmokeCount, smoke.Count());
             m_Area++;

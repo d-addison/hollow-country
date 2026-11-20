@@ -263,6 +263,7 @@ class HCEscalationClock : HCModule
         int nowUtc = HCGroupClock.Utc();
         if (nowUtc < m_NowUtc) { Fail(); return; }
         m_NowUtc = nowUtc;
+        HCReached.Mark("escalation.clock_step");
         Report();
     }
 

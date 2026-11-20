@@ -230,6 +230,7 @@ class HCXAIIncidentResponse : HCModule
     {
         if (!m_Running || m_Leases.Count() < 1) { return; }
         HCStep(HCWorldIncidents.HCNowSeconds());
+        HCReached.Mark("ai_incident_response.lease_step");
     }
 
     override void OnStop()

@@ -124,6 +124,7 @@ class HCEcologyRuntimeModule : HCModule
     {
         HCEcologyRuntime.Tick(GetGame().GetTime());
         if (m_Started) { HCWildlifeObservation.HCTick(GetGame().GetTime()); }
+        if (m_Started) { HCReached.Mark("ecology.observation_tick"); }
         if (m_Started && m_WildlifeScenes && m_WildlifeScenes.HCActive())
         {
             int utc = HCGroupClock.Utc();

@@ -1,5 +1,28 @@
 class HCModule
 {
+    protected ref HCOperationalStatus m_HCReadyStatus;
+    protected bool m_HCReadyEnabled;
+    protected bool m_HCReadyStarted;
+    // Snapshot the existing owner state, then emit only after all start hooks finish.
+    void HCReadyCapture(bool enabled, bool started, HCOperationalStatus status)
+    {
+        m_HCReadyEnabled = enabled;
+        m_HCReadyStarted = started;
+        m_HCReadyStatus = new HCOperationalStatus();
+        m_HCReadyStatus.HCCapture(GetName(), started, status);
+    }
+
+    void HCReadyReport()
+    {
+        HCModuleReadiness.HCPrint(GetName(), m_HCReadyEnabled, m_HCReadyStarted, m_HCReadyStatus);
+        m_HCReadyStatus = null;
+    }
+
+    void HCReadyLate(HCOperationalStatus status)
+    {
+        HCModuleReadiness.HCPrintLate(GetName(), m_HCReadyEnabled, m_HCReadyStarted, status);
+    }
+
     string GetName() { return "unnamed"; }
     bool IsEnabled(HCSettings settings) { return false; }
     void OnStart(HCSettings settings) {}

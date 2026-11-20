@@ -342,6 +342,7 @@ class HCSettlementDecay : HCModule
         m_WorkBudget.HCReset(1);
         if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         int index = m_Cursor;
+        HCReached.Mark("settlement_decay.row");
         HCSettlementTown town = m_State.Towns[index];
         if (!m_HistoryPending)
         {

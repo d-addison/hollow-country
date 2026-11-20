@@ -221,7 +221,11 @@ class HCHordeMigration : HCModule
     {
         if (!s_Active) { return; }
         HCInfectedModule infected = HCInfectedModule.Instance;
-        if (infected && infected.HCV2MigrationReason() == "") { infected.HCV2MigrationStep(); }
+        if (infected && infected.HCV2MigrationReason() == "")
+        {
+            infected.HCV2MigrationStep();
+            HCReached.Mark("horde_migration.tick");
+        }
         HCRefreshStatus(infected);
     }
     override void OnStop()

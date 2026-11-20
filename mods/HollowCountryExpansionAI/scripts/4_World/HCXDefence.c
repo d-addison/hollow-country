@@ -583,6 +583,7 @@ class HCXDefence
                 break;
             }
             HCXGrudge grudge = s_Grudges.Get(s_Cursor);
+            HCReached.Mark("ai_defence.grudge");
             if (!grudge || nowMs >= grudge.Until || !grudge.Group || !grudge.Attacker || !grudge.Attacker.IsAlive())
             {
                 s_Grudges.RemoveOrdered(s_Cursor);

@@ -253,6 +253,7 @@ class HCLeadModule : HCModule
             if (m_Store.Data.Leads[expiredIndex].Expires <= now)
             {
                 m_Store.Data.Leads.RemoveOrdered(expiredIndex);
+                HCReached.Mark("leads.expired_item");
                 changed = true;
             }
         }

@@ -497,6 +497,7 @@ class HCInfectedLODModule : HCModule
         float now = GetGame().GetTickTime();
         array<Man> players = HCPerfPlayers.HCGet();
         infected.HCLODClassify(players, now, m_Config.ClassifyPerTick, m_Config.FullRange, m_Config.IdleRange);
+        HCReached.Mark("infected_lod.classify");
         if (m_Herds && m_Store.Healthy() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_LOD_HERD, 1))
         {
             m_Sight.HCReset(m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER);

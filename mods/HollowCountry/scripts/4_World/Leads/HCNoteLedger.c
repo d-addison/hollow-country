@@ -272,6 +272,7 @@ class HCNoteLedger : HCModule
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
         ResolveLoaded(); // <=32 restored handles x <=10 notes, no world scan
+        HCReached.Mark("note_ledger.resolve");
         if (m_Store.Data.Notes.Count() == 0) { return; }
         if (m_Cursor >= m_Store.Data.Notes.Count()) { m_Cursor = 0; }
         int entryIndex = m_Cursor;

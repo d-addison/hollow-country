@@ -219,6 +219,7 @@ class HCDeadDrops : HCModule
         int index = m_Next;
         m_Next++;
         HCDeadDropRow row = m_State.Rows[index];
+        HCReached.Mark("dead_drops.row");
         if (row.Quarantined) return;
         if (row.Cache.Phase == 0)
         {

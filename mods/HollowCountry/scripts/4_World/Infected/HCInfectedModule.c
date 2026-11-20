@@ -1107,6 +1107,7 @@ class HCInfectedModule : HCModule
             while (work > 0 && m_Cursor < m_Actors.Count() && sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 1))
             {
                 SampleActor(m_Actors[m_Cursor]);
+                HCReached.Mark("infected.actor_sample");
                 m_Cursor++;
                 work--;
             }

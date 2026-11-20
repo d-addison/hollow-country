@@ -429,6 +429,7 @@ class HCRadioChatter : HCModule
             BeginChannel();
         }
         if (!m_Channel) { return; }
+        HCReached.Mark("radio.channel");
         if (m_ListenerCursor >= m_Listeners.Count())
         {
             if (m_FromFallback && !m_Committed && m_Report && m_Fallback.Count() < 4) { m_Fallback.Insert(m_Report); }

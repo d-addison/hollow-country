@@ -179,6 +179,7 @@ class HCWorldModule : HCModule
             if (m_Cursor >= totalRows) { m_Cursor = 0; }
             m_WorkLeft = m_WorkLeft - 1;
             int rowIndex = m_Cursor;
+            HCReached.Mark("world.row");
             m_Cursor++;
             if (rowIndex < factionRows)
             {

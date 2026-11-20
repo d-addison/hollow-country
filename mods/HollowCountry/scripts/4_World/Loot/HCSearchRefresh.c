@@ -675,6 +675,7 @@ class HCSearchRefreshModule : HCModule
     {
         if (!Active() || !(deltaTime > 0.0)) return;
         m_Minute += deltaTime;
+        HCReached.Mark("search_refresh.tick");
         m_Hour += deltaTime;
         if (m_Minute >= 60.0 && m_BatchLeft < 1)
         {

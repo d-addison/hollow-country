@@ -57,6 +57,7 @@ class HCServer
         if (m_Started || !GetGame() || !GetGame().IsServer()) return;
         // A prior startup/stop callback may have aborted before cleanup finished.
         if (m_Active.Count() > 0) Stop();
+        HCReached.Begin();
         HCInfectedVisionQualification.HCThreatReset(false);
         m_Operational.HCReset();
         m_Changes.HCReset();
@@ -80,7 +81,10 @@ class HCServer
                 array<ref HCModule> refusedModules = refusedRegistry.GetModules();
                 foreach (HCModule refusedModule : refusedModules)
                 {
-                    Print("[HC " + refusedModule.GetName() + "] off reason=settings_unavailable");
+                    HCOperationalStatus settingsRefused = new HCOperationalStatus();
+                    settingsRefused.HCPublish("refused", "settings_unavailable");
+                    refusedModule.HCReadyCapture(false, false, settingsRefused);
+                    refusedModule.HCReadyReport();
                 }
             }
             return;
@@ -99,11 +103,8 @@ class HCServer
         string sharedSaveOwnerName = "";
         bool moduleEnabled = false;
         bool moduleStarted = false;
-        bool moduleReady = false;
-        bool moduleConflicted = false;
         HCOperationalStatus reported = null;
         HCOperationalOwner opOwner = null;
-        string notReadyWord = "off";
         foreach (HCModule module : modules)
         {
             // Exactly one lifecycle admission read; it may load local config.
@@ -116,8 +117,6 @@ class HCServer
             dependsOnSharedSaves = dependsOnSharedSaves || sharedSaveOwnerName == "Camps" || sharedSaveOwnerName == "InfectedLOD" || sharedSaveOwnerName == "WeatherDays";
             saveServiceRefused = moduleEnabled && dependsOnSharedSaves && !HCPerfConfig.HCGet().EnableSharedSaves;
             moduleStarted = false;
-            moduleReady = false;
-            moduleConflicted = false;
             if (moduleEnabled && !saveServiceRefused)
             {
                 m_Active.Insert(module);
@@ -135,24 +134,10 @@ class HCServer
             if (moduleStarted) { m_Changes.HCBaseline(reported); }
             opOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
             if (opOwner) { opOwner.HCObserve(moduleEnabled, reported, GetGame().GetTickTime()); }
-            // OnStart returning alone is not readiness. Internal started flags
-            // are private to owners: their existing cached hook publishes them.
-            // Missing evidence is never ready; never repeat IsEnabled/config reads.
-            // A started module without a status hook says so rather than "off".
-            if (reported)
-            {
-                moduleReady = moduleEnabled && moduleStarted && reported.HCState() == "ready";
-                moduleConflicted = !moduleStarted && (reported.HCState() == "ready" || reported.HCState() == "degraded" || reported.HCState() == "requested");
-                if (moduleReady) { Print("[HC " + module.GetName() + "] ready"); }
-                if (moduleConflicted) { Print("[HC " + module.GetName() + "] off reason=owner_report_conflicts_with_no_start"); }
-                // A degraded owner is running with partial admission, not off.
-                notReadyWord = "off";
-                if (reported.HCState() == "degraded") { notReadyWord = "degraded"; }
-                if (!moduleReady && !moduleConflicted) { Print("[HC " + module.GetName() + "] " + notReadyWord + " reason=" + reported.HCReason()); }
-            }
-            if (!reported && !moduleEnabled) { Print("[HC " + module.GetName() + "] off reason=module_not_enabled"); }
-            if (!reported && moduleEnabled) { Print("[HC " + module.GetName() + "] started reason=owner_state_unreported"); }
+            module.HCReadyCapture(moduleEnabled, moduleStarted, reported);
         }
+        // All active modules have now returned from OnStart; no new admission reads.
+        foreach (HCModule readyModule : modules) { readyModule.HCReadyReport(); }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
         m_OperationalRefreshAt = m_LastTick + 15;
@@ -233,6 +218,7 @@ class HCServer
                 {
                     refreshStatus = refreshModule.HCGetOperationalStatus();
                     refreshOwner.HCObserve(true, refreshStatus, now);
+                    refreshModule.HCReadyLate(refreshStatus);
                     // Wave 16: one line per state change after boot ("" when unchanged: no allocation).
                     refreshLine = m_Changes.HCChange(refreshIndex - 1, refreshModule.GetName(), refreshStatus);
                     if (refreshLine != "") { Print("" + refreshLine); }
@@ -264,6 +250,7 @@ class HCServer
             module.OnStop();
         }
         // Stop consumes the final cached save/refusal costs after OnStop.
+        HCReached.Summary();
         m_Perf.Stop();
         m_Active.Clear();
         Print("[HollowCountry] Server modules stopped");

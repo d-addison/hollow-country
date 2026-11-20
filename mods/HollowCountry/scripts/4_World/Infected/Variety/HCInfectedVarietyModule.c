@@ -113,6 +113,7 @@ class HCInfectedVarietyModule : HCModule
         m_Clock += deltaTime;
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
+        HCReached.Mark("infected_variety.observer_sample");
         m_Scale = 1;
         if (m_Scaling) { m_Scale = HCInfectedVarietyPolicy.GroupScale(m_Players.Count()); }
         HCInfectedModule infected = HCInfectedModule.Instance;

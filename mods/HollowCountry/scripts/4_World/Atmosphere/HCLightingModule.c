@@ -24,6 +24,7 @@ class HCLightingModule: HCModule
     {
         Print(HCV2Admission.Line("Lighting", true, "EXP-A2", HCV2Gates.Qualified("EXP-A2")));
         m_Started = true;
+        HCReached.Mark("lighting.admission_logged");
     }
 
     override void OnStop() { m_Started = false; }

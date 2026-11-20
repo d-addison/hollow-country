@@ -34,6 +34,7 @@ class HCSurvivalAlignmentModule : HCModule
         if (HCStaminaIntegration.Enabled()) { stamina = "on"; }
         Print("[HC Plan] HC-2 stamina_drain=" + drain.ToString() + " recovery=" + recovery.ToString() + " stamina=" + stamina + " meal_heat=off hooks=0 runtime=PENDING");
         m_Started = true;
+        HCReached.Mark("survival_alignment.admission_logged");
     }
 }
 
