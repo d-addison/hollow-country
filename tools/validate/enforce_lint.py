@@ -261,8 +261,10 @@ def rule_file_handle_int(project, source):
 
 
 # Native boot 075: hcxaibaseraid.c,270 "Expected name, not a keyword 'local'"; compile-xai4-01 refused `owned`.
+# Native boot 098: hcinteriortemplatesstrict.c,464 `string native = ""` -> "Broken expression".
 _NAME_KEYWORDS = ('owned', 'out', 'inout', 'notnull', 'autoptr', 'reference', 'volatile', 'external', 'event',
-                  'thread', 'sealed', 'local')
+                  'thread', 'sealed', 'local', 'native', 'proto', 'private', 'protected', 'static', 'const',
+                  'override', 'modded')
 _NAME_KEYWORD_DECL = re.compile(r'\b([A-Za-z_][A-Za-z0-9_<>]*)\s+(%s)\s*(?==|;|,|\))' % '|'.join(_NAME_KEYWORDS))
 
 

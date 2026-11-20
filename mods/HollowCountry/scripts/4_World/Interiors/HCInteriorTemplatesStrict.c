@@ -431,7 +431,7 @@ class HCInteriorTemplatesStrict
     }
 
     // Replace one authored key with its DTO name, piece by piece.
-    static string Rename(string text, string authored, string native)
+    static string Rename(string text, string authored, string nativeKey)
     {
         int length = text.Length();
         string result = "";
@@ -445,7 +445,7 @@ class HCInteriorTemplatesStrict
             }
             if (size > 4096) { size = 4096; }
             string piece = text.Substring(start, size);
-            piece.Replace(authored, native);
+            piece.Replace(authored, nativeKey);
             result = result + piece;
             start = start + size;
         }
@@ -461,27 +461,27 @@ class HCInteriorTemplatesStrict
             return "";
         }
         string authored = "";
-        string native = "";
+        string nativeKey = "";
         if (schema == "pack-index" || schema == "pack-page" || schema == "index")
         {
             authored = "\"File\":";
-            native = "\"FileName\":";
+            nativeKey = "\"FileName\":";
         }
         if (schema == "furnish")
         {
             authored = "\"Slot\":";
-            native = "\"SlotId\":";
+            nativeKey = "\"SlotId\":";
         }
         if (authored == "")
         {
             return content;
         }
         // An authored DTO name would alias the renamed key.
-        if (content.IndexOf(native) >= 0)
+        if (content.IndexOf(nativeKey) >= 0)
         {
             return "";
         }
-        return Rename(content, authored, native);
+        return Rename(content, authored, nativeKey);
     }
 
     // Exact key, object, array and comma counts of a LoadData text against its DTO census.
