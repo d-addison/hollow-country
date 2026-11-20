@@ -158,8 +158,10 @@ Steam query port launch and the observed vanilla Windows baseline. Vanilla join,
 movement, inventory and reconnect passed on 2026-11-17; addon loading and feature
 acceptance remain separate.
 
-1. Run unit tests, operator settings admission, repository hygiene and executable
-   offline BDD. These validate authored policies, data and tooling.
+1. Run the fast Python tooling tier: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit`.
+   Also run operator settings admission and repository hygiene. Slow tooling
+   (`-s tests/slow`) and quarantined Enforce translators/source contracts
+   (`-s tests/legacy`) run nightly or on demand. Offline checks do not establish DayZ behavior.
 2. Build with the installed official Tools; load the addon into DayZDiag and a
    normal dedicated server. Capture exact build/source/package hashes, compiler
    output and native self-test logs. A PBO container checksum is not a signature.

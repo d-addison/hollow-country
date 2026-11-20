@@ -1636,7 +1636,7 @@ Package hash caching serializes read/merge/replace with persistent OS-held locks
 - [Operator documentation](docs/README.md): configuration, persistence, backups and recovery.
 - [Addon development](docs/MOD_DEVELOPMENT.md): source layout and package workflow.
 - [Tools](tools/README.md): standard-library tooling, installers and validators.
-- [Tests](tests/README.md): offline checks and the limits of their evidence.
+- [Tests](tests/README.md): fast Python tooling: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit`; nightly/on-demand tiers use `-s tests/slow` (slow tooling) and `-s tests/legacy` (quarantined Enforce translators/source contracts). Offline checks do not establish DayZ behavior.
 - [Contributing](CONTRIBUTING.md): contribution requirements.
 
 Report bugs through [GitHub issues](https://github.com/d-addison/hollow-country/issues), with the build, feature, expected/actual result and sanitised refusal/log lines. Do not attach credentials, identifiers, private profiles or third-party assets. Missing runtime behaviour remains open until tested on DayZDiag and a normal signed PBO/server; sound, visibility and replication need one client.
