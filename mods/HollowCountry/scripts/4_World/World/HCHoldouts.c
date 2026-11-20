@@ -967,6 +967,29 @@ class HCHoldouts : HCModule
         Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=" + raidLockout.ToString() + "s runtime=PENDING");
     }
 
+    // A release with a new interior template pack must not stop holdouts for
+    // good (boot 095 after the #227 door census). Rows keep their house and
+    // their placed cache; the layout is read again only to choose a new cache
+    // spot, and CacheSpot already refuses a house without a covered layout. So
+    // re-pin the ledger to the new pack, report houses it no longer covers, and
+    // save once. Bounded by MaxHoldouts rows; runs once per pack change.
+    protected void MigrateTemplatePin()
+    {
+        int uncovered = 0;
+        foreach (HCHoldoutRow pinned : m_State.Rows)
+        {
+            HCInteriorTemplateClassRow coverage = HCInteriorTemplates.ClassRow(pinned.Ledger.HouseClass);
+            HCInteriorTemplate rooms = HCInteriorTemplates.Template(pinned.Ledger.HouseClass);
+            if (!coverage || coverage.Search != "covered" || !rooms || rooms.Rooms.Count() < 1) { uncovered++; }
+        }
+        m_State.TemplatePin = HCInteriorTemplates.SourcePin();
+        m_Dirty = true;
+        m_CatalogDirty = true;
+        m_SaveJob.HCDirty = true;
+        if (!HCPerfConfig.HCGet().EnableSharedSaves) { HCFlushCatalog(); }
+        Print("[HollowCountry] V2 holdouts template pack changed; ledger re-pinned rows=" + m_State.Rows.Count().ToString() + " uncovered=" + uncovered.ToString());
+    }
+
     override void OnTick(float deltaTime)
     {
         m_TickMeasuredStage = 0;
@@ -978,7 +1001,7 @@ class HCHoldouts : HCModule
             m_WaitReported = true;
             return;
         }
-        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_template_changed"); HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
+        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { MigrateTemplatePin(); return; }
         FillCatalog();
         if (m_CatalogDirty) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         // Discovery and simulation never receive independent slices in one tick.
