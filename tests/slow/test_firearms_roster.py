@@ -157,7 +157,7 @@ def synthetic(root):
         b'<?xml version="1.0"?><economycore><!--keep exactly--><defaults/></economycore>')
     (root / 'cfglimitsdefinition.xml').write_text(
         '<lists><usageflags><usage name="Town"/><usage name="Village"/><usage name="Military"/>'
-        '<usage name="Farm"/><usage name="ContaminatedArea"/><usage name="Police"/><usage name="Hunting"/></usageflags><valueflags><value name="Tier1"/><value name="Tier2"/>'
+        '<usage name="Farm"/><usage name="ContaminatedArea"/><usage name="Police"/><usage name="Hunting"/><usage name="Prison"/></usageflags><valueflags><value name="Tier1"/><value name="Tier2"/>'
         '<value name="Tier3"/><value name="Tier4"/></valueflags></lists>')
     (root / 'mapgroupproto.xml').write_text('<prototype><group name="G" lootmax="0"/></prototype>')
     (root / 'mapgrouppos.xml').write_text('<map><group name="G" pos="1 2 3"/></map>')
@@ -229,11 +229,11 @@ class RosterGeneration(unittest.TestCase):
         for name in ('SynthAmmo', 'SynthMag'):
             r = roster()
             next(e for e in r['entries'] if e['class'] == name)['set'] = {'nominal': 0, 'min': 0}
-            with self.subTest(support=name), self.assertRaisesRegex(ValueError, 'spawning weapon'):
+            with self.subTest(support=name), self.assertRaisesRegex(ValueError, 'spawning weapon|HC_MILITARY_LOOT_RETENTION'):
                 firearms.generate(self.root, r)
 
-    def test_one_live_alternative_is_sufficient_and_disabled_weapons_need_no_support(self):
-        """SYNTHETIC compatible alternatives and disabled-only roster."""
+    def test_zeroed_alternatives_and_weapons_require_allowlist(self):
+        """SYNTHETIC zeroed alternatives and weapons fail the retention contract."""
         r = roster()
         modern = next(e for e in r['entries'] if e['class'] == 'SynthModernRifle')
         modern['magazines'].append('SynthZeroMag')
@@ -241,10 +241,12 @@ class RosterGeneration(unittest.TestCase):
         support.pop('datamined')
         support.pop('acceptance')
         next(e for e in r['entries'] if e['class'] == 'SynthMag')['set'] = {'nominal': 0, 'min': 0}
-        firearms.generate(self.root, r)
+        with self.assertRaisesRegex(ValueError, 'HC_MILITARY_LOOT_RETENTION'):
+            firearms.generate(self.root, r)
         for e in r['entries']:
             e['set'] = {'nominal': 0, 'min': 0}
-        firearms.generate(self.root, r)
+        with self.assertRaisesRegex(ValueError, 'HC_MILITARY_LOOT_RETENTION'):
+            firearms.generate(self.root, r)
 
     def test_effective_family_checks_use_supplied_custom_policy(self):
         custom = roster()
@@ -443,7 +445,7 @@ class RosterGeneration(unittest.TestCase):
         stage = Path(self.tmp.name) / 'tampered-delta'
         firearms.write_delta(stage, files)
         before = economy.snapshot(self.root)
-        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+        with self.assertRaisesRegex(ValueError, 'spawning weapon|HC_MILITARY_LOOT_RETENTION'):
             firearms.install(stage, self.root)
         self.assertEqual(before, economy.snapshot(self.root))
         self.assertFalse((self.root / economy.MANAGED).exists())
@@ -596,11 +598,11 @@ class ReviewedNewTypes(unittest.TestCase):
                 output = economy._unique(ET.fromstring(files['ce/types.xml']))
                 self.assertTrue(set(NEW_PARENTS) <= set(output))
                 self.assertEqual((output['CZ527_Camo'].findtext('nominal'),
-                                  output['CZ527_Camo'].findtext('min')), ('50', '25'))
+                                  output['CZ527_Camo'].findtext('min')), tuple(str(next(e for e in firearms.selected_roster(self.roster)['entries'] if e['class'] == 'CZ527_Camo')['set'][field]) for field in ('nominal', 'min')))
                 for class_name, parent in NEW_PARENTS.items():
                     expected = copy.deepcopy(self.stock[parent])
                     expected.set('name', class_name)
-                    policy = next(e for e in self.roster['entries'] if e['class'] == class_name)
+                    policy = next(e for e in firearms.selected_roster(self.roster)['entries'] if e['class'] == class_name)
                     expected.find('nominal').text = str(policy['set']['nominal'])
                     for field, value in policy['set'].items():
                         expected.find(field).text = str(value)
@@ -638,7 +640,8 @@ class ReviewedNewTypes(unittest.TestCase):
         (self.root / 'cfgspawnabletypes.xml').write_text('<spawnabletypes/>')
         profile = {'schema': 1, 'name': 'synthetic', 'add_usage': {}, 'diagnostics': []}
         with self.assertRaisesRegex(ValueError, 'HC21_PART_ROUTE_MISSING'):
-            economy.generate(self.root, profile, include_datamined=False, roster=self.roster)
+            economy.generate(self.root, profile, include_datamined=False,
+                             roster=dict(self.roster, economy_profile='scarcity'))
 
     def test_switch_disables_new_rows_and_their_install_permissions(self):
         files = firearms.generate(self.root, self.roster, include_datamined=False)
@@ -654,7 +657,8 @@ class ReviewedNewTypes(unittest.TestCase):
         files = firearms.generate(self.root, self.roster)
         output = economy._unique(ET.fromstring(files['ce/types.xml']))
         self.assertNotIn('CZ527_desert', output)
-        self.assertEqual(output['CZ527_Desert'].findtext('nominal'), '6')
+        expected = next(e for e in firearms.selected_roster(self.roster)['entries'] if e['class'].lower() == 'cz527_desert')
+        self.assertEqual(output['CZ527_Desert'].findtext('nominal'), str(expected['set']['nominal']))
         self.assertEqual(output['CZ527_Desert'].find('tag').get('name'), 'shelves')
         self.assertNotIn('CZ527_Desert', json.loads(files['delta-manifest.json'])['new_type_classes'])
         stage = Path(self.tmp.name) / 'case-alias'
@@ -852,6 +856,63 @@ class CommittedRoster(unittest.TestCase):
     def test_roster_is_small_and_carries_no_vanilla_dump(self):
         self.assertLess(ROSTER_PATH.stat().st_size, 300_000)
         self.assertNotIn('<type ', ROSTER_PATH.read_text())
+
+
+class MilitaryLootBudget(unittest.TestCase):
+    """Offline generation properties, never observed CE population or magazine fill."""
+
+    def test_all_sources_share_each_tier_ceiling_and_keep_support(self):
+        from tools.package import military_loot as military
+        rules = military.load_rules()
+        rows, counts, remaining = military.allocation()
+        self.assertTrue(all(n >= 0 for n in remaining.values()))
+        for tier in rules['firearms']:
+            total = sum(counts[name] for name, row in rows.items() if row['kind'] == 'weapon'
+                        and 'Military' in row['usage'] and tier in row['value'])
+            self.assertLessEqual(total, sum(rules['firearms'][tier].values()))
+        tier4 = sum(counts[name] for name, row in rows.items() if row['kind'] == 'weapon'
+                    and 'Military' in row['usage'] and 'Tier4' in row['value'])
+        # Shared civilian sidearms keep their original pools outside this ceiling.
+        self.assertEqual(tier4, rules['firearms']['Tier4']['primary'])
+        effective = {row['class']: row for row in military.apply(list(rows.values()))}
+        for row in effective.values():
+            for field in ('ammo', 'vanilla_ammo', 'snafu_ammo'):
+                row.setdefault(field, [])
+        firearms.check_support(list(effective.values()), lambda name: effective.get(name, {}).get('set', {}).get('nominal', 0),
+                               ammo_fields=('ammo', 'vanilla_ammo', 'snafu_ammo'))
+
+    def test_projection_is_deterministic_and_preserves_civilian_only_rows(self):
+        from tools.package import military_loot as military
+        entries = list(military.catalog().values())
+        first = military.apply(entries)
+        self.assertEqual(first, military.apply(entries))
+        for before, after in zip(entries, first):
+            if not military.budgeted(before):
+                self.assertEqual(before, after)
+            elif after['set']['nominal']:
+                self.assertGreater(after['set']['min'], 0)
+
+    def test_configuration_change_reallocates_the_shared_pool(self):
+        from tools.package import military_loot as military
+        rules = military.load_rules()
+        rules['firearms']['Tier4'] = {'primary': 12, 'secondary': 12}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'rules.json'
+            path.write_text(json.dumps(rules))
+            with mock.patch.object(military, 'RULES', path):
+                rows, counts, _ = military.allocation()
+                self.assertEqual(sum(counts[name] for name, row in rows.items() if row['kind'] == 'weapon'
+                                     and military.budgeted(row) and 'Tier4' in row['value']), 12)
+
+    def test_every_generated_modded_magazine_uses_partial_fill_range(self):
+        from tools.package import military_loot as military, snafu_optional, tactical_flava_optional
+        for writer in (snafu_optional, tactical_flava_optional):
+            data = json.loads(writer.ALLOWLIST_PATH.read_bytes())
+            for row in data['entries']:
+                if row['kind'] == 'magazine':
+                    node = writer._new_type(row)
+                    self.assertEqual((int(node.findtext('quantmin')), int(node.findtext('quantmax'))),
+                                     military.magazine_quantity())
 
 
 if __name__ == '__main__':

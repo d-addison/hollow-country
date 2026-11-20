@@ -504,8 +504,10 @@ def _new_type(entry):
     for tag in ('nominal', 'lifetime', 'restock', 'min'):
         ET.SubElement(item, tag).text = str(s[tag])
     magazine = entry['kind'] == 'magazine'
-    ET.SubElement(item, 'quantmin').text = '30' if magazine else '-1'
-    ET.SubElement(item, 'quantmax').text = '70' if magazine else '-1'
+    from tools.package import military_loot
+    low, high = military_loot.magazine_quantity() if magazine else (-1, -1)
+    ET.SubElement(item, 'quantmin').text = str(low)
+    ET.SubElement(item, 'quantmax').text = str(high)
     ET.SubElement(item, 'cost').text = '100'
     ET.SubElement(item, 'flags', {'count_in_cargo': '0', 'count_in_hoarder': '0', 'count_in_map': '1',
                                   'count_in_player': '0', 'crafted': '0', 'deloot': '0'})
@@ -779,7 +781,8 @@ def main(argv=None):
     p.add_argument('--source', type=Path, required=True)
     p.add_argument('--allowlist', type=Path, default=ALLOWLIST_PATH)
     p.add_argument('--report', type=Path, required=True)
-    p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--out', type=Path)
+    p.add_argument('--check', action='store_true', help='validate generated rows without writing a delta')
     snafu_optional._add_scale_arguments(p)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
@@ -813,7 +816,10 @@ def main(argv=None):
             files = generate(args.source, selected,
                              json.loads(args.report.read_bytes()), nominal_scale=args.nominal_scale,
                              tier_scales=snafu_optional._cli_tier_scales(args.tier_scale))
-            write_delta(args.out, files)
+            if not args.check:
+                if args.out is None:
+                    raise ValueError('generate requires --out or --check')
+                write_delta(args.out, files)
             snafu_optional._print_scale_totals(json.loads(files['economy-report.json']))
         elif args.command == 'install':
             install(args.delta, args.target)
@@ -897,6 +903,9 @@ def check_weapon_packs(mission, packs):
         report = json.loads(economy.read_plain(managed, 'verification.json'))
         writer._check_report(allowlist, report)
         snafu_optional._check_hc61_report(allowlist, report)
+        from tools.package import military_loot
+        military_loot.check_retained(allowlist['entries'],
+                                     ET.fromstring(economy.read_plain(managed, 'ce/types.xml')))
         present.append(label)
     if present:
         with tempfile.TemporaryDirectory(prefix='hc-weapon-check-') as temporary:

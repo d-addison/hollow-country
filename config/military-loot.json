@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "usage": "Military",
+  "firearms": {
+    "Tier1": {
+      "primary": 16,
+      "secondary": 16
+    },
+    "Tier2": {
+      "primary": 24,
+      "secondary": 24
+    },
+    "Tier3": {
+      "primary": 196,
+      "secondary": 24
+    },
+    "Tier4": {
+      "primary": 7,
+      "secondary": 9
+    }
+  },
+  "support_per_firearm": {
+    "attachment": 14,
+    "magazine": 9,
+    "ammo": 3
+  },
+  "rarity_weights": {
+    "common": 4,
+    "uncommon": 2,
+    "rare": 1
+  },
+  "min_fraction": 0.5,
+  "lifetime_seconds": 14400,
+  "restock_seconds": 1800,
+  "magazine_quantity_percent": {
+    "min": 10,
+    "max": 100
+  },
+  "tisy_bounds": [
+    1000,
+    2500,
+    13200,
+    15000
+  ],
+  "planning_note": "Every military-only class retains nominal/min >= 1. Stable hash ordering, constrained-first tier round-robin and one eligible tier per firearm keep Tier4 small; Tier3 carries the remaining class floors. Three native Tier4 primary classes are reserved inside the ceiling. Multi-tier support debits every eligible tier and retains all class floors. Shared civilian and contaminated-area rows retain their pools. Optional shares stay empty when a pack is absent. Magazine range 10-100 percent permits mostly partial fills and rare full fills if CE samples uniformly; distribution and attached magazine inheritance require observation. Equal-point Tisy occupancy is a planning estimate only."
+}

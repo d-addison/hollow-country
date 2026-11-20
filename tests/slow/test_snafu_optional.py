@@ -311,7 +311,7 @@ class FailClosedGeneration(unittest.TestCase):
             else:
                 next(e for e in a['entries'] if e['class'] == name)['set'].update(nominal=0, min=0)
             report = dict(self.report, allowlist_sha256=snafu_optional.allowlist_sha256(a))
-            with self.subTest(support=name), self.assertRaisesRegex(ValueError, 'spawning weapon'):
+            with self.subTest(support=name), self.assertRaisesRegex(ValueError, 'spawning weapon|HC_MILITARY_LOOT_RETENTION'):
                 snafu_optional.generate(self.mission, a, report)
 
     def test_no_report_or_unverified_report_generates_nothing(self):
@@ -325,7 +325,7 @@ class FailClosedGeneration(unittest.TestCase):
         next(e for e in a['entries'] if e['class'] == 'SynPistol')['magazines'] = []
         next(e for e in a['entries'] if e['class'] == 'SynPistolMag')['set'].update(nominal=0, min=0)
         report = snafu_optional.verify_install(self.install, a)
-        with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine'):
+        with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine|HC_MILITARY_LOOT_RETENTION'):
             snafu_optional.generate(self.mission, a, report)
 
     def test_report_must_match_the_allowlist_and_every_class(self):
@@ -410,7 +410,7 @@ class InstallRollback(unittest.TestCase):
         stage = Path(self.tmp.name) / 'tampered-support'
         snafu_optional.write_delta(stage, files)
         before = economy.snapshot(self.source)
-        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+        with self.assertRaisesRegex(ValueError, 'spawning weapon|HC_MILITARY_LOOT_RETENTION'):
             snafu_optional.install(stage, self.source)
         self.assertEqual(before, economy.snapshot(self.source))
         self.assertFalse((self.source / snafu_optional.MANAGED).exists())
@@ -650,14 +650,15 @@ class CommittedAllowlist(unittest.TestCase):
     def weapons(self):
         return {e['class']: e for e in self.data['entries'] if e['kind'] == 'weapon'}
 
-    def test_expanded_pack_meets_owner_test_abundance(self):
+    def test_expanded_pack_uses_shared_military_budget(self):
+        from tools.package import military_loot
         weapons = self.weapons()
         self.assertTrue((self.CONSERVATIVE_SEVEN | self.WW2_SMGS | self.MODERN_MILITARY) <= set(weapons))
         self.assertGreaterEqual(len(weapons), 170)
-        self.assertGreaterEqual(sum(e['set']['nominal'] for e in weapons.values()), 250)
-        for e in weapons.values():
-            self.assertEqual(e['set']['min'], e['set']['nominal'] // 2)
-        self.assertEqual(self.data['test_abundance_multiplier'], 1.0)
+        projected = military_loot.apply(self.data['entries'])
+        self.assertLess(sum(e['set']['nominal'] for e in projected
+                            if e['kind'] == 'weapon' and 'Military' in e['usage']), 250)
+        self.assertTrue(all(e['set']['nominal'] >= 1 for e in projected))
 
     def test_modern_rifles_and_police_smgs_use_owner_tiers(self):
         for name, e in self.weapons().items():

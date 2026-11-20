@@ -767,6 +767,10 @@ def _scaled_entries(entries, nominal_scale=1.0, tier_scales=None):
             totals[entry['kind'] + '_nominal_before'] += entry['set']['nominal']
             totals[entry['kind'] + '_nominal_after'] += row['set']['nominal']
         result.append(row)
+    from tools.package import military_loot
+    result = military_loot.apply(result)
+    for kind in ('weapon', 'magazine', 'ammo'):
+        totals[kind + '_nominal_after'] = sum(e['set']['nominal'] for e in result if e['kind'] == kind)
     totals['weapon_nominal'] = totals['weapon_nominal_after']  # existing report consumer field
     policy = {'nominal_scale': float(scale),
               'tier_scales': {tier: float(value) for tier, value in tiers.items()},
@@ -779,7 +783,7 @@ def _scaled_entries(entries, nominal_scale=1.0, tier_scales=None):
 
 def _add_scale_arguments(parser):
     parser.add_argument('--nominal-scale', default=DEFAULT_SCALE, metavar='X',
-                        help='gun, magazine and emitted ammo nominal/min multiplier (0.25..4.0; default: allowlist test_abundance_multiplier or 1.0)')
+                        help='gun, magazine and emitted ammo nominal/min multiplier (0.25..4.0; default: authored nonmilitary scale; shipped military rows use config/military-loot.json)')
     parser.add_argument('--tier-scale', action='append', default=[], metavar='TIER=X',
                         help='optional common/uncommon/rare multiplier; effective scale must stay in 0.25..4.0')
 
@@ -809,8 +813,10 @@ def _new_type(entry):
     item = ET.Element('type', {'name': entry['class']})
     for tag in ('nominal', 'lifetime', 'restock', 'min'):
         ET.SubElement(item, tag).text = str(s[tag])
-    ET.SubElement(item, 'quantmin').text = '-1'
-    ET.SubElement(item, 'quantmax').text = '-1'
+    from tools.package import military_loot
+    low, high = military_loot.magazine_quantity() if entry['kind'] == 'magazine' else (-1, -1)
+    ET.SubElement(item, 'quantmin').text = str(low)
+    ET.SubElement(item, 'quantmax').text = str(high)
     ET.SubElement(item, 'cost').text = '100'
     ET.SubElement(item, 'flags', {'count_in_cargo': '0', 'count_in_hoarder': '0', 'count_in_map': '1',
                                   'count_in_player': '0', 'crafted': '0', 'deloot': '0'})
@@ -1019,7 +1025,8 @@ def main(argv=None):
     p.add_argument('--source', type=Path, required=True)
     p.add_argument('--allowlist', type=Path, default=ALLOWLIST_PATH)
     p.add_argument('--report', type=Path, required=True)
-    p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--out', type=Path)
+    p.add_argument('--check', action='store_true', help='validate generated rows without writing a delta')
     _add_scale_arguments(p)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
@@ -1054,7 +1061,10 @@ def main(argv=None):
             files = generate(args.source, selected,
                              json.loads(args.report.read_bytes()), nominal_scale=args.nominal_scale,
                              tier_scales=_cli_tier_scales(args.tier_scale))
-            write_delta(args.out, files)
+            if not args.check:
+                if args.out is None:
+                    raise ValueError('generate requires --out or --check')
+                write_delta(args.out, files)
             _print_scale_totals(json.loads(files['economy-report.json']))
         elif args.command == 'install':
             install(args.delta, args.target)

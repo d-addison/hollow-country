@@ -3069,10 +3069,9 @@
       "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "R12",
       "set_usage": [
-        "Military"
+        "Police"
       ],
       "set_value": [
-        "Tier2",
         "Tier3",
         "Tier4"
       ]
@@ -3158,12 +3157,9 @@
       "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Scout",
       "set_usage": [
-        "Military"
+        "Prison"
       ],
-      "set_value": [
-        "Tier3",
-        "Tier4"
-      ]
+      "set_value": []
     },
     {
       "class": "Scout_Chernarus",
@@ -3186,11 +3182,11 @@
       "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Scout",
       "set_usage": [
-        "Military"
+        "Police"
       ],
       "set_value": [
-        "Tier3",
-        "Tier4"
+        "Tier2",
+        "Tier3"
       ]
     },
     {
@@ -6298,6 +6294,168 @@
       "family": "attachment_StarlightOptic",
       "disposition": "keep-native-budget",
       "justification": "TEST ABUNDANCE: 3x native CE-listed optics/parts; existing native carrier/integral assemblies unchanged."
+    },
+    {
+      "class": "AK_Bayonet",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 10,
+        "min": 5,
+        "lifetime": 28800,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military"
+      ],
+      "set_value": [
+        "Tier2",
+        "Tier3"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "AK_Bayonet",
+      "disposition": "curated-family-split"
+    },
+    {
+      "class": "M9A1_Bayonet",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 10,
+        "min": 5,
+        "lifetime": 28800,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military"
+      ],
+      "set_value": [
+        "Tier2",
+        "Tier3"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "M9A1_Bayonet",
+      "disposition": "curated-family-split"
+    },
+    {
+      "class": "MP5_Compensator",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 10,
+        "min": 8,
+        "lifetime": 14400,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military"
+      ],
+      "set_value": [
+        "Tier1",
+        "Tier2",
+        "Tier3",
+        "Tier4"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "MP5_Compensator",
+      "disposition": "curated-family-split"
+    },
+    {
+      "class": "Mosin_Bayonet",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 10,
+        "min": 5,
+        "lifetime": 28800,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military",
+        "Farm"
+      ],
+      "set_value": [
+        "Tier2",
+        "Tier3"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "Mosin_Bayonet",
+      "disposition": "curated-family-split"
+    },
+    {
+      "class": "SKS_Bayonet",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 10,
+        "min": 5,
+        "lifetime": 28800,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military"
+      ],
+      "set_value": [
+        "Tier2",
+        "Tier3",
+        "Tier4"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "SKS_Bayonet",
+      "disposition": "curated-family-split"
+    },
+    {
+      "class": "TLRLight",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 40,
+        "min": 30,
+        "lifetime": 14400,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military",
+        "Police"
+      ],
+      "set_value": [
+        "Tier2",
+        "Tier3",
+        "Tier4"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "TLRLight",
+      "disposition": "curated-family-split"
+    },
+    {
+      "class": "UniversalLight",
+      "kind": "attachment",
+      "role": "support",
+      "tier": "common",
+      "set": {
+        "nominal": 30,
+        "min": 20,
+        "lifetime": 28800,
+        "restock": 0
+      },
+      "set_usage": [
+        "Military",
+        "Police"
+      ],
+      "set_value": [
+        "Tier2",
+        "Tier3",
+        "Tier4"
+      ],
+      "justification": "Military attachment support joins the shared tier budget; native CE fields retained. Runtime pending.",
+      "family": "UniversalLight",
+      "disposition": "curated-family-split"
     }
   ],
   "optics": {
@@ -7337,6 +7495,48 @@
       "kind": "attachment",
       "nominal": 3,
       "min": 3
+    },
+    {
+      "family": "AK_Bayonet",
+      "kind": "attachment",
+      "nominal": 10,
+      "min": 5
+    },
+    {
+      "family": "M9A1_Bayonet",
+      "kind": "attachment",
+      "nominal": 10,
+      "min": 5
+    },
+    {
+      "family": "MP5_Compensator",
+      "kind": "attachment",
+      "nominal": 10,
+      "min": 8
+    },
+    {
+      "family": "Mosin_Bayonet",
+      "kind": "attachment",
+      "nominal": 10,
+      "min": 5
+    },
+    {
+      "family": "SKS_Bayonet",
+      "kind": "attachment",
+      "nominal": 10,
+      "min": 5
+    },
+    {
+      "family": "TLRLight",
+      "kind": "attachment",
+      "nominal": 40,
+      "min": 30
+    },
+    {
+      "family": "UniversalLight",
+      "kind": "attachment",
+      "nominal": 30,
+      "min": 20
     }
   ],
   "refusals": [

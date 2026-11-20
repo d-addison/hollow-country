@@ -1,0 +1,441 @@
+"""Shared deterministic military CE budgets and read-only installed mission census.
+
+Nominals are map-wide pools, not hard population caps or observed local counts.
+The area map reader uses the native 4096-grid usage uint32 plane followed by
+its uint8 value plane. Point shares are a planning estimate, never CE simulation.
+"""
+import argparse
+from collections import Counter, defaultdict
+import copy
+import hashlib
+from functools import lru_cache
+import json
+import math
+import re
+from pathlib import Path
+import struct
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[2]
+RULES = ROOT / 'config/military-loot.json'
+SOURCES = ('firearms_roster.json', 'snafu_allowlist.json', 'tactical_flava_allowlist.json')
+
+
+def catalog():
+    result = {}
+    for source in SOURCES:
+        data = json.loads((ROOT / 'tools/package' / source).read_bytes())
+        families = {m['class']: m['family'] for m in data.get('hc61', {}).get('members', [])}
+        for entry in data['entries']:
+            row = copy.deepcopy(entry)
+            if row['class'] in families:
+                # Optional legacy families are whole-provider ceilings, not firearm models.
+                row['family'] = re.sub(r'(?i)(_|^)(black|green|tan|snow|wood|woodland|dkmc|od|fde|camo)(_|$)', '_', row['class']).lower()
+            row['usage'] = row.get('usage', row.get('set_usage', []))
+            row['value'] = row.get('value', row.get('set_value', []))
+            result[row['class']] = row
+    return result
+
+
+def item_kind(entry):
+    kind = entry['kind']
+    if kind == 'weapon':
+        ammo = entry.get('ammo', []) + entry.get('vanilla_ammo', []) + entry.get('snafu_ammo', [])
+        if any('bolt' in name.lower() for name in ammo):
+            return 'archery'
+        if any('40mm' in name.lower() for name in ammo):
+            return 'launcher'
+        return 'firearm'
+    return kind
+
+
+def effective_types(mission):
+    """Case-insensitive last-definition wins in CE registration order."""
+    paths = [Path('db/types.xml')]
+    for ce in ET.parse(mission / 'cfgeconomycore.xml').getroot().findall('ce'):
+        paths.extend(Path(ce.get('folder')) / f.get('name') for f in ce if f.get('type') == 'types')
+    result = {}
+    for path in paths:
+        for row in ET.parse(mission / path).getroot():
+            result[row.get('name').lower()] = (str(path.parent), row)
+    return result
+
+
+def census(mission):
+    known = {k.lower(): v for k, v in catalog().items()}
+    totals = defaultdict(lambda: [0, 0])
+    distinct = defaultdict(lambda: [0, 0])
+    for name, (source, row) in effective_types(mission).items():
+        entry = known.get(name)
+        kind = item_kind(entry) if entry else ('magazine' if name.startswith('mag_') else
+               'ammo' if name.startswith(('ammo_', 'ammobox_')) else None)
+        if kind is None:
+            continue  # category=weapons also includes melee; never call those firearms
+        cell = distinct[source, kind]
+        cell[0] += 1
+        cell[1] += int(row.findtext('nominal', '0'))
+        for usage in [u.get('name') for u in row.findall('usage')] or ['*']:
+            for tier in [v.get('name') for v in row.findall('value')] or ['*']:
+                cell = totals[source, tier, usage, kind]
+                cell[0] += 1
+                cell[1] += int(row.findtext('nominal', '0'))
+    print('source,tier,usage,kind,classes,nominal (multi-route rows occur in each route)')
+    for key, counts in sorted(totals.items()):
+        print(','.join(map(str, (*key, *counts))))
+    print('distinct_source,kind,classes,nominal')
+    for key, counts in sorted(distinct.items()):
+        print(','.join(map(str, (*key, *counts))))
+    return totals
+
+
+def point_share(mission, bounds=(1000, 2500, 13200, 15000)):
+    data = (mission / 'areaflags.map').read_bytes()
+    width, height, world_x, world_z, bits = struct.unpack_from('<5I', data)
+    cells = width * height
+    if bits != 32 or struct.unpack_from('<I', data, 20 + cells * 4)[0] != 8 or len(data) != 24 + cells * 5:
+        raise ValueError('unsupported area map layout')
+    protos = {g.get('name'): g for g in ET.parse(mission / 'mapgroupproto.xml').getroot().findall('group')}
+    totals = Counter()
+    for group in ET.parse(mission / 'mapgrouppos.xml').getroot():
+        proto = protos.get(group.get('name'))
+        if proto is None:
+            continue
+        x, _, z = map(float, group.get('pos').split())
+        index = min(height-1, max(0, int(z * height / world_z))) * width + min(width-1, max(0, int(x * width / world_x)))
+        usage = struct.unpack_from('<I', data, 20 + index * 4)[0]
+        value = data[24 + cells * 4 + index]
+        military = usage & 1 or any(u.get('name') == 'Military' for u in proto.findall('usage'))
+        if not military or not value & 8:
+            continue
+        count = sum(len(c.findall('point')) for c in proto.findall('container')
+                    if any(n.get('name') == 'weapons' for n in c.findall('category')))
+        totals['all_tier4_military_weapon_points'] += count
+        if bounds[0] <= x <= bounds[1] and bounds[2] <= z <= bounds[3]:
+            totals['tisy_tier4_military_weapon_points'] += count
+    all_points = totals['all_tier4_military_weapon_points']
+    totals['tisy_share'] = totals['tisy_tier4_military_weapon_points'] / all_points if all_points else 0
+    print(json.dumps({'tisy_bounds_xmin_xmax_zmin_zmax': bounds, **totals,
+                      'includes': 'installed map positions and prototypes, including installed HC additions',
+                      'estimate': 'equal eligible-point occupancy; CE selection/lootmax/tag effects unobserved'}, sort_keys=True))
+    return totals
+
+
+def load_rules():
+    rules = json.loads(RULES.read_bytes())
+    if rules['schema'] != 1 or rules['usage'] != 'Military' or set(rules['firearms']) != {'Tier1', 'Tier2', 'Tier3', 'Tier4'}:
+        raise ValueError('invalid military loot rules')
+    for tier, roles in rules['firearms'].items():
+        if tier not in {'Tier1', 'Tier2', 'Tier3', 'Tier4'} or set(roles) != {'primary', 'secondary'}:
+            raise ValueError('invalid military tier/roles')
+        if any(type(n) is not int or n < 0 for n in roles.values()):
+            raise ValueError('invalid military firearm budget')
+    if set(rules['support_per_firearm']) != {'attachment', 'magazine', 'ammo'}:
+        raise ValueError('invalid support kinds')
+    for kind, ratio in rules['support_per_firearm'].items():
+        if kind not in {'attachment', 'magazine', 'ammo'} or type(ratio) is not int or ratio < 0:
+            raise ValueError('invalid support ratio')
+    quantity = rules['magazine_quantity_percent']
+    if not 0 <= quantity['min'] < quantity['max'] <= 100:
+        raise ValueError('invalid magazine quantity')
+    if not 0 <= rules['min_fraction'] <= 1 or rules['lifetime_seconds'] <= 0 or rules['restock_seconds'] < 0:
+        raise ValueError('invalid military replenishment')
+    if set(rules['rarity_weights']) != {'common', 'uncommon', 'rare'} or any(
+            type(n) is not int or n <= 0 for n in rules['rarity_weights'].values()):
+        raise ValueError('invalid rarity weights')
+    return rules
+
+
+def budgeted(row):
+    """CE has one pool per class: keep every non-military route intact.
+
+    Archery and launchers retain their authored policy, including dependencies.
+    """
+    return (set(row['usage']) == {'Military'} and
+            item_kind(row) in {'firearm', 'attachment', 'magazine', 'ammo'})
+
+
+def allocation():
+    paths = [RULES, ROOT / 'tools/package/military_loot_allowlist.json']
+    paths.extend(ROOT / 'tools/package' / source for source in SOURCES)
+    return _allocation(tuple(hashlib.sha256(path.read_bytes()).digest() for path in paths))
+
+
+@lru_cache(maxsize=4)
+def _allocation(fingerprint):
+    """Reserve every class floor, then apportion spare units round-robin.
+
+    Fail closed when configured ceilings cannot retain the authored catalog.
+    Stable hash ordering avoids provider/alphabetical priority.
+    """
+    rules = load_rules()
+    rows = catalog()
+    secondary = set(json.loads((ROOT / 'tools/package/military_loot_allowlist.json').read_bytes())['secondary_firearms'])
+    military = {name: row for name, row in rows.items() if budgeted(row)}
+    counts = Counter()
+    remaining = {(tier, role): n for tier, roles in rules['firearms'].items() for role, n in roles.items()}
+    for tier, roles in rules['firearms'].items():
+        for kind, ratio in rules['support_per_firearm'].items():
+            remaining[tier, kind] = sum(roles.values()) * ratio
+    families = Counter(row.get('family', name) for name, row in military.items())
+
+    def role(name):
+        kind = rows[name]['kind']
+        return ('secondary' if name in secondary else 'primary') if kind == 'weapon' else kind
+
+    # Reserve distinct native Tier4 choices first, then constrained classes, then
+    # round-robin flexible classes over tiers with remaining floor capacity.
+    native = {entry['class'] for entry in json.loads(
+        (ROOT / 'tools/package' / SOURCES[0]).read_bytes())['entries'] if not entry.get('datamined')}
+    floor_remaining = dict(remaining)
+    tier_cursor = Counter()
+    guns = [name for name, row in military.items() if row['kind'] == 'weapon']
+    stable = lambda name: hashlib.sha256(name.encode()).hexdigest()
+    fallback = sorted((name for name in guns if name in native and role(name) == 'primary'
+                       and 'Tier4' in military[name]['value']), key=stable)[:3]
+    for name in fallback:
+        military[name]['value'] = ['Tier4']
+    for name in sorted(guns, key=lambda name: (name not in fallback, len(military[name]['value']), stable(name))):
+        row = military[name]
+        tiers = sorted(t for t in row['value'] if t in rules['firearms'])
+        choices = [t for t in tiers if floor_remaining[t, role(name)] > 0]
+        if not choices:
+            raise ValueError('military ceiling cannot retain class floor: ' + name)
+        index = tier_cursor[role(name)]
+        tier = next((tiers[(index + i) % len(tiers)] for i in range(len(tiers))
+                     if tiers[(index + i) % len(tiers)] in choices))
+        tier_cursor[role(name)] = tiers.index(tier) + 1
+        row['value'] = [tier]
+        floor_remaining[tier, role(name)] -= 1
+
+    def routes(name):
+        return [(tier, role(name)) for tier in military[name]['value'] if tier in rules['firearms']]
+
+    def available(name):
+        keys = routes(name)
+        authored = rows[name]['set']['nominal']
+        within_cartridge_ceiling = rows[name]['kind'] == 'weapon' or counts[name] < authored
+        return authored > 0 and within_cartridge_ceiling and bool(keys) and all(remaining[key] > 0 for key in keys)
+
+    def debit(name):
+        counts[name] += 1
+        for key in routes(name):
+            remaining[key] -= 1
+
+    def priority(name):
+        row = rows[name]
+        weight = rules['rarity_weights'][row['tier']] / families[row.get('family', name)]
+        digest = hashlib.sha256(name.encode()).hexdigest()
+        uniform = (int(digest[:13], 16) + 1) / (16**13 + 1)
+        return (counts[name] * 1000 - math.log(uniform) / weight, digest)
+
+    def distribute(names):
+        while True:
+            eligible = [name for name in names if available(name)]
+            if not eligible:
+                break
+            debit(min(eligible, key=priority))
+
+    # All support is retained, including parts used only by a colour variant.
+    # A ceiling too small for these floors is an explicit policy error.
+    for name in sorted(military, key=stable):
+        keys = routes(name)
+        if not keys or any(remaining[key] < 1 for key in keys):
+            raise ValueError('military ceiling cannot retain class floor: ' + name)
+        debit(name)
+    distribute([name for name in military if rows[name]['kind'] == 'weapon'])
+    distribute([name for name in military if rows[name]['kind'] != 'weapon'])
+    return rows, counts, remaining
+
+
+def check_retained(inputs, outputs):
+    """Reject disappearing/zeroed weapon and support rows, case-insensitively.
+
+    Inputs are policy entries; outputs may be policy entries or effective XML
+    rows. An unchanged stock row is present in the effective output even when
+    it needs no delta. Deliberate omissions such as --no-datamined are filtered
+    by the caller before this check.
+    """
+    zeroed = json.loads((ROOT / 'tools/package/military_loot_allowlist.json').read_bytes())['zeroed']
+    if not isinstance(zeroed, dict) or any(not isinstance(reason, str) or not reason.strip()
+                                            for reason in zeroed.values()):
+        raise ValueError('zeroed allowlist requires a nonempty reason per class')
+    allowed = {name.lower() for name in zeroed}
+    actual = {}
+    for row in outputs:
+        if isinstance(row, dict):
+            actual[row['class'].lower()] = row['set']
+        else:
+            actual[row.get('name').lower()] = {'nominal': int(row.findtext('nominal', '0')),
+                                              'min': int(row.findtext('min', '0'))}
+    errors = []
+    for row in inputs:
+        name = row['class']
+        if row['kind'] not in {'weapon', 'magazine', 'attachment', 'ammo'} or name.lower() in allowed:
+            continue
+        candidate = actual.get(name.lower())
+        if candidate is None or candidate['nominal'] < 1:
+            errors.append(name + (':missing' if candidate is None else ':nominal=0'))
+        elif budgeted(dict(row, usage=row.get('usage', row.get('set_usage', [])))) and candidate['min'] < 1:
+            errors.append(name + ':min=0')
+    if errors:
+        raise ValueError('HC_MILITARY_LOOT_RETENTION: ' + ', '.join(sorted(errors)))
+
+
+def apply(entries):
+    """Project only shipped classes; synthetic/custom policies keep their semantics."""
+    shipped = catalog()
+    if not any(entry['class'] in shipped for entry in entries):
+        check_retained(entries, entries)
+        return entries
+    rules = load_rules()
+    known, counts, _ = allocation()
+    result = copy.deepcopy(entries)
+    for entry in result:
+        original = known.get(entry['class'])
+        if original is None or not budgeted(original):
+            continue
+        nominal = counts[entry['class']]
+        if item_kind(original) == 'firearm':
+            if 'value' in entry:
+                entry['value'] = original['value']
+            if 'set_value' in entry:
+                entry['set_value'] = original['value']
+        entry['set'].update(nominal=nominal, min=min(nominal, math.ceil(nominal * rules['min_fraction'])),
+                            lifetime=rules['lifetime_seconds'], restock=rules['restock_seconds'])
+    check_retained(entries, result)
+    return result
+
+
+def magazine_quantity():
+    quantity = load_rules()['magazine_quantity_percent']
+    return quantity['min'], quantity['max']
+
+
+def other_sources():
+    guns = {name for name, row in catalog().items() if row['kind'] == 'weapon'}
+    bounds = load_rules()['tisy_bounds']
+    sites = json.loads((ROOT / 'mission/hollow-country/ai/sites.json').read_bytes())
+    tisy = []
+    for row in sites['Sites']:
+        position = row.get('HousePosition') or next(iter(row.get('Waypoints', [])), None)
+        if position and bounds[0] <= position[0] <= bounds[1] and bounds[2] <= position[2] <= bounds[3]:
+            tisy.append(row)
+    cache_guns = sum(item.get('Quantity', 1) for row in tisy for item in row.get('CacheLoot', [])
+                     if item.get('ClassName') in guns)
+    zones = json.loads((ROOT / 'mission/hollow-country/ai/zones.json').read_bytes())['zones']
+    held = [z for z in zones if z['area'] == 'Tisy' and z['default_state'] == 'held']
+    rewards = [ROOT / 'mods/HollowCountry/scripts/4_World/Events' / name
+               for name in ('HCEventRewards.c', 'HCEventRewardCache.c')]
+    reward_guns = sum(int(count) for path in rewards
+                      for name, count in re.findall(r'Entry\("([^"]+)", (\d+)\)', path.read_text()) if name in guns)
+    print(json.dumps({'other_tisy_sources': {
+        'event_reward_cache_firearm_pool_units': reward_guns,
+        'event_reward_evidence': 'HCEventRewardPools.V1 and police pool contain consumables/tools only',
+        'military_overlay_direct_firearms': 0,
+        'overlay_evidence': 'inert compositions and CE loot points; no direct gun spawn list',
+        'authored_AI_sites_in_bounds': len(tisy),
+        'AI_site_authored_members_min_sum': sum(row['NumberOfAI'] for row in tisy),
+        'AI_site_authored_members_max_sum': sum(row['NumberOfAIMax'] for row in tisy),
+        'AI_site_cache_firearms': cache_guns,
+        'held_zone_guard_members': sum(min(2 + z['tier'], 6, len(z['guard_slots'])) for z in held),
+        'guard_death_guns': 'one primary per armed guard; loadout chances and shared AI limits apply; outside CE nominal',
+        'runtime': 'authored/source census only; active sites and death drops unobserved'
+    }}, sort_keys=True))
+
+
+def regenerate():
+    """Refresh only the committed native/travel types; optional packs stay install-time."""
+    path = ROOT / 'mission/hollow-country/ce/types.xml'
+    tree = ET.parse(path)
+    entries = {entry['class']: entry for entry in apply(list(catalog().values()))}
+    changed = 0
+    for node in tree.getroot():
+        entry = entries.get(node.get('name'))
+        if entry is None:
+            continue
+        if entry['kind'] == 'weapon':
+            for old_usage in node.findall('usage'):
+                node.remove(old_usage)
+            for usage in entry['usage']:
+                ET.SubElement(node, 'usage', {'name': usage})
+            for old_value in node.findall('value'):
+                node.remove(old_value)
+            for tier in entry['value']:
+                ET.SubElement(node, 'value', {'name': tier})
+        for field, value in entry['set'].items():
+            old = node.find(field)
+            if old is not None and old.text != str(value):
+                old.text = str(value)
+                changed += 1
+    check_retained([entries[node.get('name')] for node in tree.getroot() if node.get('name') in entries],
+                   tree.getroot())
+    from tools.package import xml_text
+    ET.indent(tree, space='  ')
+    data = xml_text.document(tree.getroot())
+    path.write_bytes(b'\n'.join(line.rstrip() for line in data.splitlines()) + b'\n')
+    print('native/travel fields refreshed=' + str(changed))
+
+
+def plan(mission):
+    """Print installed versus generated Military nominals; never write a census dump."""
+    from tools.package import snafu_optional
+    projected = {}
+    for source in SOURCES:
+        data = json.loads((ROOT / 'tools/package' / source).read_bytes())
+        if source == 'firearms_roster.json':
+            entries = apply(data['entries'])
+        else:
+            entries, _, _ = snafu_optional._scaled_entries(
+                data['entries'], data.get('test_abundance_multiplier', 1))
+        projected.update({entry['class'].lower(): entry for entry in entries})
+    known = {name.lower(): entry for name, entry in catalog().items()}
+    before, after = Counter(), Counter()
+    for name, (source, node) in effective_types(mission).items():
+        if name not in known:
+            continue
+        kind = item_kind(known[name])
+        if any(u.get('name') == 'Military' for u in node.findall('usage')):
+            for tier in node.findall('value'):
+                before[source, tier.get('name'), kind] += int(node.findtext('nominal', '0'))
+        entry = projected[name]
+        if 'Military' in entry.get('usage', entry.get('set_usage', [])):
+            for tier in entry.get('value', entry.get('set_value', [])):
+                after[source, tier, kind] += entry['set']['nominal']
+    print('source,tier,kind,installed_nominal,generated_nominal')
+    for key in sorted(set(before) | set(after)):
+        print(','.join(map(str, (*key, before[key], after[key]))))
+    _, _, remaining = allocation()
+    print('unused ceiling units=' + str(remaining))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--mission', type=Path)
+    parser.add_argument('--regenerate', action='store_true')
+    parser.add_argument('--check', action='store_true', help='validate catalog retention and committed native rows')
+    parser.add_argument('--plan', action='store_true', help='with --mission: compare installed and generated Military pools')
+    args = parser.parse_args()
+    if args.plan and not args.mission:
+        parser.error('--plan requires --mission')
+    if args.mission:
+        if args.plan:
+            plan(args.mission)
+        else:
+            census(args.mission)
+        point_share(args.mission, load_rules()['tisy_bounds'])
+        other_sources()
+    if args.regenerate:
+        regenerate()
+    if args.check:
+        entries = apply(list(catalog().values()))
+        path = ROOT / 'mission/hollow-country/ce/types.xml'
+        tree = ET.parse(path)
+        native = json.loads((ROOT / 'tools/package' / SOURCES[0]).read_bytes())['entries']
+        check_retained(native, tree.getroot())
+        print('military loot retention: catalog=' + str(len(entries)) + ' native=' + str(len(native)) + ' pass')
+    if not args.mission and not args.regenerate and not args.check:
+        parser.error('select --mission, --regenerate or --check')
+
+
+if __name__ == '__main__':
+    main()

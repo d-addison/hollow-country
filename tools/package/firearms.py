@@ -63,7 +63,8 @@ def selected_roster(roster):
         raise ValueError('economy_profile requires the historical scarcity_policy')
     if profile == 'scarcity':
         return dict(roster, **policy)
-    return roster
+    from tools.package import military_loot
+    return dict(roster, entries=military_loot.apply(roster['entries']))
 
 
 def validate_roster(roster):
@@ -119,7 +120,7 @@ def validate_roster(roster):
                 or ('restock' in s and not _int(s['restock'], 0))):
             raise ValueError(f'invalid budget fields: {name}')
         for field in ('add_usage', 'set_usage', 'set_value'):
-            if field in e and (not isinstance(e[field], list) or not e[field] or len(set(e[field])) != len(e[field])
+            if field in e and (not isinstance(e[field], list) or (not e[field] and field != 'set_value') or len(set(e[field])) != len(e[field])
                                or any(not isinstance(v, str) or not CLASS.fullmatch(v) for v in e[field])):
                 raise ValueError(f'invalid {field}: {name}')
         if kind == 'weapon':
@@ -134,7 +135,7 @@ def validate_roster(roster):
     datamined = {e['class'] for e in entries if e.get('datamined')}
     for e in entries:
         if roster.get('economy_profile') == 'test-abundance' and (
-                not e.get('set_usage') or not e.get('set_value')):
+                not e.get('set_usage') or 'set_value' not in e):
             raise ValueError(f'abundance entry needs explicit usage and tiers: {e["class"]}')
         if e['kind'] == 'weapon':
             if not set(e['ammo']) <= by_kind.get('ammo', set()) \
@@ -399,6 +400,8 @@ def check_effective_support(source, stock, entries, generated, managed_folders=(
     effective = effective_types(source, stock, managed_folders)
     effective.update({item.get('name'): item for item in generated})
     effective_lower = {class_name.lower(): type_item for class_name, type_item in effective.items()}
+    from tools.package import military_loot
+    military_loot.check_retained(entries, effective.values())
     support_entries = []
     for entry in entries:
         if entry['kind'] == 'weapon':
@@ -504,6 +507,9 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
     effective = dict(stock)
     effective.update({item.get('name'): item for item in changed_elements})
     effective_lower = {class_name.lower(): type_item for class_name, type_item in effective.items()}
+    from tools.package import military_loot
+    military_loot.check_retained([e for e in roster['entries'] if include_datamined or not e.get('datamined')],
+                                 effective.values())
     check_support([e for e in roster['entries'] if include_datamined or not e.get('datamined')],
                   lambda name: _nominal(effective_lower, name))
     totals.update(family_totals(roster, _effective_family_rows(roster, effective_lower)))
@@ -585,7 +591,8 @@ def main(argv=None):
                    help='compose the datamined non-weapon items (and --profile) into the same single delta')
     p.add_argument('--profile', type=Path, default=None,
                    help='economy profile to compose (implies --with-items)')
-    p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--out', type=Path)
+    p.add_argument('--check', action='store_true', help='validate generated rows without writing a delta')
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
     p.add_argument('--target', type=Path, required=True)
@@ -604,7 +611,10 @@ def main(argv=None):
                                           profile=profile)
             else:
                 files = generate(args.source, roster, include_datamined=not args.no_datamined)
-            write_delta(args.out, files)
+            if not args.check:
+                if args.out is None:
+                    raise ValueError('generate requires --out or --check')
+                write_delta(args.out, files)
         elif args.command == 'install':
             install(args.delta, args.target)
         else:

@@ -937,7 +937,8 @@ class EconomyIntegration(Base):
     def test_filtering_bottle_is_the_only_category_exception(self):
         stage = self.stage()
         self.assertIsNone(stock_for(self.rows)['FilteringBottle'].find('category'))
-        self.assertEqual(economy.CATEGORY_ADDED, {'FilteringBottle': 'tools'})
+        self.assertEqual(economy.CATEGORY_ADDED, {'FilteringBottle': 'tools',
+                                                 'SKS_Black': 'weapons', 'SKS_Green': 'weapons'})
         out = self.delta_types(economy.generate(self.root, profile()))
         self.assertEqual(out['FilteringBottle'].find('category').get('name'), 'tools')
         target = self.private_copy()

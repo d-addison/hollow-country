@@ -179,7 +179,7 @@ def good():
         entry('SynMagB', kind='magazine', role='support', nominal=6, minimum=3, usage=['Military', 'Hunting']),
         entry('SynOptic_Black', kind='optic', usage=['Military'], slot='weaponOptics',
               fits=['SynRifle', 'SynDMR', 'SynBolt']),
-        entry('SynAdapter', kind='attachment', role='support', nominal=0, minimum=0, usage=['Military'],
+        entry('SynAdapter', kind='attachment', role='support', nominal=1, minimum=1, usage=['Military'],
               slot='weaponDMRAdapter', fits=['SynDMR']))
 
 
@@ -601,8 +601,8 @@ class FailClosedGeneration(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_one_live_compatible_ammo_or_magazine_is_sufficient(self):
-        """SYNTHETIC alternatives may be disabled if another compatible source spawns."""
+    def test_zeroed_alternative_magazine_requires_allowlist(self):
+        """SYNTHETIC zeroed alternatives still require an explicit exception."""
         a = copy.deepcopy(self.allow)
         rifle = a['entries'][0]
         rifle['vanilla_ammo'].append('MissingSyntheticAmmo')
@@ -611,14 +611,15 @@ class FailClosedGeneration(unittest.TestCase):
         report = copy.deepcopy(self.report)
         report['allowlist_sha256'] = tfo.allowlist_sha256(a)
         report['classes']['SynDisabledMag'] = {'status': 'verified'}
-        tfo.generate(self.mission, a, report)
+        with self.assertRaisesRegex(ValueError, 'HC_MILITARY_LOOT_RETENTION'):
+            tfo.generate(self.mission, a, report)
 
     def test_managed_ammo_override_wins_over_positive_stock_nominal(self):
         """SYNTHETIC existing roster override disables otherwise positive loose ammo."""
         managed = self.mission / economy.MANAGED / 'ce'
         managed.mkdir(parents=True)
         (managed / 'types.xml').write_text('<types><type name="Ammo_308Win"><nominal>0</nominal></type></types>')
-        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+        with self.assertRaisesRegex(ValueError, 'spawning weapon|HC_MILITARY_LOOT_RETENTION'):
             tfo.generate(self.mission, self.allow, self.report)
 
     def test_no_report_or_unverified_report_generates_nothing(self):
@@ -632,7 +633,7 @@ class FailClosedGeneration(unittest.TestCase):
         next(e for e in a['entries'] if e['class'] == 'SynRifle')['magazines'] = []
         a['entries'] = [e for e in a['entries'] if e['class'] != 'SynMagA']
         report = tfo.verify_install(self.install, a, vanilla=VANILLA)
-        with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine'):
+        with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine|HC_MILITARY_LOOT_RETENTION'):
             tfo.generate(self.mission, a, report)
 
     def test_report_must_match_allowlist_vanilla_terms_and_every_class(self):
@@ -669,12 +670,13 @@ class FailClosedGeneration(unittest.TestCase):
                       [n.attrib for n in fragment[0]])
         manifest = json.loads(files['delta-manifest.json'])
         self.assertEqual(manifest['files']['ce/cfgspawnabletypes.xml'], economy.sha(files['ce/cfgspawnabletypes.xml']))
-        # The adapter's independent CE nominal remains zero.
-        self.assertEqual(ET.fromstring(files['ce/types.xml']).find("type[@name='SynAdapter']/nominal").text, '0')
+        # The adapter also retains an independent CE floor.
+        self.assertEqual(ET.fromstring(files['ce/types.xml']).find("type[@name='SynAdapter']/nominal").text, '1')
         a = copy.deepcopy(self.allow)
         next(e for e in a['entries'] if e['class'] == 'SynDMR')['set'].update(nominal=0, min=0)
         report = dict(self.report, allowlist_sha256=tfo.allowlist_sha256(a))
-        self.assertEqual(len(ET.fromstring(tfo.generate(self.mission, a, report)['ce/cfgspawnabletypes.xml'])), 0)
+        with self.assertRaisesRegex(ValueError, 'HC_MILITARY_LOOT_RETENTION'):
+            tfo.generate(self.mission, a, report)
 
     def test_verified_report_generates_complete_new_type_entries(self):
         files = tfo.generate(self.mission, self.allow, self.report)
@@ -685,11 +687,11 @@ class FailClosedGeneration(unittest.TestCase):
         self.assertEqual((rifle.findtext('nominal'), rifle.findtext('min'), rifle.findtext('lifetime'),
                           rifle.findtext('restock')), ('4', '2', '7200', '1800'))
         self.assertEqual((mag.findtext('quantmin'), mag.findtext('quantmax'), mag.findtext('lifetime'),
-                          mag.findtext('restock')), ('30', '70', '14400', '0'))
+                          mag.findtext('restock')), ('10', '100', '14400', '0'))
         self.assertEqual((rifle.findtext('quantmin'), optic.findtext('quantmax')), ('-1', '-1'))
         self.assertEqual(rifle.find('category').get('name'), 'weapons')
         self.assertEqual([u.get('name') for u in by['SynHunter'].findall('usage')], ['Village', 'Hunting'])
-        self.assertEqual(by['SynAdapter'].findtext('nominal'), '0')
+        self.assertEqual(by['SynAdapter'].findtext('nominal'), '1')
         self.assertIn(b'hollow-country-tactical-flava/ce', files['cfgeconomycore.append.xml'])
         meta = json.loads(files['economy-report.json'])
         self.assertEqual(meta['kind'], 'tactical-flava-optional')
@@ -794,7 +796,7 @@ class InstallRollback(unittest.TestCase):
         stage = Path(self.tmp.name) / 'tampered-support'
         tfo.write_delta(stage, files)
         before = economy.snapshot(self.source)
-        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+        with self.assertRaisesRegex(ValueError, 'spawning weapon|HC_MILITARY_LOOT_RETENTION'):
             tfo.install(stage, self.source)
         self.assertEqual(before, economy.snapshot(self.source))
         self.assertFalse((self.source / tfo.MANAGED).exists())
@@ -1114,13 +1116,13 @@ class CommittedAllowlist(unittest.TestCase):
         self.assertEqual(rights['terms_file'], 'extra files/readme.txt')
         self.assertTrue(any('licence file' in n or 'license file' in n for n in rights['notes']))
 
-    def test_expanded_pack_meets_owner_test_abundance(self):
+    def test_expanded_pack_uses_shared_military_budget(self):
+        from tools.package import military_loot
         weapons = [e for e in self.rows.values() if e['kind'] == 'weapon']
         self.assertGreaterEqual(len(weapons), 50)
-        self.assertGreaterEqual(sum(e['set']['nominal'] for e in weapons), 250)
-        for e in weapons:
-            self.assertEqual(e['set']['min'], e['set']['nominal'] // 2)
-        self.assertEqual(self.data['test_abundance_multiplier'], 1.0)
+        projected = military_loot.apply(self.data['entries'])
+        self.assertLess(sum(e['set']['nominal'] for e in projected
+                            if e['kind'] == 'weapon' and 'Military' in e['usage']), 150)
 
     def test_snafu_lifetime_and_restock_convention(self):
         for name, e in self.rows.items():
@@ -1145,8 +1147,8 @@ class CommittedAllowlist(unittest.TestCase):
         for name, e in self.rows.items():
             if e['kind'] == 'weapon' and e['set']['nominal']:
                 self.assertTrue(e['vanilla_ammo'], name)
-                for m in e['magazines']:
-                    self.assertGreater(self.rows[m]['set']['nominal'], 0, (name, m))
+                if e['magazines']:
+                    self.assertTrue(any(self.rows[m]['set']['nominal'] > 0 for m in e['magazines']), name)
 
     def test_m14_keeps_verified_native_optic_adapter(self):
         self.assertEqual(self.rows['TF_M14_STD']['optic_requires'], ['TF_M14_Adapter'])
