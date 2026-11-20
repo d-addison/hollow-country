@@ -4,11 +4,56 @@
 // Count/Clear/Find/Insert; EnString.c:199/171 Length/ToLower; EnConvert.c:196 Distance;
 // EnDebug.c:96 Print; 3_Game/tools/JsonFileLoader.c:69 LoadData.
 // Expansion (read only): core/3_Game/DayZExpansion_Core/ExpansionSHA256.c:
-// 51 Reset, 162 Update, 235 HexDigest. Hash one complete page atomically: no
-// shared static hash state survives a tick or can corrupt another hash owner.
+// 51 Reset, 162 Update(input, reset, finalize), 235 HexDigest; protected
+// s_Hash[8], s_TotalBits[2], s_Buffer[64], s_BufferIndex. Snapshot only these
+// fields around each 64-byte update; shared provider state is clean on return.
 // Graph format/resolution belongs to HCXAICaravanRoads (its native citations
 // and ai/.../Roads/eAIRoadNetwork.c:684-730, eAIRoadNode.c:281-319 apply).
 // No geometry is distributed here. The private installed graph is page-pinned.
+// Owned continuation, no provider algorithm copied. CF_Uint is an int typedef
+// in installed CF: snapshots are values. Never leave a partial shared hash live
+// across ticks: site keys, other HC users and Expansion can hash between slices.
+class HCXAIHashSlice : ExpansionSHA256
+{
+    protected CF_Uint m_Hash[8];
+    protected CF_Uint m_Bits[2];
+    protected CF_Uint m_Buffer[64];
+    protected int m_BufferIndex;
+    protected int m_Offset;
+    protected string m_Input;
+    protected bool m_Saved;
+    string Result;
+
+    void HCXAIHashSlice(string input) { m_Input = input; }
+    bool HCStep()
+    {
+        ExpansionSHA256.Reset();
+        int slot;
+        if (m_Saved)
+        {
+            for (slot = 0; slot < 8; slot++) { s_Hash[slot] = m_Hash[slot]; }
+            for (slot = 0; slot < 2; slot++) { s_TotalBits[slot] = m_Bits[slot]; }
+            for (slot = 0; slot < 64; slot++) { s_Buffer[slot] = m_Buffer[slot]; }
+            s_BufferIndex = m_BufferIndex;
+        }
+        int length = Math.Min(64, m_Input.Length() - m_Offset);
+        bool done = m_Offset + length == m_Input.Length();
+        ExpansionSHA256.Update(m_Input.Substring(m_Offset, length), false, done);
+        m_Offset += length;
+        if (done) { Result = ExpansionSHA256.HexDigest(); m_Input = ""; }
+        else
+        {
+            for (slot = 0; slot < 8; slot++) { m_Hash[slot] = s_Hash[slot]; }
+            for (slot = 0; slot < 2; slot++) { m_Bits[slot] = s_TotalBits[slot]; }
+            for (slot = 0; slot < 64; slot++) { m_Buffer[slot] = s_Buffer[slot]; }
+            m_BufferIndex = s_BufferIndex;
+            m_Saved = true;
+        }
+        ExpansionSHA256.Reset();
+        return done;
+    }
+}
+
 class HCGapcodeRoutesLimits
 {
     int waypoints;
@@ -85,6 +130,8 @@ class HCGapcodeRoutesCatalog
     protected int m_ReadBytes;
     protected int m_HashStride = 1;
     protected int m_HashOffset;
+    protected ref HCXAIHashSlice m_PageHash;
+    protected int m_HashPeak;
     protected int m_Hashed;
     protected int m_PagesRead;
     protected int m_Cursor;
@@ -104,6 +151,7 @@ class HCGapcodeRoutesCatalog
     void HCClose()
     {
         if (m_PinOpen) { CloseFile(m_PinFile); m_PinOpen = false; }
+        m_PageHash = null;
     }
     void HCStop()
     {
@@ -179,6 +227,8 @@ class HCGapcodeRoutesCatalog
     // source changes its byte count or shifts every page after the edit.
     static const int HASH_SAMPLES = 4;
     static const int READS_PER_UNIT = 64;
+    static const int HASH_SLICES_PER_UNIT = 64;
+    static const int HASH_UNIT_TICKS = 20000;
     bool HCPageSampled(int page, int pages)
     {
         if (page == 0 || page == pages - 1) { return true; }
@@ -200,6 +250,36 @@ class HCGapcodeRoutesCatalog
             // Mission files: first and last page only (no stride index can match).
             if (m_FileIndex > 0) { m_HashStride = pages + 1; m_HashOffset = pages; }
         }
+        if (m_PageHash)
+        {
+            // One work unit may run several 64-byte slices (a whole 4 KiB page
+            // at most) under its own 2 ms TickCount guard (10,000 ticks per ms,
+            // as in [HC TickCost]), so the page-unit cap does not stretch one
+            // page over eight ticks while the cooperative guard has time left.
+            int began = TickCount(0);
+            bool done = false;
+            int slices = 0;
+            int ticks = 0;
+            while (!done && slices < HASH_SLICES_PER_UNIT && ticks < HASH_UNIT_TICKS)
+            {
+                done = m_PageHash.HCStep();
+                slices++;
+                ticks = TickCount(began);
+            }
+            if (ticks > m_HashPeak)
+            {
+                m_HashPeak = ticks;
+                Print("[HC Routes] hash_slice_bytes=64 slices=" + slices.ToString() + " ticks_max=" + ticks.ToString() + " runtime=PENDING");
+            }
+            if (!done) { return; }
+            string digest = m_PageHash.Result;
+            m_PageHash = null;
+            digest.ToLower();
+            if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH"); return; }
+            m_Hashed++;
+            m_PageIndex++;
+            return;
+        }
         for (int readCount = 0; readCount < READS_PER_UNIT && m_PageIndex < pages; readCount++)
         {
             string page;
@@ -211,16 +291,10 @@ class HCGapcodeRoutesCatalog
             bool sampled = this.HCPageSampled(m_PageIndex, pages);
             if (sampled)
             {
-                ExpansionSHA256.Update(page);
-                string digest = ExpansionSHA256.HexDigest();
-                ExpansionSHA256.Reset();
-                digest.ToLower();
-                if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH"); return; }
-                m_Hashed++;
+                m_PageHash = new HCXAIHashSlice(page);
+                return;
             }
             m_PageIndex++;
-            // One hash per unit; the shared work budget decides how many units run.
-            if (sampled) { break; }
         }
         if (m_PageIndex < pages) { return; }
         string trailing;

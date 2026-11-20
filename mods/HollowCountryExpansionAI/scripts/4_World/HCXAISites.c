@@ -261,6 +261,17 @@ class HCXAISiteState : Managed
     bool Failed;
     bool Cached;
     string Reason;
+    ref HCXAIHashSlice KeyHash;
+    bool SamplingDone;
+    ref TVectorArray PendingPath;
+    int PathCursor;
+    float PathLength;
+    bool RetrySampling;
+    string RetryReason;
+    ref TVectorArray RetryPoints;
+    int RetryProbe = -1;
+    vector RetryBest;
+    float RetryGap = 1000;
     int Leg;
     int ChainSteps;
     float ChainLength;
@@ -298,8 +309,9 @@ class HCXAISiteState : Managed
 // HC-18 verified intent/backup/copy/readback, same protocol as HCWorldStore.
 // Native scripts-1.30.164289: JsonFileLoader.c:69,85; EnSystem.c:397,528,531.
 // HCWorldStore.Read/Write supply bounded IO; no rename/fsync claim. Interrupted
-// cursor intent is discarded on restart; primary then backup restore fairness. Routine observation checkpoints
-// use the shared staged scheduler; selection intent is a synchronous barrier.
+// cursor intent is discarded on restart; primary then backup restore fairness.
+// Routine observations use the shared scheduler; selection retains its chosen
+// sites behind the same durable barrier, with one save stage per continuation.
 class HCXAILocalitySave : HCSaveJob
 {
     static const string PATH = "$profile:HollowCountry/expansion-ai-locality-rotation.json";
@@ -311,7 +323,10 @@ class HCXAILocalitySave : HCSaveJob
     protected int m_Revision;
     protected int m_SnapshotRevision;
     protected string m_Text;
+    protected string m_Prior;
+    protected ref HCStagedSaveImage m_IntentImage = new HCStagedSaveImage();
 
+    int HCStage() { return m_Stage; }
     override string HCName() { return "HC-18-localities"; }
     void HCChanged() { m_Revision++; HCDirty = true; }
     bool HCLoad(string world)
@@ -363,24 +378,51 @@ class HCXAILocalitySave : HCSaveJob
             if (FileExist(INTENT) || !JsonFileLoader<HCXAILocalityRotation>.MakeData(Data, m_Text, error) || m_Text.Length() > HCWorldStore.MAX_BYTES) { Fault = true; return HCSaveJob.STEP_FAILED; }
             m_SnapshotRevision = m_Revision;
             MakeDirectory("$profile:HollowCountry");
-            if (!HCWorldStore.Write(INTENT, m_Text)) { Fault = true; return HCSaveJob.STEP_FAILED; }
+            if (!m_IntentImage.BeginNew(INTENT, m_Text, HCWorldStore.MAX_BYTES)) { Fault = true; return HCSaveJob.STEP_FAILED; }
             m_Stage = 1;
             return HCSaveJob.STEP_MORE;
         }
         if (m_Stage == 1)
         {
-            if (FileExist(PATH))
-            {
-                string prior = HCWorldStore.Read(PATH);
-                if (prior == "" || !CopyFile(PATH, BACKUP) || HCWorldStore.Read(BACKUP) != prior) { Fault = true; return HCSaveJob.STEP_FAILED; }
-            }
-            m_Stage = 2;
+            int intentResult = m_IntentImage.HCStepImage();
+            if (intentResult == HCSaveJob.STEP_FAILED) { Fault = true; return intentResult; }
+            if (intentResult == HCSaveJob.STEP_DONE) { m_Stage = 2; }
             return HCSaveJob.STEP_MORE;
         }
         if (m_Stage == 2)
         {
-            if (!CopyFile(INTENT, PATH) || HCWorldStore.Read(PATH) != m_Text) { Fault = true; return HCSaveJob.STEP_FAILED; }
+            m_Prior = "";
+            if (FileExist(PATH))
+            {
+                m_Prior = HCWorldStore.Read(PATH);
+                if (m_Prior == "") { Fault = true; return HCSaveJob.STEP_FAILED; }
+            }
             m_Stage = 3;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_Stage == 3)
+        {
+            if (m_Prior != "" && !CopyFile(PATH, BACKUP)) { Fault = true; return HCSaveJob.STEP_FAILED; }
+            m_Stage = 4;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_Stage == 4)
+        {
+            if (m_Prior != "" && HCWorldStore.Read(BACKUP) != m_Prior) { Fault = true; return HCSaveJob.STEP_FAILED; }
+            m_Prior = "";
+            m_Stage = 5;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_Stage == 5)
+        {
+            if (!CopyFile(INTENT, PATH)) { Fault = true; return HCSaveJob.STEP_FAILED; }
+            m_Stage = 6;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_Stage == 6)
+        {
+            if (HCWorldStore.Read(PATH) != m_Text) { Fault = true; return HCSaveJob.STEP_FAILED; }
+            m_Stage = 7;
             return HCSaveJob.STEP_MORE;
         }
         if (!DeleteFile(INTENT) || FileExist(INTENT)) { Fault = true; return HCSaveJob.STEP_FAILED; }
@@ -449,6 +491,18 @@ class HCXAISiteDirector : Managed
     // stationary observer does not get the same refused point forever.
     protected float m_RingDegrees;
     protected int m_Ticks;
+    protected ref HCWorkBudget m_StepWork = new HCWorkBudget();
+    protected ref map<string, int> m_StepPeaks = new map<string, int>();
+    protected int m_RunStage;
+    protected int m_TransientCursor = -1;
+    protected int m_NextOwnedSaveTick = 60;
+    // 1: finish prior checkpoint; 2: commit chosen rotation before publishing.
+    protected int m_SelectionStage;
+    protected ref array<ref HCXAISite> m_Selected;
+    protected string m_SelectedLocality;
+    protected HCXAILocalityCoverage m_SelectedCoverage;
+    protected bool m_SelectedEmpty;
+    protected bool m_SelectionRegistered;
     protected bool m_Diagnostic;
     protected bool m_RespawnOff; // ai-respawn.disable, probed once at Start (the marker contract is probe-once)
     protected ref HCXAIRouteSave m_RouteSave;
@@ -791,6 +845,28 @@ class HCXAISiteDirector : Managed
     }
     protected void HCTryLocality(int now)
     {
+        if (m_SelectionStage == 2)
+        {
+            if (!this.HCSelectionCheckpoint()) { return; }
+            foreach (HCXAISite committed : m_Selected)
+            {
+                HCXAISiteState state = new HCXAISiteState();
+                state.Site = committed;
+                state.LocalityId = m_SelectedLocality;
+                state.OpportunityAt = now;
+                m_States.Insert(state);
+            }
+            if (m_Selected.Count() == 0 && !m_SelectedEmpty && m_SelectedCoverage.LastSelected == m_LocalitySave.Data.SelectionSerial && now >= m_LocalityNextPendingLogAt)
+            {
+                m_LocalityNextPendingLogAt = now + 300;
+                Print("[HC Plan] HC-18 state=pending locality=" + m_SelectedLocality + " reason=" + m_SelectedCoverage.Refusal + " pending=1 runtime=PENDING");
+            }
+            m_Selected = null;
+            m_SelectedCoverage = null;
+            m_SelectionStage = 0;
+            if (m_SelectionRegistered) { HCSaveScheduler.HCRegister(m_LocalitySave); }
+            return;
+        }
         HCXAISite nearby;
         if (m_NearSite >= 0)
         {
@@ -801,7 +877,13 @@ class HCXAISiteDirector : Managed
             else { this.HCMakeNearbyRoom(); }
         }
         if (this.HCLocalityPageCount() >= HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites)) { return; }
-        if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { this.HCLocalityFault(); return; }
+        if (m_SelectionStage == 0)
+        {
+            m_SelectionRegistered = HCSaveScheduler.HCRegistered(m_LocalitySave);
+            HCSaveScheduler.HCUnregister(m_LocalitySave);
+            m_SelectionStage = 1;
+        }
+        if (!this.HCSelectionCheckpoint()) { return; }
         HCXAILocalityRotation rotation = m_LocalitySave.Data;
         if (rotation.SelectionSerial >= 2147483646) { this.HCLocalityFault(); return; }
         int index;
@@ -843,26 +925,32 @@ class HCXAISiteDirector : Managed
             if (selected.Count() > 0) { row.Refusal = "route_provider_pending"; }
         }
         m_LocalitySave.HCChanged();
-        if (!HCSaveScheduler.HCFlush(m_LocalitySave)) { this.HCLocalityFault(); return; }
-        if (selected.Count() == 0)
+        m_Selected = selected;
+        m_SelectedLocality = locality.Id;
+        m_SelectedCoverage = row;
+        m_SelectedEmpty = locality.SiteIds.Count() == 0;
+        m_SelectionStage = 2;
+        // No candidate is visible until the same durable intent/readback
+        // barrier as before has completed. Resume at this selection next tick.
+    }
+    protected bool HCSelectionCheckpoint()
+    {
+        if (m_LocalitySave.HCFaulted || m_LocalitySave.Fault) { this.HCLocalityFault(); return false; }
+        if (!m_LocalitySave.HCDirty && !m_LocalitySave.HCInFlight) { return true; }
+        int stage = m_LocalitySave.HCStage();
+        int began = TickCount(0);
+        int result = m_LocalitySave.HCStep();
+        this.HCStepCost("selection_save_" + stage.ToString(), began);
+        m_LocalitySave.HCInFlight = result == HCSaveJob.STEP_MORE;
+        if (result == HCSaveJob.STEP_FAILED)
         {
-            // Missing authored rows were diagnosed once at boot, not per lap.
-            if (locality.SiteIds.Count() == 0) { return; }
-            if (row.LastSelected == rotation.SelectionSerial && now >= m_LocalityNextPendingLogAt)
-            {
-                m_LocalityNextPendingLogAt = now + 300;
-                Print("[HC Plan] HC-18 state=pending locality=" + locality.Id + " reason=" + row.Refusal + " pending=1 runtime=PENDING");
-            }
-            return;
+            m_LocalitySave.HCFaulted = true;
+            this.HCLocalityFault();
+            return false;
         }
-        foreach (HCXAISite admitted : selected)
-        {
-            HCXAISiteState state = new HCXAISiteState();
-            state.Site = admitted;
-            state.LocalityId = locality.Id;
-            state.OpportunityAt = now;
-            m_States.Insert(state);
-        }
+        if (result == HCSaveJob.STEP_MORE) { return false; }
+        m_LocalitySave.HCDirty = false;
+        return true;
     }
     protected void HCStepLocalities()
     {
@@ -874,6 +962,11 @@ class HCXAISiteDirector : Managed
         // maintenance step. Separate admissions let the scan consume the sole
         // starvation grant forever, preventing qualification on a busy server.
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
+        if (m_SelectionStage != 0)
+        {
+            this.HCTryLocality(now);
+            return;
+        }
         // HC_WORK_AI_SITES is the lead-owned shared consumer integration.
         // Reserve candidate work separately from maintenance. Otherwise four
         // armed controllers consume every local unit and prevent page growth.
@@ -885,15 +978,19 @@ class HCXAISiteDirector : Managed
         if (m_NearSite >= 0 || now >= m_LocalityNextAttemptAt)
         {
             int attempts = 0;
-            while (attempts < HCXAISiteRules.HCAttemptsPerTick(m_Localities) && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
+            while (attempts < HCXAISiteRules.HCAttemptsPerTick(m_Localities) && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1) && m_StepWork.HCContinue())
             {
                 HCServer.HCTickWork().HCCharge(1);
+                int selectBegan = TickCount(0);
                 this.HCTryLocality(now);
+                this.HCStepCost("locality_selection", selectBegan);
                 attempts++;
                 if (m_LocalityRefused) { return; }
+                if (m_SelectionStage != 0) { break; }
             }
             if (attempts > 0) { m_LocalityNextAttemptAt = now + HCXAISiteRules.HCSelectionIntervalSeconds(m_Localities); }
         }
+        if (m_SelectionStage != 0) { return; }
         int refusedThisSlice = 0;
         int visited = 0;
         int count = m_States.Count();
@@ -908,7 +1005,7 @@ class HCXAISiteDirector : Managed
             nearestWork = workGap;
             m_LocalityCursor = workIndex;
         }
-        while (visited < count && visited < HCXAISiteDirector.WORK_PER_TICK && m_States.Count() > 0 && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1))
+        while (visited < count && visited < HCXAISiteDirector.WORK_PER_TICK && m_States.Count() > 0 && m_LocalityWork.HCContinue() && m_LocalityUnits.HCTake(1) && m_StepWork.HCContinue())
         {
             if (visited > 0) { HCServer.HCTickWork().HCCharge(1); }
             if (m_LocalityCursor >= m_States.Count()) { m_LocalityCursor = 0; }
@@ -1071,10 +1168,12 @@ class HCXAISiteDirector : Managed
     // their reservation until death or the observed native despawn callback.
     protected void StepTransients()
     {
-        int transientIndex = m_States.Count() - 1;
-        while (transientIndex >= 0)
+        if (m_TransientCursor < 0 || m_TransientCursor >= m_States.Count()) { m_TransientCursor = m_States.Count() - 1; }
+        while (m_TransientCursor >= 0 && m_StepWork.HCContinue())
         {
+            int transientIndex = m_TransientCursor;
             HCXAISiteState transientState = m_States[transientIndex];
+            m_TransientCursor--;
             transientIndex--;
             if (!transientState.Transient) { continue; }
             if (transientState.Completed) { m_States.RemoveOrdered(transientIndex + 1); continue; }
@@ -1239,10 +1338,19 @@ class HCXAISiteDirector : Managed
         if (m_Localities) { Print(this.HCLocalitySummary()); }
         if (s_Active == this) { s_Active = null; }
     }
+    protected void HCStepCost(string stage, int began)
+    {
+        int ticks = TickCount(began);
+        int peak;
+        if (m_StepPeaks.Find(stage, peak) && ticks <= peak) { return; }
+        m_StepPeaks.Set(stage, ticks);
+        Print("[HC Expansion AI] site_step=" + stage + " ticks_max=" + ticks.ToString() + " runtime=PENDING");
+    }
     void Step()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         m_Ticks++;
+        m_StepWork.HCReset(256, 4);
         // Registration capacity cannot strand a dirty cache: advance one stage.
         if (m_RouteSave && m_RouteSave.HCDirty && !HCSaveScheduler.HCRegistered(m_RouteSave))
         {
@@ -1390,10 +1498,10 @@ class HCXAISiteDirector : Managed
     protected void StepBind()
     {
         int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
+        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && m_StepWork.HCContinue() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1))
         {
             if (!m_States[m_Cursor].Bound && !m_States[m_Cursor].Failed) { this.Bind(m_States[m_Cursor]); }
-            m_Cursor++;
+            if (m_States[m_Cursor].Bound || m_States[m_Cursor].Failed) { m_Cursor++; }
             work++;
         }
         if (m_Cursor < m_States.Count()) { return; }
@@ -1408,6 +1516,23 @@ class HCXAISiteDirector : Managed
     }
     protected void Bind(HCXAISiteState state)
     {
+        int began = TickCount(0);
+        this.HCBindSlice(state);
+        this.HCStepCost("Bind", began);
+    }
+    protected void HCBindSlice(HCXAISiteState state)
+    {
+        if (state.KeyHash)
+        {
+            int hashBegan = TickCount(0);
+            bool hashDone = state.KeyHash.HCStep();
+            this.HCStepCost("bind_key_hash_64", hashBegan);
+            if (!hashDone) { return; }
+            state.Key = state.KeyHash.Result;
+            state.KeyHash = null;
+            state.Bound = true;
+            return;
+        }
         HCXAISite site = state.Site;
         if (site.Kind != "holdout")
         {
@@ -1420,7 +1545,9 @@ class HCXAISiteDirector : Managed
         {
             array<Object> objects = new array<Object>();
             array<CargoBase> cargos = new array<CargoBase>();
+            int queryBegan = TickCount(0);
             GetGame().GetObjectsAtPosition(site.HousePosition, 10, objects, cargos);
+            this.HCStepCost("native_GetObjectsAtPosition", queryBegan);
             float best = 11;
             foreach (Object candidate : objects)
             {
@@ -1446,11 +1573,8 @@ class HCXAISiteDirector : Managed
             state.CacheWorld = ExpansionAISpawnBase.GetPlacementPosition(state.HouseObject.ModelToWorld(site.CacheLocal));
             state.CacheOrientation = state.HouseObject.GetOrientation();
         }
-        ExpansionSHA256.Update(HCXAISiteRules.RouteText(site, m_Build));
-        state.Key = ExpansionSHA256.HexDigest();
-        ExpansionSHA256.Reset();
-        if (state.Transient) { state.Key = "transient:" + state.ProposalId; }
-        state.Bound = true;
+        if (state.Transient) { state.Key = "transient:" + state.ProposalId; state.Bound = true; return; }
+        state.KeyHash = new HCXAIHashSlice(HCXAISiteRules.RouteText(site, m_Build));
     }
     protected HCXAIRouteRow RouteRow(string key)
     {
@@ -1464,7 +1588,7 @@ class HCXAISiteDirector : Managed
     protected void StepQualify()
     {
         int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
+        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && m_StepWork.HCContinue() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1))
         {
             HCXAISiteState state = m_States[m_Cursor];
             if (!state.Bound || state.Failed || state.Qualified)
@@ -1486,10 +1610,17 @@ class HCXAISiteDirector : Managed
         m_Phase = "create";
         m_Cursor = 0;
     }
-    // One unit of work: sample the bounded authored points (first call), then
-    // at most one FindPath. Outdoor partial paths resume from their actual end.
+    // One unit: one sample, one native FindPath, or at most 32 returned edges.
+    // Outdoor partial paths resume from their actual end.
     protected void QualifyStep(HCXAISiteState state)
     {
+        int began = TickCount(0);
+        this.HCQualifyStepSlice(state);
+        this.HCStepCost("QualifyStep", began);
+    }
+    protected void HCQualifyStepSlice(HCXAISiteState state)
+    {
+        if (state.RetrySampling) { this.HCRetrySampleStep(state); return; }
         AIWorld world = GetGame().GetWorld().GetAIWorld();
         HCXAIRouteRow cached = this.RouteRow(state.Key);
         if (cached && !cached.Qualified)
@@ -1501,15 +1632,16 @@ class HCXAISiteDirector : Managed
         }
         float radius = 12;
         if (state.Site.Kind == "holdout") { radius = 2; }
-        if (state.Sampled.Count() == 0)
+        if (!state.SamplingDone)
         {
             if (state.Points.Count() < 2 || state.Points.Count() > 8)
             {
                 this.Refuse(state, "2..8 authored waypoints are required");
                 return;
             }
-            foreach (vector wanted : state.Points)
+            if (state.Sampled.Count() < state.Points.Count())
             {
+                vector wanted = state.Points[state.Sampled.Count()];
                 vector found = this.NavSample(wanted, radius, m_Filter);
                 if (found == vector.Zero)
                 {
@@ -1517,7 +1649,9 @@ class HCXAISiteDirector : Managed
                     return;
                 }
                 state.Sampled.Insert(found);
+                return;
             }
+            state.SamplingDone = true;
             state.PatrolPoints.Insert(state.Sampled[0]);
             if (cached && HCXAISiteRules.ReuseQualifiedRoute(state.Site.Kind))
             {
@@ -1590,7 +1724,7 @@ class HCXAISiteDirector : Managed
             Print("" + qualifiedLine);
             return;
         }
-        if (state.PathCalls >= 96)
+        if (state.PathCalls >= 96 && !state.PendingPath)
         {
             this.Refuse(state, "route search budget");
             return;
@@ -1606,20 +1740,36 @@ class HCXAISiteDirector : Managed
             state.ClosestGap = vector.Distance(legFrom, legTo);
             state.AttemptPoints.Clear();
         }
-        TVectorArray path = new TVectorArray();
-        bool pathFound = world.FindPath(state.ChainFrom, legTo, m_Filter, path);
-        state.PathCalls++;
-        state.ChainSteps++;
-        float length = 0;
-        float endGap = 1000;
-        int pathPoints = 0;
-        if (pathFound) { pathPoints = path.Count(); }
-        int index = 1;
-        while (index < pathPoints)
+        if (!state.PendingPath)
         {
-            length = length + vector.Distance(path[index - 1], path[index]);
-            index++;
+            TVectorArray nativePath = new TVectorArray();
+            int pathBegan = TickCount(0);
+            bool pathFound = world.FindPath(state.ChainFrom, legTo, m_Filter, nativePath);
+            this.HCStepCost("native_FindPath", pathBegan);
+            state.PathCalls++;
+            state.ChainSteps++;
+            if (!pathFound) { nativePath.Clear(); }
+            state.PendingPath = nativePath;
+            state.PathCursor = 1;
+            state.PathLength = 0;
+            // Never add the script path scan to the native call's tick.
+            return;
         }
+        TVectorArray path = state.PendingPath;
+        int pathPoints = path.Count();
+        int scanBegan = TickCount(0);
+        int edges = 0;
+        while (state.PathCursor < pathPoints && edges < 32 && m_StepWork.HCContinue())
+        {
+            state.PathLength += vector.Distance(path[state.PathCursor - 1], path[state.PathCursor]);
+            state.PathCursor++;
+            edges++;
+        }
+        this.HCStepCost("path_edges_32", scanBegan);
+        if (state.PathCursor < pathPoints) { return; }
+        float length = state.PathLength;
+        float endGap = 1000;
+        state.PendingPath = null;
         vector pathEnd = state.ChainFrom;
         float advance = 0;
         if (pathPoints > 0)
@@ -1705,7 +1855,10 @@ class HCXAISiteDirector : Managed
         AIWorld world = GetGame().GetWorld().GetAIWorld();
         if (!world) { return vector.Zero; }
         vector found = wanted;
-        if (!world.SampleNavmeshPosition(wanted, radius, filter, found)) { return vector.Zero; }
+        int began = TickCount(0);
+        bool sampled = world.SampleNavmeshPosition(wanted, radius, filter, found);
+        this.HCStepCost("native_SampleNavmeshPosition", began);
+        if (!sampled) { return vector.Zero; }
         return found;
     }
     // Outdoor walkable ground near the terrain (Game.c:1176 SurfaceY); a sample
@@ -1716,40 +1869,6 @@ class HCXAISiteDirector : Managed
         if (found == vector.Zero) { return vector.Zero; }
         if (Math.AbsFloat(found[1] - GetGame().SurfaceY(found[0], found[2])) > 2) { return vector.Zero; }
         return found;
-    }
-    // At most five bounded samples: the terrain-projected authored point, then
-    // four probes 12 m east, west, north and south; the horizontally nearest
-    // ground wins. vector.Zero when no outdoor ground is found.
-    protected vector OutdoorSample(vector wanted)
-    {
-        vector centre = this.GroundSample(wanted, 16);
-        if (centre != vector.Zero) { return centre; }
-        vector best = vector.Zero;
-        float bestGap = 1000;
-        int probe = 0;
-        while (probe < 4)
-        {
-            float dx = 0;
-            float dz = 0;
-            if (probe == 0) { dx = 12; }
-            if (probe == 1) { dx = -12; }
-            if (probe == 2) { dz = 12; }
-            if (probe == 3) { dz = -12; }
-            float px = wanted[0] + dx;
-            float pz = wanted[2] + dz;
-            vector candidate = this.GroundSample(Vector(px, GetGame().SurfaceY(px, pz), pz), 8);
-            if (candidate != vector.Zero)
-            {
-                float gap = vector.Distance(Vector(candidate[0], 0, candidate[2]), Vector(wanted[0], 0, wanted[2]));
-                if (gap < bestGap)
-                {
-                    bestGap = gap;
-                    best = candidate;
-                }
-            }
-            probe++;
-        }
-        return best;
     }
     // A refused outdoor route gets one retry with outdoor-ground samples. The
     // first pass is unchanged, so routes that qualify keep their FindPath
@@ -1762,20 +1881,57 @@ class HCXAISiteDirector : Managed
             this.Refuse(state, reason);
             return;
         }
-        TVectorArray ground = new TVectorArray();
-        int outdoor = 0;
-        int index = 0;
-        while (index < count)
+        state.RetrySampling = true;
+        state.RetryReason = reason;
+        state.RetryPoints = new TVectorArray();
+        state.RetryProbe = -1;
+    }
+    // One of the original five outdoor probes per continuation; preserve the
+    // centre-first rule, E/W/N/S order and nearest horizontal ground selection.
+    protected void HCRetrySampleStep(HCXAISiteState state)
+    {
+        int count = state.Sampled.Count();
+        int index = state.RetryPoints.Count();
+        if (index < count)
         {
-            vector found = this.OutdoorSample(state.Points[index]);
-            if (found == vector.Zero) { ground.Insert(state.Sampled[index]); }
+            vector wanted = state.Points[index];
+            vector found;
+            if (state.RetryProbe == -1)
+            {
+                state.RetryBest = this.GroundSample(wanted, 16);
+                state.RetryGap = 1000;
+                state.RetryProbe = 0;
+                if (state.RetryBest == vector.Zero) { return; }
+            }
             else
             {
-                ground.Insert(found);
-                outdoor++;
+                float dx = 0;
+                float dz = 0;
+                if (state.RetryProbe == 0) { dx = 12; }
+                if (state.RetryProbe == 1) { dx = -12; }
+                if (state.RetryProbe == 2) { dz = 12; }
+                if (state.RetryProbe == 3) { dz = -12; }
+                float px = wanted[0] + dx;
+                float pz = wanted[2] + dz;
+                found = this.GroundSample(Vector(px, GetGame().SurfaceY(px, pz), pz), 8);
+                if (found != vector.Zero)
+                {
+                    float gap = vector.Distance(Vector(found[0], 0, found[2]), Vector(wanted[0], 0, wanted[2]));
+                    if (gap < state.RetryGap) { state.RetryBest = found; state.RetryGap = gap; }
+                }
+                state.RetryProbe++;
+                if (state.RetryProbe < 4) { return; }
             }
-            index++;
+            if (state.RetryBest == vector.Zero) { state.RetryPoints.Insert(state.Sampled[index]); }
+            else { state.RetryPoints.Insert(state.RetryBest); state.Outdoor++; }
+            state.RetryProbe = -1;
+            return;
         }
+        state.RetrySampling = false;
+        string reason = state.RetryReason;
+        TVectorArray ground = state.RetryPoints;
+        state.RetryPoints = null;
+        int outdoor = state.Outdoor;
         state.OutdoorPass = true;
         state.Outdoor = outdoor;
         if (outdoor == 0)
@@ -1833,7 +1989,7 @@ class HCXAISiteDirector : Managed
     protected void StepCreate()
     {
         int work = 0;
-        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count())
+        while (work < HCXAISiteDirector.WORK_PER_TICK && m_Cursor < m_States.Count() && m_StepWork.HCContinue() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1))
         {
             HCXAISiteState state = m_States[m_Cursor];
             m_Cursor++;
@@ -1854,6 +2010,12 @@ class HCXAISiteDirector : Managed
         m_Phase = "run";
     }
     protected void Create(HCXAISiteState state)
+    {
+        int began = TickCount(0);
+        this.HCCreateSlice(state);
+        this.HCStepCost("Create", began);
+    }
+    protected void HCCreateSlice(HCXAISiteState state)
     {
         HCXAISite site = state.Site;
         ExpansionAIDynamicSpawnBase config = new HCXAISiteSpawnConfig();
@@ -1960,14 +2122,34 @@ class HCXAISiteDirector : Managed
     }
     protected void StepRun()
     {
-        this.HCStepLocalities();
-        if (m_Phase != "run") { return; }
-        if (m_GroupScaling) { this.HCRefreshGroupFactor(); }
-        if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.SaveOwned(); }
-        this.StepTransients();
-        this.HCStepRespawns();
-        this.StepCache();
-        if (m_Diagnostic) { this.StepDiagnostic(); }
+        // Resume adjunct stages after a qualification slice spends the clock
+        // budget; round-robin ensures locality work cannot starve maintenance.
+        for (int step = 0; step < 7 && m_StepWork.HCContinue(); step++)
+        {
+            int stage = m_RunStage;
+            m_RunStage = (m_RunStage + 1) % 7;
+            int began = TickCount(0);
+            if (stage == 0) { this.HCStepLocalities(); }
+            if (stage == 1 && m_GroupScaling) { this.HCRefreshGroupFactor(); }
+            if (stage == 2 && !m_OwnedSaved && m_Ticks >= m_NextOwnedSaveTick)
+            {
+                m_NextOwnedSaveTick = m_Ticks + 60;
+                this.SaveOwned();
+            }
+            if (stage == 3) { this.StepTransients(); }
+            if (stage == 4) { this.HCStepRespawns(); }
+            if (stage == 5) { this.StepCache(); }
+            if (stage == 6 && m_Diagnostic) { this.StepDiagnostic(); }
+            string stageName = "localities";
+            if (stage == 1) { stageName = "group_scaling"; }
+            if (stage == 2) { stageName = "ownership_save"; }
+            if (stage == 3) { stageName = "transients"; }
+            if (stage == 4) { stageName = "respawns"; }
+            if (stage == 5) { stageName = "cache"; }
+            if (stage == 6) { stageName = "diagnostic"; }
+            this.HCStepCost(stageName, began);
+            if (m_Phase != "run") { return; }
+        }
         int nowMs = GetGame().GetTime();
         if (nowMs < m_NextSummaryMs) { return; }
         m_NextSummaryMs = nowMs + 300000;
