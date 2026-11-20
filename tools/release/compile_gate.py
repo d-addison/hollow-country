@@ -20,7 +20,7 @@ import time
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-from tools.package import pbo, weapon_pack_guards
+from tools.package import inventory_sizes, pbo, weapon_pack_guards
 from tools.audit.pbo_config import parse_text_config, read_config_members
 from tools.setup import wine_compile_probe as probe
 
@@ -166,6 +166,12 @@ def validate_adapter_dependencies(tree, extra_mods):
     declaration shape rather than silently skipping dependency validation.
     """
     config = (tree / 'mods/HollowCountryExpansionAI/config.cpp').read_text()
+    # The release-time attachment scale patch (see ship_config) carries its own
+    # requiredAddons; check it against the stack too, apart from the authored array.
+    injected = re.findall(re.escape(inventory_sizes.PACK_BEGIN + ' CfgPatches') + r'\n(.*?)'
+                          + re.escape(inventory_sizes.PACK_END + ' CfgPatches'), config, flags=re.S)
+    config = re.sub(re.escape(inventory_sizes.PACK_BEGIN + ' CfgPatches') + r'\n.*?'
+                    + re.escape(inventory_sizes.PACK_END + ' CfgPatches'), '', config, flags=re.S)
     config = re.sub(r'/\*.*?\*/|//[^\n]*', '', config, flags=re.S)
     arrays = re.findall(r'\brequiredAddons\s*\[\s*\]\s*=\s*\{([^{}]*)\}\s*;', config)
     if len(arrays) != 1:
@@ -173,6 +179,9 @@ def validate_adapter_dependencies(tree, extra_mods):
     required = set(re.findall(r'"([^"\n]+)"', arrays[0]))
     if not required or re.sub(r'"[^"\n]+"|[\s,]', '', arrays[0]):
         raise ValueError('HCX requiredAddons must be a nonempty literal string array')
+    for block in injected:
+        for array in re.findall(r'\brequiredAddons\s*\[\s*\]\s*=\s*\{([^{}]*)\}\s*;', block):
+            required.update(re.findall(r'"([^"\n]+)"', array))
     base = (tree / 'mods/HollowCountry/config.cpp').read_bytes()
     providers = set(parse_text_config(base, ('CfgPatches',))['CfgPatches'])
     for mod in extra_mods:
@@ -234,6 +243,28 @@ def compatibility_inputs(tree, workshop, cache):
                'server_extra_pbos': [guard_mod / 'addons' / weapon_pack_guards.PBO_NAME]}
 
 
+def ship_config(tree, disposable):
+    """Compile the HCX config the release ships, not the bare commit.
+
+    Build 123 crashed at load on a duplicate member that only the release-time attachment
+    scale injection created; the gate compiled the uninjected config and passed."""
+    config = tree / 'mods/HollowCountryExpansionAI/config.cpp'
+    if not config.is_file() or inventory_sizes.PACK_BEGIN in config.read_text():
+        return
+    if not disposable:
+        print('compile_gate: attachment_scale=not_injected (in-place tree; pass --commit to compile the shipped config)')
+        return
+    # Same pinned generator invocation as tools/release/release.py build().
+    result = subprocess.run([sys.executable, '-B', '-m', 'tools.package.inventory_sizes', '--inject', str(tree)],
+                            cwd=tree, capture_output=True, text=True,
+                            env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'), timeout=300)
+    if result.returncode:
+        raise ValueError('attachment scale injection failed: ' + private(result.stderr.strip()[-400:]))
+    receipt = json.loads(result.stdout.strip().splitlines()[-1])
+    print('compile_gate: attachment_scale=injected overrides=' + str(receipt['overrides'])
+          + ' sha256=' + receipt['sha256'])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tree', type=Path, default=Path.cwd(), help='source checkout (default: current directory)')
@@ -257,8 +288,10 @@ def main():
         cache = args.cache.expanduser().resolve()
         probe.safe(cache)
         cache.mkdir(parents=True, exist_ok=True)
-        with source_tree(args.tree.resolve(), args.commit, cache) as tree, \
-                compatibility_inputs(tree, args.workshop.expanduser().resolve(), cache) as inputs:
+        with contextlib.ExitStack() as stack:
+            tree = stack.enter_context(source_tree(args.tree.resolve(), args.commit, cache))
+            ship_config(tree, bool(args.commit))
+            inputs = stack.enter_context(compatibility_inputs(tree, args.workshop.expanduser().resolve(), cache))
             blob = pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountry'))
             digest = hashlib.sha256(blob).hexdigest()
             package = cache / (digest + '.pbo')
@@ -290,6 +323,15 @@ def main():
                 errors = [line for line in errors if not RUNTIME_JSON_ERROR.search(line)]
             for line in [line for line in errors if not SCRIPT_ERROR.search(line)][:5]:
                 print('compile_gate: ' + private(line)[:1200])
+            # An engine ErrorMessage (e.g. a config.cpp "Member already defined") writes a
+            # dump and blocks on a dialog under Wine; the RPT never gets the line.
+            dumps = sorted((experiment / 'profiles').glob('ErrorMessage_*.mdmp'))
+            for dump in dumps[:2]:
+                data = dump.read_bytes()[:probe.MAX_LOG_FILE]
+                found = dict.fromkeys(m.decode(errors='replace') for m in re.findall(
+                    rb'File [^\x00\r\n]{1,200}, line \d+:[^\x00\r\n]{1,200}', data))
+                print('compile_gate: engine_error_message dump=' + dump.name + ' '
+                      + (private(next(iter(found)))[:400] if found else 'text=unavailable'))
             # Conservatively reject cascade errors too, rather than risk hiding
             # a primary error with an overly broad cascade exemption.
             # Wine can stop progressing before Mission initialization. World
@@ -299,10 +341,11 @@ def main():
             # loaded, a stop caused only by missing-data JSON reports is not a
             # compile failure; a crash or failed self-test still is.
             if (report['status'] == 'compiler-error' and 'Mission' in modules
-                    and not re.search(r'\bENGINE\s*\(F\)\s*:\s*Crashed\b|Core native self-test FAILED', text)):
+                    and not re.search(r'\bENGINE\s*\(F\)\s*:\s*Crashed\b|Core native self-test FAILED'
+                                      r'|\bFile [^\n]*\.(?:cpp|hpp|bin), line \d+:|Member already defined', text)):
                 status_ok = True
                 print('compile_gate: probe stopped on runtime JSON report after Mission loaded')
-            passed = ('World' in modules and not script_errors and not errors
+            passed = ('World' in modules and not script_errors and not errors and not dumps
                       and not skipped and not script_skipped and status_ok)
             if passed:
                 print('compile_gate: World loaded with zero SCRIPT (E); runtime acceptance pending')

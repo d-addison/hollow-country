@@ -714,14 +714,29 @@ def inject_pack_sizes(tree):
             config += marker + '\nclass ' + root + '\n{\n' + payload + '};\n' + end_marker + '\n'
             continue
         depth = 1
-        for token in re.finditer(r'"(?:[^"]|"")*"|//[^\n]*|/\*.*?\*/|[{}]', config[match.end():], re.S):
-            if token.group() == '{':
+        members = set()
+        for token in re.finditer(r'"(?:[^"]|"")*"|//[^\n]*|/\*.*?\*/|[{}]|\bclass\s+(\w+)',
+                                 config[match.end():], re.S):
+            if token.group(1) and depth == 1:
+                members.add(token.group(1).lower())
+            elif token.group() == '{':
                 depth += 1
             elif token.group() == '}':
                 depth -= 1
                 if depth == 0:
                     at = match.end() + token.start()
-                    config = config[:at] + block + config[at:]
+                    # One class body may name a member once: the engine refuses a second
+                    # forward declaration or definition ("Member already defined") at load.
+                    kept = []
+                    for line in block.splitlines(keepends=True):
+                        named = re.match(r'\s*class\s+(\w+)\s*(;|:|\{)', line)
+                        if named and named.group(1).lower() in members:
+                            if named.group(2) != ';':
+                                raise ValueError('attachment scale redefines ' + root + '.'
+                                                 + named.group(1) + ' already in config.cpp')
+                            continue
+                        kept.append(line)
+                    config = config[:at] + ''.join(kept) + config[at:]
                     break
         else:
             raise ValueError('unclosed injection root: ' + root)

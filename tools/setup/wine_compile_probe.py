@@ -97,7 +97,10 @@ def collect_logs(root):
 def classify(text):
     if re.search(r'\bENGINE\s*\(F\)\s*:\s*Crashed\b', text):
         return 'engine-crash'
-    if re.search(r"SCRIPT\s*\(E\)|Can't compile|Cannot compile|Core native self-test FAILED", text):
+    # Config parse refusals (build 123: "File X\\config.cpp, line 156: /CfgVehicles.Inventory_Base:
+    # Member already defined.") raise an engine ErrorMessage before any script compiles.
+    if re.search(r"SCRIPT\s*\(E\)|Can't compile|Cannot compile|Core native self-test FAILED"
+                 r"|\bFile [^\n]*\.(?:cpp|hpp|bin), line \d+:|Member already defined", text):
         return 'compiler-error'
     if '[HollowCountry] Invalid settings; original file preserved;' in text or '[HollowCountry] Settings rejected; original file preserved:' in text:
         return 'settings-rejected'

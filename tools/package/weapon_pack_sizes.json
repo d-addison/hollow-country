@@ -2,7 +2,7 @@
   "schema_version": 1,
   "rules_sha256": "24c8dd317c166293bbc98ec2edb565d3faeb1a0c43921fe5cb09ddb9143064b7",
   "generator_sha256": {
-    "inventory_sizes.py": "52335005e9a400ee2723dc9adcaafa4a8d7aeb6ad5fa4974d83a2808b9c4bb45",
+    "inventory_sizes.py": "368651e2fb42baace7ad78bca1f120e74c1f6122af044562cc2417e4aa155557",
     "inventory_sources.py": "4d24545e4d366484932380c980afc3e208b517268b51a1fc58d21e0d2f9a9df7"
   },
   "overrides": [
