@@ -10,7 +10,7 @@
 class HCLeadNote
 {
     ref HCWorldNote Row = new HCWorldNote;
-    ref HCWorldLead Lead = new HCWorldLead;
+    ref HCClueLead Lead = new HCClueLead;
     int Expires;
     string NativeText; // identity-bearing native text; empty only for legacy Paper
     int Phase; // 0 reserved, 1 materialized; reservations are never replayed
@@ -55,7 +55,7 @@ class HCLeadData
     ref array<ref HCTraceReceipt> Traces = new array<ref HCTraceReceipt>();
     int LastWrite;
     int Serial;
-    ref array<ref HCWorldLead> Leads = new array<ref HCWorldLead>();
+    ref array<ref HCClueLead> Leads = new array<ref HCClueLead>();
     ref array<ref HCLeadNote> Notes = new array<ref HCLeadNote>();
     ref array<ref HCBodyStoryRow> Bodies = new array<ref HCBodyStoryRow>();
     ref array<ref HCRadioChannel> Channels = new array<ref HCRadioChannel>();

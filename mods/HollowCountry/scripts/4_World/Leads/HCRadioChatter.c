@@ -377,12 +377,15 @@ class HCRadioChatter : HCModule
             m_Channel = null;
             return;
         }
+        HCClueLead clue = HCLeadPolicy.Copy(m_Report);
+        HCClueLocation.HCResolve(clue, "0 0 0", false);
+        m_Report = clue;
         m_Text = HCLeadPolicy.Text(m_Report);
         if (m_Report.TextId == "morse_lead")
         {
             HCWorldPlace place = HCLeadPolicy.Place(m_Report.TargetPlaceId);
             if (!place) { m_Status.HCPublish("ready", "fact_place_unavailable"); m_Channel = null; return; }
-            m_Text = "An earlier event was reported near " + place.Name + ". This is old news; things may have changed.";
+            m_Text = HCLeadPolicy.HCWithLocation(m_Report, "An earlier event was reported near " + place.Name + ". This is old news; things may have changed.");
         }
         m_ListenerCursor = 0;
         m_Recipients = 0;

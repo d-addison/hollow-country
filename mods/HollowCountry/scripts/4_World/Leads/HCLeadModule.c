@@ -60,6 +60,8 @@ class HCLeadPolicy
     static bool Valid(HCWorldLead row)
     {
         if (!row || !KnownPlace(row.TargetPlaceId) || !HCWorldLimits.Token(row.TextId) || row.Expires < 1) { return false; }
+        HCClueLead clue = HCClueLead.Cast(row);
+        if (clue && clue.LocationHint.Length() > 256) { return false; }
         return row.Kind == "PLACE" || row.Kind == "CACHE" || row.Kind == "EVENT" || row.Kind == "DANGER";
     }
 
@@ -153,8 +155,15 @@ class HCLeadPolicy
                 report = FactionName(faction) + " reported " + remaining + " of " + total + " people surviving near " + placeName + ".";
             }
         }
-        if (report == "") { return LegacyText(lead); }
-        return report + " This is old news; things may have changed.";
+        if (report == "") { return HCWithLocation(lead, LegacyText(lead)); }
+        return HCWithLocation(lead, report + " This is old news; things may have changed.");
+    }
+
+    static string HCWithLocation(HCWorldLead lead, string report)
+    {
+        HCClueLead clue = HCClueLead.Cast(lead);
+        if (clue && clue.LocationHint != "") { return report + " " + clue.LocationHint; }
+        return report;
     }
 
     static bool PrepareSceneLead(HCWorldLead lead, string sceneId, string placeId, int now)
@@ -171,9 +180,9 @@ class HCLeadPolicy
         return true;
     }
 
-    static HCWorldLead Copy(HCWorldLead row)
+    static HCClueLead Copy(HCWorldLead row)
     {
-        HCWorldLead copy = new HCWorldLead;
+        HCClueLead copy = new HCClueLead;
         copy.Id = row.Id;
         copy.Kind = row.Kind;
         copy.TargetPlaceId = row.TargetPlaceId;
@@ -181,6 +190,8 @@ class HCLeadPolicy
         copy.GroupId = row.GroupId;
         copy.Expires = row.Expires;
         copy.TextId = row.TextId;
+        HCClueLead clue = HCClueLead.Cast(row);
+        if (clue) { copy.LocationHint = clue.LocationHint; }
         return copy;
     }
 }
@@ -241,6 +252,7 @@ class HCLeadModule : HCModule
             return;
         }
         s_Instance = this;
+        HCClueLocation.HCLoad();
         m_Status.HCPublish("ready", "lead_store_open");
     }
 
@@ -396,7 +408,8 @@ class HCLeadModule : HCModule
             }
         }
         if (count >= 5 || m_Store.Data.Leads.Count() >= 64) { return HCLeadReceiveResult.REFUSED; }
-        HCWorldLead received = HCLeadPolicy.Copy(offer);
+        HCClueLead received = HCLeadPolicy.Copy(offer);
+        HCClueLocation.HCResolve(received, "0 0 0", false);
         received.Id = m_Store.NextId("lead");
         received.GroupId = groupId;
         received.Source = source;

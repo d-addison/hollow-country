@@ -1,0 +1,799 @@
+{
+  "SchemaVersion": 1,
+  "Source": "ai/localities.json IDs; ai/sites.json HC43.Localities.LabelAnchor (stock map labels, approximate directions only)",
+  "SitesSha256": "e4ad7957dcaee51282bcd7627f9e872d75ed9a725bc2902e9a3e79cfab297c18",
+  "Localities": [
+    {
+      "Id": "chernogorsk",
+      "Name": "Chernogorsk",
+      "Position": [
+        6778.619,
+        0,
+        2321.774
+      ]
+    },
+    {
+      "Id": "novodmitrovsk",
+      "Name": "Novodmitrovsk",
+      "Position": [
+        11339.77,
+        0,
+        14391.05
+      ]
+    },
+    {
+      "Id": "novoselki",
+      "Name": "Novoselki",
+      "Position": [
+        6115.91,
+        0,
+        3256.36
+      ]
+    },
+    {
+      "Id": "dubovo",
+      "Name": "Dubovo",
+      "Position": [
+        6754.51,
+        0,
+        3595.257
+      ]
+    },
+    {
+      "Id": "vysotovo",
+      "Name": "Vysotovo",
+      "Position": [
+        5701.24,
+        0,
+        2556.11
+      ]
+    },
+    {
+      "Id": "zelenogorsk",
+      "Name": "Zelenogorsk",
+      "Position": [
+        2796,
+        0,
+        5166
+      ]
+    },
+    {
+      "Id": "berezino",
+      "Name": "Berezino",
+      "Position": [
+        12372.383,
+        0,
+        9760.981
+      ]
+    },
+    {
+      "Id": "elektrozavodsk",
+      "Name": "Elektrozavodsk",
+      "Position": [
+        10286.68,
+        0,
+        1992.77
+      ]
+    },
+    {
+      "Id": "novaya-petrovka",
+      "Name": "Novaya Petrovka",
+      "Position": [
+        3477.169,
+        0,
+        12931.243
+      ]
+    },
+    {
+      "Id": "gorka",
+      "Name": "Gorka",
+      "Position": [
+        9524,
+        0,
+        8945
+      ]
+    },
+    {
+      "Id": "solnechny",
+      "Name": "Solnechny",
+      "Position": [
+        13487.724,
+        0,
+        6225.884
+      ]
+    },
+    {
+      "Id": "stary-sobor",
+      "Name": "Stary Sobor",
+      "Position": [
+        6114,
+        0,
+        7849
+      ]
+    },
+    {
+      "Id": "vybor",
+      "Name": "Vybor",
+      "Position": [
+        3909.831,
+        0,
+        9019.614
+      ]
+    },
+    {
+      "Id": "severograd",
+      "Name": "Severograd",
+      "Position": [
+        8168.484,
+        0,
+        12573.602
+      ]
+    },
+    {
+      "Id": "bor",
+      "Name": "Bor",
+      "Position": [
+        3316.406,
+        0,
+        4070.966
+      ]
+    },
+    {
+      "Id": "svetloyarsk",
+      "Name": "Svetloyarsk",
+      "Position": [
+        13989.74,
+        0,
+        13263.78
+      ]
+    },
+    {
+      "Id": "krasnostav",
+      "Name": "Krasnostav",
+      "Position": [
+        11203.167,
+        0,
+        12340.808
+      ]
+    },
+    {
+      "Id": "chernaya-polyana",
+      "Name": "Chernaya Polyana",
+      "Position": [
+        12158.54,
+        0,
+        13770.22
+      ]
+    },
+    {
+      "Id": "polana",
+      "Name": "Polana",
+      "Position": [
+        10794,
+        0,
+        8160
+      ]
+    },
+    {
+      "Id": "tulga",
+      "Name": "Tulga",
+      "Position": [
+        12768,
+        0,
+        4384
+      ]
+    },
+    {
+      "Id": "msta",
+      "Name": "Msta",
+      "Position": [
+        11333.79,
+        0,
+        5421.4
+      ]
+    },
+    {
+      "Id": "staroye",
+      "Name": "Staroye",
+      "Position": [
+        10212.52,
+        0,
+        5385.05
+      ]
+    },
+    {
+      "Id": "shakhovka",
+      "Name": "Shakhovka",
+      "Position": [
+        9728.64,
+        0,
+        6567.3
+      ]
+    },
+    {
+      "Id": "dolina",
+      "Name": "Dolina",
+      "Position": [
+        11285.17,
+        0,
+        6633.58
+      ]
+    },
+    {
+      "Id": "orlovets",
+      "Name": "Orlovets",
+      "Position": [
+        12250,
+        0,
+        7253
+      ]
+    },
+    {
+      "Id": "novy-sobor",
+      "Name": "Novy Sobor",
+      "Position": [
+        7123.63,
+        0,
+        7774.63
+      ]
+    },
+    {
+      "Id": "kabanino",
+      "Name": "Kabanino",
+      "Position": [
+        5300.71,
+        0,
+        8645.9
+      ]
+    },
+    {
+      "Id": "mogilevka",
+      "Name": "Mogilevka",
+      "Position": [
+        7650.41,
+        0,
+        5096.46
+      ]
+    },
+    {
+      "Id": "nadezhdino",
+      "Name": "Nadezhdino",
+      "Position": [
+        5894,
+        0,
+        4780
+      ]
+    },
+    {
+      "Id": "guglovo",
+      "Name": "Guglovo",
+      "Position": [
+        8445,
+        0,
+        6579
+      ]
+    },
+    {
+      "Id": "kamyshovo",
+      "Name": "Kamyshovo",
+      "Position": [
+        12170,
+        0,
+        3458
+      ]
+    },
+    {
+      "Id": "pusta",
+      "Name": "Pusta",
+      "Position": [
+        9197,
+        0,
+        3873
+      ]
+    },
+    {
+      "Id": "dubrovka",
+      "Name": "Dubrovka",
+      "Position": [
+        10324.299,
+        0,
+        9888.237
+      ]
+    },
+    {
+      "Id": "vyshnaya-dubrovka",
+      "Name": "Vyshnaya Dubrovka",
+      "Position": [
+        9926.823,
+        0,
+        10468.919
+      ]
+    },
+    {
+      "Id": "khelm",
+      "Name": "Khelm",
+      "Position": [
+        12329.27,
+        0,
+        10771.01
+      ]
+    },
+    {
+      "Id": "olsha",
+      "Name": "Olsha",
+      "Position": [
+        13402,
+        0,
+        12898
+      ]
+    },
+    {
+      "Id": "gvozdno",
+      "Name": "Gvozdno",
+      "Position": [
+        8644.751,
+        0,
+        11934.115
+      ]
+    },
+    {
+      "Id": "grishino",
+      "Name": "Grishino",
+      "Position": [
+        5980,
+        0,
+        10257
+      ]
+    },
+    {
+      "Id": "rogovo",
+      "Name": "Rogovo",
+      "Position": [
+        4802,
+        0,
+        6748
+      ]
+    },
+    {
+      "Id": "pogorevka",
+      "Name": "Pogorevka",
+      "Position": [
+        4445,
+        0,
+        6322
+      ]
+    },
+    {
+      "Id": "pustoshka",
+      "Name": "Pustoshka",
+      "Position": [
+        3137.944,
+        0,
+        7890.925
+      ]
+    },
+    {
+      "Id": "kozlovka",
+      "Name": "Kozlovka",
+      "Position": [
+        4402,
+        0,
+        4736
+      ]
+    },
+    {
+      "Id": "karmanovka",
+      "Name": "Karmanovka",
+      "Position": [
+        12700.628,
+        0,
+        14691.312
+      ]
+    },
+    {
+      "Id": "balota",
+      "Name": "Balota",
+      "Position": [
+        4527.58,
+        0,
+        2465.32
+      ]
+    },
+    {
+      "Id": "komarovo",
+      "Name": "Komarovo",
+      "Position": [
+        3702,
+        0,
+        2440
+      ]
+    },
+    {
+      "Id": "kamenka",
+      "Name": "Kamenka",
+      "Position": [
+        1981,
+        0,
+        2207
+      ]
+    },
+    {
+      "Id": "myshkino",
+      "Name": "Myshkino",
+      "Position": [
+        2048,
+        0,
+        7258
+      ]
+    },
+    {
+      "Id": "pavlovo",
+      "Name": "Pavlovo",
+      "Position": [
+        1693.98,
+        0,
+        3858.65
+      ]
+    },
+    {
+      "Id": "lopatino",
+      "Name": "Lopatino",
+      "Position": [
+        2801,
+        0,
+        10029
+      ]
+    },
+    {
+      "Id": "vyshnoye",
+      "Name": "Vyshnoye",
+      "Position": [
+        6629,
+        0,
+        6051
+      ]
+    },
+    {
+      "Id": "prigorodki",
+      "Name": "Prigorodki",
+      "Position": [
+        7760,
+        0,
+        3336
+      ]
+    },
+    {
+      "Id": "drozhino",
+      "Name": "Drozhino",
+      "Position": [
+        3374,
+        0,
+        4861
+      ]
+    },
+    {
+      "Id": "sosnovka",
+      "Name": "Sosnovka",
+      "Position": [
+        2556,
+        0,
+        6307
+      ]
+    },
+    {
+      "Id": "nizhnee",
+      "Name": "Nizhnee",
+      "Position": [
+        12824.88,
+        0,
+        8097.7
+      ]
+    },
+    {
+      "Id": "pulkovo",
+      "Name": "Pulkovo",
+      "Position": [
+        5015,
+        0,
+        5607
+      ]
+    },
+    {
+      "Id": "berezhki",
+      "Name": "Berezhki",
+      "Position": [
+        15020,
+        0,
+        13905
+      ]
+    },
+    {
+      "Id": "turovo",
+      "Name": "Turovo",
+      "Position": [
+        13630,
+        0,
+        14146
+      ]
+    },
+    {
+      "Id": "belaya-polyana",
+      "Name": "Belaya Polyana",
+      "Position": [
+        14166,
+        0,
+        14968
+      ]
+    },
+    {
+      "Id": "dobroye",
+      "Name": "Dobroye",
+      "Position": [
+        12996,
+        0,
+        15066
+      ]
+    },
+    {
+      "Id": "nagornoye",
+      "Name": "Nagornoye",
+      "Position": [
+        9286,
+        0,
+        14677
+      ]
+    },
+    {
+      "Id": "svergino",
+      "Name": "Svergino",
+      "Position": [
+        9493.52,
+        0,
+        13875.27
+      ]
+    },
+    {
+      "Id": "ratnoye",
+      "Name": "Ratnoye",
+      "Position": [
+        6195.878,
+        0,
+        12761.802
+      ]
+    },
+    {
+      "Id": "kamensk",
+      "Name": "Kamensk",
+      "Position": [
+        6748.741,
+        0,
+        14430.046
+      ]
+    },
+    {
+      "Id": "krasnoye",
+      "Name": "Krasnoye",
+      "Position": [
+        6411.374,
+        0,
+        15029.961
+      ]
+    },
+    {
+      "Id": "stary-yar",
+      "Name": "Stary Yar",
+      "Position": [
+        4987.86,
+        0,
+        14992.976
+      ]
+    },
+    {
+      "Id": "polesovo",
+      "Name": "Polesovo",
+      "Position": [
+        5955.737,
+        0,
+        13558.046
+      ]
+    },
+    {
+      "Id": "tisy",
+      "Name": "Tisy",
+      "Position": [
+        3441.65,
+        0,
+        14799.55
+      ]
+    },
+    {
+      "Id": "topolniki",
+      "Name": "Topolniki",
+      "Position": [
+        2913.745,
+        0,
+        12366.357
+      ]
+    },
+    {
+      "Id": "zaprudnoye",
+      "Name": "Zaprudnoye",
+      "Position": [
+        5214,
+        0,
+        12792
+      ]
+    },
+    {
+      "Id": "sinystok",
+      "Name": "Sinystok",
+      "Position": [
+        1538.278,
+        0,
+        11904.578
+      ]
+    },
+    {
+      "Id": "vavilovo",
+      "Name": "Vavilovo",
+      "Position": [
+        2263,
+        0,
+        11103
+      ]
+    },
+    {
+      "Id": "kumyrna",
+      "Name": "Kumyrna",
+      "Position": [
+        8300,
+        0,
+        6054
+      ]
+    },
+    {
+      "Id": "kalinovka",
+      "Name": "Kalinovka",
+      "Position": [
+        7448,
+        0,
+        13406
+      ]
+    },
+    {
+      "Id": "bogatyrka",
+      "Name": "Bogatyrka",
+      "Position": [
+        1453.62,
+        0,
+        8870.92
+      ]
+    },
+    {
+      "Id": "svyatoy-roman-ski-resort",
+      "Name": "Svyatoy Roman Ski Resort",
+      "Position": [
+        638,
+        0,
+        11667
+      ]
+    },
+    {
+      "Id": "skvsch-biathlon-arena",
+      "Name": "Skvsch Biathlon Arena",
+      "Position": [
+        357,
+        0,
+        11142
+      ]
+    },
+    {
+      "Id": "zvir",
+      "Name": "Zvir",
+      "Position": [
+        577.33,
+        0,
+        5317.42
+      ]
+    },
+    {
+      "Id": "zabolotye",
+      "Name": "Zabolotye",
+      "Position": [
+        1256.859,
+        0,
+        9993.26
+      ]
+    },
+    {
+      "Id": "galkino",
+      "Name": "Galkino",
+      "Position": [
+        1102.68,
+        0,
+        8798.27
+      ]
+    },
+    {
+      "Id": "skalisty",
+      "Name": "Skalisty",
+      "Position": [
+        13715.454,
+        0,
+        3118.78
+      ]
+    },
+    {
+      "Id": "drakon",
+      "Name": "Drakon",
+      "Position": [
+        11191,
+        0,
+        2443
+      ]
+    },
+    {
+      "Id": "otmel",
+      "Name": "Otmel",
+      "Position": [
+        11581.25,
+        0,
+        3213.24
+      ]
+    },
+    {
+      "Id": "prison-island",
+      "Name": "Prison Island",
+      "Position": [
+        2816.601,
+        0,
+        1277.96
+      ]
+    },
+    {
+      "Id": "nw-airfield",
+      "Name": "Nw Airfield",
+      "Position": [
+        4600.0,
+        0.0,
+        10400.0
+      ]
+    },
+    {
+      "Id": "tisy-military",
+      "Name": "Tisy Military",
+      "Position": [
+        1684.98,
+        0,
+        14219.32
+      ]
+    },
+    {
+      "Id": "vybor-military",
+      "Name": "Vybor Military",
+      "Position": [
+        4485.2,
+        0,
+        8290.67
+      ]
+    },
+    {
+      "Id": "green-mountain",
+      "Name": "Green Mountain",
+      "Position": [
+        3700.0,
+        0.0,
+        6000.0
+      ]
+    },
+    {
+      "Id": "devils-castle",
+      "Name": "Devils Castle",
+      "Position": [
+        6900.0,
+        0.0,
+        11400.0
+      ]
+    }
+  ]
+}

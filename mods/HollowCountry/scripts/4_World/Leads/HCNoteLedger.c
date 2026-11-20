@@ -244,7 +244,13 @@ class HCNoteLedger : HCModule
         if (Scene(sceneId)) { sceneCount = 1; }
         int activeTraces = m_Store.Data.Notes.Count() + m_Store.Data.Bodies.Count();
         if (!CanCreate(activeTraces, sceneCount) || m_Store.HCSceneTraces(m_Store.Data, sceneId) >= 3) { return null; }
-        string text = m_Store.HCTraceText(lead);
+        if (m_Store.HCTrace(lead.Id)) { m_Store.HCTraceRefuse("DUPLICATE_FACT"); return null; }
+        // Resolve against the original placement only, before the reservation
+        // image/text is frozen. Carrying the paper never changes its bearing.
+        HCClueLead clue = HCLeadPolicy.Copy(lead);
+        clue.LocationHint = ""; // a prior radio hint has no note-origin bearing
+        HCClueLocation.HCResolve(clue, position, true);
+        string text = m_Store.HCTraceText(clue);
         if (text == "") { RadioFallback(lead); return null; }
         string noteId = m_Store.NextId("note");
         if (noteId == "") { return null; } // serial cap: never leave an id-less receipt
@@ -258,7 +264,7 @@ class HCNoteLedger : HCModule
         entry.Row.EntityRef = entry.Row.Id;
         entry.Row.CreatedAt = HCWorldClock.UTC();
         entry.Row.TextId = lead.TextId;
-        entry.Lead = HCLeadPolicy.Copy(lead);
+        entry.Lead = clue;
         entry.Expires = lead.Expires;
         m_Store.Data.Notes.Insert(entry);
         HCPendingNote pending = new HCPendingNote;

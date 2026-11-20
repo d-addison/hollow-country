@@ -92,6 +92,8 @@ MISSION_FILES.update({'vehicles/vehexp-eventspawns.xml', 'vehicles/vehexp-types.
                       'vehicles/vehexp-roster.json', 'vehicles/vehexp-integration.md'})
 # Regional road source pages for the paged route catalog.
 MISSION_FILES.add('travel/gapcode_routes_source-pages.json')
+# Named-locality catalogue for clue direction/distance wording (Leads).
+MISSION_FILES.add('leads/localities.json')
 MISSION_FILES.update({
     'interiors/templates/classes-000.json',
     'interiors/templates/classes-001.json',
