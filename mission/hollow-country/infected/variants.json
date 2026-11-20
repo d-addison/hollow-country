@@ -366,6 +366,206 @@
       "min_delta": 0,
       "max_delta": 0,
       "existing_destination": true
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenBFat_Blue",
+      "to": "HC_ZmbM_Sitter",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenASkinny_Grey",
+      "to": "HC_ZmbM_Sleeper",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_SkaterYoung_Grey",
+      "to": "HC_ZmbM_Riser",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_MotobikerFat_Beige",
+      "to": "HC_ZmbM_Feeder",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCity",
+      "from": "ZmbM_CitizenASkinny_Red",
+      "to": "HC_ZmbM_Crawler",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_CommercialPilotOld_Grey",
+      "to": "HC_ZmbM_Sleeper",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedCityTier1",
+      "from": "ZmbM_SkaterYoung_Blue",
+      "to": "HC_ZmbM_Crawler",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_brown",
+      "to": "HC_ZmbM_Sitter",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_grey",
+      "to": "HC_ZmbM_Sleeper",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_khaki",
+      "to": "HC_ZmbM_Riser",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_FarmerFat_Brown",
+      "to": "HC_ZmbM_Feeder",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillage",
+      "from": "ZmbM_Jacket_stripes",
+      "to": "HC_ZmbM_Crawler",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_VillagerOld_Green",
+      "to": "HC_ZmbM_Sitter",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_FarmerFat_Beige",
+      "to": "HC_ZmbM_Feeder",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedVillageTier1",
+      "from": "ZmbM_JoggerSkinny_Red",
+      "to": "HC_ZmbM_Crawler",
+      "share": 2,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_HandymanNormal_Grey",
+      "to": "HC_ZmbM_Sitter",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_OffshoreWorker_Orange",
+      "to": "HC_ZmbM_Sleeper",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_ConstrWorkerNormal_Grey",
+      "to": "HC_ZmbM_Riser",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_MechanicSkinny_Grey",
+      "to": "HC_ZmbM_Feeder",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedIndustrial",
+      "from": "ZmbM_HeavyIndustryWorker",
+      "to": "HC_ZmbM_Crawler",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_HermitSkinny_Beige",
+      "to": "HC_ZmbM_Sitter",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_HikerSkinny_Green",
+      "to": "HC_ZmbM_Sleeper",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedSolitude",
+      "from": "ZmbM_FishermanOld_Grey",
+      "to": "HC_ZmbM_Riser",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_PatientSkinny",
+      "to": "HC_ZmbM_Sleeper",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
+    },
+    {
+      "event": "InfectedMedic",
+      "from": "ZmbM_ParamedicNormal_Red",
+      "to": "HC_ZmbM_Crawler",
+      "share": 1,
+      "min_delta": 0,
+      "max_delta": 0
     }
   ],
   "acceptance_required": [
@@ -4453,6 +4653,7 @@
     "NBC": "retain toxic/contaminated stock events and yellow medic/firefighter placements; White shares in InfectedNBC; Grey 2/95 and 2/90 army shares",
     "heavy_labels": "native female Heavy classes use InfectedMSoldier; substitute normal soldier shares, never promise heavy AI",
     "Santa": "native class exists; rare year_round cityTier1 share; no winter scheduling",
-    "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once"
+    "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once",
+    "hc_variants": "issue_279 HollowCountryAnims CE children: Sitter/Sleeper/Riser/Feeder (custom-graph poses, MaxPosed bounds held poses) and Crawler (vanilla crawl request at spawn); shares 2-6 of ~100 per city/village/industrial/solitude/medic event (few per town, not hordes); donors are unused stock civilian males; loot inherits donor lootmin/lootmax; runtime PENDING"
   }
 }

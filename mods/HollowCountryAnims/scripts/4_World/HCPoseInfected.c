@@ -14,6 +14,13 @@
 // Vanilla handlers keep running every tick (we never swallow death or hits); a posed infected
 // stands up by itself once its mind state reaches ALERTED.
 //
+// #279 CE route: HC_ZmbM_Sitter/Sleeper/Riser/Feeder (poses 1..4) and HC_ZmbM_Crawler
+// (vanilla graph, native crawl request) are public classes added as children of the
+// stock infected events by tools/package/infected_variety.py, so the vanilla CE owns
+// spawn, caps and cleanup. EEInit requests this class's pose once; the MaxPosed budget
+// still bounds held poses (a body over budget stays a normal standing infected).
+// Counters live in the base mod (HCVarietyCounters); per-body lines are capped.
+//
 // Native API (scripts-1.30.164289):
 //   3_Game/Entities/DayZInfected.c:10 COMMANDID_SCRIPT, :67 DayZInfectedCommandScript,
 //     :77 SetFlagFinished, :94 PostPhysUpdate, :123 StartCommand_ScriptInst, :124 GetCommand_Script
@@ -111,6 +118,13 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	protected int m_HCPoseCmd = -1;
 	protected int m_HCPoseVar = -1;
 	protected int m_HCPoseFromVar = -1;
+	protected bool m_HCPlaying;        // our command was observed as the current command
+
+	//! Pose this class takes when the CE (or a test helper) creates it.
+	int HCSpawnPose()
+	{
+		return HCVarietyCounters.KIND_SIT;
+	}
 
 	//! Server: only authored modes admitted by the shared owner may acquire a slot.
 	bool HCRequestPose(int pose)
@@ -118,7 +132,10 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		if (!g_Game.IsServer() || !IsAlive())
 			return false;
 		if (pose != 0 && HCInfectedVariety.HCPosesOptedOut())
+		{
+			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_OPTOUT);
 			return false;
+		}
 		if (pose != 0 && !HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose)))
 			return HCRefusePose(pose);
 		if (pose != 0 && (m_HCRising || (m_HCStarted && pose != m_HCPose)))
@@ -130,6 +147,7 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			int maxPosed = HCInfectedVariety.HCMaxPosed();
 			if (s_HCPosed >= maxPosed)
 			{
+				HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_BUDGET);
 				string budgetReason = "max_posed_budget=" + maxPosed.ToString();
 				if (budgetReason != s_HCLastRefusal)
 				{
@@ -140,14 +158,18 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			}
 			s_HCPosed++;
 			m_HCHolding = true;
+			HCVarietyCounters.HCAdd(HCVarietyCounters.POSED);
+			HCVarietyCounters.HCSetHeld(s_HCPosed);
 		}
 		m_HCPose = pose;
-		Print("[HollowCountryAnims] pose request pose=" + pose.ToString() + " posed=" + s_HCPosed.ToString() + " runtime=PENDING");
+		if (HCVarietyCounters.HCDetail())
+			Print("[HollowCountryAnims] pose request class=" + GetType() + " pose=" + pose.ToString() + " posed=" + s_HCPosed.ToString() + " runtime=PENDING");
 		return true;
 	}
 
 	protected bool HCRefusePose(int pose)
 	{
+		HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_ADMISSION);
 		string reason = HCPostureAdmission.HCPostureRefusal(HCPostureAdmission.HCPoseMode(pose));
 		if (reason != s_HCLastRefusal)
 		{
@@ -155,6 +177,18 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			Print("[HollowCountryAnims] pose refused pose=" + pose.ToString() + " reason=" + reason + " runtime=PENDING");
 		}
 		return false;
+	}
+
+	//! Begin the get-up once from a held pose; the command plays it, then vanilla resumes.
+	protected bool HCWake(int cause)
+	{
+		if (!m_HCHolding || m_HCPose == 0)
+			return false;
+		m_HCPose = 0;
+		HCVarietyCounters.HCAdd(cause);
+		if (HCVarietyCounters.HCDetail())
+			Print("[HollowCountryAnims] pose wake class=" + GetType() + " cause=" + cause.ToString() + " runtime=PENDING");
+		return true;
 	}
 
 	//! Called by our command when the get-up clip starts; cleared on release.
@@ -172,7 +206,8 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	//! Variety wake (proximity, noise, shot, damage, cap, stop): begin the get-up once.
 	override void HCVarietyPoseWake()
 	{
-		HCRequestPose(0);
+		if (!HCWake(HCVarietyCounters.WOKEN_OTHER))
+			HCRequestPose(0);
 	}
 
 	int HCWantedPose()
@@ -201,16 +236,21 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		return m_HCPoseFromVar;
 	}
 
-	protected void HCRelease()
+	//! ended: 0 none (not holding), else the HCVarietyCounters slot describing the end.
+	protected void HCRelease(int ended = 0)
 	{
 		if (m_HCHolding)
 		{
 			m_HCHolding = false;
 			s_HCPosed--;
+			HCVarietyCounters.HCSetHeld(s_HCPosed);
+			if (ended > 0)
+				HCVarietyCounters.HCAdd(ended);
 		}
 		m_HCPose = 0;
 		m_HCStarted = false;
 		m_HCRising = false;
+		m_HCPlaying = false;
 	}
 
 	override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
@@ -219,28 +259,49 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 			return super.ModCommandHandlerBefore(pDt, pCurrentCommandID, pCurrentCommandFinished);
 		if (!IsAlive())
 		{
-			HCRelease();
+			HCRelease(HCVarietyCounters.DELETED);
 			return false;
 		}
 		if (m_HCPose != 0)
 		{
+			// Native perception only: the AI's own mind state, never a player scan.
 			DayZInfectedInputController ic = GetInputController();
 			if (ic && ic.GetMindState() >= DayZInfectedConstants.MINDSTATE_ALERTED)
-				m_HCPose = 0;   // wake: the command plays the get-up, then vanilla takes over
+				HCWake(HCVarietyCounters.WOKEN_MIND);   // the command plays the get-up, then vanilla takes over
 		}
 		if (pCurrentCommandID == DayZInfectedConstants.COMMANDID_SCRIPT)
+		{
+			if (m_HCStarted && !m_HCPlaying)
+			{
+				m_HCPlaying = true;
+				HCVarietyCounters.HCAdd(HCVarietyCounters.PLAYING);
+			}
 			return false;   // ours is running; vanilla death/hit/attack handlers still run
+		}
 		if (m_HCStarted || m_HCPose == 0)
 		{
 			// Our command finished its get-up or was replaced by a vanilla command.
-			HCRelease();
-			Print("[HollowCountryAnims] pose released posed=" + s_HCPosed.ToString() + " runtime=PENDING");
+			int ended = HCVarietyCounters.INTERRUPTED;
+			if (m_HCRising && pCurrentCommandID == DayZInfectedConstants.COMMANDID_MOVE)
+				ended = HCVarietyCounters.RISEN;
+			HCRelease(ended);
+			if (HCVarietyCounters.HCDetail())
+				Print("[HollowCountryAnims] pose released class=" + GetType() + " ended=" + ended.ToString() + " posed=" + s_HCPosed.ToString() + " runtime=PENDING");
 			return false;
 		}
 		StartCommand_ScriptInst(HCPoseCommand);
 		m_HCStarted = true;
-		Print("[HollowCountryAnims] pose command started pose=" + m_HCPose.ToString() + " runtime=PENDING");
+		if (HCVarietyCounters.HCDetail())
+			Print("[HollowCountryAnims] pose command started class=" + GetType() + " pose=" + m_HCPose.ToString() + " runtime=PENDING");
 		return true;
+	}
+
+	//! Damage while posed starts the get-up; vanilla HandleDamageHit may replace it with a hit.
+	override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
+	{
+		if (g_Game.IsServer())
+			HCWake(HCVarietyCounters.WOKEN_HIT);
+		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 	}
 
 	//! One bounded admission request; unsupported modes keep native AI unchanged.
@@ -248,12 +309,15 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	{
 		super.EEInit();
 		if (g_Game.IsServer())
-			HCRequestSit();
+		{
+			HCVarietyCounters.HCSpawned(HCSpawnPose());
+			HCRequestPose(HCSpawnPose());
+		}
 	}
 
 	override void EEDelete(EntityAI parent)
 	{
-		HCRelease();
+		HCRelease(HCVarietyCounters.DELETED);
 		super.EEDelete(parent);
 	}
 
@@ -270,5 +334,63 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	void HCRequestSit()
 	{
 		HCRequestPose(1);
+	}
+}
+
+// #279 CE variants: same pose layer, a different spawn pose. Config parents (outfits)
+// are vanilla civilian males whose script bases are empty, so behaviour is unchanged.
+class HC_ZmbM_Sleeper extends HC_ZmbM_Sitter
+{
+	override int HCSpawnPose()
+	{
+		return HCVarietyCounters.KIND_SLEEP;
+	}
+}
+
+class HC_ZmbM_Riser extends HC_ZmbM_Sitter
+{
+	override int HCSpawnPose()
+	{
+		return HCVarietyCounters.KIND_RISER;
+	}
+}
+
+class HC_ZmbM_Feeder extends HC_ZmbM_Sitter
+{
+	override int HCSpawnPose()
+	{
+		return HCVarietyCounters.KIND_FEED;
+	}
+}
+
+// #279 CE crawler on the vanilla graph. EEInit sets the SAME request the vanilla
+// injury path uses (ZombieBase.c:809 m_CrawlTransition, consumed by :811-824
+// HandleCrawlTransition, which starts StartCommand_Crawl and syncs m_IsCrawling).
+// No health edit, no teleport; native AI drives the crawler and never stands it up.
+// The CE spawns it away from players, so the fall into the crawl is not watched.
+class HC_ZmbM_Crawler extends ZmbM_CitizenASkinny_Base
+{
+	protected bool m_HCCrawlSeen;
+
+	override void EEInit()
+	{
+		super.EEInit();
+		if (!g_Game.IsServer())
+			return;
+		HCVarietyCounters.HCSpawned(HCVarietyCounters.KIND_CRAWL);
+		if (IsAlive() && !IsCrawling())
+			m_CrawlTransition = 0;
+	}
+
+	override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
+	{
+		if (!m_HCCrawlSeen && pCurrentCommandID == DayZInfectedConstants.COMMANDID_CRAWL && g_Game.IsServer())
+		{
+			m_HCCrawlSeen = true;
+			HCVarietyCounters.HCAdd(HCVarietyCounters.CRAWLING);
+			if (HCVarietyCounters.HCDetail())
+				Print("[HollowCountryAnims] crawler crawling class=" + GetType() + " runtime=PENDING");
+		}
+		return super.ModCommandHandlerBefore(pDt, pCurrentCommandID, pCurrentCommandFinished);
 	}
 }
