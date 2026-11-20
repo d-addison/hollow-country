@@ -57,6 +57,8 @@ class HCInfectedModule : HCModule
     protected int m_AdoptionCursor;
     protected int m_RecoveryCursor;
     protected int m_RetargetCursor;
+    protected int m_HCPackTickCursor;
+    protected ref HCWorkBudget m_HCAdoptWork = new HCWorkBudget;
     protected int m_VoiceAttempts;
     protected int m_RegistrationAttempts;
     protected int m_RegistrationRound;
@@ -183,8 +185,10 @@ class HCInfectedModule : HCModule
             Print("[HC Infected] contact guard pending native wall-hit qualification; native combat retained");
         Print("[HC Infected] enabled-preference template defaults; existing explicit disables preserved");
         Print("[HC Infected] capability admission (requested vs admitted; unqualified paths fail closed, native behavior retained): " + m_Admission.Describe());
-        m_GroupCap = Math.Min(settings.MaxActiveHordes, 2);
-        m_MemberCap = Math.Min(settings.MaxActiveHordeMembers, 24);
+        m_GroupCap = settings.MaxActiveHordes;
+        m_MemberCap = settings.MaxActiveHordeMembers;
+        int trackedCap = m_Config.MaxTracked;
+        Print("[HC Infected] limits groups=" + m_GroupCap.ToString() + " members=" + m_MemberCap.ToString() + " tracked=" + trackedCap.ToString() + " per_pack=" + HCHordeLimits.MAX_PACK.ToString() + " runtime=PENDING");
         m_Hordes = settings.EnableHordes;
         m_Chains = settings.EnableAlertChains;
         m_LastUtc = HCInfectedClock.UtcSeconds();
@@ -317,7 +321,7 @@ class HCInfectedModule : HCModule
                 break;
             }
         }
-        if (slot < 0 && m_Actors.Count() >= Math.Min(m_Config.MaxTracked, m_MemberCap))
+        if (slot < 0 && m_Actors.Count() >= m_Config.MaxTracked)
             return false;
         HCInfectedActor actor = new HCInfectedActor;
         actor.InfectedEntity = entity;
@@ -336,6 +340,23 @@ class HCInfectedModule : HCModule
         // A changed registry invalidates an unfinished aggregate.
         ResetSweep();
         return true;
+    }
+
+    // Called only after a native join receipt, with capacity reserved before creation.
+    bool HCReinforceTrack(ZombieBase body, int groupId)
+    {
+        if (!FindActor(body) && !Track(body)) { return false; }
+        HCInfectedActor actor = FindActor(body);
+        if (!actor || groupId < 1 || groupId > m_State.Groups.Count()) { return false; }
+        actor.GroupId = groupId;
+        actor.EverAssigned = true;
+        ResetSweep();
+        return true;
+    }
+
+    bool HCReinforceRoom()
+    {
+        return m_Healthy && m_Actors.Count() < m_Config.MaxTracked && m_RegistrationAttempts < m_WorkCap;
     }
 
     int RegistrationRound()
@@ -479,6 +500,9 @@ class HCInfectedModule : HCModule
         {
             HCHordeRecord record = m_State.Groups[i];
             HCHordeSweep sweep = m_Sweeps[i];
+            // Reserved shortfall is not ambiguous membership while its live
+            // staging pack owns the bounded reinforcement continuation.
+            if (m_Packs[i] && m_Packs[i].HCReinforcePending()) { continue; }
             if (record.State == 5)
             {
                 RefundRetired(record, nowUtc);
@@ -730,8 +754,12 @@ class HCInfectedModule : HCModule
         ref array<HCInfectedActor> candidates = new array<HCInfectedActor>;
         vector anchor;
         int scanCount = Math.Min(m_Actors.Count(), m_WorkCap - 6);
+        m_HCAdoptWork.HCReset(scanCount);
+        HCUnitBudget adoptionWork = HCServer.HCTickWork();
+        if (!adoptionWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, scanCount)) { return; }
         for (int scanned = 0; scanned < scanCount; scanned++)
         {
+            if (!m_HCAdoptWork.HCContinue()) { break; }
             m_AdoptionCursor = m_AdoptionCursor % m_Actors.Count();
             HCInfectedActor actor = m_Actors[m_AdoptionCursor];
             m_AdoptionCursor = HCInfectedPolicy.NextAdoptionCursor(m_AdoptionCursor, m_Actors.Count());
@@ -744,16 +772,23 @@ class HCInfectedModule : HCModule
             if (!HCInfectedStore.ValidPosition(position))
                 continue;
             if (candidates.Count() == 0)
+            {
+                // CE activates local population; routes never use a player fix.
+                if (HCHordeMigration.Active() && !HCHordeRoutes.Select(position, null)) { continue; }
                 anchor = position;
-            if (vector.DistanceSq(position, anchor) <= 1600)
+            }
+            if (vector.DistanceSq(position, anchor) <= 10000)
                 candidates.Insert(actor);
-            if (candidates.Count() == 6)
+            if (candidates.Count() >= Math.Min(HCHordeLimits.MAX_PACK, m_MemberCap - m_State.Reserved))
                 break;
         }
         int requested = candidates.Count();
-        if (requested > 3) requested = HCInfectedMemory.CohortSize(anchor, requested);
-        while (candidates.Count() > requested) { candidates.Remove(candidates.Count() - 1); }
-        if (requested < 3 || !HCInfectedPolicy.CanReserve(activeGroups, m_GroupCap, m_State.Reserved, m_MemberCap, requested))
+        int target = Math.Clamp(HCInfectedMemory.CohortSize(anchor, HCHordeLimits.MAX_PACK), 30, HCHordeLimits.MAX_PACK);
+        HCHordeRouteDefaults limits = HCHordeRoutes.Defaults();
+        if (!limits || limits.MaxMembers < target) { return; }
+        while (candidates.Count() > target) { candidates.Remove(candidates.Count() - 1); }
+        requested = candidates.Count();
+        if (requested < 1 || !HCInfectedPolicy.CanReserve(activeGroups, m_GroupCap, m_State.Reserved, m_MemberCap, target))
             return;
         HCInfectedClue adoptionClue;
         foreach (HCInfectedActor observer : candidates)
@@ -764,14 +799,19 @@ class HCInfectedModule : HCModule
                 adoptionClue = observedClue;
             }
         }
-        // No invented migration destination: without a genuine cue, leave the
-        // existing CE population in its native group and try a later interval.
-        if (m_Admission.NativePackRoutes && !adoptionClue)
+        // A periodic patrol uses authored points, never invented hearing. Noise
+        // routing still requires its original live receipt when no corridor fits.
+        HCHordeRouteSurvey patrol;
+        if (HCHordeMigration.Active() && m_Admission.HordeStimulusRoutes)
+            patrol = HCHordeRoutes.Select(anchor, null);
+        if (!m_Admission.NativePackRoutes || !patrol)
             return;
         HCHordeRecord record = new HCHordeRecord;
         HCHordeRecovery.Capture(candidates, record);
         if (record.RecoveryConflicted)
             return;
+        // Never persist a partial roster or identities of supplemental bodies.
+        if (requested < target) { record.MemberIds.Clear(); }
         // PREPARE: the reservation is durable before any native membership
         // transfer. A restart never replays this incomplete intent.
         record.State = 6;
@@ -781,13 +821,13 @@ class HCInfectedModule : HCModule
         {
             record.Id = reusableSlot + 1;
         }
-        record.Reserved = requested;
+        record.Reserved = target;
         record.Living = requested;
         record.CreatedUtc = nowUtc;
         record.LastSignalUtc = nowUtc;
         record.Anchor = anchor;
         record.PreviousAnchor = anchor;
-        m_State.Reserved += requested;
+        m_State.Reserved += target;
         if (reusableSlot < 0)
         {
             m_State.Groups.Insert(record);
@@ -829,8 +869,19 @@ class HCInfectedModule : HCModule
             pack = new HCNativeInfectedPack;
             m_Packs[record.Id - 1] = pack;
             float routeNow = HCInfectedClock.UtcSeconds() - m_StartedUtc;
-            if (adoptionClue.IsLive(routeNow))
+            if (patrol)
+            {
+                // Native-checked CE seed; the reserved shortfall is staged at entry.
+                vector entry = patrol.Nodes[0];
+                vector last = patrol.Nodes[patrol.Nodes.Count() - 1];
+                if (vector.DistanceSq(anchor, last) < vector.DistanceSq(anchor, entry)) { entry = last; }
+                succeeded = pack.Start(candidates, entry, false, routeNow, routeNow + 600);
+                if (succeeded && !pack.IsReleasing()) { succeeded = pack.HCAdmitPatrol(patrol, record.Id, routeNow, target); }
+                if (!succeeded) { pack.Release(); }
+            }
+            else if (adoptionClue && adoptionClue.IsLive(routeNow))
                 succeeded = pack.Start(candidates, adoptionClue.Origin, false, routeNow, adoptionClue.Expires);
+            succeeded = succeeded && !pack.IsReleasing();
             releasing = pack.IsReleasing();
         }
         record.AdoptionStage = HCInfectedPolicy.AdoptionOutcome(true, attempted, succeeded, releasing);
@@ -868,7 +919,7 @@ class HCInfectedModule : HCModule
             }
             Print("[HollowCountry] infected cohort quarantined id=" + record.Id.ToString() + " reason=adoption_transfer_failed_or_ambiguous pack_reason=" + packReason + " reservation=retained");
         }
-        // Native entities are never spawned, deleted or moved by script.
+        // CE members are never deleted or moved by script. Reinforcement owns only its creations.
     }
 
     // The single heard-clue gate: chains must be requested AND qualified.
@@ -985,15 +1036,26 @@ class HCInfectedModule : HCModule
         m_RegistrationRound++;
         m_LastUtc = nowUtc;
         m_Now = nowUtc - m_StartedUtc;
+        HCHordeReinforce.HCBeginTick();
         m_VoiceAttempts = 0;
         m_RegistrationAttempts = 0;
         HCInfectedRoomCatalog.BeginTick();
         m_ObservationsRemaining = 1;
         m_RoutesRemaining = 1;
+        bool adoptionDue = m_Hordes && m_Now >= m_NextAdopt;
         int maintenance = m_Investigators.Count();
         int packSlots = 0;
         if (m_Admission.CEAdoption || m_Admission.MemberRecovery)
             packSlots = m_Packs.Count();
+        // One physical pack per non-adoption tick, round-robin. Charge its complete <=MAX_PACK
+        // member sweep before starting; the native call is not preemptible.
+        int packTick = -1;
+        if (packSlots > 0)
+        {
+            packTick = m_HCPackTickCursor % packSlots;
+            m_HCPackTickCursor = (packTick + 1) % packSlots;
+        }
+        HCUnitBudget packWork = HCServer.HCTickWork();
         for (int p = 0; p < packSlots; p++)
         {
             HCHordeRecord record = m_State.Groups[p];
@@ -1015,8 +1077,9 @@ class HCInfectedModule : HCModule
                 RefundRetired(record, nowUtc);
                 continue;
             }
-            if (m_Packs[p])
+            if (!adoptionDue && m_Packs[p] && p == packTick && packWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, record.Reserved))
             {
+                maintenance += record.Reserved;
                 bool routeAlive = m_Packs[p].Tick(m_Now);
                 SnapshotRoute(record, m_Packs[p]);
                 if (!routeAlive)
@@ -1041,7 +1104,6 @@ class HCInfectedModule : HCModule
         // sampling cursor, with at most two native packs to inspect. A queued
         // room segment shares the tick's single route token (one FindPath per
         // tick) and waits while adoption, which may start a route, is due.
-        bool adoptionDue = m_Hordes && m_Now >= m_NextAdopt;
         for (int s = m_Investigators.Count() - 1; s >= 0; s--)
         {
             HCInfectedActor investigator = m_Investigators[s];
@@ -1065,11 +1127,11 @@ class HCInfectedModule : HCModule
         }
         else
         {
-            // At most two cohort eligibility scans (six members each), plus
-            // one charged bounded path. Rejections cannot starve another pack.
+            // Actor sampling resumes its cursor after the charged member sweep.
+            // At most one native path token is shared by all route consumers.
             int retargetReserve = 0;
             if (m_Hordes && m_Admission.HordeStimulusRoutes)
-                retargetReserve = 16;
+                retargetReserve = 2;
             int work = m_WorkCap - 2 - maintenance - retargetReserve;
             if (m_Hordes && m_Admission.MemberRecovery && m_Actors.Count() > 0 && work > 1)
             {

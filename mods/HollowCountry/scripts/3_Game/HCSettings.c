@@ -211,8 +211,8 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableTapedPackMounts", "bool", 1, 0, 1, "HCSettings");
         HCAdd("TickIntervalMs", "int", 1000, 500, 10000, "HCSettings");
         HCAdd("MaxTickWorkItems", "int", 32, 1, 256, "HCSettings");
-        HCAdd("MaxActiveHordes", "int", 2, 1, 8, "HCSettings");
-        HCAdd("MaxActiveHordeMembers", "int", 24, 1, 64, "HCSettings");
+        HCAdd("MaxActiveHordes", "int", 4, 1, 12, "HCSettings");
+        HCAdd("MaxActiveHordeMembers", "int", 160, 1, 256, "HCSettings");
         HCAdd("MaxActiveInteriors", "int", 12, 1, 32, "HCSettings");
         HCAdd("MaxPropsPerInterior", "int", 5, 1, 20, "HCSettings");
         HCAdd("MaxFurnishedProps", "int", 1500, 0, 2000, "HCSettings");
@@ -534,8 +534,8 @@ class HCSettings
     int MaxFamiliarityRows = 0;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
-    int MaxActiveHordes = 2;
-    int MaxActiveHordeMembers = 24;
+    int MaxActiveHordes = 4;
+    int MaxActiveHordeMembers = 160;
     int MaxActiveInteriors = 12;
     int MaxPropsPerInterior = 5;
     int MaxFurnishedProps = 1500;
@@ -592,8 +592,8 @@ class HCSettings
         else if (!HCOperatorSettingsRegistry.HCValid("ClientPresentationMask", ClientPresentationMask)) error = "ClientPresentationMask outside 0..15";
         else if (!HCOperatorSettingsRegistry.HCValid("TickIntervalMs", TickIntervalMs)) error = "Tick interval outside 500..10000 ms";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxTickWorkItems", MaxTickWorkItems)) error = "Work budget outside 1..256";
-        else if (!HCOperatorSettingsRegistry.HCValid("MaxActiveHordes", MaxActiveHordes)) error = "Horde budget outside 1..8";
-        else if (!HCOperatorSettingsRegistry.HCValid("MaxActiveHordeMembers", MaxActiveHordeMembers)) error = "Member budget outside 1..64";
+        else if (!HCOperatorSettingsRegistry.HCValid("MaxActiveHordes", MaxActiveHordes)) error = "Horde budget outside 1..12";
+        else if (!HCOperatorSettingsRegistry.HCValid("MaxActiveHordeMembers", MaxActiveHordeMembers)) error = "Member budget outside 1..256";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxActiveInteriors", MaxActiveInteriors)) error = "Interior budget outside 1..32";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxPropsPerInterior", MaxPropsPerInterior)) error = "Prop budget outside 1..20";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxFurnishedProps", MaxFurnishedProps)) error = "Furnished prop budget outside 0..2000";

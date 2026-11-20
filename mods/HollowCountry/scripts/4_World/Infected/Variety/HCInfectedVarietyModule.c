@@ -9,9 +9,9 @@
 // EnScript.c:380 Count, :385 Clear; EnDebug.c:96 Print. Geometry uses the
 // already inspected HCAlertChain.ClearGeometry (DayZPhysics.c:199 RaycastRV).
 // Tick bound: one GetPlayers; at most 32 proximity candidates per sampled
-// actor; two passes over <=24 entries for counts/cap repair, four cursor-selected
-// actors, at most 8*24 corpse/place checks, at most eight proximity rays; a single
-// shot visits 24 actors, admits at most three cues in ONE place, <=6 more rays.
+// actor; two passes over <=128 entries for counts/cap repair, four cursor-selected
+// actors, at most 8*128 corpse/place checks, at most eight proximity rays; a single
+// shot visits <=32 actors with a cooperative slice, <=3 cues in ONE place, <=6 rays.
 // Role/dormant place naming uses <=8*64 existing HCWorld place comparisons.
 // Room context reuses HCInfectedRoomCatalog.BuildProductionOrder: existing
 // per-tick bind-query cap/radius, <=1 anchor returned, existing room geometry.
@@ -346,18 +346,27 @@ modded class HCInfectedModule
         return woken;
     }
 
+    protected int m_HCShotCursor;
+    protected ref HCWorkBudget m_HCShotWork = new HCWorkBudget;
+
     int HCVarietyShot(vector origin, float nightness, float rain)
     {
         if (!m_Healthy || !HCInfectedVarietyModule.VarietyActive()) { return 0; }
-        if (Math.RandomFloat01() > HCInfectedVarietyPolicy.NoiseWakeChance(nightness, rain)) { return 0; }
+        bool wake = Math.RandomFloat01() <= HCInfectedVarietyPolicy.NoiseWakeChance(nightness, rain);
         string place;
         int recipients = 0;
         int checks = 0;
         int woken = 0;
-        foreach (HCInfectedActor actor : m_Actors)
+        m_HCShotWork.HCReset(m_WorkCap);
+        for (int scanned = 0; scanned < m_Actors.Count() && scanned < m_WorkCap; scanned++)
         {
+            if (!m_HCShotWork.HCContinue()) { break; }
+            m_HCShotCursor = m_HCShotCursor % m_Actors.Count();
+            HCInfectedActor actor = m_Actors[m_HCShotCursor];
+            m_HCShotCursor++;
+
             ZombieBase entity = actor.InfectedEntity;
-            if (!entity || !entity.IsAlive() || !entity.HCVarietyDormant()) { continue; }
+            if (!entity || !entity.IsAlive()) { continue; }
             if (recipients >= 3) { break; }
             if (place != "" && entity.HCVarietyPlace() != place) { continue; }
             if (vector.DistanceSq(origin, entity.GetPosition()) > 6400) { continue; }
@@ -365,9 +374,10 @@ modded class HCInfectedModule
             checks++;
             if (!m_AlertChain.HCVarietyClear(origin, entity)) { continue; }
             place = entity.HCVarietyPlace();
-            if (entity.HCVarietyWake()) { woken++; }
+            if (wake && entity.HCVarietyDormant() && entity.HCVarietyWake()) { woken++; }
             recipients++;
-            // Frozen genuine event; no live shooter position, refresh or relay.
+            // Awake recipients also get the frozen event; wake probability
+            // controls posture only. Keep <=80 m, <=3 recipients, <=6 rays.
             actor.Heard = HCHordeStimulus.HCVarietyGunshot(origin, m_Now);
             actor.HeardExternally = true;
         }

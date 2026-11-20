@@ -422,7 +422,7 @@ modded class HCInfectedModule
 {
     bool HCVarietyFreshRoom(float scale)
     {
-        if (!m_Healthy || !m_Config || m_Actors.Count() >= Math.Max(0, Math.Min(m_Config.MaxTracked, m_MemberCap) - 4)) { return false; }
+        if (!m_Healthy || !m_Config || m_Actors.Count() >= Math.Max(0, m_Config.MaxTracked - 4)) { return false; }
         int posedFull = 0;
         int posedIdle = 0;
         int posedTotal = 0;

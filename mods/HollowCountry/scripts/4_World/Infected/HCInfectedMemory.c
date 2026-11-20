@@ -84,8 +84,8 @@ class HCInfectedMemory
     }
 
     // Two small hooks in v1 TryAdopt trim its already-bounded candidate list.
-    // Inactive/faulted/off preserves vanilla-v1 selection (up to six); active
-    // memory selects 3..6 existing CE infected. All v1 admission/reservation,
+    // Inactive/faulted/off uses the caller ceiling; active memory selects
+    // its configured base plus heat. All admission/reservation,
     // cue, route, observer and distance checks remain in the original caller.
     static int CohortSize(vector pos, int available)
     {
@@ -99,7 +99,7 @@ class HCInfectedMemory
             }
         }
         // W5 #125 affects future CE adoption only, using the once-per-tick
-        // online roster. Six/member/global journal caps remain authoritative.
+        // online roster. Shared pack/global journal caps remain authoritative.
         return HCInfectedVarietyModule.HCScaledCohort(requested, available);
     }
 

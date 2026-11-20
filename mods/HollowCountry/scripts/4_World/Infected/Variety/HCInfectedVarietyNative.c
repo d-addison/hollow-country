@@ -371,7 +371,7 @@ modded class HCNativeInfectedPack
     // Existing <=6 member roster only; no transfer, refill or runner promotion.
     override void HCVarietyWalkerHerd()
     {
-        if (!HCInfectedVarietyModule.VarietyActive() || m_Members.Count() > 6) { return; }
+        if (!HCInfectedVarietyModule.VarietyActive() || m_Members.Count() > HCHordeLimits.MAX_PACK) { return; }
         foreach (ZombieBase walker : m_Members)
         {
             if (!walker || !walker.IsAlive()) { continue; }
