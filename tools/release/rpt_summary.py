@@ -22,6 +22,7 @@ CRASH = re.compile(r'NULL pointer|Unhandled exception|Access[_ ]violation|Except
 HC = re.compile(r'\[HC(?:\s+([^\]]+))?\]')
 READINESS = re.compile(r'ready|readiness|refus|unavailable|bind failed|degrad|missing|invalid|disabled|blocked|not available', re.I)
 NOT_READY = re.compile(r'\bready\s*=\s*false\b', re.I)
+READY = re.compile(r'\bready\s*=\s*true\b', re.I)
 PERF = re.compile(r'\b(tick_max|work_max|slowest_module_max_ms)\s*=\s*([0-9]+(?:\.[0-9]+)?)', re.I)
 TICKS = re.compile(r'\b([a-z_]*(?:ticks|tick_ms)[a-z_]*)\s*[=:]\s*([0-9]+(?:\.[0-9]+)?)', re.I)
 
@@ -97,6 +98,9 @@ class Summary:
         self.crashes = []
         self.connected = False
         self.failures = set()
+        # Last [HC Ready] verdict per enabled module: a boot-time loading state that
+        # later prints ready=true (late readiness on the 15 s refresh) is not a failure.
+        self.ready_last = {}
         self.worst = {}
         self.saves = {}
         self.readiness_count = 0
@@ -110,7 +114,11 @@ class Summary:
     def scan(self):
         for raw in lines(self.path):
             verdict = failure(raw)
-            if verdict:
+            if verdict == 'not_ready' or ('[HC Ready]' in raw and READY.search(raw)):
+                field = re.search(r'\bmodule=([^\s;]+)', raw)
+                if field and (field.group(1) in self.ready_last or len(self.ready_last) < 256):
+                    self.ready_last[field.group(1)] = verdict != 'not_ready'
+            elif verdict:
                 self.failures.add(verdict)
             if 'Player connect enabled' in raw:
                 self.connected = True
@@ -162,9 +170,11 @@ class Summary:
 
     @property
     def outcome(self):
-        for value in ('compile_failed', 'crashed', 'not_ready'):
+        for value in ('compile_failed', 'crashed'):
             if value in self.failures:
                 return value
+        if not all(self.ready_last.values()):
+            return 'not_ready'
         return 'connect_enabled' if self.connected else 'incomplete'
 
     def diagnostics(self):

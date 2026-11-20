@@ -82,6 +82,9 @@ def watch(args, before, old_dumps):
                     if not discard:
                         line = pending.decode('utf-8', errors='replace')
                         verdict = failure(line)
+                        # Readiness is judged on the final summary (last [HC Ready] line per module).
+                        if verdict == 'not_ready':
+                            verdict = None
                         if verdict and (batch_outcome is None or verdict == 'compile_failed'):
                             batch_outcome = verdict
                         if 'Player connect enabled' in line and connected_at is None:
