@@ -26,8 +26,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 36,
-    "min": 18,
+    "nominal": 15,
+    "min": 10,
     "lifetime": 14400,
     "restock": 0
    },
@@ -38,7 +38,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AK101_Plastic30Rnd"
   },
   {
@@ -46,8 +46,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 21,
-    "min": 10,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -58,7 +58,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AK74_45Rnd"
   },
   {
@@ -66,8 +66,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 21,
-    "min": 10,
+    "nominal": 8,
+    "min": 4,
     "lifetime": 14400,
     "restock": 0
    },
@@ -78,7 +78,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AK74_Bakelit30Rnd"
   },
   {
@@ -86,8 +86,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 21,
-    "min": 10,
+    "nominal": 6,
+    "min": 4,
     "lifetime": 14400,
     "restock": 0
    },
@@ -98,7 +98,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AK74_Plastic30Rnd"
   },
   {
@@ -106,8 +106,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 21,
-    "min": 10,
+    "nominal": 6,
+    "min": 4,
     "lifetime": 14400,
     "restock": 0
    },
@@ -118,7 +118,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AK74_Plum30Rnd"
   },
   {
@@ -126,8 +126,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 5,
+    "min": 3,
     "lifetime": 14400,
     "restock": 0
    },
@@ -143,7 +143,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_10Rnd"
   },
   {
@@ -151,8 +151,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 3,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -168,7 +168,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_30Rnd"
   },
   {
@@ -176,8 +176,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -193,7 +193,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_Bakelit40Rnd"
   },
   {
@@ -201,8 +201,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -218,7 +218,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_PMAG30Rnd"
   },
   {
@@ -226,8 +226,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 0,
+    "min": 0,
     "lifetime": 14400,
     "restock": 0
    },
@@ -243,7 +243,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_PMAG30Rnd_Banana"
   },
   {
@@ -251,8 +251,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -268,7 +268,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_Plastic30Rnd"
   },
   {
@@ -276,8 +276,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -293,7 +293,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_AKM_Steel40Rnd"
   },
   {
@@ -301,8 +301,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -313,7 +313,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_Anzio20_3Rnd"
   },
   {
@@ -321,8 +321,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 15,
+    "min": 10,
     "lifetime": 14400,
     "restock": 0
    },
@@ -334,7 +334,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_FiveSeven_20Rnd"
   },
   {
@@ -342,8 +342,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 54,
-    "min": 27,
+    "nominal": 20,
+    "min": 10,
     "lifetime": 14400,
     "restock": 0
    },
@@ -359,7 +359,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M14_10Rnd"
   },
   {
@@ -367,8 +367,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 54,
-    "min": 27,
+    "nominal": 8,
+    "min": 4,
     "lifetime": 14400,
     "restock": 0
    },
@@ -384,7 +384,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M14_20Rnd"
   },
   {
@@ -392,8 +392,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -404,7 +404,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M240_50Rnd"
   },
   {
@@ -412,8 +412,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -424,7 +424,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M249_200Rnd"
   },
   {
@@ -432,7 +432,7 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
+    "nominal": 12,
     "min": 10,
     "lifetime": 14400,
     "restock": 0
@@ -449,7 +449,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_PMAG10Rnd"
   },
   {
@@ -457,8 +457,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 10,
+    "nominal": 8,
+    "min": 5,
     "lifetime": 14400,
     "restock": 0
    },
@@ -474,7 +474,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_PMAG20Rnd"
   },
   {
@@ -482,8 +482,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 10,
+    "nominal": 3,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -499,7 +499,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_PMAG30Rnd"
   },
   {
@@ -507,8 +507,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 10,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -524,7 +524,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_PMAG30Rnd_FDE"
   },
   {
@@ -532,8 +532,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 10,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -549,7 +549,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_PMAG40Rnd"
   },
   {
@@ -557,8 +557,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 10,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -574,7 +574,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_PMAG40Rnd_FDE"
   },
   {
@@ -582,8 +582,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 10,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -599,7 +599,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_M4_STANAG_30Rnd"
   },
   {
@@ -607,8 +607,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -619,7 +619,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_MAR10_10Rnd"
   },
   {
@@ -627,8 +627,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 20,
+    "min": 15,
     "lifetime": 14400,
     "restock": 0
    },
@@ -640,7 +640,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_MP443_18Rnd"
   },
   {
@@ -648,8 +648,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 36,
-    "min": 18,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -660,7 +660,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_OTs_14_Groza_20Rnd"
   },
   {
@@ -668,8 +668,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 54,
-    "min": 27,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -680,7 +680,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_PKM_100Rnd"
   },
   {
@@ -688,8 +688,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -700,7 +700,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_20Rnd_Black"
   },
   {
@@ -708,8 +708,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -720,7 +720,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_20Rnd_FDE"
   },
   {
@@ -728,8 +728,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 0,
+    "min": 0,
     "lifetime": 14400,
     "restock": 0
    },
@@ -740,7 +740,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_20Rnd_Shd"
   },
   {
@@ -748,8 +748,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -760,7 +760,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_25Rnd_Black"
   },
   {
@@ -768,8 +768,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -780,7 +780,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_25Rnd_FDE"
   },
   {
@@ -788,8 +788,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -800,7 +800,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_30Rnd_Black"
   },
   {
@@ -808,8 +808,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -820,7 +820,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_30Rnd_FDE"
   },
   {
@@ -828,8 +828,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -840,7 +840,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_Drum50Rnd"
   },
   {
@@ -848,8 +848,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 14,
-    "min": 7,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -860,7 +860,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SCAR_H_PMAG25Rnd_Black"
   },
   {
@@ -868,8 +868,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -880,7 +880,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SR25_20Rnd"
   },
   {
@@ -888,8 +888,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 4,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -900,7 +900,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_SVCh308_10Rnd"
   },
   {
@@ -920,7 +920,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "TF_Mag_SWORD_Mk18_10Rnd"
   },
   {
@@ -928,8 +928,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 30,
+    "min": 20,
     "lifetime": 14400,
     "restock": 0
    },
@@ -942,7 +942,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Mag_VPO190_4Rnd"
   },
   {
@@ -950,8 +950,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 24,
-    "min": 12,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -962,7 +962,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Ammo_20mm"
   },
   {
@@ -970,8 +970,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 24,
-    "min": 12,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -982,7 +982,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Ammo_20mm_HE"
   },
   {
@@ -990,8 +990,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 48,
-    "min": 24,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1002,7 +1002,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Ammo_338LM"
   },
   {
@@ -1022,7 +1022,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "TF_Ammo_40mm_HEDP"
   },
   {
@@ -1030,8 +1030,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 24,
-    "min": 12,
+    "nominal": 30,
+    "min": 20,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1043,7 +1043,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Ammo_57"
   },
   {
@@ -5546,8 +5546,8 @@
    "role": "civilian",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5560,7 +5560,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_ADAR2_15",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5582,8 +5582,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5594,7 +5594,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK101",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5610,8 +5610,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5622,7 +5622,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK102",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -5638,8 +5638,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5650,7 +5650,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK103",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5672,8 +5672,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5684,7 +5684,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK104",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5706,8 +5706,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5718,7 +5718,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK105",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5737,8 +5737,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5749,7 +5749,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK105_Bullpup",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5768,8 +5768,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5780,7 +5780,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AK74M",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5799,8 +5799,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5811,7 +5811,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AKM",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5833,8 +5833,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5845,7 +5845,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AKMN",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -5867,8 +5867,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 20,
+    "min": 15,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5879,7 +5879,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AKS74U",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5898,7 +5898,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
+    "nominal": 5,
     "min": 3,
     "lifetime": 7200,
     "restock": 1800
@@ -5910,7 +5910,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AN94",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5929,8 +5929,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5941,7 +5941,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AN94M",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -5960,8 +5960,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -5972,7 +5972,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_Anzio20",
    "vanilla_ammo": [
     "TF_Ammo_20mm",
@@ -5988,8 +5988,8 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 10,
+    "min": 5,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6001,7 +6001,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_FiveSeven",
    "vanilla_ammo": [
     "TF_Ammo_57"
@@ -6016,8 +6016,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6028,7 +6028,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M14_DMR",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6045,8 +6045,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 2,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6057,7 +6057,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M14_EBR",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6074,8 +6074,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6086,7 +6086,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M14_STD",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6105,8 +6105,8 @@
    "role": "civilian",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 10,
+    "min": 5,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6119,7 +6119,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M1A_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6136,8 +6136,8 @@
    "role": "civilian",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 10,
+    "min": 5,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6150,7 +6150,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M1A_OD",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6167,8 +6167,8 @@
    "role": "civilian",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 10,
+    "min": 5,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6181,7 +6181,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M1A_Tan",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6198,8 +6198,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6210,7 +6210,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M4A1",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6232,8 +6232,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6244,7 +6244,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M4A1_CQBR",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6266,8 +6266,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6278,7 +6278,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M79",
    "vanilla_ammo": [
     "TF_Ammo_40mm_HEDP",
@@ -6297,8 +6297,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6309,7 +6309,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M79_AOR1",
    "vanilla_ammo": [
     "TF_Ammo_40mm_HEDP",
@@ -6328,8 +6328,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6340,7 +6340,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_MAR10",
    "vanilla_ammo": [
     "TF_Ammo_338LM"
@@ -6355,8 +6355,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6367,7 +6367,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_L_FDE",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6389,8 +6389,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6401,7 +6401,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_L_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6423,8 +6423,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6435,7 +6435,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_L_CQC_FDE",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6457,8 +6457,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6469,7 +6469,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_L_CQC_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -6491,8 +6491,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6503,7 +6503,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_H_FDE",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6527,8 +6527,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6539,7 +6539,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_H_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6563,8 +6563,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6575,7 +6575,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_H_CQC_FDE",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6599,8 +6599,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6611,7 +6611,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_H_CQC_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6635,8 +6635,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6647,7 +6647,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_20_FDE",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6671,8 +6671,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6683,7 +6683,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_20_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6707,8 +6707,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6719,7 +6719,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SCAR_20_Shd",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -6743,8 +6743,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6755,7 +6755,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_MK47_CQBR",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -6777,8 +6777,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6789,7 +6789,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_MK47",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -6811,8 +6811,8 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 20,
+    "min": 15,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6824,7 +6824,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_MP443",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -6839,7 +6839,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
+    "nominal": 5,
     "min": 3,
     "lifetime": 7200,
     "restock": 1800
@@ -6851,7 +6851,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_OTs_12_Tiss",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -6867,8 +6867,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 3,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6879,7 +6879,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_OTs_14_Groza",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -6895,8 +6895,8 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 30,
+    "min": 20,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6908,7 +6908,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_MakarovPB",
    "vanilla_ammo": [
     "Ammo_380"
@@ -6921,8 +6921,8 @@
    "role": "civilian",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6935,7 +6935,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_VPO136",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -6957,8 +6957,8 @@
    "role": "civilian",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 50,
+    "min": 30,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6971,7 +6971,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_VPO190",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -6987,8 +6987,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -6999,7 +6999,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_AEK999",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -7015,8 +7015,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7027,7 +7027,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M16A4",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -7049,8 +7049,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7061,7 +7061,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M240",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -7077,8 +7077,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7089,7 +7089,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_M249",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -7105,8 +7105,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7117,7 +7117,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_PKM",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -7133,8 +7133,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7145,7 +7145,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_PKP",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -7161,8 +7161,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7173,7 +7173,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SR25",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -7189,8 +7189,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7201,7 +7201,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SVCh308",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -7217,8 +7217,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 3,
+    "nominal": 5,
+    "min": 2,
     "lifetime": 7200,
     "restock": 1800
    },
@@ -7229,7 +7229,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "TF_SVCh",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -7255,7 +7255,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "TF_M24",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -7281,7 +7281,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "TF_SWORD_Mk18_Mjolnir",
    "vanilla_ammo": [
     "TF_Ammo_338LM"
@@ -8567,20 +8567,20 @@
    {
     "family": "tf-magazine",
     "kind": "magazine",
-    "nominal": 25092,
-    "min": 12464
+    "nominal": 22528,
+    "min": 11284
    },
    {
     "family": "tf-ammo",
     "kind": "ammo",
-    "nominal": 4608,
-    "min": 2304
+    "nominal": 2912,
+    "min": 1824
    },
    {
     "family": "tf-weapon",
     "kind": "weapon",
-    "nominal": 1344,
-    "min": 672
+    "nominal": 1252,
+    "min": 712
    }
   ],
   "dependency_pins": [],
@@ -8793,8 +8793,8 @@
    "TF_SWORD_Mk18_Mjolnir": "7acd96357fa41d15076fc7d285886770329170062e8641bfc3210ff92ac2c35b"
   },
   "aggregate_weapon_budget": {
-   "nominal": 3000,
-   "min": 1500
+   "nominal": 2040,
+   "min": 1416
   },
   "refusals": [
    "HC61_RIGHTS_PENDING",
@@ -8804,5 +8804,5 @@
    "HC61_FULL_PACK_NOT_ADMITTED"
   ]
  },
- "test_abundance_multiplier": 1.0
+ "test_abundance_multiplier": 3.0
 }

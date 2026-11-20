@@ -24,8 +24,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -36,7 +36,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "AA12_Mag"
   },
   {
@@ -44,8 +44,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -56,7 +56,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_HK416_Mag"
   },
   {
@@ -64,8 +64,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -76,7 +76,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M110_Mag"
   },
   {
@@ -84,8 +84,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 21,
-    "min": 10,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -96,7 +96,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M200_Mag"
   },
   {
@@ -104,8 +104,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -116,7 +116,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M249_Mag"
   },
   {
@@ -124,8 +124,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -138,7 +138,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M700_Mag"
   },
   {
@@ -146,8 +146,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -158,7 +158,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M82_Mag"
   },
   {
@@ -166,8 +166,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -179,7 +179,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_MP7_40Rnd"
   },
   {
@@ -187,8 +187,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -199,7 +199,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Mag_FAL_50Rnd"
   },
   {
@@ -207,8 +207,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -221,7 +221,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_VEPR_10rnd"
   },
   {
@@ -229,8 +229,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -242,7 +242,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Vityaz_Mag"
   },
   {
@@ -250,8 +250,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -262,7 +262,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Modified_SA58_30RND_BK"
   },
   {
@@ -270,8 +270,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -282,7 +282,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Modified_SA58_30RND_DT"
   },
   {
@@ -290,8 +290,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -302,7 +302,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Modified_SA58_30RND_WBK"
   },
   {
@@ -310,8 +310,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -322,7 +322,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SA58_30RND_BK"
   },
   {
@@ -330,8 +330,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -342,7 +342,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SA58_30RND_DT"
   },
   {
@@ -350,8 +350,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -362,7 +362,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SA58_30RND_WBK"
   },
   {
@@ -370,8 +370,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -382,7 +382,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SA58_DrumMag"
   },
   {
@@ -390,8 +390,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -402,7 +402,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SG550_Mag"
   },
   {
@@ -410,8 +410,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -423,7 +423,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAPS_20rdMag"
   },
   {
@@ -431,8 +431,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -443,7 +443,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAR15_SPR_100RND_Mag"
   },
   {
@@ -451,8 +451,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -463,7 +463,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAR15_SPR_30RND_Mag"
   },
   {
@@ -471,8 +471,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -483,7 +483,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAR15_SPR_40RND_Mag"
   },
   {
@@ -491,8 +491,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -503,7 +503,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAR15_SPR_60RND_Mag"
   },
   {
@@ -511,8 +511,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -523,7 +523,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUASh12_20rdMag"
   },
   {
@@ -531,8 +531,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -543,7 +543,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAUG_30rdMag"
   },
   {
@@ -551,8 +551,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -563,7 +563,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAX50_Mag"
   },
   {
@@ -571,8 +571,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -583,7 +583,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAlligator_5rdMag"
   },
   {
@@ -591,8 +591,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -603,7 +603,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUDVL10M2_5rdMag"
   },
   {
@@ -611,8 +611,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -623,7 +623,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGM6Lynx_5rdMag"
   },
   {
@@ -631,8 +631,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 24,
-    "min": 12,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -643,7 +643,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGevar_10rdMag"
   },
   {
@@ -651,8 +651,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -663,7 +663,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUHoneyBadger_30rdMag_Black"
   },
   {
@@ -671,8 +671,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -683,7 +683,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUHoneyBadger_30rdMag_Tan"
   },
   {
@@ -691,8 +691,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -703,7 +703,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKH9_30rdMag"
   },
   {
@@ -711,8 +711,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -723,7 +723,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKivaari_10rdMag"
   },
   {
@@ -731,8 +731,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -743,7 +743,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKivaari_25rdMag"
   },
   {
@@ -751,8 +751,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -768,7 +768,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM1A_20rdMag"
   },
   {
@@ -776,8 +776,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -788,7 +788,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM24_Mag"
   },
   {
@@ -796,8 +796,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -808,7 +808,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM96_5rdMag"
   },
   {
@@ -816,8 +816,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 36,
-    "min": 18,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -828,7 +828,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Mag"
   },
   {
@@ -848,7 +848,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDAR_30rndMagB"
   },
   {
@@ -868,7 +868,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDAR_30rndMagT"
   },
   {
@@ -888,7 +888,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDAR_60rndMagB"
   },
   {
@@ -908,7 +908,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDAR_60rndMagT"
   },
   {
@@ -916,8 +916,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -928,7 +928,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUMk12_20rdMag"
   },
   {
@@ -936,8 +936,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -948,7 +948,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUP90_50rdMag"
   },
   {
@@ -956,8 +956,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -969,7 +969,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUPPSKN_30rdMag"
   },
   {
@@ -977,8 +977,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -990,7 +990,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUPPSh_71rdMag"
   },
   {
@@ -998,8 +998,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1010,7 +1010,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFURPD_100rdMag"
   },
   {
@@ -1018,8 +1018,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1030,7 +1030,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFURSASS_Mag"
   },
   {
@@ -1038,8 +1038,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1050,7 +1050,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSRSA2_10rdMag"
   },
   {
@@ -1058,8 +1058,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1071,7 +1071,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSten_32rdMag"
   },
   {
@@ -1079,8 +1079,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 18,
-    "min": 9,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1091,7 +1091,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUT5000_Mag"
   },
   {
@@ -1099,8 +1099,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1111,7 +1111,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUTac21_5rdMag"
   },
   {
@@ -1119,8 +1119,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1132,7 +1132,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUThompsonMk2_30rdMag"
   },
   {
@@ -1140,8 +1140,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1153,7 +1153,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUUzi_32rdMag"
   },
   {
@@ -1161,8 +1161,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1174,7 +1174,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUUzi_72rdMag"
   },
   {
@@ -1182,8 +1182,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1195,7 +1195,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUVECTOR_45acp_Mag"
   },
   {
@@ -1203,8 +1203,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1216,7 +1216,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUVECTOR_9mm_Mag"
   },
   {
@@ -1224,8 +1224,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1236,7 +1236,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUVSSK_5rdMag"
   },
   {
@@ -1244,8 +1244,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 24,
-    "min": 12,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1256,7 +1256,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK103_Mag"
   },
   {
@@ -1264,8 +1264,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1276,7 +1276,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK12_Mag"
   },
   {
@@ -1284,8 +1284,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1296,7 +1296,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK308_Mag"
   },
   {
@@ -1304,8 +1304,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1316,7 +1316,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AS50_Mag"
   },
   {
@@ -1324,8 +1324,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1336,7 +1336,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AWM_Mag"
   },
   {
@@ -1344,8 +1344,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1357,7 +1357,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Agram_32rnd_Mag"
   },
   {
@@ -1365,8 +1365,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1377,7 +1377,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_BMAG300_Black"
   },
   {
@@ -1385,8 +1385,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1397,7 +1397,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_BMAG300_Tan"
   },
   {
@@ -1405,8 +1405,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1417,7 +1417,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_BMAG556_Black"
   },
   {
@@ -1425,8 +1425,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1437,7 +1437,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_BMAG556_Tan"
   },
   {
@@ -1457,7 +1457,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_Bren_30rdMag"
   },
   {
@@ -1465,8 +1465,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1477,7 +1477,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG30300_Black"
   },
   {
@@ -1485,8 +1485,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1497,7 +1497,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG30300_Tan"
   },
   {
@@ -1505,8 +1505,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1517,7 +1517,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG30556_Black"
   },
   {
@@ -1525,8 +1525,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1537,7 +1537,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG30556_Tan"
   },
   {
@@ -1545,8 +1545,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1557,7 +1557,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG40300_Black"
   },
   {
@@ -1565,8 +1565,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1577,7 +1577,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG40300_Tan"
   },
   {
@@ -1585,8 +1585,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1597,7 +1597,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG40556_Black"
   },
   {
@@ -1605,8 +1605,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1617,7 +1617,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG40556_Tan"
   },
   {
@@ -1625,8 +1625,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1637,7 +1637,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG60300_Black"
   },
   {
@@ -1645,8 +1645,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1657,7 +1657,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG60300_Tan"
   },
   {
@@ -1665,8 +1665,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1677,7 +1677,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG60556_Black"
   },
   {
@@ -1685,8 +1685,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1697,7 +1697,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CMAG60556_Tan"
   },
   {
@@ -1705,8 +1705,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1717,7 +1717,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_FRF2_Mag"
   },
   {
@@ -1725,8 +1725,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1738,7 +1738,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Fort12_12rnd_Mag"
   },
   {
@@ -1758,7 +1758,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_G3A3_20rdMag"
   },
   {
@@ -1766,8 +1766,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1778,7 +1778,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_KAC_Mag"
   },
   {
@@ -1786,8 +1786,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1803,7 +1803,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M14_Mag"
   },
   {
@@ -1811,8 +1811,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1824,7 +1824,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M1918A2_Mag"
   },
   {
@@ -1832,8 +1832,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 21,
-    "min": 10,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1844,7 +1844,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M300Mag"
   },
   {
@@ -1864,7 +1864,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_M60_100rdMag"
   },
   {
@@ -1872,8 +1872,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1884,7 +1884,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M76_Mag"
   },
   {
@@ -1892,8 +1892,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1905,7 +1905,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MP9_30rnd_Mag"
   },
   {
@@ -1913,8 +1913,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1926,7 +1926,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MPX_30rnd_Mag"
   },
   {
@@ -1934,8 +1934,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1946,7 +1946,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Mar10_15rnd_Mag"
   },
   {
@@ -1954,8 +1954,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1966,7 +1966,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PDW_45ACP_Mag"
   },
   {
@@ -1974,8 +1974,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -1986,7 +1986,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PDW_9mm_Mag"
   },
   {
@@ -1994,8 +1994,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2007,7 +2007,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PL14HQP_Mag"
   },
   {
@@ -2015,8 +2015,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2027,7 +2027,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PMAG556_Black"
   },
   {
@@ -2035,8 +2035,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2047,7 +2047,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PMAG556_Grey"
   },
   {
@@ -2055,8 +2055,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2067,7 +2067,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PMAG556_OD"
   },
   {
@@ -2075,8 +2075,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2087,7 +2087,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PMAG556_Tan"
   },
   {
@@ -2095,8 +2095,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2107,7 +2107,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_RPK16_Black_Mag"
   },
   {
@@ -2115,8 +2115,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2127,7 +2127,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_RPK16_Green_Mag"
   },
   {
@@ -2135,8 +2135,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2147,7 +2147,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_RPK16_Tan_Mag"
   },
   {
@@ -2155,8 +2155,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2167,7 +2167,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_SKS_10Rnd_Mag"
   },
   {
@@ -2175,8 +2175,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2187,7 +2187,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_SKS_30Rnd_Mag"
   },
   {
@@ -2195,8 +2195,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2207,7 +2207,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_SR25_Mag"
   },
   {
@@ -2215,8 +2215,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2227,7 +2227,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_SR3Vikhr_Mag"
   },
   {
@@ -2235,8 +2235,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 13,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2247,7 +2247,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Saint_Mag"
   },
   {
@@ -2255,8 +2255,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2267,7 +2267,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_ScarH_100RND_Mag_Black"
   },
   {
@@ -2275,8 +2275,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2287,7 +2287,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_ScarH_100RND_Mag_Tan"
   },
   {
@@ -2295,8 +2295,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2307,7 +2307,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_U100_Mag"
   },
   {
@@ -2315,8 +2315,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2327,7 +2327,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNHK417_Mag"
   },
   {
@@ -2335,8 +2335,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2347,7 +2347,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Auto_Shotgun_Mag"
   },
   {
@@ -2355,8 +2355,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2368,7 +2368,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_M9_Mag"
   },
   {
@@ -2376,8 +2376,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2389,7 +2389,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Mp443_Mag"
   },
   {
@@ -2397,8 +2397,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2410,7 +2410,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Springfield_Mag"
   },
   {
@@ -2418,8 +2418,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2431,7 +2431,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_USP_Mag"
   },
   {
@@ -2439,8 +2439,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2451,7 +2451,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SR3_Vikhr_Mag"
   },
   {
@@ -2459,8 +2459,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 12,
-    "min": 6,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2471,7 +2471,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_PKP_250RND_Mag"
   },
   {
@@ -2479,8 +2479,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2491,7 +2491,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_BK"
   },
   {
@@ -2499,8 +2499,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2511,7 +2511,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_DKMC"
   },
   {
@@ -2519,8 +2519,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2531,7 +2531,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_OD"
   },
   {
@@ -2539,8 +2539,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2551,7 +2551,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_Snow"
   },
   {
@@ -2559,8 +2559,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2571,7 +2571,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_25RND_Mag_Tan"
   },
   {
@@ -2579,8 +2579,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2592,7 +2592,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Tec9_Mag"
   },
   {
@@ -2600,8 +2600,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2612,7 +2612,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "VR80_Magazine_10rd"
   },
   {
@@ -2620,8 +2620,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2632,7 +2632,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "VR80_Magazine_5rd"
   },
   {
@@ -2640,8 +2640,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2653,7 +2653,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Ammo_3006"
   },
   {
@@ -2661,8 +2661,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 32,
-    "min": 16,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2673,7 +2673,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Ammo_408Chey"
   },
   {
@@ -2681,8 +2681,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 32,
-    "min": 16,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2693,7 +2693,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Ammo_50Cal"
   },
   {
@@ -2701,8 +2701,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 16,
-    "min": 8,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2713,7 +2713,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_127x55mm"
   },
   {
@@ -2721,8 +2721,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2733,7 +2733,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_127x55mmAP"
   },
   {
@@ -2741,8 +2741,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2753,7 +2753,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_145Cal"
   },
   {
@@ -2761,8 +2761,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2773,7 +2773,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_300ACC"
   },
   {
@@ -2781,8 +2781,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 184,
-    "min": 92,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2793,7 +2793,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_338"
   },
   {
@@ -2801,8 +2801,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2814,7 +2814,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_44"
   },
   {
@@ -2822,8 +2822,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2836,7 +2836,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_45_70mm"
   },
   {
@@ -2844,8 +2844,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2857,7 +2857,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_46x30"
   },
   {
@@ -2865,8 +2865,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2878,7 +2878,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_500_SW"
   },
   {
@@ -2886,8 +2886,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2898,7 +2898,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_5_7x28mm"
   },
   {
@@ -2906,8 +2906,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 4,
+    "nominal": 1,
+    "min": 1,
     "lifetime": 14400,
     "restock": 0
    },
@@ -2919,7 +2919,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Ammo_762x25"
   },
   {
@@ -14247,7 +14247,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14261,7 +14261,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_BenelliM4",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14277,7 +14277,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14289,7 +14289,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_HK416",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14317,7 +14317,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14329,7 +14329,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M110_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14348,7 +14348,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14360,7 +14360,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M110_Green",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14379,7 +14379,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14391,7 +14391,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M110_Tan",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14410,7 +14410,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14423,7 +14423,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M1Garand",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14436,7 +14436,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14448,7 +14448,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M200",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14464,7 +14464,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14476,7 +14476,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M200_Tan",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14492,7 +14492,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14504,7 +14504,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M200Green",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14520,7 +14520,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14532,7 +14532,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M200SNOW",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14548,7 +14548,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14560,7 +14560,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M249",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14576,7 +14576,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14590,7 +14590,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M700",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14606,7 +14606,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14618,7 +14618,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M82_Barret",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14633,7 +14633,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14646,7 +14646,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_MP7",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -14661,7 +14661,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14675,7 +14675,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Vepr",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -14691,7 +14691,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14704,7 +14704,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_Vityaz",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -14719,7 +14719,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14731,7 +14731,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "AA12_Gun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -14749,7 +14749,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14761,7 +14761,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "ACR_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14789,7 +14789,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14801,7 +14801,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "HK416_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14829,7 +14829,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14841,7 +14841,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNHK417_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14860,7 +14860,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14872,7 +14872,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "IA2_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14900,7 +14900,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14912,7 +14912,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "MK18_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -14940,7 +14940,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14952,7 +14952,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNSA58_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -14972,7 +14972,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -14984,7 +14984,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SCAR_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15012,7 +15012,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15024,7 +15024,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SG550_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15052,7 +15052,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SG552_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15068,7 +15068,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15080,7 +15080,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Spas12_Gun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -15096,7 +15096,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15109,7 +15109,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Tec9_Gun",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15124,7 +15124,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15136,7 +15136,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "VR80_Gun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -15155,7 +15155,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15167,7 +15167,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK103A",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -15183,7 +15183,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15195,7 +15195,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK12A",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15214,7 +15214,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15226,7 +15226,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK19",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15240,7 +15240,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15252,7 +15252,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AK308",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -15268,7 +15268,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15280,7 +15280,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Auto_Shotgun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -15298,7 +15298,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15311,7 +15311,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Glock19",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15324,7 +15324,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15338,7 +15338,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_M870",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -15354,7 +15354,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15367,7 +15367,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_M9",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15382,7 +15382,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15395,7 +15395,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Mp443",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15410,7 +15410,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15422,7 +15422,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PDW_9mm",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15437,7 +15437,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15449,7 +15449,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PDW_45ACP",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -15464,7 +15464,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15477,7 +15477,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_PL14HQP",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15492,7 +15492,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15504,7 +15504,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_RPK16_Black",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15522,7 +15522,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15534,7 +15534,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_RPK16_Green",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15552,7 +15552,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15564,7 +15564,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_RPK16_Tan",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15582,7 +15582,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15595,7 +15595,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_Springfield",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15610,7 +15610,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15624,7 +15624,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_TP82S",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -15640,7 +15640,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15653,7 +15653,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SN_USP",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -15668,7 +15668,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15680,7 +15680,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AEK545_Gun",
    "vanilla_ammo": [
     "Ammo_545x39",
@@ -15711,7 +15711,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SN_AKM",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -15725,7 +15725,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15737,7 +15737,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AWM_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15752,7 +15752,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15764,7 +15764,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CZ805_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15780,7 +15780,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15792,7 +15792,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_KAC_Gun",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15819,7 +15819,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15832,7 +15832,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Agram_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15847,7 +15847,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15859,7 +15859,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AS50_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -15874,7 +15874,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15886,7 +15886,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_CALI_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -15914,7 +15914,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15927,7 +15927,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Fort12_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15942,7 +15942,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15955,7 +15955,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MP9_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15970,7 +15970,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -15983,7 +15983,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MPX_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -15998,7 +15998,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16010,7 +16010,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_PKP_Black_GUN",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -16026,7 +16026,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16038,7 +16038,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_PKP_NBlack_GUN",
    "vanilla_ammo": [
     "Ammo_762x54",
@@ -16054,7 +16054,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16066,7 +16066,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAX50_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16081,7 +16081,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16093,7 +16093,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM24_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16108,7 +16108,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16120,7 +16120,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Atac_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16135,7 +16135,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16147,7 +16147,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Digi_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16162,7 +16162,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16174,7 +16174,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Ger_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16189,7 +16189,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16201,7 +16201,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Mc_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16216,7 +16216,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16228,7 +16228,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Snow_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16243,7 +16243,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16255,7 +16255,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM98B_Wood_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16270,7 +16270,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16282,7 +16282,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFURSASS_Wood_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16302,7 +16302,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16314,7 +16314,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFURSASS_od_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16334,7 +16334,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16346,7 +16346,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFURSASS_dkmc_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16366,7 +16366,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16378,7 +16378,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUT5000_Dkmcc_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16393,7 +16393,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16405,7 +16405,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUT5000_Snow_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16420,7 +16420,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16432,7 +16432,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUT5000_Wood_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16447,7 +16447,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16460,7 +16460,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUVECTOR_9mm_GUN",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -16475,7 +16475,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16488,7 +16488,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUVECTOR_45acp_GUN",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -16503,7 +16503,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16515,7 +16515,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_SR25_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16535,7 +16535,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16547,7 +16547,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_ADAR_Modular16_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16575,7 +16575,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16587,7 +16587,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AR15_Modular16_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16627,7 +16627,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUDSASA58_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -16647,7 +16647,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16659,7 +16659,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_LVOA556_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16687,7 +16687,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16699,7 +16699,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M300BK",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16715,7 +16715,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16727,7 +16727,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M300TAN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16743,7 +16743,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16755,7 +16755,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M300Green",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16771,7 +16771,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16783,7 +16783,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M4300AC_10_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16810,7 +16810,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16822,7 +16822,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M4300AC_14_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16849,7 +16849,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16861,7 +16861,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M4300AC_16_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16888,7 +16888,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16900,7 +16900,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M4300AC_14DV_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -16939,7 +16939,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_M4556_Modular10_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -16967,7 +16967,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -16979,7 +16979,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "M4_6933_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17007,7 +17007,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17019,7 +17019,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M4556_Modular14_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17047,7 +17047,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17059,7 +17059,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M4556_Modular16_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17099,7 +17099,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_M4556_Modular14DV_GUN",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17127,7 +17127,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17139,7 +17139,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "GCGN_M4A1",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17179,7 +17179,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARSBR_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17224,7 +17224,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARSBR_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17269,7 +17269,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARSBR_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17314,7 +17314,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARCAR_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17359,7 +17359,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARCAR_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17404,7 +17404,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARCAR_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17449,7 +17449,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARRIF_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17494,7 +17494,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARRIF_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17539,7 +17539,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFUMDARRIF_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17572,7 +17572,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17584,7 +17584,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MK4710Gun",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -17600,7 +17600,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17612,7 +17612,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MK4716Gun",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -17628,7 +17628,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17640,7 +17640,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Saint556_Gun",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -17668,7 +17668,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17680,7 +17680,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Saint_Gun",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -17696,7 +17696,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17708,7 +17708,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AR15SPRBK",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17735,7 +17735,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17747,7 +17747,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_AR15SPRTAN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17774,7 +17774,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17786,7 +17786,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAR15_SPR_Black_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17813,7 +17813,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17825,7 +17825,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAR15_SPR_Tan_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17852,7 +17852,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17864,7 +17864,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUVSSK",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17880,7 +17880,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17892,7 +17892,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKivaari_Black_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17908,7 +17908,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17920,7 +17920,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKivaari_Tan_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17936,7 +17936,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17948,7 +17948,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKivaari_Grey_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17964,7 +17964,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -17976,7 +17976,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKivaari_Snow_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -17992,7 +17992,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18004,7 +18004,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_MAR10_Black_GUN",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18019,7 +18019,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18031,7 +18031,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_Black_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18056,7 +18056,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18068,7 +18068,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_DKMC_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18093,7 +18093,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18105,7 +18105,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_OD_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18130,7 +18130,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18142,7 +18142,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_Snow_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18167,7 +18167,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18179,7 +18179,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "Snafu_ScarH_Tan_GUN",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18204,7 +18204,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18216,7 +18216,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSR3_Vikhr",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -18233,7 +18233,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18245,7 +18245,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SR3_Vikhr_Gun",
    "vanilla_ammo": [
     "Ammo_9x39",
@@ -18274,7 +18274,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_AK5C",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18300,7 +18300,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_BR18",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18326,7 +18326,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_Bren",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -18342,7 +18342,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18355,7 +18355,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUChiappaRhino",
    "vanilla_ammo": [
     "Ammo_357"
@@ -18380,7 +18380,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_G3A3",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18408,7 +18408,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_M60",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -18424,7 +18424,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18437,7 +18437,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUPPSh",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18464,7 +18464,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_RDB",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18478,7 +18478,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18490,7 +18490,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFURPD",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -18506,7 +18506,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18519,7 +18519,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSten",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -18534,7 +18534,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18547,7 +18547,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSWM629",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18560,7 +18560,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18573,7 +18573,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUMagnum500",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18586,7 +18586,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18598,7 +18598,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAlligator",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18613,7 +18613,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18626,7 +18626,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAPS",
    "vanilla_ammo": [
     "Ammo_380"
@@ -18641,7 +18641,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18653,7 +18653,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUTAR21_Black",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18681,7 +18681,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18693,7 +18693,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUTAR21_Tan",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18721,7 +18721,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18733,7 +18733,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUTAR21_Green",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18761,7 +18761,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18773,7 +18773,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUASh12",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18788,7 +18788,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18800,7 +18800,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAUG",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18829,7 +18829,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18841,7 +18841,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUAUG_BK",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18870,7 +18870,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18882,7 +18882,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUDVL10M2",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18897,7 +18897,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18909,7 +18909,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUFAMAS",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -18937,7 +18937,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18949,7 +18949,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGevar_Grey",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18964,7 +18964,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -18976,7 +18976,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGevar_Black",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -18991,7 +18991,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19003,7 +19003,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGevar_Green",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19018,7 +19018,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19030,7 +19030,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGevar_Tan",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19045,7 +19045,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19057,7 +19057,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUGM6Lynx",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19072,7 +19072,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19084,7 +19084,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUHoneyBadger_Black",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19112,7 +19112,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19124,7 +19124,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUHoneyBadger_Tan",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19152,7 +19152,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19164,7 +19164,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUKH9",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -19179,7 +19179,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19193,7 +19193,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM1A_Black",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19210,7 +19210,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19224,7 +19224,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM1A_Green",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19241,7 +19241,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19255,7 +19255,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM1A_Tan",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19272,7 +19272,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19284,7 +19284,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUM96",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19299,7 +19299,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19313,7 +19313,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUMarlin1895",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19326,7 +19326,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19338,7 +19338,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUMk12",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -19367,7 +19367,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19379,7 +19379,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUP90",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19394,7 +19394,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19407,7 +19407,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUPPSKN",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -19423,7 +19423,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19435,7 +19435,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSA80",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -19463,7 +19463,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19475,7 +19475,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUSRSA2",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19490,7 +19490,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19502,7 +19502,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUTac21",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19517,7 +19517,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19530,7 +19530,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUThompsonMk2",
    "vanilla_ammo": [
     "Ammo_45ACP"
@@ -19545,7 +19545,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19558,7 +19558,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFUUzi",
    "vanilla_ammo": [
     "Ammo_9x19"
@@ -19574,7 +19574,7 @@
    "role": "police",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19587,7 +19587,7 @@
     "Tier2",
     "Tier3"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M1918A2",
    "vanilla_ammo": [],
    "snafu_ammo": [
@@ -19614,7 +19614,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "No shipped CE row: retained authored baseline, default multiplier 3; runtime pending.",
    "class": "SNAFU_M70",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -19630,7 +19630,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19642,7 +19642,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_U100",
    "vanilla_ammo": [
     "Ammo_556x45",
@@ -19671,7 +19671,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19683,7 +19683,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M14",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19700,7 +19700,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19712,7 +19712,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M76",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19728,7 +19728,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19740,7 +19740,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_SKS",
    "vanilla_ammo": [
     "Ammo_762x39",
@@ -19757,7 +19757,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19771,7 +19771,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_Trenchgun",
    "vanilla_ammo": [
     "Ammo_12gaPellets",
@@ -19787,7 +19787,7 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19799,7 +19799,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_FRF2",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -19815,7 +19815,7 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 2,
+    "nominal": 1,
     "min": 1,
     "lifetime": 7200,
     "restock": 1800
@@ -19829,7 +19829,7 @@
     "Tier1",
     "Tier2"
    ],
-   "justification": "Installed concrete config class; bounded CE test abundance, runtime acceptance pending.",
+   "justification": "Owner 2026-11-20: shipped CE nominal/min baseline; default multiplier 3; runtime pending.",
    "class": "SNAFU_M48",
    "vanilla_ammo": [
     "Ammo_308Win",
@@ -22863,19 +22863,19 @@
    {
     "family": "snafu-magazine",
     "kind": "magazine",
-    "nominal": 32640,
-    "min": 16176
+    "nominal": 28260,
+    "min": 14236
    },
    {
     "family": "snafu-ammo",
     "kind": "ammo",
-    "nominal": 46720,
-    "min": 23360
+    "nominal": 1840,
+    "min": 1840
    },
    {
     "family": "snafu-weapon",
     "kind": "weapon",
-    "nominal": 1408,
+    "nominal": 788,
     "min": 704
    }
   ],
@@ -23384,8 +23384,8 @@
    "SNAFU_M48": "56bb79b66590401fe8adfacb7f1adae3879c92649338f6277198e9cf62a46e81"
   },
   "aggregate_weapon_budget": {
-   "nominal": 3000,
-   "min": 1500
+   "nominal": 2040,
+   "min": 1416
   },
   "refusals": [
    "HC61_SUBSET_RUNTIME_PENDING",
@@ -23394,5 +23394,5 @@
    "HC61_FULL_PACK_NOT_ADMITTED"
   ]
  },
- "test_abundance_multiplier": 1.0
+ "test_abundance_multiplier": 3.0
 }
