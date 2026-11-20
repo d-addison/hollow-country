@@ -78,6 +78,56 @@ class SourceModel(unittest.TestCase):
 
 
 class CompileTraps(unittest.TestCase):
+    def test_handle_null_checks_find_initialized_grouped_declarators(self):
+        for kind in ('FileHandle', 'FindFileHandle', 'HCHandle'):
+            with self.subTest(kind=kind):
+                text = f'''typedef FileHandle HCHandle;
+{kind} globalFirst = OpenFile("a,b", FileMode.READ), globalLater;
+class HCGrouped {{
+    {kind} fieldFirst = OpenFile("a,b", FileMode.READ), fieldLater;
+    void Check() {{
+        {kind} first = OpenFile(PathFor(1, 2), FileMode.READ),
+            second = OpenFile("c,d", FileMode.READ), third;
+        if (globalLater != null) {{}}
+        if (null == this.fieldLater) {{}}
+        if ((second) != (null)) {{}}
+        if (third == null) {{}}
+    }}
+}}
+'''
+                found = run({W + 'Grouped.c': text}, 'HC-E016')
+                self.assertEqual([('Grouped.c', line, 'HCGrouped.Check')
+                                  for line in (8, 9, 10, 11)], where(found))
+
+    def test_initialized_grouped_locals_preserve_shadowing_and_block_scope(self):
+        text = '''class HCGrouped {
+    FileHandle later;
+    void Check() {
+        if (later != null) {}
+        {
+            int first = Pick(1, 2), later;
+            if (later != null) {}
+        }
+        if (later != null) {}
+        Object firstObject = Pick(1, 2), later = null;
+        if (later != null) {}
+    }
+}
+'''
+        found = run({W + 'Grouped.c': text}, 'HC-E016')
+        self.assertEqual([('Grouped.c', line, 'HCGrouped.Check') for line in (4, 9)], where(found))
+
+    def test_grouped_handle_initializers_keep_nested_commas_inside_expressions(self):
+        # Exercise all delimiter pairs without requiring expression type inference.
+        text = '''void Check() {
+    FileHandle first = handles[Pick(1, 2)], second = Select({1, 2}), third;
+    if (second != null) {}
+    if (third != null) {}
+}
+'''
+        found = run({W + 'Grouped.c': text}, 'HC-E016')
+        self.assertEqual([('Grouped.c', line, '<file>.Check') for line in (3, 4)], where(found))
+
     def test_ternary_is_flagged_outside_strings_and_comments(self):
         found = run({W + 'T.c': 'class HCT\n{\n    int A(bool b)\n    {\n        return b ? 1 : 0;\n    }\n'
                                 '    string B() { return "?"; } // ?\n}\n'}, 'HC-E001')
