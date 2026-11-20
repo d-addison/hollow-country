@@ -40,15 +40,19 @@ class HCShelterModule : HCModule
     protected float m_RegionalSummarySeconds;
     protected ref map<string, int> m_RegionalRefusals = new map<string, int>;
     protected ref map<string, int> m_RegionalCandidateRefusals = new map<string, int>;
-    // Four outward rows, five lateral offsets; one transaction per budget grant.
-    static const int HC_REGIONAL_LAYOUTS = 20;
+    // Original 20 anchors first, then 15 interleaved anchors in the SAME yard.
+    // One transaction per budget grant; no widening of authored safety bounds.
+    static const int HC_REGIONAL_LAYOUTS = 35;
     protected ref HCShelterRegionalScene m_RegionalScene;
     protected int m_Placed;
     protected int m_Refused;
     protected string m_RefusalReason;
     protected string m_BlockingClass;
     protected string m_PropType;
+    protected string m_KeepoutCheck;
     protected vector m_RefusalPoint;
+    protected vector m_SlotMinimum;
+    protected vector m_SlotMaximum;
     protected int m_QueryObjects;
     protected int m_QueryCargos;
     protected int m_CollisionCount;
@@ -390,9 +394,51 @@ class HCShelterModule : HCModule
         return best;
     }
 
+    protected vector HCRegionalShift(int variant)
+    {
+        int row = variant / 5;
+        int lateral = variant % 5;
+        float outward = 3 * row;
+        float nearShift = 3;
+        float farShift = 6;
+        if (variant >= 20)
+        {
+            // Fill gaps between the original rows/columns rather than walking
+            // beyond the authored locality/yard. Maximum outward shift is 9m.
+            row = (variant - 20) / 5;
+            outward = 1.5 + 3 * row;
+            nearShift = 1.5;
+            farShift = 4.5;
+        }
+        float shiftZ = 0;
+        if (lateral == 1) { shiftZ = nearShift; }
+        if (lateral == 2) { shiftZ = -nearShift; }
+        if (lateral == 3) { shiftZ = farShift; }
+        if (lateral == 4) { shiftZ = -farShift; }
+        return Vector(-outward, 0, shiftZ);
+    }
+
+    // SlotClear deliberately receives only the authored exterior yard and its
+    // full roof/access envelope, never a building's interior room/door data.
+    // Keep its verdict authoritative; explain its otherwise ambiguous failure.
+    protected string HCRegionalKeepoutCheck(HCInteriorTemplate layout, HCInteriorTemplatePropSlot slot)
+    {
+        HCInteriorTemplateRoom yard = HCInteriorTemplates.Room(layout, slot.Room);
+        if (!yard) { return "yard_missing"; }
+        if (!HCInteriorTemplates.BoxValid(slot.Bounds.Min, slot.Bounds.Max)) { return "slot_geometry"; }
+        if (!HCInteriorTemplates.Inside(slot.Bounds.Min, yard.Min, yard.Max) || !HCInteriorTemplates.Inside(slot.Bounds.Max, yard.Min, yard.Max)) { return "yard_bounds"; }
+        if (!HCInteriorTemplates.VectorValid(slot.Position, 512) || !HCInteriorTemplates.Inside(slot.Position, slot.Bounds.Min, slot.Bounds.Max)) { return "slot_geometry"; }
+        foreach (HCInteriorTemplateKeepOut reserved : layout.KeepOuts)
+        {
+            if (HCInteriorTemplates.Intersects(slot.Bounds.Min, slot.Bounds.Max, reserved.Min, reserved.Max, 0)) { return "access_envelope"; }
+        }
+        return "slot_geometry";
+    }
+
     protected Object PlaceProp(Object house, HCInteriorTemplate layout, string propType, float localZ)
     {
         m_PropType = propType;
+        m_KeepoutCheck = "";
         m_BlockingClass = "none";
         m_QueryObjects = 0;
         m_QueryCargos = 0;
@@ -407,14 +453,7 @@ class HCShelterModule : HCModule
             if (localZ < 0) { regionalSlot = 1; }
             if (localZ > 0) { regionalSlot = 2; }
             offset = HCInteriorTemplates.AsVector(m_RegionalScene.Slots[regionalSlot]);
-            int outward = m_LayoutVariant / 5;
-            int lateral = m_LayoutVariant % 5;
-            float shiftZ = 0;
-            if (lateral == 1) { shiftZ = 3; }
-            if (lateral == 2) { shiftZ = -3; }
-            if (lateral == 3) { shiftZ = 6; }
-            if (lateral == 4) { shiftZ = -6; }
-            offset = offset + Vector(-3 * outward, 0, shiftZ);
+            offset = offset + HCRegionalShift(m_LayoutVariant);
         }
         vector point = house.ModelToWorld(offset);
         point[1] = GetGame().SurfaceY(point[0], point[2]);
@@ -483,6 +522,12 @@ class HCShelterModule : HCModule
         vector size = propMax - propMin + Vector(0.6, 0.1, 0.6);
         if (!HCInteriorTemplates.SlotClear(layout, slot))
         {
+            if (m_RegionalScene)
+            {
+                m_KeepoutCheck = HCRegionalKeepoutCheck(layout, slot);
+                m_SlotMinimum = HCInteriorTemplates.AsVector(slot.Bounds.Min);
+                m_SlotMaximum = HCInteriorTemplates.AsVector(slot.Bounds.Max);
+            }
             DeleteProp(prop);
             return RefuseProp("keepout");
         }
@@ -549,6 +594,7 @@ class HCShelterModule : HCModule
     {
         string queryCounts = " objects=" + m_QueryObjects.ToString() + " cargos=" + m_QueryCargos.ToString() + " collisions=" + m_CollisionCount.ToString();
         string ring = " ring=" + m_RingCandidate.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString();
+        if (m_RefusalReason == "keepout" && m_KeepoutCheck != "") { ring += " keepout_check=" + m_KeepoutCheck + " slot_min=" + m_SlotMinimum.ToString() + " slot_max=" + m_SlotMaximum.ToString(); }
         return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
@@ -781,7 +827,7 @@ class HCShelterModule : HCModule
                 return;
             }
             m_RegionalCandidateRefusals.Set(m_RefusalReason, m_RegionalCandidateRefusals.Get(m_RefusalReason) + 1);
-            bool retryable = m_RefusalReason == "terrain" || m_RefusalReason == "collision" || m_RefusalReason == "occupied" || m_RefusalReason == "cargo_query" || m_RefusalReason == "ground_support" || m_RefusalReason == "water";
+            bool retryable = m_RefusalReason == "terrain" || m_RefusalReason == "collision" || m_RefusalReason == "occupied" || m_RefusalReason == "cargo_query" || m_RefusalReason == "ground_support" || m_RefusalReason == "water" || m_RefusalReason == "keepout";
             if (retryable && entry.PlacementVariant + 1 < HC_REGIONAL_LAYOUTS)
             {
                 if (entry.PlacementVariant == 0)
