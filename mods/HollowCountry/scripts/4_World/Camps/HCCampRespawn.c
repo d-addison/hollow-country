@@ -168,17 +168,25 @@ modded class HCGroupService
         if (!group) { return ""; }
         return group.Id.ToString();
     }
+    HCCampAllegianceContext HCRespawnAllegiance(string account)
+    {
+        if (!m_Healthy || !m_State) { return null; }
+        HCGroupRecord group = HCGroupRules.FindGroup(m_State, account);
+        if (!group || !group.Members || group.Members.Count() > 90) { return null; }
+        HCCampAllegianceContext camp = new HCCampAllegianceContext;
+        camp.GroupId = group.Id.ToString();
+        foreach (string member : group.Members) { camp.Members.Set(member, true); }
+        return camp;
+    }
 }
 
 modded class PlayerBase
 {
-    // #252: provider seam for hostility toward the respawning account.
-    // Native identity/weapon stance does not establish AI allegiance. Keep
-    // the existing conservative refusal until an adapter supplies that fact;
-    // friendly/neutral AI acceptance is pending the adapter implementation.
-    bool HCCampRespawnDanger(string account)
+    // #252/#267: absent context/provider preserves conservative AI refusal.
+    bool HCCampRespawnDanger(string account, HCCampAllegianceContext camp = null)
     {
-        return true;
+        if (!camp || !camp.Members || !camp.Members.Contains(account)) { return true; }
+        return HCCampAllegianceHook.IsDanger(this, camp);
     }
 }
 
@@ -189,8 +197,9 @@ modded class HCCampModule
         if (!m_Running || !m_Data) { return false; }
         HCGroupService groups = HCGroupService.Get();
         if (!groups) { return false; }
-        string groupId = groups.HCRespawnGroup(account);
-        if (groupId == "") { return false; }
+        HCCampAllegianceContext allegiance = groups.HCRespawnAllegiance(account);
+        if (!allegiance || allegiance.GroupId == "") { return false; }
+        string groupId = allegiance.GroupId;
         HCCampRecord selected;
         foreach (HCCampRecord camp : m_Data.Camps)
         {
@@ -217,6 +226,7 @@ modded class HCCampModule
             if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
             // Any existing living avatar for this identity refuses the shortcut.
             if (player.GetIdentity() && player.GetIdentity().GetId() == account) { return false; }
+            if (allegiance.Members.Contains(player.GetIdentity().GetId())) { allegiance.OnlineMembers.Insert(player); }
             if (vector.DistanceSq(player.GetPosition(), selected.Position) <= 10000 && GroupId(player) != groupId) { return false; }
         }
         array<Object> objects = new array<Object>;
@@ -232,7 +242,7 @@ modded class HCCampModule
             DayZAnimal animal = DayZAnimal.Cast(hazard);
             if (animal && animal.IsDanger()) { return false; }
             PlayerBase human = PlayerBase.Cast(hazard);
-            if (human && !human.GetIdentity() && human.HCCampRespawnDanger(account)) { return false; }
+            if (human && !human.GetIdentity() && human.HCCampRespawnDanger(account, allegiance)) { return false; }
         }
         array<Object> excluded = new array<Object>;
         for (int attempt = 0; attempt < 16; attempt++)

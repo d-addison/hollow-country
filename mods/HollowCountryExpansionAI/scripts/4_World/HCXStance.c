@@ -38,6 +38,14 @@ class HCXStance
         }
         return HCXFactions.Relation(HCXFactions.Id(ai.GetGroup().GetFaction()), theirs);
     }
+    // A fresh character has no PlayerBase yet. Ordinary HC human accounts use
+    // the same Travellers fallback as Relation; live members retain their faction.
+    // Caller must first establish Owns(ai); unknown actors are never neutralised.
+    static int CampRelation(eAIBase ai, PlayerBase player = null)
+    {
+        if (player) { return HCXStance.Relation(ai, player); }
+        return HCXFactions.Relation(HCXFactions.Id(ai.GetGroup().GetFaction()), "Travellers");
+    }
     // Hostile factions may be fought in legitimate self-defence even when a
     // hit/kill defence record exists. Betrayal requires a non-hostile relation.
     static bool HCRememberKill(eAIBase actor, PlayerBase player)
