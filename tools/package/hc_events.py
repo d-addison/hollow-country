@@ -5,6 +5,7 @@ mission overlays before rollback. The game installation is read-only evidence.
 """
 import argparse
 import base64
+import copy
 import json
 import math
 import os
@@ -24,6 +25,8 @@ TARGETS = {*PATCHED, GENERATED}
 CRATE = 'StaticObj_Misc_SupplyBox2_DE'
 SEEDS = ('StaticHeliCrash', 'StaticPoliceCar', 'StaticMilitaryConvoy',
          'StaticPoliceSituation', 'StaticBonfire')
+MAX_OBSERVERS = 6
+GROUP_POLICY = b'per-anchor-groups-v1\0'
 
 
 def _serialized(root):
@@ -33,6 +36,29 @@ def _serialized(root):
 
 def _key(pos):
     return tuple(sorted(pos.attrib.items()))
+
+
+def _anchor_groups(positions, templates):
+    """Give each fixed site its own CE group identity, as stock convoys do.
+
+    Authored groups are composition templates. Reusing one identity across all
+    anchors of a type matches build 117's repeated one-of-three spawn failures.
+    Keep coordinates and finite loot unchanged; native population remains pending.
+    """
+    by_name = {g.get('name'): g for g in templates}
+    groups = ET.Element('eventgroupdef')
+    names = set()
+    for event in positions:
+        for index, pos in enumerate(event.findall('pos'), 1):
+            group = copy.deepcopy(by_name[pos.get('group')])
+            name = '%s_Site%03d' % (event.get('name'), index)
+            if name in names:
+                raise ValueError('duplicate encounter site group')
+            names.add(name)
+            group.set('name', name)
+            pos.set('group', name)
+            groups.append(group)
+    return groups
 
 
 def validate(source=SOURCE):
@@ -56,6 +82,7 @@ def validate(source=SOURCE):
     for e in events:
         if (e.findtext('active') != '1' or e.findtext('position') != 'fixed'
                 or e.findtext('limit') != 'child' or len(e.find('children'))
+                or e.findtext('min') != '0' or e.findtext('max') != '0'
                 or not 1 <= int(e.findtext('nominal')) <= 4
                 or not 1800 <= int(e.findtext('lifetime')) <= 5400
                 or not 60 <= int(e.findtext('restock')) <= 600
@@ -65,9 +92,21 @@ def validate(source=SOURCE):
     used = set()
     coords = set()
     count = 0
+    budgets = []
     for e in positions:
-        if len(e.findall('pos')) < int(events.find("event[@name='%s']/nominal" % e.get('name')).text):
-            raise ValueError('insufficient encounter positions')
+        policy = events.find("event[@name='%s']" % e.get('name'))
+        wanted = int(policy.findtext('nominal'))
+        anchors = e.findall('pos')
+        # With same-type anchors > twice the safe radius apart, each observer
+        # excludes at most one candidate. Reserve six in addition to nominal.
+        if len(anchors) < wanted + MAX_OBSERVERS:
+            raise ValueError('insufficient encounter positions for six observers')
+        separation = max(int(policy.findtext('distanceradius')),
+                         2 * int(policy.findtext('saferadius')))
+        same_type = []
+        budgets.append({'event': e.get('name'), 'nominal': wanted,
+                        'min': 0, 'max': 0, 'positions': len(anchors),
+                        'positions_after_six_observers': len(anchors) - MAX_OBSERVERS})
         for p in e.findall('pos'):
             if p.get('group') not in group_names:
                 raise ValueError('missing encounter group')
@@ -77,6 +116,9 @@ def validate(source=SOURCE):
                 raise ValueError('duplicate or invalid encounter anchor')
             if any(math.hypot(x - a, z - b) < 340 for a, b in coords):
                 raise ValueError('encounter anchors less than 340 m apart')
+            if any(math.hypot(x - a, z - b) <= separation for a, b in same_type):
+                raise ValueError('encounter anchors overlap same-type exclusion radius')
+            same_type.append((x, z))
             coords.add((x, z))
             count += 1
     # 208 authored; anchors within building clearance of the shipped map overlays are retired.
@@ -121,14 +163,20 @@ def validate(source=SOURCE):
             raise ValueError('encounter seed owned twice')
         seeds.add(seed)
         source_keys.add(key)
+    template_count = len(groups)
+    groups = _anchor_groups(positions, groups)
     return data, (events, positions, groups, proto), evidence, {
         'event_types': len(events), 'nominal': nominal, 'positions': count,
+        'group_templates': template_count,
         'groups': len(groups), 'objects_in_groups': sum(len(g) for g in groups),
+        'observer_headroom': MAX_OBSERVERS, 'event_budgets': budgets,
         'runtime': 'PENDING'}
 
 
 def _digest(data):
-    return economy.sha(b''.join(n.encode() + b'\0' + data[n] for n in DATA))
+    # A prior receipt with shared template identities must require reinstall,
+    # even when the authored XML itself has not changed.
+    return economy.sha(GROUP_POLICY + b''.join(n.encode() + b'\0' + data[n] for n in DATA))
 
 
 def plan(target, source=SOURCE):
