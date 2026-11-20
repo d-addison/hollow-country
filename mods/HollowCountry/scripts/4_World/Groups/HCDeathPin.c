@@ -90,6 +90,8 @@ class HCDeathPins
         {
             if (!row || !row.Pin) { return null; }
             string oldId = row.Pin.Id;
+            // Place ids are at most 128 characters (PlaceValid), so a longer id was already refused.
+            if (oldId.Length() > 1024) { return null; }
             if (oldId.IndexOf("hc-lead:death:") == 0)
             {
                 row.Pin.Id = "hc-death:" + oldId.Substring(14, oldId.Length() - 14);
@@ -128,17 +130,17 @@ class HCDeathPins
         if (!state || state.Version != 1 || !state.Rows) { return false; }
         if (state.WorldName != GetGame().GetWorldName()) { return false; }
         if (state.NextId < 1 || state.NextId > 1000000000 || state.Rows.Count() > 256) { return false; }
-        array<string> seen = new array<string>;
-        array<string> pinIds = new array<string>;
+        map<string, bool> seen = new map<string, bool>;
+        map<string, bool> pinIds = new map<string, bool>;
         foreach (HCDeathPinRow row : state.Rows)
         {
             if (!row || row.GroupId < 1 || !HCGroupRules.TextValid(row.PlayerId, 128, false)) { return false; }
             if (row.Epoch < 0 || row.Epoch > 1000000000) { return false; }
-            if (seen.Find(row.PlayerId) >= 0 || !HCGroupRules.PlaceValid(row.Pin)) { return false; }
-            if (pinIds.Find(row.Pin.Id) >= 0) { return false; }
+            if (seen.Contains(row.PlayerId) || !HCGroupRules.PlaceValid(row.Pin)) { return false; }
+            if (pinIds.Contains(row.Pin.Id)) { return false; }
             if (row.Pin.Id.IndexOf("hc-death:") != 0 || row.Pin.HCPinExpiresUtc < 1) { return false; }
-            seen.Insert(row.PlayerId);
-            pinIds.Insert(row.Pin.Id);
+            seen.Set(row.PlayerId, true);
+            pinIds.Set(row.Pin.Id, true);
         }
         return true;
     }
