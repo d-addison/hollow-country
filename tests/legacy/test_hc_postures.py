@@ -367,7 +367,7 @@ class PostureAdmission(unittest.TestCase):
         # Guard the dependency/load order and lack of delayed callback lifetime.
         config = (ROOT / 'mods/HollowCountryAnims/config.cpp').read_text()
         self.assertRegex(config, r'requiredAddons\[\]\s*=\s*\{[^}]*"HollowCountry"')
-        self.assertIn('scope = 1;', config)
+        self.assertIn('scope = 2;', config)
         self.assertNotIn('CallLater(', POSE.read_text())
 
         # Explicit synthetic native ports. Repeated calls represent the

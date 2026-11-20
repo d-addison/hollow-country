@@ -118,6 +118,15 @@ class HCInfectedModule : HCModule
                 Quarantine("invalid config; preserving files");
                 return;
             }
+            // Templates written before 89e6fe61 pinned the old default 24, which
+            // keeps hordes, LOD and fresh variety at their headroom floor. Raise
+            // that exact legacy value in memory only; the operator file is kept
+            // and any other explicit value is honoured.
+            if (m_Config && m_Config.MaxTracked == 24)
+            {
+                m_Config.MaxTracked = 256;
+                Print("[HC Infected] config_migration MaxTracked legacy=24 now=256 file=preserved runtime=PENDING");
+            }
         }
         else if (!JsonFileLoader<HCInfectedConfig>.SaveFile(path, m_Config, error))
         {
