@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 // LC-T310 / #94, EXP-S3. Timed environmental stages, no artificial player IDs.
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist, :525
 // MakeDirectory, :528 DeleteFile, :531 CopyFile. No rename API exists in this
@@ -189,16 +190,16 @@ class HCSceneChains
     static bool CatalogValid(HCSceneCatalog catalog, bool allowEmpty = false)
     {
         if (!catalog || catalog.Version != 1 || !catalog.Chains || (!allowEmpty && catalog.Chains.Count() < 1) || catalog.Chains.Count() > 4) { return false; }
-        array<string> ids = new array<string>();
+        map<string, bool> ids = new map<string, bool>();
         foreach (HCSceneChainDefinition plan : catalog.Chains)
         {
-            if (!plan || !HCEventDirector.TextValid(plan.Id, 32) || ids.Find(plan.Id) >= 0) { return false; }
+            if (!plan || !HCEventDirector.TextValid(plan.Id, 32) || ids.Contains(plan.Id)) { return false; }
             HCEventSite site = HCPlanSite(plan);
             if (!HCSceneKits.Reviewed(site) || !plan.Stages || plan.Stages.Count() < 1 || plan.Stages.Count() > 3) { return false; }
             if (plan.IndexedCandidate == "" && plan.Stages.Count() < 2) { return false; }
             if (plan.IndexedCandidate != "" && plan.Stages.Count() != 1) { return false; }
-            ids.Insert(plan.Id);
-            array<string> missions = new array<string>();
+            ids.Insert(plan.Id, true);
+            map<string, bool> missions = new map<string, bool>();
             foreach (HCSceneStageDefinition stage : plan.Stages)
             {
                 if (!stage || !HCSceneKits.Find(stage.Kit) || stage.HoldSeconds < 3600 || stage.HoldSeconds > 43200 || stage.DelaySeconds < 0 || stage.DelaySeconds > 259200) { return false; }
@@ -206,8 +207,8 @@ class HCSceneChains
                 if (!HCEventRuntimePolicy.MissionValid(mission, site.WorldName)) { return false; }
                 if (mission.SiteId != site.Id || vector.DistanceSq(mission.Source, site.Position) > 0.25 || vector.DistanceSq(mission.Destination, site.Position) > 0.25 || mission.Family != HCEventFamily.INVESTIGATION) { return false; }
                 if (mission.ActorBudget != 0 || mission.RewardUnits != 0 || mission.RewardCache || mission.ItemClass != "" || mission.ContainerClass != "") { return false; }
-                if (mission.Id != plan.Id + "-" + stage.Kit || missions.Find(mission.Id) >= 0 || mission.LifetimeSeconds <= stage.HoldSeconds) { return false; }
-                missions.Insert(mission.Id);
+                if (mission.Id != plan.Id + "-" + stage.Kit || missions.Contains(mission.Id) || mission.LifetimeSeconds <= stage.HoldSeconds) { return false; }
+                missions.Insert(mission.Id, true);
             }
         }
         return true;

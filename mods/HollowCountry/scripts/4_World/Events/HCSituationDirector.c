@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 // HC-38/39/40, Wave 6 / #147/#146: five retained named profiles, one HC-19
 // state/store, transition barrier and HC-10 lease validator. No new scheduler,
 // routine save, actor/cargo owner or gameplay capability. Runtime PENDING.
@@ -141,15 +142,15 @@ class HCSituationDirector
     static bool HCHistoryValid(HCStoryProgress progress)
     {
         if (!progress || !HCValid(progress.HCFirstSurvivor, progress)) { return false; }
-        array<string> profiles = new array<string>();
-        array<string> identities = new array<string>();
-        array<string> leases = new array<string>();
+        map<string, bool> profiles = new map<string, bool>();
+        map<string, bool> identities = new map<string, bool>();
+        map<string, bool> leases = new map<string, bool>();
         HCSituationState survivor = progress.HCFirstSurvivor;
         if (survivor)
         {
             if (survivor.Profile != "" && survivor.Profile != "survivor") { return false; }
-            identities.Insert(survivor.Id);
-            if (survivor.Lease != "") { leases.Insert(survivor.Lease); }
+            identities.Insert(survivor.Id, true);
+            if (survivor.Lease != "") { leases.Insert(survivor.Lease, true); }
         }
         // Old JSON images have no additive array. Never require an initializer
         // to have survived native deserialization or infer a cooldown receipt.
@@ -158,11 +159,11 @@ class HCSituationDirector
         foreach (HCSituationState row : progress.HCSituations)
         {
             if (!row || !HCValid(row, progress) || !HCProfileValid(row.Profile) || row.Profile == "survivor") { return false; }
-            if (profiles.Find(row.Profile) >= 0 || identities.Find(row.Id) >= 0) { return false; }
-            if (row.Lease != "" && leases.Find(row.Lease) >= 0) { return false; }
-            profiles.Insert(row.Profile);
-            identities.Insert(row.Id);
-            if (row.Lease != "") { leases.Insert(row.Lease); }
+            if (profiles.Contains(row.Profile) || identities.Contains(row.Id)) { return false; }
+            if (row.Lease != "" && leases.Contains(row.Lease)) { return false; }
+            profiles.Insert(row.Profile, true);
+            identities.Insert(row.Id, true);
+            if (row.Lease != "") { leases.Insert(row.Lease, true); }
         }
         return true;
     }
@@ -289,19 +290,19 @@ class HCSituationDirector
         m_Store = store;
         m_Enabled = true;
         m_Cursor = 0;
+        // Validated retained profiles are unique; build once before binding slots.
+        map<string, HCSituationState> opportunities = new map<string, HCSituationState>;
+        if (state.Stories.HCSituations)
+        {
+            foreach (HCSituationState retained : state.Stories.HCSituations) { opportunities.Insert(retained.Profile, retained); }
+        }
         foreach (HCSituationProfileRow slot : m_Rows)
         {
             slot.Attempted = false;
             slot.Opportunity = null;
             slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
             if (slot.Profile == "survivor") { slot.Opportunity = state.Stories.HCFirstSurvivor; }
-            else if (state.Stories.HCSituations)
-            {
-                foreach (HCSituationState retained : state.Stories.HCSituations)
-                {
-                    if (retained.Profile == slot.Profile) { slot.Opportunity = retained; }
-                }
-            }
+            else { slot.Opportunity = opportunities.Get(slot.Profile); }
         }
         HCSituationActorPort survivorActors = HCFind("survivor").Actors;
         m_Reason = survivorActors.HCRefusal();

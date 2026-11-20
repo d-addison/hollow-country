@@ -54,16 +54,18 @@ class HCEventReviewedSites
     {
         if (!settings || !settings.Sites) { return; }
         array<ref HCEventSite> curated = Curated();
+        // Native EnScript.c:902/917 map.Set/Contains; preserve curated insertion order.
+        map<string, bool> present = new map<string, bool>;
+        foreach (HCEventSite existing : settings.Sites)
+        {
+            if (existing) { present.Set(existing.Id, true); }
+        }
         foreach (HCEventSite candidate : curated)
         {
-            bool present = false;
-            foreach (HCEventSite existing : settings.Sites)
-            {
-                if (existing && existing.Id == candidate.Id) { present = true; }
-            }
-            if (!present && settings.Sites.Count() < 8)
+            if (!present.Contains(candidate.Id) && settings.Sites.Count() < 8)
             {
                 settings.Sites.Insert(candidate);
+                present.Insert(candidate.Id, true);
             }
         }
     }

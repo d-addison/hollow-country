@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 class HCEventRuntimePolicy
 {
     static bool PositionValid(vector position)
@@ -40,7 +41,7 @@ class HCEventRuntimePolicy
         {
             return false;
         }
-        array<string> ids = new array<string>();
+        map<string, bool> ids = new map<string, bool>();
         foreach (HCEventSite site : settings.Sites)
         {
             if (!site || !HCEventDirector.TextValid(site.Id, 48) || !HCEventDirector.TextValid(site.WorldName, 96))
@@ -59,11 +60,11 @@ class HCEventRuntimePolicy
             {
                 return false;
             }
-            if (ids.Find(site.Id) >= 0)
+            if (ids.Contains(site.Id))
             {
                 return false;
             }
-            ids.Insert(site.Id);
+            ids.Insert(site.Id, true);
         }
         return true;
     }

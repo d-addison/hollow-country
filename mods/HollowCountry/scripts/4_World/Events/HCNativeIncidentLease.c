@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 // HC-41/#147: observation leases, never a second CE event/wreck/inventory.
 // Native evidence, scripts-1.30.164289 (all paths relative to that snapshot):
 // 3_Game/CE/CentralEconomy.c:228-735 CEApi has spawning/debug controls, but
@@ -165,27 +166,27 @@ class HCNativeIncidentLease
         // Persisted schema ceilings retain spent identities even when an operator
         // lowers the admission caps. Runtime work uses HCW38SituationPolicy.
         if (!state || state.Version != 1 || !state.Rows || state.Rows.Count() > 64) { return false; }
-        array<string> identities = new array<string>();
+        map<string, bool> identities = new map<string, bool>();
         array<ref HCNativeIncidentRow> rows = state.Rows;
         foreach (HCNativeIncidentRow row : rows)
         {
             if (!row || !HCEventDirector.TextValid(row.Id, 96) || !HCEventDirector.TextValid(row.LeaseId, 128)) { return false; }
-            if (identities.Find(row.Id) >= 0 || (row.Phase != "leased" && row.Phase != "closed")) { return false; }
-            identities.Insert(row.Id);
+            if (identities.Contains(row.Id) || (row.Phase != "leased" && row.Phase != "closed")) { return false; }
+            identities.Insert(row.Id, true);
             if (!row.StockIds || !row.IssuedIds || row.StockIds.Count() > 16 || row.IssuedIds.Count() > row.StockIds.Count()) { return false; }
-            array<string> stockSeen = new array<string>();
+            map<string, bool> stockSeen = new map<string, bool>();
             array<string> stockIds = row.StockIds;
             foreach (string stockId : stockIds)
             {
-                if (!HCEventDirector.TextValid(stockId, 96) || stockSeen.Find(stockId) >= 0) { return false; }
-                stockSeen.Insert(stockId);
+                if (!HCEventDirector.TextValid(stockId, 96) || stockSeen.Contains(stockId)) { return false; }
+                stockSeen.Insert(stockId, true);
             }
-            array<string> issuedSeen = new array<string>();
+            map<string, bool> issuedSeen = new map<string, bool>();
             array<string> issuedIds = row.IssuedIds;
             foreach (string issuedId : issuedIds)
             {
-                if (stockSeen.Find(issuedId) < 0 || issuedSeen.Find(issuedId) >= 0) { return false; }
-                issuedSeen.Insert(issuedId);
+                if (!stockSeen.Contains(issuedId) || issuedSeen.Contains(issuedId)) { return false; }
+                issuedSeen.Insert(issuedId, true);
             }
         }
         return true;
@@ -306,13 +307,15 @@ class HCNativeIncidentLease
         row.LeaseId = partyLease;
         HCNativeIncidentReceipt snapshot = new HCNativeIncidentReceipt;
         snapshot.Anchor = receipt.Anchor;
+        map<string, bool> observedIds = new map<string, bool>;
         array<ItemBase> observedStock = receipt.Stock;
         foreach (ItemBase item : observedStock)
         {
             if (!HCStockLive(receipt.Anchor, item)) { return HCRefuse("NATIVE_INCIDENT_STOCK_UNOBSERVED"); }
             string itemId = HCSearchSupplyRegistry.PersistentId(item);
-            if (!HCEventDirector.TextValid(itemId, 96) || row.StockIds.Find(itemId) >= 0) { return HCRefuse("NATIVE_INCIDENT_STOCK_ID_INVALID"); }
+            if (!HCEventDirector.TextValid(itemId, 96) || observedIds.Contains(itemId)) { return HCRefuse("NATIVE_INCIDENT_STOCK_ID_INVALID"); }
             row.StockIds.Insert(itemId);
+            observedIds.Insert(itemId, true);
             snapshot.Stock.Insert(item);
         }
         m_Active = row;
