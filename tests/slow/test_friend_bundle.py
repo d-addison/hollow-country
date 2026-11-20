@@ -49,24 +49,80 @@ def put(root, rel, data='x'):
     return path
 
 
+class RepoInputGuardTests(unittest.TestCase):
+    """Read-only synthetic Git responses exercise the real release refusal guard."""
+    ROOTS = ['mission/hollow-country', 'config', 'tools/package',
+             'mods/HollowCountryExpansionAI/data/defaults']
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        for root in self.ROOTS:
+            put(self.root, root + '/synthetic.json', '{}')
+        patch = unittest.mock.patch.object(fb.lts, 'ROOT', self.root)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_committed_inputs_pass_and_all_release_roots_are_checked(self):
+        with unittest.mock.patch.object(fb.subprocess, 'run', return_value=
+                subprocess.CompletedProcess([], 0, stdout=b'', stderr=b'')) as run:
+            fb.check_repo_inputs()
+        self.assertEqual(run.call_args_list[0].args[0],
+                         ['git', 'diff', '--quiet', 'HEAD', '--', *self.ROOTS])
+        tracked = run.call_args_list[1].args[0]
+        self.assertEqual(tracked[:4], ['git', 'ls-files', '--error-unmatch', '--'])
+        self.assertEqual(set(tracked[4:]), {root + '/synthetic.json' for root in self.ROOTS})
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs['cwd'], self.root)
+            self.assertEqual(call.kwargs['env']['GIT_OPTIONAL_LOCKS'], '0')
+
+    def test_modified_staged_deleted_inputs_or_git_error_refuse(self):
+        for returncode in (1, 128):
+            with self.subTest(returncode=returncode), unittest.mock.patch.object(
+                    fb.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                        [], returncode, stdout=b'', stderr=b'private diagnostic')) as run:
+                with self.assertRaisesRegex(fb.Refused, 'differ from build commit') as error:
+                    fb.check_repo_inputs()
+                self.assertNotIn('private diagnostic', str(error.exception))
+                self.assertEqual(run.call_count, 1)
+
+    def test_untracked_release_inputs_refuse(self):
+        with unittest.mock.patch.object(fb.subprocess, 'run', side_effect=[
+                subprocess.CompletedProcess([], 0, stdout=b'', stderr=b''),
+                subprocess.CompletedProcess([], 1, stdout=b'', stderr=b'')]):
+            with self.assertRaisesRegex(fb.Refused, 'untracked repo data or generators'):
+                fb.check_repo_inputs()
+
+
 class FriendBundleTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__('shutil').rmtree(self.tmp, ignore_errors=True))
         m = self.tmp / 'server/mpmissions/dayzOffline.chernarusplus'
         put(m, 'init.c', 'void main() {}')
-        put(m, 'cfgeconomycore.xml', '<economycore/>')
-        put(m, 'db/types.xml', '<types/>')
-        put(m, 'cfggameplay.json', '{}')
-        put(m, 'storage_1/data/players.db', 'PLAYERS')
-        put(m, 'hollow-country/ce/types.xml', '<types/>')
-        put(m, 'hollow-country/core.backup', '<economycore/>')
-        put(m, 'hollow-country/receipt.json', '{}')
-        put(m, 'hollow-country-gameplay/gear/hardscrabble.json', '{}')
-        put(m, 'hollow-country-gameplay/cfggameplay.backup', '{}')
-        put(m, 'hollow-country-extra/verification.json', '{}')
-        put(m, 'hollow-country-extra/ce/types.xml', '<types/>')
-        put(m, 'hollow-country-extra/core.next', 'n')
+        put(m, 'storage_1/data/players.db', 'HC_SYNTHETIC_PRIVATE_STORAGE_71')
+        # Synthetic stock supports the real checkout-driven economy generator. No
+        # installed overlay may use placeholder receipts: scratch rollback validates them.
+        from tools.package import datamined_items, firearms
+        from tests.slow.test_datamined_items import stock_mission
+        profile = json.loads((fb.SOURCE / 'economy-profiles/contextual-pilot.json').read_bytes())
+        roster = firearms.selected_roster(json.loads((fb.lts.ROOT / fb.lts.FIREARMS_ROSTER).read_bytes()))
+        names = set(profile['add_usage']) | {e['class'] for e in roster['entries']}
+        names.update(e['new_type_parent'] for e in roster['entries'] if 'new_type_parent' in e)
+        stock_mission(m, datamined_items.load_rows(), profile_names=sorted(names))
+        carriers = ET.Element('spawnabletypes')
+        for entry in roster['entries']:
+            host = ET.SubElement(carriers, 'type', name=entry['class'])
+            attachments = ET.SubElement(host, 'attachments', chance='1.0')
+            for part in entry.get('parts', []):
+                if part['route'] == 'native-carrier':
+                    ET.SubElement(attachments, 'item', name=part['class'], chance='1.0')
+        put(m, 'cfgspawnabletypes.xml', ET.tostring(carriers))
+        put(m, 'cfggameplay.json', json.dumps({
+            'version': 123, 'PlayerData': {}, 'UIData': {},
+            'WorldsData': {'environmentMinTemps': [0] * 12, 'environmentMaxTemps': [20] * 12,
+                           'objectSpawnersArr': []}}))
         put(m, 'expansion/settings/AIPatrolSettings.json', '{"Patrols": []}')
         put(m, 'server.log', 'log')
         self.mission = m
@@ -119,6 +175,30 @@ class FriendBundleTests(unittest.TestCase):
         self.addon = addon
         self.cfg = put(self.tmp / 'server', 'serverDZ.cfg', CFG)
         self.out = self.tmp / 'bundle'
+        # Bundle tests use synthetic stock and real authored data, but do not claim
+        # commit provenance. Exercise the unmocked guard separately below.
+        guard = unittest.mock.patch.object(fb, 'check_repo_inputs')
+        self.repo_guard = guard.start()
+        self.addCleanup(guard.stop)
+        # Most tests cover export contents, not repository history. Avoid hundreds
+        # of history subprocesses for the real template catalogue per build.
+        if self._testMethodName not in {
+                'test_profile_default_history_records_current_and_earlier_git_bytes',
+                'test_profile_history_refuses_shallow_clone_and_missing_git',
+                'test_profile_bytes_vs_repo_source_refuse_line_endings_label_other_drift',
+                'test_profile_content_drift_labels_history_best_effort',
+                'test_missing_git_build_refuses_without_traceback'}:
+            history = unittest.mock.patch.object(fb, 'profile_history', return_value=set())
+            history.start()
+            self.addCleanup(history.stop)
+
+    def install_synthetic_economy(self):
+        from tools.package import economy
+        profile = {'schema': 1, 'name': 'synthetic-installed',
+                   'add_usage': {'BandageDressing': ['Town']}, 'diagnostics': []}
+        stage = self.tmp / 'installed-delta'
+        economy.write_delta(stage, economy.generate(self.mission, profile, include_datamined=False))
+        economy.install(stage, self.mission)
 
     def run_cli(self, *extra, addon=True):
         argv = ['build', '--mission', str(self.mission), '--profiles', str(self.profiles),
@@ -162,8 +242,11 @@ else:
         # Explicit synthetic stock; no DayZ/Workshop execution or runtime claim.
         import shutil
         from tools.package import optional_overlays as overlays
-        source = self.tmp / 'authored'
-        shutil.copytree(fb.lts.ROOT / 'mission/hollow-country', source)
+        repo = self.tmp / 'repo'
+        source = repo / 'mission/hollow-country'
+        shutil.copytree(fb.SOURCE, source)
+        for name in ('config', 'tools', 'mods', 'docs'):
+            shutil.copytree(fb.lts.ROOT / name, repo / name, ignore=shutil.ignore_patterns('__pycache__'))
         # Synthetic stock mirrors only the selective delta's required sheep fields.
         events = ET.fromstring((source / 'ecology/events.append.xml').read_bytes())
         children = events.find('event/children')
@@ -183,8 +266,8 @@ else:
         data = missing.read_bytes()
         missing.unlink()
         put(self.mission, 'db/globals.xml', '<variables/>')
-        put(self.mission, 'cfgeconomycore.xml', '<economycore><ce folder="hollow-country/ce"><file name="types.xml" type="types"/></ce></economycore>')
-        with unittest.mock.patch.object(fb, 'SOURCE', source, create=True):
+        with unittest.mock.patch.object(fb, 'SOURCE', source), \
+                unittest.mock.patch.object(fb.lts, 'ROOT', repo):
             code, text = self.run_cli()
             self.assertEqual(code, 2, 'missing travel CE must refuse the bundle: ' + text)
             self.assertIn('travel CE', text)
@@ -204,6 +287,7 @@ else:
         self.assertFalse(any(name.endswith('db/globals.xml') for name in self.files()))
         target = self.tmp / 'friend-mission'
         put(target, 'cfgeconomycore.xml', '<economycore/>')
+        put(target, 'cfggameplay.json', (self.mission / 'cfggameplay.json').read_bytes())
         for name, data in stock.items():
             put(target, name, data)
         original = {p.relative_to(target).as_posix(): p.read_bytes()
@@ -228,28 +312,27 @@ else:
                           for p in target.rglob('*') if p.is_file()}, original)
         self.assertFalse((target / 'hollow-country/events/scene-chains.json').exists())
 
-    def test_missing_authored_habitat_event_refuses_even_if_local_mission_has_it(self):
+    def test_missing_authored_habitat_event_refuses_without_export(self):
         import shutil
         source = self.tmp / 'authored'
         shutil.copytree(fb.SOURCE, source)
         (source / 'ecology/events.append.xml').unlink()
-        put(self.mission, 'hollow-country/ecology/events.append.xml', '<events/>')
         with unittest.mock.patch.object(fb, 'SOURCE', source):
-            with self.assertRaisesRegex(fb.Refused, 'HC149_HABITAT_SOURCE_MISSING.*ecology/events.append.xml'):
+            with self.assertRaisesRegex((fb.Refused, OSError, ValueError), 'events.append.xml'):
                 fb.build(__import__('argparse').Namespace(out=self.out, mission=self.mission,
                     profiles=self.profiles, mod=self.mod, addon=self.addon,
                     server_cfg=self.cfg, ce_coverage_result=None))
             code, text = self.run_cli()
         self.assertEqual(code, 2, text)
-        self.assertIn('HC149_HABITAT_SOURCE_MISSING', text)
+        self.assertIn('events.append.xml', text)
         self.assertFalse(self.out.exists())
 
-    def test_authored_habitat_event_replaces_stale_local_copy_in_bundle(self):
+    def test_unreceipted_stale_habitat_copy_refuses_without_export(self):
         put(self.mission, 'hollow-country/ecology/events.append.xml', '<events><!--synthetic stale--></events>')
         code, text = self.run_cli()
-        self.assertEqual(code, 0, text)
-        self.assertEqual((self.out / 'mission-overlay/hollow-country/ecology/events.append.xml').read_bytes(),
-                         (fb.SOURCE / 'ecology/events.append.xml').read_bytes())
+        self.assertEqual(code, 2, text)
+        self.assertIn('rollback refuses', text)
+        self.assertFalse(self.out.exists())
 
     def test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools(self):
         """SYNTHETIC exported tools must import without the private checkout on sys.path."""
@@ -266,7 +349,7 @@ else:
             cwd=self.out, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_exported_economy_install_refuses_missing_repo_only_supply_ledger(self):
+    def test_exported_supply_ledger_ships_and_its_loss_refuses_before_writes(self):
         """SYNTHETIC HC-22 delta: exported tools must name the missing ledger before importing repo-only tools."""
         import subprocess
         import sys
@@ -279,7 +362,9 @@ else:
         before = economy.snapshot(source)
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
-        self.assertFalse((self.out / 'config/loot-dispositions.json').exists())
+        ledger = self.out / 'config/loot-dispositions.json'
+        self.assertEqual(ledger.read_bytes(), (fb.lts.ROOT / 'config/loot-dispositions.json').read_bytes())
+        ledger.unlink()  # Deliberate incomplete-bundle fault; real bundles must carry this input.
         result = subprocess.run([sys.executable, '-B', '-I', '-c',
             'import sys; sys.path.insert(0, sys.argv[1]); from tools.package import economy; '
             'economy.install_delta(sys.argv[2], sys.argv[3])', str(self.out), str(stage), str(source)],
@@ -298,36 +383,30 @@ else:
         self.assertIn('mission-patches.json', self.files())
         self.assertIn('mission-overlay/hollow-country/events/scene-chains.json', self.files())
 
-    def test_weapon_pack_deltas_from_third_party_workshop_items_never_ship(self):
+    def test_unreceipted_weapon_pack_deltas_refuse_instead_of_shipping(self):
         from tools.package import snafu_optional, tactical_flava_optional
         for managed in (snafu_optional.MANAGED, tactical_flava_optional.MANAGED):
             put(self.mission, managed + '/types.xml', '<types/>')
         code, text = self.run_cli()
-        self.assertEqual(code, 0, text)
-        leaked = [f for f in self.files()
-                  if f.startswith(('mission-overlay/' + snafu_optional.MANAGED, 'mission-overlay/' + tactical_flava_optional.MANAGED))]
-        self.assertEqual(leaked, [])
+        self.assertEqual(code, 2, text)
+        self.assertIn('rollback refuses', text)
+        self.assertFalse(self.out.exists())
 
     def test_a_locally_boosted_mission_exports_pre_boost_overlay_bytes_and_ships_the_boost_installer(self):
         # SYNTHETIC rows: the friend's own install doubles the loot once; the export must never carry doubled bytes.
         from tools.package import loot_boost
-        put(self.mission, 'cfgeconomycore.xml', '<economycore><ce folder="hollow-country/ce">'
-            '<file name="types.xml" type="types"/></ce></economycore>')
-        put(self.mission, 'db/types.xml', '<types><type name="SyntheticApple"><nominal>4</nominal><min>2</min>'
-            '<category name="food"/></type></types>')
-        authored = ('<types>\n<type name="SyntheticSaw"><nominal>3</nominal><min>1</min>'
-                    '<category name="tools"/></type>\n</types>\n')
-        put(self.mission, 'hollow-country/ce/types.xml', authored)
+        self.install_synthetic_economy()
+        unboosted = (self.mission / 'hollow-country/ce/types.xml').read_bytes()
         put(self.mission, 'db/globals.xml', '<variables><var name="RespawnTypes" type="0" value="12"/></variables>')
-        put(self.mission, 'mapgroupproto.xml', '<prototype><group name="SyntheticShed" lootmax="2">'
-            '<container name="lootFloor"><point pos="0 0 0"/></container></group></prototype>')
-        put(self.mission, 'cfglimitsdefinition.xml', '<lists><categories/><tags/></lists>')
         loot_boost.install(self.mission, 2.0, None)
-        self.assertIn(b'<nominal>6</nominal>', (self.mission / 'hollow-country/ce/types.xml').read_bytes())
+        self.assertNotEqual(unboosted, (self.mission / 'hollow-country/ce/types.xml').read_bytes())
+        installed = {p.relative_to(self.mission): p.read_bytes() for p in self.mission.rglob('*') if p.is_file()}
+        regenerated, _core, _gameplay = fb.fresh_economy(self.mission, self.tmp)
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         files = self.files()
-        self.assertEqual((self.out / 'mission-overlay/hollow-country/ce/types.xml').read_text(), authored)
+        self.assertEqual((self.out / 'mission-overlay/hollow-country/ce/types.xml').read_bytes(), regenerated['ce/types.xml'])
+        self.assertEqual(installed, {p.relative_to(self.mission): p.read_bytes() for p in self.mission.rglob('*') if p.is_file()})
         self.assertFalse([f for f in files if f.startswith('mission-overlay/' + loot_boost.MANAGED)])
         for name in ('tools/package/loot_boost.py', 'tools/package/firearms_roster.json',
                      'mission/hollow-country/loot-points/additions.json',
@@ -345,14 +424,12 @@ else:
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         got = [f for f in self.files() if f.startswith('profiles/')]
-        self.assertEqual(got, sorted('profiles/' + r for r in [
-            'ExpansionMod/Loadouts/HollowCountry_Patrol.json', 'ExpansionMod/Settings/AISettings.json',
-            'HollowCountry/Ecology/settings.json', 'HollowCountry/Events/settings.json',
-            'HollowCountry/Groups/settings.json', 'HollowCountry/Infected/config.json',
-            'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai-localities.json',
-            'HollowCountry/expansion-ai.json',
-            'HollowCountry/settings.json', 'HollowCountry/stamina.json',
-            'HollowCountry/templates/index.json', 'HollowCountry/templates/t-0000.json']))
+        expected = fb.repo_profile_sources()
+        self.assertEqual(got, sorted('profiles/' + rel for rel in expected))
+        for rel, source in expected.items():
+            self.assertEqual((self.out / 'profiles' / rel).read_bytes(), source.read_bytes(), rel)
+        self.assertNotIn('profiles/HollowCountry/acceptance/events.disable', got)
+        self.assertNotIn('profiles/HollowCountry/Events/state/commit-1.json', got)
 
     def test_legacy_room_owners_stay_out_when_the_template_pack_ships(self):
         # HCInteriorTemplates refuses the whole pack (rooms_conflict) when the pilot interiors.json or the
@@ -363,14 +440,16 @@ else:
         got = self.files()
         self.assertNotIn('profiles/HollowCountry/interiors.json', got)
         self.assertNotIn('profiles/HollowCountry/Infected/production-rooms.json', got)
-        self.assertIn('rooms_conflict', text)
+        self.assertEqual((self.out / 'profiles/HollowCountry/templates/index.json').read_bytes(),
+                         (fb.SOURCE / 'interiors/templates/index.json').read_bytes())
 
-    def test_pilot_interiors_config_ships_when_there_is_no_template_pack(self):
+    def test_missing_installed_template_pack_still_ships_repo_templates(self):
         for name in ('index.json', 't-0000.json'):
             (self.profiles / 'HollowCountry' / 'templates' / name).unlink()
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
-        self.assertIn('profiles/HollowCountry/interiors.json', self.files())
+        self.assertNotIn('profiles/HollowCountry/interiors.json', self.files())
+        self.assertIn('profiles/HollowCountry/templates/index.json', self.files())
 
     def test_mods_and_public_keys_are_copied(self):
         code, text = self.run_cli()
@@ -427,9 +506,11 @@ else:
                      'serverNightTimeAcceleration = 8;', 'enableCfgGameplayFile = 1;',
                      'template = "dayzOffline.chernarusplus";']:
             self.assertIn(line, snippet)
-        everything = b''.join(p.read_bytes() for p in self.out.rglob('*') if p.is_file())
-        self.assertNotIn(b'S3CRET', everything)
-        self.assertNotIn(b'PLAYERS', everything)
+        for path in self.out.rglob('*'):
+            if path.is_file():
+                data = path.read_bytes()
+                self.assertFalse(b'S3CRET' in data, path.relative_to(self.out).as_posix())
+                self.assertFalse(b'HC_SYNTHETIC_PRIVATE_STORAGE_71' in data, path.relative_to(self.out).as_posix())
 
     def test_readme_names_every_workshop_item_and_the_ports(self):
         code, text = self.run_cli()
@@ -503,6 +584,7 @@ else:
         for rel in wanted + ['tools/package/map_overlay.py']:
             self.assertIn(rel, got)
             self.assertEqual((self.out / rel).read_bytes(), (fb.lts.ROOT / rel).read_bytes())
+        self.assertEqual(self.repo_guard.call_count, 2, 'check release inputs before planning and after staging')
         manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
         listed = {row['path'] for row in manifest['files']}
         self.assertIn('tools/package/map_overlay.py', listed)
@@ -520,25 +602,23 @@ else:
     def test_a_locally_installed_map_overlay_never_reaches_the_export(self):
         # SYNTHETIC rows: the friend installs the map overlay layers themselves; the owner's local copy of it
         # (its spawner files and its entries in cfggameplay.json) must not be exported as authored overlay bytes.
-        managed = 'hollow-country-overlays'
-        put(self.mission, managed + '/receipt.json', '{}')
-        put(self.mission, managed + '/gameplay.backup', '{}')
-        put(self.mission, managed + '/mapgrouppos.backup', '<map/>')
-        put(self.mission, managed + '/objects/military-tents-v1.json', '{"Objects": []}')
-        put(self.mission, managed + '/mapgrouppos.additions.xml', '<group/>')
-        spawners = ['hollow-country-gear/own.json', managed + '/objects/military-tents-v1.json']
-        put(self.mission, 'cfggameplay.json', json.dumps({'WorldsData': {'objectSpawnersArr': spawners}}))
-        put(self.mission, 'hollow-country-gameplay/cfggameplay.backup',
-            json.dumps({'WorldsData': {'objectSpawnersArr': spawners[:1]}}))
+        from tools.package import map_overlay
+        from tests.slow.test_map_overlay import source, layer, obj, PROTO_XML
+        managed = map_overlay.MANAGED
+        put(self.mission, 'mapgroupproto.xml', PROTO_XML)
+        map_overlay.install(source(layers=[layer(objects=[obj('synthetic', x=5000)])]), self.mission)
+        installed = (self.mission / 'cfggameplay.json').read_bytes()
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         self.assertEqual([f for f in self.files() if managed in f], [])
         patches = (self.out / 'mission-patches.json').read_text()
         self.assertNotIn(managed, patches)
+        self.assertEqual((self.mission / 'cfggameplay.json').read_bytes(), installed)
 
     def test_manifest_hashes_every_bundled_file(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
+        self.assertEqual(self.repo_guard.call_count, 2, 'check release inputs before planning and after staging')
         manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
         listed = {row['path']: row['sha256'] for row in manifest['files']}
         on_disk = [f for f in self.files() if f != 'bundle-manifest.json']
@@ -576,7 +656,10 @@ else:
         profiles = {row['path']: row['sha256'] for row in manifest['files']
                     if row['path'].startswith('profiles/')}
         self.assertEqual(set(manifest['profile_defaults']), set(profiles))
-        self.assertEqual(manifest['profile_defaults']['profiles/' + custom]['history'], 'receipt-only')
+        self.assertNotIn('profiles/' + custom, manifest['profile_defaults'])
+        self.assertFalse((self.out / 'profiles' / custom).exists())
+        self.assertEqual(fb.profile_defaults([(custom, self.profiles / custom)])['profiles/' + custom]['history'],
+                         'receipt-only')
         for name, digest in profiles.items():
             self.assertEqual(manifest['profile_defaults'][name]['sha256'], digest)
             self.assertIn(digest, manifest['profile_defaults'][name]['shipped_sha256'])
@@ -631,18 +714,12 @@ else:
         crlf = current.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
         put(self.profiles, rel, crlf)
         with unittest.mock.patch('subprocess.run', side_effect=git_result):
-            code, text = self.run_cli()
-        self.assertNotEqual(code, 0)
-        self.assertIn('profile_line_endings_differ', text)
-        self.assertIn(rel, text)
-        self.assertFalse(self.out.exists())
-
+            with self.assertRaisesRegex(fb.Refused, 'profile_line_endings_differ'):
+                fb.profile_defaults([(rel, self.profiles / rel)])
         put(self.profiles, rel, current)
         with unittest.mock.patch('subprocess.run', side_effect=git_result):
-            code, text = self.run_cli()
-        self.assertEqual(code, 0, text)
-        manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
-        self.assertEqual(manifest['profile_defaults']['profiles/' + rel]['history'], 'git-log')
+            defaults = fb.profile_defaults([(rel, self.profiles / rel)])
+        self.assertEqual(defaults['profiles/' + rel]['history'], 'git-log')
 
     def test_profile_content_drift_labels_history_best_effort(self):
         import subprocess
@@ -656,13 +733,12 @@ else:
             return subprocess.CompletedProcess(argv, 0, stdout=data, stderr=b'')
 
         put(self.profiles, rel, b'{"synthetic_release": 54}')
-        with unittest.mock.patch('subprocess.run', side_effect=git_result):
-            code, text = self.run_cli()
-        self.assertEqual(code, 0, text)
-        manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
-        row = manifest['profile_defaults']['profiles/' + rel]
+        buf = io.StringIO()
+        with unittest.mock.patch('subprocess.run', side_effect=git_result), contextlib.redirect_stdout(buf):
+            defaults = fb.profile_defaults([(rel, self.profiles / rel)])
+        row = defaults['profiles/' + rel]
         self.assertEqual(row['history'], 'git-log-best-effort')
-        self.assertIn('best-effort', text)
+        self.assertIn('best-effort', buf.getvalue())
 
     def test_private_key_anywhere_refuses_and_writes_nothing(self):
         put(self.mod, 'keys/hollowcountry.biprivatekey', b'PRIVATE')
@@ -697,8 +773,7 @@ else:
         from tools.package import ce_coverage
         stock = fixtures.stock_proto()
         put(self.mission, 'mapgroupproto.xml', stock)
-        put(self.mission, 'hollow-country/receipt.json', json.dumps({'sources': {
-            'mapgroupproto.xml': hashlib.sha256(stock).hexdigest()}}))
+        self.install_synthetic_economy()
         result = put(self.tmp, 'synthetic-result.json', fixtures.blob(fixtures.result_doc(stock)))
         delta = self.tmp / 'coverage-delta'
         ce_coverage.write_delta(delta, ce_coverage.generate(result.read_bytes(), self.mission))
@@ -717,15 +792,17 @@ else:
         from tests.slow import test_ce_coverage as fixtures
         stock = fixtures.stock_proto()
         put(self.mission, 'mapgroupproto.xml', stock)
-        put(self.mission, 'hollow-country/receipt.json', json.dumps({'sources': {
-            'mapgroupproto.xml': hashlib.sha256(stock).hexdigest()}}))
+        self.install_synthetic_economy()
         result = put(self.tmp, 'synthetic-result.json', fixtures.blob(fixtures.result_doc(stock)))
         code, text = self.run_cli('--ce-coverage-result', str(result))
         self.assertEqual(code, 0, text)
         bundled = self.out / 'mpmissions' / self.mission.name
         self.assertFalse((bundled / 'mapgroupproto.xml').exists())
         self.assertEqual((self.mission / 'mapgroupproto.xml').read_bytes(), stock)
-        self.assertFalse(any('sampler' in name or 'coverage-delta' in name for name in self.files()))
+        self.assertFalse(any(Path(name).name == result.name or 'coverage-delta' in Path(name).parts
+                             for name in self.files()))
+        self.assertIn('tools/setup/interior_sampler.py', self.files(),
+                      'the public sampling tool ships; private native results do not')
         self.assertIn('left out CE building coverage', text)
 
 
@@ -744,8 +821,7 @@ else:
         from tools.package import ce_coverage
         stock = fixtures.stock_proto()
         put(self.mission, 'mapgroupproto.xml', stock)
-        put(self.mission, 'hollow-country/receipt.json', json.dumps({'sources': {
-            'mapgroupproto.xml': hashlib.sha256(stock).hexdigest()}}))
+        self.install_synthetic_economy()
         result = put(self.tmp, 'synthetic-result.json', fixtures.blob(fixtures.result_doc(stock)))
         delta = self.tmp / 'coverage-delta'
         ce_coverage.write_delta(delta, ce_coverage.generate(result.read_bytes(), self.mission))

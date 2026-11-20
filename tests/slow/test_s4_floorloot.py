@@ -88,9 +88,10 @@ PROTO = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 POLICY = {
     'schema': 1, 'kind': 'hollow-country-loot-floor-policy', 'enabled': True,
     'floor_categories': ['clothes'],
-    'floor_classes': ['Broom'], 'floor_class_patterns': ['Bag$'],
+    'floor_classes': ['Broom'], 'floor_class_patterns': [],
     'shelf_categories': ['tools', 'containers', 'food', 'books'],
     'floor_tag': 'floor', 'shelf_tag': 'shelves',
+    'floor_container_tags': ['floor', 'ground'],
     'floor_container_names': ['lootFloor', 'lootGround', 'lootHCFloor'],
     'height_checked_container_names': ['loot'], 'extra_floor_container_names': ['lootHCFloor'], 'floor_band_m': 0.75,
     'capacity': {'enabled': True, 'max_container_lootmax': 12, 'preserve_tolerance': 0.1},
@@ -161,7 +162,7 @@ class FloorPolicyAdmission(unittest.TestCase):
         self.assertTrue(accepts(shelf, rows['Hammer']) and accepts(shelf, rows['Apple']),
                         'displaced classes stay spawnable on shelves')
 
-    def test_unavailable_shelves_preserve_original_floor_eligibility(self):
+    def test_unavailable_shelves_report_unplaced_demand_without_floor_fallback(self):
         path = self.mission / 'mapgroupproto.xml'
         path.write_text('<prototype><group name="OnlyFloor" lootmax="1">'
                         '<container name="lootFloor" lootmax="1"><category name="tools"/>'
@@ -169,8 +170,10 @@ class FloorPolicyAdmission(unittest.TestCase):
         receipt = self.install()
         row = rows_of(self.mission / 'db/types.xml')['Hammer']
         floor = containers_of(path, 'OnlyFloor')[0]
-        self.assertTrue(accepts(floor, row), 'fallback must preserve Hammer eligibility')
-        self.assertEqual(receipt['counts']['floor_policy']['kept_without_shelf_room'], 1)
+        self.assertFalse(accepts(floor, row), 'equipment must not regain floor eligibility')
+        self.assertEqual(receipt['counts']['floor_policy']['unplaced'], 1)
+        self.assertIn('Hammer', receipt['counts']['floor_policy']['supply_gaps'])
+        self.assertEqual(receipt['counts']['floor_policy']['kept_without_shelf_room'], 0)
 
     def test_newly_admitted_broom_demand_does_not_cancel_displaced_hammer(self):
         from tools.package import loot_floor_policy as policy
@@ -195,7 +198,7 @@ class FloorPolicyAdmission(unittest.TestCase):
         self.assertTrue(accepts(shelf, rewritten_rows['Hammer']))
         self.assertEqual((counts['slots_before'], counts['slots_after']), (1, 1))
 
-    def test_rounding_a_rare_displacement_to_zero_does_not_remove_eligibility(self):
+    def test_rounding_a_rare_displacement_to_zero_still_reports_missing_receiver(self):
         path = self.mission / 'mapgroupproto.xml'
         path.write_text('<prototype><group name="Rare" lootmax="1">'
                         '<container name="lootFloor" lootmax="1"><category name="tools"/>'
@@ -204,26 +207,45 @@ class FloorPolicyAdmission(unittest.TestCase):
         (self.mission / 'db/types.xml').write_text(
             '<types><type name="Hammer"><nominal>1</nominal><category name="tools"/></type>'
             '<type name="TShirt"><nominal>100</nominal><category name="clothes"/></type></types>')
-        self.install()
-        self.assertTrue(accepts(containers_of(path, 'Rare')[0],
+        receipt = self.install()
+        self.assertFalse(accepts(containers_of(path, 'Rare')[0],
                                 rows_of(self.mission / 'db/types.xml')['Hammer']),
-                        'rounding is not replacement capacity')
+                        'rounding must not restore equipment to floors')
+        gap = receipt['counts']['floor_policy']['supply_gaps']['Hammer']
+        self.assertEqual(gap['requested_slots'], 0)
+        self.assertEqual(gap['groups_without_receiver'], ['Rare'])
 
-    def test_fallback_propagates_to_other_groups_including_extra_floor_points(self):
-        path = self.mission / 'mapgroupproto.xml'
-        path.write_text(PROTO.replace('</prototype>',
-                        '<group name="OnlyFloor" lootmax="1"><container name="lootSyntheticExtra" lootmax="1">'
-                        '<category name="tools"/><tag name="floor"/>' + point(0) +
-                        '</container></group><group name="StockFloor" lootmax="1">'
-                        '<container name="lootFloor" lootmax="1"><category name="tools"/>'
-                        '<tag name="floor"/>' + point(0) + '</container></group></prototype>'))
-        receipt = self.install(floor_container_names=POLICY['floor_container_names'] + ['lootSyntheticExtra'],
-                               extra_floor_container_names=['lootSyntheticExtra'])
-        counts = receipt['counts']['floor_policy']
-        # A retained untagged Hammer also remains eligible on extra floors; the report must admit that.
-        self.assertEqual(counts['converted'], 0, 'global fallback must propagate before reporting conversion')
-        self.assertEqual(counts['kept_without_shelf_room'], 4)
-        self.assertGreater(counts['floor_nonclothing_slots_after'], 0)
+    def test_relocated_receivers_and_extra_clothing_floors_keep_positive_capacity(self):
+        from tools.package import loot_floor_policy as policy
+        doc = policy.parse_policy(policy_bytes(receivers={'G': {
+            'evidence': 'Synthetic raised point; no native placement claim.',
+            'sources': {'lootFloor': ['1.000000 1.000000 1.000000']},
+            'widen': [], 'floor_exception': None}}))
+        # No displaced equipment demand can rescue an inert receiver. Explicit
+        # zero and inherited native capacities must still leave it spawnable.
+        _types, rows = policy.retag_types(
+            b'<types><type name="TShirt"><nominal>4</nominal><category name="clothes"/></type></types>', doc)
+        for capacity in ('', ' lootmax="0"', ' lootmax="2"'):
+            with self.subTest(source_capacity=capacity):
+                proto = ('<prototype><defaults><default name="container" lootmax="2"/></defaults>'
+                         '<group name="G" lootmax="3"><container name="lootFloor"' + capacity + '>'
+                         '<category name="clothes"/><tag name="floor"/>' + point(0) + point(1, 1) +
+                         '</container><container name="lootHCFloor" lootmax="1">'
+                         '<category name="clothes"/><tag name="floor"/>' + point(0, 2) +
+                         '</container></group></prototype>').encode()
+                staged, receivers = policy.provision_receivers(proto, doc)
+                balanced, counts = policy.rebalance_proto(staged, [rows], doc)
+                final = policy.finish_receivers(balanced, receivers, doc, counts)
+                containers = ET.fromstring(final).find('group').findall('container')
+                receiver = next(c for c in containers if c.get('name') == policy.SURFACE_RECEIVER)
+                floor = next(c for c in containers if c.get('name') == 'lootHCFloor')
+                self.assertEqual(int(receiver.get('lootmax')), 1)
+                self.assertGreater(int(floor.get('lootmax')), 0)
+                self.assertEqual(counts['displaced'], 0)
+                positions = [p.get('pos') for c in containers for p in c.findall('point')]
+                self.assertEqual(len(positions), len(set(positions)))
+                self.assertEqual(len(positions), 3, 'relocation conserves physical points')
+                self.assertEqual(receivers['zero_capacity_containers_after'], 0)
 
     def test_incompatible_shelves_do_not_count_as_replacement_capacity(self):
         for mismatch in ('category', 'tag', 'usage'):
@@ -248,29 +270,24 @@ class FloorPolicyAdmission(unittest.TestCase):
                 receipt = self.lb.install(mission, multiplier=1.0, points=None, floor_policy=policy_bytes())
                 counts = receipt['counts']['floor_policy']
                 self.assertEqual(counts['transferred'], 0, mismatch + ' cannot receive Hammer')
-                self.assertTrue(accepts(containers_of(mission / 'mapgroupproto.xml', 'Mismatch')[0],
+                self.assertFalse(accepts(containers_of(mission / 'mapgroupproto.xml', 'Mismatch')[0],
                                         rows_of(mission / 'db/types.xml')['Hammer']))
-                self.assertEqual(counts['kept_without_shelf_room'], 1)
-                self.lb.rollback(mission)
-                receipt = self.lb.install(mission, multiplier=1.0, points=None,
-                                          floor_policy=policy_bytes(extra_floor_container_names=['lootFloor']))
-                counts = receipt['counts']['floor_policy']
+                self.assertEqual(counts['kept_without_shelf_room'], 0)
                 self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (1, 0, 1),
-                                 'unmatched extra capacity must be reported, never assigned to an incompatible shelf')
+                                 'unmatched demand must be reported, never assigned to an incompatible shelf')
 
-    def test_bag_pattern_admits_a_bag_and_firearms_and_vehicle_parts_are_never_retagged(self):
+    def test_bags_firearms_and_uncategorized_parts_require_shelves(self):
         self.install()
         rows = rows_of(self.mission / 'db/types.xml')
-        self.assertEqual([t.get('name') for t in rows['SyntheticBag'].findall('tag')], [], 'pattern class untouched')
-        self.assertEqual([t.get('name') for t in rows['AKM'].findall('tag')], [])
-        self.assertEqual([t.get('name') for t in rows['Sedan_Door'].findall('tag')], [])
+        for name in ('SyntheticBag', 'AKM', 'Sedan_Door'):
+            self.assertEqual([t.get('name') for t in rows[name].findall('tag')], ['shelves'], name)
 
-    def test_displaced_floor_capacity_moves_to_shelves_and_totals_are_preserved_within_tolerance(self):
+    def test_displaced_capacity_uses_compatible_shelves_and_reports_unplaced_remainder(self):
         receipt = self.install()
         floor, shelf, _weapons = containers_of(self.mission / 'mapgroupproto.xml', 'Land_House_S4')
         counts = receipt['counts']['floor_policy']
-        self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (4, 4, 0))
-        self.assertEqual((counts['slots_before'], counts['slots_after']), (6, 6),
+        self.assertEqual((counts['displaced'], counts['transferred'], counts['unplaced']), (6, 2, 4))
+        self.assertEqual((counts['slots_before'], counts['slots_after']), (6, 3),
                          'reported usable capacity must respect group limits')
         self.assertEqual(floor.get('lootmax'), '4', 'transferred slots leave the floor budget')
         self.assertEqual(shelf.get('lootmax'), '3', 'group limit bounds estimated displacement')
@@ -278,8 +295,9 @@ class FloorPolicyAdmission(unittest.TestCase):
             root = ET.fromstring(data)
             return sum(min(int(g.get('lootmax')), sum(min(int(c.get('lootmax')), len(c.findall('point')))
                        for c in g.findall('container'))) for g in root.findall('group'))
-        self.assertEqual(usable(self.before['mapgroupproto.xml']),
-                         usable((self.mission / 'mapgroupproto.xml').read_bytes()))
+        self.assertEqual(usable(self.before['mapgroupproto.xml']), counts['slots_before'])
+        self.assertEqual(usable((self.mission / 'mapgroupproto.xml').read_bytes()), counts['slots_after'])
+        self.assertEqual(sum(row['unplaced_slots'] for row in counts['supply_gaps'].values()), counts['unplaced'])
         rows = rows_of(self.mission / 'db/types.xml')
         group = ET.parse(self.mission / 'mapgroupproto.xml').getroot().find('group')
         hammer_capacity = min(int(group.get('lootmax')), sum(
@@ -311,13 +329,14 @@ class FloorPolicyAdmission(unittest.TestCase):
         shelf = containers_of(self.mission / 'mapgroupproto.xml', 'Land_House_S4')[1]
         self.assertEqual(shelf.get('lootmax'), '3', 'never above the named cap')
         counts = receipt['counts']['floor_policy']
-        self.assertEqual((counts['transferred'], counts['unplaced']), (3, 1))
+        self.assertEqual((counts['transferred'], counts['unplaced']), (2, 4))
 
-    def test_low_loot_container_loses_its_shelves_tag_and_a_raised_one_keeps_it(self):
+    def test_mixed_floor_shelf_tags_require_evidenced_receivers_even_at_height(self):
         self.install()
         low, high = containers_of(self.mission / 'mapgroupproto.xml', 'Land_Mixed_S4')
         self.assertEqual([t.get('name') for t in low.findall('tag')], ['floor'], 'floor-height points are floor only')
-        self.assertEqual([t.get('name') for t in high.findall('tag')], ['floor', 'shelves'])
+        self.assertEqual([t.get('name') for t in high.findall('tag')], ['floor'],
+                         'height alone does not establish a shelf surface')
 
     def test_self_closing_groups_in_a_prototype_are_skipped_not_refused(self):
         path = self.mission / 'mapgroupproto.xml'
@@ -363,13 +382,15 @@ class CommittedPolicy(unittest.TestCase):
         self.assertTrue(self.doc['enabled'])
         self.assertEqual(self.doc['floor_categories'], ['clothes'])
         self.assertTrue(self.policy.floor_eligible('TShirt_Beige', 'clothes', self.doc))
-        self.assertTrue(self.policy.floor_eligible('Broom', 'tools', self.doc))
-        self.assertTrue(self.policy.floor_eligible('DrysackBag_Yellow', 'containers', self.doc))
+        self.assertEqual(self.doc['floor_classes'], ['Paper'])
+        self.assertTrue(self.policy.floor_eligible('Paper', 'tools', self.doc))
+        self.assertFalse(self.policy.floor_eligible('Broom', 'tools', self.doc))
+        self.assertFalse(self.policy.floor_eligible('DrysackBag_Yellow', 'containers', self.doc))
         for name, cat in (('Hatchet', 'tools'), ('Flashlight', 'tools'), ('TunaCan', 'food'),
                           ('Matchbox', 'tools'), ('AmmoBox', 'containers'), ('Crowbar', 'tools')):
             self.assertFalse(self.policy.floor_eligible(name, cat, self.doc), name)
 
-    def test_the_twenty_one_reviewed_floor_rows_are_admitted_in_the_ledger_and_stay_floor_eligible(self):
+    def test_reviewed_equipment_stays_admitted_but_only_clothing_is_floor_eligible(self):
         from tools.package import datamined_items as items
         ledger = json.loads((REPO / 'config/loot-dispositions.json').read_bytes())
         admitted = {e['class'] for e in ledger['entries'] if e['floor_admitted']}
@@ -378,12 +399,14 @@ class CommittedPolicy(unittest.TestCase):
         self.assertLessEqual(set(items.SUPPLY_UNVERIFIED_FLOOR), admitted, '#199: none of the 21 is withheld')
         for name in sorted(items.SUPPLY_UNVERIFIED_FLOOR):
             category = 'containers' if 'Bag' in name else 'clothes'
-            self.assertTrue(self.policy.floor_eligible(name, category, self.doc), name)
+            self.assertEqual(self.policy.floor_eligible(name, category, self.doc), category == 'clothes', name)
 
-    def test_listed_classes_are_plain_names_and_patterns_compile(self):
+    def test_listed_classes_are_plain_names_and_patterns_are_refused(self):
         for name in self.doc['floor_classes']:
             self.assertRegex(name, r'^[A-Za-z0-9_]{1,80}$')
-        self.assertTrue(self.doc['_patterns'])
+        self.assertEqual(self.doc['floor_class_patterns'], [])
+        with self.assertRaisesRegex(ValueError, 'exact class names'):
+            self.policy.parse_policy(policy_bytes(floor_class_patterns=['Bag$']))
 
 
 if __name__ == '__main__':
