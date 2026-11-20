@@ -124,19 +124,26 @@ class HCSaveJob
     }
 }
 
-// Bound: <=32 registered stores examined (operator may lower), ONE save STAGE per tick (a single-step job is one whole
-// store; a staged job such as WorldSaves spans several ticks and is never interleaved with another
-// job's stage). Existing verified intent/backup/copy writers remain authoritative. Native
-// copy/JSON calls have no cancellation API; this does not promise a 5 ms save.
+// Bound: <=32 registered stores examined (operator may lower), <=8 save stages per tick,
+// stopping between stages at SaveStageTargetMs. Only ONE job advances per tick;
+// staged jobs retain ownership across ticks, never interleaved with another job.
+// Existing verified intent/backup/copy writers remain authoritative. Native
+// copy/JSON calls have no cancellation API; the time target is cooperative.
 // Per-job new-peak save timing is logged as '[HC Save] job=.. stages=.. max_stage_ticks=.. total_ticks=..
 // slowest_stage=.. op=.. runtime=PENDING' in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line);
 // slowest_stage is the 1-based stage that took max_stage_ticks (issue #138 round 2).
+// scheduler_ticks counts this checkpoint's dispatches; max_stages_per_tick records
+// actual throughput. Peak-only logging is unchanged; counters reset per checkpoint.
 class HCSaveScheduler : HCModule
 {
     protected static ref array<ref HCSaveJob> s_Jobs = new array<ref HCSaveJob>;
     protected static string s_RegistrationFault;
     protected int m_Next;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+    protected ref HCSaveStageBudget m_StageBudget = new HCSaveStageBudget;
+    protected int m_TickStages;
+    protected int m_JobTicks;
+    protected int m_MaxStagesPerTick;
     protected HCSaveJob m_Active;
     protected int m_Stages;
     protected int m_StageMax;
@@ -171,7 +178,7 @@ class HCSaveScheduler : HCModule
         m_Fault = "";
         HCWorldRuntimeConfig.HCGet();
         m_Started = true;
-        Print("[HC PerfControl] WorldSaves stages=1 target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " cooperative_only=1 runtime=PENDING");
+        Print("[HC PerfControl] WorldSaves stages_per_tick_cap=" + HCWorldRuntimeConfig.HCGet().SaveStagesPerTick.ToString() + " target_ms=" + HCPerfConfig.HCGet().SaveStageTargetMs.ToString() + " scope=tick_stages cooperative_only=1 runtime=PENDING");
     }
 
     override void OnStop() { m_Started = false; }
@@ -279,6 +286,7 @@ class HCSaveScheduler : HCModule
             {
                 job.HCPeakTicks = m_StageMax;
                 string timing = "[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString();
+                timing += " scheduler_ticks=" + m_JobTicks.ToString() + " max_stages_per_tick=" + m_MaxStagesPerTick.ToString();
                 timing += " slowest_stage=" + m_StageMaxIndex.ToString() + " op=" + m_StageMaxOperation + " runtime=PENDING";
                 Print("" + timing);
             }
@@ -294,10 +302,31 @@ class HCSaveScheduler : HCModule
         m_StageMax = 0;
         m_StageMaxIndex = 0;
         m_TotalTicks = 0;
+        m_JobTicks = 0;
+        m_MaxStagesPerTick = 0;
+    }
+
+    // Preserve first-stage progress, then check the shared calibrated TickCount
+    // budget before each additional stage. Completion/failure always ends this
+    // tick, even with a pending newer checkpoint; never select a second job here.
+    protected void HCRunStages(HCSaveJob job, float now)
+    {
+        HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
+        m_StageBudget.HCReset(config.SaveStagesPerTick, HCPerfConfig.HCGet().SaveStageTargetMs);
+        m_JobTicks = m_JobTicks + 1;
+        while (m_TickStages < config.SaveStagesPerTick && m_StageBudget.HCContinue())
+        {
+            m_TickStages = m_TickStages + 1;
+            if (m_TickStages > m_MaxStagesPerTick) { m_MaxStagesPerTick = m_TickStages; }
+            HCRunStep(job, now);
+            if (!m_Active) { break; }
+        }
+        if (m_TickStages > 0) { HCReached.Mark("world_saves.stage"); }
     }
 
     override void OnTick(float deltaTime)
     {
+        m_TickStages = 0;
         if (s_Jobs.Count() == 0) { return; }
         float now = GetGame().GetTickTime();
         if (m_Active && (!m_Active.HCInFlight || s_Jobs.Find(m_Active) < 0))
@@ -309,11 +338,12 @@ class HCSaveScheduler : HCModule
             m_StageMax = 0;
             m_StageMaxIndex = 0;
             m_TotalTicks = 0;
+            m_JobTicks = 0;
+            m_MaxStagesPerTick = 0;
         }
         if (m_Active)
         {
-            HCRunStep(m_Active, now);
-            HCReached.Mark("world_saves.stage");
+            HCRunStages(m_Active, now);
             return;
         }
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
@@ -326,7 +356,7 @@ class HCSaveScheduler : HCModule
             m_Next = m_Next + 1;
             examined = examined + 1;
             if (job.HCFaulted || !job.HCDirty || now < job.HCDue) { continue; }
-            HCRunStep(job, now);
+            HCRunStages(job, now);
             return;
         }
         m_Budget.HCDeferred(GetName(), s_Jobs.Count() - examined);
