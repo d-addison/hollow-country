@@ -510,7 +510,8 @@ def fresh_economy(mission, scratch_root=None):
                    for node in overlays.xml(baseline, 'economycore').findall('ce')):
                 raise Refused('recovered vanilla core still registers an HC overlay; no repo provenance')
             files = economy.generate(scratch, profile, include_datamined=True, roster=roster,
-                                     include_roster_datamined=True)
+                                     include_roster_datamined=True,
+                                     authored_types=overlays.read(SOURCE / 'ce/types.xml'))
             delta = Path(directory) / 'delta'
             economy.write_delta(delta, files)
             return ({name: overlays.read(delta / name) for name in files}, baseline,

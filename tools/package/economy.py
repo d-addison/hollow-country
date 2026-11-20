@@ -145,8 +145,14 @@ def _refuse_collisions(profile_names, roster_names, item_names):
             raise ValueError(f'{label} (case-insensitive): ' + ', '.join(clash))
 
 
-def generate(source, profile, include_datamined=True, roster=None, include_roster_datamined=True):
-    """One delta from the profile, the optional firearms roster and the datamined non-weapon items."""
+def generate(source, profile, include_datamined=True, roster=None, include_roster_datamined=True,
+             authored_types=None):
+    """One delta from the profile, the optional firearms roster and the datamined non-weapon items.
+
+    ``authored_types`` (bytes of the shipped mission/hollow-country/ce/types.xml) names classes that
+    the authored CE file already carries as complete rows; their roster rows are left out of the
+    delta so one class never has two CE owners (travel refuses a second owner at install).
+    """
     _validate_profile(profile)
     if roster is not None:
         try:
@@ -210,6 +216,9 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         changed, rows, totals = firearms.roster_items(types, vocabulary, value_vocab, roster,
                                                       include_roster_datamined)
         firearms.check_family_routes(source, roster, rows)
+        if authored_types is not None:
+            owned = {n.get('name', '').casefold() for n in xml(authored_types, 'types').findall('type')}
+            changed = [n for n in changed if n.get('name', '').casefold() not in owned]
         out.extend(changed)
         firearms_classes = sorted(n.get('name') for n in changed)
         firearms_report = {
