@@ -107,6 +107,8 @@ class HCSituationDirector
     protected bool m_Fault;
     protected string m_Effective = "off";
     protected string m_Reason = "not_started";
+    // Last printed receipt: the pending-row refusal repeats every step (096: 130 lines in 8 min).
+    protected string m_LastReport;
 
     static bool HCProfileValid(string profile)
     {
@@ -209,7 +211,10 @@ class HCSituationDirector
         // Preserve the first-survivor receipt byte for byte, including its cap.
         string line = "[HC Plan] HC-38 opportunity=" + identity + " phase=" + phase;
         line += " quest_ui=off state=" + m_Effective + " refusal=" + m_Reason;
-        Print(line + " pinned=" + pinned + " count_cap=1 runtime=PENDING");
+        line += " pinned=" + pinned + " count_cap=1 runtime=PENDING";
+        if (line == m_LastReport) { return; }
+        m_LastReport = line;
+        Print("" + line);
     }
 
     HCOperationalStatus HCStatus() { return m_Status; }
