@@ -1,11 +1,18 @@
 """Export a self-contained Hollow Country server bundle for a friend's dedicated server.
 
-Input is the local server that was set up with local_test_session.py apply: its applied mission
-folder, its profiles folder, the signed @HollowCountry session mod (and optionally
-@HollowCountryExpansionAI, loaded after it with -mod on server and clients) and its serverDZ.cfg.
-Output is a new folder the owner can zip and hand
-over: authored mission overlays and minimal merge patches, the Hollow Country profile configuration, the signed mods, their public
-keys, a start-server.bat, a serverDZ.cfg snippet and a README with the Workshop download commands.
+HC-authored mission overlays, profile JSON and Expansion settings come exclusively from this
+checkout's build commit or generators using its inputs. --mission supplies only stock vanilla
+mission files which the overlay patches (cfgeconomycore.xml, cfggameplay.json, economy inputs);
+installed HC deltas are rolled back on scratch copies to recover that baseline. --profiles is
+inspected for excluded local data, never used as an authored configuration source. Neither
+argument supplies release templates or operator edits. Output includes the signed --mod and
+optional --addon, public keys, portable installers and server launch instructions.
+
+--build-manifest PATH embeds the release BUILD_MANIFEST.json and requires its commit to match
+HEAD and its PBO catalogue to exactly match --mod/--addon paths and SHA-256 hashes. The manifest
+uses {"commit": "<full git sha>", "pbos": [{"path": "@Mod/addons/file.pbo", "sha256": "..."}]}.
+A path-to-SHA256 object is also accepted for pbos. Omit this option only for legacy artifacts
+without a release manifest; that build cannot establish PBO provenance.
 
 What it never copies: CE storage (storage_*), rollback backups and receipts, logs, any runtime
 state under the profile (event/group state, journals, leases, hordes, ecology state, audits),
@@ -39,12 +46,10 @@ from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
-from tools.package import economy, loot_boost, map_overlay, xml_text
+from tools.package import economy, gameplay, loot_boost, map_overlay
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
-# ElementTree's xml_declaration=True prolog, written by installs older than #168's xml_text fix.
-STALE_DECLARATION = b"<?xml version='1.0' encoding='utf-8'?>\n"
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
@@ -120,8 +125,8 @@ def _walk(root):
             rel = path.relative_to(root).as_posix()
             if path.is_symlink():
                 raise Refused('symlink refused: %s' % rel)
-            if name.lower().endswith('.biprivatekey'):
-                raise Refused('private signing key (.biprivatekey) found: %s; never bundle it' % rel)
+            if name.lower().endswith('.biprivatekey') or name.lower() == 'hits_privkey.txt':
+                raise Refused('private signing key found: %s; never bundle it' % rel)
             if name in filenames:
                 if not path.is_file():
                     raise Refused('not a regular file: %s' % rel)
@@ -206,34 +211,49 @@ def _profile_allowed(rel):
     return False
 
 
-# The template pack refuses to load (rooms_conflict) while either legacy room owner sits beside it.
-LEGACY_ROOM_OWNERS = ('HollowCountry/interiors.json', 'HollowCountry/Infected/production-rooms.json')
+# Template packs replace legacy interiors and room owners in a fresh release.
 TEMPLATE_INDEX = 'HollowCountry/templates/index.json'
 
 
+# No runtime state is deliberately carried between servers. Additions require an exact path
+# and a comment explaining why carrying that state is safe; logs/receipts stay excluded.
+RUNTIME_STATE_ALLOWLIST = ()
+
+
+def repo_profile_sources():
+    """Complete release profile catalogue; installed profile presence never selects defaults."""
+    sources = {
+        'HollowCountry/settings.json': lts.ROOT / 'config/hollow-country-settings.json',
+        'HollowCountry/stamina.json': lts.ROOT / 'config/hollow-country-stamina.json',
+        'HollowCountry/expansion-ai-sites.json': SOURCE / 'ai/sites.json',
+        # Runtime AI localities use the 88-settlement catalogue. The mission's localities.json
+        # is the separate story-site catalogue, so basename matching would select the wrong data.
+        'ExpansionMod/Settings/AISettings.json': SOURCE / 'ai/AISettings.merge.json',
+    }
+    defaults = lts.ROOT / 'mods/HollowCountryExpansionAI/data/defaults'
+    for name in ('localities', 'formations', 'tactics'):
+        rel = 'expansion-ai-' + name + '.json'
+        sources['HollowCountry/' + rel] = defaults / rel
+    for path in sorted((SOURCE / 'ai/loadouts').glob('HollowCountry_*.json')):
+        sources['ExpansionMod/Loadouts/' + path.name] = path
+    for path in sorted((SOURCE / 'interiors/templates').rglob('*.json')):
+        sources['HollowCountry/templates/' + path.relative_to(SOURCE / 'interiors/templates').as_posix()] = path
+    if TEMPLATE_INDEX not in sources:
+        sources['HollowCountry/interiors.json'] = SOURCE / 'interiors/interiors.json'
+    return sources
+
+
 def profile_files(profiles):
-    keep, dropped = [], 0
-    for rel, path in _walk(profiles):
-        if _profile_allowed(rel):
+    sources = repo_profile_sources()
+    installed = _walk(profiles)  # Preserve the symlink/private-key refusal without inheriting bytes.
+    keep = sorted(sources.items())
+    for rel, path in installed:
+        if rel in RUNTIME_STATE_ALLOWLIST:
+            if _profile_allowed(rel):
+                raise Refused('runtime state conflicts with authored profile: ' + rel)
             keep.append((rel, path))
-        else:
-            dropped += 1
-    if any(rel == TEMPLATE_INDEX for rel, _ in keep):
-        legacy = [rel for rel, _ in keep if rel in LEGACY_ROOM_OWNERS]
-        if legacy:
-            keep = [(rel, path) for rel, path in keep if rel not in LEGACY_ROOM_OWNERS]
-            dropped += len(legacy)
-            print('left out %s: the interior template pack refuses to load (rooms_conflict) beside them'
-                  % ', '.join(legacy))
-    # The AI site policy ships from the repo mission source, never from the profile snapshot: an old
-    # snapshot carried the 21-site PBO default, and the mod keeps any profile that differs from the
-    # mission image as an operator edit, so the full-map sites never reached the server.
-    for rel, source in PROFILE_FROM_MISSION.items():
-        keep = [(r, path) for r, path in keep if r != rel] + [(rel, SOURCE / source)]
+    dropped = sum(rel not in sources and rel not in RUNTIME_STATE_ALLOWLIST for rel, _ in installed)
     return keep, dropped
-
-
-PROFILE_FROM_MISSION = {'HollowCountry/expansion-ai-sites.json': 'ai/sites.json'}
 
 
 # Exact authored source paths, never a basename search through unrelated JSON.
@@ -313,8 +333,10 @@ def _source_match(rel, data, sources):
 def profile_defaults(rows):
     """Current bundle bytes plus known earlier authored defaults, per shipped file."""
     defaults = {}
+    source_map = repo_profile_sources()
     for rel, path in rows:
-        sources = PROFILE_SOURCES.get(rel, ())
+        source = source_map.get(rel)
+        sources = PROFILE_SOURCES.get(rel, (source.relative_to(lts.ROOT).as_posix(),) if source else ())
         if rel.startswith('ExpansionMod/Loadouts/HollowCountry_'):
             name = PurePosixPath(rel).name
             candidates = ('mods/HollowCountryExpansionAI/data/defaults/loadouts/' + name,
@@ -456,7 +478,8 @@ def readme(items, template, addon):
         '',
         'bundle-manifest.json lists the SHA-256 of every file in this bundle.',
         'Its profile_defaults catalogue includes current bytes and earlier authored defaults from git log.',
-        'Generated/measured profiles without tracked JSON history are marked receipt-only; older installed',
+        'All authored profiles come from the build checkout; installed operator edits are never exported.',
+        'Profiles without tracked JSON history are marked receipt-only; older installed',
         'bytes are recognized from the server installer receipt. Unknown bytes are always kept with a WARN.',
         'To adopt one kept default with a backup: install-hollow-country.bat --apply --adopt-profile "profiles/<file>"',
         '',
@@ -464,110 +487,144 @@ def readme(items, template, addon):
     return '\r\n'.join(lines)
 
 
-def fresh_economy(mission):
+def fresh_economy(mission, scratch_root=None):
     """Regenerate the release delta on a rolled-back scratch mission, never the source."""
     try:
         profile = json.loads(overlays.read(SOURCE / 'economy-profiles/contextual-pilot.json'))
         roster = json.loads(overlays.read(lts.ROOT / lts.FIREARMS_ROSTER))
-        with tempfile.TemporaryDirectory(prefix='hc-bundle-economy-') as directory:
+        with tempfile.TemporaryDirectory(prefix='hc-bundle-economy-', dir=scratch_root) as directory:
             scratch = Path(directory) / 'mission'
             shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
             # Reverse the local CE stack. Each existing installer validates its
             # receipts/backups; missing or drifted evidence refuses the export.
             for writer in (map_overlay, loot_boost, overlays, ce_coverage, travel,
-                           tactical_flava_optional, snafu_optional, economy):
+                           tactical_flava_optional, snafu_optional, economy, gameplay):
                 if (scratch / writer.MANAGED).exists():
                     writer.rollback(scratch)
             baseline = overlays.read(scratch / 'cfgeconomycore.xml')
+            if any(node.get('folder', '').lower().startswith('hollow-country')
+                   for node in overlays.xml(baseline, 'economycore').findall('ce')):
+                raise Refused('recovered vanilla core still registers an HC overlay; no repo provenance')
             files = economy.generate(scratch, profile, include_datamined=True, roster=roster,
                                      include_roster_datamined=True)
             delta = Path(directory) / 'delta'
             economy.write_delta(delta, files)
-            return {name: overlays.read(delta / name) for name in files}, baseline
+            return ({name: overlays.read(delta / name) for name in files}, baseline,
+                    overlays.read(scratch / 'cfggameplay.json'))
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise Refused('HC-22 economy regeneration failed: %s' % error) from error
 
 
-def build(args):
-    out = Path(args.out)
-    if out.exists() or out.is_symlink():
-        raise Refused('output %s already exists; choose a new folder' % out)
-    mission = Path(args.mission)
-    plan = []  # (destination relative path, source path or bytes)
-    try:
-        travel.validate(SOURCE)
-        overlays.read(Path(travel.__file__))
-    except (OSError, ValueError) as error:
-        raise Refused('travel CE source missing or invalid: %s' % error) from error
-    try:
-        policy = json.loads(overlays.read(SOURCE / 'optional/overlay-policy.json'))
-        if not isinstance(policy, dict) or policy.get('schema') != 1:
-            raise ValueError('unknown optional overlay policy')
-        for name in BUNDLE_TOOLS:
-            overlays.read(lts.ROOT / 'tools/package' / name)
-        for name in SETUP_TOOLS + SETUP_BATS:
-            overlays.read(lts.ROOT / 'tools/setup' / name)
-    except (OSError, ValueError) as error:
-        raise Refused('optional overlay source missing or invalid: %s' % error) from error
-    habitat_event = 'ecology/events.append.xml'
-    try:
-        habitat_event_data = overlays.read(SOURCE / habitat_event)
-    except FileNotFoundError as error:
-        raise Refused('HC149_HABITAT_SOURCE_MISSING: ' + habitat_event) from error
-    m_keep, m_drop = mission_files(mission)
-    # Remove dependency-derived bytes before selecting our authored overlay.
-    prefix = 'mpmissions/' + mission.name + '/'
-    clean = overlays.friend_bundle_plan(mission, [(prefix + rel, path) for rel, path in m_keep])
-    clean = {rel[len(prefix):]: data if isinstance(data, bytes) else data.read_bytes()
-             for rel, data in clean if rel.startswith(prefix)}
-    authored = {}
-    for rel, data in clean.items():
-        top = PurePosixPath(rel).parts[0]
-        # Weapon-pack deltas are generated from the installed third-party Workshop items: never export them.
-        # The owner's own map overlay install (hollow-country-overlays) is local state: the friend installs the layers.
-        own = top.startswith('hollow-country') and top not in (travel.MANAGED, ce_coverage.MANAGED, loot_boost.MANAGED,
-                                                                snafu_optional.MANAGED, tactical_flava_optional.MANAGED,
-                                                                map_overlay.MANAGED)
-        if own or rel == 'expansion/settings/AIPatrolSettings.json':
-            if PurePosixPath(rel).name not in ('delta-manifest.json', 'economy-report.json', 'gameplay-report.json'):
-                authored[rel] = data
-    # The friend's own bundle-apply boosts loot once on their stock mission: export the pre-boost bytes of
-    # every file a local loot boost holds (for example the economy types), never the doubled ones.
-    try:
-        unboosted = loot_boost.installed_before(mission)
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        raise Refused('local loot boost cannot be undone in the export: %s' % error) from error
-    for rel, data in unboosted.items():
-        if rel in authored:
-            authored[rel] = data
-    # Installed CE is a snapshot, not authored input. Regenerate after undoing
-    # the local boost so the friend's installer applies its multiplier once.
-    economy_files, economy_core = fresh_economy(mission)
-    for rel in list(authored):
-        if rel.startswith('hollow-country/ce/'):
-            del authored[rel]
-    for rel, data in economy_files.items():
-        if rel not in ('delta-manifest.json', 'economy-report.json'):
-            authored['hollow-country/' + rel] = data
-    # An older install's generated XML (for example the economy delta) carries ElementTree's single-quoted
-    # declaration, which CF's XML reader rejects (#168): rewrite it to the double-quoted form on export.
-    for rel, data in list(authored.items()):
-        if rel.endswith('.xml') and data.startswith(STALE_DECLARATION):
-            authored[rel] = xml_text.DECLARATION + data[len(STALE_DECLARATION):]
-    # Every authored V2 JSON is copied at its runtime mission path. Never infer
-    # the catalog from a hard-coded list that silently misses the next module.
-    for path in sorted(SOURCE.rglob('*.json')):
-        rel = path.relative_to(SOURCE).as_posix()
-        authored['hollow-country/' + rel] = overlays.read(path)
-    # The selective habitat XML is authored input too; never inherit a stale
-    # local mission copy or omit it when the local server has not installed it.
-    authored['hollow-country/' + habitat_event] = habitat_event_data
-    plan += [('mission-overlay/' + rel, data) for rel, data in sorted(authored.items())]
-    m_drop += len(m_keep) - len(authored.keys() & clean.keys())
-    core = overlays.xml(clean['cfgeconomycore.xml'], 'economycore')
-    for node in list(core.findall('ce')):
-        if node.get('folder') == economy.MANAGED + '/ce':
-            core.remove(node)
+def repo_revision():
+    result = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=lts.ROOT, capture_output=True)
+    if result.returncode:
+        raise Refused('build commit unavailable')
+    return result.stdout.decode().strip()
+
+
+def check_repo_inputs():
+    """Data and generator bytes must be tracked and unchanged at the build commit.
+
+    The dispatcher may edit this bundle tool without changing release data. Do not require
+    a clean worktree globally: other workers own unrelated files in this audit.
+    """
+    roots = ['mission/hollow-country', 'config', 'tools/package',
+             'mods/HollowCountryExpansionAI/data/defaults']
+    git_env = dict(os.environ, GIT_OPTIONAL_LOCKS='0')
+    result = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--', *roots], cwd=lts.ROOT,
+                            capture_output=True, env=git_env)
+    if result.returncode:
+        raise Refused('repo data or generators differ from build commit; build from committed inputs')
+    inputs = [path.relative_to(lts.ROOT).as_posix() for root in roots
+              for path in (lts.ROOT / root).rglob('*')
+              if path.is_file() and path.suffix in ('.json', '.xml', '.py', '.md')]
+    result = subprocess.run(['git', 'ls-files', '--error-unmatch', '--', *inputs], cwd=lts.ROOT,
+                            capture_output=True, env=git_env)
+    if result.returncode:
+        raise Refused('untracked repo data or generators cannot be bundled')
+
+
+def validate_build_manifest(path, plan):
+    """Read public build metadata only; exact PBO set comparison fails closed."""
+    raw = overlays.read(Path(path))
+    manifest = json.loads(raw)
+    if not isinstance(manifest, dict) or manifest.get('commit') != repo_revision():
+        raise Refused('BUILD_MANIFEST commit differs from this checkout build commit')
+    pbos = manifest.get('pbos')
+    if isinstance(pbos, dict):
+        pbos = [{'path': name, 'sha256': digest} for name, digest in pbos.items()]
+    if not isinstance(pbos, list) or not pbos:
+        raise Refused('BUILD_MANIFEST needs a nonempty pbos path/sha256 catalogue')
+    expected = {}
+    for row in pbos:
+        name = row.get('path') if isinstance(row, dict) else None
+        digest = row.get('sha256') if isinstance(row, dict) else None
+        if (not isinstance(name, str) or not name.endswith('.pbo') or name in expected
+                or not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest)):
+            raise Refused('BUILD_MANIFEST has an invalid or duplicate PBO entry')
+        expected[name] = digest
+    actual = {dest: hashlib.sha256(source if isinstance(source, bytes) else overlays.read(source)).hexdigest()
+              for dest, source in plan if dest.lower().endswith('.pbo')}
+    if actual != expected:
+        bad = sorted(name for name in actual.keys() | expected.keys() if actual.get(name) != expected.get(name))
+        raise Refused('BUILD_MANIFEST PBO paths/hashes differ: ' + ', '.join(bad))
+    return raw
+
+
+def mission_images(economy_files):
+    images = {'hollow-country/' + path.relative_to(SOURCE).as_posix(): overlays.read(path)
+              for path in sorted(SOURCE.rglob('*.json'))}
+    images['hollow-country/ecology/events.append.xml'] = overlays.read(SOURCE / 'ecology/events.append.xml')
+    images[lts.AI_PATROL_TARGET] = overlays.read(lts.ROOT / lts.AI_PATROL_OVERRIDE)
+    images[gameplay.GEAR_PATH] = gameplay.encode(gameplay.parse(overlays.read(lts.ROOT / lts.GAMEPLAY_PRESET)))
+    images.update({'hollow-country/' + rel: data for rel, data in economy_files.items()
+                   if rel not in ('delta-manifest.json', 'economy-report.json')})
+    return images
+
+
+def freshness_report(stage, mission):
+    """Compare staged bytes and complete path sets against repo or regenerated images."""
+    expected = {}
+    expected.update({'mission/' + path.relative_to(lts.ROOT / 'mission').as_posix(): overlays.read(path)
+                     for path in SOURCE.rglob('*') if path.is_file()})
+    expected.update({'profiles/' + rel: overlays.read(path) for rel, path in repo_profile_sources().items()})
+    regenerated, baseline, vanilla_gameplay = fresh_economy(mission, stage.parent)
+    expected.update({'mission-overlay/' + rel: data for rel, data in mission_images(regenerated).items()})
+    expected['mission-patches.json'] = mission_patches(regenerated, baseline, vanilla_gameplay, stage.parent)
+    expected.update({path.relative_to(lts.ROOT).as_posix(): overlays.read(path)
+                     for path in (lts.ROOT / MAP_OVERLAY_CONFIG).rglob('*.json')})
+    actual = {path.relative_to(stage).as_posix() for root in ('mission', 'mission-overlay', 'profiles', 'config')
+              for path in (stage / root).rglob('*') if path.is_file()}
+    actual.add('mission-patches.json')
+    if actual != expected.keys():
+        raise Refused('freshness file catalogue mismatch: ' + ', '.join(sorted(actual ^ expected.keys())))
+    families = {}
+    for rel, data in sorted(expected.items()):
+        if hashlib.sha256(overlays.read(stage / rel)).digest() != hashlib.sha256(data).digest():
+            raise Refused('freshness SHA-256 mismatch: ' + rel)
+        parts = PurePosixPath(rel).parts
+        family = '/'.join(parts[:3]) if len(parts) > 3 else '/'.join(parts[:-1]) or 'patches'
+        counts = families.setdefault(family, {'files': 0})
+        counts['files'] += 1
+        if '/templates/t-' in rel:
+            counts['templates'] = counts.get('templates', 0) + 1
+        if rel.endswith('.json'):
+            parsed = json.loads(data)
+            if isinstance(parsed, dict):
+                for key in ('Sites', 'Localities', 'Templates'):
+                    if isinstance(parsed.get(key), list):
+                        counts[key.lower()] = counts.get(key.lower(), 0) + len(parsed[key])
+        if rel.endswith('/ce/types.xml'):
+            counts['types'] = len(ET.fromstring(data).findall('type'))
+    for family, counts in sorted(families.items()):
+        print('freshness %s: %s sha256=match' %
+              (family, ' '.join('%s=%d' % item for item in counts.items())))
+
+
+def mission_patches(economy_files, economy_core, baseline, scratch_root=None):
+    """Repo policy applied to recovered vanilla inputs, with no installed HC policy."""
+    # Build the HC core patch from fresh generation, never installed HC registrations.
+    core = overlays.xml(economy_core, 'economycore')
     core.extend(overlays.xml(economy_files['cfgeconomycore.append.xml'], 'economycore'))
     core_defaults = {n.get('name'): n for n in core.findall('defaults/default')}
     for name, patch in json.loads(economy_files['core-defaults.patch.json']).items():
@@ -593,24 +650,58 @@ def build(args):
             before = None if old is None else ET.tostring(old, encoding='unicode').strip()
             if before != after:
                 changes.append({'before': before, 'after': after})
+    # Recover stock gameplay on scratch, then derive every owned leaf from repo policy.
+    with tempfile.TemporaryDirectory(prefix='hc-bundle-gameplay-', dir=scratch_root) as directory:
+        scratch = Path(directory)
+        (scratch / 'cfggameplay.json').write_bytes(baseline)
+        generated = gameplay.generate(scratch, gameplay.parse(overlays.read(lts.ROOT / lts.GAMEPLAY_PROFILE)),
+                                      gameplay.parse(overlays.read(lts.ROOT / lts.GAMEPLAY_PRESET)))
+    before = gameplay.parse(baseline)
+    after = gameplay.parse(generated['cfggameplay.merged.json'])
     gameplay_patch = []
-    gameplay_backup = mission / 'hollow-country-gameplay/cfggameplay.backup'
-    if gameplay_backup.exists():
-        before = json.loads(overlays.read(gameplay_backup))
-        after = json.loads(clean['cfggameplay.json'])
-        arr = after.get('WorldsData', {}).get('objectSpawnersArr') if isinstance(after, dict) else None
-        if isinstance(arr, list):
-            arr[:] = [p for p in arr if not (isinstance(p, str) and p.startswith(map_overlay.MANAGED + '/'))]
 
-        def changed_leaves(old, new, path):
-            if isinstance(new, dict):
-                for key, value in new.items():
-                    changed_leaves(old.get(key) if isinstance(old, dict) else None, value, path + [key])
-            elif old != new:
-                gameplay_patch.append({'path': path, 'before': old, 'after': new})
+    def changed_leaves(old, new, path):
+        if isinstance(new, dict):
+            for key, value in new.items():
+                changed_leaves(old.get(key) if isinstance(old, dict) else None, value, path + [key])
+        elif old != new:
+            gameplay_patch.append({'path': path, 'before': old, 'after': new})
 
-        changed_leaves(before, after, [])
-    plan.append(('mission-patches.json', json.dumps({'schema': 1, 'core': changes, 'gameplay': gameplay_patch}, indent=2).encode()))
+    changed_leaves(before, after, [])
+    return json.dumps({'schema': 1, 'core': changes, 'gameplay': gameplay_patch}, indent=2).encode()
+
+
+def build(args):
+    out = Path(args.out)
+    if out.exists() or out.is_symlink():
+        raise Refused('output %s already exists; choose a new folder' % out)
+    check_repo_inputs()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    mission = Path(args.mission)
+    plan = []  # (destination relative path, source path or bytes)
+    try:
+        travel.validate(SOURCE)
+        overlays.read(Path(travel.__file__))
+    except (OSError, ValueError) as error:
+        raise Refused('travel CE source missing or invalid: %s' % error) from error
+    try:
+        policy = json.loads(overlays.read(SOURCE / 'optional/overlay-policy.json'))
+        if not isinstance(policy, dict) or policy.get('schema') != 1:
+            raise ValueError('unknown optional overlay policy')
+        for name in BUNDLE_TOOLS:
+            overlays.read(lts.ROOT / 'tools/package' / name)
+        for name in SETUP_TOOLS + SETUP_BATS:
+            overlays.read(lts.ROOT / 'tools/setup' / name)
+    except (OSError, ValueError) as error:
+        raise Refused('optional overlay source missing or invalid: %s' % error) from error
+    m_keep, m_drop = mission_files(mission)
+    # Installed HC files are never candidates for copying. Even unknown authored files in
+    # the snapshot cannot leak through: this catalogue is built wholly from repo inputs.
+    economy_files, economy_core, vanilla_gameplay = fresh_economy(mission, out.parent)
+    authored = mission_images(economy_files)
+    plan += [('mission-overlay/' + rel, data) for rel, data in sorted(authored.items())]
+    m_drop += len(m_keep) - len(authored.keys() & {rel for rel, _ in m_keep})
+    plan.append(('mission-patches.json', mission_patches(economy_files, economy_core, vanilla_gameplay, out.parent)))
     if args.ce_coverage_result or (mission / ce_coverage.MANAGED).exists():
         print('left out CE building coverage: PENDING; rerun the native sampler against the friend stock mission')
     else:
@@ -651,6 +742,11 @@ def build(args):
         for rel, path in mod_keys:
             keys.setdefault(PurePosixPath(rel).name, path)
     plan += [('keys/' + name, path) for name, path in sorted(keys.items())]
+    if getattr(args, 'build_manifest', None):
+        release = validate_build_manifest(args.build_manifest, plan)
+        plan.append(('BUILD_MANIFEST.json', release))
+    else:
+        print('build manifest: legacy input; PBO build provenance unverified')
     cfg_text = Path(args.server_cfg).read_text(encoding='utf-8-sig')
     snippet, template = server_settings(cfg_text, mission.name)
     manifest = ws.load_manifest()
@@ -683,10 +779,12 @@ def build(args):
             else:
                 shutil.copyfile(source, target)
             rows.append({'path': dest, 'sha256': hashlib.sha256(target.read_bytes()).hexdigest()})
-        expected, _ = fresh_economy(mission)
-        exported = stage / 'mission-overlay/hollow-country/ce/types.xml'
-        if overlays.read(exported) != expected['ce/types.xml']:
-            raise Refused('HC-22 exported economy types differ from fresh generation')
+        freshness_report(stage, mission)
+        check_repo_inputs()
+        if getattr(args, 'build_manifest', None):
+            staged = [(dest, stage / dest) for dest, _ in plan]
+            if validate_build_manifest(stage / 'BUILD_MANIFEST.json', staged) != release:
+                raise Refused('BUILD_MANIFEST changed during staging')
         data = {'schema': 1, 'mission': mission.name, 'files': sorted(rows, key=lambda r: r['path']),
                 'profile_defaults': defaults,
                 'excluded': {'mission': m_drop, 'profiles': p_drop}}
@@ -709,6 +807,7 @@ def main(argv=None):
                    'with one PENDING line when no result exists')
     b.add_argument('--mod', required=True)
     b.add_argument('--addon')
+    b.add_argument('--build-manifest', type=Path, help='release BUILD_MANIFEST.json; verify commit and every selected PBO hash')
     b.add_argument('--server-cfg', required=True)
     b.add_argument('--out', required=True)
     args = parser.parse_args(argv)
