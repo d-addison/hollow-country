@@ -1,38 +1,7 @@
 // Flat schema-v2 DTOs. Coordinates are model-frame arrays, never world guesses.
-// Slot JSON keys are span-remapped to SlotId and File keys to FileName: Slot is a native type name and
-// a loaded dependency declares a type File.
-class HCInteriorTemplateCursor
-{
-    string Content;
-    int Index;
-    int Nodes;
-    bool Failed;
-    int CopyFrom;
-    string NativeText;
-    // Character reads go through a 1 KB window: string Get/Substring cost
-    // grows with the whole string, so per-character scans of a large leaf
-    // would otherwise cost far more than their slice budget.
-    protected ref HCTextWindow m_Window;
-
-    void HCSetContent(string content)
-    {
-        Content = content;
-        m_Window = new HCTextWindow(content);
-    }
-
-    string HCAt(int index)
-    {
-        if (!m_Window) { m_Window = new HCTextWindow(Content); }
-        return m_Window.At(index);
-    }
-
-    string HCRange(int start, int count)
-    {
-        if (!m_Window) { m_Window = new HCTextWindow(Content); }
-        return m_Window.Range(start, count);
-    }
-}
-
+// Slot JSON keys are renamed to SlotId and File keys to FileName before LoadData
+// (HCInteriorTemplatesStrict.NativeText): Slot is a native type name and a loaded
+// dependency declares a type File.
 class HCInteriorTemplateFile
 {
     string FileName;
