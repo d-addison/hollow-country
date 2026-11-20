@@ -53,16 +53,17 @@ def windows_path(path):
 
 def install(bundle, server_root, workshop):
     bundle_win = windows_path(bundle)
-    # cmd.exe has expansion and quoting semantics beyond normal subprocess argv.
+    # cmd.exe has expansion and quoting semantics beyond normal subprocess argv, and
+    # WSL interop backslash-escapes embedded quotes, so paths are passed unquoted.
     for value in (bundle_win, server_root, workshop):
-        if any(char in value for char in '\r\n"%!?&|<>^'):
+        if any(char in value for char in ' \t\r\n"%!?&|<>^()'):
             raise ValueError('Unsafe Windows command path')
     cmd = '/mnt/c/Windows/System32/cmd.exe'
-    for options in (f'--apply --yes --workshop-content "{workshop}"', '--check'):
+    for options in (f'--apply --yes --workshop-content {workshop}', '--check'):
         require_stopped()
-        command = (f'cd /d "{bundle_win}" && set "PYTHONDONTWRITEBYTECODE=1" && '
-                   f'py -3 -B -m tools.setup.friend_install --server-root "{server_root}" {options}')
-        run([cmd, '/d', '/s', '/c', command], Path('/mnt/c'))
+        command = (f'cd /d {bundle_win} && set PYTHONDONTWRITEBYTECODE=1&& '
+                   f'py -3 -B -m tools.setup.friend_install --server-root {server_root} {options}')
+        run([cmd, '/d', '/c', command], Path('/mnt/c'))
     print('Friend install and --check succeeded')
 
 
