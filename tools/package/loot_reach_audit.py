@@ -7,6 +7,7 @@ Run as ``python3 -B -m tools.package.loot_reach_audit --help``.
 """
 import argparse
 from collections import Counter
+import copy
 import io
 import json
 import math
@@ -88,41 +89,68 @@ def triangles(model, lod, matrix=None):
             yield (vertices[face[0]], vertices[face[i]], vertices[face[i + 1]])
 
 
+def collision_triangles(model, lod, matrix=None):
+    # Named proxy faces encode transforms; the referenced model supplies the
+    # physical geometry. Marker triangles are not walls or furniture blockers.
+    markers = {index for selection in lod.named_selections
+               if selection.name.lower().startswith('proxy:')
+               for index in selection.faces}
+    solid = copy.copy(lod)
+    solid.faces = [face for index, face in enumerate(lod.faces) if index not in markers]
+    return triangles(model, solid, matrix)
+
+
 class Scene:
     """XZ indexed installed geometry triangles, including baked furniture proxies."""
     def __init__(self):
         self.triangles = []
         self.cells = {}
+        self.floor_cells = {}
+        self.height_bounds = []
 
     def add(self, values):
         for tri in values:
             index = len(self.triangles)
             self.triangles.append(tri)
+            low, high = min(v[1] for v in tri), max(v[1] for v in tri)
+            # Wider than intersection's barycentric tolerance, including long
+            # triangles. This is only a broad-phase rejection, never a hit.
+            margin = 1e-6 * (high-low+1)
+            self.height_bounds.append((low-margin, high+margin))
+            normal = cross(subtract(tri[1], tri[0]), subtract(tri[2], tri[0]))
+            horizontal = abs(normal[1]) >= .9 * math.sqrt(dot(normal, normal))
             for x in range(math.floor(min(v[0] for v in tri) / CELL),
                            math.floor(max(v[0] for v in tri) / CELL) + 1):
                 for z in range(math.floor(min(v[2] for v in tri) / CELL),
                                math.floor(max(v[2] for v in tri) / CELL) + 1):
                     self.cells.setdefault((x, z), []).append(index)
+                    if horizontal:
+                        self.floor_cells.setdefault((x, z), []).append(index)
 
-    def candidates(self, start, end):
+    def candidate_indices(self, start, end):
         found = set()
         for x in range(math.floor(min(start[0], end[0]) / CELL),
                        math.floor(max(start[0], end[0]) / CELL) + 1):
             for z in range(math.floor(min(start[2], end[2]) / CELL),
                            math.floor(max(start[2], end[2]) / CELL) + 1):
                 found.update(self.cells.get((x, z), ()))
-        return (self.triangles[i] for i in sorted(found))
+        return sorted(found)
+
+    def candidates(self, start, end):
+        return (self.triangles[i] for i in self.candidate_indices(start, end))
 
     def clear(self, start, end):
-        return not any(intersection(start, end, tri) for tri in self.candidates(start, end))
+        low, high = min(start[1], end[1]), max(start[1], end[1])
+        return not any(intersection(start, end, self.triangles[i])
+                       for i in self.candidate_indices(start, end)
+                       if self.height_bounds[i][0] <= high and self.height_bounds[i][1] >= low)
 
     def floors(self, x, z, low, high):
         result = []
-        for tri in self.candidates((x, low, z), (x, high, z)):
-            normal = cross(subtract(tri[1], tri[0]), subtract(tri[2], tri[0]))
-            # Winding differs between LODs; require a horizontal plane either way.
-            if abs(normal[1]) < .9 * math.sqrt(dot(normal, normal)):
-                continue
+        # Winding differs between LODs; the precomputed index retains horizontal
+        # planes either way, with exactly the same normal threshold as before.
+        for i in self.floor_cells.get((math.floor(x / CELL), math.floor(z / CELL)), ()):
+            tri = self.triangles[i]
             y = gen.triangle_height(tri, x, z)
             if y is not None and low <= y <= high:
                 result.append(y)
@@ -147,6 +175,14 @@ def approach_clear(scene, seed, stance, slots=()):
     # through walls/closed doors; does not infer open-door or stair navigation.
     if abs(seed[1] - stance[1]) > .20:
         return False
+    # Sweep the whole standing body's conservative box against optional props.
+    # Three horizontal ray heights alone can miss a thin shelf between them.
+    for slot in slots:
+        box = slot['Bounds']
+        expanded = {'Min': [box['Min'][0]-RADIUS, box['Min'][1]-HEIGHT, box['Min'][2]-RADIUS],
+                    'Max': [box['Max'][0]+RADIUS, box['Max'][1]-.06, box['Max'][2]+RADIUS]}
+        if segment_box_hit(seed, stance, expanded):
+            return False
     for height in (.2, .9, 1.65):
         for dx, dz in ((0, 0), (RADIUS, 0), (-RADIUS, 0), (0, RADIUS), (0, -RADIUS)):
             a = (seed[0]+dx, seed[1]+height, seed[2]+dz)
@@ -168,6 +204,12 @@ def approach_clear(scene, seed, stance, slots=()):
 
 def box_hit(point, box, margin=0):
     return all(box['Min'][a]-margin <= point[a] <= box['Max'][a]+margin for a in range(3))
+
+
+def volume_hit(position, radius, low, high, box):
+    return all(position[a] + radius >= box['Min'][a]
+               and position[a] - radius <= box['Max'][a] for a in (0, 2)) and (
+        position[1] + high >= box['Min'][1] and position[1] + low <= box['Max'][1])
 
 
 def segment_box_hit(start, end, box):
@@ -265,17 +307,22 @@ class Audit:
         if geometry is None:
             raise ValueError('missing building geometry: ' + name)
         scene = Scene()
-        scene.add(triangles(model, geometry))
+        scene.add(collision_triangles(model, geometry))
         footprint = Scene()
-        footprint.add(triangles(model, geometry))
+        footprint.add(collision_triangles(model, geometry))
         roadway = lod_for(model, ROADWAY)
         if roadway is not None:
-            scene.add(triangles(model, roadway))
-            footprint.add(triangles(model, roadway))
+            scene.add(collision_triangles(model, roadway))
+            footprint.add(collision_triangles(model, roadway))
             self.scene_stats['buildings_with_roadway'] += 1
         visual = gen.Mesh(model)
-        bounds = {'Min': [min(v[a] for tri, _, _ in visual.triangles for v in tri) for a in range(3)],
-                  'Max': [max(v[a] for tri, _, _ in visual.triangles for v in tri) for a in range(3)]}
+        # Some installed tents have only proxy markers in the root visual LOD.
+        # Their structural collision mesh still supplies real building bounds;
+        # marker triangles must not become either bounds or support evidence.
+        envelope = [tri for tri, _, _ in visual.triangles] or footprint.triangles
+        bounds = ({'Min': [min(v[a] for tri in envelope for v in tri) for a in range(3)],
+                   'Max': [max(v[a] for tri in envelope for v in tri) for a in range(3)]}
+                  if envelope else None)
         self.scene_stats['buildings'] += 1
         memory = lod_for(model, MEMORY)
         self.scene_stats['memory_selections'] += len(memory.named_selections) if memory else 0
@@ -313,7 +360,7 @@ class Audit:
                            key=lambda l: l.resolution, default=None)
                 self.scene_stats['proxy_visual_fallbacks'] += 1
             if geom is not None:
-                scene.add(triangles(prop, geom, matrix))
+                scene.add(collision_triangles(prop, geom, matrix))
                 self.scene_stats['proxy_instances'] += 1
         floors = [model_point([float(v) for v in p.get('pos').split()])
                   for c in stock.findall('container') if 'floor' in c.get('name', '').lower()
@@ -327,7 +374,7 @@ class Audit:
         model_name, model, visual, scene, bounds, floors, footprint = context
         point = model_point(point)
         failures = []
-        if not box_hit(point, bounds, .02):
+        if bounds is None or not box_hit(point, bounds, .02):
             failures.append('outside_building_bounds')
         if not source:
             return failures + ['missing_support_evidence'], None
@@ -380,7 +427,7 @@ class Audit:
         # Optional runtime props can obstruct; they never provide support. Union
         # of all histories is deliberately conservative. Bounds are model frame.
         slots = [slot for _, doc in templates for slot in doc.get('PropSlots', [])]
-        if any(box_hit(point, slot['Bounds'], .12) for slot in slots):
+        if any(volume_hit(point, .12, -.12, .50, slot['Bounds']) for slot in slots):
             failures.append('optional_prop_overlap')
         if failures:
             return sorted(set(failures)), None
@@ -395,8 +442,7 @@ class Audit:
                     stance = (x, y, z)
                     if not body_clear(scene, stance):
                         continue
-                    if any(box_hit((x, y+h, z), slot['Bounds'], RADIUS)
-                           for slot in slots for h in (.2, .9, 1.65)):
+                    if any(volume_hit(stance, RADIUS, .06, HEIGHT, slot['Bounds']) for slot in slots):
                         continue
                     saw_stance = True
                     target = (point[0], point[1]+.06, point[2])
@@ -445,7 +491,10 @@ class Audit:
                 sources = spec.get('surface_sources', [])
                 if sources and len(sources) != len(container['points']):
                     raise ValueError('surface evidence count mismatch: ' + name)
-                keep, evidence = [], []
+                collision = spec.get('collision_support', {}).get('lootHCSurface')
+                if collision is not None and len(collision) != len(container['points']):
+                    raise ValueError('collision evidence count mismatch: ' + name)
+                keep, evidence, collision_evidence = [], [], []
                 for index, point in enumerate(container['points']):
                     source = sources[index] if sources else None
                     failures, witness = self.check(point, source, context, self.templates.get(name, []))
@@ -458,14 +507,19 @@ class Audit:
                     else:
                         keep.append(point)
                         evidence.append(source)
+                        if collision is not None:
+                            collision_evidence.append(collision[index])
                 if fix:
                     if keep:
                         container['points'] = keep
                         container['lootmax'] = loot.added_lootmax(len(keep))
                         spec['surface_sources'] = evidence
+                        if collision is not None:
+                            spec['collision_support']['lootHCSurface'] = collision_evidence
                     else:
                         del spec['containers']['lootHCSurface']
                         spec.pop('surface_sources', None)
+                        spec.get('collision_support', {}).pop('lootHCSurface', None)
                     if not spec['containers']:
                         del doc['groups'][name]
             report['files'][path.name] = {'before_points': before, 'shelf_checked': checked,

@@ -55,6 +55,11 @@ TOPS = {
     'sofa_sakhal_1', 'sofacorner', 'couch_dz', 'couch_beige84x213x75_dz',
     'church_chair', 'lobby_chair', 'vaulting_box_large', 'vaulting_box_small',
     'paperbox_01_small_closed', 'box_c', 'box_c_multi',
+    'ch_mod_c', 'ch_mod_h', 'ch_office_b', 'kitchen_chair_a',
+    'office_chair', 'student_chair', 'dkamna_bila', 'dkamna_uhli',
+    'radar_panel_flat', 'radar_electronics', 'radar_rack', 'radar_rack_quad',
+    'anvil', 'metal_cutting_saw', 'soustruh_proxy', 'basin_a', 'sink', 'lab_sink',
+    'tent_table', 'tent_boxwooden', 'tent_stretcher', 'tent_chair',
 }
 PROXY = re.compile(rb'\\dz\\[^\x00\r\n]{1,400}\x00', re.I)
 
@@ -91,8 +96,15 @@ def surface_model(model):
     if stem in {'bed_stacked', 'foldingbed_open', 'hospital_transport_bed'}:
         return stem, model
     closed = stem.removesuffix('_open')
+    if closed + '_closed' in TOPS:
+        closed += '_closed'
     if closed in TOPS:
         return closed, model.replace(stem + '.p3d', closed + '.p3d')
+    # Installed stock furniture need not be named in the contextual alias list.
+    # The mesh, collision, enclosure and reach gates decide whether a top is
+    # usable; names alone neither grant support nor exclude an evidenced top.
+    if '\\furniture\\' in model:
+        return stem, model
     return None
 
 
@@ -103,15 +115,17 @@ def role(stem):
             or stem in {'bed_stacked', 'foldingbed_open', 'hospital_transport_bed', 'vojenska_palanda'}):
         return 'bed-mattress'
     if ('sofa' in stem or 'couch' in stem or stem.endswith('_bench')
+            or 'chair' in stem or stem.startswith('ch_')
             or stem in {'church_chair', 'lobby_chair'}):
         return 'bench-seat'
-    if stem in {'washing_machine', 'piano'}:
+    if stem in {'washing_machine', 'piano', 'dkamna_bila', 'dkamna_uhli'}:
         return 'appliance-top'
-    if stem == 'medical_table':
+    if stem in {'medical_table', 'lab_sink'}:
         return 'medical-tray'
-    if stem == 'lekarnicka':
+    if stem in {'lekarnicka', 'basin_a', 'sink'}:
         return 'bathroom-cabinet'
-    if 'workbench' in stem or 'crate' in stem:
+    if ('workbench' in stem or 'crate' in stem
+            or stem in {'anvil', 'metal_cutting_saw', 'soustruh_proxy'}):
         return 'repair-bench'
     if stem == 'locker':
         return 'locker-top'
@@ -119,6 +133,8 @@ def role(stem):
         return 'wardrobe-top'
     if 'desk' in stem or 'table' in stem:
         return 'desk-table'
+    if stem not in TOPS:
+        return 'static-proxy-surface'
     return 'cabinet-shelf'
 
 
@@ -154,7 +170,12 @@ class Mesh:
         self.center = model.bounding_center if restore_center else (0.0, 0.0, 0.0)
         vertices = [tuple(v[a] + self.center[a] for a in range(3)) for v in lod.vertices]
         self.triangles, self.cells = [], {}
+        markers = {index for selection in lod.named_selections
+                   if selection.name.lower().startswith('proxy:')
+                   for index in selection.faces}
         for face_index, face in enumerate(lod.faces):
+            if face_index in markers:
+                continue
             for i in range(1, len(face) - 1):
                 indices = [face[0], face[i], face[i + 1]]
                 triangle = [vertices[k] for k in indices]
@@ -177,10 +198,14 @@ class Mesh:
                 hits.append((y, normal_y, face, triangle))
         return hits
 
-    def tops(self, accept=None, measured_box=None):
+    def tops(self, accept=None, measured_box=None, height_accept=None):
         seen = set()
         for triangle, normal_y, face in self.triangles:
             if normal_y < .85 or max(v[1] for v in triangle) - min(v[1] for v in triangle) > .025:
+                continue
+            if height_accept is not None and not height_accept(
+                    min(v[1] for v in triangle) + .005,
+                    max(v[1] for v in triangle) + .005):
                 continue
             positions = [(sum(v[0] for v in triangle) / 3, sum(v[2] for v in triangle) / 3)]
             # A narrow rectangular shelf can fall entirely between global grid
@@ -263,7 +288,9 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
     # Reuse the independent audit without relaxing any of its limits. Evaluate
     # before spacing/capping so refused candidates do not crowd out good tops.
     from tools.package.loot_reach_audit import Audit
+    from tools.package.loot_support_audit import Audit as SupportAudit
     auditor = Audit(addons, reader_folder, stock_proto, ROOT)
+    support_auditor = SupportAudit(addons, reader_folder, stock_proto)
     reader, assets = auditor.reader, auditor.assets
     measured = {name.removeprefix('StaticObj_Furniture_').lower(): box
                 for name, box in auditor.boxes.items()}
@@ -366,7 +393,13 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                             and math.hypot(z - q[0], -x - q[2]) <= 6 for q in floors)
                         and not any(abs(y - q[1]) < .20 for q in floors))
 
-            for local, support in baked.tops(in_room):
+            def room_height(low, high):
+                # Reject only planes wholly outside the room-height bands.
+                # A sloped face straddling a boundary still gets sampled.
+                return (any(high >= q[1] + .35 and low <= q[1] + 2.20 for q in floors)
+                        and not any(q[1] - .20 < low <= high < q[1] + .20 for q in floors))
+
+            for local, support in baked.tops(in_room, height_accept=room_height):
                 point = [round(local[2], 6), round(local[1], 6), round(-local[0], 6)]
                 # Native floor points locate an occupied room/storey. Reject
                 # structural floors themselves, roofs and uncovered exterior ledges.
@@ -380,6 +413,9 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                     'local_point': [round(v, 8) for v in local], **support}))
         context = auditor.scene(name, {'stock_sha256': loot.group_pin(group),
                                       'building_model_sha256': sha(data)}) if candidates else None
+        support_context = support_auditor.context(name, {
+            'stock_sha256': loot.group_pin(group),
+            'building_model_sha256': sha(data)}) if candidates else None
         # Spread admission over furniture roles and heights before filling the cap.
         by_role = {}
         for point, evidence in candidates:
@@ -392,9 +428,15 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                 point, source = by_role[key].popleft()
                 if near(point, chosen):
                     continue
+                audit_checked += 1
+                # Failed collision candidates must not consume spacing or cap
+                # slots: a nearby visually similar top may have real support.
+                reason, _ = support_auditor.check(name, point, support_context)
+                if reason:
+                    audit_refusals[reason] += 1
+                    continue
                 failures, _ = auditor.check(point, source, context, auditor.templates.get(name, []),
                                             stop_on_refusal=True)
-                audit_checked += 1
                 if failures:
                     audit_refusals.update(failures)
                     continue
@@ -428,10 +470,10 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         'frame': 'stock-mapgroupproto', 'caps': {'surface_per_group': loot.MAX_SURFACE_POINTS,
         'added_container_lootmax': loot.MAX_ADDED_LOOTMAX, 'total_points': loot.MAX_TOTAL_POINTS},
         'sources': {'stock_proto_sha256': sha(stock_bytes),
-        'method': 'ODOL56 visual horizontal face support with 12cm footprint; raw building frame, restored furniture centres; 0.15m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; .60m separation; reach audit before cap including optional-prop corridor and eye obstruction; optional props never support',
+        'method': 'ODOL56 visual horizontal face support with 12cm footprint; proxy marker faces excluded; raw building frame, restored furniture centres; 0.15m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; .60m separation; collision and reach audits before spacing/cap including full optional-prop item/body volumes, swept corridor and eye obstruction; optional props never support',
         'prop_boxes_sha256': sha(auditor.boxes_bytes),
         'reach_generation': {'checked_candidates': audit_checked,
-            'refusal_counting': 'stop after the first failed support/room/clearance stage; final read-only audit collects all reasons',
+            'refusal_counting': 'collision support/enclosure, then visual/room/clearance/reach; stop on refusal; all checks before spacing/cap; final read-only audit collects all reach reasons',
             'refusal_counts': dict(sorted(audit_refusals.items()))},
         'reader_repository': 'https://github.com/SXDIST/DayZObjectBuilder',
         'reader_revision': READER_REVISION, 'reader_sha256': READER_HASHES,
@@ -444,7 +486,6 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         doc['sources']['map_pos_sha256'] = sha(Path(map_pos).read_bytes())
     # Visual meshes only propose candidates. Collision support and building
     # enclosure are mandatory final admission, including stock proxy furniture.
-    from tools.package.loot_support_audit import Audit as SupportAudit
     doc, _ = SupportAudit(addons, reader_folder, stock_proto).filter(doc)
     doc['sources']['method'] += '; final collision-only support/enclosure gate (see collision_support)'
     raw = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()

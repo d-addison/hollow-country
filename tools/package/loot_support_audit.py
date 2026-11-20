@@ -20,7 +20,7 @@ from tools.audit import pbo_config as pbo
 from tools.package import interior_points_gen as gen, loot_boost as loot
 from tools.package.loot_floor_policy import validate_collision_support as validate_policy
 from tools.package.loot_reach_audit import (
-    Scene, cross, dot, intersection, lod_for, model_point, subtract, triangles,
+    Scene, collision_triangles, cross, dot, intersection, lod_for, model_point, subtract,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,35 +62,32 @@ def proxy_table(data, model, lod):
         offset = stop + 65
 
 
-def collision_triangles(model, lod, matrix=None):
-    # Proxy reference triangles are transform markers, never physical surfaces.
-    # Their installed model's own collision mesh is added separately below.
-    markers = {index for selection in lod.named_selections
-               if selection.name.lower().startswith('proxy:')
-               for index in selection.faces}
-    solid = copy.copy(lod)
-    solid.faces = [face for index, face in enumerate(lod.faces) if index not in markers]
-    return triangles(model, solid, matrix)
-
-
 class SupportScene(Scene):
     def __init__(self):
         super().__init__()
         self.sources = []
+        # Eligibility depends only on the installed triangle, not the query.
+        # Keep the full scene for clearance but index support faces once.
+        self.support_cells = {}
 
     def add_source(self, values, source):
         before = len(self.triangles)
         self.add(values)
         self.sources.extend([source] * (len(self.triangles) - before))
-
-    def supports(self, x, z, low, high):
-        result = []
-        for index in self.cells.get((math.floor(x), math.floor(z)), ()):
+        for index in range(before, len(self.triangles)):
             tri = self.triangles[index]
             normal = cross(subtract(tri[1], tri[0]), subtract(tri[2], tri[0]))
             length = math.sqrt(dot(normal, normal))
-            if not length or abs(normal[1]) / length < .98 or max(v[1] for v in tri) - min(v[1] for v in tri) > .025:
-                continue
+            if (length and abs(normal[1]) / length >= .98
+                    and max(v[1] for v in tri) - min(v[1] for v in tri) <= .025):
+                for x in range(math.floor(min(v[0] for v in tri)), math.floor(max(v[0] for v in tri)) + 1):
+                    for z in range(math.floor(min(v[2] for v in tri)), math.floor(max(v[2] for v in tri)) + 1):
+                        self.support_cells.setdefault((x, z), []).append(index)
+
+    def supports(self, x, z, low, high):
+        result = []
+        for index in self.support_cells.get((math.floor(x), math.floor(z)), ()):
+            tri = self.triangles[index]
             y = gen.triangle_height(tri, x, z)
             if y is not None and low <= y <= high:
                 result.append((y, self.sources[index]))
