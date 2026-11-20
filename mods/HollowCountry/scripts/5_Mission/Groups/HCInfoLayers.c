@@ -73,12 +73,13 @@ class HCInfoEventSites
         {
             return false;
         }
+        HCTextWindow window = new HCTextWindow(text);
         string allowed = "0123456789";
         int digits = 0;
         int dots = 0;
         for (int index = 0; index < length; index++)
         {
-            string glyph = text.Get(index);
+            string glyph = window.At(index);
             if (glyph == "-" && index == 0)
             {
                 continue;

@@ -1,3 +1,26 @@
+// Two-level keys keep account/place boundaries exact without concatenation.
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:866,917,926.
+class HCGroupPendingIndex
+{
+    protected ref map<string, ref HCGroupStringIndex> m_Explorers = new map<string, ref HCGroupStringIndex>;
+    void Add(string account, string place)
+    {
+        HCGroupStringIndex places = m_Explorers.Get(account);
+        if (!places)
+        {
+            array<string> empty = new array<string>;
+            places = new HCGroupStringIndex(empty);
+            m_Explorers.Insert(account, places);
+        }
+        places.Add(place);
+    }
+    bool Has(string account, string place)
+    {
+        HCGroupStringIndex places = m_Explorers.Get(account);
+        return places && places.Has(place);
+    }
+}
+
 // Directed pair cache: bounded, short-lived, tied to both connection sessions.
 class HCGroupLOSResult
 {
@@ -637,6 +660,11 @@ class HCGroupService
         if (!m_Config.DiscoveryLayer || !m_Places || m_Peers.Count() == 0) return;
         float now = GetGame().GetTickTime();
         if (now < m_DiscoveryBlockedUntil) return;
+        HCGroupPendingIndex queuedVisits = new HCGroupPendingIndex;
+        foreach (HCGroupPendingVisit pending : m_PendingVisits)
+        {
+            queuedVisits.Add(pending.ExplorerId, pending.Place.Id);
+        }
         int examined = 0;
         while (examined < 6 && examined < m_Peers.Count())
         {
@@ -654,17 +682,13 @@ class HCGroupService
                 if (HCGroupRules.HasVisit(m_State, explorer.Id, place.Id)) continue;
                 // Full queue: skip; the visit is observed again after a flush.
                 if (m_PendingVisits.Count() >= 256) continue;
-                bool queued = false;
-                foreach (HCGroupPendingVisit pending : m_PendingVisits)
-                {
-                    if (pending.ExplorerId == explorer.Id && pending.Place.Id == place.Id) queued = true;
-                }
-                if (queued) continue;
+                if (queuedVisits.Has(explorer.Id, place.Id)) continue;
                 HCGroupPendingVisit visit = new HCGroupPendingVisit;
                 visit.ExplorerId = explorer.Id;
                 visit.Place = place;
                 visit.Actual = actual;
                 m_PendingVisits.Insert(visit);
+                queuedVisits.Add(explorer.Id, place.Id);
             }
         }
     }

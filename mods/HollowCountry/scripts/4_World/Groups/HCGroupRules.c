@@ -333,8 +333,9 @@ class HCGroupRules
         }
         if (q.Op == HCGroupOp.ACCEPT || q.Op == HCGroupOp.DECLINE)
         {
-            foreach (HCGroupInvitation invite : state.Invitations)
+            for (int inviteIndex = 0; inviteIndex < state.Invitations.Count(); inviteIndex++)
             {
+                HCGroupInvitation invite = state.Invitations[inviteIndex];
                 if (invite.Id == q.EntityId)
                 {
                     if (invite.InviteeId != actor)
@@ -348,7 +349,7 @@ class HCGroupRules
                     }
                     if (q.Op == HCGroupOp.DECLINE)
                     {
-                        state.Invitations.Remove(state.Invitations.Find(invite));
+                        state.Invitations.Remove(inviteIndex);
                         return HCGroupCode.OK;
                     }
                     if (group)
