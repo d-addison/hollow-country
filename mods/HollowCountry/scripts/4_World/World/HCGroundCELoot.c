@@ -25,19 +25,52 @@ class HCGroundCELoot
     protected static bool s_Reporting;
     protected static bool s_FirstEnqueueLogged;
     protected static int s_Count;
+    protected static int s_CECalls;
+    protected static int s_Rejected;
+    protected static int s_Parented;
+    protected static int s_Deleting;
     protected static int s_Enqueued;
     protected static int s_Processed;
     protected static int s_Ineligible;
     protected static int s_Peak;
+    protected static string s_LastReceipt;
 
     static bool Eligible(ItemBase item)
     {
         return item && !item.IsPendingDeletion() && !item.GetHierarchyParent() && !item.IsTransport() && !item.IsBuilding();
     }
 
+    // A restored economy can create no fresh loot. Report even then, without
+    // admitting restored/script-created objects or scanning the world/backlog.
+    static void StartReporting()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (!s_Reporting)
+        {
+            s_Reporting = true;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
+        }
+    }
+
+    static void ObserveCECreate()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        s_CECalls++;
+        StartReporting();
+    }
+
+    static void RecordRejection(ItemBase item)
+    {
+        s_Rejected++;
+        if (!item) { return; }
+        if (item.GetHierarchyParent()) { s_Parented++; }
+        if (item.IsPendingDeletion()) { s_Deleting++; }
+    }
+
     static void Enqueue(ItemBase item)
     {
-        if (!GetGame() || !GetGame().IsServer() || !Eligible(item)) { return; }
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (!Eligible(item)) { RecordRejection(item); return; }
         if (!s_Tail)
         {
             s_Tail = new HCGroundCELootChunk;
@@ -58,13 +91,7 @@ class HCGroundCELoot
             s_FirstEnqueueLogged = true;
             Print("[HC Ground] source=ce_queue first_enqueue type=" + item.GetType() + " runtime=PENDING");
         }
-        if (!s_Reporting)
-        {
-            s_Reporting = true;
-            // Keep the minute receipt after drain completion so pending=0 is visible.
-            // Native missionServer uses class-qualified static CallLater targets.
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
-        }
+        StartReporting();
         if (!s_Scheduled)
         {
             s_Scheduled = true;
@@ -103,26 +130,43 @@ class HCGroundCELoot
         if (!GetGame() || !GetGame().IsServer()) { return; }
         // processed counts dequeued entries, including deleted/reparented items.
         // enqueued = processed + pending; overflow is zero (no capacity drops).
-        string line = "[HC Ground] source=ce_queue overflow=0 enqueued=" + s_Enqueued.ToString();
+        string line = "[HC Ground] source=ce_queue ce_calls=" + s_CECalls.ToString();
+        line += " rejected=" + s_Rejected.ToString();
+        line += " parented=" + s_Parented.ToString() + " deleting=" + s_Deleting.ToString();
+        line += " overflow=0 enqueued=" + s_Enqueued.ToString();
         line += " processed=" + s_Processed.ToString() + " pending=" + s_Count.ToString();
         line += " peak=" + s_Peak.ToString() + " ineligible=" + s_Ineligible.ToString();
-        Print("" + line);
-        s_Stats.Summary("ce");
-        HCGroundSnap.Placed.Summary("hc_placements");
-        // One final empty receipt, then sleep until another successful admission.
-        // Retain the reporting flag while pending so Enqueue cannot arm duplicates.
-        if (s_Count > 0)
+        // Print the first receipt and then only receipts whose counters changed.
+        string receipt = line + " " + HCGroundSnap.Placed.Snapped.ToString() + " " + HCGroundSnap.Placed.AlreadyOk.ToString() + " " + HCGroundSnap.Placed.NoSupport.ToString();
+        if (receipt != s_LastReceipt)
         {
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
+            s_LastReceipt = receipt;
+            Print("" + line);
+            s_Stats.Summary("ce");
+            HCGroundSnap.Placed.Summary("hc_placements");
         }
-        else { s_Reporting = false; }
+        // Constant work once per minute, including when CE only restores storage;
+        // unchanged receipts are not reprinted.
+        // A zero ce_calls receipt distinguishes no observed callback from rejection.
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
     }
 }
 
 modded class ItemBase
 {
+    // Constructors cannot lose a super chain to a subclass callback override.
+    // This starts diagnostics only: admission remains strictly CE/Debug creation.
+    void ItemBase()
+    {
+        HCGroundCELoot.StartReporting();
+    }
+
+    // Native EntityAI.c:1413 distinguishes new CE/Debug creation from DB load
+    // (AfterStoreLoad). Native ItemBase.c:4111 is the root loot implementation.
+    // Vanilla food/firework overrides omitting super remain outside this hook.
     override void EEOnCECreate()
     {
+        HCGroundCELoot.ObserveCECreate();
         super.EEOnCECreate();
         HCGroundCELoot.Enqueue(this);
     }
