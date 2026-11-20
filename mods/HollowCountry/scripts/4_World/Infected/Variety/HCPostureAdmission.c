@@ -140,7 +140,7 @@ class HCPostureAdmission
         if (!m_Running || m_Cursor >= m_Queue.Count()) { return; }
         m_Units.HCReset(1);
         m_Work.HCReset(1);
-        while (m_Cursor < m_Queue.Count())
+        if (m_Cursor < m_Queue.Count())
         {
             if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
             string mode = m_Queue[m_Cursor];

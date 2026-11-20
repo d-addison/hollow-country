@@ -108,60 +108,68 @@ class HCHordeRecovery
         HCHordeMemberId identity = HCHordeMemberId.Read(actor.InfectedEntity);
         if (!identity)
             return false;
-        foreach (HCHordeRecord record : snapshot.Groups)
+        HCHordeRecord record;
+        HCHordeMemberId member;
+        // Select an exact roster match first, then scan live actors once. Work is
+        // linear in total saved roster entries plus registered actors, never their product.
+        foreach (HCHordeRecord candidate : snapshot.Groups)
         {
-            if (record.State != 6 || record.RecoveryConflicted)
+            if (candidate.State != 6 || candidate.RecoveryConflicted)
                 continue;
-            foreach (HCHordeMemberId member : record.MemberIds)
+            foreach (HCHordeMemberId savedMember : candidate.MemberIds)
             {
-                if (!identity.SameId(member))
+                if (!identity.SameId(savedMember))
                     continue;
-                int recovered = 0;
-                bool duplicate = false;
-                foreach (HCInfectedActor registered : actors)
-                {
-                    if (registered.GroupId == record.Id && registered.InfectedEntity && registered.InfectedEntity.IsAlive())
-                        recovered++;
-                    if (registered != actor && registered.InfectedEntity && registered.InfectedEntity.IsAlive())
-                    {
-                        HCHordeMemberId other = HCHordeMemberId.Read(registered.InfectedEntity);
-                        if (identity.SameId(other))
-                            duplicate = true;
-                    }
-                }
-                if (duplicate || identity.Type != member.Type || (actor.GroupId > 0 && actor.GroupId != record.Id))
-                {
-                    record.RecoveryConflicted = true;
-                    return true;
-                }
-                if (actor.GroupId == record.Id)
-                    return false;
-                if (!HCInfectedPolicy.MayRecoverMember(enabled, true, true, identity.Type == member.Type, duplicate, actor.EverAssigned, record.State, record.CreatedUtc, now, recovered, record.Living))
-                {
-                    // An extra exact member beyond the saved living count is
-                    // ambiguity, not capacity to grow a cohort.
-                    if (recovered >= record.Living)
-                    {
-                        record.RecoveryConflicted = true;
-                        return true;
-                    }
-                    return false;
-                }
-                actor.GroupId = record.Id;
-                actor.EverAssigned = true;
-                actor.RecoveredMember = true;
+                record = candidate;
+                member = savedMember;
+                break;
+            }
+            if (record) { break; }
+        }
+        if (!record) { return false; }
+        int recovered = 0;
+        bool duplicate = false;
+        foreach (HCInfectedActor registered : actors)
+        {
+            if (registered.GroupId == record.Id && registered.InfectedEntity && registered.InfectedEntity.IsAlive())
                 recovered++;
-                if (HCInfectedPolicy.RecoveryComplete(recovered, record.Living, record.Reserved, record.RecoveryConflicted))
-                {
-                    // Exact members are now accounted for. Keep state UNRESOLVED
-                    // and never recreate a native pack from a JSON assertion.
-                    // Native restored-agent/group/CE lifetime acceptance is the
-                    // separate gate for reactivation, still deliberately closed.
-                    Print("[HC Infected] exact restored member roster accounted for horde " + record.Id + "; native pack reactivation remains gated");
-                }
-                return true;
+            if (registered != actor && registered.InfectedEntity && registered.InfectedEntity.IsAlive())
+            {
+                HCHordeMemberId other = HCHordeMemberId.Read(registered.InfectedEntity);
+                if (identity.SameId(other))
+                    duplicate = true;
             }
         }
-        return false;
+        if (duplicate || identity.Type != member.Type || (actor.GroupId > 0 && actor.GroupId != record.Id))
+        {
+            record.RecoveryConflicted = true;
+            return true;
+        }
+        if (actor.GroupId == record.Id)
+            return false;
+        if (!HCInfectedPolicy.MayRecoverMember(enabled, true, true, identity.Type == member.Type, duplicate, actor.EverAssigned, record.State, record.CreatedUtc, now, recovered, record.Living))
+        {
+            // An extra exact member beyond the saved living count is
+            // ambiguity, not capacity to grow a cohort.
+            if (recovered >= record.Living)
+            {
+                record.RecoveryConflicted = true;
+                return true;
+            }
+            return false;
+        }
+        actor.GroupId = record.Id;
+        actor.EverAssigned = true;
+        actor.RecoveredMember = true;
+        recovered++;
+        if (HCInfectedPolicy.RecoveryComplete(recovered, record.Living, record.Reserved, record.RecoveryConflicted))
+        {
+            // Exact members are now accounted for. Keep state UNRESOLVED
+            // and never recreate a native pack from a JSON assertion.
+            // Native restored-agent/group/CE lifetime acceptance is the
+            // separate gate for reactivation, still deliberately closed.
+            Print("[HC Infected] exact restored member roster accounted for horde " + record.Id + "; native pack reactivation remains gated");
+        }
+        return true;
     }
 }

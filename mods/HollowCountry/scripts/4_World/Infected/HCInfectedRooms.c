@@ -172,6 +172,7 @@ class HCInfectedRoomCatalog
     protected static string s_ProductionReason = "rooms_not_loaded";
     protected static string s_ProductionContext;
     protected static int s_JsonOffset;
+    protected static ref HCTextWindow s_JsonWindow;
 
     static void Clear()
     {
@@ -246,13 +247,14 @@ class HCInfectedRoomCatalog
         if (content.Length() < 1 || content.Length() > 65536)
             return false;
         ref array<int> masks = new array<int>;
+        HCTextWindow window = new HCTextWindow(content);
         int depth = 0;
         int roots = 0;
         int begin = 0;
         bool quoted = false;
         for (int i = 0; i < content.Length(); i++)
         {
-            string ch = content.Get(i);
+            string ch = window.At(i);
             // Diagnostic identifiers need no escapes. Reject all escapes so a
             // differently encoded key cannot bypass duplicate/unknown checks.
             if (ch.ToAscii() == 92)
@@ -268,13 +270,13 @@ class HCInfectedRoomCatalog
                 {
                     quoted = false;
                     int next = i + 1;
-                    while (next < content.Length() && JsonSpace(content.Get(next)))
+                    while (next < content.Length() && JsonSpace(window.At(next)))
                         next++;
-                    if (next < content.Length() && content.Get(next) == ":")
+                    if (next < content.Length() && window.At(next) == ":")
                     {
                         if (depth < 1 || i - begin > 32)
                             return false;
-                        int bit = KeyBit(depth, content.Substring(begin, i - begin));
+                        int bit = KeyBit(depth, window.Range(begin, i - begin));
                         if (bit == 0 || (masks[depth - 1] & bit) != 0)
                             return false;
                         masks[depth - 1] = masks[depth - 1] | bit;
@@ -424,8 +426,10 @@ class HCInfectedRoomCatalog
         ownedSurvey.EvidenceId = survey.EvidenceId;
         ownedSurvey.Revision = survey.Revision;
         ownedSurvey.Measured = survey.Measured;
-        foreach (HCInfectedRoomAnchor anchor : survey.Anchors)
+        // AdmitRoomCatalog already enforces at most six diagnostic anchors.
+        for (int anchorIndex = 0; anchorIndex < 6 && anchorIndex < survey.Anchors.Count(); anchorIndex++)
         {
+            HCInfectedRoomAnchor anchor = survey.Anchors[anchorIndex];
             if (!anchor || anchor.Id < 1 || anchor.Id > 64 || !HCInfectedStore.ValidPosition(anchor.LocalPosition) || !anchor.Contains(anchor.LocalPosition))
                 return null;
             for (int axis = 0; axis < 3; axis++)
@@ -638,11 +642,12 @@ class HCInfectedRoomCatalog
             if (!(record.BoxMin[axis] >= -512 && record.BoxMax[axis] <= 512 && record.BoxMin[axis] < record.BoxMax[axis]))
                 return false;
         }
-        ref array<int> usedIds = new array<int>;
+        // Native scripts-1.30.164289: EnScript.c:917/:926 map Contains/Insert.
+        ref map<int, bool> usedIds = new map<int, bool>;
         ref array<vector> usedPositions = new array<vector>;
         foreach (HCInfectedProductionRoomAnchor anchor : record.Anchors)
         {
-            if (!anchor || anchor.Id < 1 || anchor.Id > 64 || usedIds.Find(anchor.Id) >= 0)
+            if (!anchor || anchor.Id < 1 || anchor.Id > 64 || usedIds.Contains(anchor.Id))
                 return false;
             for (int anchorAxis = 0; anchorAxis < 3; anchorAxis++)
             {
@@ -663,7 +668,7 @@ class HCInfectedRoomCatalog
                 s_ProductionReason = "rooms_evidence";
                 return false;
             }
-            usedIds.Insert(anchor.Id);
+            usedIds.Insert(anchor.Id, true);
             usedPositions.Insert(anchor.LocalPosition);
         }
         return true;
@@ -671,13 +676,14 @@ class HCInfectedRoomCatalog
 
     static string ProductionBuildLabel(string value)
     {
+        HCTextWindow window = new HCTextWindow(value);
         string label = "";
         int limit = value.Length();
         if (limit > 32)
             limit = 32;
         for (int i = 0; i < limit; i++)
         {
-            string ch = value.Get(i);
+            string ch = window.At(i);
             int ascii = ch.ToAscii();
             if (ascii >= 32 && ascii <= 126)
             {
@@ -793,7 +799,7 @@ class HCInfectedRoomCatalog
     {
         if (s_JsonOffset < 0 || s_JsonOffset >= content.Length())
             return "";
-        return content.Get(s_JsonOffset);
+        return s_JsonWindow.At(s_JsonOffset);
     }
 
     static int ProductionJsonCode(string content)
@@ -821,7 +827,7 @@ class HCInfectedRoomCatalog
             int ascii = ProductionJsonCode(content);
             if (ascii == 34)
             {
-                string value = content.Substring(begin, s_JsonOffset - begin);
+                string value = s_JsonWindow.Range(begin, s_JsonOffset - begin);
                 s_JsonOffset++;
                 return value;
             }
@@ -1054,11 +1060,16 @@ class HCInfectedRoomCatalog
         s_JsonOffset = 0;
         if (content.Length() < 1 || content.Length() > MAX_PRODUCTION_BYTES)
             return false;
+        s_JsonWindow = new HCTextWindow(content);
         ProductionJsonSkip(content);
-        if (!ProductionJsonObject(content, 1))
-            return false;
-        ProductionJsonSkip(content);
-        return s_JsonOffset == content.Length();
+        bool valid = ProductionJsonObject(content, 1);
+        if (valid)
+        {
+            ProductionJsonSkip(content);
+            valid = s_JsonOffset == content.Length();
+        }
+        s_JsonWindow = null;
+        return valid;
     }
 
     static void EnsureProductionLoaded()
@@ -1211,11 +1222,13 @@ class HCInfectedRoomCatalog
         // T3 DTO boxes and points are array<float>; BoxValid/VectorValid also check Count() == 3.
         if (!HCInteriorTemplates.BoxValid(layout.Box.Min, layout.Box.Max))
             return false;
-        ref array<int> usedIds = new array<int>;
+        // Native scripts-1.30.164289: EnScript.c:917/:926 map Contains/Insert.
+        ref map<int, bool> usedIds = new map<int, bool>;
         ref array<vector> usedPositions = new array<vector>;
-        foreach (auto room : layout.Rooms)
+        for (int roomIndex = 0; roomIndex < 16 && roomIndex < layout.Rooms.Count(); roomIndex++)
         {
-            if (!room || room.Id < 1 || room.Id > 64 || usedIds.Find(room.Id) >= 0)
+            HCInteriorTemplateRoom room = layout.Rooms[roomIndex];
+            if (!room || room.Id < 1 || room.Id > 64 || usedIds.Contains(room.Id))
                 return false;
             if (!HCInteriorTemplates.BoxValid(room.Min, room.Max) || !HCInteriorTemplates.VectorValid(room.Anchor, 512))
                 return false;
@@ -1230,7 +1243,7 @@ class HCInfectedRoomCatalog
                 if (vector.DistanceSq(previousPoint, anchorPoint) < 1)
                     return false;
             }
-            usedIds.Insert(room.Id);
+            usedIds.Insert(room.Id, true);
             usedPositions.Insert(anchorPoint);
         }
         return true;
@@ -1432,6 +1445,7 @@ class HCInfectedRoomCatalog
             return;
         s_ConflictsResolved = true;
         ref array<House> claimed = new array<House>;
+        ref map<House, bool> claimedIndex = new map<House, bool>;
         foreach (HCInfectedRoomBinding legacy : s_ProductionBindings)
         {
             if (!legacy.HouseObject || claimed.Count() >= MAX_PRODUCTION_HOUSES)
@@ -1439,8 +1453,11 @@ class HCInfectedRoomCatalog
             HCInteriorTemplateClassRow legacyRow = HCInteriorTemplates.ClassRow(legacy.HouseObject.GetType());
             if (!legacyRow || legacyRow.Rooms != "covered")
                 continue;
-            if (claimed.Find(legacy.HouseObject) < 0)
+            if (!claimedIndex.Contains(legacy.HouseObject))
+            {
+                claimedIndex.Insert(legacy.HouseObject, true);
                 claimed.Insert(legacy.HouseObject);
+            }
         }
         foreach (House conflicted : claimed)
         {
@@ -1575,7 +1592,7 @@ class HCInfectedRoomCatalog
         }
         if (!selected)
             return;
-        ref array<int> used = new array<int>;
+        ref map<int, bool> used = new map<int, bool>;
         for (int n = 0; n < budget; n++)
         {
             HCInfectedRoomAnchor best;
@@ -1583,7 +1600,7 @@ class HCInfectedRoomCatalog
             bool bestClueRoom;
             foreach (HCInfectedRoomAnchor candidate : selected.Survey.Anchors)
             {
-                if (used.Find(candidate.Id) >= 0)
+                if (used.Contains(candidate.Id))
                     continue;
                 float distanceSq = vector.DistanceSq(candidate.LocalPosition, localClue);
                 bool clueRoom = candidate.Contains(localClue);
@@ -1596,7 +1613,7 @@ class HCInfectedRoomCatalog
             }
             if (!best)
                 break;
-            used.Insert(best.Id);
+            used.Insert(best.Id, true);
             vector world = selected.HouseObject.ModelToWorld(best.LocalPosition);
             if (HCInfectedStore.ValidPosition(world))
                 points.Insert(world);

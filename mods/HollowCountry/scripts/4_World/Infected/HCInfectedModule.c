@@ -42,7 +42,8 @@ class HCInfectedModule : HCModule
     protected ref array<ref HCInfectedActor> m_Investigators = new array<ref HCInfectedActor>;
     // Runtime-only: a restarted aborted intent is still unknown membership.
     // Only a failed transfer seen by this process may leave other slots open.
-    protected ref array<int> m_FailedCohorts = new array<int>;
+    // Native scripts-1.30.164289: EnScript.c:917/:926 map Contains/Insert.
+    protected ref map<int, bool> m_FailedCohorts = new map<int, bool>;
     protected ref HCAlertChain m_AlertChain = new HCAlertChain;
     // Last pack route refusal this module logged (site:reason); "" after a success.
     protected string m_LastRouteRefusal;
@@ -50,6 +51,7 @@ class HCInfectedModule : HCModule
     protected bool m_Hordes;
     protected bool m_Chains;
     protected bool m_Dirty;
+    protected ref HCInfectedSaveJob m_SaveJob;
     protected int m_WorkCap;
     protected int m_GroupCap;
     protected int m_MemberCap;
@@ -226,6 +228,12 @@ class HCInfectedModule : HCModule
         m_NativeVariants = HCNativeVariantAdmission.Check(settings.EnableInfectedVariety);
         Print(m_NativeVariants.HCAdmissionLine());
         m_Healthy = true;
+        if (m_Hordes)
+        {
+            m_SaveJob = new HCInfectedSaveJob;
+            m_SaveJob.HCBind(this);
+            HCSaveScheduler.HCRegister(m_SaveJob);
+        }
         // The posture owner (InfectedVariety) is a separate module registered after this one, so
         // it cannot have started when HC-1 captures this row. It prints its own readiness line;
         // this owner reports only its own started state and still surfaces a later degraded
@@ -253,6 +261,12 @@ class HCInfectedModule : HCModule
         m_Healthy = false;
         m_HCOwnerStatus.HCPublish("refused", reason);
         HCInfectedVisionQualification.HCThreatReset(false);
+        if (m_SaveJob)
+        {
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+            m_SaveJob.HCDetach();
+            m_SaveJob = null;
+        }
         if (Instance == this)
             Instance = null;
         ReleasePacks();
@@ -493,6 +507,7 @@ class HCInfectedModule : HCModule
     {
         // Journal records advance only under an admitted lifecycle; an unresolved
         // record is never retired by anything but admitted member recovery.
+        string sweepReport = "";
         int sweepCount = 0;
         if (m_Admission.CEAdoption || m_Admission.MemberRecovery)
             sweepCount = m_Sweeps.Count();
@@ -527,7 +542,7 @@ class HCInfectedModule : HCModule
                         }
                     }
                     m_Dirty = true;
-                    Print("[HC Infected] ambiguous membership; reservation retained for horde " + record.Id);
+                    sweepReport += " ambiguous_membership_reservation_retained=" + record.Id.ToString();
                 }
             }
             sweep.Clue = sweep.Stimulus && sweep.Stimulus.IsLive(m_Now);
@@ -543,7 +558,7 @@ class HCInfectedModule : HCModule
             int next = HCInfectedPolicy.NextHordeState(record.State, living, sweep.Clue, sweep.Engaged, nowUtc - record.LastSignalUtc, nowUtc - record.CreatedUtc);
             if (next != record.State)
             {
-                Print("[HC Infected] horde " + record.Id + " state " + record.State + " -> " + next);
+                sweepReport += " horde=" + record.Id.ToString() + " state=" + record.State.ToString() + "->" + next.ToString();
                 record.State = next;
                 m_Dirty = true;
             }
@@ -568,6 +583,7 @@ class HCInfectedModule : HCModule
                 }
             }
         }
+        if (sweepReport != "") { Print("[HC Infected] sweep" + sweepReport); }
         // Cohort retargets steer native packs; never reached without admission.
         if (m_Admission.HordeStimulusRoutes)
             RetargetCohorts();
@@ -650,16 +666,37 @@ class HCInfectedModule : HCModule
         }
     }
 
+    // Called only by this owner's save job. Encoding freezes the image; later
+    // actor/route updates keep m_Dirty for the next generation, never alter it.
+    bool HCBeginCheckpoint(HCStagedSaveImage image)
+    {
+        if (!m_Healthy || !m_State) { return false; }
+        if (!HCInfectedStore.HCBeginImage(image, m_State, m_MemberCap, m_GroupCap)) { return false; }
+        m_Dirty = false;
+        return true;
+    }
+
+    void HCCheckpointFailed()
+    {
+        Quarantine("snapshot write/readback failed; preserving spent intent");
+    }
+
     protected bool SaveAdoptionBoundary(string boundary)
     {
-        // Close/readback is the inspected native guarantee available here.
-        // It is not an fsync or atomic native CE/group transaction.
-        if (!HCInfectedStore.Save(m_State, m_MemberCap, m_GroupCap))
+        // Durability barrier: finish any older image, then persist current intent
+        // BEFORE native membership transfer/refund reuse. Routine ticks only queue.
+        // Close/readback is not fsync or an atomic native CE/group transaction.
+        if (!m_SaveJob || !HCSaveScheduler.HCFlush(m_SaveJob))
+        {
+            Quarantine("adoption " + boundary + " pending write/readback failed; preserving spent intent");
+            return false;
+        }
+        m_SaveJob.HCDirty = true;
+        if (!HCSaveScheduler.HCFlush(m_SaveJob))
         {
             Quarantine("adoption " + boundary + " write/readback failed; preserving spent intent");
             return false;
         }
-        m_Dirty = false;
         m_NextSave = m_Now + m_Config.SaveIntervalSeconds + m_Config.SaveIntervalSeconds / 2;
         return true;
     }
@@ -705,6 +742,10 @@ class HCInfectedModule : HCModule
         {
             return;
         }
+        if (m_SaveJob && (m_SaveJob.HCDirty || m_SaveJob.HCInFlight))
+        {
+            if (!HCSaveScheduler.HCFlush(m_SaveJob)) { HCCheckpointFailed(); return; }
+        }
         int activeGroups = 0;
         int reusableSlot = -1;
         for (int slot = 0; slot < m_State.Groups.Count(); slot++)
@@ -717,7 +758,7 @@ class HCInfectedModule : HCModule
                 // Never infer safe membership from that journal value alone.
                 if (pending.State == 6)
                 {
-                    if (m_FailedCohorts.Find(pending.Id) < 0)
+                    if (!m_FailedCohorts.Contains(pending.Id))
                     {
                         return;
                     }
@@ -898,9 +939,9 @@ class HCInfectedModule : HCModule
             record.State = 6;
             record.RecoveryConflicted = true;
             record.HasRoute = false;
-            if (m_FailedCohorts.Find(record.Id) < 0)
+            if (!m_FailedCohorts.Contains(record.Id))
             {
-                m_FailedCohorts.Insert(record.Id);
+                m_FailedCohorts.Insert(record.Id, true);
             }
         }
         m_Dirty = true;
@@ -1179,13 +1220,13 @@ class HCInfectedModule : HCModule
         // A save due on an adoption tick waits one tick (state stays dirty).
         if (m_Hordes && m_Dirty && !adopted && m_Now >= m_NextSave)
         {
-            if (!HCInfectedStore.Save(m_State, m_MemberCap, m_GroupCap))
-            {
-                Quarantine("snapshot write/readback failed; preserving state");
-                return;
-            }
-            m_Dirty = false;
+            m_SaveJob.HCDirty = true;
+            // A refused registration still advances at most one staged operation.
             m_NextSave = m_Now + m_Config.SaveIntervalSeconds;
+        }
+        if (m_SaveJob && !HCSaveScheduler.HCRegistered(m_SaveJob) && (m_SaveJob.HCDirty || m_SaveJob.HCInFlight))
+        {
+            m_SaveJob.HCStep();
         }
     }
 
@@ -1195,8 +1236,14 @@ class HCInfectedModule : HCModule
         ReleasePacks();
         if (m_Healthy && m_Hordes && m_Dirty && GetGame().IsServer())
         {
-            if (!HCInfectedStore.Save(m_State, m_MemberCap, m_GroupCap))
-                Quarantine("shutdown snapshot failed");
+            SaveAdoptionBoundary("shutdown");
+        }
+        if (m_SaveJob)
+        {
+            if (m_Healthy && (m_SaveJob.HCDirty || m_SaveJob.HCInFlight)) { HCSaveScheduler.HCFlush(m_SaveJob); }
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+            m_SaveJob.HCDetach();
+            m_SaveJob = null;
         }
         if (Instance == this)
             Instance = null;
@@ -1219,5 +1266,48 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCInfectedModule);
+    }
+}
+
+// Shared scheduler owns routine writes; HCFlush is reserved for the explicit
+// adoption/shutdown durability barriers above. The image text is immutable.
+class HCInfectedSaveJob : HCSaveJob
+{
+    protected HCInfectedModule m_Owner;
+    protected ref HCStagedSaveImage m_Image;
+    protected bool m_Failed;
+
+    override string HCName() { return "Infected"; }
+    void HCBind(HCInfectedModule owner) { m_Owner = owner; }
+    void HCDetach() { m_Owner = null; }
+
+    override int HCStep()
+    {
+        if (m_Failed || !m_Owner) { return STEP_FAILED; }
+        int result = STEP_MORE;
+        if (!m_Image)
+        {
+            m_Image = new HCStagedSaveImage;
+            if (!m_Owner.HCBeginCheckpoint(m_Image)) { result = STEP_FAILED; }
+            this.HCInFlight = true;
+        }
+        else
+        {
+            result = m_Image.HCStepImage();
+        }
+        if (result == STEP_DONE)
+        {
+            m_Image = null;
+            this.HCDirty = false;
+            this.HCInFlight = false;
+        }
+        if (result == STEP_FAILED)
+        {
+            m_Failed = true;
+            this.HCDirty = false;
+            this.HCInFlight = false;
+            m_Owner.HCCheckpointFailed();
+        }
+        return result;
     }
 }

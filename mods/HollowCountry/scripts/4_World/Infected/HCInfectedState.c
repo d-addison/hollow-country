@@ -647,6 +647,7 @@ class HCInfectedStore
     {
         string pathA = DIRECTORY + "/hordes-a.json";
         string pathB = DIRECTORY + "/hordes-b.json";
+        if (FileExist(pathA + ".tmp") || FileExist(pathB + ".tmp")) { return false; }
         bool existsA = FileExist(pathA);
         bool existsB = FileExist(pathB);
         if (!existsA && !existsB)
@@ -752,6 +753,20 @@ class HCInfectedStore
             return false;
         ApplyRestart(snapshot);
         return true;
+    }
+
+    // Same alternating slot names/schema; serialize once, then let the shared
+    // writer verify the immutable image in stages. No per-checkpoint prior read.
+    static bool HCBeginImage(HCStagedSaveImage image, HCInfectedSnapshot snapshot, int memberCap, int groupCap)
+    {
+        snapshot.Generation++;
+        snapshot.SavedUtc = HCInfectedClock.UtcSeconds();
+        if (!Validate(snapshot, snapshot.WorldName, memberCap, groupCap, snapshot.SavedUtc)) { return false; }
+        string content, error;
+        if (!JsonFileLoader<HCInfectedSnapshot>.MakeData(snapshot, content, error) || content.Length() > 65536) { return false; }
+        string path = DIRECTORY + "/hordes-a.json";
+        if (snapshot.Generation % 2 == 0) { path = DIRECTORY + "/hordes-b.json"; }
+        return image.Begin(path, content, 65536, false, false);
     }
 
     static bool Save(HCInfectedSnapshot snapshot, int memberCap, int groupCap)

@@ -76,7 +76,9 @@ class HCUnitBudget
     // Road graph load and caravan path search. Own slot: AITrade takes TRADE first on
     // starved ticks, so the 38820-node graph got at most 8 nodes per tick (099).
     static const int HC_WORK_ROADS = 26;
-    static const int HC_WORK_CONSUMERS = 27;
+    static const int HC_WORK_INFECTED_VARIETY = 48;
+    static const int HC_WORK_INFECTED_VARIETY_ROUTES = 49;
+    static const int HC_WORK_CONSUMERS = 50;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
