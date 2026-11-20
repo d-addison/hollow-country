@@ -9,7 +9,8 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
   lootdispatch, uncategorised rows (vehicle parts) and every firearms-roster class keep their exact
   supply quantities, so firearms, ammunition, magazines and attachments stay at the scarcity the owner chose.
   The default-on strict floor policy separately retags every loaded equipment row, including these classes
-  and optional-pack rows, to keep them off floors; unmatched shelf capacity is reported in the receipt.
+  and optional-pack rows, to route equipment to evidenced shelves and bounded military weapon
+  exceptions; unmatched receiver capacity is reported in the receipt.
 * ``db/globals.xml``: ``RespawnTypes`` (types refilled per CE respawn cycle) is multiplied so a persistent
   storage reaches the larger nominals; every other knob is left alone and reported.
 * ``mapgroupproto.xml``: group/container ``lootmax`` (defaults included) are multiplied, weapons-only
@@ -62,12 +63,12 @@ KEPT_CATEGORIES = frozenset({'weapons', 'explosives'})
 MIN_MULTIPLIER, MAX_MULTIPLIER = 1.0, 4.0
 RESPAWN_TYPES_CAP = 64
 MAX_GROUP_LOOTMAX = 40
-MAX_ADDED_LOOTMAX = 4
+MAX_ADDED_LOOTMAX = 12
 CONTAINERS = {'floor': 'lootHCFloor', 'surface': 'lootHCSurface'}
 POINT_SHAPE = {'floor': ('0.500000', '1.200000'), 'surface': ('0.300000', '0.500000')}  # range, height
 MAX_FLOOR_POINTS = 12
-MAX_SURFACE_POINTS = 8
-MAX_TOTAL_POINTS = 3000
+MAX_SURFACE_POINTS = 32
+MAX_TOTAL_POINTS = 16000
 MAX_COORDINATE = 200.0
 # A point may sit below its building's lowest stock loot point only by a basement's depth. The committed overlay
 # had one Land_Tower_TC2_Base point 20 m under the stock floor (a shaft or terrain hit, not a floor).
@@ -117,8 +118,39 @@ def default_multiplier(repo=REPO_ROOT):
 
 
 def shipped_points(repo=REPO_ROOT):
-    path = Path(repo) / ADDITIONS
-    return path.read_bytes() if path.is_file() else None
+    """Merge schema-1 additions.json, then additions-*.json in filename order.
+
+    Every file uses the existing overlay schema (groups keyed by native class,
+    stock_sha256 pin, family, containers lootHCFloor/lootHCSurface with lootmax,
+    categories, tags and xyz points). Group ownership is disjoint: a repeated
+    group, JSON key, or coordinate within a group is an error, never last-wins.
+    Bounds are 12 floor / 32 surface points per group, 12 slots per added
+    container, and 16,000 aggregate points. The merged bytes and per-file hashes
+    are deterministic receipt inputs.
+    """
+    folder = Path(repo) / POINTS_DIR
+    paths = ([folder / 'additions.json'] if (folder / 'additions.json').is_file() else [])
+    paths += sorted(folder.glob('additions-*.json'), key=lambda p: p.name)
+    if not paths:
+        return None
+    merged, sources = None, {}
+    for path in paths:
+        if path.is_symlink():
+            raise ValueError('loot point inputs must be regular files')
+        data = path.read_bytes()
+        doc = parse_overlay(data)
+        sources[path.name] = _sha(data)
+        if merged is None:
+            merged = doc
+        else:
+            duplicates = set(merged['groups']) & set(doc['groups'])
+            if duplicates:
+                raise ValueError('duplicate loot point groups: ' + ', '.join(sorted(duplicates)))
+            merged['groups'].update(doc['groups'])
+    merged['sources'] = sources
+    data = economy.encode(merged)
+    parse_overlay(data)  # enforce the aggregate bound too
+    return data
 
 
 def scaled(value, multiplier):
@@ -286,10 +318,10 @@ def _names(values, what):
     return list(values)
 
 
-def _added_categories(values):
+def _added_categories(values, surface=False):
     names = _names(values, 'category')
-    if {str(v).lower() for v in names} & KEPT_CATEGORIES:
-        raise ValueError('added loot spots never carry firearm or explosive categories')
+    if not surface and {str(v).lower() for v in names} & KEPT_CATEGORIES:
+        raise ValueError('added floor spots cannot carry firearm or explosive categories')
     return names
 
 
@@ -312,7 +344,7 @@ def parse_policy(data):
         for kind in CONTAINERS:
             if kind in row:
                 spec = row[kind]
-                kinds[kind] = {'categories': _added_categories(spec.get('categories')),
+                kinds[kind] = {'categories': _added_categories(spec.get('categories'), surface=kind == 'surface'),
                                'tags': _names(spec.get('tags'), 'tag')}
         if 'floor' not in kinds:
             raise ValueError('family needs floor rules')
@@ -395,29 +427,52 @@ def build_overlay(selection, stock_proto, policy_bytes, sources, skip=()):
     return economy.encode(doc)
 
 
+def _unique_object(pairs):
+    doc = {}
+    for key, value in pairs:
+        if key in doc:
+            raise ValueError('duplicate JSON key in loot points: ' + key)
+        doc[key] = value
+    return doc
+
+
 def parse_overlay(data):
-    doc = json.loads(data)
+    if len(data) > 8 * 1024 * 1024:
+        raise ValueError('loot point input exceeds byte bound')
+    doc = json.loads(data, object_pairs_hook=_unique_object)
     if (not isinstance(doc, dict) or doc.get('schema') != 1 or doc.get('kind') != OVERLAY_KIND
             or doc.get('runtime_acceptance') != PENDING or not isinstance(doc.get('groups'), dict)):
         raise ValueError('not a loot points overlay')
+    if doc.get('frame') != 'stock-mapgroupproto':
+        raise ValueError('loot points require the stock-mapgroupproto coordinate frame')
     total = 0
     for name, spec in doc['groups'].items():
         if not NAME.fullmatch(name) or not isinstance(spec, dict):
             raise ValueError('unsafe overlay group')
+        if not LABEL.fullmatch(str(spec.get('family'))):
+            raise ValueError('overlay group needs a family label')
         if not re.fullmatch(r'[0-9a-f]{64}', str(spec.get('stock_sha256'))):
             raise ValueError('overlay group needs a stock pin')
         containers = spec.get('containers')
         if not isinstance(containers, dict) or not containers or not set(containers) <= set(CONTAINERS.values()):
             raise ValueError('overlay containers must be lootHCFloor/lootHCSurface')
+        seen_points = set()
         for cname, c in containers.items():
             limit = MAX_FLOOR_POINTS if cname == CONTAINERS['floor'] else MAX_SURFACE_POINTS
             if (not isinstance(c, dict) or set(c) != {'lootmax', 'categories', 'tags', 'points'}
                     or type(c['lootmax']) is not int or not 1 <= c['lootmax'] <= MAX_ADDED_LOOTMAX
                     or not isinstance(c['points'], list) or not 1 <= len(c['points']) <= limit):
                 raise ValueError('overlay container shape or bounds')
-            _added_categories(c['categories'])
+            _added_categories(c['categories'], surface=cname == CONTAINERS['surface'])
             _names(c['tags'], 'tag')
+            if cname == CONTAINERS['surface'] and c['tags'] != ['shelves']:
+                raise ValueError('surface points require shelves only')
             c['points'] = [_point(p) for p in c['points']]
+            for point in c['points']:
+                key = tuple(round(v, 6) for v in point)
+                if key in seen_points:
+                    raise ValueError('duplicate loot point in group ' + name)
+                seen_points.add(key)
             total += len(c['points'])
     if total > MAX_TOTAL_POINTS:
         raise ValueError('overlay exceeds the total point bound')
@@ -635,7 +690,10 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     proto_after, report = scale_proto(proto_before, multiplier, overlay, _limits(mission) if overlay else None)
     counts['mapgroupproto'] = report
     if policy is not None:
+        proto_after, receivers = loot_floor_policy.provision_receivers(proto_after, policy)
         proto_after, floor = loot_floor_policy.rebalance_proto(proto_after, tag_rows, policy)
+        proto_after = loot_floor_policy.finish_receivers(proto_after, receivers, policy, floor)
+        floor['receivers'] = receivers
         floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if sorted(r[2]) != sorted(r[3]))
         floor['policy_sha256'] = policy_sha
     else:

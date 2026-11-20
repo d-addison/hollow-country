@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "kind": "hollow-country-loot-families",
-  "note": "First matching family wins. Floor coordinates admit clothing and the tools category solely for exact garbage classes allowed by the default-on strict floor policy; equipment is shelf-only across all loaded types. Surface coordinates remain existing measured shelf/container points, not raised floor coordinates. Group usage still selects contextual items. Firearm supply quantities are unchanged; unmatched shelf demand is reported, never restored to floors.",
+  "note": "Owner 2026-11-20: equipment and weapons use contextual surfaces. Floor categories remain clothing and exact Paper only. Surface firearm eligibility is permitted; the evidence-indexed floor policy provisions native receivers and bounded Military weapon exceptions. All CE matching and clearance remain pending native observation.",
   "families": [
     {
       "family": "kitchen",
@@ -75,8 +75,14 @@
       },
       "surface": {
         "categories": [
+          "weapons",
           "tools",
-          "books"
+          "clothes",
+          "containers",
+          "food",
+          "books",
+          "explosives",
+          "lootdispatch"
         ],
         "tags": [
           "shelves"
@@ -128,8 +134,14 @@
       },
       "surface": {
         "categories": [
+          "weapons",
           "tools",
-          "clothes"
+          "clothes",
+          "containers",
+          "food",
+          "books",
+          "explosives",
+          "lootdispatch"
         ],
         "tags": [
           "shelves"
