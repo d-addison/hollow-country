@@ -97,3 +97,6 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 -m unittest discover -s tests/${{ matrix.tier }} -v
+      - name: Executable offline BDD bindings
+        if: matrix.tier == 'legacy'
+        run: python3 -B -m tools.validate.bdd

@@ -320,7 +320,13 @@ def main():
             raise ValueError("Missing required scenarios: " + "; ".join(sorted(missing)))
         suite = unittest.TestSuite()
         for name, _ in scenarios:
-            tests = unittest.TestLoader().discover(str(ROOT / "tests/unit"), pattern=BINDINGS[name][1])
+            # Bindings live in whichever test tier (fast, slow, legacy) now holds them.
+            tests = unittest.TestSuite()
+            for tier in ("unit", "slow", "legacy"):
+                found = unittest.TestLoader().discover(str(ROOT / "tests" / tier), pattern=BINDINGS[name][1])
+                if found.countTestCases():
+                    tests = found
+                    break
             if tests.countTestCases() == 0:
                 raise ValueError(f"No behavior tests for {name}")
             suite.addTests(tests)
