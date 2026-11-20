@@ -85,6 +85,7 @@ modded class HCInteriorsModule
             int declared = m_FurnishWork.HCLastCost();
             if (declared >= HCInteriorPlacementCursor.SLOT_UNITS) { steps.HCItem(HCInteriorTemplatePlacement.HCLastType(), itemTicks); }
             m_FurnishUnits.HCChargeMeasured(declared, itemTicks, FURNISH_TICKS_PER_UNIT, HCInteriorPlacementCursor.CHEAP_UNITS);
+            if (m_FurnishWork.HCYield()) { break; }
         }
     }
 

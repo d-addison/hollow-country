@@ -221,6 +221,7 @@ class HCHoldouts : HCModule
     protected int m_Reports;
     protected bool m_WaitReported;
     protected bool m_CatalogDirty;
+    protected bool m_PublishCheckpointPending;
     protected ref HCHoldoutSaveJob m_SaveJob;
     protected ref HCWorkBudget m_WorkBudget = new HCPerfSlices("Holdouts");
     // Runtime diagnostics only, bounded by AILimits.MaxHoldouts.
@@ -411,9 +412,23 @@ class HCHoldouts : HCModule
         {
             m_SaveJob.HCDirty = false;
             m_SaveJob.HCInFlight = false;
+            m_SaveJob.HCUrgent = false;
             m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
         }
         return true;
+    }
+
+    // Publication only records a detached world view and its retry flag. Keep
+    // the following simulation stage behind this durable continuation instead
+    // of draining every 4 KiB image pass in the publication tick (#271).
+    // Creation, stock and reserve/spend barriers still use SaveChanged().
+    protected void HCQueuePublishCheckpoint()
+    {
+        if (!m_Dirty && !m_Store.SaveInFlight()) { return; }
+        m_PublishCheckpointPending = true;
+        m_SaveJob.HCDirty = true;
+        m_SaveJob.HCUrgent = true;
+        m_SaveJob.HCDue = GetGame().GetTickTime();
     }
 
     int HCStepCatalog()
@@ -432,8 +447,8 @@ class HCHoldouts : HCModule
         {
             // A newer mutation needs another snapshot before reporting completion.
             if (m_Dirty) { return HCSaveJob.STEP_MORE; }
+            if (m_CatalogDirty) { Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/" + HCAILimits.Get().MaxHoldouts.ToString()); }
             m_CatalogDirty = false;
-            Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/" + HCAILimits.Get().MaxHoldouts.ToString());
         }
         return result;
     }
@@ -995,6 +1010,14 @@ class HCHoldouts : HCModule
         m_TickMeasuredStage = 0;
         if (!m_Ready || !HCWorldModule.Get()) return;
         m_Elapsed += deltaTime;
+        if (m_PublishCheckpointPending)
+        {
+            HCSaveScheduler.HCPumpFallback(m_SaveJob);
+            if (!m_Ready || m_SaveJob.HCFaulted || m_SaveJob.HCDirty || m_SaveJob.HCInFlight) { return; }
+            m_PublishCheckpointPending = false;
+            // A completed checkpoint never shares a tick with simulation.
+            return;
+        }
         if (!HCInteriorTemplates.Loaded())
         {
             if (!m_WaitReported) Print("[HollowCountry] V2 holdouts waiting for authored covered template houses");
@@ -1032,7 +1055,7 @@ class HCHoldouts : HCModule
             if (!row.Published)
             {
                 PublishState(row);
-                if (!SaveChanged()) { return; }
+                HCQueuePublishCheckpoint();
             }
             m_TickPhase = 2;
             return;
@@ -1157,7 +1180,7 @@ class HCHoldouts : HCModule
             PublishState(row);
             if (row.Published) m_Dirty = true;
         }
-        SaveChanged();
+        HCQueuePublishCheckpoint();
         m_TickPhase = 0;
         m_TickStructure = null;
     }

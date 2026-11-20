@@ -152,6 +152,25 @@ class HCInteriorTemplatePlacement
         return entry;
     }
 
+    // A cache miss owns a separate cursor slice. The native query itself
+    // cannot be preempted (boot 114: 76.6 ms resolve, only two results); do not
+    // add inspection/creation to that same slice. Exact centres/refusals and
+    // the subsequent live object filtering stay unchanged.
+    static bool HCPrepareResolve(HCInteriorFurnishRow row)
+    {
+        vector position = HCInteriorTemplates.AsVector(row.Position);
+        foreach (HCInteriorResolveEntry cached : s_ResolveCache)
+        {
+            if (cached.Position == position) { return true; }
+        }
+        int mark = TickCount(0);
+        HCInteriorResolveEntry entry = HCResolveObjects(position);
+        HCSteps().HCAdd(STEP_RESOLVE, TickCount(mark));
+        s_LastQuery = entry.QuerySize;
+        s_LastType = row.BuildingClass + "#q" + s_LastQuery.ToString();
+        return false;
+    }
+
     static Object Resolve(HCInteriorFurnishRow row)
 
     {
@@ -210,7 +229,10 @@ class HCInteriorTemplatePlacement
     static Object Spawn(string type, vector position, vector orientation)
 
     {
-        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
+        // #271: Schedule already rebuilds this object's region after its final
+        // orientation. ECE_UPDATEPATHGRAPH rebuilt it synchronously as well,
+        // inside CreateObjectEx. Retain one rebuild, on the existing queue.
+        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
         HCStepTimer steps = HCSteps();
         int mark = TickCount(0);
         Object object = GetGame().CreateObjectEx(type, position, flags, RF_IGNORE);

@@ -327,8 +327,9 @@ class HCStagedSaveImage
     static const int HC_IMAGE_CREATE = 1;
     static const int HC_IMAGE_REMOVE = 2;
     protected int m_Mode;
-    // Six streaming passes at 8 MiB in 4 KiB chunks, including EOF stages and metadata.
-    static const int HC_MAX_STAGES = 12400;
+    // Six streaming passes at 8 MiB in 4 KiB chunks; primary promotion now
+    // yields between read/write/handle operations as well. Include EOF/setup.
+    static const int HC_MAX_STAGES = 16000;
     protected string m_Path;
     protected string m_Temporary;
     protected string m_Text;
@@ -344,6 +345,9 @@ class HCStagedSaveImage
     protected bool m_ReadOpen;
     protected bool m_WriteOpen;
     protected int m_Offset;
+    protected int m_PrimaryOpenStage;
+    protected bool m_PrimaryDone;
+    protected string m_PrimaryPiece;
 
     void ~HCStagedSaveImage() { HCClose(); }
 
@@ -353,6 +357,9 @@ class HCStagedSaveImage
         if (m_WriteOpen) { CloseFile(m_Write); m_WriteOpen = false; }
         m_Opened = false;
         m_Offset = 0;
+        m_PrimaryOpenStage = 0;
+        m_PrimaryDone = false;
+        m_PrimaryPiece = "";
     }
 
     protected int HCFail()
@@ -439,7 +446,85 @@ class HCStagedSaveImage
             HCSaveJob.HCOperation = "copy_backup";
             if (m_Backup) { source = m_Path; target = m_Path + ".bak"; }
         }
-        else if (m_Phase == 3) { HCSaveJob.HCOperation = "copy_primary"; source = m_Temporary; target = m_Path; expected = m_Text; compare = true; }
+        // #271: primary promotion already streams 4 KiB; it is not CopyFile.
+        // Isolate open/delete/read/write/close under this existing staged-writer
+        // boundary. Native filesystem stalls cannot be preempted. Even a fresh
+        // primary needs promotion to preserve the verified temporary intent;
+        // the installed native API exposes no rename primitive.
+        else if (m_Phase == 3)
+        {
+            if (!m_Opened)
+            {
+                if (m_PrimaryOpenStage == 0)
+                {
+                    HCSaveJob.HCOperation = "copy_primary_open_read";
+                    m_Read = OpenFile(m_Temporary, FileMode.READ);
+                    if (!m_Read) { return HCFail(); }
+                    m_ReadOpen = true;
+                    m_PrimaryOpenStage = 1;
+                    return HCSaveJob.STEP_MORE;
+                }
+                if (m_PrimaryOpenStage == 1)
+                {
+                    m_PrimaryOpenStage = 2;
+                    if (FileExist(m_Path))
+                    {
+                        HCSaveJob.HCOperation = "copy_primary_delete_target";
+                        if (!DeleteFile(m_Path)) { return HCFail(); }
+                        return HCSaveJob.STEP_MORE;
+                    }
+                }
+                HCSaveJob.HCOperation = "copy_primary_open_write";
+                m_Write = OpenFile(m_Path, FileMode.WRITE);
+                if (!m_Write) { return HCFail(); }
+                m_WriteOpen = true;
+                m_Opened = true;
+                return HCSaveJob.STEP_MORE;
+            }
+            if (m_PrimaryPiece != "")
+            {
+                HCSaveJob.HCOperation = "copy_primary_write";
+                FPrint(m_Write, m_PrimaryPiece);
+                m_PrimaryPiece = "";
+                return HCSaveJob.STEP_MORE;
+            }
+            if (m_PrimaryDone)
+            {
+                if (m_ReadOpen)
+                {
+                    HCSaveJob.HCOperation = "copy_primary_close_read";
+                    CloseFile(m_Read);
+                    m_ReadOpen = false;
+                    return HCSaveJob.STEP_MORE;
+                }
+                if (m_WriteOpen)
+                {
+                    HCSaveJob.HCOperation = "copy_primary_close_write";
+                    CloseFile(m_Write);
+                    m_WriteOpen = false;
+                    return HCSaveJob.STEP_MORE;
+                }
+                HCSaveJob.HCOperation = "copy_primary_done";
+                HCClose();
+                m_Phase = 4;
+                return HCSaveJob.STEP_MORE;
+            }
+            HCSaveJob.HCOperation = "copy_primary_read";
+            string primaryPiece;
+            int primaryCount = ReadFile(m_Read, primaryPiece, HC_CHUNK_BYTES);
+            if (primaryCount < 0 || primaryCount != primaryPiece.Length() || m_Offset + primaryCount > m_Limit || m_Offset + primaryCount > m_Text.Length()) { return HCFail(); }
+            if (primaryCount == 0)
+            {
+                if (m_Offset < 1 || m_Offset != m_Text.Length()) { return HCFail(); }
+                m_PrimaryDone = true;
+                return HCSaveJob.STEP_MORE;
+            }
+            string primaryWant = m_Text.Substring(m_Offset, primaryCount);
+            if (primaryWant.Length() != primaryCount || primaryPiece != primaryWant) { return HCFail(); }
+            m_PrimaryPiece = primaryPiece;
+            m_Offset = m_Offset + primaryCount;
+            return HCSaveJob.STEP_MORE;
+        }
         else if (m_Phase == 4) { HCSaveJob.HCOperation = "read_primary"; source = m_Path; expected = m_Text; compare = true; }
         else
         {

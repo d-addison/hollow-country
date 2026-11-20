@@ -13,6 +13,7 @@ class HCInteriorPlacementCursor
     static const int CHEAP_UNITS = 1;
     static const int SLOT_UNITS = 8;
     protected int m_LastCost = 1;
+    protected bool m_Yield;
     protected int m_Next;
     protected int m_Slot;
     protected int m_HousePlaced;
@@ -30,10 +31,12 @@ class HCInteriorPlacementCursor
 
     bool HCComplete() { return m_Complete; }
     int HCLastCost() { return m_LastCost; }
+    bool HCYield() { return m_Yield; }
 
     void HCTick(HCInteriorsModule module, HCSettings settings, array<Object> placed)
     {
         m_LastCost = CHEAP_UNITS;
+        m_Yield = false;
         if (m_Complete || !HCInteriorTemplates.Loaded()) { return; }
         if (!m_Budget.HCContinue()) { m_Budget.HCDeferred("Interiors", 1); return; }
         array<ref HCInteriorFurnishRow> rows = HCInteriorTemplates.FurnishRows();
@@ -93,6 +96,11 @@ class HCInteriorPlacementCursor
         if (HCInteriorRules.PlacementAdmitted())
         {
             m_LastCost = SLOT_UNITS;
+            if (!HCInteriorTemplatePlacement.HCPrepareResolve(m_Current))
+            {
+                m_Yield = true;
+                return;
+            }
             int beforeCount = placed.Count();
             if (!HCInteriorTemplatePlacement.HCPlaceRowSlice(module, m_Current, settings, placed, m_Slot, 1, m_Slot, m_HousePlaced))
             {

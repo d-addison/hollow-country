@@ -61,7 +61,11 @@ class HCXAIAdapter extends HCModule
     protected int m_LastReceiptSequence;
     protected int m_LastReceiptAt = -1;
     protected bool m_ReadinessLogged;
+    protected float m_ReadinessStarted;
+    protected string m_ReadinessDependency;
+    protected float m_ReadinessProbeAfter;
     protected int m_LastQualifiedPatrolCount = -1;
+    protected float m_QualifiedProbeAfter;
     protected ref HCXAISiteDirector m_Sites;
     // AI_ENCOUNTER on the director's own qualified patrols (HCXAIEncounters.c).
     protected ref HCXAIEncounters m_Encounters;
@@ -96,6 +100,9 @@ class HCXAIAdapter extends HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        m_ReadinessStarted = GetGame().GetTickTime();
+        m_ReadinessProbeAfter = 0;
+        m_ReadinessDependency = "";
         // HC sites (patrols, scavengers, holdouts) admit themselves from engine
         // observations; they do not depend on the lease profile below.
         // Seed the V2 encounters flag from the preference before the director binds
@@ -143,6 +150,29 @@ class HCXAIAdapter extends HCModule
     // Qualified patrols are not a count of live AI groups.
     void HCRefreshReadiness()
     {
+        // #271: boot 114 loaded Expansion settings at start. The later 277 s
+        // HC Ready receipt waited on HC source-page checks + the shared road
+        // graph loader + 88 candidate bindings, not Expansion initialization.
+        // Cached status only; retain the original admission and final receipt.
+        float now = GetGame().GetTickTime();
+        if (now >= m_ReadinessProbeAfter)
+        {
+            m_ReadinessProbeAfter = now + 15;
+            HCOperationalStatus status = this.HCGetOperationalStatus();
+            string dependency = status.HCState() + ":" + status.HCReason();
+            if (dependency != m_ReadinessDependency)
+            {
+                m_ReadinessDependency = dependency;
+                string line = "[HC AIStartup] state=" + status.HCState() + " reason=" + status.HCReason();
+                float elapsed = now - m_ReadinessStarted;
+                Print(line + " elapsed_s=" + elapsed.ToString() + " admission_unchanged=1 runtime=PENDING");
+            }
+        }
+        // There cannot be a qualified encounter before settlement. Once
+        // settled, the count scan is diagnostic only: sample it every 15 s.
+        if (!m_Encounters.Settled()) { return; }
+        if (m_ReadinessLogged && now < m_QualifiedProbeAfter) { return; }
+        m_QualifiedProbeAfter = now + 15;
         int qualified = m_Encounters.QualifiedCount();
         if ((!m_ReadinessLogged && m_Encounters.Settled()) || (m_ReadinessLogged && qualified != m_LastQualifiedPatrolCount))
         {
