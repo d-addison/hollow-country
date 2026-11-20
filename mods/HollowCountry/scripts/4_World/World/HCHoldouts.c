@@ -96,8 +96,9 @@ class HCEncounterCache
     int Phase;
 }
 
-// One real, ordinary vanilla crate, never respawned after intent. Runtime handle
-// is separate from the DTO; no inventory is serialized, copied or reconstructed.
+// One real, ordinary vanilla crate per saved intent. Holdouts may retire a lost
+// link and journal a new empty crate after lockout; inventory is never rebuilt.
+// Runtime handle is separate from the DTO; shared IO never retries an intent.
 class HCEncounterCacheIO
 {
     EntityAI Handle;
@@ -220,6 +221,12 @@ class HCHoldouts : HCModule
     protected bool m_Ready;
     protected bool m_Dirty;
     protected int m_Reports;
+    protected float m_SummaryElapsed;
+    protected int m_FoundedWindow;
+    protected int m_RecoveryAttemptsWindow;
+    protected int m_StructureBlockedWindow;
+    protected int m_SpotBlockedWindow;
+    protected int m_ObserverBlockedWindow;
     protected bool m_WaitReported;
     protected bool m_CatalogDirty;
     protected bool m_PublishCheckpointPending;
@@ -589,6 +596,7 @@ class HCHoldouts : HCModule
         // One verified image owns debit/refund, stage and population. Uncertain
         // IO closes the feature; materializer never receives the changed image.
         if (!SaveChanged()) { m_Ready = false; return false; }
+        if (priorState != "OCCUPIED" && priorState != "ALERT" && row.Ledger.State == "OCCUPIED") { m_FoundedWindow++; }
         HCLogCamp(row, "ready", "EAT_FIRE_REPAIR_UNPROVEN");
         return true;
     }
@@ -1006,10 +1014,50 @@ class HCHoldouts : HCModule
         Print("[HollowCountry] V2 holdouts template pack changed; ledger re-pinned rows=" + m_State.Rows.Count().ToString() + " uncovered=" + uncovered.ToString());
     }
 
+    // One bounded state census per five minutes, including while publication
+    // checkpoints defer simulation. Counts describe logical state, not live AI.
+    protected void HCReportWindow(float deltaTime)
+    {
+        m_SummaryElapsed += deltaTime;
+        if (m_SummaryElapsed < 300) { return; }
+        m_SummaryElapsed = 0;
+        int dormant = 0;
+        int occupied = 0;
+        int raided = 0;
+        int abandoned = 0;
+        int phase0 = 0;
+        int phase1 = 0;
+        int phase2 = 0;
+        int phase3 = 0;
+        foreach (HCHoldoutRow summaryRow : m_State.Rows)
+        {
+            if (summaryRow.Ledger.State == "DORMANT") { dormant++; }
+            else if (summaryRow.Ledger.State == "OCCUPIED" || summaryRow.Ledger.State == "ALERT") { occupied++; }
+            else if (summaryRow.Ledger.State == "RAIDED") { raided++; }
+            else if (summaryRow.Ledger.State == "ABANDONED") { abandoned++; }
+            if (summaryRow.Cache.Phase == 0) { phase0++; }
+            else if (summaryRow.Cache.Phase == 1) { phase1++; }
+            else if (summaryRow.Cache.Phase == 2) { phase2++; }
+            else if (summaryRow.Cache.Phase == 3) { phase3++; }
+        }
+        string line = "[HC Holdouts] summary dormant=" + dormant.ToString() + " occupied=" + occupied.ToString();
+        line += " raided=" + raided.ToString() + " abandoned=" + abandoned.ToString() + " founded_window=" + m_FoundedWindow.ToString();
+        line += " cache_phase0=" + phase0.ToString() + " cache_phase1=" + phase1.ToString() + " cache_phase2=" + phase2.ToString() + " cache_phase3=" + phase3.ToString();
+        line += " recovery_attempts_window=" + m_RecoveryAttemptsWindow.ToString() + " structure_blocked_window=" + m_StructureBlockedWindow.ToString();
+        line += " spot_blocked_window=" + m_SpotBlockedWindow.ToString() + " observer_blocked_window=" + m_ObserverBlockedWindow.ToString();
+        Print(line + " runtime=PENDING");
+        m_FoundedWindow = 0;
+        m_RecoveryAttemptsWindow = 0;
+        m_StructureBlockedWindow = 0;
+        m_SpotBlockedWindow = 0;
+        m_ObserverBlockedWindow = 0;
+    }
+
     override void OnTick(float deltaTime)
     {
         m_TickMeasuredStage = 0;
         if (!m_Ready || !HCWorldModule.Get()) return;
+        HCReportWindow(deltaTime);
         m_Elapsed += deltaTime;
         if (m_PublishCheckpointPending)
         {
@@ -1064,7 +1112,7 @@ class HCHoldouts : HCModule
         if (m_TickPhase == 2)
         {
             m_TickStructure = Structure(index);
-            if (!m_TickStructure) { m_TickPhase = 0; return; }
+            if (!m_TickStructure) { m_StructureBlockedWindow++; m_TickPhase = 0; return; }
             m_TickPhase = 3;
             return;
         }
@@ -1072,13 +1120,36 @@ class HCHoldouts : HCModule
         if (!structure) { m_TickPhase = 0; return; }
         if (m_TickPhase == 3)
         {
-            if (row.Cache.Phase == 0 && HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500) && CacheSpot(structure, row) && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
+            bool unoccupied = row.Ledger.Occupants == 0 && (row.Ledger.State == "DORMANT" || row.Ledger.State == "ABANDONED" || row.Ledger.State == "RAIDED");
+            if (row.Cache.Phase == 3 && unoccupied && now >= row.Ledger.ReoccupyAfter && now >= row.Camp.ReoccupyAfter)
             {
-                row.Cache.Phase = 1;
+                // Retire the old link, including any carried/ruined live handle.
+                // Never delete it, transfer cargo, reset stock attempts or spend
+                // founding reserves here. An occupied lost cache raids in stage 4.
+                row.Cache.Phase = 0;
+                row.Cache.EntityRef = "";
+                row.Ledger.CacheRef = "";
+                row.Contents.Clear();
+                row.Published = false;
+                m_Caches[index] = new HCEncounterCacheIO;
                 m_Dirty = true;
-                if (!SaveChanged()) { return; }
-                m_Caches[index].Create(row.Cache);
-                m_Dirty = true;
+                // Count retired-link recovery attempts, not usable replacements.
+                // Placement, creation and durable linking may still fail.
+                m_RecoveryAttemptsWindow++;
+            }
+            if (row.Cache.Phase == 0)
+            {
+                if (!HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500)) { m_ObserverBlockedWindow++; }
+                else if (!CacheSpot(structure, row)) { m_SpotBlockedWindow++; }
+                else if (!HCObserverTransitionGate.CanTransition(row.Cache.Position, 500)) { m_ObserverBlockedWindow++; }
+                else
+                {
+                    row.Cache.Phase = 1;
+                    m_Dirty = true;
+                    if (!SaveChanged()) { return; }
+                    m_Caches[index].Create(row.Cache);
+                    m_Dirty = true;
+                }
             }
             // Cache creation keeps its original intent/result save barriers.
             if (!SaveChanged()) { return; }
