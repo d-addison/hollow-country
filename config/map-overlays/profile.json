@@ -4,14 +4,17 @@
     "military-tents-v1",
     "military-outposts-v1",
     "supply-dumps-v1",
-    "roadside-checkpoints-v1"
+    "roadside-checkpoints-v1",
+    "military-zones-v2",
+    "inland-discoveries-v2",
+    "civilian-stories-v2"
   ],
   "limits": {
     "map_size": 15360,
-    "max_objects_total": 395,
-    "max_objects_per_layer": 140,
-    "max_loot_total": 90,
-    "max_loot_per_layer": 40,
+    "max_objects_total": 7000,
+    "max_objects_per_layer": 3500,
+    "max_loot_total": 1200,
+    "max_loot_per_layer": 600,
     "min_spacing_m": 6.0,
     "vanilla_clearance_m": 8.0,
     "piece_spacing_m": 1.0,

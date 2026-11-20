@@ -1,4 +1,4 @@
-"""Map overlay layers: small authored object layers added to a stock Chernarus+ mission, with CE loot rows.
+"""Map overlay layers: authored object layers added to a stock Chernarus+ mission, with CE loot rows.
 
 A layer is a reviewable JSON file under config/map-overlays/layers/. This tool validates the
 enabled layers and composes them into the two things the engine and the Central Economy read, with no
@@ -308,6 +308,7 @@ def validate(source, vanilla=None, proto_names=None):
         return errors
     limits = limits_of(source.profile)
     _validate_compositions(source, limits, errors)
+    vanilla_grid = Grid(vanilla) if vanilla is not None else None
     seen_layers, placed, total, loot_total = set(), [], 0, 0
     for layer in source.layers:
         if not isinstance(layer, dict):
@@ -338,6 +339,12 @@ def validate(source, vanilla=None, proto_names=None):
         seen_sites = set()
         for site in sites:
             _validate_site(name, site, source, limits, seen_sites, errors)
+            slope_cap = (layer.get('limits') or {}).get('max_support_slope_pct')
+            if vanilla is not None and slope_cap is not None and isinstance(site, dict) and _finite_list(site.get('pos'), 3):
+                evidence = height_evidence(vanilla_grid, site['pos'][0], site['pos'][2], limits['flat_radius_m'])
+                slope = evidence.get('support_slope_pct')
+                if slope is None or slope > slope_cap:
+                    errors.append('%s/%s: unsupported or excessive vanilla-row support slope' % (name, site.get('id')))
         objects = expand_layer(source, layer)
         cap = limits['max_objects_per_layer']
         own = (layer.get('limits') or {}).get('max_objects')
@@ -348,9 +355,10 @@ def validate(source, vanilla=None, proto_names=None):
         total += len(objects)
         loot = sum(1 for item in objects if isinstance(item, dict) and item.get('loot') == 'proto')
         loot_total += loot
-        if loot > limits['max_loot_per_layer']:
+        loot_cap = min(limits['max_loot_per_layer'], (layer.get('limits') or {}).get('max_loot', limits['max_loot_per_layer']))
+        if loot > loot_cap:
             errors.append('%s: %d loot objects exceed the per-layer loot cap of %d' % (
-                name, loot, limits['max_loot_per_layer']))
+                name, loot, loot_cap))
         ids = set()
         for item in objects:
             pos = _validate_object(name, item, source, limits, errors)
@@ -405,6 +413,9 @@ class Grid:
         self.cell, self.cells = cell, {}
         for row in rows:
             self.cells.setdefault((int(row[1] // cell), int(row[3] // cell)), []).append(row)
+
+    def add(self, row):
+        self.cells.setdefault((int(row[1] // self.cell), int(row[3] // self.cell)), []).append(row)
 
     def near(self, x, z, radius):
         reach = int(radius // self.cell) + 1
@@ -709,7 +720,10 @@ def place_site(source, composition, x, z, heading, rows, taken=None):
             return None
         if any(True for _ in grid.near(px, pz, clearance)) or _flat_errors('', pos, grid, limits):
             return None
-        if any(math.hypot(px - tx, pz - tz) < apart for tx, tz in taken or ()):
+        if isinstance(taken, Grid):
+            if any(True for _ in taken.near(px, pz, apart)):
+                return None
+        elif any(math.hypot(px - tx, pz - tz) < apart for tx, tz in taken or ()):
             return None
     return {'composition': composition, 'pos': [round(x, 6), y, round(z, 6)],
             'heading': round(heading % 360.0, 6),
@@ -915,6 +929,155 @@ def plan_layers(source, rows, per_cluster=4, max_outposts=24, dumps_per_cluster=
     for layer in (outposts, dumps, roadside):
         layer['limits'] = {'max_objects': caps[layer['id']]}
     return {l['id']: l for l in (tents, outposts, dumps, roadside)}
+
+
+# Expansion targets are geographic search centres, not asserted CE tier boundaries.
+# Candidate order, composition rotation and acceptance are independent of XML row order.
+EXPANSION_AREAS = (
+    ('NWAF', 4600, 10200), ('NEAF', 12100, 12600), ('Balota', 4900, 2500),
+    ('Tisy', 1700, 14200), ('Kamensk', 7900, 14600), ('VMC', 4500, 8300),
+    ('Zelenogorsk', 2500, 5100), ('Myshkino', 1500, 7500), ('Pavlovo', 2100, 3400),
+    ('Troitskoe', 7900, 13600), ('Severograd', 8400, 12800), ('Krasnostav', 11000, 12300),
+    ('Vybor', 3800, 8900), ('Stary Sobor', 6200, 7700), ('Green Mountain', 3700, 6000),
+    ('Altar', 8200, 9200), ('Prison Island approach', 2600, 1400),
+)
+# Keep existing authored layouts operational while the scene worker lands the rich kits.
+# Re-running expand-plan after merging scenes selects their real pieces and rechecks fit.
+EXPANSION_KITS = (
+    ('field-hq', 'forward-outpost'), ('sniper-overwatch', 'mg-nest'),
+    ('abandoned-checkpoint', 'checkpoint'), ('overrun-camp', 'tent-camp'),
+    ('medevac-station', 'field-hospital'), ('radio-relay', 'comms-post'),
+    ('ammo-dump', 'supply-dump'), ('mortar-pit', 'mg-nest'),
+    ('fuel-depot', 'supply-dump'), ('motor-pool', 'forward-outpost'),
+    ('fob-compound', 'forward-outpost'), ('crashed-convoy', 'checkpoint'),
+    ('quarantine-post', 'checkpoint'), ('refugee-camp', 'tent-camp'),
+    ('hunter-camp', 'tent-camp'), ('bandit-roadblock', 'checkpoint'),
+    ('police-blockade', 'checkpoint'), ('helicopter-lz', 'forward-outpost'),
+    ('supply-drop-site', 'supply-dump'), ('mass-grave-cleanup', 'field-hospital'),
+)
+EXPANSION_IDS = ('military-zones-v2', 'inland-discoveries-v2', 'civilian-stories-v2')
+
+
+def height_evidence(grid, x, z, radius=60.0):
+    """Vanilla-row support plane; a slope proxy, never a terrain measurement.
+
+    Building group origins may differ from terrain. Nearly collinear rows cannot
+    constrain a plane and are reported as such rather than implying level ground.
+    """
+    rows = sorted(grid.near(x, z, radius))
+    if not rows:
+        return {'rows': 0}
+    n = len(rows)
+    mx, my, mz = (sum(r[i] for r in rows) / n for i in (1, 2, 3))
+    xx = sum((r[1] - mx) ** 2 for r in rows)
+    zz = sum((r[3] - mz) ** 2 for r in rows)
+    xz = sum((r[1] - mx) * (r[3] - mz) for r in rows)
+    xy = sum((r[1] - mx) * (r[2] - my) for r in rows)
+    zy = sum((r[3] - mz) * (r[2] - my) for r in rows)
+    det = xx * zz - xz * xz
+    slope = None
+    if det > max(1.0, xx * zz * 0.01):
+        sx, sz = (xy * zz - zy * xz) / det, (zy * xx - xy * xz) / det
+        slope = round(100 * math.hypot(sx, sz), 4)
+    heights = sorted(r[2] for r in rows)
+    return {'rows': n, 'radius_m': radius, 'height_median_m': heights[n // 2],
+            'height_spread_m': round(heights[-1] - heights[0], 4),
+            'support_slope_pct': slope,
+            'nearest_group_m': round(min(math.hypot(r[1] - x, r[3] - z) for r in rows), 4),
+            'terrain_measured': False, 'roads_surveyed': False}
+
+
+def plan_expansion(source, rows, inventory=None):
+    """Add up to 301 bounded sites in deterministic geographic rounds, retaining v1 layers.
+
+    Every piece passes the existing flat-height and spacing checks. New layers
+    additionally reserve 16 m from vanilla group origins and reject unsupported
+    or >3 percent support planes. No decoded WRP terrain/road data is available;
+    these are conservative vanilla-row proxies. Remote candidates remain near
+    isolated mapped structures: deep woods without height evidence are excluded.
+    """
+    rows = sorted(rows)
+    grid = Grid(rows)
+    limits = limits_of(source.profile)
+    # New layers are regenerated from stock, never used as their own obstacles.
+    retained = [l for l in source.layers if l['id'] not in EXPANSION_IDS]
+    taken = [(o['pos'][0], o['pos'][2]) for l in retained for o in expand_layer(source, l)]
+    centres = [(o['pos'][0], o['pos'][2]) for l in retained for o in l.get('sites', [])]
+    taken_grid = Grid([('', x, 0, z) for x, z in taken])
+    centre_grid = Grid([('', x, 0, z) for x, z in centres])
+    planning_profile = json.loads(json.dumps(source.profile))
+    planning_profile['limits']['piece_vanilla_clearance_m'] = 16.0
+    planning = Source(planning_profile, source.classes, [], source.compositions)
+    candidates = set()
+    for row in rows:
+        for dx in range(-60, 61, 20):
+            for dz in range(-60, 61, 20):
+                if dx * dx + dz * dz >= 400:
+                    candidates.add((round((row[1] + dx) / 10) * 10.0,
+                                    round((row[3] + dz) / 10) * 10.0))
+    supported = []
+    for x, z in sorted(candidates):
+        evidence = height_evidence(grid, x, z)
+        slope = evidence.get('support_slope_pct')
+        if evidence['rows'] < limits['flat_min_rows'] or slope is None or slope > 3.0:
+            continue
+        if evidence['height_spread_m'] > limits['flat_spread_m'] or evidence['nearest_group_m'] < 22.0:
+            continue
+        supported.append((x, z, evidence))
+    layers = []
+    for ident, purpose in zip(EXPANSION_IDS, (
+            'Military reinforcements at all named vanilla military areas.',
+            'Inland field positions and isolated finds, biased toward northern and western military country.',
+            'Town-edge quarantine, evacuation, policing and woodland survival stories.')):
+        layers.append({'kind': LAYER_KIND, 'id': ident, 'version': 2, 'status': 'runtime-unverified',
+                       'theme': purpose, 'purpose': purpose, 'objects': [], 'sites': [],
+                       'limits': {'max_objects': 3500, 'max_loot': 600, 'vanilla_clearance_m': 16.0,
+                                  'max_support_slope_pct': 3.0},
+                       'basis': {'inventory': inventory or {}, 'rule': plan_expansion.__doc__,
+                                 'candidate_count': len(supported), 'site_spacing_m': 55.0,
+                                 'terrain': 'Vanilla group origins only; binary OPRW terrain is not decoded.',
+                                 'tier': 'Geographic inland bias only; CE area flags retain authority.'}})
+    used = set()
+    def select(layer, pool, requested, area):
+        desired, fallback = EXPANSION_KITS[requested % len(EXPANSION_KITS)]
+        composition = desired if desired in source.compositions['compositions'] else fallback
+        for x, z, evidence in pool:
+            if (x, z) in used or any(True for _ in centre_grid.near(x, z, 55.0)):
+                continue
+            # Use a stable cardinal heading: avoids relying on road direction guesses.
+            heading = (requested % 4) * 90.0
+            found = place_site(planning, composition, x, z, heading, grid, taken_grid)
+            if found is None:
+                continue
+            expanded = expand_layer(planning, {'sites': [dict(found, id='candidate')]})
+            if len(expanded) + len(taken) > limits['max_objects_total']:
+                raise ValueError('expansion exceeds total object budget')
+            found.update(id='s%03d' % (len(layer['sites']) + 1), area=area,
+                         requested_composition=desired, placement_evidence=evidence)
+            layer['sites'].append(found)
+            used.add((x, z)); centres.append((x, z))
+            taken.extend((o['pos'][0], o['pos'][2]) for o in expanded)
+            centre_grid.add(('', x, 0, z))
+            for o in expanded:
+                taken_grid.add((o['class'], *o['pos']))
+            return True
+        return False
+    # Fair rounds: each named area gets a chance before any gets its second site.
+    pools = {name: sorted((p for p in supported if math.hypot(p[0] - x, p[1] - z) <= 1800),
+                         key=lambda p: (math.hypot(p[0] - x, p[1] - z), p[0], p[1]))
+             for name, x, z in EXPANSION_AREAS}
+    for turn in range(8):
+        for index, (name, _x, _z) in enumerate(EXPANSION_AREAS):
+            select(layers[0], pools[name], (turn * len(EXPANSION_AREAS) + index) % 12, name)
+    # Inland military finds favour west/north, avoiding a fabricated CE tier override.
+    inland = [p for p in supported if p[1] >= 7000 and (p[0] < 6500 or p[1] >= 12000)]
+    inland.sort(key=lambda p: (sha(('%d,%d' % p[:2]).encode()), p[:2]))
+    for turn in range(95):
+        select(layers[1], inland, turn % 12, 'inland field position; tier subject to stock CE area flags')
+    rural = sorted(supported, key=lambda p: (sha(('rural:%d,%d' % p[:2]).encode()), p[:2]))
+    for turn in range(70):
+        select(layers[2], rural, 12 + turn % 8, 'town-edge / isolated mapped structure; road and forest fit unverified')
+    return {l['id']: l for l in layers}
 
 
 # ---- report and map image -------------------------------------------------------------------------------------
@@ -1173,7 +1336,7 @@ def _layer_from_sites(sites, rule_text, inventory_sha, count):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('validate', 'compose', 'install', 'rollback', 'suggest', 'plan', 'report',
-                                            'map'))
+                                            'map', 'expand-plan'))
     parser.add_argument('--source', type=Path, default=SOURCE)
     parser.add_argument('--mission', type=Path, help='mission copy to read mapgrouppos.xml / mapgroupproto.xml from')
     parser.add_argument('--target', type=Path)
@@ -1210,7 +1373,7 @@ def main(argv=None):
         if args.command == 'report':
             sys.stdout.write(report(source, as_text=True))
             return 0
-        if args.command in ('plan', 'map'):
+        if args.command in ('plan', 'map', 'expand-plan'):
             if args.mission is None or args.out is None:
                 parser.error('--mission and --out are required')
             rows = read_vanilla(args.mission)
@@ -1223,10 +1386,17 @@ def main(argv=None):
                 print('Map image written to %s' % args.out)
                 return 0
             inventory = {'mapgrouppos_sha256': sha((Path(args.mission) / POS).read_bytes()), 'groups': len(rows)}
-            layers = plan_layers(source, rows, per_cluster=args.per_cluster or 4, max_outposts=args.max_outposts,
-                                 max_dumps=args.max_dumps, max_roadside=args.max_roadside,
-                                 tents_per_cluster=args.tents_per_cluster, max_tents=args.max_tents,
-                                 inventory=inventory)
+            if args.command == 'expand-plan':
+                layers = plan_expansion(source, rows, inventory)
+                proposed = Source(source.profile, source.classes,
+                                  [l for l in source.layers if l['id'] not in layers] + list(layers.values()),
+                                  source.compositions)
+                check(proposed, rows, read_proto_names(args.mission))
+            else:
+                layers = plan_layers(source, rows, per_cluster=args.per_cluster or 4, max_outposts=args.max_outposts,
+                                     max_dumps=args.max_dumps, max_roadside=args.max_roadside,
+                                     tents_per_cluster=args.tents_per_cluster, max_tents=args.max_tents,
+                                     inventory=inventory)
             args.out.mkdir(parents=True, exist_ok=True)
             for ident, layer in layers.items():
                 (args.out / (ident + '.json')).write_bytes(canonical(layer))
