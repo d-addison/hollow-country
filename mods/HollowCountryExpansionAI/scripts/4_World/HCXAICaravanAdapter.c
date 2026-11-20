@@ -45,6 +45,7 @@ class HCXAICaravanRoads
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     // Loading is independent of live route search. Retain the operator's search
     // quantum, but amortise cheap file/node steps within the same 4 ms deadline.
+    static const int LOAD_SLICE_TICKS = 100000;
     protected int m_LoadFrame = -1;
     protected int m_LoadSlices;
     protected int m_LoadTicks;
@@ -197,6 +198,10 @@ class HCXAICaravanRoads
         for (unit = 0; unit < limit; unit++)
         {
             if (!m_Work.HCContinue()) { break; }
+            // HCWorkBudget's clock does not advance within one tick (boot 117:
+            // 2,048-node slices reached 35.7 ms). Bound loading slices on
+            // TickCount, 10,000 ticks per ms as in [HC TickCost].
+            if (loading && unit > 0 && TickCount(began) >= LOAD_SLICE_TICKS) { break; }
             if (Phase == "loading") { HCLoadNode(); }
             else if (Phase == "nearest") { HCNearest(); }
             else if (Phase == "search") { HCSearch(); }
