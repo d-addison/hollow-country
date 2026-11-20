@@ -305,10 +305,53 @@ templates from an admitted legacy pilot; admission still requires native testing
 an AI widens its caution range to 80 m for 10 s. A firefight nearby makes groups
 wary; a distant shot does not.
 
-**Optional weapon pack scarcity.** The optional weapon overlay generators accept
-`--nominal-scale X` (0.25–4.0, default 1.0) for gun, magazine and emitted ammo
-nominal/min, and repeatable `--tier-scale common|uncommon|rare=X`. The effective
-scale must stay within 0.25–4.0. A positive CE `min` never drops below 1.
+**Optional Workshop weapons (default on; test abundance, 2026-11-20).**
+Run `install-hollow-country.bat --apply` against the stopped friend or local server.
+Its weapon step follows the base mission and map overlays, reads the selected
+Workshop dependencies, verifies the installed config, generates CE entries, then
+installs both weapon layers. An absent pack prints `absent; skipped`; a present
+pack whose terms, pinned classes, models or support fail verification is refused
+without installing that pack. The whole mission change is rehearsed on scratch
+before application and covered by the friend installer's recovery journal.
+The bundle includes our tools/allowlists, never third-party PBOs or copied configs.
+Keep the original Workshop downloads available through `--workshop-content`:
+server mod copies contain PBOs and keys but omit the terms/vendor catalogue.
+
+The expanded static roster contains **176 SNAFU firearms (nominal 352, min 176)**
+and **56 TF firearms (nominal 336, min 168)**, plus their verified magazines,
+loose pack ammo and functional attachments. Civilian/hunting weapons use
+Town/Village/Hunting and tiers 1–2; sidearms, SMGs and WW2 arms use Police/Military
+and tiers 2–3; modern military rifles use Military and tiers 3–4. Native patches,
+testbeds and unresolved/duplicate config definitions remain traceable in each
+allowlist's `excluded` list. The vendor catalogue is incomplete: individual
+config subset pins are authoritative for the expanded SNAFU roster.
+
+Each allowlist has one `test_abundance_multiplier` knob (default `1.0` for these
+high test totals); set `0.5` to halve firearm, magazine and emitted ammo budgets.
+Generation also accepts `--nominal-scale X` (0.25–4.0), overriding that knob, and
+repeatable `--tier-scale common|uncommon|rare=X`. Effective scales remain in
+0.25–4.0; a positive CE minimum never rounds below 1. Family ceilings permit
+up to four times the authored shares; the shared firearm ceiling is 3000 nominal /
+1500 minimum across both packs. These are provisional test envelopes, not measured
+native world caps. Vanilla ammo uses the separate vanilla economy policy.
+
+Verification reports and staging are created outside Git in temporary folders;
+each installed managed folder retains `verification.json`, `receipt.json` and
+`core.backup`. Reapplying verifies on scratch and preserves byte-identical installs.
+The friend installer removes these layers in reverse order before changing earlier
+mission/map layers. For manual removal, **before** the earlier `bundle-rollback`, run:
+
+```sh
+python -m tools.package.tactical_flava_optional rollback --target /private/server/mpmissions/dayzOffline.chernarusplus
+python -m tools.package.snafu_optional rollback --target /private/server/mpmissions/dayzOffline.chernarusplus
+```
+
+Only run each rollback when its managed folder exists. Preserve receipts/backups;
+drift refuses. Direct `optional_overlays bundle-apply` handles the base layers;
+use the guided installer to add the weapon layers. Scratch verification, CE
+registration and exact rollback do not prove DayZ spawning, firing, attachment
+assembly, persistence or balance. Those remain pending one-server/one-client
+observation; multiplayer and target-load performance are unproven.
 
 **Infected variety (HC-14).** This is optional and restart-bound. Stop the server, then:
 

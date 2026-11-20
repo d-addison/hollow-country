@@ -224,7 +224,8 @@ class InstallerCase(unittest.TestCase):
         make_content(self.content)
         self.overlay_calls = []
         self.map_calls = []
-        for patcher in (mock.patch.object(ws, 'server_running', return_value=False),
+        for patcher in (mock.patch.object(fi.tactical_flava_optional, 'apply_weapon_packs', return_value=[]),
+                        mock.patch.object(ws, 'server_running', return_value=False),
                         mock.patch.object(fi.overlays, 'main', side_effect=fake_overlay(self.overlay_calls)),
                         mock.patch.object(fi.map_overlay, 'main', side_effect=fake_map_overlay(self.map_calls))):
             patcher.start()
@@ -254,7 +255,7 @@ class InstallerCase(unittest.TestCase):
 
 def status_of(text, step):
     lines = text.splitlines()
-    start = next(i for i, line in enumerate(lines) if line.startswith('Step %d of 10' % step))
+    start = next(i for i, line in enumerate(lines) if line.startswith('Step %d of 11' % step))
     for line in lines[start + 1:]:
         if line.strip().startswith('status:'):
             return line.split(':', 1)[1].strip().split()[0]
@@ -294,7 +295,7 @@ class DryRunTests(InstallerCase):
         code, out, err = self.run_cli()
         self.assertEqual(code, 0, out + err)
         self.assertEqual(snapshot(self.tmp), before)
-        positions = [out.index('Step %d of 10' % n) for n in range(1, 11)]
+        positions = [out.index('Step %d of 11' % n) for n in range(1, 12)]
         self.assertEqual(positions, sorted(positions))
         for title in ('server folder', 'stopped', 'Workshop', 'mod folders and keys', 'overlay', 'Profiles',
                       'serverDZ.cfg', 'start-server.bat', 'checklist', 'Map overlays'):
@@ -852,7 +853,7 @@ class MapOverlayStepTests(InstallerCase):
         code, out, err = self.apply()
         self.assertEqual(code, 0, out + err)
         self.assertEqual(status_of(out, 6), 'done')
-        self.assertLess(out.index('Step 5 of 10'), out.index('Step 6 of 10'))
+        self.assertLess(out.index('Step 5 of 11'), out.index('Step 6 of 11'))
         self.assertEqual([c[0] for c in self.map_calls], ['validate', 'install'])
         validate, install = self.map_calls
         source = str(self.bundle / 'config/map-overlays')
@@ -1523,7 +1524,7 @@ class LauncherFilesTests(unittest.TestCase):
     def test_the_installer_ships_the_same_module_as_the_repo_checks(self):
         self.assertEqual(fi.REMEMBER_FILE, 'hollow-country-server-root.txt')
         self.assertEqual(fi.STEPS[0], 'server')
-        self.assertEqual(len(fi.STEPS), 10)
+        self.assertEqual(len(fi.STEPS), 11)
 
 
 def live_snapshot(root):

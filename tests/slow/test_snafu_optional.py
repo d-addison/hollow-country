@@ -650,47 +650,37 @@ class CommittedAllowlist(unittest.TestCase):
     def weapons(self):
         return {e['class']: e for e in self.data['entries'] if e['kind'] == 'weapon'}
 
-    def test_subset_is_the_conservative_seven_plus_ww2_smgs_plus_a_handful_of_modern_military_arms(self):
+    def test_expanded_pack_meets_owner_test_abundance(self):
         weapons = self.weapons()
-        self.assertEqual(set(weapons), self.CONSERVATIVE_SEVEN | self.WW2_SMGS | self.MODERN_MILITARY)
-        for name, e in weapons.items():
-            self.assertLessEqual(e['set']['nominal'], 4, name)
-        self.assertTrue(self.data['excluded'])
-        banned = ('AA12', 'AX50', 'M82', 'M200', 'AS50', 'M249', 'Bren', 'M1918', 'MDAR', 'VECTOR', 'Vikhr', 'P90',
-                  'Magnum500', 'Alligator', 'KH9', 'AUG', 'TAR21', 'RDB', 'Modular', 'Honey', 'ACR', 'U100', 'BR18')
-        for e in self.data['entries']:
-            self.assertFalse(any(b.lower() in e['class'].lower() for b in banned), e['class'])
+        self.assertTrue((self.CONSERVATIVE_SEVEN | self.WW2_SMGS | self.MODERN_MILITARY) <= set(weapons))
+        self.assertGreaterEqual(len(weapons), 170)
+        self.assertGreaterEqual(sum(e['set']['nominal'] for e in weapons.values()), 250)
+        for e in weapons.values():
+            self.assertEqual(e['set']['min'], e['set']['nominal'] // 2)
+        self.assertEqual(self.data['test_abundance_multiplier'], 1.0)
 
-    def test_the_new_picks_are_military_usage_tier3_to_tier4_only_and_rare(self):
-        weapons = self.weapons()
-        for name in self.WW2_SMGS | self.MODERN_MILITARY:
-            e = weapons[name]
-            self.assertEqual(e['usage'], ['Military'], name)
-            self.assertTrue(e['value'] and set(e['value']) <= {'Tier3', 'Tier4'}, name)
-            self.assertEqual(e['tier'], 'rare', name)
-            self.assertLessEqual(e['set']['nominal'], 2, name)
-        for name in self.MODERN_MILITARY:
-            self.assertEqual(weapons[name]['role'], 'modern', name)
-        for name in self.WW2_SMGS:
-            self.assertEqual(weapons[name]['role'], 'wood', name)
+    def test_modern_rifles_and_police_smgs_use_owner_tiers(self):
+        for name, e in self.weapons().items():
+            if e['role'] == 'modern':
+                self.assertEqual(e['usage'], ['Military'], name)
+                self.assertTrue(set(e['value']) <= {'Tier3', 'Tier4'}, name)
+            elif e['role'] == 'police':
+                self.assertEqual(set(e['usage']), {'Police', 'Military'}, name)
+                self.assertEqual(e['value'], ['Tier2', 'Tier3'], name)
+            else:
+                self.assertIn('Town', e['usage'], name)
+                self.assertIn('Village', e['usage'], name)
 
-    def test_the_new_picks_bring_their_magazines_and_ammunition_into_the_allowlist(self):
+    def test_expanded_picks_bring_their_pack_support(self):
         by_class = {e['class']: e for e in self.data['entries']}
-        expected = {'SNAFUThompsonMk2': (['SNAFUThompsonMk2_30rdMag'], [], ['Ammo_45ACP']),
-                    'SNAFUPPSh': (['SNAFUPPSh_71rdMag'], ['SNAFU_Ammo_762x25'], []),
-                    'SNAFUSten': (['SNAFUSten_32rdMag'], [], ['Ammo_9x19']),
-                    'SNAFU_MPX_GUN': (['SNAFU_MPX_30rnd_Mag'], [], ['Ammo_9x19']),
-                    'SNHK417_Gun': (['SNHK417_Mag'], [], ['Ammo_308Win'])}
-        for name, (mags, ammo, vanilla) in expected.items():
-            e = by_class[name]
-            self.assertEqual((e['magazines'], e['snafu_ammo'], e['vanilla_ammo']), (mags, ammo, vanilla), name)
-            for m in mags:
-                self.assertEqual(by_class[m]['kind'], 'magazine')
-            for a in ammo:
-                self.assertEqual(by_class[a]['kind'], 'ammo')
-        for name in ('SNAFU_AK103A', 'HK416_Gun', 'SCAR_Gun'):  # accept vanilla magazines and ammo only
-            self.assertEqual(by_class[name]['magazines'], [])
-            self.assertTrue(by_class[name]['vanilla_ammo'] and not by_class[name]['snafu_ammo'], name)
+        for name, e in self.weapons().items():
+            self.assertTrue(e['vanilla_ammo'] or e['snafu_ammo'], name)
+            for magazine in e['magazines']:
+                self.assertEqual(by_class[magazine]['kind'], 'magazine')
+                self.assertGreater(by_class[magazine]['set']['nominal'], 0)
+            for ammo in e['snafu_ammo']:
+                self.assertEqual(by_class[ammo]['kind'], 'ammo')
+                self.assertGreater(by_class[ammo]['set']['nominal'], 0)
 
     def test_exclusion_groups_no_longer_name_a_selected_class(self):
         selected = {e['class'] for e in self.data['entries']}
@@ -700,7 +690,7 @@ class CommittedAllowlist(unittest.TestCase):
     def test_optics_are_a_documented_empty_extension_point(self):
         self.assertEqual(self.data['optics']['entries'], [])
         self.assertEqual(self.data['optics']['status'], 'deferred-pending-owner-decision')
-        self.assertFalse([e for e in self.data['entries'] if 'scope' in e['class'].lower() or e['kind'] == 'optic'])
+        self.assertFalse([e for e in self.data['entries'] if e['kind'] == 'optic'])
         for bad in ({'status': 'accepted', 'entries': []},
                     {'status': 'deferred-pending-owner-decision', 'entries': [{'class': 'SNAFU_Scope'}]},
                     {'status': 'deferred-pending-owner-decision', 'entries': [], 'extra': 1}):

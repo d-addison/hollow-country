@@ -4,14 +4,15 @@ Run it from the unzipped bundle (install-hollow-country.bat does exactly this):
 
     python -m tools.setup.friend_install [--server-root <DayZ server folder>] [--apply] [--check]
 
-It walks ten steps in order. Each says what it found and what it would do, and each is skipped on its
+It walks eleven steps in order. Each says what it found and what it would do, and each is skipped on its
 own when it is already done:
 
-  1 check the server folder           6 map overlays (layers: map_overlay validate, then install)
-  2 check the server is stopped       7 profiles (Hollow Country and Expansion AI settings)
-  3 Workshop dependencies (steamcmd)  8 merge the Hollow Country lines into serverDZ.cfg (backup first)
-  4 copy mod folders and keys         9 write start-server.bat
-  5 mission overlay (bundle-plan, then bundle-apply)         10 final checklist
+  1 server folder                    7 optional Workshop weapon CE layers
+  2 stopped-server check             8 profiles
+  3 Workshop dependencies            9 serverDZ.cfg
+  4 mod folders and keys            10 start-server.bat
+  5 mission overlay                 11 final checklist
+  6 map overlays
 
 Safety rules:
 
@@ -48,7 +49,7 @@ import shutil
 import sys
 import tempfile
 
-from tools.package import map_overlay, infected_variety
+from tools.package import map_overlay, infected_variety, snafu_optional, tactical_flava_optional
 from tools.package import optional_overlays as overlays
 from tools.setup import workshop_sync as ws
 
@@ -60,14 +61,15 @@ MAP_SOURCE = 'config/map-overlays'
 BUNDLE_MANIFEST = 'bundle-manifest.json'
 SERVER_EXE = ws.SERVER_EXE
 BUNDLE_ROOT = Path(__file__).resolve().parents[2]
-STEPS = ('server', 'stopped', 'workshop', 'mods', 'overlay', 'overlays-map', 'profiles', 'cfg', 'launcher', 'checklist')
-SKIPPABLE = ('workshop', 'mods', 'overlay', 'overlays-map', 'profiles', 'cfg', 'launcher')
+STEPS = ('server', 'stopped', 'workshop', 'mods', 'overlay', 'overlays-map', 'weapons', 'profiles', 'cfg', 'launcher', 'checklist')
+SKIPPABLE = ('workshop', 'mods', 'overlay', 'overlays-map', 'weapons', 'profiles', 'cfg', 'launcher')
 TITLES = {
     'server': 'Check the server folder',
     'stopped': 'Check the server is stopped',
     'workshop': 'Workshop dependencies',
     'mods': 'Copy mod folders and keys',
     'overlay': 'Mission overlay (bundle-plan, then bundle-apply)',
+    'weapons': 'Optional Workshop weapon CE layers',
     'overlays-map': 'Map overlays (layers)',
     'profiles': 'Profiles',
     'cfg': 'serverDZ.cfg settings',
@@ -1147,6 +1149,8 @@ def do_overlay(ctx, a, mission, installed, want):
 
 
 def _do_overlay_with_variety(ctx, a, mission, installed, want):
+    # Weapon layers are installed after the base overlay and must be removed first.
+    tactical_flava_optional.rollback_weapon_packs(mission)
     # Infected variety is the last events.xml layer: undo it before habitat rollback.
     infected_variety.rollback(mission)
     if installed and os.path.lexists(mission / map_overlay.MANAGED):
@@ -1174,6 +1178,71 @@ def _do_overlay_with_variety(ctx, a, mission, installed, want):
     infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False))
     ctx.receipt['overlay'] = want
     save_receipt(ctx)
+    return 'done'
+
+
+def weapon_pack_sources(ctx):
+    """Verify loaded server PBOs; read omitted terms/vendor XML from Workshop."""
+    packs = {}
+    for writer in (snafu_optional, tactical_flava_optional):
+        item = next((item for item in ctx.items if item['id'] == writer.WORKSHOP_ID), None)
+        if item is None:
+            continue
+        downloaded = next((directory / writer.WORKSHOP_ID for directory in ctx.dirs
+                           if (directory / writer.WORKSHOP_ID).is_dir()), None)
+        loaded = ctx.server / item['folder']
+        if loaded.is_dir():
+            packs[writer.WORKSHOP_ID] = {'install': loaded, 'evidence': downloaded or loaded}
+        elif downloaded is not None:
+            packs[writer.WORKSHOP_ID] = downloaded
+    return packs
+
+
+def plan_weapons(ctx, a):
+    if 'weapons' in ctx.skip or 'overlay' in ctx.skip:
+        return 'skipped', ['you asked to skip mission/weapon installation'], None
+    mission = ctx.server / 'mpmissions' / ctx.manifest['mission']
+    if not mission.is_dir():
+        return 'blocked', ['stock mission is missing'], None
+    packs = weapon_pack_sources(ctx)
+    lines = []
+    for label, writer in (('SNAFU', snafu_optional), ('TF', tactical_flava_optional)):
+        present = writer.WORKSHOP_ID in packs
+        lines.append('optional weapons %s: %s' % (label,
+                     'verify -> generate -> install (default on)' if present else 'absent; skip cleanly'))
+    # Run after Workshop fetch/copy too: a missing pack at planning time may appear there.
+    return 'planned', lines, lambda: do_weapons(ctx, mission)
+
+
+def do_weapons(ctx, mission):
+    with tree_writer(ctx, mission):
+        # Rehearse on scratch before changing the mission; verify report files are
+        # outside Git even when the operator runs this installer from a checkout.
+        with tempfile.TemporaryDirectory(prefix='hc-weapon-packs-') as temporary:
+            root = Path(temporary)
+            scratch = root / 'mission'
+            shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
+            packs = weapon_pack_sources(ctx)
+            tactical_flava_optional.rollback_weapon_packs(scratch)
+            failures = tactical_flava_optional.apply_weapon_packs(
+                scratch, packs, ctx.server / 'addons', root / 'rehearsal', ctx.say)
+            if failures:
+                raise Refused('weapons', 'weapon pack rehearsal refused: ' + ', '.join(failures))
+            # If every generated byte matches, preserve the existing receipts and backups.
+            def images(target):
+                names = ['cfgeconomycore.xml']
+                for writer in (snafu_optional, tactical_flava_optional):
+                    managed = target / writer.MANAGED
+                    names += [path.relative_to(target).as_posix() for path in managed.rglob('*') if path.is_file()]
+                return {name: (target / name).read_bytes() for name in names}
+            if images(scratch) == images(mission):
+                ctx.say('optional weapons: already installed; verified bytes match')
+                return 'already-done'
+            tactical_flava_optional.rollback_weapon_packs(mission)
+            failures = tactical_flava_optional.apply_weapon_packs(
+                mission, packs, ctx.server / 'addons', root / 'install', ctx.say)
+            if failures:
+                raise Refused('weapons', 'weapon pack install refused: ' + ', '.join(failures))
     return 'done'
 
 
@@ -1294,6 +1363,8 @@ def plan_overlays_map(ctx, a):
 
 def do_overlays_map(ctx, mission, source, state):
     track_target(ctx, mission.relative_to(ctx.server).as_posix(), tree=True)
+    # Weapon receipts snapshot map inputs; remove them before replacing those bytes.
+    tactical_flava_optional.rollback_weapon_packs(mission)
     if state == 'different':
         code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
         if code != 0:
@@ -1573,7 +1644,7 @@ def plan_checklist(ctx, a):
     return 'ok', ['%d. %s' % (n, text) for n, text in enumerate(CHECKLIST, 1)], None
 
 
-PLANNERS = {'server': plan_server, 'stopped': plan_stopped, 'workshop': plan_workshop, 'mods': plan_mods,
+PLANNERS = {'weapons': plan_weapons, 'server': plan_server, 'stopped': plan_stopped, 'workshop': plan_workshop, 'mods': plan_mods,
             'overlay': plan_overlay, 'overlays-map': plan_overlays_map, 'profiles': plan_profiles, 'cfg': plan_cfg, 'launcher': plan_launcher,
             'checklist': plan_checklist}
 
@@ -1728,6 +1799,12 @@ def run_check(ctx):
             variety_problems.append('missing, outdated or damaged variety receipt; reconcile or run the installer')
         variety_good = 'receipt and events.xml intact; policy matches; runtime=PENDING'
     result('infected_variety', variety_problems, variety_good)
+    ctx.dirs = content_dirs(ctx, ctx.server)
+    try:
+        weapon_layers = tactical_flava_optional.check_weapon_packs(mission, weapon_pack_sources(ctx))
+        result('optional_weapons', [], 'verified receipts and rollback: ' + ', '.join(weapon_layers) + '; runtime=PENDING')
+    except (OSError, ValueError, KeyError, TypeError):
+        result('optional_weapons', ['missing, outdated or damaged weapon layer; run the installer'], '')
     say('check result: %s' % ('pass' if all(results) else 'fail'))
     return 0 if all(results) else 1
 

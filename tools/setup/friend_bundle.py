@@ -52,7 +52,8 @@ import xml.etree.ElementTree as ET
 SOURCE = lts.ROOT / 'mission/hollow-country'
 SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
 SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
-BUNDLE_TOOLS = ('xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
+BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowlist.json',
+                'tactical_flava_allowlist.json', 'firearms.py', 'hash_cache.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
                 'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json',
                 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
@@ -713,6 +714,7 @@ def build(args):
     for name in BUNDLE_TOOLS:
         path = lts.ROOT / 'tools/package' / name
         plan.append(('tools/package/' + name, overlays.read(path)))
+    plan.append(('tools/audit/pbo_config.py', overlays.read(lts.ROOT / 'tools/audit/pbo_config.py')))
     config_root = lts.ROOT / MAP_OVERLAY_CONFIG
     try:
         config_files = sorted(p for p in config_root.rglob('*.json') if p.is_file())

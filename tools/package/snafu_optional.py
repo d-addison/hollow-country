@@ -41,20 +41,22 @@ from tools.package import ce_extensions, hash_cache
 ALLOWLIST_PATH = Path(__file__).with_name('snafu_allowlist.json')
 WORKSHOP_ID = '2443122116'
 MANAGED = 'hollow-country-snafu'
-ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo')
+ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo', 'CfgVehicles')
 TOP = {'schema', 'name', 'workshop_id', 'status', 'rights', 'entries', 'excluded'}
-TOP_OPTIONAL = {'optics', 'hc61'}
+TOP_OPTIONAL = {'optics', 'hc61', 'test_abundance_multiplier'}
 # Optics are a later owner decision: the extension point accepts no optic entry yet.
 OPTICS_PLACEHOLDER = {'status': 'deferred-pending-owner-decision', 'entries': []}
 RIGHTS_REQUIRED = {'license', 'terms_file', 'terms_sha256', 'urls', 'redistribution'}
 RIGHTS_OPTIONAL = {'notes'}
 ENTRY_REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'usage', 'value', 'justification'}
 WEAPON_EXTRA = {'vanilla_ammo', 'snafu_ammo', 'magazines'}
-KINDS = {'weapon': {'wood', 'modern'}, 'magazine': {'support'}, 'ammo': {'support'}}
+KINDS = {'weapon': {'wood', 'modern', 'police'}, 'magazine': {'support'}, 'ammo': {'support'}}
+ENTRY_KINDS = dict(KINDS, attachment={'support'})
+DEFAULT_SCALE = object()
 TIERS = {'common', 'uncommon', 'rare'}
 SET_FIELDS = ('nominal', 'min', 'lifetime', 'restock')
 CLASS = re.compile(r'[A-Za-z0-9_]{1,80}')
-MAX_ENTRIES = 64
+MAX_ENTRIES = 1024
 MAX_PBOS = 64
 MAX_TERMS_BYTES = 8 * 1024 * 1024
 MAX_VENDOR_BYTES = 8 * 1024 * 1024
@@ -103,6 +105,7 @@ def validate_allowlist(allowlist):
     if 'notes' in rights and (not isinstance(rights['notes'], list)
                               or any(not isinstance(n, str) for n in rights['notes'])):
         raise ValueError('invalid rights notes')
+    _nominal_scale(allowlist.get('test_abundance_multiplier', 1))
     entries = allowlist['entries']
     if not isinstance(entries, list) or not 0 < len(entries) <= MAX_ENTRIES:
         raise ValueError('allowlist entries missing or over budget')
@@ -111,13 +114,14 @@ def validate_allowlist(allowlist):
         if not isinstance(e, dict):
             raise ValueError('invalid allowlist entry')
         kind = e.get('kind')
-        needed = ENTRY_REQUIRED | (WEAPON_EXTRA if kind == 'weapon' else set())
+        needed = ENTRY_REQUIRED | (WEAPON_EXTRA if kind == 'weapon' else
+                                   {'slot', 'fits'} if kind == 'attachment' else set())
         if set(e) != needed:
             raise ValueError(f'unsupported allowlist entry fields: {e.get("class")}')
         name = e['class']
         if not isinstance(name, str) or not CLASS.fullmatch(name):
             raise ValueError('invalid class name')
-        if kind not in KINDS or e['role'] not in KINDS[kind] or e['tier'] not in TIERS:
+        if kind not in ENTRY_KINDS or e['role'] not in ENTRY_KINDS[kind] or e['tier'] not in TIERS:
             raise ValueError(f'invalid kind/role/tier: {name}')
         if name in seen:
             raise ValueError(f'duplicate allowlist class: {name}')
@@ -141,6 +145,10 @@ def validate_allowlist(allowlist):
             legacy = name in legacy_usage and set(e['usage']) == legacy_usage[name]
             if not (military or legacy) or not e['value'] or not set(e['value']) <= {'Tier3', 'Tier4'}:
                 raise ValueError(f'modern pick must be Military with Tier3/Tier4 values: {name}')
+        if kind == 'attachment':
+            _names(e['fits'], name)
+            if not e['fits'] or not isinstance(e['slot'], str) or not CLASS.fullmatch(e['slot']):
+                raise ValueError(f'invalid attachment fit/slot: {name}')
         if kind == 'weapon':
             for field in WEAPON_EXTRA:
                 _names(e[field], name)
@@ -177,6 +185,67 @@ SUBSET_PIN_SCOPE = ('Subset pins hash only the parsed fields (scope, model, ammo
                     'chamberableFrom, handAnim, attachments, inventorySlot) plus the parent chain; '
                     'an update that only changes damage/hit values passes.')
 
+
+
+def canonical_config(merged):
+    """Resolve case-only native config identifiers without inventing missing classes."""
+    names = {root: {name.lower(): name for name in classes} for root, classes in merged.items()}
+    for root, classes in merged.items():
+        for row in classes.values():
+            parent = row.get('parent')
+            if parent:
+                row['parent'] = names[root].get(parent.lower(), parent)
+            for field in ('magazines', 'chamberableFrom'):
+                if field in row:
+                    row[field] = [names.get('CfgMagazines', {}).get(value.lower(), value)
+                                  for value in row[field]]
+            bullet = row.get('ammo')
+            if bullet:
+                row['ammo'] = names.get('CfgAmmo', {}).get(bullet.lower(), bullet)
+    return merged
+
+
+
+def native_parents(merged, vanilla):
+    """Import only observed native ancestors needed by installed pack definitions."""
+    if vanilla is None:
+        return canonical_config(merged)
+    for root, classes in merged.items():
+        native = vanilla.get(root, {})
+        names = {name.lower(): name for name in native}
+        pending = list(classes)
+        visited = set()
+        while pending:
+            name = pending.pop()
+            if name in visited:
+                continue
+            visited.add(name)
+            parent = classes[name].get('parent')
+            actual = names.get((parent or '').lower())
+            if actual and not any(key.lower() == actual.lower() for key in classes):
+                classes[actual] = dict(native[actual])
+                pending.append(actual)
+    return canonical_config(merged)
+
+
+def load_native_config(addons_dir):
+    """Bounded read-only installed native config/model evidence; never bundled."""
+    folder = _plain_dir(addons_dir, 'vanilla addons')
+    pbos = sorted(path for path in folder.iterdir() if path.suffix.lower() == '.pbo')
+    if not pbos or len(pbos) > 1024:
+        raise ValueError('native addon PBO count missing or exceeds budget')
+    table = {root: {} for root in ROOTS}
+    table.update(problems=[], pbo_count=len(pbos), models=set())
+    for path in pbos:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('native evidence must use regular PBO files')
+        index = pbo_config.read_pbo_index(path)
+        configs = pbo_config.read_configs(path, ROOTS, index=index)
+        table['models'].update(pbo_config.model_paths(index))
+        for root in ROOTS:
+            for name, row in configs[root].items():
+                table[root].setdefault(name, row)
+    return table
 
 def subset_pins(allowlist, merged):
     """Per-class hash of the used subset's resolved config rows (class, parents inside the pack and,
@@ -292,7 +361,7 @@ def _family_policy(allowlist):
         # a loose-part source from an attachment slot or add a guessed assembly adapter.
         if member['parts'] != expected_parts:
             raise ValueError('HC61_PART_ROUTE_UNSUPPORTED')
-        projected.append(dict(entry, kind=entry['kind'] if entry['kind'] in KINDS else 'magazine',
+        projected.append(dict(entry, kind=entry['kind'] if entry['kind'] in {'weapon', 'magazine', 'ammo'} else 'magazine',
                               family=member['family'], unit_rounds=member['unit_rounds'],
                               disposition='curated-family-split', parts=member['parts']))
     roster = {'entries': projected, 'family_budgets': policy['family_budgets']}
@@ -466,7 +535,7 @@ def _vendor_names(root, problems):
 
 
 def _load_addons(root, problems, max_pbos, whole_hash=True):
-    folder = root / 'Addons'
+    folder = next((path for path in root.iterdir() if path.name.lower() == 'addons'), root / 'Addons')
     pbos = []
     if not folder.is_symlink() and folder.is_dir():
         pbos = sorted(p for p in folder.iterdir() if p.name.lower().endswith('.pbo'))
@@ -500,7 +569,7 @@ def _load_addons(root, problems, max_pbos, whole_hash=True):
                     continue
                 owners[r][cname] = p.name
                 merged[r][cname] = row
-    return merged, duplicates, models, listed
+    return canonical_config(merged), duplicates, models, listed
 
 
 def _terms(root, rights):
@@ -517,7 +586,7 @@ def _terms(root, rights):
 
 def _evaluate(entry, merged, duplicates, models, vendor, state):
     kind, name = entry['kind'], entry['class']
-    root = 'CfgWeapons' if kind == 'weapon' else 'CfgMagazines'
+    root = {'weapon': 'CfgWeapons', 'attachment': 'CfgVehicles'}.get(kind, 'CfgMagazines')
     classes = merged[root]
     reasons, notes = [], []
     if name not in classes:
@@ -536,6 +605,12 @@ def _evaluate(entry, merged, duplicates, models, vendor, state):
         (reasons if kind == 'weapon' else notes).append('model-unresolved')
     elif pbo_config.normalize_path(model) not in models:
         reasons.append('model-missing-from-pbos')
+    if kind == 'attachment':
+        if entry['slot'] not in (pbo_config.resolve_field(classes, name, 'inventorySlot') or []):
+            reasons.append('attachment-slot-mismatch')
+        for weapon in entry['fits']:
+            if entry['slot'] not in (pbo_config.resolve_field(merged['CfgWeapons'], weapon, 'attachments') or []):
+                reasons.append('weapon-lacks-slot:' + weapon)
     if kind == 'ammo':
         bullet = pbo_config.resolve_field(classes, name, 'ammo')
         if bullet is None or bullet not in merged['CfgAmmo']:
@@ -564,7 +639,7 @@ def _evaluate(entry, merged, duplicates, models, vendor, state):
     return result
 
 
-def verify_install(install, allowlist, max_pbos=MAX_PBOS):
+def verify_install(install, allowlist, max_pbos=MAX_PBOS, vanilla_models=None, vanilla=None, evidence_root=None):
     """Read-only, bounded verification of an installed SNAFU Weapons copy against the allowlist."""
     validate_allowlist(allowlist)
     root = _plain_dir(install, 'install')
@@ -580,8 +655,18 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
             problems.append('publishedid-mismatch')
     merged, duplicates, models, listed = _load_addons(root, problems, max_pbos,
                                                       whole_hash=_needs_whole_hash(allowlist))
-    vendor = _vendor_names(root, problems)
-    terms = _terms(root, allowlist['rights'])
+    pack_weapons = set(merged['CfgWeapons'])
+    merged = native_parents(merged, vanilla)
+    evidence = _plain_dir(evidence_root, 'Workshop evidence') if evidence_root is not None else root
+    vendor = _vendor_names(evidence, problems)
+    models |= vanilla_models or set()
+    if vanilla is not None:
+        models |= vanilla.get('models', set())
+    # The vendor XML omits real concrete classes. For the expanded roster,
+    # individually pinned config evidence supersedes that incomplete catalogue.
+    if _subset_pinned(allowlist):
+        vendor |= set(allowlist['hc61']['class_pins'])
+    terms = _terms(evidence, allowlist['rights'])
     if not terms['present']:
         problems.append('terms-file-missing')
     elif not terms['matches_reviewed']:
@@ -609,7 +694,7 @@ def verify_install(install, allowlist, max_pbos=MAX_PBOS):
                        'static_verified_weapons': sum(e['kind'] == 'weapon' and classes[e['class']]['status'] == 'verified'
                                                       for e in allowlist['entries']),
                        'installed_public_weapons': sum((pbo_config.resolve_scope(merged['CfgWeapons'], name) or 0) >= 2
-                                                       for name in merged['CfgWeapons']),
+                                                       for name in pack_weapons),
                        'runtime_accepted_weapons': 0, 'full_pack_admitted': False},
             'runtime_acceptance': 'pending'}
 
@@ -693,8 +778,8 @@ def _scaled_entries(entries, nominal_scale=1.0, tier_scales=None):
 
 
 def _add_scale_arguments(parser):
-    parser.add_argument('--nominal-scale', default='1.0', metavar='X',
-                        help='gun, magazine and emitted ammo nominal/min multiplier (0.25..4.0; default 1.0)')
+    parser.add_argument('--nominal-scale', default=DEFAULT_SCALE, metavar='X',
+                        help='gun, magazine and emitted ammo nominal/min multiplier (0.25..4.0; default: allowlist test_abundance_multiplier or 1.0)')
     parser.add_argument('--tier-scale', action='append', default=[], metavar='TIER=X',
                         help='optional common/uncommon/rare multiplier; effective scale must stay in 0.25..4.0')
 
@@ -737,10 +822,12 @@ def _new_type(entry):
     return item
 
 
-def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
+def generate(source, allowlist, report, nominal_scale=DEFAULT_SCALE, tier_scales=None):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
     _check_hc61_report(allowlist, report)
+    if nominal_scale is DEFAULT_SCALE:
+        nominal_scale = allowlist.get('test_abundance_multiplier', 1)
     entries, totals, scale_policy = _scaled_entries(allowlist['entries'], nominal_scale, tier_scales)
     data = economy.snapshot(source)
     core = _checked_core(data['cfgeconomycore.xml'])
@@ -763,7 +850,7 @@ def generate(source, allowlist, report, nominal_scale=1.0, tier_scales=None):
                      'set': entry['set'], 'usage': entry['usage'], 'value': entry['value'],
                      'justification': entry['justification'],
                      'verification': report['classes'][name]['status'],
-                     **{k: entry[k] for k in WEAPON_EXTRA if k in entry}})
+                     **{k: entry[k] for k in WEAPON_EXTRA | {'slot', 'fits'} if k in entry}})
     firearms.check_effective_support(source, stock, entries, out, (economy.MANAGED,),
                                      ammo_fields=('vanilla_ammo', 'snafu_ammo'), verification=report['classes'])
     family_status = _check_family_delta(allowlist, entries, out, source, MANAGED)
@@ -925,6 +1012,7 @@ def main(argv=None):
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('verify', help='read-only check of an installed SNAFU Weapons copy')
     p.add_argument('--install', type=Path, required=True)
+    p.add_argument('--vanilla-addons', type=Path, help='read-only native model evidence for shared magazine models')
     p.add_argument('--allowlist', type=Path, default=ALLOWLIST_PATH)
     p.add_argument('--out', type=Path, required=True, help='report file; must be outside any Git checkout')
     p = sub.add_parser('generate')
@@ -945,7 +1033,10 @@ def main(argv=None):
             if args.out.exists() or args.out.is_symlink():
                 raise ValueError('report output must be a new file')
             allowlist = json.loads(args.allowlist.read_bytes())
-            report = verify_install(args.install, allowlist)
+            native = None
+            if args.vanilla_addons:
+                native = load_native_config(args.vanilla_addons)
+            report = verify_install(args.install, allowlist, vanilla=native)
             args.out.parent.mkdir(parents=True, exist_ok=True)
             args.out.write_bytes(economy.encode(report))
             print(f'{report["status"]}: {report["counts"]}')
