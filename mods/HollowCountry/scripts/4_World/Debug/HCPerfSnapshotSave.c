@@ -113,10 +113,11 @@ class HCPerfSnapshotSave : HCSaveJob
     static string HCQuote(string text)
     {
         string quoted = "\"";
-        int length = text.Length();
+        HCTextWindow window = new HCTextWindow(text);
+        int length = window.Length();
         for (int index = 0; index < length; index++)
         {
-            string letter = text.Get(index);
+            string letter = window.At(index);
             int code = letter.ToAscii();
             if (letter == "\"" || letter == "\\") { quoted += "\\" + letter; }
             else if (code >= 0 && code < 32) { quoted += " "; }

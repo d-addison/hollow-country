@@ -35,32 +35,36 @@ class HCHintState
     float NextHintSecond = -1;
 }
 
-class HCHints
+// Character-local startup cache: discard only after the old character's save drains.
+class HCHintLoad
 {
-    static const int HINT_COUNT = 14;
-
-    static int HCAllShownMask() { return (1 << HINT_COUNT) - 1; }
-
-    protected ref HCHintState m_State;
-    protected string m_Path;
-    protected bool m_Fault;
-    protected bool m_Stopped;
-    protected int m_Shown;
-    protected float m_Check;
-    protected float m_SinceSave;
+    ref HCHintState State;
+    string Path;
+    bool NewState;
+    protected bool m_Attempted;
+    protected bool m_Valid;
 
     bool Valid(HCHintState state, string characterId)
     {
         bool matching = state && state.SchemaVersion == 1;
         if (!matching) { return false; }
         bool characterValid = state.CharacterId == characterId;
-        bool bitsValid = state.ShownBits >= 0 && state.ShownBits <= HCAllShownMask();
+        bool bitsValid = state.ShownBits >= 0 && state.ShownBits <= HCHints.HCAllShownMask();
         bool playedValid = state.PlayedSeconds >= 0 && state.PlayedSeconds < 2147480000;
         bool nextValid = state.NextHintSecond >= 0 && state.NextHintSecond <= state.PlayedSeconds + 180;
         return characterValid && bitsValid && playedValid && nextValid;
     }
 
     bool Open(string characterId)
+    {
+        // One startup read per character session; failures are retained, never retried.
+        if (m_Attempted) { return m_Valid; }
+        m_Attempted = true;
+        m_Valid = HCLoad(characterId);
+        return m_Valid;
+    }
+
+    protected bool HCLoad(string characterId)
     {
         // No account fallback: it would collapse distinct lives into one record.
         if (characterId.Length() < 1 || characterId.Length() > 128) return false;
@@ -75,52 +79,97 @@ class HCHints
         if (!FileExist(root) && !MakeDirectory(root)) return false;
         root = root + "/Hints";
         if (!FileExist(root) && !MakeDirectory(root)) return false;
-        m_Path = root + "/" + characterId + ".json";
+        Path = root + "/" + characterId + ".json";
         // An interrupted write is ambiguous: never replay hints from an older image.
-        if (FileExist(m_Path + ".tmp")) return false;
+        if (FileExist(Path + ".tmp")) return false;
         string error;
-        if (FileExist(m_Path))
+        if (FileExist(Path))
         {
             string text;
-            if (!HCGroupIO.Read(m_Path, 4096, text)) return false;
-            if (!JsonFileLoader<HCHintState>.LoadData(text, m_State, error)) return false;
+            if (!HCGroupIO.Read(Path, 4096, text)) return false;
+            if (!JsonFileLoader<HCHintState>.LoadData(text, State, error)) return false;
             // A missing -1 sentinel native-zeroes and could replay old hints.
             if (!HCJsonFields.Has(text, "ShownBits") || !HCJsonFields.Has(text, "PlayedSeconds") || !HCJsonFields.Has(text, "NextHintSecond")) return false;
-            return Valid(m_State, characterId);
+            return Valid(State, characterId);
         }
-        if (FileExist(m_Path + ".bak")) return false;
-        m_State = new HCHintState;
-        m_State.SchemaVersion = 1;
-        m_State.CharacterId = characterId;
-        m_State.ShownBits = 0;
-        m_State.PlayedSeconds = 0;
-        m_State.NextHintSecond = 30;
-        return Save();
+        if (FileExist(Path + ".bak")) return false;
+        State = new HCHintState;
+        State.SchemaVersion = 1;
+        State.CharacterId = characterId;
+        State.ShownBits = 0;
+        State.PlayedSeconds = 0;
+        State.NextHintSecond = 30;
+        NewState = true;
+        return true;
     }
 
+}
+
+class HCHints
+{
+    static const int HINT_COUNT = 14;
+
+    static int HCAllShownMask() { return (1 << HINT_COUNT) - 1; }
+
+    protected ref HCHintState m_State;
+    protected string m_Path;
+    protected bool m_Fault;
+    protected bool m_Stopped;
+    protected int m_Shown;
+    protected float m_Check;
+    protected float m_SinceSave;
+    protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
+    protected string m_Notification;
+    protected bool m_Switching;
+
+    bool Open(string characterId)
+    {
+        HCHintLoad loaded = new HCHintLoad;
+        if (!loaded.Open(characterId)) { return false; }
+        m_State = loaded.State;
+        m_Path = loaded.Path;
+        if (loaded.NewState) { return Save(); }
+        return true;
+    }
+
+    // The client advances the shared image transaction by one stage per frame.
+    // It does not register with the server-only scheduler. The 4096-byte format,
+    // temp/backup names and commit-before-notification contract stay unchanged.
     bool Save()
     {
-        if (m_Fault || !m_State || m_Path == "") return false;
+        if (m_Fault || !m_State || m_Path == "" || m_SaveImage.Active()) return false;
         string payload;
         string error;
         if (!JsonFileLoader<HCHintState>.MakeData(m_State, payload, error)) return false;
-        string temporary = m_Path + ".tmp";
-        if (!HCGroupIO.WriteNew(temporary, payload, 4096)) return false;
-        if (FileExist(m_Path))
+        return m_SaveImage.Begin(m_Path, payload, 4096, true, false);
+    }
+
+    protected bool HCAdvanceSave()
+    {
+        if (!m_SaveImage.Active()) { return true; }
+        int result = m_SaveImage.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED)
         {
-            if (FileExist(m_Path + ".bak") && !DeleteFile(m_Path + ".bak")) return false;
-            if (!CopyFile(m_Path, m_Path + ".bak")) return false;
+            m_Fault = true;
+            m_Notification = "";
+            return false;
         }
-        // Native filesystem offers CopyFile, not rename; retain intent until readback.
-        if (!CopyFile(temporary, m_Path)) return false;
-        string actual;
-        if (!HCGroupIO.Read(m_Path, 4096, actual) || actual != payload) return false;
-        return DeleteFile(temporary);
+        if (result == HCSaveJob.STEP_DONE && m_Notification != "")
+        {
+            PlayerBase recipient = PlayerBase.Cast(GetGame().GetPlayer());
+            if (recipient && recipient.IsAlive() && GetDayZGame().GetDatabaseID() == m_State.CharacterId && NotificationSystem.GetInstance())
+            {
+                NotificationSystem.AddNotificationExtended(10, "Hollow Country", m_Notification);
+                m_Shown++;
+            }
+            m_Notification = "";
+        }
+        return true;
     }
 
     bool Offer(int hint, string message)
     {
-        if (m_Fault || !m_State || hint < 0 || hint > 13) { return false; }
+        if (m_Fault || !m_State || m_SaveImage.Active() || hint < 0 || hint > 13) { return false; }
         int bit = 1 << hint;
         if ((m_State.ShownBits & bit) != 0 || m_State.PlayedSeconds < m_State.NextHintSecond) return false;
         m_State.ShownBits = m_State.ShownBits | bit;
@@ -131,8 +180,7 @@ class HCHints
             m_Fault = true;
             return false;
         }
-        NotificationSystem.AddNotificationExtended(10, "Hollow Country", message);
-        m_Shown = m_Shown + 1;
+        m_Notification = message;
         return true;
     }
 
@@ -178,20 +226,35 @@ class HCHints
     void Update(float timeslice)
     {
         if (m_Stopped || m_Fault) return;
+        if (!HCAdvanceSave()) { return; }
+        if (m_Switching)
+        {
+            if (m_SaveImage.Active()) { return; }
+            m_State = null;
+            m_Switching = false;
+        }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !player.IsAlive()) return;
         string characterId = GetDayZGame().GetDatabaseID();
         if (characterId == "") return;
         if (!m_State || characterId != m_State.CharacterId)
         {
-            if (m_State && !Save()) { m_Fault = true; return; }
-            m_State = null;
+            if (m_State)
+            {
+                if (m_SaveImage.Active()) { return; }
+                if (!Save()) { m_Fault = true; return; }
+                m_Switching = true;
+                // An old life's pending notification must never reach the new life.
+                m_Notification = "";
+                return;
+            }
             if (!Open(characterId)) { m_Fault = true; return; }
             m_SinceSave = 0;
         }
         if (m_State.ShownBits == HCAllShownMask()) return;
         m_State.PlayedSeconds = m_State.PlayedSeconds + timeslice;
         m_SinceSave = m_SinceSave + timeslice;
+        if (m_SaveImage.Active()) { return; }
         if (m_SinceSave >= 60)
         {
             m_SinceSave = 0;
@@ -208,7 +271,12 @@ class HCHints
     {
         if (m_Stopped) return;
         m_Stopped = true;
-        if (m_State && !m_Fault) Save();
+        m_Notification = "";
+        if (!m_Fault && !m_SaveImage.Finish()) { m_Fault = true; }
+        if (m_State && !m_Fault)
+        {
+            if (!Save() || !m_SaveImage.Finish()) { m_Fault = true; }
+        }
         // HC-27 inspected NotificationSystem.c:215-230 returns no handle;
         // :239-263 owns expiration and deferred promotion. No public cancellation
         // API exists. Do not purge native/other mods' notifications or fabricate

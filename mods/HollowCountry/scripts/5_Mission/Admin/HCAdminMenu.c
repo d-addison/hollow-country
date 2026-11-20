@@ -75,10 +75,11 @@ class HCAdminCard
         // Validate the native int boundary before ToInt; never overflow into 0.
         if (count == 10)
         {
+            HCTextWindow limitWindow = new HCTextWindow(limit);
             for (int digitIndex = 0; digitIndex < count; digitIndex++)
             {
                 int digit = digits.IndexOf(text.Get(start + digitIndex));
-                int maximum = digits.IndexOf(limit.Get(digitIndex));
+                int maximum = digits.IndexOf(limitWindow.At(digitIndex));
                 if (digit > maximum) { return false; }
                 if (digit < maximum) { break; }
             }
@@ -117,6 +118,9 @@ class HCAdminMenu : UIScriptedMenu
     protected ref array<ref HCAdminTab> m_Tabs = new array<ref HCAdminTab>;
     protected ref array<MultilineTextWidget> m_ConsoleRows = new array<MultilineTextWidget>;
     protected ref array<string> m_LayerNames = new array<string>;
+    // Native EnScript.c:857,902,917 map Clear/Set/Contains.
+    protected ref map<string, bool> m_HiddenLayers = new map<string, bool>;
+    protected ref map<string, bool> m_KnownLayers = new map<string, bool>;
     protected string m_Section;
     protected bool m_WasBusy;
     protected bool m_Listening;
@@ -307,12 +311,18 @@ class HCAdminMenu : UIScriptedMenu
         m_Routes.Clear();
         m_Layers.ClearItems();
         m_LayerNames.Clear();
+        m_KnownLayers.Clear();
+        HCIndexHidden();
         if (!m_Client.View) { return; }
         for (int markIndex = 0; markIndex < m_Client.View.Marks.Count(); markIndex++)
         {
             HCAdminMark mark = m_Client.View.Marks[markIndex];
-            if (m_LayerNames.Find(mark.Layer) < 0 && m_LayerNames.Count() < HCAdminSnapshotWire.MAX_WIRE_LAYERS + 1) { m_LayerNames.Insert(mark.Layer); }
-            if (m_Client.Hidden.Find(mark.Layer) >= 0) { continue; }
+            if (!m_KnownLayers.Contains(mark.Layer) && m_LayerNames.Count() < HCAdminSnapshotWire.MAX_WIRE_LAYERS + 1)
+            {
+                m_KnownLayers.Set(mark.Layer, true);
+                m_LayerNames.Insert(mark.Layer);
+            }
+            if (m_HiddenLayers.Contains(mark.Layer)) { continue; }
             if (mark.Route == 0)
             {
                 m_Map.AddUserMark(mark.Position, mark.Layer + ": " + mark.Label + " | " + mark.Detail, ARGB(255, 245, 190, 65), "\\dz\\gear\\navigation\\data\\map_tree_ca.paa");
@@ -321,16 +331,26 @@ class HCAdminMenu : UIScriptedMenu
         for (int layerIndex = 0; layerIndex < m_LayerNames.Count(); layerIndex++)
         {
             string flag = "[on] ";
-            if (m_Client.Hidden.Find(m_LayerNames[layerIndex]) >= 0) { flag = "[off] "; }
+            if (m_HiddenLayers.Contains(m_LayerNames[layerIndex])) { flag = "[off] "; }
             m_Layers.AddItem(flag + m_Client.HCLayerRowLabel(m_LayerNames[layerIndex]), null, 0);
         }
         HCRenderRoutes();
+    }
+
+    protected void HCIndexHidden()
+    {
+        m_HiddenLayers.Clear();
+        for (int index = 0; index < m_Client.Hidden.Count(); index++)
+        {
+            m_HiddenLayers.Set(m_Client.Hidden[index], true);
+        }
     }
 
     protected void HCRenderRoutes()
     {
         m_Routes.Clear();
         if (m_Section != "map" || !m_Client.View) { return; }
+        HCIndexHidden();
         float originX;
         float originY;
         m_Routes.GetScreenPos(originX, originY);
@@ -338,7 +358,7 @@ class HCAdminMenu : UIScriptedMenu
         for (int routeIndex = 0; routeIndex < m_Client.View.Marks.Count(); routeIndex++)
         {
             HCAdminMark mark = m_Client.View.Marks[routeIndex];
-            if (mark.Route == 0 || m_Client.Hidden.Find(mark.Layer) >= 0) { previous = null; continue; }
+            if (mark.Route == 0 || m_HiddenLayers.Contains(mark.Layer)) { previous = null; continue; }
             if (previous && previous.Route == mark.Route)
             {
                 vector from = m_Map.MapToScreen(previous.Position);

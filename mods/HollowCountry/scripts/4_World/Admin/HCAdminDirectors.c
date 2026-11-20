@@ -573,14 +573,9 @@ modded class HCRadioChatter
         {
             HCRadioChannel channel = m_Store.Data.Channels[channelIndex];
             if (!Receiving(player, channel.Frequency)) { continue; }
-            int previous = channel.LastSent;
             channel.LastSent = 0;
-            if (!m_Store.Save())
-            {
-                channel.LastSent = previous;
-                reason = "radio-channel-save-refused";
-                return false;
-            }
+            // Advisory cooldown reset uses the lead store's revision-aware job.
+            m_Store.HCRequestCheckpoint();
             m_ChannelCursor = channelIndex;
             reason = "rate-limit-cleared freq=" + channel.Frequency.ToString() + "; normal radio tick sends the next line to tuned powered radios";
             return true;
