@@ -331,8 +331,11 @@ class HCXAISiteRules
     }
     static int RouteMinimum(string kind)
     {
-        if (kind == "holdout") { return 2; }
-        return 3;
+        // Expansion receives a static waypoint list (HCXAIRules.PatrolProblem
+        // admits 2..128). Installed ai_scripts.pbo eAIDynamicPatrol.c:287
+        // autostarts a nonempty waypoint list; no three-anchor requirement.
+        // Two-anchor outdoor routes use ONCE; holdouts still qualify closure.
+        return 2;
     }
     // Installed Expansion AIenums.c exposes ONCE; ExpansionAISpawnBase's
     // GetBehaviour resolves it directly. An open route must not return along
@@ -405,7 +408,7 @@ class HCXAISiteRules
     // holdout the house class, its position, the house-local points and cache.
     static string RouteText(HCXAISite site, string build)
     {
-        string text = "chain-v4|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
+        string text = "chain-v5|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
         foreach (vector point : site.Waypoints)
         {
             text = text + HCXAISiteRules.PointText(point);
