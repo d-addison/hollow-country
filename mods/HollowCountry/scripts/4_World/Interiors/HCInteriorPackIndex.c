@@ -332,9 +332,20 @@ class HCInteriorPackIndex
         string content = HCInteriorTemplatesStrict.NativeText(raw, "pack-page");
         string error;
         HCInteriorPackPage page = new HCInteriorPackPage;
-        if (content == "" || !JsonFileLoader<HCInteriorPackPage>.LoadData(content, page, error) || !HCInteriorTemplatesStrict.PageCensus(content, page))
+        // Stage-specific reasons: build 099 refused index-000 with one reason for three checks.
+        if (content == "")
         {
-            HCFail(job, "index_page_strict");
+            HCFail(job, "index_page_strict_screen");
+            return 2;
+        }
+        if (!JsonFileLoader<HCInteriorPackPage>.LoadData(content, page, error))
+        {
+            HCFail(job, "index_page_strict_load");
+            return 2;
+        }
+        if (!HCInteriorTemplatesStrict.PageCensus(content, page))
+        {
+            HCFail(job, "index_page_strict_census");
             return 2;
         }
         if (!HCMerge(job, page))

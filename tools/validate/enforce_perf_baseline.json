@@ -221,7 +221,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 417,
+      "line": 425,
       "symbol": "HCAdminTeleport.HCMove",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCAdminModule.OnTick -> HCAdminModule.HCDispatch -> HCAdminModule.HCCommand -> HCAdminTeleport.HCMove",
@@ -230,7 +230,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
-      "line": 417,
+      "line": 425,
       "symbol": "HCAdminTeleport.HCMove",
       "key": "FileExist#2",
       "message": "FileExist reachable via HCAdminModule.OnTick -> HCAdminModule.HCDispatch -> HCAdminModule.HCCommand -> HCAdminTeleport.HCMove",
@@ -1607,7 +1607,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 320,
+      "line": 323,
       "symbol": "HCEventModule.OnStart",
       "key": "roster.loop#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1616,7 +1616,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 428,
+      "line": 432,
       "symbol": "HCEventModule.RefreshRoster",
       "key": "m_AnnouncedMissions.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -1625,7 +1625,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 447,
+      "line": 454,
       "symbol": "HCEventModule.RefreshRoster",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -1634,7 +1634,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 462,
+      "line": 472,
       "symbol": "HCEventModule.RefreshRoster",
       "key": "Print#2",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -1643,7 +1643,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
-      "line": 467,
+      "line": 477,
       "symbol": "HCEventModule.RefreshRoster",
       "key": "Print#3",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -1668,18 +1668,9 @@
       "native": false
     },
     {
-      "rule": "HC-P006",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
-      "line": 151,
-      "symbol": "HCEventCacheSpawner.Spawn",
-      "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCEventCacheSpawner; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
-      "native": false
-    },
-    {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRewardCache.c",
-      "line": 219,
+      "line": 258,
       "symbol": "HCEventCacheSpawner.HCPhysicalEnabled",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCEventWorldBinding.Bind -> HCEventWorldBinding.BindCandidate -> HCEventWorldBinding.BindCache -> HCEventCacheSpawner.Create -> HCEventCacheSpawner.Spawn -> HCEventCacheSpawner.HCPhysicalEnabled",
@@ -1785,15 +1776,6 @@
       "native": false
     },
     {
-      "rule": "HC-P006",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCNativeIncidentLease.c",
-      "line": 383,
-      "symbol": "HCNativeIncidentLease.HCStep",
-      "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCNativeIncidentLease; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
-      "native": false
-    },
-    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
       "line": 161,
@@ -1841,10 +1823,10 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c",
-      "line": 35,
+      "line": 40,
       "symbol": "HCW38SituationPolicy.HCGet",
       "key": "FileExist#1",
-      "message": "FileExist reachable via HCNativeIncidentLease.HCStep -> HCNativeIncidentLease.HCPresent -> HCNativeIncidentSource.HCReady -> HCW38SituationPolicy.HCGet",
+      "message": "FileExist reachable via HCEventModule.OnTick -> HCEventModule.RefreshRoster -> HCW38SituationPolicy.HCGet",
       "native": false
     },
     {
@@ -3173,7 +3155,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 523,
+      "line": 543,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "census.Patterns.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3182,7 +3164,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 523,
+      "line": 543,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "found.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3191,7 +3173,16 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 542,
+      "line": 565,
+      "symbol": "HCInteriorTemplatesStrict.Census",
+      "key": "found.Get#2",
+      "message": "O(n*m) scan; build a map/set index outside the loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P004",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 566,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "census.Counts.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3200,9 +3191,9 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 542,
+      "line": 569,
       "symbol": "HCInteriorTemplatesStrict.Census",
-      "key": "found.Get#2",
+      "key": "census.Patterns.Get#2",
       "message": "O(n*m) scan; build a map/set index outside the loop",
       "native": false
     },
@@ -4487,7 +4478,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c",
-      "line": 53,
+      "line": 55,
       "symbol": "HCPerfConfig.HCGet",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCDebugSnapshotModule.OnTick -> HCPerfConfig.HCGet",
@@ -5264,7 +5255,7 @@
       "line": 173,
       "symbol": "HCW38SituationRuntime.HCSelect",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5273,7 +5264,7 @@
       "line": 216,
       "symbol": "HCW38SituationRuntime.HCTarget",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5282,7 +5273,7 @@
       "line": 266,
       "symbol": "HCW38SituationRuntime.HCWreckNear",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5291,7 +5282,7 @@
       "line": 273,
       "symbol": "HCW38SituationRuntime.HCWreckNear",
       "key": "HC_WORK_SITUATIONS#2",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5309,7 +5300,7 @@
       "line": 333,
       "symbol": "HCW38SituationRuntime.HCSignals",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5318,7 +5309,7 @@
       "line": 403,
       "symbol": "HCW38SituationRuntime.HCThreaten",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationRuntime; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5327,13 +5318,13 @@
       "line": 19,
       "symbol": "HCW38SituationSmokeStock.HCStep",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCW38SituationSmokeStock; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCW38SituationSmokeStock; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
       "rule": "HC-P006",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIBaseRaid.c",
-      "line": 456,
+      "line": 470,
       "symbol": "HCAdminVisitorParty.HCVisitStep",
       "key": "HC_WORK_BASE_RAID#1",
       "message": "slot HC_WORK_BASE_RAID shared by HCXAIBaseRaid and HCAdminVisitorParty; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
@@ -5639,7 +5630,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 780,
+      "line": 786,
       "symbol": "HCXAISiteDirector.HCStepLocalities",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -5648,7 +5639,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 849,
+      "line": 855,
       "symbol": "HCXAISiteDirector.AdmitTransient",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXMaterializerBridge.OnTick -> HCXMaterializerBridge.Offer -> HCXAISiteDirector.AdmitTransient",
@@ -5657,7 +5648,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1131,
+      "line": 1137,
       "symbol": "HCXAISiteDirector.Observe",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.Observe",
@@ -5666,7 +5657,7 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1157,
+      "line": 1163,
       "symbol": "HCXAISiteDirector.Reconcile",
       "key": "groupName.Substring#1",
       "message": "groupName.Substring scans a string with no recognized small bound inside a loop",
@@ -5675,7 +5666,7 @@
     {
       "rule": "HC-P001",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1766,
+      "line": 1772,
       "symbol": "HCXAISiteDirector.StepDiagnostic",
       "key": "done.Contains#1",
       "message": "done.Contains scans a string with no recognized small bound inside a loop",
@@ -5684,7 +5675,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1768,
+      "line": 1774,
       "symbol": "HCXAISiteDirector.StepDiagnostic",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",
@@ -5693,7 +5684,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 1986,
+      "line": 1992,
       "symbol": "HCXAISiteDirector.HCStepRespawns",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAISiteDirector.HCStepRespawns",
@@ -5702,7 +5693,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2007,
+      "line": 2013,
       "symbol": "HCXAISiteDirector.HCRefreshDepleted",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAISiteDirector.HCStepRespawns -> HCXAISiteDirector.HCRefreshDepleted",
@@ -5711,7 +5702,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2042,
+      "line": 2048,
       "symbol": "HCXAISiteDirector.RaidLocked",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIRoleActivities.OnTick -> HCXAIRoleActivities.HCStart -> HCXAISiteDirector.HCParty -> HCXAISiteDirector.RaidLocked",
@@ -5720,7 +5711,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2226,
+      "line": 2232,
       "symbol": "HCXAISiteDirector.SaveCaches",
       "key": "JsonFileLoader.SaveFile#1",
       "message": "JsonFileLoader.SaveFile reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepRun -> HCXAISiteDirector.StepCache -> HCXAISiteDirector.HCPickerCacheStep -> HCXAISiteDirector.SaveCaches",
@@ -5729,7 +5720,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2233,
+      "line": 2239,
       "symbol": "HCXAISiteDirector.SaveRoutes",
       "key": "JsonFileLoader.SaveFile#1",
       "message": "JsonFileLoader.SaveFile reachable via HCXAISiteDirector.HCStepLocalities -> HCXAISiteDirector.SaveRoutes",
@@ -5738,7 +5729,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2287,
+      "line": 2293,
       "symbol": "HCXAISiteDirector.LoadRoutes",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.LoadRoutes",
@@ -5747,7 +5738,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2297,
+      "line": 2303,
       "symbol": "HCXAISiteDirector.LoadCaches",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.LoadCaches",
@@ -5756,7 +5747,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "line": 2308,
+      "line": 2314,
       "symbol": "HCXAISiteDirector.LoadOwned",
       "key": "FileExist#1",
       "message": "FileExist reachable via HCXAIAdapter.OnTick -> HCXAISiteDirector.Step -> HCXAISiteDirector.StepWait -> HCXAISiteDirector.Observe -> HCXAISiteDirector.Reconcile -> HCXAISiteDirector.LoadOwned",
@@ -5912,16 +5903,7 @@
       "line": 82,
       "symbol": "HCXTacticsScan.HCStep",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCXTacticsScan; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
-      "native": false
-    },
-    {
-      "rule": "HC-P006",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITradeAdapter.c",
-      "line": 51,
-      "symbol": "HCXTradeInventoryScan.HCStep",
-      "key": "HC_WORK_TRADE#1",
-      "message": "slot HC_WORK_TRADE shared by HCXAICaravanRoads and HCXTradeInventoryScan; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCXTacticsScan; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5948,7 +5930,7 @@
       "line": 535,
       "symbol": "HCXAITradeProducer.HCCandidate",
       "key": "HC_WORK_TRADE#1",
-      "message": "slot HC_WORK_TRADE shared by HCXAICaravanRoads and HCXAITradeProducer; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_TRADE shared by HCXTradeInventoryScan and HCXAITradeProducer; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5966,7 +5948,7 @@
       "line": 87,
       "symbol": "HCXConvoyRoute.HCStep",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCXConvoyRoute; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCXConvoyRoute; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -5975,7 +5957,7 @@
       "line": 260,
       "symbol": "HCXConvoyRun.HCSeek",
       "key": "HC_WORK_SITUATIONS#1",
-      "message": "slot HC_WORK_SITUATIONS shared by HCEventModule and HCXConvoyRun; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
+      "message": "slot HC_WORK_SITUATIONS shared by HCNativeIncidentLease and HCXConvoyRun; give each consumer its own slot (see PERFORMANCE_PRACTICES)",
       "native": false
     },
     {
@@ -6071,7 +6053,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 173,
+      "line": 193,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "OpenFile#1",
       "message": "OpenFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -6080,7 +6062,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 178,
+      "line": 206,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "ReadFile#1",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -6089,7 +6071,7 @@
     {
       "rule": "HC-P003",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 191,
+      "line": 227,
       "symbol": "HCGapcodeRoutesCatalog.HCPinStep",
       "key": "ReadFile#2",
       "message": "ReadFile reachable via HCGapcodeRoutesCatalog.HCStep -> HCGapcodeRoutesCatalog.HCPinStep",
@@ -6098,7 +6080,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 246,
+      "line": 283,
       "symbol": "HCGapcodeRoutesCatalog.HCResolve",
       "key": "seen.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -6107,7 +6089,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 254,
+      "line": 291,
       "symbol": "HCGapcodeRoutesCatalog.HCResolve",
       "key": "node.Links.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -6116,7 +6098,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 254,
+      "line": 291,
       "symbol": "HCGapcodeRoutesCatalog.HCResolve",
       "key": "previous.Links.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -6125,7 +6107,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 265,
+      "line": 302,
       "symbol": "HCGapcodeRoutesCatalog.HCResolve",
       "key": "locality.SiteIds.Find#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -6134,7 +6116,7 @@
     {
       "rule": "HC-P005",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
-      "line": 315,
+      "line": 352,
       "symbol": "HCGapcodeRoutesCatalog.HCStep",
       "key": "Print#1",
       "message": "per-item Print on a tick path; latch or summarize",

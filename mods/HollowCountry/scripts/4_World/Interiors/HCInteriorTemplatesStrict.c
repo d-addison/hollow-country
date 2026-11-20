@@ -135,6 +135,8 @@ class HCInteriorTemplatesStrict
     protected static ref array<string> s_Forbidden;
     protected static int s_LowForbidden;
     protected static ref array<string> s_NonHex;
+    // One diagnostic line for the first census refusal of a boot.
+    protected static bool s_CensusLogged;
 
     static string Keys(string schema)
     {
@@ -370,12 +372,19 @@ class HCInteriorTemplatesStrict
         {
             return size;
         }
-        int cut = text.IndexOfFrom(start + PIECE_SEARCH, ",");
-        if (cut < 0 || cut + 1 - start > PIECE_CHARS)
+        // Build 099 refused every multi-piece page; IndexOfFrom is not observed natively,
+        // so search a bounded window with Substring + IndexOf (both observed on this pack).
+        if (start + PIECE_CHARS > text.Length())
         {
             return -1;
         }
-        return cut + 1 - start;
+        string window = text.Substring(start + PIECE_SEARCH, PIECE_CHARS - PIECE_SEARCH);
+        int offset = window.IndexOf(",");
+        if (offset < 0)
+        {
+            return -1;
+        }
+        return PIECE_SEARCH + offset + 1;
     }
 
     // Body length (text without one trailing LF or CRLF), or -1 when the screen refuses.
@@ -484,6 +493,17 @@ class HCInteriorTemplatesStrict
         return Rename(content, authored, nativeKey);
     }
 
+    // Latched: one line for the first census refusal of a boot.
+    static void CensusRefused(string detail)
+    {
+        if (s_CensusLogged)
+        {
+            return;
+        }
+        s_CensusLogged = true;
+        Print("[HC Interiors] census refused " + detail);
+    }
+
     // Exact key, object, array and comma counts of a LoadData text against its DTO census.
     static bool Census(string text, HCInteriorKeyCensus census)
     {
@@ -534,13 +554,19 @@ class HCInteriorTemplatesStrict
         }
         if (extra != census.ExtraKeys || commas != census.Commas || opens != census.Objects || closes != census.Objects || listOpens != census.Arrays || listCloses != census.Arrays)
         {
+            string line = "length=" + length.ToString() + " extra=" + extra.ToString() + "/" + census.ExtraKeys.ToString();
+            line = line + " commas=" + commas.ToString() + "/" + census.Commas.ToString() + " objects=" + opens.ToString() + "," + closes.ToString() + "/" + census.Objects.ToString();
+            CensusRefused(line + " arrays=" + listOpens.ToString() + "," + listCloses.ToString() + "/" + census.Arrays.ToString());
             return false;
         }
         int check = 0;
         while (check < names)
         {
-            if (found.Get(check) != census.Counts.Get(check))
+            int foundCount = found.Get(check);
+            int expectedCount = census.Counts.Get(check);
+            if (foundCount != expectedCount)
             {
+                CensusRefused("key=" + census.Patterns.Get(check) + " found=" + foundCount.ToString() + " expected=" + expectedCount.ToString());
                 return false;
             }
             check = check + 1;
