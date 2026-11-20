@@ -1,4 +1,3 @@
-// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 // Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
 // Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
@@ -22,11 +21,11 @@ class HCRadioDefaults
     bool HCQualifyChannels(array<float> channels)
     {
         if (!channels || channels.Count() < 1 || channels.Count() > this.ChannelCountLimit) { return false; }
-        map<float, bool> seen = new map<float, bool>;
+        array<float> seen = new array<float>;
         foreach (float frequency : channels)
         {
-            if (!(frequency >= 87.8 && frequency <= 102.5) || seen.Contains(frequency)) { return false; }
-            seen.Insert(frequency, true);
+            if (!(frequency >= 87.8 && frequency <= 102.5) || seen.Find(frequency) >= 0) { return false; }
+            seen.Insert(frequency);
         }
         bool restored = false;
         if (channels.Find(this.LocalsMHz) < 0)

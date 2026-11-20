@@ -1,4 +1,3 @@
-// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // LC-T107 / EXP-A5; native scripts-1.30.164289 evidence (relative to dump):
 // 3_Game/Global/Game.c:930 GetObjectsAtPosition3D, :944 GetPlayer, :1125
 // IsDedicatedServer; Entities/Object.c:287 GetPosition, :517 IsAlive;
@@ -78,14 +77,12 @@ class HCSignsOfLifeSnapshotClient
         int count;
         if (!ctx.Read(count) || count < 0 || count > 24) { return; }
         array<vector> positions = new array<vector>;
-        map<vector, bool> seenPositions = new map<vector, bool>;
         vector position;
         for (int readIndex = 0; readIndex < count; readIndex++)
         {
             if (!ctx.Read(position) || !HCWorldLimits.Position(position)) { return; }
-            if (seenPositions.Contains(position)) { return; }
+            if (positions.Find(position) >= 0) { return; }
             positions.Insert(position);
-            seenPositions.Set(position, true);
         }
         bool changed = !m_HoldoutSnapshot;
         if (HCSignsOfLife.ForceLit.Count() != count) { changed = true; }
