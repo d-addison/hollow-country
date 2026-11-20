@@ -333,7 +333,7 @@ class ShippedComposition(unittest.TestCase):
             self.assertTrue(layers[ident].get('theme'), ident)
             self.assertIn(ident, self.source.profile['enabled'])
         data = mo.report(self.source)
-        self.assertLess(data['totals']['objects'], 400)
+        self.assertLessEqual(data['totals']['objects'], self.source.profile['limits']['max_objects_total'])
         self.assertLessEqual(data['totals']['loot'], self.source.profile['limits']['max_loot_total'])
         for entry in data['layers']:
             self.assertLessEqual(entry['loot'], self.source.profile['limits']['max_loot_per_layer'], entry['id'])

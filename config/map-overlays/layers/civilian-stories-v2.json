@@ -1,0 +1,1316 @@
+{
+  "basis": {
+    "candidate_count": 2757,
+    "inventory": {
+      "groups": 11679,
+      "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+    },
+    "rule": "Add up to 301 bounded sites in deterministic geographic rounds, retaining v1 layers.\n\n    Every piece passes the existing flat-height and spacing checks. New layers\n    additionally reserve 16 m from vanilla group origins and reject unsupported\n    or >3 percent support planes. No decoded WRP terrain/road data is available;\n    these are conservative vanilla-row proxies. Remote candidates remain near\n    isolated mapped structures: deep woods without height evidence are excluded.\n    ",
+    "site_spacing_m": 55.0,
+    "terrain": "Vanilla group origins only; binary OPRW terrain is not decoded.",
+    "tier": "Geographic inland bias only; CE area flags retain authority."
+  },
+  "id": "civilian-stories-v2",
+  "kind": "hollow-country-map-overlay",
+  "limits": {
+    "max_loot": 600,
+    "max_objects": 3500,
+    "max_support_slope_pct": 3.0,
+    "vanilla_clearance_m": 16.0
+  },
+  "objects": [],
+  "purpose": "Town-edge quarantine, evacuation, policing and woodland survival stories.",
+  "sites": [
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s001",
+      "placement_evidence": {
+        "height_median_m": 2.899316,
+        "height_spread_m": 0.137,
+        "nearest_group_m": 30.7071,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.8135,
+        "terrain_measured": false
+      },
+      "pos": [
+        12510.0,
+        2.899316,
+        3340.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s002",
+      "placement_evidence": {
+        "height_median_m": 2.377422,
+        "height_spread_m": 0.156,
+        "nearest_group_m": 28.2694,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.2485,
+        "terrain_measured": false
+      },
+      "pos": [
+        13530.0,
+        2.377422,
+        11000.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 180.0,
+      "id": "s003",
+      "placement_evidence": {
+        "height_median_m": 7.21924,
+        "height_spread_m": 0.0289,
+        "nearest_group_m": 35.8709,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.761,
+        "terrain_measured": false
+      },
+      "pos": [
+        10020.0,
+        7.21924,
+        1610.0
+      ],
+      "requested_composition": "hunter-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s004",
+      "placement_evidence": {
+        "height_median_m": 8.424033,
+        "height_spread_m": 0.8662,
+        "nearest_group_m": 35.8992,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 0.392,
+        "terrain_measured": false
+      },
+      "pos": [
+        6880.0,
+        8.424033,
+        3040.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s005",
+      "placement_evidence": {
+        "height_median_m": 8.187674,
+        "height_spread_m": 1.0213,
+        "nearest_group_m": 37.4156,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 2.3602,
+        "terrain_measured": false
+      },
+      "pos": [
+        6900.0,
+        8.187674,
+        3140.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s006",
+      "placement_evidence": {
+        "height_median_m": 84.000633,
+        "height_spread_m": 0.1753,
+        "nearest_group_m": 29.3692,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.0486,
+        "terrain_measured": false
+      },
+      "pos": [
+        6190.0,
+        84.000633,
+        3810.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s007",
+      "placement_evidence": {
+        "height_median_m": 6.753308,
+        "height_spread_m": 0.7824,
+        "nearest_group_m": 31.4963,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 14,
+        "support_slope_pct": 0.8663,
+        "terrain_measured": false
+      },
+      "pos": [
+        880.0,
+        6.753308,
+        2030.0
+      ],
+      "requested_composition": "supply-drop-site",
+      "y_basis": "median of 14 vanilla rows within 60 m, spread 0.8 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s008",
+      "placement_evidence": {
+        "height_median_m": 7.455791,
+        "height_spread_m": 0.5147,
+        "nearest_group_m": 30.5889,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 0.8563,
+        "terrain_measured": false
+      },
+      "pos": [
+        9630.0,
+        7.455791,
+        1950.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s009",
+      "placement_evidence": {
+        "height_median_m": 142.157089,
+        "height_spread_m": 1.2737,
+        "nearest_group_m": 32.8943,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.9425,
+        "terrain_measured": false
+      },
+      "pos": [
+        620.0,
+        142.157089,
+        5230.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s010",
+      "placement_evidence": {
+        "height_median_m": 7.885516,
+        "height_spread_m": 0.1984,
+        "nearest_group_m": 32.0046,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 1.5864,
+        "terrain_measured": false
+      },
+      "pos": [
+        8440.0,
+        7.885516,
+        2950.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 180.0,
+      "id": "s011",
+      "placement_evidence": {
+        "height_median_m": 2.313358,
+        "height_spread_m": 1.1295,
+        "nearest_group_m": 41.5131,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.3993,
+        "terrain_measured": false
+      },
+      "pos": [
+        4100.0,
+        2.313358,
+        2160.0
+      ],
+      "requested_composition": "hunter-camp",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.1 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s012",
+      "placement_evidence": {
+        "height_median_m": 7.588131,
+        "height_spread_m": 1.045,
+        "nearest_group_m": 31.2775,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 0.2847,
+        "terrain_measured": false
+      },
+      "pos": [
+        9570.0,
+        7.588131,
+        2030.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s013",
+      "placement_evidence": {
+        "height_median_m": 7.075906,
+        "height_spread_m": 0.4535,
+        "nearest_group_m": 43.0641,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 0.5445,
+        "terrain_measured": false
+      },
+      "pos": [
+        12750.0,
+        7.075906,
+        9990.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s014",
+      "placement_evidence": {
+        "height_median_m": 6.979232,
+        "height_spread_m": 0.3873,
+        "nearest_group_m": 30.255,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 0.999,
+        "terrain_measured": false
+      },
+      "pos": [
+        8020.0,
+        6.979232,
+        2980.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s015",
+      "placement_evidence": {
+        "height_median_m": 2.899316,
+        "height_spread_m": 0.137,
+        "nearest_group_m": 34.747,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.8135,
+        "terrain_measured": false
+      },
+      "pos": [
+        12570.0,
+        2.899316,
+        3380.0
+      ],
+      "requested_composition": "supply-drop-site",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s016",
+      "placement_evidence": {
+        "height_median_m": 137.029083,
+        "height_spread_m": 0.2424,
+        "nearest_group_m": 33.8539,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.905,
+        "terrain_measured": false
+      },
+      "pos": [
+        11170.0,
+        137.029083,
+        7030.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s017",
+      "placement_evidence": {
+        "height_median_m": 6.802805,
+        "height_spread_m": 0.3056,
+        "nearest_group_m": 29.9785,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.6409,
+        "terrain_measured": false
+      },
+      "pos": [
+        700.0,
+        6.802805,
+        1810.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s018",
+      "placement_evidence": {
+        "height_median_m": 6.802805,
+        "height_spread_m": 0.3056,
+        "nearest_group_m": 25.1488,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.6409,
+        "terrain_measured": false
+      },
+      "pos": [
+        650.0,
+        6.802805,
+        1850.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 180.0,
+      "id": "s019",
+      "placement_evidence": {
+        "height_median_m": 183.131592,
+        "height_spread_m": 0.6169,
+        "nearest_group_m": 37.5696,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.8867,
+        "terrain_measured": false
+      },
+      "pos": [
+        12630.0,
+        183.131592,
+        4340.0
+      ],
+      "requested_composition": "hunter-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s020",
+      "placement_evidence": {
+        "height_median_m": 2.413002,
+        "height_spread_m": 0.1845,
+        "nearest_group_m": 32.1986,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.1844,
+        "terrain_measured": false
+      },
+      "pos": [
+        11070.0,
+        2.413002,
+        2730.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s021",
+      "placement_evidence": {
+        "height_median_m": 7.58747,
+        "height_spread_m": 1.0086,
+        "nearest_group_m": 37.6124,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 10,
+        "support_slope_pct": 0.665,
+        "terrain_measured": false
+      },
+      "pos": [
+        13030.0,
+        7.58747,
+        10360.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 10 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s022",
+      "placement_evidence": {
+        "height_median_m": 6.775695,
+        "height_spread_m": 0.9495,
+        "nearest_group_m": 30.8339,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 11,
+        "support_slope_pct": 1.6332,
+        "terrain_measured": false
+      },
+      "pos": [
+        830.0,
+        6.775695,
+        1980.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 11 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s023",
+      "placement_evidence": {
+        "height_median_m": 8.124471,
+        "height_spread_m": 0.3519,
+        "nearest_group_m": 36.5081,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.3494,
+        "terrain_measured": false
+      },
+      "pos": [
+        6930.0,
+        8.124471,
+        3070.0
+      ],
+      "requested_composition": "supply-drop-site",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s024",
+      "placement_evidence": {
+        "height_median_m": 61.570518,
+        "height_spread_m": 0.8591,
+        "nearest_group_m": 28.0252,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 2.6818,
+        "terrain_measured": false
+      },
+      "pos": [
+        6470.0,
+        61.570518,
+        3580.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s025",
+      "placement_evidence": {
+        "height_median_m": 7.21924,
+        "height_spread_m": 0.0289,
+        "nearest_group_m": 42.7311,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.761,
+        "terrain_measured": false
+      },
+      "pos": [
+        9980.0,
+        7.21924,
+        1650.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s026",
+      "placement_evidence": {
+        "height_median_m": 2.377422,
+        "height_spread_m": 0.156,
+        "nearest_group_m": 40.6304,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.2485,
+        "terrain_measured": false
+      },
+      "pos": [
+        13500.0,
+        2.377422,
+        11070.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 180.0,
+      "id": "s027",
+      "placement_evidence": {
+        "height_median_m": 20.911112,
+        "height_spread_m": 0.8792,
+        "nearest_group_m": 25.0437,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 2.1734,
+        "terrain_measured": false
+      },
+      "pos": [
+        6240.0,
+        20.911112,
+        2830.0
+      ],
+      "requested_composition": "hunter-camp",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s028",
+      "placement_evidence": {
+        "height_median_m": 84.000633,
+        "height_spread_m": 0.1753,
+        "nearest_group_m": 42.454,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.8676,
+        "terrain_measured": false
+      },
+      "pos": [
+        6220.0,
+        84.000633,
+        3740.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s029",
+      "placement_evidence": {
+        "height_median_m": 132.111053,
+        "height_spread_m": 0.4278,
+        "nearest_group_m": 40.1999,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.3827,
+        "terrain_measured": false
+      },
+      "pos": [
+        670.0,
+        132.111053,
+        4600.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s030",
+      "placement_evidence": {
+        "height_median_m": 7.91569,
+        "height_spread_m": 0.2793,
+        "nearest_group_m": 44.3685,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 2.2665,
+        "terrain_measured": false
+      },
+      "pos": [
+        8390.0,
+        7.91569,
+        2890.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s031",
+      "placement_evidence": {
+        "height_median_m": 40.428463,
+        "height_spread_m": 0.7374,
+        "nearest_group_m": 29.2648,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 0.3094,
+        "terrain_measured": false
+      },
+      "pos": [
+        6990.0,
+        40.428463,
+        3490.0
+      ],
+      "requested_composition": "supply-drop-site",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.7 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s032",
+      "placement_evidence": {
+        "height_median_m": 7.31859,
+        "height_spread_m": 0.9163,
+        "nearest_group_m": 38.1447,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 11,
+        "support_slope_pct": 0.6578,
+        "terrain_measured": false
+      },
+      "pos": [
+        12710.0,
+        7.31859,
+        9530.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 11 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s033",
+      "placement_evidence": {
+        "height_median_m": 84.018044,
+        "height_spread_m": 0.1753,
+        "nearest_group_m": 37.6902,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.9067,
+        "terrain_measured": false
+      },
+      "pos": [
+        6260.0,
+        84.018044,
+        3820.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s034",
+      "placement_evidence": {
+        "height_median_m": 7.21924,
+        "height_spread_m": 0.0289,
+        "nearest_group_m": 36.7682,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.761,
+        "terrain_measured": false
+      },
+      "pos": [
+        10020.0,
+        7.21924,
+        1690.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 180.0,
+      "id": "s035",
+      "placement_evidence": {
+        "height_median_m": 7.62253,
+        "height_spread_m": 0.3754,
+        "nearest_group_m": 42.9544,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.6118,
+        "terrain_measured": false
+      },
+      "pos": [
+        13200.0,
+        7.62253,
+        7120.0
+      ],
+      "requested_composition": "hunter-camp",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s036",
+      "placement_evidence": {
+        "height_median_m": 2.14602,
+        "height_spread_m": 0.4839,
+        "nearest_group_m": 32.2036,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.6092,
+        "terrain_measured": false
+      },
+      "pos": [
+        13060.0,
+        2.14602,
+        8460.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s037",
+      "placement_evidence": {
+        "height_median_m": 8.011788,
+        "height_spread_m": 0.422,
+        "nearest_group_m": 29.5559,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.6848,
+        "terrain_measured": false
+      },
+      "pos": [
+        8090.0,
+        8.011788,
+        3290.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s038",
+      "placement_evidence": {
+        "height_median_m": 144.459,
+        "height_spread_m": 0.2436,
+        "nearest_group_m": 34.0079,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.5458,
+        "terrain_measured": false
+      },
+      "pos": [
+        5900.0,
+        144.459,
+        4560.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s039",
+      "placement_evidence": {
+        "height_median_m": 7.393824,
+        "height_spread_m": 0.3557,
+        "nearest_group_m": 33.8595,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.3217,
+        "terrain_measured": false
+      },
+      "pos": [
+        9960.0,
+        7.393824,
+        1810.0
+      ],
+      "requested_composition": "supply-drop-site",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s040",
+      "placement_evidence": {
+        "height_median_m": 8.424033,
+        "height_spread_m": 0.9177,
+        "nearest_group_m": 26.5131,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 2.8415,
+        "terrain_measured": false
+      },
+      "pos": [
+        6830.0,
+        8.424033,
+        3090.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s041",
+      "placement_evidence": {
+        "height_median_m": 140.324036,
+        "height_spread_m": 1.3044,
+        "nearest_group_m": 30.8705,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.7626,
+        "terrain_measured": false
+      },
+      "pos": [
+        1200.0,
+        140.324036,
+        4570.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s042",
+      "placement_evidence": {
+        "height_median_m": 7.608933,
+        "height_spread_m": 1.1189,
+        "nearest_group_m": 30.4294,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.0409,
+        "terrain_measured": false
+      },
+      "pos": [
+        12870.0,
+        7.608933,
+        10270.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.1 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 180.0,
+      "id": "s043",
+      "placement_evidence": {
+        "height_median_m": 137.029083,
+        "height_spread_m": 0.2424,
+        "nearest_group_m": 35.508,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.905,
+        "terrain_measured": false
+      },
+      "pos": [
+        11130.0,
+        137.029083,
+        7090.0
+      ],
+      "requested_composition": "hunter-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s044",
+      "placement_evidence": {
+        "height_median_m": 223.313217,
+        "height_spread_m": 0.6166,
+        "nearest_group_m": 31.2511,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.4133,
+        "terrain_measured": false
+      },
+      "pos": [
+        7560.0,
+        223.313217,
+        5300.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s045",
+      "placement_evidence": {
+        "height_median_m": 228.778122,
+        "height_spread_m": 0.2976,
+        "nearest_group_m": 31.8301,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.236,
+        "terrain_measured": false
+      },
+      "pos": [
+        3160.0,
+        228.778122,
+        13740.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s046",
+      "placement_evidence": {
+        "height_median_m": 6.91071,
+        "height_spread_m": 0.9258,
+        "nearest_group_m": 32.5867,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.4269,
+        "terrain_measured": false
+      },
+      "pos": [
+        840.0,
+        6.91071,
+        1910.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s047",
+      "placement_evidence": {
+        "height_median_m": 7.587895,
+        "height_spread_m": 1.0809,
+        "nearest_group_m": 41.5781,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.7637,
+        "terrain_measured": false
+      },
+      "pos": [
+        7940.0,
+        7.587895,
+        3320.0
+      ],
+      "requested_composition": "supply-drop-site",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.1 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s048",
+      "placement_evidence": {
+        "height_median_m": 7.357086,
+        "height_spread_m": 0.3824,
+        "nearest_group_m": 24.976,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.8621,
+        "terrain_measured": false
+      },
+      "pos": [
+        9630.0,
+        7.357086,
+        2030.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s049",
+      "placement_evidence": {
+        "height_median_m": 7.75455,
+        "height_spread_m": 0.9509,
+        "nearest_group_m": 42.5912,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.6901,
+        "terrain_measured": false
+      },
+      "pos": [
+        13060.0,
+        7.75455,
+        10500.0
+      ],
+      "requested_composition": "quarantine-post",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "tent-camp",
+      "heading": 90.0,
+      "id": "s050",
+      "placement_evidence": {
+        "height_median_m": 96.85939,
+        "height_spread_m": 1.4857,
+        "nearest_group_m": 36.4928,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.6624,
+        "terrain_measured": false
+      },
+      "pos": [
+        12200.0,
+        96.85939,
+        13650.0
+      ],
+      "requested_composition": "refugee-camp",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.5 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s051",
+      "placement_evidence": {
+        "height_median_m": 2.785723,
+        "height_spread_m": 0.2904,
+        "nearest_group_m": 31.0029,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.892,
+        "terrain_measured": false
+      },
+      "pos": [
+        13540.0,
+        2.785723,
+        6430.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 0.0,
+      "id": "s052",
+      "placement_evidence": {
+        "height_median_m": 141.929977,
+        "height_spread_m": 0.6704,
+        "nearest_group_m": 37.734,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.1683,
+        "terrain_measured": false
+      },
+      "pos": [
+        660.0,
+        141.929977,
+        5270.0
+      ],
+      "requested_composition": "police-blockade",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.7 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s053",
+      "placement_evidence": {
+        "height_median_m": 174.9543,
+        "height_spread_m": 0.5659,
+        "nearest_group_m": 29.7553,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.0291,
+        "terrain_measured": false
+      },
+      "pos": [
+        12890.0,
+        174.9543,
+        4510.0
+      ],
+      "requested_composition": "helicopter-lz",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "field-hospital",
+      "heading": 270.0,
+      "id": "s054",
+      "placement_evidence": {
+        "height_median_m": 360.882721,
+        "height_spread_m": 1.4267,
+        "nearest_group_m": 25.4427,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.1417,
+        "terrain_measured": false
+      },
+      "pos": [
+        8370.0,
+        360.882721,
+        6710.0
+      ],
+      "requested_composition": "mass-grave-cleanup",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s055",
+      "placement_evidence": {
+        "height_median_m": 7.233403,
+        "height_spread_m": 0.1998,
+        "nearest_group_m": 35.2713,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.3636,
+        "terrain_measured": false
+      },
+      "pos": [
+        10370.0,
+        7.233403,
+        1770.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "town-edge / isolated mapped structure; road and forest fit unverified",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s056",
+      "placement_evidence": {
+        "height_median_m": 61.751633,
+        "height_spread_m": 0.3186,
+        "nearest_group_m": 31.8047,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.448,
+        "terrain_measured": false
+      },
+      "pos": [
+        6530.0,
+        61.751633,
+        3480.0
+      ],
+      "requested_composition": "bandit-roadblock",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+    }
+  ],
+  "status": "runtime-unverified",
+  "theme": "Town-edge quarantine, evacuation, policing and woodland survival stories.",
+  "version": 2
+}

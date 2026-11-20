@@ -1,0 +1,1592 @@
+{
+  "basis": {
+    "candidate_count": 2757,
+    "inventory": {
+      "groups": 11679,
+      "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+    },
+    "rule": "Add up to 301 bounded sites in deterministic geographic rounds, retaining v1 layers.\n\n    Every piece passes the existing flat-height and spacing checks. New layers\n    additionally reserve 16 m from vanilla group origins and reject unsupported\n    or >3 percent support planes. No decoded WRP terrain/road data is available;\n    these are conservative vanilla-row proxies. Remote candidates remain near\n    isolated mapped structures: deep woods without height evidence are excluded.\n    ",
+    "site_spacing_m": 55.0,
+    "terrain": "Vanilla group origins only; binary OPRW terrain is not decoded.",
+    "tier": "Geographic inland bias only; CE area flags retain authority."
+  },
+  "id": "military-zones-v2",
+  "kind": "hollow-country-map-overlay",
+  "limits": {
+    "max_loot": 600,
+    "max_objects": 3500,
+    "max_support_slope_pct": 3.0,
+    "vanilla_clearance_m": 16.0
+  },
+  "objects": [],
+  "purpose": "Military reinforcements at all named vanilla military areas.",
+  "sites": [
+    {
+      "area": "NWAF",
+      "composition": "forward-outpost",
+      "heading": 0.0,
+      "id": "s001",
+      "placement_evidence": {
+        "height_median_m": 340.478149,
+        "height_spread_m": 1.4328,
+        "nearest_group_m": 40.2695,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.3074,
+        "terrain_measured": false
+      },
+      "pos": [
+        4710.0,
+        340.478149,
+        10500.0
+      ],
+      "requested_composition": "field-hq",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s002",
+      "placement_evidence": {
+        "height_median_m": 141.209244,
+        "height_spread_m": 0.0,
+        "nearest_group_m": 28.5254,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.0,
+        "terrain_measured": false
+      },
+      "pos": [
+        11990.0,
+        141.209244,
+        12520.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.0 m"
+    },
+    {
+      "area": "Balota",
+      "composition": "checkpoint",
+      "heading": 180.0,
+      "id": "s003",
+      "placement_evidence": {
+        "height_median_m": 69.383011,
+        "height_spread_m": 0.8143,
+        "nearest_group_m": 31.4643,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 2.1598,
+        "terrain_measured": false
+      },
+      "pos": [
+        5560.0,
+        69.383011,
+        2750.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.8 m"
+    },
+    {
+      "area": "Tisy",
+      "composition": "tent-camp",
+      "heading": 270.0,
+      "id": "s004",
+      "placement_evidence": {
+        "height_median_m": 435.890961,
+        "height_spread_m": 1.3943,
+        "nearest_group_m": 43.2249,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.2566,
+        "terrain_measured": false
+      },
+      "pos": [
+        1890.0,
+        435.890961,
+        14840.0
+      ],
+      "requested_composition": "overrun-camp",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "Kamensk",
+      "composition": "field-hospital",
+      "heading": 0.0,
+      "id": "s005",
+      "placement_evidence": {
+        "height_median_m": 217.751877,
+        "height_spread_m": 0.1488,
+        "nearest_group_m": 27.6711,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.1964,
+        "terrain_measured": false
+      },
+      "pos": [
+        6760.0,
+        217.751877,
+        13290.0
+      ],
+      "requested_composition": "medevac-station",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "VMC",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s006",
+      "placement_evidence": {
+        "height_median_m": 325.572083,
+        "height_spread_m": 0.2656,
+        "nearest_group_m": 45.0388,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.9729,
+        "terrain_measured": false
+      },
+      "pos": [
+        4130.0,
+        325.572083,
+        8840.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "Zelenogorsk",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s007",
+      "placement_evidence": {
+        "height_median_m": 194.962631,
+        "height_spread_m": 0.6155,
+        "nearest_group_m": 28.5389,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 2.7499,
+        "terrain_measured": false
+      },
+      "pos": [
+        2500.0,
+        194.962631,
+        5010.0
+      ],
+      "requested_composition": "ammo-dump",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "Myshkino",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s008",
+      "placement_evidence": {
+        "height_median_m": 302.960571,
+        "height_spread_m": 0.9541,
+        "nearest_group_m": 31.8179,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.5221,
+        "terrain_measured": false
+      },
+      "pos": [
+        1500.0,
+        302.960571,
+        8900.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "Pavlovo",
+      "composition": "supply-dump",
+      "heading": 0.0,
+      "id": "s009",
+      "placement_evidence": {
+        "height_median_m": 110.809235,
+        "height_spread_m": 0.621,
+        "nearest_group_m": 31.7919,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.3573,
+        "terrain_measured": false
+      },
+      "pos": [
+        2030.0,
+        110.809235,
+        3490.0
+      ],
+      "requested_composition": "fuel-depot",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "Troitskoe",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s010",
+      "placement_evidence": {
+        "height_median_m": 217.751877,
+        "height_spread_m": 0.1488,
+        "nearest_group_m": 28.7304,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.1964,
+        "terrain_measured": false
+      },
+      "pos": [
+        6800.0,
+        217.751877,
+        13250.0
+      ],
+      "requested_composition": "motor-pool",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "Severograd",
+      "composition": "forward-outpost",
+      "heading": 180.0,
+      "id": "s011",
+      "placement_evidence": {
+        "height_median_m": 141.77803,
+        "height_spread_m": 0.5491,
+        "nearest_group_m": 39.1012,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 2.9738,
+        "terrain_measured": false
+      },
+      "pos": [
+        7790.0,
+        141.77803,
+        12360.0
+      ],
+      "requested_composition": "fob-compound",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "Krasnostav",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s012",
+      "placement_evidence": {
+        "height_median_m": 141.209244,
+        "height_spread_m": 0.8868,
+        "nearest_group_m": 39.9636,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 0.9916,
+        "terrain_measured": false
+      },
+      "pos": [
+        11960.0,
+        141.209244,
+        12440.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "Vybor",
+      "composition": "forward-outpost",
+      "heading": 0.0,
+      "id": "s013",
+      "placement_evidence": {
+        "height_median_m": 340.263397,
+        "height_spread_m": 0.4554,
+        "nearest_group_m": 30.1609,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.2817,
+        "terrain_measured": false
+      },
+      "pos": [
+        4410.0,
+        340.263397,
+        9840.0
+      ],
+      "requested_composition": "field-hq",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "Stary Sobor",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s014",
+      "placement_evidence": {
+        "height_median_m": 289.446533,
+        "height_spread_m": 1.2859,
+        "nearest_group_m": 31.9326,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 9,
+        "support_slope_pct": 1.1322,
+        "terrain_measured": false
+      },
+      "pos": [
+        6380.0,
+        289.446533,
+        7520.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 9 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "Green Mountain",
+      "composition": "checkpoint",
+      "heading": 180.0,
+      "id": "s015",
+      "placement_evidence": {
+        "height_median_m": 191.571487,
+        "height_spread_m": 0.2686,
+        "nearest_group_m": 33.0917,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.3773,
+        "terrain_measured": false
+      },
+      "pos": [
+        2450.0,
+        191.571487,
+        5320.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "Altar",
+      "composition": "tent-camp",
+      "heading": 270.0,
+      "id": "s016",
+      "placement_evidence": {
+        "height_median_m": 256.683411,
+        "height_spread_m": 1.4019,
+        "nearest_group_m": 25.2438,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 2.6329,
+        "terrain_measured": false
+      },
+      "pos": [
+        8080.0,
+        256.683411,
+        10880.0
+      ],
+      "requested_composition": "overrun-camp",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "field-hospital",
+      "heading": 0.0,
+      "id": "s017",
+      "placement_evidence": {
+        "height_median_m": 2.022192,
+        "height_spread_m": 0.3824,
+        "nearest_group_m": 26.1791,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.567,
+        "terrain_measured": false
+      },
+      "pos": [
+        2180.0,
+        2.022192,
+        2070.0
+      ],
+      "requested_composition": "medevac-station",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s018",
+      "placement_evidence": {
+        "height_median_m": 340.347961,
+        "height_spread_m": 1.4781,
+        "nearest_group_m": 29.102,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.6217,
+        "terrain_measured": false
+      },
+      "pos": [
+        4650.0,
+        340.347961,
+        10520.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.5 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s019",
+      "placement_evidence": {
+        "height_median_m": 35.084713,
+        "height_spread_m": 0.2723,
+        "nearest_group_m": 36.8605,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.3961,
+        "terrain_measured": false
+      },
+      "pos": [
+        13580.0,
+        35.084713,
+        13370.0
+      ],
+      "requested_composition": "ammo-dump",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "Balota",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s020",
+      "placement_evidence": {
+        "height_median_m": 69.487579,
+        "height_spread_m": 0.4422,
+        "nearest_group_m": 30.6515,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.1395,
+        "terrain_measured": false
+      },
+      "pos": [
+        5620.0,
+        69.487579,
+        2740.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "Tisy",
+      "composition": "supply-dump",
+      "heading": 0.0,
+      "id": "s021",
+      "placement_evidence": {
+        "height_median_m": 452.972656,
+        "height_spread_m": 0.1295,
+        "nearest_group_m": 37.1113,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.4057,
+        "terrain_measured": false
+      },
+      "pos": [
+        1610.0,
+        452.972656,
+        14170.0
+      ],
+      "requested_composition": "fuel-depot",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "VMC",
+      "composition": "forward-outpost",
+      "heading": 180.0,
+      "id": "s022",
+      "placement_evidence": {
+        "height_median_m": 304.713165,
+        "height_spread_m": 1.1835,
+        "nearest_group_m": 42.9813,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.6441,
+        "terrain_measured": false
+      },
+      "pos": [
+        2880.0,
+        304.713165,
+        8110.0
+      ],
+      "requested_composition": "fob-compound",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "Zelenogorsk",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s023",
+      "placement_evidence": {
+        "height_median_m": 111.001961,
+        "height_spread_m": 0.4827,
+        "nearest_group_m": 35.7556,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.3119,
+        "terrain_measured": false
+      },
+      "pos": [
+        2080.0,
+        111.001961,
+        3560.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "Myshkino",
+      "composition": "forward-outpost",
+      "heading": 0.0,
+      "id": "s024",
+      "placement_evidence": {
+        "height_median_m": 288.981323,
+        "height_spread_m": 1.2568,
+        "nearest_group_m": 33.4602,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.6916,
+        "terrain_measured": false
+      },
+      "pos": [
+        350.0,
+        288.981323,
+        8550.0
+      ],
+      "requested_composition": "field-hq",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "Pavlovo",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s025",
+      "placement_evidence": {
+        "height_median_m": 110.957024,
+        "height_spread_m": 0.5763,
+        "nearest_group_m": 24.9189,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.0941,
+        "terrain_measured": false
+      },
+      "pos": [
+        2120.0,
+        110.957024,
+        3510.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "Troitskoe",
+      "composition": "checkpoint",
+      "heading": 180.0,
+      "id": "s026",
+      "placement_evidence": {
+        "height_median_m": 84.851814,
+        "height_spread_m": 0.2001,
+        "nearest_group_m": 34.9684,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.0181,
+        "terrain_measured": false
+      },
+      "pos": [
+        9510.0,
+        84.851814,
+        13610.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "Severograd",
+      "composition": "tent-camp",
+      "heading": 270.0,
+      "id": "s027",
+      "placement_evidence": {
+        "height_median_m": 105.413498,
+        "height_spread_m": 0.4902,
+        "nearest_group_m": 37.757,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.3277,
+        "terrain_measured": false
+      },
+      "pos": [
+        8740.0,
+        105.413498,
+        12780.0
+      ],
+      "requested_composition": "overrun-camp",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "Vybor",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s028",
+      "placement_evidence": {
+        "height_median_m": 340.228027,
+        "height_spread_m": 1.2956,
+        "nearest_group_m": 30.9726,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.6841,
+        "terrain_measured": false
+      },
+      "pos": [
+        4960.0,
+        340.228027,
+        10030.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "Stary Sobor",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s029",
+      "placement_evidence": {
+        "height_median_m": 299.998199,
+        "height_spread_m": 0.4492,
+        "nearest_group_m": 29.1229,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 0.8722,
+        "terrain_measured": false
+      },
+      "pos": [
+        6890.0,
+        299.998199,
+        7700.0
+      ],
+      "requested_composition": "ammo-dump",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "Green Mountain",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s030",
+      "placement_evidence": {
+        "height_median_m": 192.088562,
+        "height_spread_m": 1.0555,
+        "nearest_group_m": 27.4404,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.668,
+        "terrain_measured": false
+      },
+      "pos": [
+        2380.0,
+        192.088562,
+        5120.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.1 m"
+    },
+    {
+      "area": "Altar",
+      "composition": "supply-dump",
+      "heading": 0.0,
+      "id": "s031",
+      "placement_evidence": {
+        "height_median_m": 255.93689,
+        "height_spread_m": 1.4019,
+        "nearest_group_m": 32.9789,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 2.6696,
+        "terrain_measured": false
+      },
+      "pos": [
+        8040.0,
+        255.93689,
+        10920.0
+      ],
+      "requested_composition": "fuel-depot",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s032",
+      "placement_evidence": {
+        "height_median_m": 7.20924,
+        "height_spread_m": 0.0722,
+        "nearest_group_m": 44.3113,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.947,
+        "terrain_measured": false
+      },
+      "pos": [
+        3610.0,
+        7.20924,
+        2280.0
+      ],
+      "requested_composition": "motor-pool",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "forward-outpost",
+      "heading": 180.0,
+      "id": "s033",
+      "placement_evidence": {
+        "height_median_m": 339.207581,
+        "height_spread_m": 1.2093,
+        "nearest_group_m": 32.3697,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.2179,
+        "terrain_measured": false
+      },
+      "pos": [
+        4580.0,
+        339.207581,
+        10610.0
+      ],
+      "requested_composition": "fob-compound",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s034",
+      "placement_evidence": {
+        "height_median_m": 52.708706,
+        "height_spread_m": 0.5882,
+        "nearest_group_m": 38.0041,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.9468,
+        "terrain_measured": false
+      },
+      "pos": [
+        12580.0,
+        52.708706,
+        13870.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "Balota",
+      "composition": "forward-outpost",
+      "heading": 0.0,
+      "id": "s035",
+      "placement_evidence": {
+        "height_median_m": 4.859212,
+        "height_spread_m": 0.9197,
+        "nearest_group_m": 28.986,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.9769,
+        "terrain_measured": false
+      },
+      "pos": [
+        3940.0,
+        4.859212,
+        2280.0
+      ],
+      "requested_composition": "field-hq",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "VMC",
+      "composition": "tent-camp",
+      "heading": 270.0,
+      "id": "s036",
+      "placement_evidence": {
+        "height_median_m": 338.093597,
+        "height_spread_m": 0.4807,
+        "nearest_group_m": 24.7845,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.6677,
+        "terrain_measured": false
+      },
+      "pos": [
+        5270.0,
+        338.093597,
+        9850.0
+      ],
+      "requested_composition": "overrun-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "Zelenogorsk",
+      "composition": "field-hospital",
+      "heading": 0.0,
+      "id": "s037",
+      "placement_evidence": {
+        "height_median_m": 93.624794,
+        "height_spread_m": 0.142,
+        "nearest_group_m": 40.9567,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.0776,
+        "terrain_measured": false
+      },
+      "pos": [
+        2260.0,
+        93.624794,
+        3350.0
+      ],
+      "requested_composition": "medevac-station",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "Myshkino",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s038",
+      "placement_evidence": {
+        "height_median_m": 288.981323,
+        "height_spread_m": 1.2568,
+        "nearest_group_m": 31.0066,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.6916,
+        "terrain_measured": false
+      },
+      "pos": [
+        300.0,
+        288.981323,
+        8600.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "Pavlovo",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s039",
+      "placement_evidence": {
+        "height_median_m": 8.742245,
+        "height_spread_m": 1.2179,
+        "nearest_group_m": 43.871,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.9007,
+        "terrain_measured": false
+      },
+      "pos": [
+        1660.0,
+        8.742245,
+        2250.0
+      ],
+      "requested_composition": "ammo-dump",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "Troitskoe",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s040",
+      "placement_evidence": {
+        "height_median_m": 207.131195,
+        "height_spread_m": 1.3753,
+        "nearest_group_m": 30.4013,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.2348,
+        "terrain_measured": false
+      },
+      "pos": [
+        8430.0,
+        207.131195,
+        13910.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "checkpoint",
+      "heading": 180.0,
+      "id": "s041",
+      "placement_evidence": {
+        "height_median_m": 8.011739,
+        "height_spread_m": 0.6471,
+        "nearest_group_m": 38.5248,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.518,
+        "terrain_measured": false
+      },
+      "pos": [
+        3640.0,
+        8.011739,
+        2370.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "tent-camp",
+      "heading": 270.0,
+      "id": "s042",
+      "placement_evidence": {
+        "height_median_m": 340.428497,
+        "height_spread_m": 0.6468,
+        "nearest_group_m": 40.1513,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.3169,
+        "terrain_measured": false
+      },
+      "pos": [
+        4470.0,
+        340.428497,
+        10790.0
+      ],
+      "requested_composition": "overrun-camp",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "field-hospital",
+      "heading": 0.0,
+      "id": "s043",
+      "placement_evidence": {
+        "height_median_m": 35.243896,
+        "height_spread_m": 0.9001,
+        "nearest_group_m": 35.879,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.5403,
+        "terrain_measured": false
+      },
+      "pos": [
+        13610.0,
+        35.243896,
+        13300.0
+      ],
+      "requested_composition": "medevac-station",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "Balota",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s044",
+      "placement_evidence": {
+        "height_median_m": 4.859212,
+        "height_spread_m": 0.9197,
+        "nearest_group_m": 39.4797,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.9769,
+        "terrain_measured": false
+      },
+      "pos": [
+        3900.0,
+        4.859212,
+        2330.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "Kamensk",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s045",
+      "placement_evidence": {
+        "height_median_m": 341.007202,
+        "height_spread_m": 0.1536,
+        "nearest_group_m": 40.7399,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.2611,
+        "terrain_measured": false
+      },
+      "pos": [
+        7980.0,
+        341.007202,
+        14690.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "VMC",
+      "composition": "supply-dump",
+      "heading": 0.0,
+      "id": "s046",
+      "placement_evidence": {
+        "height_median_m": 340.664581,
+        "height_spread_m": 0.6587,
+        "nearest_group_m": 27.4125,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.807,
+        "terrain_measured": false
+      },
+      "pos": [
+        4430.0,
+        340.664581,
+        9660.0
+      ],
+      "requested_composition": "fuel-depot",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.7 m"
+    },
+    {
+      "area": "Pavlovo",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s047",
+      "placement_evidence": {
+        "height_median_m": 6.764694,
+        "height_spread_m": 0.7114,
+        "nearest_group_m": 30.4225,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 2.9545,
+        "terrain_measured": false
+      },
+      "pos": [
+        990.0,
+        6.764694,
+        2080.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.7 m"
+    },
+    {
+      "area": "Troitskoe",
+      "composition": "forward-outpost",
+      "heading": 0.0,
+      "id": "s048",
+      "placement_evidence": {
+        "height_median_m": 227.979782,
+        "height_spread_m": 0.3402,
+        "nearest_group_m": 36.1279,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.0677,
+        "terrain_measured": false
+      },
+      "pos": [
+        6140.0,
+        227.979782,
+        13420.0
+      ],
+      "requested_composition": "field-hq",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "Severograd",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s049",
+      "placement_evidence": {
+        "height_median_m": 105.811478,
+        "height_spread_m": 1.2086,
+        "nearest_group_m": 26.1891,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.9787,
+        "terrain_measured": false
+      },
+      "pos": [
+        8580.0,
+        105.811478,
+        12790.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s050",
+      "placement_evidence": {
+        "height_median_m": 2.069019,
+        "height_spread_m": 0.1177,
+        "nearest_group_m": 37.6604,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.168,
+        "terrain_measured": false
+      },
+      "pos": [
+        3910.0,
+        2.069019,
+        2170.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "supply-dump",
+      "heading": 0.0,
+      "id": "s051",
+      "placement_evidence": {
+        "height_median_m": 338.690338,
+        "height_spread_m": 1.3586,
+        "nearest_group_m": 39.304,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.4452,
+        "terrain_measured": false
+      },
+      "pos": [
+        4400.0,
+        338.690338,
+        10930.0
+      ],
+      "requested_composition": "fuel-depot",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "forward-outpost",
+      "heading": 90.0,
+      "id": "s052",
+      "placement_evidence": {
+        "height_median_m": 52.684521,
+        "height_spread_m": 1.4634,
+        "nearest_group_m": 40.6158,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 2.4862,
+        "terrain_measured": false
+      },
+      "pos": [
+        12620.0,
+        52.684521,
+        13780.0
+      ],
+      "requested_composition": "motor-pool",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 1.5 m"
+    },
+    {
+      "area": "VMC",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s053",
+      "placement_evidence": {
+        "height_median_m": 339.753326,
+        "height_spread_m": 0.2719,
+        "nearest_group_m": 34.9155,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 0.506,
+        "terrain_measured": false
+      },
+      "pos": [
+        4650.0,
+        339.753326,
+        9520.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "area": "Pavlovo",
+      "composition": "field-hospital",
+      "heading": 0.0,
+      "id": "s054",
+      "placement_evidence": {
+        "height_median_m": 6.764694,
+        "height_spread_m": 0.7114,
+        "nearest_group_m": 31.7482,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 0.5973,
+        "terrain_measured": false
+      },
+      "pos": [
+        930.0,
+        6.764694,
+        2080.0
+      ],
+      "requested_composition": "medevac-station",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.7 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "forward-outpost",
+      "heading": 0.0,
+      "id": "s055",
+      "placement_evidence": {
+        "height_median_m": 6.538764,
+        "height_spread_m": 0.7734,
+        "nearest_group_m": 40.6594,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 12,
+        "support_slope_pct": 2.2592,
+        "terrain_measured": false
+      },
+      "pos": [
+        980.0,
+        6.538764,
+        2020.0
+      ],
+      "requested_composition": "field-hq",
+      "y_basis": "median of 12 vanilla rows within 60 m, spread 0.8 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s056",
+      "placement_evidence": {
+        "height_median_m": 338.991455,
+        "height_spread_m": 1.4392,
+        "nearest_group_m": 29.5348,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.6842,
+        "terrain_measured": false
+      },
+      "pos": [
+        4930.0,
+        338.991455,
+        10090.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "checkpoint",
+      "heading": 180.0,
+      "id": "s057",
+      "placement_evidence": {
+        "height_median_m": 58.963425,
+        "height_spread_m": 0.6988,
+        "nearest_group_m": 32.2477,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.3764,
+        "terrain_measured": false
+      },
+      "pos": [
+        11580.0,
+        58.963425,
+        14060.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.7 m"
+    },
+    {
+      "area": "Zelenogorsk",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s058",
+      "placement_evidence": {
+        "height_median_m": 186.585068,
+        "height_spread_m": 0.1171,
+        "nearest_group_m": 39.7094,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.4953,
+        "terrain_measured": false
+      },
+      "pos": [
+        2270.0,
+        186.585068,
+        5290.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "area": "Vybor",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s059",
+      "placement_evidence": {
+        "height_median_m": 273.046661,
+        "height_spread_m": 1.3441,
+        "nearest_group_m": 25.4289,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.7378,
+        "terrain_measured": false
+      },
+      "pos": [
+        2940.0,
+        273.046661,
+        9730.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s060",
+      "placement_evidence": {
+        "height_median_m": 6.631864,
+        "height_spread_m": 0.7824,
+        "nearest_group_m": 32.3343,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 12,
+        "support_slope_pct": 1.1532,
+        "terrain_measured": false
+      },
+      "pos": [
+        940.0,
+        6.631864,
+        1980.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 12 vanilla rows within 60 m, spread 0.8 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "supply-dump",
+      "heading": 180.0,
+      "id": "s061",
+      "placement_evidence": {
+        "height_median_m": 333.924408,
+        "height_spread_m": 1.2261,
+        "nearest_group_m": 30.9216,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 2.4738,
+        "terrain_measured": false
+      },
+      "pos": [
+        5410.0,
+        333.924408,
+        9900.0
+      ],
+      "requested_composition": "ammo-dump",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "NEAF",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s062",
+      "placement_evidence": {
+        "height_median_m": 59.459389,
+        "height_spread_m": 1.1603,
+        "nearest_group_m": 33.857,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 2.2561,
+        "terrain_measured": false
+      },
+      "pos": [
+        11580.0,
+        59.459389,
+        14150.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "VMC",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s063",
+      "placement_evidence": {
+        "height_median_m": 339.0,
+        "height_spread_m": 1.2962,
+        "nearest_group_m": 35.4638,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.091,
+        "terrain_measured": false
+      },
+      "pos": [
+        4990.0,
+        339.0,
+        9980.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "Krasnostav",
+      "composition": "comms-post",
+      "heading": 90.0,
+      "id": "s064",
+      "placement_evidence": {
+        "height_median_m": 105.201683,
+        "height_spread_m": 1.0142,
+        "nearest_group_m": 36.7271,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 2.6626,
+        "terrain_measured": false
+      },
+      "pos": [
+        12170.0,
+        105.201683,
+        13390.0
+      ],
+      "requested_composition": "radio-relay",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "Prison Island approach",
+      "composition": "forward-outpost",
+      "heading": 180.0,
+      "id": "s065",
+      "placement_evidence": {
+        "height_median_m": 6.758617,
+        "height_spread_m": 0.8576,
+        "nearest_group_m": 38.0475,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 11,
+        "support_slope_pct": 2.5859,
+        "terrain_measured": false
+      },
+      "pos": [
+        890.0,
+        6.758617,
+        1940.0
+      ],
+      "requested_composition": "fob-compound",
+      "y_basis": "median of 11 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "NWAF",
+      "composition": "checkpoint",
+      "heading": 270.0,
+      "id": "s066",
+      "placement_evidence": {
+        "height_median_m": 325.640839,
+        "height_spread_m": 0.5265,
+        "nearest_group_m": 33.5644,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 1.0588,
+        "terrain_measured": false
+      },
+      "pos": [
+        4670.0,
+        325.640839,
+        11040.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "Balota",
+      "composition": "mg-nest",
+      "heading": 90.0,
+      "id": "s067",
+      "placement_evidence": {
+        "height_median_m": 64.934776,
+        "height_spread_m": 1.0064,
+        "nearest_group_m": 28.0616,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 2.3165,
+        "terrain_measured": false
+      },
+      "pos": [
+        5580.0,
+        64.934776,
+        2420.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "Pavlovo",
+      "composition": "mg-nest",
+      "heading": 270.0,
+      "id": "s068",
+      "placement_evidence": {
+        "height_median_m": 93.624794,
+        "height_spread_m": 1.155,
+        "nearest_group_m": 30.2916,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.8087,
+        "terrain_measured": false
+      },
+      "pos": [
+        2230.0,
+        93.624794,
+        3410.0
+      ],
+      "requested_composition": "mortar-pit",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.2 m"
+    }
+  ],
+  "status": "runtime-unverified",
+  "theme": "Military reinforcements at all named vanilla military areas.",
+  "version": 2
+}
