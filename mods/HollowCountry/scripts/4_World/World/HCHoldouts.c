@@ -1,8 +1,8 @@
-// W5-PERF-5: catalog <=4 authored rows/tick (4 ms cooperative guard);
+// W5-PERF-5: catalog <=1 authored row/tick (4 ms cooperative guard);
 // One row starts per >=1s; native stages/body probes resume on following ticks.
-// Empty body/stock/content stages fall through: five ticks per unoccupied row.
-// Catalog checkpoints coalesce, creation/spend/raid
-// barriers retain synchronous verified saves. Native scripts-1.30.164289:
+// Empty body/stock/content stages fall through; heavy cache work yields between operations.
+// Catalog checkpoints coalesce; cache barriers resume across ticks, while
+// spend/raid barriers retain synchronous verified saves. Native scripts-1.30.164289:
 // 3_Game/Global/Game.c:914 GetTickTime; shared guard in HCWorkBudget.c.
 // LC-T408, #102. Native evidence: installed scripts-1.30.164289:
 // 1_Core/proto/EnSystem.c:397 FileExist, :525 MakeDirectory, :528 DeleteFile,
@@ -214,6 +214,13 @@ class HCHoldouts : HCModule
     protected int m_Next;
     protected int m_TickPhase;
     protected int m_TickMeasuredStage;
+    protected ref HCStepTimer m_TickSteps = new HCStepTimer("Holdouts");
+    protected bool m_MeasuringTick;
+    protected int m_TickSaveTicks;
+    protected ref HCWorkBudget m_SpotWork = new HCWorkBudget;
+    protected bool m_CampReserveSaved;
+    protected int m_TickAfterSave = 4;
+    protected int m_TickStockSite;
     protected int m_TickIndex;
     protected int m_BodyNext;
     protected Object m_TickStructure;
@@ -232,7 +239,7 @@ class HCHoldouts : HCModule
     protected int m_SpotNoFitWindow;
     protected int m_SpotCollidingWindow;
     protected int m_SpotBudgetWindow;
-    // Runtime-only search for the current staged row: <=16 rooms x 9 points.
+    // Runtime-only search: <=16 rooms x (9 original + 9 rotated points).
     protected int m_SpotCandidate;
     protected bool m_SpotHadFit;
     protected int m_ObserverBlockedWindow;
@@ -421,7 +428,16 @@ class HCHoldouts : HCModule
     bool SaveChanged()
     {
         if (!m_Dirty && !m_Store.SaveInFlight()) { return true; }
-        if (!m_Store.Save(m_State)) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_store_uncertain"); HCSyncLights(); return false; }
+        int saveStart = TickCount(0);
+        bool saved = m_Store.Save(m_State);
+        if (m_MeasuringTick)
+        {
+            int saveTicks = TickCount(saveStart);
+            m_TickSaveTicks += saveTicks;
+            m_TickSteps.HCAdd(7, saveTicks);
+            m_TickSteps.HCItem("save_barrier", saveTicks);
+        }
+        if (!saved) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_store_uncertain"); HCSyncLights(); return false; }
         m_Dirty = false;
         m_CatalogDirty = false;
         if (m_SaveJob)
@@ -436,8 +452,10 @@ class HCHoldouts : HCModule
 
     // #271/#285: Published is a detached world-view retry flag, reset for ALL
     // rows on every boot. It needs no checkpoint or simulation wait. Actual
-    // cache, stock, founding and reserve/spend transitions retain SaveChanged().
-    // Catalog discovery alone continues to use the shared staged save job.
+    // stock intents, founding and reserve/spend transitions retain SaveChanged().
+    // Catalog discovery uses the shared staged save job. Tick-owned cache and
+    // result barriers reuse its one-stage writer, without handing ownership to
+    // the scheduler; callbacks/shutdown retain synchronous SaveChanged().
 
     int HCStepCatalog()
     {
@@ -532,6 +550,7 @@ class HCHoldouts : HCModule
 
     bool HCStepCamp(int index, int now)
     {
+        m_CampReserveSaved = false;
         if (!m_Ready || !m_State || index < 0 || index >= Count() || now < 1) { return false; }
         HCHoldoutRow row = m_State.Rows[index];
         if (now < row.Ledger.Since) { return false; }
@@ -544,6 +563,8 @@ class HCHoldouts : HCModule
             {
                 m_Dirty = true;
                 if (!SaveChanged()) { m_Ready = false; return false; }
+                // Tick continuation must not combine two durable reserve/founding writes.
+                if (m_MeasuringTick) { m_CampReserveSaved = true; return false; }
             }
         }
         if (now < m_State.Resources.ReserveAt) { m_Ready = false; HCRefuseState(); return false; }
@@ -853,12 +874,15 @@ class HCHoldouts : HCModule
     // Stable room order, then four inset corners, centre, and four edge midpoints.
     // Preserve the original low-corner inset and floor height. The complete crate
     // footprint and all door/stair/CE keepouts still veto each candidate.
-    protected vector HCCacheCandidate(HCInteriorTemplateRoom room, int candidate)
+    protected vector HCCacheCandidate(HCInteriorTemplateRoom room, int candidate, bool rotated)
     {
-        float lowX = room.Min[0] + 0.55;
-        float highX = room.Max[0] - 0.55;
-        float lowZ = room.Min[2] + 0.45;
-        float highZ = room.Max[2] - 0.45;
+        float insetX = 0.55;
+        float insetZ = 0.45;
+        if (rotated) { insetX = 0.45; insetZ = 0.55; }
+        float lowX = room.Min[0] + insetX;
+        float highX = room.Max[0] - insetX;
+        float lowZ = room.Min[2] + insetZ;
+        float highZ = room.Max[2] - insetZ;
         float midX = (room.Min[0] + room.Max[0]) * 0.5;
         float midZ = (room.Min[2] + room.Max[2]) * 0.5;
         float spotX = lowX;
@@ -877,10 +901,13 @@ class HCHoldouts : HCModule
         return Vector(spotX, room.FloorY + 0.03, spotZ);
     }
 
-    protected bool HCCacheFits(HCInteriorTemplate layout, HCInteriorTemplateRoom room, vector spot)
+    protected bool HCCacheFits(HCInteriorTemplate layout, HCInteriorTemplateRoom room, vector spot, bool rotated)
     {
-        array<float> minimum = {spot[0] - 0.45, spot[1], spot[2] - 0.35};
-        array<float> maximum = {spot[0] + 0.45, spot[1] + 0.5, spot[2] + 0.35};
+        float halfX = 0.45;
+        float halfZ = 0.35;
+        if (rotated) { halfX = 0.35; halfZ = 0.45; }
+        array<float> minimum = {spot[0] - halfX, spot[1], spot[2] - halfZ};
+        array<float> maximum = {spot[0] + halfX, spot[1] + 0.5, spot[2] + halfZ};
         if (!HCInteriorTemplates.Inside(minimum, room.Min, room.Max) || !HCInteriorTemplates.Inside(maximum, room.Min, room.Max)) return false;
         // Admitted templates contain at most 32 keepouts; never skip one.
         if (!layout.KeepOuts || layout.KeepOuts.Count() > 32) return false;
@@ -897,25 +924,40 @@ class HCHoldouts : HCModule
     // means at least one geometrically fitting candidate existed but all collided.
     int CacheSpot(Object structure, HCHoldoutRow row)
     {
+        int templateStart = TickCount(0);
         HCInteriorTemplate layout = HCInteriorTemplates.Template(row.Ledger.HouseClass);
+        if (m_MeasuringTick) { m_TickSteps.HCItem("interior_template", TickCount(templateStart)); }
         if (!layout || !layout.Rooms) { m_SpotNoTemplateWindow++; return 0; }
         int probes = 0;
         HCEncounterCacheIO probe = new HCEncounterCacheIO;
-        for (int examined = 0; examined < 144; examined++)
+        // Guard geometry/keepout work as well as the eight native probes. The
+        // cursor advances only after admission, including across orientations.
+        m_SpotWork.HCReset(288, HCPerfConfig.HCGet().SliceMs);
+        for (int examined = 0; examined < 288; examined++)
         {
-            int roomIndex = m_SpotCandidate / 9;
+            int roomIndex = m_SpotCandidate / 18;
             if (roomIndex >= layout.Rooms.Count() || roomIndex >= 16) break;
-            if (probes >= 8) { m_SpotBudgetWindow++; return -1; }
+            if (probes >= 8 || !m_SpotWork.HCContinue()) { m_SpotBudgetWindow++; return -1; }
+            bool rotated = (m_SpotCandidate % 18) >= 9;
             int candidate = m_SpotCandidate % 9;
             m_SpotCandidate++;
             HCInteriorTemplateRoom room = layout.Rooms[roomIndex];
-            vector spot = HCCacheCandidate(room, candidate);
-            if (!HCCacheFits(layout, room, spot)) continue;
+            vector spot = HCCacheCandidate(room, candidate, rotated);
+            if (!HCCacheFits(layout, room, spot, rotated)) continue;
             m_SpotHadFit = true;
             row.Cache.Position = structure.ModelToWorld(spot);
-            row.Cache.Orientation = structure.GetOrientation();
+            vector cacheOrientation = structure.GetOrientation();
+            if (rotated)
+            {
+                cacheOrientation[0] = cacheOrientation[0] + 90;
+                if (cacheOrientation[0] > 180) { cacheOrientation[0] = cacheOrientation[0] - 360; }
+            }
+            row.Cache.Orientation = cacheOrientation;
             probes++;
-            if (probe.Clear(row.Cache, structure)) return 1;
+            int probeStart = TickCount(0);
+            bool clear = probe.Clear(row.Cache, structure);
+            if (m_MeasuringTick) { m_TickSteps.HCItem("collision_probe", TickCount(probeStart)); }
+            if (clear) return 1;
         }
         if (m_SpotHadFit) { m_SpotCollidingWindow++; }
         else { m_SpotNoFitWindow++; }
@@ -1024,10 +1066,16 @@ class HCHoldouts : HCModule
         row.Ledger.ReoccupyAfter = row.Camp.ReoccupyAfter;
         row.Ledger.Routine = "LOCKOUT";
         row.Contents.Clear();
+        // The tick's final continuation publishes only rows marked unpublished.
+        row.Published = false;
         m_Dirty = true;
         if (!SaveChanged()) { return; }
-        PublishState(row);
-        if (!SaveChanged()) { return; }
+        // A tick publishes at its final continuation, after this one barrier.
+        if (!m_MeasuringTick)
+        {
+            PublishState(row);
+            if (!SaveChanged()) { return; }
+        }
         int raidLockout = m_State.CampPolicy.RaidLockoutSeconds;
         Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=" + raidLockout.ToString() + "s runtime=PENDING");
     }
@@ -1202,6 +1250,9 @@ class HCHoldouts : HCModule
                 // Count retired-link recovery attempts, not usable replacements.
                 // Placement, creation and durable linking may still fail.
                 m_RecoveryAttemptsWindow++;
+                m_TickAfterSave = 3;
+                m_TickPhase = 12;
+                return;
             }
             if (row.Cache.Phase == 0)
             {
@@ -1217,9 +1268,8 @@ class HCHoldouts : HCModule
                         {
                             row.Cache.Phase = 1;
                             m_Dirty = true;
-                            if (!SaveChanged()) { return; }
-                            m_Caches[index].Create(row.Cache);
-                            m_Dirty = true;
+                            m_TickPhase = 10;
+                            return;
                         }
                     }
                 }
@@ -1230,9 +1280,42 @@ class HCHoldouts : HCModule
                 row.Published = false;
                 m_Dirty = true;
             }
-            // Cache creation keeps its original intent/result save barriers.
-            if (!SaveChanged()) { return; }
-            m_TickPhase = 4;
+            m_TickAfterSave = 4;
+            if (m_Dirty || m_Store.SaveInFlight()) { m_TickPhase = 12; }
+            else { m_TickPhase = 4; }
+            return;
+        }
+        // One save-image stage or one materialization operation per admitted
+        // tick. Never create before the complete intent has been verified.
+        if (m_TickPhase == 10 || m_TickPhase == 12)
+        {
+            if (m_Dirty || m_Store.SaveInFlight())
+            {
+                int saveResult = HCStepCatalog();
+                if (saveResult != HCSaveJob.STEP_DONE) { return; }
+            }
+            if (m_TickPhase == 10) { m_TickPhase = 11; }
+            else { m_TickPhase = m_TickAfterSave; }
+            return;
+        }
+        if (m_TickPhase == 11)
+        {
+            if (!HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
+            {
+                // No crate was created. Clear the durable intent through the
+                // result barrier and rotate, rather than pinning on an observer.
+                m_ObserverBlockedWindow++;
+                row.Cache.Phase = 0;
+            }
+            else { m_Caches[index].Create(row.Cache); }
+            if (row.Ledger.CacheRef != row.Cache.EntityRef)
+            {
+                row.Ledger.CacheRef = row.Cache.EntityRef;
+                row.Published = false;
+            }
+            m_Dirty = true;
+            m_TickAfterSave = 4;
+            m_TickPhase = 12;
             return;
         }
         if (m_TickPhase == 4)
@@ -1247,10 +1330,19 @@ class HCHoldouts : HCModule
                 row.Published = false;
                 m_Dirty = true;
             }
-            if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) HCRaidCamp(index);
-            if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) HCRaidCamp(index);
-            if (!m_Ready) return;
-            if (!SaveChanged()) { return; }
+            if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && (row.Cache.Phase == 3 || LootRemoved(index)))
+            {
+                m_TickPhase = 14;
+                return;
+            }
+            m_TickAfterSave = 5;
+            if (m_Dirty || m_Store.SaveInFlight()) { m_TickPhase = 12; }
+            else { m_TickPhase = 5; }
+            return;
+        }
+        if (m_TickPhase == 14)
+        {
+            HCRaidCamp(index);
             m_TickPhase = 5;
             return;
         }
@@ -1258,21 +1350,17 @@ class HCHoldouts : HCModule
         {
             string previousState = row.Ledger.State;
             HCStepCamp(index, now);
+            if (m_CampReserveSaved) { return; }
             if (!m_Ready) { return; }
-            if (row.Ledger.State != previousState)
-            {
-                m_Dirty = true;
-                if (!SaveChanged()) { return; }
-                PublishState(row);
-            }
             m_BodyNext = m_Bodies.Count() - 1;
             m_TickPhase = 6;
             // With no bodies or occupied inventory work, finish bookkeeping
             // here. Never run another row or another native probe in this tick.
-            if (m_BodyNext >= 0 || row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
+            if (m_TickSaveTicks > 0 || row.Ledger.State != previousState || m_BodyNext >= 0 || row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
         }
         if (m_TickPhase == 6)
         {
+            m_TickMeasuredStage = 6;
             // Native callbacks may shrink the binding list between continuations.
             if (m_BodyNext >= m_Bodies.Count()) { m_BodyNext = m_Bodies.Count() - 1; }
             if (m_BodyNext >= 0)
@@ -1294,6 +1382,7 @@ class HCHoldouts : HCModule
         }
         if (m_TickPhase == 7)
         {
+            m_TickMeasuredStage = 7;
             if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")
             {
                 HCSearchHouses houses = HCSearchBinding.Houses();
@@ -1301,38 +1390,53 @@ class HCHoldouts : HCModule
                 // HC-34: the remote house hop is refused; do not burn attempts or save for it.
                 if (houses && houses.V2VisitAvailable() && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() >= row.StockDay && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
                 {
-                    int siteNumber = row.StockAttempts;
+                    m_TickStockSite = row.StockAttempts;
                     row.StockAttempts++;
                     row.StockDay = HCEscalationClock.Day() + 1;
                     m_Dirty = true;
                     if (!SaveChanged()) { return; }
-                    int phase = houses.V2Visit(structure, Cache(index), row.Ledger.Id, siteNumber);
-                    if (phase == 3) { row.StockAttempts = 3; m_Dirty = true; }
-                    if (m_Reports < 12)
-                    {
-                        m_Reports++;
-                        Print("[HollowCountry] V2 holdout stock id=" + row.Ledger.Id + " phase=" + phase.ToString());
-                    }
+                    m_TickPhase = 13;
+                    return;
                 }
             }
-            if (!SaveChanged()) { return; }
+            if (m_Dirty || m_Store.SaveInFlight()) { m_TickAfterSave = 8; m_TickPhase = 12; return; }
             m_TickPhase = 8;
             if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
         }
+        if (m_TickPhase == 13)
+        {
+            HCSearchHouses stockHouses = HCSearchBinding.Houses();
+            if (stockHouses && Cache(index) && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
+            {
+                int stockPhase = stockHouses.V2Visit(structure, Cache(index), row.Ledger.Id, m_TickStockSite);
+                if (stockPhase == 3) { row.StockAttempts = 3; m_Dirty = true; }
+                if (m_Reports < 12)
+                {
+                    m_Reports++;
+                    Print("[HollowCountry] V2 holdout stock id=" + row.Ledger.Id + " phase=" + stockPhase.ToString());
+                }
+            }
+            m_TickAfterSave = 8;
+            if (m_Dirty || m_Store.SaveInFlight()) { m_TickPhase = 12; }
+            else { m_TickPhase = 8; }
+            return;
+        }
         if (m_TickPhase == 8)
         {
+            m_TickMeasuredStage = 8;
             if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") SnapshotContents(index);
-            if (!SaveChanged()) { return; }
+            if (m_Dirty || m_Store.SaveInFlight()) { m_TickAfterSave = 9; m_TickPhase = 12; return; }
             m_TickPhase = 9;
             if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
         }
+        m_TickMeasuredStage = 9;
         if (row.Ledger.CacheRef != row.Cache.EntityRef)
         {
             row.Ledger.CacheRef = row.Cache.EntityRef;
             row.Published = false;
             m_Dirty = true;
         }
-        if (!SaveChanged()) { return; }
+        if (m_Dirty || m_Store.SaveInFlight()) { m_TickAfterSave = 9; m_TickPhase = 12; return; }
         HCWorldModule world = HCWorldModule.Get();
         if (world && !row.Published)
         {
@@ -1369,7 +1473,40 @@ class HCHoldouts : HCModule
 // continuation, including catalog and no-op ticks, with the shared step timer.
 modded class HCHoldouts
 {
-    protected ref HCStepTimer m_TickSteps = new HCStepTimer("Holdouts");
+    protected string HCTickStageName(int phase)
+    {
+        switch (phase)
+        {
+            case 0: return "catalog";
+            case 1: return "publish";
+            case 2: return "structure_lookup";
+            case 3: return "cache_fit";
+            case 4: return "cache_link";
+            case 5: return "camp";
+            case 6: return "bodies";
+            case 7: return "stock_commit";
+            case 8: return "contents";
+            case 9: return "publish_commit";
+            case 10: return "cache_intent_save";
+            case 11: return "cache_materializer";
+            case 12: return "result_save";
+            case 13: return "stock_materializer";
+            case 14: return "raid_commit";
+        }
+        return "maintenance";
+    }
+
+    protected int HCTickStageIndex(int phase)
+    {
+        if (phase == 10 || phase == 12) { return 7; }
+        if (phase == 11 || phase == 4) { return 4; }
+        if (phase == 13) { return 6; }
+        if (phase == 14) { return 5; }
+        if (phase == 8) { return 6; }
+        if (phase == 9) { return 1; }
+        return Math.Min(phase, 6);
+    }
+
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
@@ -1379,25 +1516,23 @@ modded class HCHoldouts
         m_TickSteps.HCDefine("catalog");
         m_TickSteps.HCDefine("publish");
         m_TickSteps.HCDefine("resolve");
-        m_TickSteps.HCDefine("cache_create");
-        m_TickSteps.HCDefine("cache_link");
+        m_TickSteps.HCDefine("cache_fit");
+        m_TickSteps.HCDefine("cache_io");
         m_TickSteps.HCDefine("camp");
-        m_TickSteps.HCDefine("bodies");
-        m_TickSteps.HCDefine("stock_commit");
-        Print("[HC PerfControl] Holdouts resumable row stages admitted; runtime=PENDING");
+        m_TickSteps.HCDefine("stock_contents");
+        m_TickSteps.HCDefine("save");
+        Print("[HC PerfControl] Holdouts heavy_operations_per_tick=1 cache_probes_per_step=8 cache_orientations=2 cooperative_only=1 runtime=PENDING");
     }
     override void OnTick(float deltaTime)
     {
         int tickStart = TickCount(0);
-        int continuation = Math.Min(m_TickPhase, HCStepTimer.MAX_STEPS - 1);
-        int catalogBefore = m_CatalogCursor;
+        m_TickSaveTicks = 0;
+        m_MeasuringTick = true;
         super.OnTick(deltaTime);
+        m_MeasuringTick = false;
         int elapsedTicks = TickCount(tickStart);
-        m_TickSteps.HCAdd(Math.Min(m_TickMeasuredStage, HCStepTimer.MAX_STEPS - 1), elapsedTicks);
-        if (continuation > 0 || m_TickPhase > 0 || catalogBefore != m_CatalogCursor)
-        {
-            m_TickSteps.HCItem("holdout_stage", elapsedTicks);
-        }
+        m_TickSteps.HCAdd(HCTickStageIndex(m_TickMeasuredStage), elapsedTicks - m_TickSaveTicks);
+        m_TickSteps.HCItem(HCTickStageName(m_TickMeasuredStage), elapsedTicks - m_TickSaveTicks);
         m_TickSteps.HCEndTick(elapsedTicks);
     }
 }
