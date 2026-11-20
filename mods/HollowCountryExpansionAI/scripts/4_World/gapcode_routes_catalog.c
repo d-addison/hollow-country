@@ -276,11 +276,11 @@ class HCGapcodeRoutesCatalog
         { this.HCRowRefuse(row, "ROUTE_LOCALITY_BINDING_MISSING"); return; }
         float length = 0;
         array<int> ids = row.road_node_ids;
-        array<int> seen = new array<int>;
+        map<int, bool> seen = new map<int, bool>();
         int previousId = -1;
         foreach (int nodeId : ids)
         {
-            if (nodeId < 0 || nodeId >= roads.Nodes.Count() || seen.Find(nodeId) >= 0)
+            if (nodeId < 0 || nodeId >= roads.Nodes.Count() || seen.Contains(nodeId))
             { this.HCRowRefuse(row, "ROUTE_NODE_INVALID"); return; }
             HCXAICaravanRoadNode node = roads.Nodes[nodeId];
             if (previousId >= 0)
@@ -291,15 +291,18 @@ class HCGapcodeRoutesCatalog
                 if (previous.Links.Find(nodeId) < 0 || node.Links.Find(previousId) < 0 || leg <= 0 || leg > Data.limits.segment_metres || length > Data.limits.journey_metres)
                 { this.HCRowRefuse(row, "ROUTE_ADJACENCY_OR_LENGTH_INVALID"); return; }
             }
-            seen.Insert(nodeId);
+            seen.Set(nodeId, true);
             row.Points.Insert(node.Position);
             previousId = nodeId;
         }
         row.Resolved = true;
+        map<string, bool> localitySites = new map<string, bool>();
+        array<string> localitySiteIds = locality.SiteIds;
+        foreach (string localitySiteId : localitySiteIds) { localitySites.Set(localitySiteId, true); }
         array<ref HCXAISite> sites = policy.Sites;
         foreach (HCXAISite site : sites)
         {
-            if (locality.SiteIds.Find(site.Id) >= 0) { row.Bound = true; break; }
+            if (localitySites.Contains(site.Id)) { row.Bound = true; break; }
         }
         if (!row.Bound) { this.HCRowRefuse(row, "ROUTE_SITE_BINDING_MISSING"); return; }
         // The nearest mainland node cannot establish island-local access.

@@ -75,9 +75,11 @@ class HCXAIRespawnDefaults
         array<string> profileSchema = HCXAIRespawnDefaults.HCKeys(profile, true);
         array<string> shippedSchema = HCXAIRespawnDefaults.HCKeys(shipped, true);
         if (!profileSchema || !shippedSchema) { return false; }
+        map<string, bool> shippedKnown = new map<string, bool>();
+        foreach (string knownKey : shippedSchema) { shippedKnown.Set(knownKey, true); }
         foreach (string profileKey : profileSchema)
         {
-            if (shippedSchema.Find(profileKey) < 0) { return false; }
+            if (!shippedKnown.Contains(profileKey)) { return false; }
         }
         foreach (string shippedKey : shippedKeys)
         {
@@ -110,9 +112,11 @@ class HCXAIRespawnDefaults
             if (!locality || !locality.SiteIds) { return false; }
             HCXAILocality match;
             if (!index.Find(locality.Id, match) || !match.SiteIds || match.Island != locality.Island || match.Source != locality.Source) { return false; }
+            map<string, bool> matchSites = new map<string, bool>();
+            foreach (string shippedSite : match.SiteIds) { matchSites.Set(shippedSite, true); }
             foreach (string siteId : locality.SiteIds)
             {
-                if (match.SiteIds.Find(siteId) < 0) { return false; }
+                if (!matchSites.Contains(siteId)) { return false; }
             }
             if (locality.SiteIds.Count() < match.SiteIds.Count()) { fewer = true; }
         }

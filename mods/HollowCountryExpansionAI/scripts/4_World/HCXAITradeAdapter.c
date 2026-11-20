@@ -400,14 +400,14 @@ class HCXAITradeProducer
             m_Failed = true; HCRefuse("TRADE_LOSS_STORE_INVALID"); return false;
         }
         array<ref HCTradeLossRow> receipts = m_Losses.Rows;
-        array<string> keys = new array<string>;
+        map<string, bool> keys = new map<string, bool>();
         foreach (HCTradeLossRow receipt : receipts)
         {
-            if (!receipt || !HCWorldLimits.Token(receipt.Key) || !HCWorldLimits.Token(receipt.LeftCamp) || !HCWorldLimits.Token(receipt.RightCamp) || receipt.LeftCamp == receipt.RightCamp || receipt.Debit < 1 || receipt.Debit > m_Recipe.MinimumCampReserve || (receipt.Phase != "complete" && receipt.Phase != "journey") || keys.Find(receipt.Key) >= 0)
+            if (!receipt || !HCWorldLimits.Token(receipt.Key) || !HCWorldLimits.Token(receipt.LeftCamp) || !HCWorldLimits.Token(receipt.RightCamp) || receipt.LeftCamp == receipt.RightCamp || receipt.Debit < 1 || receipt.Debit > m_Recipe.MinimumCampReserve || (receipt.Phase != "complete" && receipt.Phase != "journey") || keys.Contains(receipt.Key))
             {
                 m_Failed = true; HCRefuse("TRADE_LOSS_INTENT_RECONCILIATION_REQUIRED"); return false;
             }
-            keys.Insert(receipt.Key);
+            keys.Set(receipt.Key, true);
         }
         if (!HCRecoverJourneys()) { return false; }
         m_Opened = true;
@@ -443,16 +443,20 @@ class HCXAITradeProducer
     bool HCRecoverJourneys()
     {
         array<ref HCTradeLossRow> receipts = m_Losses.Rows;
+        int reconciled = 0;
+        bool recovered = true;
         foreach (HCTradeLossRow journey : receipts)
         {
             if (journey.Phase != "journey") { continue; }
             HCHoldouts homes = HCHoldouts.Get();
             // Wait for the existing allocation owner before writing debit intent.
-            if (!homes || !homes.HCTradeCanDebit(journey.LeftCamp, journey.RightCamp)) { return false; }
-            if (!HCRecordLoss(journey)) { return false; }
-            Print("[HC Caravan] restart=journey_loss_reconciled cargo_created=0 runtime=PENDING");
+            if (!homes || !homes.HCTradeCanDebit(journey.LeftCamp, journey.RightCamp)) { recovered = false; break; }
+            if (!HCRecordLoss(journey)) { recovered = false; break; }
+            reconciled++;
         }
-        return true;
+        // One summary line for every journey reconciled in this pass.
+        if (reconciled > 0) { Print("[HC Caravan] restart=journey_loss_reconciled cargo_created=0 runtime=PENDING"); }
+        return recovered;
     }
     bool HCSettleJourney()
     {
