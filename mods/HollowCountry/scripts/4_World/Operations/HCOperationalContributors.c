@@ -86,6 +86,7 @@ class HCOperationalContributors
 {
     // Temporal bound, NOT a world range or runtime performance promise.
     static const int MAX_SOURCE_AGE_SECONDS = 60;
+    static const int HC_MAX_OWNERS = 128;
     protected static ref array<ref HCOperationalOwner> s_Owners = new array<ref HCOperationalOwner>;
     protected static ref map<string, ref HCOperationalOwner> s_ByName = new map<string, ref HCOperationalOwner>;
     protected static ref HCDebugOperationalContributor s_Aggregate;
@@ -98,7 +99,9 @@ class HCOperationalContributors
         if (name == "" || name.Length() > 64) { return null; }
         HCOperationalOwner existing = s_ByName.Get(name);
         if (existing) { return existing; }
-        if (s_Owners.Count() >= 64)
+        // 61 modules plus about 15 named sub-owners: a 64 cap left the last modules (human AI,
+        // AIRoles and later) without an owner, so their readiness never refreshed after boot.
+        if (s_Owners.Count() >= HC_MAX_OWNERS)
         {
             if (s_Refused < 1000000) { s_Refused++; }
             return null;

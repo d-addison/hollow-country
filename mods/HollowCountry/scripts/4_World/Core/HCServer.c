@@ -214,7 +214,7 @@ class HCServer
             Print("" + m_TickWork.HCWindowReport());
         }
         // Publish cached owner state on the lifecycle path, never on requests.
-        // The registry caps 64; keep the refresh independently bounded as well.
+        // The registry caps 128; keep the refresh independently bounded as well.
         if (now >= m_OperationalRefreshAt)
         {
             m_OperationalRefreshAt = now + 15;
@@ -224,7 +224,7 @@ class HCServer
             string refreshLine = "";
             foreach (HCModule refreshModule : m_Active)
             {
-                if (refreshIndex >= 64) { break; }
+                if (refreshIndex >= HCOperationalChanges.HC_CAP) { break; }
                 refreshIndex++;
                 refreshOwner = HCOperationalContributors.HCRegisterOwner(refreshModule.GetName());
                 if (refreshOwner)

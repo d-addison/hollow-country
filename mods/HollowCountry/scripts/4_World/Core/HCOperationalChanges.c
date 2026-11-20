@@ -1,11 +1,11 @@
 // Wave 16 (w32-status): late readiness. HCServer baselines every started module's reported state once
 // at Start and compares it on the existing 15 s operational refresh. A change returns ONE log line
 // (never printed here, so it stays testable); an unchanged module returns "" with no allocation.
-// Parallel arrays are bounded by the registry cap of 64. Passive: no config, file or engine reads.
+// Parallel arrays are bounded by the registry cap of 128. Passive: no config, file or engine reads.
 // Natives: EnScript.c:380,385,407 array Count/Clear/Insert; 1_Core/proto/EnString.c string compare.
 class HCOperationalChanges
 {
-    static const int HC_CAP = 64;
+    static const int HC_CAP = 128;
     protected ref array<string> m_States = new array<string>();
     protected ref array<string> m_Reasons = new array<string>();
 
