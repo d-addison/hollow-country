@@ -4,8 +4,8 @@ Reuses the economy delta model: generate reads installed stock and never writes 
 complete-entry ``types.xml`` delta in the managed ``hollow-country/ce`` folder. Ordinary entries
 copy their stock row and change only roster budget/tier fields. Reviewed #48/#30 variants copy
 their stock parent's row with explicit family-budget shares; stock case aliases are reused.
-Optics are superseded by the optional pack's mod-side config. Install/rollback target an explicit
-stopped, private mission copy (never Steam) and restore bytes exactly. No placement edits.
+Vanilla CE-listed optics and parts are ordinary support rows in the abundance profile. Install/rollback target an explicit
+stopped, private mission copy (never Steam) and restore bytes exactly. No geometry edits.
 
 Offline generation establishes nothing about DayZ behaviour. Effective CE merging, world totals and
 the 3-6 player feel are unobserved; runtime acceptance stays pending.
@@ -30,14 +30,14 @@ except ImportError:  # run as a script
 ROSTER_PATH = Path(__file__).with_name('firearms_roster.json')
 MUTABLE = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 'restock'})
 SET_FIELDS = ('nominal', 'min', 'lifetime', 'restock')
-KINDS = {'weapon': {'wood', 'modern'}, 'magazine': {'support'}, 'ammo': {'support'}}
+KINDS = {'weapon': {'wood', 'modern'}, 'magazine': {'support'}, 'ammo': {'support'}, 'attachment': {'support'}}
 TIERS = {'common', 'uncommon', 'rare'}
 TOP = {'schema', 'name', 'players', 'entries', 'deferred_datamined'}
-TOP_OPTIONAL = {'optics', 'family_budgets', 'refusals'}
-# Optics are supplied by the separately accepted optional pack's mod-side config (#30).
+TOP_OPTIONAL = {'optics', 'family_budgets', 'refusals', 'economy_profile', 'scarcity_policy'}
+# Historical metadata for the old optional-pack decision; abundance uses attachment entries.
 OPTICS_SUPERSEDED = {'status': 'superseded', 'entries': []}
 REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'justification'}
-OPTIONAL = {'add_usage', 'set_value', 'ammo', 'magazines', 'datamined', 'acceptance',
+OPTIONAL = {'set_usage', 'add_usage', 'set_value', 'ammo', 'magazines', 'datamined', 'acceptance',
             'new_type_parent', 'runtime_acceptance', 'status', 'family', 'disposition',
             'unit_rounds', 'parts'}
 PENDING_LOCAL = 'pending-local'
@@ -49,7 +49,26 @@ def _int(value, low):
     return type(value) is int and value >= low
 
 
+def selected_roster(roster):
+    """One release-wide knob; the historical scarcity entries/caps remain byte-for-byte data."""
+    if not isinstance(roster, dict):
+        raise ValueError('unsupported roster schema/fields')
+    profile = roster.get('economy_profile')
+    if profile is None:
+        return roster  # Legacy/custom rosters retain their existing schema.
+    if profile not in {'test-abundance', 'scarcity'}:
+        raise ValueError('invalid economy_profile: expected test-abundance or scarcity')
+    policy = roster.get('scarcity_policy')
+    if not isinstance(policy, dict) or set(policy) != {'entries', 'family_budgets'}:
+        raise ValueError('economy_profile requires the historical scarcity_policy')
+    if profile == 'scarcity':
+        return dict(roster, **policy)
+    return roster
+
+
 def validate_roster(roster):
+    if isinstance(roster, dict):
+        roster = selected_roster(roster)
     if not isinstance(roster, dict) or not TOP <= set(roster) <= TOP | TOP_OPTIONAL or roster['schema'] != 1 \
             or type(roster['schema']) is not int:
         raise ValueError('unsupported roster schema/fields')
@@ -79,7 +98,9 @@ def validate_roster(roster):
                     or name not in economy.datamined_items.NEW_TYPE_PARENTS
                     or e.get('runtime_acceptance') != 'pending'
                     or e.get('status') != 'requires-local-acceptance' or not e.get('datamined')
-                    or set(e['set']) != {'nominal', 'min'} or 'add_usage' in e or 'set_value' in e):
+                    or (roster.get('economy_profile') != 'test-abundance' and
+                        (set(e['set']) != {'nominal', 'min'} or
+                         any(f in e for f in ('add_usage', 'set_usage', 'set_value'))))):
                 raise ValueError(f'new type needs reviewed parent, unchanged placement and pending acceptance: {name}')
         elif ('status' in e or ('runtime_acceptance' in e and
                 (e.get('disposition') != 'review-native-budget' or e['runtime_acceptance'] != 'pending'))):
@@ -97,7 +118,7 @@ def validate_roster(roster):
                 or ('lifetime' in s and not _int(s['lifetime'], 1))
                 or ('restock' in s and not _int(s['restock'], 0))):
             raise ValueError(f'invalid budget fields: {name}')
-        for field in ('add_usage', 'set_value'):
+        for field in ('add_usage', 'set_usage', 'set_value'):
             if field in e and (not isinstance(e[field], list) or not e[field] or len(set(e[field])) != len(e[field])
                                or any(not isinstance(v, str) or not CLASS.fullmatch(v) for v in e[field])):
                 raise ValueError(f'invalid {field}: {name}')
@@ -112,6 +133,9 @@ def validate_roster(roster):
         raise ValueError('unreferenced magazine support row')
     datamined = {e['class'] for e in entries if e.get('datamined')}
     for e in entries:
+        if roster.get('economy_profile') == 'test-abundance' and (
+                not e.get('set_usage') or not e.get('set_value')):
+            raise ValueError(f'abundance entry needs explicit usage and tiers: {e["class"]}')
         if e['kind'] == 'weapon':
             if not set(e['ammo']) <= by_kind.get('ammo', set()) \
                     or not set(e['magazines']) <= by_kind.get('magazine', set()):
@@ -202,6 +226,7 @@ def family_totals(roster, rows=None):
 
 def render_family_summary(roster):
     """Bounded generated documentation from the same validated policy used by both CE paths."""
+    roster = selected_roster(roster)
     validate_roster(roster)
     totals = family_totals(roster)
     if not totals:
@@ -234,7 +259,7 @@ def render_family_summary(roster):
             lines.append(f"| {budget['family']} | {budget['nominal']} / {budget['min']} | " + '; '.join(names) + ' |')
     native_count = sum(e['disposition'] in {'keep-native-budget', 'review-native-budget'} for e in weapons)
     lines += ['', '### Formerly off-roster positives', '',
-              f'All {native_count} are retained explicitly. `keep-native-budget` preserves their native route at 2x scarcity; '
+              f'All {native_count} are retained explicitly. Counts follow the selected economy profile; '
               'skin members share the family ceiling. `review-native-budget` preserves SV98 while refusing functional acceptance.', '',
               '| Class | Disposition | Family |', '| --- | --- | --- |']
     lines += [f"| `{e['class']}` | {e['disposition']} | {e['family']} |" for e in weapons
@@ -250,15 +275,18 @@ def reviewed_type(name, stock, roster=None):
     economy.install uses this helper. All other fields, the independent NEW_TYPE_PARENTS
     allowlist and new-entry permissions stay exact.
     """
-    roster = roster if roster is not None else json.loads(ROSTER_PATH.read_bytes())
+    roster = selected_roster(roster if roster is not None else json.loads(ROSTER_PATH.read_bytes()))
     validate_roster(roster)
     item = economy.datamined_items.reviewed_new_type(name, stock)
     if 'family_budgets' in roster:
         entry = next((e for e in roster['entries'] if e['class'] == name), None)
         if entry is None:
             raise ValueError(f'reviewed class missing from roster: {name}')
-        for field in ('nominal', 'min'):
-            item.find(field).text = str(entry['set'][field])
+        if roster.get('economy_profile') == 'test-abundance':
+            _apply(item, entry, set(entry['set_usage']), set(entry['set_value']))
+        else:
+            for field in ('nominal', 'min'):
+                item.find(field).text = str(entry['set'][field])
     return item
 
 
@@ -305,16 +333,17 @@ def _apply(item, entry, usage_vocab, value_vocab):
         node.text = str(value)
     positions = [i for i, n in enumerate(item) if n.tag == 'usage']
     if not positions:
-        if 'add_usage' not in entry:
+        if not any(f in entry for f in ('add_usage', 'set_usage')):
             raise ValueError(f'stock entry has no usage to extend: {entry["class"]}')
         # Unused stock rows may carry no usage at all: the declared usage goes before any value tag.
         first_value = next((i for i, n in enumerate(item) if n.tag == 'value'), len(item))
         positions = [first_value]
     old = [n.get('name') for n in item.findall('usage')]
-    if 'add_usage' in entry:
-        if any(u not in usage_vocab for u in entry['add_usage'] + old):
+    if 'add_usage' in entry or 'set_usage' in entry:
+        requested = entry.get('set_usage', entry.get('add_usage', []))
+        if any(u not in usage_vocab for u in requested + (old if 'set_usage' not in entry else [])):
             raise ValueError(f'unknown usage: {entry["class"]}')
-        merged = sorted(set(old) | set(entry['add_usage']))
+        merged = sorted(set(requested) if 'set_usage' in entry else set(old) | set(requested))
         for n in item.findall('usage'):
             item.remove(n)
         for offset, u in enumerate(merged):
@@ -407,6 +436,7 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
 
     Returns ``(changed_elements, report_rows, totals)``; ``stock`` is economy's name -> <type> map.
     """
+    roster = selected_roster(roster)
     validate_roster(roster)
     changed_elements = []
     rows, totals = [], {'weapon_nominal_stock': 0, 'weapon_nominal_candidate': 0}
@@ -475,6 +505,7 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
 
 
 def generate(source, roster, include_datamined=True):
+    roster = selected_roster(roster)
     validate_roster(roster)
     data = economy.snapshot(source)
     core = economy.xml(data['cfgeconomycore.xml'], 'economycore')
@@ -493,7 +524,7 @@ def generate(source, roster, include_datamined=True):
     if len(out):
         ce = ET.SubElement(fragment, 'ce', {'folder': economy.MANAGED + '/ce'})
         ET.SubElement(ce, 'file', {'name': 'types.xml', 'type': 'types'})
-    report = {'schema': 1, 'kind': 'firearms-roster', 'profile': roster['name'], 'players': roster['players'],
+    report = {'schema': 1, 'kind': 'firearms-roster', 'profile': roster['name'], 'economy_profile': roster.get('economy_profile', 'legacy'), 'players': roster['players'],
               'status': 'offline-only-runtime-pending', 'loot_fix_claim': False,
               'engine_merge_semantics': 'unobserved', 'entries': rows, 'totals': totals,
               'datamined': {'enabled': bool(include_datamined), 'classes': datamined},
@@ -515,6 +546,7 @@ def generate(source, roster, include_datamined=True):
 
 def generate_combined(source, roster, include_datamined=True, include_items=True, profile=None):
     """Profile + roster + datamined items as one delta (delegates to economy.generate)."""
+    roster = selected_roster(roster)
     validate_roster(roster)
     profile = profile or {'schema': 1, 'name': roster['name'], 'add_usage': {}, 'diagnostics': []}
     files = economy.generate(source, profile, include_datamined=include_items, roster=roster,

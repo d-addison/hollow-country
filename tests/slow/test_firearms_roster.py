@@ -157,7 +157,7 @@ def synthetic(root):
         b'<?xml version="1.0"?><economycore><!--keep exactly--><defaults/></economycore>')
     (root / 'cfglimitsdefinition.xml').write_text(
         '<lists><usageflags><usage name="Town"/><usage name="Village"/><usage name="Military"/>'
-        '<usage name="Hunting"/></usageflags><valueflags><value name="Tier1"/><value name="Tier2"/>'
+        '<usage name="Farm"/><usage name="ContaminatedArea"/><usage name="Police"/><usage name="Hunting"/></usageflags><valueflags><value name="Tier1"/><value name="Tier2"/>'
         '<value name="Tier3"/><value name="Tier4"/></valueflags></lists>')
     (root / 'mapgroupproto.xml').write_text('<prototype><group name="G" lootmax="0"/></prototype>')
     (root / 'mapgrouppos.xml').write_text('<map><group name="G" pos="1 2 3"/></map>')
@@ -596,13 +596,19 @@ class ReviewedNewTypes(unittest.TestCase):
                 output = economy._unique(ET.fromstring(files['ce/types.xml']))
                 self.assertTrue(set(NEW_PARENTS) <= set(output))
                 self.assertEqual((output['CZ527_Camo'].findtext('nominal'),
-                                  output['CZ527_Camo'].findtext('min')), ('2', '1'))
+                                  output['CZ527_Camo'].findtext('min')), ('50', '25'))
                 for class_name, parent in NEW_PARENTS.items():
                     expected = copy.deepcopy(self.stock[parent])
                     expected.set('name', class_name)
                     policy = next(e for e in self.roster['entries'] if e['class'] == class_name)
                     expected.find('nominal').text = str(policy['set']['nominal'])
-                    expected.find('min').text = str(policy['set']['min'])
+                    for field, value in policy['set'].items():
+                        expected.find(field).text = str(value)
+                    for tag, field in (('usage', 'set_usage'), ('value', 'set_value')):
+                        for node in expected.findall(tag):
+                            expected.remove(node)
+                        for value in sorted(policy[field]):
+                            ET.SubElement(expected, tag, name=value)
                     self.assertEqual(economy._full(output[class_name]), economy._full(expected))
                 report = json.loads(files['economy-report.json'])
                 report_rows = report.get('entries')
@@ -648,7 +654,7 @@ class ReviewedNewTypes(unittest.TestCase):
         files = firearms.generate(self.root, self.roster)
         output = economy._unique(ET.fromstring(files['ce/types.xml']))
         self.assertNotIn('CZ527_desert', output)
-        self.assertEqual(output['CZ527_Desert'].findtext('nominal'), '2')
+        self.assertEqual(output['CZ527_Desert'].findtext('nominal'), '6')
         self.assertEqual(output['CZ527_Desert'].find('tag').get('name'), 'shelves')
         self.assertNotIn('CZ527_Desert', json.loads(files['delta-manifest.json'])['new_type_classes'])
         stage = Path(self.tmp.name) / 'case-alias'
@@ -705,11 +711,13 @@ class CommittedRoster(unittest.TestCase):
         firearms.validate_roster(self.data)
 
     def test_counts_are_the_owner_chosen_family_scarcity_scale(self):
-        weapons = [e for e in self.data['entries'] if e['kind'] == 'weapon']
+        # Historical assertions exercise the retained scarcity selector.
+        historical = firearms.selected_roster(dict(self.data, economy_profile='scarcity'))
+        weapons = [e for e in historical['entries'] if e['kind'] == 'weapon']
         self.assertGreaterEqual(len(weapons), 30)
         self.assertEqual(max(e['set']['nominal'] for e in weapons), 28)
         for e in weapons:
-            cap = next(b['nominal'] for b in self.data['family_budgets'] if b['family'] == e['family'])
+            cap = next(b['nominal'] for b in historical['family_budgets'] if b['family'] == e['family'])
             self.assertLessEqual(e['set']['nominal'], cap, e['class'])
         total = sum(e['set']['nominal'] for e in weapons)
         self.assertEqual(total, 444)
@@ -723,7 +731,7 @@ class CommittedRoster(unittest.TestCase):
             if policy['family'] not in split_families:
                 self.assertEqual((by_class[name]['nominal'], by_class[name]['min']),
                                  (2 * nominal, 2 * minimum), name)
-        caps = {b['family']: b for b in self.data['family_budgets'] if b['kind'] == 'weapon'}
+        caps = {b['family']: b for b in historical['family_budgets'] if b['kind'] == 'weapon'}
         for family, cap in caps.items():
             for field in ('nominal', 'min'):
                 self.assertEqual(sum(e['set'][field] for e in weapons if e['family'] == family), cap[field])
@@ -744,12 +752,14 @@ class CommittedRoster(unittest.TestCase):
         for name, (nominal, minimum) in split_shares.items():
             self.assertEqual(by_class[name], {'nominal': nominal, 'min': minimum}, name)
         self.assertEqual(sum(n for n, _ in V1_FIRST_PROPOSAL.values()), 164)
-        for e in self.data['entries']:
+        for e in historical['entries']:
             self.assertGreaterEqual(e['set']['nominal'], e['set']['min'])
             self.assertTrue(e['justification'].strip())
 
     def test_datamined_rows_are_marked_pending_local_and_stay_rare(self):
-        marked = {e['class']: e for e in self.data['entries'] if e.get('datamined')}
+        # Historical assertions exercise the retained scarcity selector.
+        historical = firearms.selected_roster(dict(self.data, economy_profile='scarcity'))
+        marked = {e['class']: e for e in historical['entries'] if e.get('datamined')}
         self.assertEqual({c for c, e in marked.items() if e['kind'] == 'weapon'}, DATAMINED_WEAPONS)
         self.assertEqual({c for c, e in marked.items() if e['kind'] == 'magazine'}, DATAMINED_MAGAZINES)
         for name, e in marked.items():
@@ -757,7 +767,7 @@ class CommittedRoster(unittest.TestCase):
             self.assertTrue(e['justification'].strip(), name)
         for name in DATAMINED_WEAPONS - {'LeeEnfield', 'MP18', 'Luger'} - set(NEW_PARENTS):
             self.assertLessEqual(marked[name]['set']['nominal'], 2, name)
-        self.assertEqual({e['class'] for e in self.data['entries'] if 'acceptance' in e}, set(marked))
+        self.assertEqual({e['class'] for e in historical['entries'] if 'acceptance' in e}, set(marked))
 
     def test_the_single_switch_removes_exactly_the_datamined_rows_from_a_generated_delta(self):
         names = {e['class'] for e in self.data['entries']}
@@ -768,7 +778,7 @@ class CommittedRoster(unittest.TestCase):
                                  0 if e.get('datamined') else 39, 14400, 0, ['Town'], [])
                            for e in self.data['entries'] if e['class'] not in NEW_PARENTS)
             (root / 'db/types.xml').write_text('<types>' + rows + '</types>')
-            usages = {u for e in self.data['entries'] for u in e.get('add_usage', [])} | {'Town'}
+            usages = {u for e in self.data['entries'] for u in e.get('set_usage', e.get('add_usage', []))} | {'Town'}
             values = {v for e in self.data['entries'] for v in e.get('set_value', [])} | {'Tier1'}
             (root / 'cfglimitsdefinition.xml').write_text(
                 '<lists><usageflags>' + ''.join(f'<usage name="{u}"/>' for u in sorted(usages))
@@ -811,15 +821,17 @@ class CommittedRoster(unittest.TestCase):
                 firearms.validate_roster(mutated)
 
     def test_native_budgets_and_cartridge_ceilings_use_halved_shares(self):
-        by_class = {e['class']: e for e in self.data['entries']}
+        # Historical assertions exercise the retained scarcity selector.
+        historical = firearms.selected_roster(dict(self.data, economy_profile='scarcity'))
+        by_class = {e['class']: e for e in historical['entries']}
         for name, (native_nominal, native_min) in NATIVE_BUDGETS.items():
             with self.subTest(name=name):
                 self.assertEqual(by_class[name]['set'], {
                     'nominal': max(1, native_nominal // 2),
                     'min': max(1, native_min // 2) if native_min else 0})
-        for budget in self.data['family_budgets']:
+        for budget in historical['family_budgets']:
             if budget['kind'] == 'ammo':
-                members = [e for e in self.data['entries'] if e['family'] == budget['family']]
+                members = [e for e in historical['entries'] if e['family'] == budget['family']]
                 for field in ('nominal', 'min'):
                     self.assertEqual(budget[field], sum(e['set'][field] * e['unit_rounds'] for e in members))
 
@@ -838,7 +850,7 @@ class CommittedRoster(unittest.TestCase):
         self.assertIn('All 31 are retained explicitly.', firearms.render_family_summary(custom))
 
     def test_roster_is_small_and_carries_no_vanilla_dump(self):
-        self.assertLess(ROSTER_PATH.stat().st_size, 60_000)
+        self.assertLess(ROSTER_PATH.stat().st_size, 300_000)
         self.assertNotIn('<type ', ROSTER_PATH.read_text())
 
 

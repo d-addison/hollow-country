@@ -153,6 +153,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
             from tools.package import firearms
         except ImportError:  # pragma: no cover - script mode
             import firearms
+        roster = firearms.selected_roster(roster)
         firearms.validate_roster(roster)
         roster_names = [e['class'] for e in roster['entries']
                         if include_roster_datamined or not e.get('datamined')]
@@ -212,7 +213,8 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         out.extend(changed)
         firearms_classes = sorted(n.get('name') for n in changed)
         firearms_report = {
-            'enabled': True, 'profile': roster['name'], 'players': roster['players'], 'entries': rows,
+            'enabled': True, 'profile': roster['name'],
+            'economy_profile': roster.get('economy_profile', 'legacy'), 'players': roster['players'], 'entries': rows,
             'totals': totals,
             'datamined': {'enabled': bool(include_roster_datamined),
                           'classes': sorted(e['class'] for e in roster['entries'] if e.get('datamined'))},
@@ -901,7 +903,15 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
         if not usages or any(set(n.attrib) != {'name'} or n.get('name') not in vocabulary or len(n) for n in usages):
             raise ValueError('invalid complete-entry usage override')
         if not {n.get('name') for n in stock[name].findall('usage')} <= {n.get('name') for n in usages}:
-            raise ValueError('usage removal forbidden')
+            # Replacement is narrower than generic widening: only the selected shipped
+            # roster's explicit, exact usage list can remove a native usage (e.g. gas-only M4).
+            from tools.package import firearms
+            policy = firearms.selected_roster(json.loads(firearms.ROSTER_PATH.read_bytes()))
+            firearms.validate_roster(policy)
+            entry = next((e for e in policy['entries'] if e['class'].lower() == name.lower()), None)
+            if (name not in widened or entry is None or not entry.get('set_usage')
+                    or {n.get('name') for n in usages} != set(entry['set_usage'])):
+                raise ValueError('usage removal forbidden')
     managed.mkdir()
     receipt = {'schema': 1, 'before': sha(original), 'after': sha(patched),
                'types_sha256': sha(files['ce/types.xml']), 'sources': manifest['sources']}
@@ -947,7 +957,7 @@ def install_delta(stage, target):
     # omits the repo-only roster tooling. No target writes precede this check.
     _check_supply_ledger(_files, manifest, lists['supply_new_type_classes'])
     from tools.package import firearms
-    roster = json.loads(firearms.ROSTER_PATH.read_bytes())
+    roster = firearms.selected_roster(json.loads(firearms.ROSTER_PATH.read_bytes()))
     firearms.validate_roster(roster)
     if not {name.lower() for name in lists['firearms_classes']} <= {r['class'].lower() for r in roster['entries']}:
         raise ValueError('delta manifest names a class that is not in the shipped firearms roster')
