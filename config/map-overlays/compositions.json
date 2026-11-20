@@ -1,6 +1,464 @@
 {
-  "assumptions": "Frame: x to the right of the heading, z forward along it, metres; yaw is relative to the heading, compass sense. Piece sizes and which model axis is long are not known offline: walls and containers keep their centres at least 5 m off the lane axis so a quarter-turn error cannot block the lane. Nothing here is observed in DayZ.",
+  "assumptions": "Frame: x to the right of the heading, z forward along it, metres; yaw is relative to the heading, compass sense. Piece sizes and which model axis is long are not known offline: walls and containers keep their centres at least 5 m off the lane axis so a quarter-turn error cannot block the lane. Nothing here is observed in DayZ. All tier_hint and threat_hint fields are descriptive placement guidance only, not CE tier overrides or AI spawners. Footprint reserves in classes.json are unmeasured; clear rectangles test piece centres only, not physical bounds. New scenes keep structural centres at least 8 m from the access axis. Furniture, radios, fuel, lamps and crates are inert static dressing; model pivots and emitted light are unverified. No custom loot, bodies, AI or working weapons are spawned.",
   "compositions": {
+    "abandoned-checkpoint": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Road runs along z, with a seven metre central passage. Sheds face inward and the nest covers the +z arrival; wrecks remain on the shoulders.",
+      "pieces": [
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -12.0,
+          "dz": -6.0,
+          "loot": "proto",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": 12.0,
+          "dz": 8.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": -21.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 12.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": -7.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 7.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -8.0,
+          "dz": 18.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": 8.0,
+          "dz": -20.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 12.0,
+          "dz": 16.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -13.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -15.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -17.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -20.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 20.0,
+          "dz": -8.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 18.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -25.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 25.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Garbage_Pile1",
+          "dx": -20.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": -12.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A road inspection team left its paperwork beside a disabled patrol vehicle; staggered barriers and empty supply crates mark an orderly checkpoint that stopped receiving orders.",
+      "status": "runtime-unverified",
+      "theme": "abandoned checkpoint",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 3
+    },
+    "ammo-dump": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Containers have separated loading aprons; central truck aisle remains open. Crates are static dressing and never create ammunition directly.",
+      "pieces": [
+        {
+          "class": "Land_Container_1Mo",
+          "dx": -16.0,
+          "dz": -12.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Container_1Mo",
+          "dx": 16.0,
+          "dz": -12.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 27.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -13.0,
+          "dz": 14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -26.0,
+          "dz": -17.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 26.0,
+          "dz": -17.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -26.0,
+          "dz": -10.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -15.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 15.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -20.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -16.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 15.0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 20.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 24.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 12.0
+        },
+        {
+          "class": "StaticObj_Furniture_box_c",
+          "dx": -21.0,
+          "dz": 10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -13.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": 26.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 13.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 15.0,
+          "dz": 12.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 7.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -24.0,
+          "dz": 19.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A dispersed ammunition transfer point was abandoned mid-unload; open containers and a cargo truck flank pallet stacks behind blast screens.",
+      "status": "runtime-unverified",
+      "theme": "ammo dump",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "bandit-roadblock": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Road axis z has a seven metre passage. Shoulders carry angled barriers, a nest overlooking +z and a screened sleeping area; vehicles never close the lane.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -13.0,
+          "dz": 13.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 20.0,
+          "dz": -14.0,
+          "loot": "proto",
+          "yaw": 175.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -13.0,
+          "dz": -10.0,
+          "loot": "proto",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": -7.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 7.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -8.0,
+          "dz": 18.0,
+          "loot": "none",
+          "yaw": 75.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": 8.0,
+          "dz": -22.0,
+          "loot": "none",
+          "yaw": 100.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -13.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 13.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 16.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": -90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 20.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 22.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -24.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": -21.0,
+          "dz": -15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_fireplace_grill",
+          "dx": -26.0,
+          "dz": 8.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_WoodPile1",
+          "dx": -29.0,
+          "dz": 13.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_Pile1",
+          "dx": 26.0,
+          "dz": 17.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 23.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A stolen cargo vehicle and improvised inspection desk turned a rural road into an extortion point; the sleeping shelter sits behind the ambush position.",
+      "status": "runtime-unverified",
+      "theme": "bandit roadblock",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 3
+    },
     "checkpoint": {
       "clear": [
         {
@@ -14,6 +472,7 @@
           ]
         }
       ],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present. One wire segment is removed to leave an additional exit and keep the original piece budget.",
       "pieces": [
         {
           "class": "StaticObj_Misc_Hedgehog_Concrete",
@@ -100,22 +559,25 @@
           "yaw": 90.0
         },
         {
-          "class": "StaticObj_Misc_Razorwire",
-          "dx": 10,
-          "dz": -6,
-          "loot": "none",
-          "yaw": 90.0
-        },
-        {
           "class": "StaticObj_Misc_Flagpole",
           "dx": 9,
           "dz": -10,
           "loot": "none",
           "yaw": 0.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -19,
+          "dz": -18,
+          "loot": "proto",
+          "yaw": 90
         }
       ],
       "purpose": "A two-lane-wide road checkpoint: hedgehogs and concrete blocks funnel traffic into a 7 m lane, a guard shed with a sandbag line and a table sit on one side, razor wire and a flag behind.",
-      "theme": "road checkpoint"
+      "status": "runtime-unverified",
+      "theme": "road checkpoint",
+      "threat_hint": "guarded checkpoint or relief site",
+      "tier_hint": 3
     },
     "comms-post": {
       "clear": [
@@ -130,6 +592,7 @@
           ]
         }
       ],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present. One wire segment is removed to leave an additional exit and keep the original piece budget.",
       "pieces": [
         {
           "class": "Land_Mil_Radar_Mobile1",
@@ -216,15 +679,180 @@
           "yaw": 0.0
         },
         {
-          "class": "StaticObj_Misc_Razorwire",
-          "dx": 6,
-          "dz": 15,
-          "loot": "none",
-          "yaw": 0.0
+          "class": "Land_Mil_GuardShed",
+          "dx": 21,
+          "dz": -21,
+          "loot": "proto",
+          "yaw": 180
         }
       ],
       "purpose": "A radio post: a mobile radar and two antenna masts at the back, an ops shed with a sandbag screen on one side, HBarrier wall on the other, a table and chairs, a parked wreck and razor wire across the front.",
-      "theme": "comms post"
+      "status": "runtime-unverified",
+      "theme": "comms post",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "crashed-convoy": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Road axis z remains clear. Wrecks sit on opposite shoulders with varied headings; scattered cases follow the eastern truck rather than a uniform ring.",
+      "pieces": [
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 15.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 165.0
+        },
+        {
+          "class": "StaticObj_Wreck_Stryker",
+          "dx": -17.0,
+          "dz": 8.0,
+          "loot": "proto",
+          "yaw": -20.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": 17.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 160.0
+        },
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": -27.0,
+          "dz": -18.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_Ural",
+          "dx": 29.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 145.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 23.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 20.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 27.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": -15.0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 24.0,
+          "dz": 9.0,
+          "loot": "none",
+          "yaw": 33.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 27.0,
+          "dz": 12.0,
+          "loot": "none",
+          "yaw": 20.0
+        },
+        {
+          "class": "StaticObj_Furniture_box_c",
+          "dx": 32.0,
+          "dz": 9.0,
+          "loot": "none",
+          "yaw": -35.0
+        },
+        {
+          "class": "StaticObj_Garbage_Pile1",
+          "dx": 33.0,
+          "dz": 15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 31.0,
+          "dz": 19.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": -24.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_MedicalGarbage_Bandage",
+          "dx": -27.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_medical_table",
+          "dx": -28.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -12.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": 8.0,
+          "dz": 25.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -8.0,
+          "dz": -26.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -20.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": -30.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "The lead vehicle veered off the road and the convoy halted under fire; scattered cargo leads from a truck to a hastily established casualty station.",
+      "status": "runtime-unverified",
+      "theme": "crashed convoy",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
     },
     "field-hospital": {
       "clear": [
@@ -239,6 +867,7 @@
           ]
         }
       ],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present.",
       "pieces": [
         {
           "class": "Land_Medical_Tent_Big",
@@ -251,7 +880,7 @@
           "class": "Land_Medical_Tent_Shower",
           "dx": 9,
           "dz": -8,
-          "loot": "none",
+          "loot": "proto",
           "yaw": 0.0
         },
         {
@@ -333,7 +962,369 @@
         }
       ],
       "purpose": "A medical camp: a large medical tent as the loot focus, a shower tent beside it, a triage table and chairs under a camo net, supply pallets and crates, razor wire on the flanks and hedgehogs at the entrance.",
-      "theme": "field hospital"
+      "status": "runtime-unverified",
+      "theme": "field hospital",
+      "threat_hint": "guarded checkpoint or relief site",
+      "tier_hint": 3
+    },
+    "field-hq": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach from +z along the central lane; accommodation and command tents form a row. Nest covers arrival; generator sits away from sleeping quarters. The unpowered transit radio is staged beside the external command desk; no unmeasured tabletop dy is assumed.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big4",
+          "dx": -14.0,
+          "dz": -14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": 14.0,
+          "dz": -14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": 13.0,
+          "dz": 6.0,
+          "loot": "proto",
+          "yaw": -90.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -12.0,
+          "dz": 17.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -14.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -16.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -10.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_radio_b",
+          "dx": -10,
+          "dz": 2,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": -23.0,
+          "dz": -21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": 23.0,
+          "dz": -20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 23.0,
+          "dz": -16.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": 22.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": 22.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 7.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -13.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 13.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -23.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Wreck_Uaz",
+          "dx": 23.0,
+          "dz": 15.0,
+          "loot": "none",
+          "yaw": 170.0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -21.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -21.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 21.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A command element packed its maps and abandoned the last working radio; the protected signals desk and orderly tent row contrast with a hurried vehicle departure.",
+      "status": "runtime-unverified",
+      "theme": "field hq",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "fob-compound": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z through an open seven metre gate. Perimeter segments are deliberately broken at the front; cot staging lies beyond tent footprints.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big4",
+          "dx": -16.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_2",
+          "dx": 16.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big2_3",
+          "dx": -16.0,
+          "dz": 2.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": 16.0,
+          "dz": 14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -30.0,
+          "dz": -13.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 30.0,
+          "dz": -13.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -20.0,
+          "dz": -30.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -12.0,
+          "dz": -30.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 12.0,
+          "dz": -30.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 20.0,
+          "dz": -30.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 16.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": -7.0,
+          "dz": 26.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 7.0,
+          "dz": 26.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -16.0,
+          "dz": 17.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -19.0,
+          "dz": 17.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Furniture_radio_b",
+          "dx": -12.0,
+          "dz": 17.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": 28.0,
+          "dz": 18.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": -25.0,
+          "dz": 20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": -25.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 24.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 24.0,
+          "dz": 8.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 29.0,
+          "dz": 26.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": -29.0,
+          "dz": -30.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A forward base had settled into routine: a command tent, two sleeping rows and a fortified watch position surround an empty parade and delivery lane.",
+      "status": "runtime-unverified",
+      "theme": "fob compound",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
     },
     "forward-outpost": {
       "clear": [
@@ -348,6 +1339,7 @@
           ]
         }
       ],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present.",
       "pieces": [
         {
           "class": "StaticObj_Mil_HBarrier_6m",
@@ -519,10 +1511,796 @@
         }
       ],
       "purpose": "A walled outpost: HBarrier perimeter with the entrance gap facing the approach, a guard tower at the front corner, sandbag cover lines inside the gate, a tent and camo-net work area at the back, hedgehogs outside the gate.",
-      "theme": "forward outpost"
+      "status": "runtime-unverified",
+      "theme": "forward outpost",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "fuel-depot": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z along a vehicle aisle. Fuel vessels are separated from accommodation and the generator; tanks and cans are inert dressing.",
+      "pieces": [
+        {
+          "class": "Land_Container_1Mo",
+          "dx": -16.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -13.0,
+          "dz": 6.0,
+          "loot": "proto",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 28.0,
+          "dz": 14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Tank_Small_Rusty",
+          "dx": 20.0,
+          "dz": -15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Tank_Small_Rusty",
+          "dx": 27.0,
+          "dz": -15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_Trailer_Cistern",
+          "dx": 27.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 17.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 19.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -14.0,
+          "dz": -4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -17.0,
+          "dz": -4.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -21.0,
+          "dz": -3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -21.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": -26.0,
+          "dz": -19.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 16.0,
+          "dz": -25.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 24.0,
+          "dz": -25.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -13.0,
+          "dz": 15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": -7.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 7.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -23.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": -18.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A refuelling detachment left a tanker in the service bay and spare cans at the pump crew desk; guarded storage sits clear of the fuel tanks.",
+      "status": "runtime-unverified",
+      "theme": "fuel depot",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "helicopter-lz": {
+      "clear": [
+        {
+          "x": [
+            -12,
+            12
+          ],
+          "z": [
+            -15,
+            15
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z along the access lane. Keep the central pad clear: x -12..12, z -15..15. Crash wreck is well west; reflectors and edge lights are inert props pending native observation.",
+      "pieces": [
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": -25.0,
+          "dz": -19.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": 25.0,
+          "dz": -19.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 27.0,
+          "dz": 16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -24.0,
+          "dz": 20.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_Mi8_Crashed",
+          "dx": -48.0,
+          "dz": -3.0,
+          "loot": "none",
+          "yaw": 25.0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Edge",
+          "dx": -17.0,
+          "dz": -10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Edge",
+          "dx": -17.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Edge",
+          "dx": -17.0,
+          "dz": 10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Edge",
+          "dx": 17.0,
+          "dz": -10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Edge",
+          "dx": 17.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Edge",
+          "dx": 17.0,
+          "dz": 10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -30.0,
+          "dz": 29.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 30.0,
+          "dz": 29.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": -28.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": -32.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 25.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 29.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 26.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -24.0,
+          "dz": 28.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 20.0,
+          "dz": 27.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": 37.0,
+          "dz": -26.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A forward landing zone became a recovery site when the evacuation helicopter crashed beyond its perimeter; ground crew staging survives beside the empty pad.",
+      "status": "runtime-unverified",
+      "theme": "helicopter lz",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "hunter-camp": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z on a footpath. Caravan, abandoned car and guard hide provide native civilian/military proto points; no animal or loot script is attached.",
+      "pieces": [
+        {
+          "class": "Land_Wreck_Caravan_MGreen",
+          "dx": -14.0,
+          "dz": -10.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Wreck_Lada_Green",
+          "dx": 17.0,
+          "dz": -9.0,
+          "loot": "proto",
+          "yaw": 170.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": 10.0,
+          "dz": 11.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -22.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -13.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -15.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp2",
+          "dx": -10.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Furniture_fireplace_grill",
+          "dx": -21.0,
+          "dz": 12.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_WoodPile1",
+          "dx": -24.0,
+          "dz": 16.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 15.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_box_c",
+          "dx": 18.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": -20.0,
+          "dz": -15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp_Small",
+          "dx": -23.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 23.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 10.0,
+          "dz": 18.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "Hunters turned a caravan pull-off into a long stay: a cooking corner, stacked firewood and an observation hide look over the track.",
+      "status": "runtime-unverified",
+      "theme": "hunter camp",
+      "threat_hint": "civilian survival and guarded relief",
+      "tier_hint": 2
+    },
+    "mass-grave-cleanup": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Grave and excavator occupy a separate western work zone; clean treatment and wash-down tents flank the open access aisle. No bodies, infected or rewards are scripted.",
+      "pieces": [
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": 16.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Medical_Tent_Shower",
+          "dx": -16.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": 22.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Dead_MassGrave_8m",
+          "dx": -35.0,
+          "dz": 8.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Wreck_Digger",
+          "dx": -45.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 25.0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": -26.0,
+          "dz": 20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": -29.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_MedicalGarbage_Bandage",
+          "dx": 24.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_medical_table",
+          "dx": 16.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": 21.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -16.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -18.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -22.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -25.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -49.0,
+          "dz": 14.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -49.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -26.0,
+          "dz": 28.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": 29.0,
+          "dz": -24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 26.0,
+          "dz": -22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": 25.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_Pile1",
+          "dx": -38.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A burial and decontamination detail abandoned its machinery beside a fresh mass grave; triage, wash-down and bagged protective equipment mark the final work shift.",
+      "status": "runtime-unverified",
+      "theme": "mass grave cleanup",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 3
+    },
+    "medevac-station": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Central ambulance aisle stays open. Beds and triage desk are external stations, separated from tent doorways; generator is behind the treatment row.",
+      "pieces": [
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": -15.0,
+          "dz": -13.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": 15.0,
+          "dz": -13.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": 24.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": -14.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": -18.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": -22.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_medical_table",
+          "dx": 13.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_MedicalGarbage_Bandage",
+          "dx": 16.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp_Small",
+          "dx": 19.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 20.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": 24.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 25.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -25.0,
+          "dz": -10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": -26.0,
+          "dz": -23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -25.0,
+          "dz": 14.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 25.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -10.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 10.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "Casualties were sorted between the triage desk and two treatment tents while an evacuation pickup waited outside; stretchers still line the transfer route.",
+      "status": "runtime-unverified",
+      "theme": "medevac station",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 3
     },
     "mg-nest": {
       "clear": [],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present. One wire segment is removed to leave an additional exit and keep the original piece budget.",
       "pieces": [
         {
           "class": "Land_Mil_Fortified_Nest_Small",
@@ -581,13 +2359,6 @@
           "yaw": 0.0
         },
         {
-          "class": "StaticObj_Misc_Razorwire",
-          "dx": 3,
-          "dz": 14,
-          "loot": "none",
-          "yaw": 0.0
-        },
-        {
           "class": "Land_Roadblock_WoodenCrate",
           "dx": -3,
           "dz": -7,
@@ -600,10 +2371,1394 @@
           "dz": -7,
           "loot": "none",
           "yaw": 90.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -19,
+          "dz": -15,
+          "loot": "proto",
+          "yaw": 90
         }
       ],
       "purpose": "A fortified nest with a sandbag arc facing the approach, HBarrier wings, razor wire in front and a crate pair behind; open at the back.",
-      "theme": "sandbagged MG nest"
+      "status": "runtime-unverified",
+      "theme": "sandbagged MG nest",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "mortar-pit": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. The empty artillery emplacement is off the lane to the west; no working mortar or fabricated weapon class is spawned. The nest watches the approach.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": 12.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": -15.0,
+          "dz": -17.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Container_1Mo",
+          "dx": 16.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Mil_Artilery_Nest",
+          "dx": -20.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_Artilery_Rampart",
+          "dx": -30.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -14.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_radio_b",
+          "dx": -10.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -14.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -21.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -24.0,
+          "dz": -3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 19.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_box_c",
+          "dx": 23.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 12.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": 28.0,
+          "dz": -20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 25.0,
+          "dz": -19.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": 28.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 7.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 26.0,
+          "dz": 15.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "An artillery crew withdrew with the weapons but left its revetment, ammunition handling area and plotting station intact.",
+      "status": "runtime-unverified",
+      "theme": "mortar pit",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "motor-pool": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Vehicles are parallel in spaced bays to the east; the workshop is west of the clear service lane. Wrecks cannot be driven or produce repaired vehicles.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big2_3",
+          "dx": -17.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 19.0,
+          "dz": -12.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": 20.0,
+          "dz": 9.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -14.0,
+          "dz": 12.0,
+          "loot": "proto",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Wreck_BMP2",
+          "dx": 31.0,
+          "dz": -12.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_Ural",
+          "dx": 32.0,
+          "dz": 10.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -15.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -17.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -21.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -24.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -25.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 29.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 31.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": -29.0,
+          "dz": -20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": -25.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -16.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 16.0,
+          "dz": 25.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 34.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": -24.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A repair and recovery crew cannibalised an APC beside two parked logistics trucks; tools and transit cases remain outside the workshop tent.",
+      "status": "runtime-unverified",
+      "theme": "motor pool",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "overrun-camp": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Tent entrances face the central assembly lane; the eastern wire is interrupted intentionally. No debris lies in the lane or tent entrances.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": -15.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_2",
+          "dx": 15.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -14.0,
+          "dz": 13.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 24.0,
+          "dz": 17.0,
+          "loot": "proto",
+          "yaw": 25.0
+        },
+        {
+          "class": "StaticObj_Wreck_BMP2",
+          "dx": 30.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 30.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -28.0,
+          "dz": -3.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -28.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -14.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -14.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 18.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -17.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 55.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp2",
+          "dx": -21.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": -35.0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": 22.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 12.0
+        },
+        {
+          "class": "StaticObj_Furniture_MedicalGarbage_Bandage",
+          "dx": 24.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": 27.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_Pile1",
+          "dx": 33.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 29.0,
+          "dz": 16.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -23.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -22.0,
+          "dz": -8.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -26.0,
+          "dz": -19.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": -28.0,
+          "dz": 19.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A tent row was breached at the eastern perimeter; an abandoned APC, skewed furniture and a trail of discarded medical supplies lead out through the gap.",
+      "status": "runtime-unverified",
+      "theme": "overrun camp",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "police-blockade": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Road axis z remains passable. Cruisers are shoulder parked, not across the road. Sandbag protection covers the registration desk from the +z approach.",
+      "pieces": [
+        {
+          "class": "Land_Wreck_sed01_aban1_police",
+          "dx": -14.0,
+          "dz": -12.0,
+          "loot": "proto",
+          "yaw": 170.0
+        },
+        {
+          "class": "Land_Wreck_sed01_aban2_police",
+          "dx": 15.0,
+          "dz": 12.0,
+          "loot": "proto",
+          "yaw": -170.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -13.0,
+          "dz": 8.0,
+          "loot": "proto",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -8.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": 8.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -8.0,
+          "dz": -24.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -14.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -17.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp_Small",
+          "dx": -21.0,
+          "dz": -1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -21.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -13.0,
+          "dz": 16.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 9.0,
+          "dz": -16.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 24.0,
+          "dz": 20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": -8.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 23.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 23.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "Police attempted traffic diversion while a military guard team handled detainee screening; two abandoned cruisers and a document desk show where the queue stopped.",
+      "status": "runtime-unverified",
+      "theme": "police blockade",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 3
+    },
+    "quarantine-post": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Registration west, examination east, shower at the rear. Wire stays outside tents and the open road lane; bags never block doors.",
+      "pieces": [
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": 16.0,
+          "dz": -14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Medical_Tent_Shower",
+          "dx": -16.0,
+          "dz": -14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": -12.0,
+          "dz": 10.0,
+          "loot": "proto",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -8.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": 8.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -13.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -16.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Furniture_medical_table",
+          "dx": 15.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_hospital_transport_bed",
+          "dx": 20.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": 25.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": 27.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_MedicalGarbage_Bandage",
+          "dx": 24.0,
+          "dz": 10.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -29.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 29.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -23.0,
+          "dz": -3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -23.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": -28.0,
+          "dz": -24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 25.0,
+          "dz": 19.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": -8.0,
+          "dz": 20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 13.0,
+          "dz": 19.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A roadside screening station separated arrivals from the clean treatment row; a discarded protective bag trail marks the containment breach.",
+      "status": "runtime-unverified",
+      "theme": "quarantine post",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 3
+    },
+    "radio-relay": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Equipment sits behind a transverse HBarrier line with an open centre; accommodation is offset from generator and antenna bases.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": -15.0,
+          "dz": -14.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": 13.0,
+          "dz": 2.0,
+          "loot": "proto",
+          "yaw": -90.0
+        },
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -12.0,
+          "dz": 16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Radar_Mobile1",
+          "dx": 24.0,
+          "dz": -15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": -25.0,
+          "dz": -23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": 25.0,
+          "dz": -26.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Wreck_PowGen",
+          "dx": 28.0,
+          "dz": -4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_canister_DZ",
+          "dx": 25.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -14.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_radio_b",
+          "dx": -10.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -14.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -20.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -20.0,
+          "dz": 6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -25.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -13.0,
+          "dz": -25.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 13.0,
+          "dz": -25.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -12.0,
+          "dz": 23.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 23.0,
+          "dz": 18.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 20.0,
+          "dz": 9.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A remote relay kept broadcasting after the convoy stopped coming; a radar trailer, twin masts and a sheltered operator station dominate the skyline.",
+      "status": "runtime-unverified",
+      "theme": "radio relay",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "refugee-camp": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. Bus is parked outside the shelter row; communal cooking is west of tents, away from canvas. Medical access and the central foot lane remain open.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": -16.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_2",
+          "dx": 16.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Wreck_Ikarus",
+          "dx": 29.0,
+          "dz": 12.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": -16.0,
+          "dz": 9.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 14.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 12.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp2",
+          "dx": 17.0,
+          "dz": 5.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp_Small",
+          "dx": 21.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": 14.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": 18.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": 22.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_fireplace_grill",
+          "dx": -29.0,
+          "dz": -8.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_WoodPile1",
+          "dx": -30.0,
+          "dz": -13.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -27.0,
+          "dz": 20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_box_c",
+          "dx": -24.0,
+          "dz": 22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 24.0,
+          "dz": -2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 29.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Decon_HazmatBag_01_F",
+          "dx": -27.0,
+          "dz": 14.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 28.0,
+          "dz": -22.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 8.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A bus delivered families to a relief camp that outlived its supplies; folding beds, shared meals and a registration desk remain between two shelter rows.",
+      "status": "runtime-unverified",
+      "theme": "refugee camp",
+      "threat_hint": "civilian survival and guarded relief",
+      "tier_hint": 2
+    },
+    "sniper-overwatch": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "+z is the watched approach. Nest and guard shelter are staggered; camo screens protect the rear equipment bench without sealing the retreat lane.",
+      "pieces": [
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": -10.0,
+          "dz": 10.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": 10.0,
+          "dz": -4.0,
+          "loot": "proto",
+          "yaw": -90.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": 20.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -10.0,
+          "dz": 17.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_Round",
+          "dx": -16.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 10.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -20.0,
+          "dz": -3.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp_Small",
+          "dx": -10.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_radio_b",
+          "dx": -8.0,
+          "dz": -7.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": -10.0,
+          "dz": -5.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Furniture_foldingbed_open",
+          "dx": -16.0,
+          "dz": -15.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -20.0,
+          "dz": -12.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 16.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Garbage_GroundSq_3m",
+          "dx": 18.0,
+          "dz": -9.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": 17.0,
+          "dz": -20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_WoodPile1",
+          "dx": -23.0,
+          "dz": -18.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "An observation team watched the valley from two offset fighting positions; a radio and spare equipment sit behind the covered withdrawal route.",
+      "status": "runtime-unverified",
+      "theme": "sniper overwatch",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
+    },
+    "supply-drop-site": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -28,
+            28
+          ]
+        }
+      ],
+      "layout_notes": "Approach +z. The central recovery lane is clear; a widely scattered line of static cases leads to the eastern truck. No dynamic event or duplicate scripted rewards are created.",
+      "pieces": [
+        {
+          "class": "Land_Container_1Mo",
+          "dx": -16.0,
+          "dz": -15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Wreck_MTVR_Cargo",
+          "dx": 23.0,
+          "dz": 15.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": 16.0,
+          "dz": -16.0,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -15.0,
+          "dz": 0.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -20.0,
+          "dz": 4.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -15.0,
+          "dz": 7.0,
+          "loot": "none",
+          "yaw": 20.0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": -9.0,
+          "dz": 11.0,
+          "loot": "none",
+          "yaw": -15.0
+        },
+        {
+          "class": "StaticObj_Furniture_box_c",
+          "dx": 8.0,
+          "dz": 15.0,
+          "loot": "none",
+          "yaw": 35.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 13.0,
+          "dz": 18.0,
+          "loot": "none",
+          "yaw": -25.0
+        },
+        {
+          "class": "StaticObj_Furniture_metalcrate",
+          "dx": 18.0,
+          "dz": 21.0,
+          "loot": "none",
+          "yaw": 10.0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": -25.0,
+          "dz": -6.0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 16.0,
+          "dz": 1.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 18.0,
+          "dz": 3.0,
+          "loot": "none",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Furniture_radio_b",
+          "dx": 13.0,
+          "dz": 2.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Airfield_Light_Reflector",
+          "dx": 27.0,
+          "dz": 24.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -14.0,
+          "dz": 20.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 14.0,
+          "dz": 26.0,
+          "loot": "none",
+          "yaw": 0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": -8.0,
+          "dz": -24.0,
+          "loot": "none",
+          "yaw": 0
+        }
+      ],
+      "purpose": "A ground team recovered an air-delivered consignment into open containers, then abandoned the sorting line; separated transit crates trace the movement from drop to truck.",
+      "status": "runtime-unverified",
+      "theme": "supply drop site",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
     },
     "supply-dump": {
       "clear": [
@@ -618,6 +3773,7 @@
           ]
         }
       ],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present.",
       "pieces": [
         {
           "class": "Land_Container_1Mo",
@@ -726,7 +3882,10 @@
         }
       ],
       "purpose": "A fenced supply yard: two military containers and two static containers frame a vehicle lane that ends at a parked wreck, pallets and crates by the entrance, a fuel tank to one side, razor wire and hedgehogs across the entrance.",
-      "theme": "supply dump"
+      "status": "runtime-unverified",
+      "theme": "supply dump",
+      "threat_hint": "exposed military salvage",
+      "tier_hint": 4
     },
     "tent-camp": {
       "clear": [
@@ -741,6 +3900,7 @@
           ]
         }
       ],
+      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present.",
       "pieces": [
         {
           "class": "Land_Mil_Tent_Big1_1",
@@ -835,7 +3995,10 @@
         }
       ],
       "purpose": "Two military tents either side of a central path, a camo-net table area at the back, a sandbag cover line and razor wire at the front, crates and a fuel tank at the edges.",
-      "theme": "tent camp"
+      "status": "runtime-unverified",
+      "theme": "tent camp",
+      "threat_hint": "guarded checkpoint or relief site",
+      "tier_hint": 3
     }
   },
   "kind": "hollow-country-overlay-compositions"
