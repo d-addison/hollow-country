@@ -22,13 +22,17 @@ class HCGroupStore
         return false;
     }
 
-    static HCGroupSettings LoadSettings()
+    static HCGroupSettings LoadSettings(out string refusal)
     {
+        refusal = "groups_settings_directory_unavailable";
+        // Ensure the parent first on an otherwise fresh profile.
+        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) return null;
         string root = "$profile:HollowCountry/Groups";
         if (!FileExist(root) && !MakeDirectory(root)) return null;
         string path = root + "/settings.json";
         HCGroupSettings settings = new HCGroupSettings;
         bool migrate = false;
+        refusal = "groups_settings_recovery_required";
         if (!HCV2ThreatStore<HCGroupSettings>.CanOpen(path)) return null;
         if (FileExist(path))
         {
@@ -37,7 +41,9 @@ class HCGroupStore
             // 1.30.164289: 3_Game/tools/JsonFileLoader.c:69 LoadData.
             string content;
             string error;
+            refusal = "groups_settings_read_refused";
             if (!HCGroupIO.Read(path, 8192, content)) return null;
+            refusal = "groups_settings_json_invalid";
             if (!JsonFileLoader<HCGroupSettings>.LoadData(content, settings, error)) return null;
             // ShareDiscovery is the only supported missing-key default.
             bool baselinePresent = true;
@@ -47,6 +53,7 @@ class HCGroupStore
             if (!HCJsonFields.Has(content, "MaxRequestsPerSecond") || !HCJsonFields.Has(content, "MaxStoreBytes") || !HCJsonFields.Has(content, "KeepRevisions") || !HCJsonFields.Has(content, "InviteSeconds") || !HCJsonFields.Has(content, "MarkerRetentionSeconds") || !HCJsonFields.Has(content, "PositionIntervalSeconds") || !HCJsonFields.Has(content, "PositionStaleSeconds") || !HCJsonFields.Has(content, "MaxIconDistance")) { baselinePresent = false; }
             if (!baselinePresent)
             {
+                refusal = "groups_settings_missing_baseline_fields";
                 Print("[HC Groups] settings_missing_baseline_fields; preserving settings.json; service inactive runtime=PENDING");
                 return null;
             }
@@ -58,13 +65,20 @@ class HCGroupStore
                 migrate = true;
             }
         }
-        else if (!HCGroupJson<HCGroupSettings>.WriteNew(path, settings, 8192)) return null;
+        else
+        {
+            refusal = "groups_settings_initial_write_refused";
+            if (!HCGroupJson<HCGroupSettings>.WriteNew(path, settings, 8192)) return null;
+        }
+        refusal = "groups_settings_values_invalid";
         if (!HCGroupRules.SettingsValid(settings)) return null;
         if (migrate)
         {
+            refusal = "groups_settings_migration_write_refused";
             if (!HCV2ThreatStore<HCGroupSettings>.Save(path, settings, 8192)) return null;
             Print("[HC Groups] settings migrated v1->v2 ShareDiscovery=true (owner default-on; set false to opt out)");
         }
+        refusal = "";
         return settings;
     }
 

@@ -105,7 +105,7 @@ class HCBuildingClaim
         {
             service.m_OperatorDisabled = true;
             service.m_Status.HCPublish("off", "building_claims_operator_disabled");
-            Print("[HC Plan] HC-17 claims=off reason=building_claims_operator_disabled runtime=PENDING");
+            Print("[HC Plan] HC-17 claims=off reason=building_claims_operator_disabled construction=off construction_scope=claim_aware native_construction=on runtime=PENDING");
             return true;
         }
         // Groups starts before Camps in the existing registry. An unavailable
@@ -115,7 +115,7 @@ class HCBuildingClaim
         if (!groups || !groups.HCClaimHealthy())
         {
             service.m_Status.HCPublish("off", "groups_unavailable");
-            Print("[HC Plan] HC-17 claims=off state=off expiry_days=0 construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 reason=groups_unavailable runtime=PENDING");
+            Print("[HC Plan] HC-17 claims=off state=off expiry_days=0 construction=off construction_scope=claim_aware native_construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 reason=groups_unavailable runtime=PENDING");
             return true;
         }
         service.m_Config = new HCBuildingClaimConfig;
@@ -128,7 +128,7 @@ class HCBuildingClaim
         Print("[HC ClaimTargets] admitted schema=2 provenance=claim cooldowns=independent runtime=PENDING");
         HCModuleReadiness.HCDerive(service.m_Status, service.m_Healthy, "", "", "claim_journal_loaded_native_acceptance_pending");
         Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false) + " runtime=PENDING");
-        Print("[HC Plan] HC-17 claims=per-group state=" + service.m_Status.HCState() + " expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
+        Print("[HC Plan] HC-17 claims=per-group state=" + service.m_Status.HCState() + " expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=on construction_scope=claim_aware native_construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 expiry=online_absence window_days=" + service.m_Config.ExpiryDays.ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 locks=group_native_lockpick unlock=vanilla raiding=vanilla restart=native runtime=PENDING");
         return true;
@@ -140,7 +140,7 @@ class HCBuildingClaim
         m_Status.HCPublish("refused", "claim_config_clock_or_journal_fault");
         m_Observers.Clear();
         m_Examining = null;
-        Print("[HC Plan] HC-17 claims=off state=refused reason=config_clock_or_journal_fault construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 runtime=PENDING");
+        Print("[HC Plan] HC-17 claims=off state=refused reason=config_clock_or_journal_fault construction=off construction_scope=claim_aware native_construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 runtime=PENDING");
     }
 
     bool HCReady(int now)

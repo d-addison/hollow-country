@@ -29,11 +29,10 @@ class HCGroupModule extends HCModule
         m_AdmissionReason = "";
         if (!settings) { m_Refusal = "core_settings_unavailable"; return false; }
         if (!settings.EnableGroups) { m_AdmissionReason = "core_groups_disabled"; return false; }
-        m_Config = HCGroupStore.LoadSettings();
+        m_Config = HCGroupStore.LoadSettings(m_Refusal);
         if (!m_Config)
         {
-            m_Refusal = "groups_settings_unavailable_or_invalid";
-            Print("[HC Groups] settings unavailable or invalid; service inactive");
+            Print("[HC Groups] settings refused reason=" + m_Refusal + "; files preserved; service inactive");
             return false;
         }
         if (!m_Config.Enabled) { m_AdmissionReason = "groups_settings_disabled"; return false; }
@@ -46,7 +45,8 @@ class HCGroupModule extends HCModule
         if (!m_Service.Start(m_Config))
         {
             Print("[HC Groups] start refused: check settings, UTC, world and persistence; service inactive");
-            m_Refusal = "service_start_refused";
+            m_Refusal = m_Service.Refusal();
+            if (m_Refusal == "") { m_Refusal = "service_start_refused"; }
             m_Service = null;
             return;
         }
