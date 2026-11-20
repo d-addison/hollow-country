@@ -104,7 +104,6 @@ class HCGapcodeStoryIndex
     protected int m_Cursor;
     protected int m_Qualified;
     protected bool m_Complete;
-    protected bool m_PairResolved;
     protected bool m_Off;
     protected bool m_Logged;
     protected string m_Reason = "HC42_INDEX_LOADING";
@@ -112,10 +111,12 @@ class HCGapcodeStoryIndex
 
     string HCReason() { return m_Reason; }
     bool HCOff() { return m_Off; }
-    // Loading only parses the cached source; it never mutates scene/save state
-    // or runs native placement preflight, so it can advance during a checkpoint.
+    // Loading parses the cached source. Selection only caches a candidate and
+    // reads native clearance; neither path mutates scene/save state.
     bool HCLoading() { return m_Loading; }
-    bool HCReady() { return m_Complete && m_Qualified > 0 && m_PairResolved; }
+    // Operational readiness is source admission, independent of transient
+    // selection/observer clearance. Native placement acceptance stays pending.
+    bool HCReady() { return m_Complete && m_Qualified > 0; }
 
     void HCStart()
     {
@@ -169,7 +170,6 @@ class HCGapcodeStoryIndex
         if (m_Reason != reason) { Print("[HC Scenes] HC-42 reason=" + reason + " runtime=PENDING"); }
         m_Reason = reason;
         m_Selected = null;
-        m_PairResolved = false;
         HCStop();
         HCLog();
         return false;
@@ -251,7 +251,10 @@ class HCGapcodeStoryIndex
         return HCEventRuntimePolicy.PositionValid(site.Anchor) && site.Anchor[1] != 0;
     }
 
-    // <=configured lines, <=one preflight on a later non-placement tick.
+    // <=configured lines OR <=one candidate/preflight on a later tick.
+    // Checkpoint-safe: only temporary index/diagnostic state changes here.
+    // Preflight/Layout read config, observers, objects, doors and terrain;
+    // they create no native objects and mutate no persisted scene state.
     void HCStep(HCScenesModule owner)
     {
         m_Owner = owner;
@@ -303,7 +306,6 @@ class HCGapcodeStoryIndex
             return;
         }
         m_Selected = candidate;
-        m_PairResolved = true;
         m_Reason = "";
     }
 
@@ -336,7 +338,6 @@ class HCGapcodeStoryIndex
         m_Selected = null;
         HCGapcodeStorySite source;
         if (!m_Sites.Find(selected.SiteId, source)) { return null; }
-        m_PairResolved = false;
         m_Reason = "HC42_PAIR_SELECTION_PENDING";
         HCEventSite pinnedSite = HCPlacement(source);
         if (!m_Owner || !m_Owner.SiteAvailable(pinnedSite.Position)) { return null; }

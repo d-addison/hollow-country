@@ -66,8 +66,8 @@ class HCScenesModule : HCModule
 
     override string GetName() { return "Scenes"; }
 
-    // HC-62 readiness also requires a source-admitted pair to pass preflight.
-    // This reports operational preparation only; native acceptance stays pending.
+    // HC-62 readiness requires the loaded index and a source-qualified pair.
+    // Selection/clearance is progress, not a readiness failure or native acceptance.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         if (m_Fault != "")
@@ -80,7 +80,12 @@ class HCScenesModule : HCModule
             m_Operational.HCPublish("degraded", m_StoryIndex.HCReason());
             return m_Operational;
         }
-        HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, "", "scene_store_open_schedule_running");
+        string readyReason = "scene_store_open_schedule_running";
+        if (m_Running && m_StoryIndex && m_StoryIndex.HCReady() && m_StoryIndex.HCReason() != "")
+        {
+            readyReason = m_StoryIndex.HCReason();
+        }
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, "", readyReason);
         return m_Operational;
     }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
@@ -566,11 +571,11 @@ class HCScenesModule : HCModule
         if (m_Store.HCCheckpointPending())
         {
             // Dirty includes routine checkpoints waiting for the shared save
-            // scheduler. Do not starve read-only HC-42 parsing behind that wait.
-            // HCLoading is checked BEFORE stepping: completion still returns
-            // from HCStep without selecting/preflighting a candidate this tick.
+            // scheduler. Advance one budgeted HC-42 parsing batch OR candidate
+            // preflight: it only changes temporary selection/diagnostic caches.
+            // Native clearance reads create no objects or saved-state mutations.
             // This branch returns before any prop creation or chain/save work.
-            if (m_StoryIndex && m_StoryIndex.HCLoading() && m_Stories && m_Stories.HCReady()) { m_StoryIndex.HCStep(this); }
+            if (m_StoryIndex && m_Stories && m_Stories.HCReady()) { m_StoryIndex.HCStep(this); }
             return;
         }
         if (m_StoryOfferPending > 0)
