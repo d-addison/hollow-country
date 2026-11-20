@@ -546,7 +546,16 @@ class HCScenesModule : HCModule
         if (!m_Running || !GetGame() || !GetGame().IsServer()) { return; }
         m_Store.HCPumpCheckpoint();
         if (!m_Store.HCCheckpointHealthy()) { m_Fault = "scene_save_failed"; OnStop(); return; }
-        if (m_Store.HCCheckpointPending()) { return; }
+        if (m_Store.HCCheckpointPending())
+        {
+            // Dirty includes routine checkpoints waiting for the shared save
+            // scheduler. Do not starve read-only HC-42 parsing behind that wait.
+            // HCLoading is checked BEFORE stepping: completion still returns
+            // from HCStep without selecting/preflighting a candidate this tick.
+            // This branch returns before any prop creation or chain/save work.
+            if (m_StoryIndex && m_StoryIndex.HCLoading() && m_Stories && m_Stories.HCReady()) { m_StoryIndex.HCStep(this); }
+            return;
+        }
         if (m_StoryOfferPending > 0)
         {
             HCWildlifeScenes wildlife = HCEcologyRuntimeModule.HCWildlife();

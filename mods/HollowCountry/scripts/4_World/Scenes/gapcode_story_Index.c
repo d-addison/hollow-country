@@ -89,6 +89,8 @@ class HCGapcodeStoryIndex
     protected bool m_Loading;
     protected ref array<string> m_Lines = new array<string>;
     protected int m_LineCursor;
+    protected int m_LoadBatches;
+    protected int m_LoadGuardYields;
     protected bool m_RowComma;
     protected bool m_HaveRow;
     protected HCScenesModule m_Owner;
@@ -110,6 +112,9 @@ class HCGapcodeStoryIndex
 
     string HCReason() { return m_Reason; }
     bool HCOff() { return m_Off; }
+    // Loading only parses the cached source; it never mutates scene/save state
+    // or runs native placement preflight, so it can advance during a checkpoint.
+    bool HCLoading() { return m_Loading; }
     bool HCReady() { return m_Complete && m_Qualified > 0 && m_PairResolved; }
 
     void HCStart()
@@ -154,7 +159,9 @@ class HCGapcodeStoryIndex
     {
         if (m_Logged) { return; }
         m_Logged = true;
-        Print("[HC Scenes] HC-42 index sites=" + m_Sites.Count().ToString() + " candidates=" + m_Pairs.Count().ToString() + " qualified=" + m_Qualified.ToString() + " runtime=PENDING");
+        string report = "[HC Scenes] HC-42 index sites=" + m_Sites.Count().ToString() + " candidates=" + m_Pairs.Count().ToString() + " qualified=" + m_Qualified.ToString();
+        report = report + " load_rows=" + m_LineCursor.ToString() + " load_batches=" + m_LoadBatches.ToString() + " guard_yields=" + m_LoadGuardYields.ToString();
+        Print(report + " runtime=PENDING");
     }
 
     bool HCRefuse(string reason)
@@ -254,11 +261,15 @@ class HCGapcodeStoryIndex
             // by earlier consumers, and one unit per line read the 1075-line index at ~1 line/s.
             // STORY_INDEX, not SITUATIONS: Events claims that slot's starved take every tick.
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
+            m_LoadBatches++;
             m_Work.HCReset(m_Limits.ReadLinesPerTick);
             string line;
             for (int row = 0; row < m_Limits.ReadLinesPerTick; row++)
             {
-                if (!m_Work.HCContinue()) { return; }
+                // The loop already caps rows, so an early refusal is the 4 ms
+                // cooperative guard. Count it to distinguish time from line caps
+                // in the native completion receipt; one JSON row is atomic.
+                if (!m_Work.HCContinue()) { m_LoadGuardYields++; return; }
                 if (m_LineCursor >= m_Lines.Count())
                 {
                     HCStop();
