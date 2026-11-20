@@ -140,14 +140,15 @@ class HCWildlifeScenes
     static bool HCValid(HCWildlifeSceneState state)
     {
         if (!state || (state.Version != 1 && state.Version != 2) || !state.Rows || state.Rows.Count() > HCWildlifeScenes.MAX_RECEIPTS) { return false; }
-        array<string> spent = new array<string>();
+        // Hashed set: up to MAX_SPENT_CORPSES (1024) ids are checked on every commit.
+        map<string, bool> spent = new map<string, bool>();
         if (state.Version == 2)
         {
             if (!state.SpentCorpseIds || state.SpentCorpseIds.Count() > HCWildlifeScenes.MAX_SPENT_CORPSES) { return false; }
             foreach (string spentId : state.SpentCorpseIds)
             {
-                if (!HCEventDirector.TextValid(spentId, 96) || spent.Find(spentId) >= 0) { return false; }
-                spent.Insert(spentId);
+                if (!HCEventDirector.TextValid(spentId, 96) || spent.Contains(spentId)) { return false; }
+                spent.Set(spentId, true);
             }
         }
         array<string> identities = new array<string>();
@@ -165,7 +166,7 @@ class HCWildlifeScenes
             if (row.CorpseId != "")
             {
                 if (!HCEventDirector.TextValid(row.CorpseId, 96) || bodies.Find(row.CorpseId) >= 0) { return false; }
-                if (state.Version == 2 && spent.Find(row.CorpseId) < 0) { return false; }
+                if (state.Version == 2 && !spent.Contains(row.CorpseId)) { return false; }
                 bodies.Insert(row.CorpseId);
             }
             if (row.Supply == "pending" || row.Supply == "native_skinnable") { active = active + 1; }

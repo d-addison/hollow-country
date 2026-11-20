@@ -77,7 +77,7 @@ class HCEcologyNative
 	// mapping, so it never depends on how JsonFileLoader treats the manifest's other
 	// keys. An unreadable or inconsistent manifest claims no counts and refuses.
 	// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
-	// 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :271 IndexOfFrom.
+	// 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :113 Substring (IndexOfFrom is not used: unobserved natively).
 	static const string HC_HABITAT_MANIFEST = "$mission:hollow-country/ecology/habitat-overrides.json";
 	// #194: read cap raised from 32768 (the manifest's declared ManifestMaxBytes, ~9% headroom)
 	// to 65536. Native ReadFile takes any length (1_Core/proto/EnSystem.c:425; vanilla
@@ -98,17 +98,44 @@ class HCEcologyNative
 	protected static int s_HabitatBytes;
 	protected static string s_HabitatReason;
 
+	// First start of token in [from, limit), or -1. Native multi-character IndexOf is only trusted
+	// on text of at most 1 KB (boot 100), and IndexOfFrom is not observed natively, so the manifest
+	// is read through windows of at most 1024 characters that overlap by token.Length() - 1.
+	static int HCHabitatFind(string text, string token, int from, int limit)
+	{
+		int total = text.Length();
+		int size = token.Length();
+		if (size < 1 || size > 256) { return -1; }
+		int cursor = from;
+		if (cursor < 0) { cursor = 0; }
+		while (cursor < limit && cursor + size <= total)
+		{
+			int piece = total - cursor;
+			if (piece > 1024) { piece = 1024; }
+			string window = text.Substring(cursor, piece);
+			if (window.Length() > 1024) { return -1; }
+			int hit = window.IndexOf(token);
+			if (hit >= 0)
+			{
+				if (cursor + hit < limit) { return cursor + hit; }
+				return -1;
+			}
+			cursor = cursor + piece;
+			cursor = cursor - size + 1;
+		}
+		return -1;
+	}
+
 	// Occurrences of token that start inside [first, last). Bounded by the text length.
 	static int HCHabitatCount(string text, string token, int first, int last)
 	{
 		int count = 0;
-		int cursor = text.IndexOfFrom(first, token);
-		while (cursor >= 0 && cursor < last)
+		int size = token.Length();
+		int cursor = HCEcologyNative.HCHabitatFind(text, token, first, last);
+		while (cursor >= 0)
 		{
 			count++;
-			int next = cursor + token.Length();
-			if (next >= text.Length()) { return count; }
-			cursor = text.IndexOfFrom(next, token);
+			cursor = HCEcologyNative.HCHabitatFind(text, token, cursor + size, last);
 		}
 		return count;
 	}
@@ -124,28 +151,24 @@ class HCEcologyNative
 	{
 		string token = "\"" + key + "\"";
 		int total = text.Length();
-		int cursor = text.IndexOf(token);
+		HCTextWindow reader = new HCTextWindow(text);
+		int cursor = HCEcologyNative.HCHabitatFind(text, token, 0, total);
 		int probe = 0;
 		int blanks = 0;
-		int next = 0;
 		string glyph = "";
 		while (cursor >= 0)
 		{
 			probe = cursor + token.Length();
 			blanks = 0;
-			glyph = "";
-			if (probe < total) { glyph = text.Substring(probe, 1); }
+			glyph = reader.At(probe);
 			while (blanks < HCEcologyNative.HC_HABITAT_BLANKS_MAX && HCHabitatBlank(glyph))
 			{
 				probe++;
 				blanks++;
-				glyph = "";
-				if (probe < total) { glyph = text.Substring(probe, 1); }
+				glyph = reader.At(probe);
 			}
 			if (glyph == ":") { return cursor; }
-			next = cursor + token.Length();
-			if (next >= total) { return -1; }
-			cursor = text.IndexOfFrom(next, token);
+			cursor = HCEcologyNative.HCHabitatFind(text, token, cursor + token.Length(), total);
 		}
 		return -1;
 	}
