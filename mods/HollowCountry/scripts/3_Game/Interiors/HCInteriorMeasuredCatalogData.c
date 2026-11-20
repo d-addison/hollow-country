@@ -179,7 +179,7 @@ class HCInteriorMeasuredCatalogCursor
     int CopyFrom = 0;
     int Rewrites = 0;
     bool Failed = false;
-    // Character reads go through a 1 KB window, as in HCInteriorTemplateCursor.
+    // Character reads go through a 1 KB window (HCTextWindow).
     protected ref HCTextWindow m_Window;
 
     void HCSetContent(string content)

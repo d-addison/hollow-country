@@ -12,6 +12,7 @@ Use the [field guide](../README.md) for the features, dependency stack and miles
 | Understand component boundaries and current gates | [Module status](MODULE_STATUS.md) |
 | See every outstanding feature, fix, audit and owner question | [Outstanding work](OUTSTANDING.md) |
 | Review shared runtime interfaces | [Runtime integration contract](RUNTIME_IMPLEMENTATION_CONTRACT.md) |
+| Keep module tick, save and log cost bounded | [Performance practices](PERFORMANCE_PRACTICES.md) |
 | Review ownership and dependencies | [Provenance and licenses](PROVENANCE_AND_LICENSES.md) |
 | Find official documentation | [Sources](SOURCES.md) |
 
