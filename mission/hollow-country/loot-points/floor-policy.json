@@ -2,7 +2,7 @@
   "schema": 1,
   "kind": "hollow-country-loot-floor-policy",
   "enabled": true,
-  "note": "Owner 2026-11-20: avoid floors while keeping guns findable. Evidence-indexed receivers relocate exact native raised, shelf, platform, bed and wreck-interior points without duplicating coordinates. Contextual native shelf containers admit equipment including firearms. Bounded explicit Military-only weapon exceptions below preserve at most two slots where no raised receiver is evidenced, pending model survey; they are reported separately as floor equipment, never called shelves. All capacity is CE-owned and point-bounded; no nominal/min edits. Unplaced demand remains traceable. runtime=PENDING.",
+  "note": "Owner 2026-11-20: avoid floors while keeping guns findable. Evidence-indexed receivers relocate exact native raised, shelf, platform, bed and wreck-interior points without duplicating coordinates. Receivers inherit their native sources' explicit or default container capacity, bounded by relocated points and the policy cap, with at least one slot; added clothing floors retain at least one slot. Native group maxima still apply. Contextual native shelf containers admit equipment including firearms. Bounded explicit Military-only weapon exceptions below preserve at most two slots where no raised receiver is evidenced, pending model survey; they are reported separately as floor equipment, never called shelves. All capacity is CE-owned and point-bounded; no nominal/min edits. Unplaced demand remains traceable. runtime=PENDING.",
   "floor_categories": [
     "clothes"
   ],

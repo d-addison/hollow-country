@@ -359,6 +359,7 @@ def provision_receivers(data, policy):
     import copy
     import xml.etree.ElementTree as ET
     root = economy.xml(data, 'prototype')
+    default_lootmax = _default(root)
     report = {'groups': {}, 'absent': [], 'surface_points': 0, 'exception_points': 0,
               'runtime_acceptance': 'pending'}
     groups = {g.get('name'): g for g in root.findall('group')}
@@ -391,7 +392,8 @@ def provision_receivers(data, policy):
             selections.append((WEAPON_EXCEPTION, {exception['source']: exception['points']}, ['weapons']))
         used = set()
         for target, sources, categories in selections:
-            receiver = ET.Element('container', {'name': target, 'lootmax': '0'})
+            receiver = ET.Element('container', {'name': target})
+            source_capacity = 0
             for cat in categories:
                 ET.SubElement(receiver, 'category', {'name': cat})
             ET.SubElement(receiver, 'tag', {'name': policy['shelf_tag']})
@@ -399,6 +401,7 @@ def provision_receivers(data, policy):
                 source = existing.get(cname)
                 if source is None:
                     raise ValueError('receiver source missing: ' + name + '/' + cname)
+                source_capacity += min(len(points), int(source.get('lootmax', str(default_lootmax))))
                 for xyz in points:
                     found = [p for p in source.findall('point') if p.get('pos') == xyz]
                     if len(found) != 1 or xyz in used:
@@ -408,6 +411,13 @@ def provision_receivers(data, policy):
                     row['relocations'].append({'source': cname, 'pos': xyz, 'target': target})
             count = len(receiver.findall('point'))
             if count:
+                # Native containers have an explicit limit or inherit the prototype
+                # default. Relocating their points must not create an inert shell
+                # whose admission depends on unrelated displaced demand/headroom.
+                limit = min(count, policy['capacity']['max_container_lootmax'], max(1, source_capacity))
+                if target == WEAPON_EXCEPTION:
+                    limit = min(limit, exception['max_slots'])
+                receiver.set('lootmax', str(limit))
                 group.append(receiver)
                 key = 'exception_points' if target == WEAPON_EXCEPTION else 'surface_points'
                 row[key] += count
@@ -435,6 +445,8 @@ def finish_receivers(data, report, policy, floor_report):
             if cname not in containers:
                 continue
             c = containers[cname]
+            if c.findall('point') and int(c.get('lootmax')) <= 0:
+                raise ValueError('receiver has points but no capacity: ' + name + '/' + cname)
             if int(c.get('lootmax')) > len(c.findall('point')):
                 raise ValueError('receiver capacity exceeds its physical points: ' + name)
             if cname == WEAPON_EXCEPTION:
@@ -449,6 +461,16 @@ def finish_receivers(data, report, policy, floor_report):
                             for p in group.iter('point'))
                 if count != 1:
                     raise ValueError('receiver overlaps another native point: ' + name)
+    introduced_names = {SURFACE_RECEIVER, WEAPON_EXCEPTION, *policy['extra_floor_container_names']}
+    introduced = [c for g in root.findall('group') for c in g.findall('container')
+                  if c.get('name') in introduced_names and c.findall('point')]
+    zero_capacity = [c for c in introduced if int(c.get('lootmax', str(_default(root)))) <= 0]
+    report['containers_after'] = len(introduced)
+    report['points_after'] = sum(len(c.findall('point')) for c in introduced)
+    report['zero_capacity_containers_after'] = len(zero_capacity)
+    report['zero_capacity_points_after'] = sum(len(c.findall('point')) for c in zero_capacity)
+    if zero_capacity:
+        raise ValueError('floor policy introduced containers with points but no capacity')
     output = ET.tostring(root, encoding='utf-8', xml_declaration=True)
     text = output.decode('utf-8')
     scanned = _scan(text, loot_boost._mask(text), _default(root))
@@ -525,9 +547,15 @@ def rebalance_proto(data, rows_by_file, policy):
             slots = min(c['lootmax'], len(c['ys']), group_max)
             estimates = {name: slots * table[name][3] / before for name in displaced}
             estimate = sum(estimates.values())
-            need = min(slots, int(math.floor(estimate + 0.5)))
-            requests = {name: int(math.floor(estimates[name])) for name in displaced}
-            order = sorted(displaced, key=lambda name: (-(estimates[name] - requests[name]), name))
+            # Added clothing floors must retain a usable slot even when rounded
+            # equipment demand would otherwise drain their entire small budget.
+            reserve = int(c['name'] in policy['extra_floor_container_names']
+                          and bool(c['cats'] & set(policy['floor_categories'])) and bool(c['ys']))
+            need = min(max(0, c['lootmax'] - reserve), slots, int(math.floor(estimate + 0.5)))
+            allocation = {name: estimates[name] * need / estimate if reserve and estimate else estimates[name]
+                          for name in displaced}
+            requests = {name: int(math.floor(allocation[name])) for name in displaced}
+            order = sorted(displaced, key=lambda name: (-(allocation[name] - requests[name]), name))
             for name in order[:need - sum(requests.values())]:
                 requests[name] += 1
             report['floor_nonclothing_slots_before'] += estimate
