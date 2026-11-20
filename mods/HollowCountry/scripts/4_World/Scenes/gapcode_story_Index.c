@@ -203,7 +203,7 @@ class HCGapcodeStoryIndex
         }
         HCGapcodeStoryCandidate pair;
         if (!JsonFileLoader<HCGapcodeStoryCandidate>.LoadData(line, pair, error) || !pair) { return false; }
-        if (m_Pairs.Count() >= m_Limits.MaxCandidates || m_Ids.Contains(pair.Id) || !HCEventDirector.TextValid(pair.Id, 96) || pair.Variant != "primary") { return false; }
+        if (m_Pairs.Count() >= m_Limits.MaxCandidates || m_Ids.Contains(pair.Id) || !HCEventDirector.TextValid(pair.Id, 96) || (pair.Variant != "primary" && pair.Variant != "regional")) { return false; }
         HCGapcodeStorySite anchor;
         if (!m_Sites.Find(pair.SiteId, anchor) || !HCSceneKits.Find(pair.Kit)) { return false; }
         m_Ids.Insert(pair.Id, true);
@@ -226,11 +226,14 @@ class HCGapcodeStoryIndex
         m_Owner = owner;
         if (m_InputOpen)
         {
+            // One shared unit per batch of ReadLinesPerTick lines: the shared budget is usually spent
+            // by earlier consumers, and one unit per line read the 1075-line index at ~1 line/s.
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
             m_Work.HCReset(m_Limits.ReadLinesPerTick);
             string line;
             for (int row = 0; row < m_Limits.ReadLinesPerTick; row++)
             {
-                if (!m_Work.HCContinue() || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+                if (!m_Work.HCContinue()) { return; }
                 int read = FGets(m_Input, line);
                 if (read <= 0)
                 {
