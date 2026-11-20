@@ -81,6 +81,7 @@ Thumbs.db
 !/docs/OUTSTANDING.md
 !/docs/OPS_RECOVERY.md
 !/docs/WINTER_TERRAIN_OPTIONS.md
+!/docs/PERFORMANCE_PRACTICES.md
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py
