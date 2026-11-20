@@ -334,7 +334,8 @@ class HCXAIFormationRules
 
     static bool IsRoadSurface(HCXAIFormationConfig cfg, string surface)
     {
-        if (surface == "") { return false; }
+        // Surface type names are short material ids; IndexOf is only trusted on text of at most 1 KB.
+        if (surface == "" || surface.Length() > 1024) { return false; }
         array<string> prefixes = cfg.RoadSurfaces;
         if (!prefixes) { return false; }
         foreach (string prefix : prefixes)

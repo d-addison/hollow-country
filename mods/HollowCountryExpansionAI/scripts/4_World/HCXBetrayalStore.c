@@ -88,15 +88,14 @@ class HCXBetrayalStore
     bool Validate(int nowUtc)
     {
         if (!m_Data || m_Data.SchemaVersion != 1 || !m_Data.Rows || m_Data.Rows.Count() > 128 || m_Data.LastUtc < 0 || m_Data.LastUtc > nowUtc) { return false; }
+        // One row per (group, uid) pair; the length prefix keeps the composite key unambiguous.
+        map<string, bool> pairs = new map<string, bool>();
         foreach (HCXAIBetrayalRow row : m_Data.Rows)
         {
             if (!row || !this.ValidKey(row.GroupKey) || !this.ValidKey(row.UID) || row.AtUtc < 1 || row.AtUtc > m_Data.LastUtc) { return false; }
-            int matches = 0;
-            foreach (HCXAIBetrayalRow other : m_Data.Rows)
-            {
-                if (other && other.GroupKey == row.GroupKey && other.UID == row.UID) { matches++; }
-            }
-            if (matches != 1) { return false; }
+            string pair = row.GroupKey.Length().ToString() + ":" + row.GroupKey + "|" + row.UID;
+            if (pairs.Contains(pair)) { return false; }
+            pairs.Set(pair, true);
         }
         return true;
     }

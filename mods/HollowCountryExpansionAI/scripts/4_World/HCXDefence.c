@@ -502,7 +502,7 @@ class HCXDefence
         int infectedShooter = -1;
         int candidates = 0;
         int rays = 0;
-        array<int> provoked = new array<int>;
+        map<int, bool> provoked = new map<int, bool>();
         s_Budget.HCReset(24, 2);
         for (int actorIndex = 0; actorIndex < actors.Count(); actorIndex++)
         {
@@ -510,7 +510,7 @@ class HCXDefence
             eAIBase actor = actors.Get(actorIndex);
             if (!actor || !actor.IsAlive() || actor.IsUnconscious() || !HCXStance.Owns(actor)) { continue; }
             eAIGroup group = actor.GetGroup();
-            if (!group || group == shooter.GetGroup() || provoked.Find(group.GetID()) >= 0) { continue; }
+            if (!group || group == shooter.GetGroup() || provoked.Contains(group.GetID())) { continue; }
             vector chest = actor.GetPosition() + Vector(0, 1.1, 0);
             vector toActor = chest - eye;
             float shooterDistance = toActor.Length();
@@ -536,7 +536,7 @@ class HCXDefence
                 NoteExcuse(gate, nowMs);
                 break;
             }
-            provoked.Insert(group.GetID());
+            provoked.Set(group.GetID(), true);
             Provoke(actor, shooter, nowMs, shooterPos);
         }
     }

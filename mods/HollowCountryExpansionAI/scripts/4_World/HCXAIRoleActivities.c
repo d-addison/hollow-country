@@ -243,27 +243,31 @@ class HCXAIRoleConfig
 // Native EnString.c:113 Substring, :199 Length, :448 Get.
 class HCXAIRoleJson
 {
+    // Per-character reads go through the shared 1 KB HCTextWindow (boot 084: raw Get cost grows
+    // with the text size); the extracted array is copied out in clamped 1 KB pieces.
     static string HCArray(string text, string key)
     {
+        HCTextWindow window = new HCTextWindow(text);
+        int length = text.Length();
         int cursor = 0;
         int depth = 0;
         int start = -1;
         bool selected = false;
-        while (cursor < text.Length())
+        while (cursor < length)
         {
-            string token = text.Get(cursor);
+            string token = window.At(cursor);
             if (token == "\"")
             {
                 int keyStart = cursor + 1;
                 cursor = keyStart;
-                while (cursor < text.Length() && text.Get(cursor) != "\"")
+                while (cursor < length && window.At(cursor) != "\"")
                 {
-                    if (text.Get(cursor) == "\\") { cursor++; }
+                    if (window.At(cursor) == "\\") { cursor++; }
                     cursor++;
                 }
                 int after = cursor + 1;
-                while (after < text.Length() && (text.Get(after) == " " || text.Get(after) == "\n" || text.Get(after) == "\r" || text.Get(after) == "\t")) { after++; }
-                if (depth == 1 && after < text.Length() && text.Get(after) == ":") { selected = HCJsonFields.KeyMatches(text, keyStart, cursor, key); }
+                while (after < length && (window.At(after) == " " || window.At(after) == "\n" || window.At(after) == "\r" || window.At(after) == "\t")) { after++; }
+                if (depth == 1 && after < length && window.At(after) == ":") { selected = HCJsonFields.KeyMatchesAt(window, keyStart, cursor, key); }
             }
             else
             {
@@ -271,7 +275,20 @@ class HCXAIRoleJson
                 if (token == "{" || token == "[") { depth++; }
                 if (token == "}" || token == "]")
                 {
-                    if (token == "]" && depth == 2 && start >= 0) { return text.Substring(start, cursor - start + 1); }
+                    if (token == "]" && depth == 2 && start >= 0)
+                    {
+                        string image = "";
+                        int offset = start;
+                        int stop = cursor + 1;
+                        while (offset < stop)
+                        {
+                            int piece = stop - offset;
+                            if (piece > 1024) { piece = 1024; }
+                            image = image + text.Substring(offset, piece);
+                            offset = offset + piece;
+                        }
+                        return image;
+                    }
                     depth--;
                 }
             }

@@ -756,7 +756,7 @@ class HCXAITactics
                 HCXAIThrowables.ActivateSmoke(pending.Item);
             }
             if (action == "noise_remove" && HCXAIThrowables.Noise(pending.Item, s_Config.LureNoisePath, s_Config.LureNoiseMultPct)) { s_LureNoises++; }
-            if (action.Contains("remove")) { s_Pending.RemoveOrdered(index); }
+            if (action == "remove" || action == "remove_lost" || action == "remove_activated" || action == "noise_remove") { s_Pending.RemoveOrdered(index); }
             else { index++; }
         }
     }

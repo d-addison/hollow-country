@@ -53,6 +53,12 @@ class HCW38SituationRuntime
     protected static string s_Refusal;
     protected static bool s_SmokePending;
     protected static bool s_FactPending;
+    // Operator opt-out markers are probed once per process (restart to change one).
+    protected static bool s_OffProbed;
+    protected static bool s_SituationsOff;
+    protected static bool s_ProfilesProbed;
+    protected static bool s_RaidsOff;
+    protected static bool s_TransitOff;
     protected static ref array<ZombieBase> s_Threats = new array<ZombieBase>;
 
     static bool HCRefuse(string reason)
@@ -75,7 +81,12 @@ class HCW38SituationRuntime
     static bool HCReady()
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
-        if (FileExist("$profile:HollowCountry/acceptance/w38_situations.disable")) { return HCRefuse("SITUATION_OPERATOR_OFF"); }
+        if (!s_OffProbed)
+        {
+            s_OffProbed = true;
+            s_SituationsOff = FileExist("$profile:HollowCountry/acceptance/w38_situations.disable");
+        }
+        if (s_SituationsOff) { return HCRefuse("SITUATION_OPERATOR_OFF"); }
         if (!s_Logged)
         {
             s_Logged = true;
@@ -134,8 +145,14 @@ class HCW38SituationRuntime
 
     static bool HCProfileOn(string profile)
     {
-        if ((profile == "raid" || profile == "column") && FileExist("$profile:HollowCountry/acceptance/w38_raids.disable")) { return false; }
-        if ((profile == "roadside-position" || profile == "threatened-exodus") && FileExist("$profile:HollowCountry/acceptance/w38_transit.disable")) { return false; }
+        if (!s_ProfilesProbed)
+        {
+            s_ProfilesProbed = true;
+            s_RaidsOff = FileExist("$profile:HollowCountry/acceptance/w38_raids.disable");
+            s_TransitOff = FileExist("$profile:HollowCountry/acceptance/w38_transit.disable");
+        }
+        if ((profile == "raid" || profile == "column") && s_RaidsOff) { return false; }
+        if ((profile == "roadside-position" || profile == "threatened-exodus") && s_TransitOff) { return false; }
         return true;
     }
 
@@ -324,7 +341,8 @@ class HCW38SituationRuntime
     static void HCSignals(HCW38SituationBinding binding)
     {
         if (!binding || binding.SmokeDone) { return; }
-        if (FileExist("$profile:HollowCountry/acceptance/w38_situations.disable") || !HCProfileOn(binding.Profile)) { return; }
+        // HCReady probes the marker before any binding exists; an unprobed marker reads as absent.
+        if (s_SituationsOff || !HCProfileOn(binding.Profile)) { return; }
         if (!HCWorldMaterializer.HCIdentity(binding.Lease)) { return; }
         // Expansion removes killed members and GetMember indexes directly
         // (eAIGroup.c:1139): a wiped or destroyed group leaves smoke to body observation.

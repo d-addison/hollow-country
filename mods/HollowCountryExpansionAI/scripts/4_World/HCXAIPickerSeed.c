@@ -46,25 +46,25 @@ modded class HCWorldModule
         int added = 0;
         int existing = 0;
         int refused = 0;
+        // Index parties and sites once; a seeded party joins the index so a repeated route id stays "existing".
+        map<string, bool> partyIds = new map<string, bool>();
+        for (int partyIndex = 0; partyIndex < m_Data.Parties.Count(); partyIndex++) { partyIds.Set(m_Data.Parties[partyIndex].Id, true); }
+        map<string, HCXAISite> sitesById = new map<string, HCXAISite>();
+        for (int siteIndex = 0; siteIndex < policy.Sites.Count(); siteIndex++)
+        {
+            HCXAISite candidate = policy.Sites[siteIndex];
+            if (!sitesById.Contains(candidate.Id)) { sitesById.Set(candidate.Id, candidate); }
+        }
         for (int routeIndex = 0; routeIndex < survey.Routes.Count(); routeIndex++)
         {
             HCPickerRoute route = survey.Routes[routeIndex];
             // HC-10 derives route:<party.Id>. Keep that scheme in its one owner;
             // the survey already authors route:<site.Id>, so party.Id = site.Id.
             if (route.RouteId != "route:" + route.SiteId) { refused++; continue; }
-            bool present = false;
-            for (int partyIndex = 0; partyIndex < m_Data.Parties.Count(); partyIndex++)
-            {
-                if (m_Data.Parties[partyIndex].Id == route.SiteId) { present = true; break; }
-            }
             // Never rewrite surviving rows, including casualties/empty parties.
-            if (present) { existing++; continue; }
+            if (partyIds.Contains(route.SiteId)) { existing++; continue; }
             HCXAISite homeSite = null;
-            for (int siteIndex = 0; siteIndex < policy.Sites.Count(); siteIndex++)
-            {
-                HCXAISite candidate = policy.Sites[siteIndex];
-                if (candidate.Id == route.SiteId) { homeSite = candidate; break; }
-            }
+            sitesById.Find(route.SiteId, homeSite);
             if (!homeSite || homeSite.Kind != "scavenger" || !homeSite.Waypoints || route.HomeIndex >= homeSite.Waypoints.Count()) { refused++; continue; }
             if (homeSite.Waypoints[route.HomeIndex] != route.HCHomePoint()) { refused++; continue; }
             HCWorldParty party = new HCWorldParty();
@@ -78,7 +78,7 @@ modded class HCWorldModule
             // inter-town journeys or abstract item transfers.
             party.Route.Insert(party.Home);
             party.Route.Insert(party.Home);
-            if (this.AddParty(party)) { added++; }
+            if (this.AddParty(party)) { added++; partyIds.Set(party.Id, true); }
             else { refused++; }
         }
         string line = "[HC Pickers] ledger seed added=" + added.ToString() + " existing=" + existing.ToString();
