@@ -205,6 +205,9 @@ def build(args):
                                       'tools/package/sign_wine.py')}},
                 'files': {p.relative_to(stage).as_posix(): digest(p)
                           for p in sorted(stage.rglob('*')) if p.is_file()},
+                # friend_bundle --build-manifest compares this exact PBO catalogue.
+                'pbos': {p.relative_to(stage).as_posix(): digest(p)
+                         for p in sorted(stage.rglob('*.pbo')) if p.is_file()},
                 'templates': templates, 'source_json': sources,
                 'signatures_verified': True, 'runtime_acceptance': 'pending'}
             (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
