@@ -175,8 +175,39 @@ py -3 -m tools.package.optional_overlays bundle-rollback --mission "$MISSION"
 
 If the new tool refuses because of an older receipt, run the same command from
 the previous bundle folder. Rollback restores the friend's own mission bytes; it
-does not wipe the hive. Drift (someone edited a file since install) refuses:
-show the operator the file it names before going further.
+does not wipe the hive. Normal `bundle-rollback` refuses drift (edits made since
+install). To discard tuning in receipt-owned files and upgrade safely, keep the
+step 3 backup and work on a separate mission copy with the server stopped. Undo
+optional weapon deltas first as above; map-overlay and other independent receipts
+keep their own rollback commands. Roll the map overlay back before bundle
+recovery (see **Rollback** below), since it shares `cfggameplay.json`, and roll the
+infected mix back (`py -3 -m tools.package.infected_variety rollback --mission ...`),
+since it shares `db/events.xml`; `restore-originals` refuses while either is installed. Then use
+the new tool from the private checkout:
+
+```powershell
+$RECOVERY = "$BACKUP\mission-recovery"
+Copy-Item -Recurse "$MISSION" "$RECOVERY"
+cd "$SRC"
+py -3 -m tools.package.optional_overlays restore-originals --mission "$RECOVERY"
+```
+
+Use a new, absent `RECOVERY` directory. `restore-originals` rehearses the entire
+bundle recovery on scratch before writing the copy. It reports every drifted
+receipt-owned file and restores byte-exact originals only after checking their
+recorded SHA-256. It undoes loot boost, optional packs, travel and bundle layers
+in reverse order, removing only their owned generated files and receipts. Unknown
+managed files, unreadable receipts or a mismatched original hash refuse recovery;
+keep the backup and reconcile manually. Files outside those receipts, including
+`storage_*`, stay untouched. This command deliberately discards **all tuning in
+owned files**, including `db/globals.xml`; save the desired values separately.
+
+After success, move the current mission aside without deleting it, place the
+recovered copy at `MISSION`, then continue steps 6–8a. Reapply reviewed tuning
+after the new overlays are installed. Never delete receipts to bypass a refusal.
+Recovery uses file-by-file atomic replacements, not a whole-mission transaction;
+keep the server stopped and do not edit the copy concurrently. An I/O failure can
+leave a partial recovery: preserve it and the backup for reconciliation.
 
 Older test bundles (v1-test-5 and earlier) loaded `@Expansion-Animations` and
 missed several mods. The new `start-server.bat` replaces that list; do not keep
@@ -204,10 +235,13 @@ If the tool is unavailable, the bundle's `README.txt` lists every
 `CONTENT\<id>` to `SERVER\@<Folder>` under the names below and every `.bikey`
 into `SERVER\keys`.
 
-The server and every client load exactly this order:
+Players must subscribe to both **Expansion-Licensed** (2116157322) and
+**Expansion-Vehicles** (2291785437). The following order comes from
+`tools/setup/workshop_mods.json` (ascending rank). The server and every client
+load exactly this order:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
 ```
 
 Do **not** add `@Expansion-Animations`: it conflicts with Survivor Animations,
@@ -298,6 +332,26 @@ waypoints. Native qualification, normal PBO/server behavior, single-client
 observer/combat cleanup and restart recovery remain **runtime acceptance pending**
 for this change. Larger-load performance is unmeasured and outside acceptance.
 
+### Groups admission diagnostics (#242)
+
+`operator/settings.json`'s `EnableGroups=true` is the global preference. The
+service also requires `profiles/HollowCountry/Groups/settings.json` to load and
+validate with `Enabled=true`. In both build `172e84d` and main `42761000`,
+`HCGroupModule.IsEnabled` returns false for an unreadable/invalid local configuration
+or a local opt-out. The old readiness derivation then reports the ambiguous
+`not_started_or_disabled`; that is effective admission, not the global preference.
+
+This revision distinguishes `core_groups_disabled`, `groups_settings_disabled`
+and `groups_settings_unavailable_or_invalid` (a refusal). For the last reason,
+look for `settings_missing_baseline_fields`, parse/read/recovery errors, or settings
+validation failures. The loader requires the baseline keys, restores the supported
+missing `ShareDiscovery` default, and migrates valid schema 1 to 2. Preserve local
+settings and state; do not delete them to force startup. The issue report contains
+no local settings values or specific loader refusal, so it cannot establish which
+local gate failed. Enabling the global preference alone does not prove a bug in
+the group service. Check a new server boot for the specific reason before changing
+configuration. Native compilation and a two-client Groups check remain pending.
+
 ## 8. Mission overlay
 
 ```powershell
@@ -331,9 +385,15 @@ matching local DayZ install's `Addons` directory.
 $CEWORK = 'C:\HollowCountry\weapon-ce-' + (Get-Date -Format 'yyyy-MM-dd-HHmmss')
 $VANILLA_ADDONS = "$SERVER\Addons"
 cd "$SRC"
-py -3 -m tools.package.snafu_optional verify --install "$SERVER\@SnafuWeapons" --out "$CEWORK\snafu-verification.json"
-py -3 -m tools.package.tactical_flava_optional verify --install "$SERVER\@TacticalFlava" --vanilla-addons "$VANILLA_ADDONS" --out "$CEWORK\tactical-verification.json"
+py -3 -m tools.package.snafu_optional verify --install "$CONTENT\2443122116" --out "$CEWORK\snafu-verification.json"
+py -3 -m tools.package.tactical_flava_optional verify --install "$CONTENT\2646817942" --vanilla-addons "$VANILLA_ADDONS" --out "$CEWORK\tactical-verification.json"
 ```
+
+Verify against the Workshop content folders above. The server copies contain
+`addons`, `keys` and mod metadata, but omit the vendor `Readme_Terms/`,
+`XML_and_Clasnames/` and `extra files/` folders. Those copies therefore fail with
+`vendor-types-missing` / `terms-file-missing`; loading their PBOs does not supply
+the verification evidence.
 
 Both reports must say `verified` with zero missing/unverified classes. A refusal
 or unverified report stops this step; read the reasons and reconcile the installed
@@ -525,11 +585,14 @@ cd "$SRC";    py -3 -m tools.setup.workshop_sync rollback --server-root "$SERVER
 Roll the map overlay back before the bundle: it patched the same `cfggameplay.json`, and the mission rollback refuses
 while it is in place. Both rollbacks are byte-exact. Then restore `serverDZ.cfg`, `profiles`, `keys` and `start-server.bat` from
 `BACKUP`. Remove `SERVER\@HollowCountry` and `SERVER\@HollowCountryExpansionAI`.
-Rollback never wipes the hive; persisted bikes and animals stay.
+Rollback never wipes the hive; persisted bikes and animals stay. If bundle rollback
+refuses operator tuning, use step 4's `restore-originals` recovery on a separate
+backed-up mission copy after undoing the weapon deltas and map overlay above.
 
 ## Updating to a later bundle
 
-Repeat steps 1–3, then 4 (rollback with the new bundle), 6, 7, 8, 8a (if wanted)
+Repeat steps 1–3, then 4 (strict rollback or the documented `restore-originals`
+recovery), 6, 7, 8, 8a (if wanted)
 and 11. Players get the new Hollow Country version from the Workshop automatically. Server and
 clients must run the same version.
 

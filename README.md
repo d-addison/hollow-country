@@ -145,7 +145,7 @@ consumption and the 69 extra shelter scene registrations remain integration gaps
 
 ## Required mod stack
 
-Server and clients load these published Workshop items in the order declared by the [dependency manifest](tools/setup/workshop_mods.json). Third-party mods are used as published; never repack them. The two Hollow Country addons are loaded after their dependencies.
+Server and clients load these published Workshop items in the order declared by the [dependency manifest](tools/setup/workshop_mods.json). Third-party mods are used as published; never repack them. The two Hollow Country addons are loaded after their dependencies. Players must subscribe to both Expansion-Licensed and Expansion-Vehicles as well as the other listed items.
 
 | Order | Workshop item | Install folder | Why it is loaded |
 | :--- | :--- | :--- | :--- |
