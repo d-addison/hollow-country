@@ -3,7 +3,7 @@
 // Read only: this planner keeps its own parent/frontier arrays and never
 // writes HCXAICaravanRoadNode.Parent, never loads files and never opens roads.
 // Native scripts-1.30.164289: 1_Core/proto/EnMath.c:305 Sqrt; EnScript.c:380/385/407
-// array Count/Clear/Insert. Work is charged to HC_WORK_SITUATIONS, the consumer
+// array Count/Clear/Insert. Work is charged to HC_WORK_CONVOY_ROUTE, the consumer
 // that owns the raid/column situation this route serves.
 // Road geometry, drivability and arrival remain runtime=PENDING.
 class HCXConvoyRoute
@@ -84,7 +84,7 @@ class HCXConvoyRoute
         array<ref HCXAICaravanRoadNode> nodes = roads.Nodes;
         for (int unit = 0; unit < mHCPolicy.RoadNodesPerTick; unit++)
         {
-            if (unit % mHCPolicy.RoadNodesPerWorkUnit == 0 && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+            if (unit % mHCPolicy.RoadNodesPerWorkUnit == 0 && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONVOY_ROUTE, 1)) { return; }
             if (mHCPhase == "scan") { HCScan(nodes); }
             else if (mHCPhase == "search") { HCSearch(nodes); }
             else if (mHCPhase == "build") { HCBuild(nodes); }

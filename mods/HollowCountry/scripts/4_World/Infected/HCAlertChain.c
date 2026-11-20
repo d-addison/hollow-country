@@ -20,7 +20,8 @@ class HCAlertRoot
     int RootId;
     float RootObserved;
     float RootExpires;
-    ref array<ZombieBase> Recipients = new array<ZombieBase>;
+    // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/:926 map Contains/Insert.
+    ref map<ZombieBase, bool> Recipients = new map<ZombieBase, bool>;
     ref array<ZombieBase> Emitters = new array<ZombieBase>;
 }
 
@@ -100,7 +101,7 @@ class HCAlertChain
             root.RootId = m_NextRootId++;
             root.RootObserved = now;
             root.RootExpires = now + Math.Min(actor.ClueLifetime, HCInfectedTuning.Get().Chain.ClueTTL);
-            root.Recipients.Insert(actor.InfectedEntity);
+            root.Recipients.Insert(actor.InfectedEntity, true);
             m_Roots.Insert(root);
             // The seed cannot hear itself or relay its own root again.
             actor.Heard = new HCInfectedClue;
@@ -175,13 +176,13 @@ class HCAlertChain
             // Conservative pilot radius; never an assertion about sound range.
             float radius = 15 * emission.Clue.Strength;
             radius = HCAtmosphereRelay.RangeAtSource(radius, emission.Clue.Origin);
-            bool duplicate = emission.Root.Recipients.Find(actor.InfectedEntity) >= 0;
+            bool duplicate = emission.Root.Recipients.Contains(actor.InfectedEntity);
             if (duplicate || distanceSq > radius * radius || now < actor.NextHearing)
                 continue;
             bool geometry = ClearGeometry(emission.Clue.Origin, emission.Emitter, actor.InfectedEntity);
             if (!HCInfectedPolicy.MayHearRelay(now, emission.Root.RootExpires, emission.Clue.Hops, emission.Clue.Strength, distanceSq, emission.Root.Recipients.Count(), 12, duplicate, true, geometry, actor.NextHearing))
                 continue;
-            emission.Root.Recipients.Insert(actor.InfectedEntity);
+            emission.Root.Recipients.Insert(actor.InfectedEntity, true);
             actor.Heard = emission.Clue;
             actor.HeardRootId = emission.Root.RootId;
             actor.HeardExternally = true;

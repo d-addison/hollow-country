@@ -536,7 +536,7 @@ class HCXAITradeProducer
         int count = states.Count();
         if (count < 2) { return; }
         if (m_RightIndex >= count || m_LeftIndex >= count - 1) { m_LeftIndex = 0; m_RightIndex = 1; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_TRADE, 1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_TRADE_PRODUCER, 1)) { return; }
         HCXAISiteState left = states[m_LeftIndex];
         HCXAISiteState right = states[m_RightIndex];
         HCNextPair(count);

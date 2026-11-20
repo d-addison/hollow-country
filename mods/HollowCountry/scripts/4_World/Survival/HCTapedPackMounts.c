@@ -416,10 +416,11 @@ class HCTapedPackMounts : HCModule
     {
         string digits = "0123456789";
         int value = 0;
+        HCTextWindow window = new HCTextWindow(date);
         int index = first;
         while (index < first + width)
         {
-            string letter = date.Get(index);
+            string letter = window.At(index);
             value = value * 10 + digits.IndexOf(letter);
             index = index + 1;
         }

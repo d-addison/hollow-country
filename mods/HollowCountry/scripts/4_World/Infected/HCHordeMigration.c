@@ -355,10 +355,13 @@ modded class HCNativeInfectedPack
         HCHordeRouteSurvey route = HCHordeRoutes.Select(leader.GetPosition(), clue);
         if (!route) { return; }
         m_HCRouteMembers.Clear();
+        // Native scripts-1.30.164289: EnScript.c:917/:926 map Contains/Insert.
+        ref map<ZombieBase, bool> admittedIndex = new map<ZombieBase, bool>;
         array<ZombieBase> admittedMembers = m_Members;
         foreach (ZombieBase admittedMember : admittedMembers)
         {
-            if (!admittedMember || m_HCRouteMembers.Find(admittedMember) >= 0) { m_HCRouteMembers.Clear(); return; }
+            if (!admittedMember || admittedIndex.Contains(admittedMember)) { m_HCRouteMembers.Clear(); return; }
+            admittedIndex.Insert(admittedMember, true);
             m_HCRouteMembers.Insert(admittedMember);
         }
         m_HCRoute = route;

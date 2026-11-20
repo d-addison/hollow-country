@@ -323,7 +323,7 @@ class HCInfectedVariety
         HCInfectedModule infected = HCInfectedModule.Instance;
         if (!infected) { return; }
         if (!s_Pending && now < s_NextAutomatic) { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY, 1)) { return; }
         // Includes corpses; only a handle removed by native cleanup frees room.
         for (int bodyIndex = s_Bodies.Count() - 1; bodyIndex >= 0; bodyIndex--)
         {
@@ -372,7 +372,7 @@ class HCInfectedVariety
             HCRefuse("place_observed_or_clearance_refused");
             return;
         }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY, 8)) { return; }
         // Audit #121: a posed body is the addon class; the pose layer is requested
         // through the fresh entry below, never by editing a native infected.
         bool poseClass = GetGame().ConfigIsExisting("CfgVehicles " + HCInfectedVarietyPolicy.HCPoseClass());

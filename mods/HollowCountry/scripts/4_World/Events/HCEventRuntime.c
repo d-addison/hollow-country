@@ -225,6 +225,7 @@ class HCEventRuntime
                 {
                     m_RetentionBlockedLine = blocked;
                     Print("" + blocked);
+                    return false;
                 }
                 return false;
             }

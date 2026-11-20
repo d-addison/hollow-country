@@ -666,6 +666,18 @@ class HCWorldMaterializer : HCModule
         float interestMaximum = HCPerceptionRing.HCSpawnMax();
         float interestMaximumSquared = interestMaximum * interestMaximum;
         // Player positions never leave this function or enter proposal DTOs.
+        // Native EnScript.c:877/902/917: per-ring hash indexes.
+        map<string, bool> activeRows = new map<string, bool>;
+        map<string, int> activeFactions = new map<string, int>;
+        int reservedActors = this.HCCustodyDebt(true);
+        foreach (HCWorldProposalLease reserved : m_Active)
+        {
+            reservedActors += reserved.Proposal.ActorCap;
+            activeRows.Set(reserved.RowId, true);
+            int priorActors;
+            if (!activeFactions.Find(reserved.Proposal.FactionId, priorActors)) { priorActors = 0; }
+            activeFactions.Set(reserved.Proposal.FactionId, priorActors + reserved.Proposal.ActorCap);
+        }
         int totalRows = HCAILimits.Get().MaxHoldouts + HCAILimits.Get().MaxParties;
         m_WorkBudget.HCReset(4);
         m_UnitBudget.HCReset(4);
@@ -691,15 +703,9 @@ class HCWorldMaterializer : HCModule
                 if (playerDistanceSquared <= interestMaximumSquared) { nearby = true; }
             }
             if (!nearby || insideRing) { continue; }
-            int reservedActors = this.HCCustodyDebt(true);
-            int factionActors = 0;
-            bool duplicate = false;
-            foreach (HCWorldProposalLease reserved : m_Active)
-            {
-                reservedActors += reserved.Proposal.ActorCap;
-                if (reserved.Proposal.FactionId == row.FactionId) { factionActors += reserved.Proposal.ActorCap; }
-                if (reserved.RowId == row.Id) { duplicate = true; }
-            }
+            int factionActors;
+            if (!activeFactions.Find(row.FactionId, factionActors)) { factionActors = 0; }
+            bool duplicate = activeRows.Contains(row.Id);
             HCWorldFaction faction = world.GetFaction(row.FactionId);
             if (!faction || duplicate || row.ActorCap + factionActors > faction.Strength || !CanPropose(m_Active.Count() + unresolvedLeases, reservedActors, row.ActorCap)) { continue; }
             HCWorldProposalLease lease = new HCWorldProposalLease;
@@ -714,6 +720,9 @@ class HCWorldMaterializer : HCModule
             lease.Proposal = row;
             lease.Created = m_Clock;
             m_Active.Insert(lease);
+            activeRows.Set(lease.RowId, true);
+            activeFactions.Set(row.FactionId, factionActors + row.ActorCap);
+            reservedActors += row.ActorCap;
             m_Cooldowns[rowIndex] = m_Clock + ROW_COOLDOWN;
             m_Proposals++;
         }

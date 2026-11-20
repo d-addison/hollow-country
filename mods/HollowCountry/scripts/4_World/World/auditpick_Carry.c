@@ -43,7 +43,10 @@ class HCPickCarry
     // quarantines the trip, never searches bodies or reconstructs an item.
     ref array<EntityAI> Handles = new array<EntityAI>;
 
-    void HCClear() { Handles.Clear(); }
+    protected int m_Unloaded;
+    protected bool m_UnloadReported;
+
+    void HCClear() { Handles.Clear(); m_Unloaded = 0; m_UnloadReported = false; }
 
     bool HCPrepare(HCScavengeInventory port, HCScavengeTrip trip, EntityAI goods, HCScavengeState row)
     {
@@ -120,9 +123,14 @@ class HCPickCarry
             if (result == 2) { receipt.Phase = "deposited"; }
             if (result == 4) { receipt.Phase = "retained"; }
             if (!trip.HCCheckpoint()) { return "RUN_ABORT_HOUSE_JOURNAL"; }
-            Print("[HC Pickers] run goods=" + receipt.ItemId + " outcome=" + receipt.Phase + " runtime=PENDING");
+            m_Unloaded++;
             if (result == 3) { return "RUN_ABORT_HOUSE_CUSTODY_UNCERTAIN"; }
             return HCPickRunner.HOLD;
+        }
+        if (!m_UnloadReported)
+        {
+            m_UnloadReported = true;
+            Print("[HC Pickers] run goods processed=" + m_Unloaded.ToString() + " runtime=PENDING");
         }
         return "";
     }

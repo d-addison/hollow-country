@@ -341,17 +341,21 @@ class HCFactionConflict : HCModule
         }
         if (leftIdentity.HCPartyId() == rightIdentity.HCPartyId() || leftIdentity.HCCargoId() == rightIdentity.HCCargoId()) { return ""; }
         if (!s_CombatPort.HCSurveyed(place, survey)) { HCDecline("CONTESTED_SURVEY_UNVERIFIED"); return ""; }
+        // Native EnScript.c:877/902/917: hash membership, not nested actor scans.
+        map<Object, bool> actors = new map<Object, bool>;
         for (int checkedLeft = 0; checkedLeft < left.Count(); checkedLeft++)
         {
             Object leftBody = left[checkedLeft];
             if (!leftBody || !leftBody.IsAlive() || !s_CombatPort.HCOwns(leftLease, leftFaction, leftBody, place, survey)) { return ""; }
-            if (left.Find(leftBody) != checkedLeft || right.Find(leftBody) >= 0) { return ""; }
+            if (actors.Contains(leftBody)) { return ""; }
+            actors.Set(leftBody, true);
         }
         for (int checkedRight = 0; checkedRight < right.Count(); checkedRight++)
         {
             Object rightBody = right[checkedRight];
             if (!rightBody || !rightBody.IsAlive() || !s_CombatPort.HCOwns(rightLease, rightFaction, rightBody, place, survey)) { return ""; }
-            if (right.Find(rightBody) != checkedRight) { return ""; }
+            if (actors.Contains(rightBody)) { return ""; }
+            actors.Set(rightBody, true);
         }
         HCTerritoryOutcomeRow row = new HCTerritoryOutcomeRow;
         row.Id = "conflict:" + m_Outcomes.NextEncounter.ToString();
@@ -506,6 +510,7 @@ class HCFactionConflict : HCModule
         if (faction.LastRegrowth != 0) { return; }
         faction.LastRegrowth = now;
         if (faction.Territory.Count() > 0) { return; }
+        map<string, bool> seeded = new map<string, bool>;
         for (int placeIndex = 0; placeIndex < data.Places.Count(); placeIndex++)
         {
             bool claim = false;
@@ -515,7 +520,11 @@ class HCFactionConflict : HCModule
             if (faction.Id == "travellers" && placeIndex % 4 == 3) { claim = true; }
             if (faction.Id == "raiders" && placeIndex % 3 == 1) { claim = true; }
             string cell = Cell(data.Places[placeIndex].Position);
-            if (claim && faction.Territory.Find(cell) < 0 && faction.Territory.Count() < HCWorldLimits.TERRITORY) { faction.Territory.Insert(cell); }
+            if (claim && !seeded.Contains(cell) && faction.Territory.Count() < HCWorldLimits.TERRITORY)
+            {
+                seeded.Set(cell, true);
+                faction.Territory.Insert(cell);
+            }
         }
     }
 
@@ -736,9 +745,13 @@ modded class HCWorldModule
         int pressure = infected.HCConflictPressureAt(place.Position, config.PressureMeters);
         if (pressure < 1) { return; }
         array<ref HCWorldHoldout> camps = m_Data.Holdouts;
-        foreach (HCWorldHoldout camp : camps)
+        HCWorldHoldout camp;
+        foreach (HCWorldHoldout candidate : camps)
         {
-            if (camp.PlaceId != place.Id) { continue; }
+            if (candidate.PlaceId == place.Id) { camp = candidate; break; }
+        }
+        if (camp)
+        {
             if (!HCFactionConflict.HCReserveDataOutcome(place.Id, now)) { return; }
             AddFact("camp_infected_pressure", place.Id, 1);
             AddFact("holdout_alert", place.Id, 1);

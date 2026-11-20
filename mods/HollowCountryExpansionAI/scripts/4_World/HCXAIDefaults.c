@@ -14,6 +14,17 @@
 // by Expansion when its settings load); it is never created here.
 class HCXAIDefaults
 {
+    protected static bool s_LoadoutsProbed;
+    protected static int s_ProvisionedLoadouts;
+    // Native EnScript.c:866/902/917 Get/Set/Contains. Boot snapshot after
+    // Expansion settings are loaded; operator loadout edits require restart.
+    protected static ref map<string, bool> s_LoadoutsPresent = new map<string, bool>();
+    static bool HCLoadoutPresent(string name) { return s_LoadoutsPresent.Get(name); }
+    protected static void HCProbeLoadout(string name)
+    {
+        s_LoadoutsPresent.Set(name, FileExist(EXPANSION_LOADOUT_FOLDER + name + ".json"));
+    }
+
     static string Shipped()
     {
         return "HollowCountryExpansionAI/data/defaults/";
@@ -81,6 +92,9 @@ class HCXAIDefaults
     static int ProvisionLoadouts(HCXAISitePolicy policy)
     {
         if (!policy || !policy.Sites) { return 0; }
+        if (s_LoadoutsProbed) { return s_ProvisionedLoadouts; }
+        s_LoadoutsProbed = true;
+        // Provider-ready boot initialization only: never reprovision on later ticks.
         if (!FileExist(EXPANSION_LOADOUT_FOLDER))
         {
             Print("[HC Expansion AI] loadout defaults skipped: Expansion loadout folder absent");
@@ -97,7 +111,12 @@ class HCXAIDefaults
             if (seen.Contains("|" + site.Loadout + "|")) { continue; }
             seen = seen + site.Loadout + "|";
             if (HCXAIDefaults.ProvisionLoadout(site.Loadout)) { provisioned++; }
+            HCXAIDefaults.HCProbeLoadout(site.Loadout);
         }
+        HCXAIDefaults.HCProbeLoadout("HollowCountry_Holdout");
+        HCXAIDefaults.HCProbeLoadout("HollowCountry_Patrol");
+        HCXAIDefaults.HCProbeLoadout("HollowCountry_Scavenger");
+        s_ProvisionedLoadouts = provisioned;
         return provisioned;
     }
 

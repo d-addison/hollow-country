@@ -98,19 +98,21 @@ class HCDeadDrops : HCModule
     {
         HCDeadDrops module = Get();
         if (!module) return true;
+        HCDeadDropRow deposit;
         for (int depositIndex = 0; depositIndex < module.Count(); depositIndex++)
         {
             if (module.Cache(depositIndex) != destination) continue;
-            HCDeadDropRow deposit = module.m_State.Rows[depositIndex];
-            if (itemId == "" || deposit.SurvivorDeposits.Count() >= 32) return false;
-            if (deposit.SurvivorDeposits.Find(itemId) < 0)
-            {
-                deposit.SurvivorDeposits.Insert(itemId);
-                module.m_Dirty = true;
-            }
-            return module.SaveChanged();
+            deposit = module.m_State.Rows[depositIndex];
+            break;
         }
-        return true;
+        if (!deposit) { return true; }
+        if (itemId == "" || deposit.SurvivorDeposits.Count() >= 32) return false;
+        if (deposit.SurvivorDeposits.Find(itemId) < 0)
+        {
+            deposit.SurvivorDeposits.Insert(itemId);
+            module.m_Dirty = true;
+        }
+        return module.SaveChanged();
     }
 
     // Any cargo removal revokes provenance before a player can put it back.

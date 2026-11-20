@@ -243,10 +243,11 @@ class HCDeathPins
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
         HCPrune(now);
+        HCGroupStringIndex members = new HCGroupStringIndex(group.Members);
         foreach (HCDeathPinRow row : m_State.Rows)
         {
             if (output.Count() >= cap) { break; }
-            if (row.GroupId != group.Id || row.Epoch != group.Epoch || group.Members.Find(row.PlayerId) < 0) { continue; }
+            if (row.GroupId != group.Id || row.Epoch != group.Epoch || !members.Has(row.PlayerId)) { continue; }
             if (HCGroupVisibility.HCSnapshotActive())
             {
                 HCGroupService service = HCGroupService.Get();

@@ -141,6 +141,9 @@ class HCWorldModule : HCModule
         HCPersistenceDisposition.HCStopStore("world");
     }
 
+    // Durability barrier: HCConflictObserved must commit the world outcome
+    // before the encounter journal acknowledges it; routine OnTick only dirties
+    // the existing staged job. Deferral needs an encounter continuation protocol.
     bool HCFlushRoutine()
     {
         if (!m_Store.Save(m_Data)) { return false; }
@@ -388,12 +391,23 @@ class HCWorldModule : HCModule
             if (fact.PlaceId != placeId || fact.At > now || fact.Expires <= now) { continue; }
             if (now - fact.At > 7 * HCWorldLimits.DAY) { continue; }
             bool directDamage = fact.Kind == "RAIDED" || fact.Kind == "STOLEN";
-            bool conflictDamage = fact.Kind == "faction_clash" || fact.Kind.IndexOf("pushed_") >= 0;
+            bool conflictDamage = fact.Kind == "faction_clash" || HCDamagePushed(fact.Kind);
             bool damage = directDamage || conflictDamage || fact.Kind == "holdout_raided";
             if (damage && fact.Severity > severity) { severity = fact.Severity; }
         }
         if (next >= m_Data.Facts.Count()) { return -1; }
         return next;
+    }
+
+    // Native EnString.c:113/448 via HCTextWindow; preserve substring matching.
+    protected bool HCDamagePushed(string kind)
+    {
+        HCTextWindow window = new HCTextWindow(kind);
+        for (int i = 0; i + 7 <= window.Length(); i++)
+        {
+            if (window.Range(i, 7) == "pushed_") { return true; }
+        }
+        return false;
     }
 
     string NearestPlace(vector pos)

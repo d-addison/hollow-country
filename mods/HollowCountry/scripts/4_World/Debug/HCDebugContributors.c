@@ -126,6 +126,8 @@ class HCDebugLeadsContributor : HCDebugContributor
 {
     protected ref HCDebugPlayersContributor m_Players;
     protected int m_Cursor;
+    // Native EnScript.c:857,902,917 map Clear/Set/Contains.
+    protected ref map<string, bool> m_SeenGroups = new map<string, bool>;
 
     void HCDebugLeadsContributor(HCDebugPlayersContributor players) { m_Players = players; }
 
@@ -134,7 +136,7 @@ class HCDebugLeadsContributor : HCDebugContributor
         HCLeadModule leads = HCLeadModule.Get();
         HCGroupService groups = HCGroupService.Get();
         if (!leads || !m_Players || !m_Players.Players) { return; }
-        array<string> seen = new array<string>;
+        m_SeenGroups.Clear();
         int work = m_Players.Players.Count();
         if (work > 8) { work = 8; }
         int emitted;
@@ -146,8 +148,8 @@ class HCDebugLeadsContributor : HCDebugContributor
             if (!player || !player.GetIdentity()) { continue; }
             string groupId = HCLeadPolicy.SoloGroup(player.GetIdentity().GetId());
             if (groups) { groupId = groups.HCLeadGroup(player); }
-            if (groupId == "" || seen.Find(groupId) >= 0) { continue; }
-            seen.Insert(groupId);
+            if (groupId == "" || m_SeenGroups.Contains(groupId)) { continue; }
+            m_SeenGroups.Set(groupId, true);
             array<ref HCWorldLead> received;
             leads.GroupLeads(groupId, received);
             if (!received) { continue; }

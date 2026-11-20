@@ -187,7 +187,7 @@ class HCW38SituationRuntime
         if (!states || states.Count() == 0) { return ""; }
         for (int visited = 0; visited < s_Policy.ScanRows && visited < states.Count(); visited++)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return ""; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { return ""; }
             s_Cursor = s_Cursor % states.Count();
             HCXAISiteState candidate = states[s_Cursor];
             s_Cursor++;
@@ -230,7 +230,7 @@ class HCW38SituationRuntime
         if (!states || states.Count() == 0) { return null; }
         for (int checked = 0; checked < s_Policy.ScanRows && checked < states.Count(); checked++)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return null; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { return null; }
             s_TargetCursor = s_TargetCursor % states.Count();
             HCXAISiteState target = states[s_TargetCursor];
             s_TargetCursor++;
@@ -280,14 +280,14 @@ class HCW38SituationRuntime
     {
         float radius = s_Policy.ShelterMeters;
         if (radius != radius || !HCOperatorSettingsRegistry.HCValid("W38Situations.ShelterMeters", radius)) { return HCRefuse("SITUATION_SCAN_RADIUS_REFUSED"); }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return false; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { return false; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(position, radius, nearby, proxies);
         if (nearby.Count() > s_Policy.PhysicalScanObjects || proxies.Count() > s_Policy.PhysicalScanCargo) { return HCRefuse("SITUATION_WRECK_SCAN_CAP"); }
         foreach (Object shelter : nearby)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return false; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { return false; }
             // Reuse the reviewed vanilla wreck catalog; no vehicle creation,
             // salvage debit, extra supplies, movement or door changes.
             if (shelter && HCWreckSalvage.Reviewed(shelter.GetType())) { return true; }
@@ -348,7 +348,7 @@ class HCW38SituationRuntime
         // (eAIGroup.c:1139): a wiped or destroyed group leaves smoke to body observation.
         if (!binding.Group || binding.Group.Count() == 0) { return; }
         binding.SmokeAttempts++;
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { HCSmokeFailed(binding, "BUDGET"); return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 1)) { HCSmokeFailed(binding, "BUDGET"); return; }
         eAIBase witness = eAIBase.Cast(binding.Group.GetMember(0));
         if (!witness || !witness.IsAlive()) { HCSmokeFailed(binding, "WITNESS"); return; }
         if (!binding.FactPublished)
@@ -418,7 +418,7 @@ class HCW38SituationRuntime
                 if (threatSurface != s_Policy.RoadSurface) { continue; }
             }
             if (director.MemberProblemFor(position) != "") { continue; }
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { break; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATION_RUNTIME, 8)) { break; }
             // Placement is a qualified existing navmesh point, checked out of
             // every player's sight by the existing site director immediately
             // before creation. No combat target is assigned to the infected.

@@ -79,7 +79,7 @@ class HCXTacticsScan : HCXTradeInventoryScan
         if (Complete) { return null; }
         while (Frames.Count() > 0 && Visited < limit)
         {
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return null; }
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_TACTICS_SCAN, 1)) { return null; }
             HCXTradeInventoryFrame frame = Frames[Frames.Count() - 1];
             EntityAI entity = frame.NodeEntity;
             if (!entity) { Frames.RemoveOrdered(Frames.Count() - 1); continue; }

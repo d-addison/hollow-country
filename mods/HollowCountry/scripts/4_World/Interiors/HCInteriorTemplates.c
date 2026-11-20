@@ -12,6 +12,7 @@
 class HCInteriorTemplates
 {
     static const string ROOT_PATH = "$profile:HollowCountry/templates/";
+    protected static bool s_ProductionRooms;
     protected static string s_Root;
     protected static string s_Source;
     protected static bool s_Attempted;
@@ -679,6 +680,12 @@ class HCInteriorTemplates
     }
 
     // One retained furnishing row per step; no all-pack scan at the phase boundary.
+    static bool HistoryAllows(HCInteriorTemplatePropSlot slot, string history)
+    {
+        if (!slot.History || slot.History.Count() < 1 || slot.History.Count() > 3) { return false; }
+        return slot.History[0] == history || (slot.History.Count() > 1 && slot.History[1] == history) || (slot.History.Count() > 2 && slot.History[2] == history);
+    }
+
     static bool HCFurnishRowValid(HCInteriorFurnishRow row)
     {
         HCInteriorTemplate templateRow = FindTemplate(row.BuildingClass);
@@ -691,12 +698,12 @@ class HCInteriorTemplates
         if (s_FurnishInstances.Get(instanceKey)) { return false; }
         s_FurnishInstances.Set(instanceKey, true);
         s_FurnishSlots.Set(row.SlotId, true);
-        array<int> ids = new array<int>();
+        map<int, bool> ids = new map<int, bool>;
         foreach (int id : row.Props)
         {
             HCInteriorTemplatePropSlot propRow = Prop(templateRow, id);
-            if (!propRow || propRow.History.Find(row.History) < 0 || ids.Find(id) >= 0) { return false; }
-            ids.Insert(id);
+            if (!propRow || !HistoryAllows(propRow, row.History) || ids.Contains(id)) { return false; }
+            ids.Set(id, true);
             s_FurnishProps = s_FurnishProps + 1;
             if (s_FurnishProps > 1500) { return false; }
         }
@@ -708,7 +715,7 @@ class HCInteriorTemplates
     {
         // Section 9 requires both room owners to refuse when this legacy
         // document and a pack coexist, even before its bindings are published.
-        if (FileExist("$profile:HollowCountry/Infected/production-rooms.json"))
+        if (s_ProductionRooms)
 
         {
             return true;
@@ -749,6 +756,8 @@ class HCInteriorTemplates
         s_Attempted = true;
         if (maxProps < 1 || maxProps > 20) { Refuse("prop_setting"); return; }
         s_MaxProps = maxProps;
+        HCInteriorMeasuredCatalog.MeasuredLoadAtStart();
+        s_ProductionRooms = FileExist("$profile:HollowCountry/Infected/production-rooms.json");
         s_Root = SelectRoot();
         Print(HCV2Admission.Line("InteriorTemplates", true, "interior_placement", false) + " runtime=PENDING");
         Print("[HC Interiors] templates source=" + s_Source + " root=" + s_Root + "; operator profile pack wins, shipped pack is read in place and never copied");
@@ -758,7 +767,9 @@ class HCInteriorTemplates
         }
         bool started = HCInteriorPackIndex.HCStart(s_Job, s_Root);
         if (s_Job.Reason != "") { Refuse(s_Job.Reason); return; }
-        if (!started) { Refuse("pack_start"); }
+        if (!started) { Refuse("pack_start"); return; }
+        HCInteriorPackIndex.HCPrimeAtStart(s_Job);
+        if (s_Job.Reason != "") { Refuse(s_Job.Reason); }
     }
 
     static bool HCLoadFinished()
@@ -1099,9 +1110,11 @@ modded class HCInteriorsModule
     // Search readiness (journal open) runs on the tick after the load finishes, so the
     // finishing slice never also pays for it.
     protected bool m_PackCompletePending;
+    protected bool m_LegacyPilotPresent;
 
     override void OnStart(HCSettings settings)
     {
+        m_LegacyPilotPresent = FileExist("$profile:HollowCountry/interiors.json");
         super.OnStart(settings);
         m_PackLoading = GetGame().IsServer() && IsEnabled(settings);
     }
@@ -1130,7 +1143,7 @@ modded class HCInteriorsModule
         {
             s_Instance = this;
             HCInteriorTemplatePlacement.Place(this, settings, m_Objects, -1);
-            if (!FileExist("$profile:HollowCountry/interiors.json")) { Print("[HC Interiors] legacy pilot absent; template path in use"); }
+            if (!m_LegacyPilotPresent) { Print("[HC Interiors] legacy pilot absent; template path in use"); }
         }
         m_PackCompletePending = true;
     }

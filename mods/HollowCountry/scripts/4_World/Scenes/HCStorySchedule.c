@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 // HC-19 / #147. Bounded independent arrivals; runtime acceptance pending.
 // Consumed by Scenes AFTER #138 integration; no module registration here.
 // World schedule: existing HCScenesModule.Now / HCGroupClock.Utc, UTC seconds
@@ -79,21 +80,21 @@ class HCStoryPolicy
         if (progress.NextSequence - progress.TerminalThrough > 5 || progress.NextArrival < 1 || progress.NextArrival > 999300000) { return false; }
         if (!progress.TerminalExceptions || progress.TerminalExceptions.Count() > 4 || state.Chains.Count() > 4) { return false; }
         if (!progress.LegacyIds || progress.LegacyIds.Count() != progress.LegacyThrough) { return false; }
-        array<string> legacyIds = new array<string>();
+        map<string, bool> legacyIds = new map<string, bool>();
         foreach (string legacyId : progress.LegacyIds)
         {
-            if (!HCEventDirector.TextValid(legacyId, 32) || legacyIds.Find(legacyId) >= 0) { return false; }
-            legacyIds.Insert(legacyId);
+            if (!HCEventDirector.TextValid(legacyId, 32) || legacyIds.Contains(legacyId)) { return false; }
+            legacyIds.Insert(legacyId, true);
         }
-        array<int> seen = new array<int>();
+        map<int, bool> seen = new map<int, bool>();
         foreach (int terminal : progress.TerminalExceptions)
         {
-            if (terminal <= progress.TerminalThrough + 1 || terminal >= progress.NextSequence || seen.Find(terminal) >= 0) { return false; }
-            seen.Insert(terminal);
+            if (terminal <= progress.TerminalThrough + 1 || terminal >= progress.NextSequence || seen.Contains(terminal)) { return false; }
+            seen.Insert(terminal, true);
         }
         foreach (HCSceneChain chain : state.Chains)
         {
-            if (!chain || chain.StorySequence <= progress.TerminalThrough || chain.StorySequence >= progress.NextSequence || seen.Find(chain.StorySequence) >= 0) { return false; }
+            if (!chain || chain.StorySequence <= progress.TerminalThrough || chain.StorySequence >= progress.NextSequence || seen.Contains(chain.StorySequence)) { return false; }
             if (chain.StorySequence <= progress.LegacyThrough)
             {
                 if (chain.Id != progress.LegacyIds[chain.StorySequence - 1]) { return false; }
@@ -102,7 +103,7 @@ class HCStoryPolicy
             {
                 if (chain.Id != HCIdentity(chain.StorySequence, progress.LegacyIds)) { return false; }
             }
-            seen.Insert(chain.StorySequence);
+            seen.Insert(chain.StorySequence, true);
         }
         return seen.Count() == progress.NextSequence - progress.TerminalThrough - 1;
     }
@@ -126,12 +127,22 @@ class HCStoryPolicy
     static void HCRetired(HCStoryProgress progress, int sequence)
     {
         progress.TerminalExceptions.Insert(sequence);
-        int next = progress.TerminalExceptions.Find(progress.TerminalThrough + 1);
-        while (next >= 0)
+        // Native EnScript.c:877/902/906 map.Find/Set/Remove; :463 array.Remove.
+        // Mirror unordered Remove's last-element swap, preserving persisted order.
+        map<int, int> positions = new map<int, int>;
+        for (int index = 0; index < progress.TerminalExceptions.Count(); index++)
         {
+            positions.Insert(progress.TerminalExceptions[index], index);
+        }
+        int next;
+        while (positions.Find(progress.TerminalThrough + 1, next))
+        {
+            int last = progress.TerminalExceptions.Count() - 1;
+            int moved = progress.TerminalExceptions[last];
+            positions.Remove(progress.TerminalThrough + 1);
+            if (next != last) { positions.Set(moved, next); }
             progress.TerminalExceptions.Remove(next);
             progress.TerminalThrough = progress.TerminalThrough + 1;
-            next = progress.TerminalExceptions.Find(progress.TerminalThrough + 1);
         }
     }
 
@@ -140,7 +151,9 @@ class HCStoryPolicy
         string identity = "hc-story-" + sequence.ToString();
         // <=4 collisions: max length 26 for nine digit sequences, within the
         // existing 32-character chain ID limit. Sequence text never recurs.
-        while (legacyIds.Find(identity) >= 0) { identity = identity + "-n"; }
+        map<string, bool> reserved = new map<string, bool>;
+        foreach (string legacy : legacyIds) { reserved.Insert(legacy, true); }
+        while (reserved.Contains(identity)) { identity = identity + "-n"; }
         return identity;
     }
 

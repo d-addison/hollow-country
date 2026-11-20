@@ -250,12 +250,14 @@ class HCSearchSupplyProvider
             foreach (EntityAI candidate : candidates)
             {
                 string supplyId = HCSearchSupplyRegistry.PersistentId(candidate);
-                if (entry.SupplyId != "" || supplyId == "" || assigned.Contains(supplyId)) continue;
+                if (supplyId.Length() < 1 || assigned.Contains(supplyId)) continue;
                 if (!registry.RegisterOwned(candidate, RecordId(supplyId))) continue;
                 assigned.Set(supplyId, true);
                 entry.SupplyId = supplyId;
                 entry.ItemClass = candidate.GetType();
                 found++;
+                // Assignment is indexed by persistent id; stop once this site owns one.
+                break;
             }
             manifest.Entries.Insert(entry);
         }

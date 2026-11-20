@@ -1,6 +1,6 @@
-// Per-building diagnostics over the admitted pack, not a new placement controller.
-// Keep the measured clearance/pathgraph placement owner unchanged. Print each refused
-// class once per pack pin, with bounded work through the existing maintenance budget.
+// Coverage diagnostics over the admitted pack, not a new placement controller.
+// Keep the measured clearance/pathgraph placement owner unchanged. Summarize refused
+// classes once per pack pin, with bounded work through the maintenance budget.
 // Native 1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnScript.c:380 Count. Runtime acceptance remains pending.
 modded class HCInteriorTemplates
@@ -16,6 +16,8 @@ class HCLootInteriorCoverage
 {
     protected string m_Pin;
     protected int m_Next;
+    protected int m_Refused;
+    protected bool m_Reported;
 
     void HCTick()
     {
@@ -25,6 +27,8 @@ class HCLootInteriorCoverage
         {
             m_Pin = pin;
             m_Next = 0;
+            m_Refused = 0;
+            m_Reported = false;
         }
         array<ref HCInteriorTemplateClassRow> rows = HCInteriorTemplates.HCLootCoverageRows();
         if (!rows) return;
@@ -38,9 +42,13 @@ class HCLootInteriorCoverage
             examined++;
             if (row && row.Furniture != "covered")
             {
-                string line = "[HC Interiors] building=" + row.BuildingClass + " furnishing_refused=" + row.Furniture;
-                Print(line + " search=" + row.Search + " runtime=PENDING");
+                m_Refused++;
             }
+        }
+        if (m_Next >= rows.Count() && !m_Reported)
+        {
+            m_Reported = true;
+            Print("[HC Interiors] furnishing coverage sweep classes=" + rows.Count().ToString() + " refused=" + m_Refused.ToString() + " runtime=PENDING");
         }
     }
 }

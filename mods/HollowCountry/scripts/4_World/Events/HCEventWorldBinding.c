@@ -40,8 +40,11 @@ class HCEventWorldBinding
         current.ToLower();
         int checked = 0;
         int unbindable = 0;
-        foreach (HCEventSite site : settings.Sites)
+        // SettingsValid proves this eight-site startup ceiling. Each roster is
+        // enumerated once, rather than searched once for each candidate.
+        for (int startupSite = 0; startupSite < 8 && startupSite < settings.Sites.Count(); startupSite++)
         {
+            HCEventSite site = settings.Sites[startupSite];
             string siteWorld = site.WorldName;
             siteWorld.ToLower();
             if (siteWorld == current)

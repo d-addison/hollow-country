@@ -725,7 +725,7 @@ class HCHoldouts : HCModule
     }
 
     // Catalog comes from authored template-pack world rows, never a world scan.
-    // Work is chunked at 32 rows; first 24 distinct covered houses are retained.
+    // One authored row per tick; first 24 distinct covered houses are retained.
     protected int m_CatalogCursor;
     void FillCatalog()
     {
@@ -733,16 +733,15 @@ class HCHoldouts : HCModule
         HCWorldModule world = HCWorldModule.Get();
         array<ref HCInteriorFurnishRow> authored = HCInteriorTemplates.FurnishRows();
         if (!world || !authored || m_State.Rows.Count() >= HCAILimits.Get().MaxHoldouts) return;
-        int work = 0;
         bool changed = false;
-        m_WorkBudget.HCReset(4);
-        while (work < 32 && m_CatalogCursor < authored.Count() && m_State.Rows.Count() < HCAILimits.Get().MaxHoldouts)
+        m_WorkBudget.HCReset(1);
+        for (int catalogWork = 0; catalogWork < 1; catalogWork++)
         {
+            if (m_CatalogCursor >= authored.Count() || m_State.Rows.Count() >= HCAILimits.Get().MaxHoldouts) { break; }
             if (!m_WorkBudget.HCContinue()) { break; }
             m_CatalogWorked = true;
             HCInteriorFurnishRow site = authored[m_CatalogCursor];
             m_CatalogCursor++;
-            work++;
             HCInteriorTemplateClassRow classRow = HCInteriorTemplates.ClassRow(site.BuildingClass);
             HCInteriorTemplate layout = HCInteriorTemplates.Template(site.BuildingClass);
             if (!classRow || classRow.Search != "covered" || !layout || layout.Rooms.Count() < 1) continue;
@@ -900,10 +899,11 @@ class HCHoldouts : HCModule
         if (!cache || !cache.GetInventory() || !cache.GetInventory().GetCargo()) return false;
         CargoBase cargo = cache.GetInventory().GetCargo();
         if (cargo.GetItemCount() > 32) return false;
-        array<string> present = new array<string>;
+        // Native EnScript.c:877/902/917: hash membership for cargo ids.
+        map<string, bool> present = new map<string, bool>;
         for (int itemIndex = 0; itemIndex < cargo.GetItemCount(); itemIndex++)
-            present.Insert(HCSearchSupplyRegistry.PersistentId(cargo.GetItem(itemIndex)));
-        foreach (string prior : m_State.Rows[index].Contents) { if (present.Find(prior) < 0) return true; }
+            present.Set(HCSearchSupplyRegistry.PersistentId(cargo.GetItem(itemIndex)), true);
+        foreach (string prior : m_State.Rows[index].Contents) { if (!present.Contains(prior)) return true; }
         return false;
     }
 
