@@ -8,13 +8,15 @@
 // Hearth native evidence: 4_World/Entities/ItemBase/FireplaceBase.c:1639
 // IsBurning; 3_Game/Entities/EntityAI.c:885 GetHierarchyParent;
 // Entities/Object.c:517 IsAlive; Entities/Man.c:21 GetIdentity.
-// 1_Core/proto/EnScript.c:380/394/407/470 Count/Find/Insert/RemoveOrdered;
+// 1_Core/proto/EnScript.c:380/407/463 array Count/Insert/swap Remove;
+// :879/900/906 map Find/Set/Remove (native hashmap, no linear membership scan).
 // EnConvert.c:210 DistanceSq; EnSystem.c:397 FileExist; EnDebug.c:96 Print.
 // ActionConstants.c:111-114 UAMaxDistances.DEFAULT (under Actions/).
 // HCCampScan owns inspected TentBase state and native persistent-id evidence.
 class HCBasesContainers
 {
     protected static ref array<ItemBase> s_Items = new array<ItemBase>;
+    protected static ref map<ItemBase, int> s_Indices = new map<ItemBase, int>;
     protected static string s_Refusal;
 
     static void HCRefuse(string reason)
@@ -24,23 +26,31 @@ class HCBasesContainers
         Print("[HC Plan] HC-17 containers reason=" + reason + " runtime=PENDING");
     }
 
-    static void HCRemember(ItemBase item)
+    static bool HCStorageClass(ItemBase item)
     {
-        if (!GetGame() || !GetGame().IsServer() || !item) { return; }
-        // Keep packed tents as candidates: pitching may follow EEInit. Actual
-        // admission rechecks state, parent, ruin and native persistent identity.
-        if (!item.IsKindOf("TentBase") && !item.IsKindOf("WoodenCrate") && !item.IsKindOf("SeaChest") && !item.IsKindOf("Barrel_ColorBase")) { return; }
-        if (s_Items.Find(item) >= 0) { return; }
-        // This is a live native-item registry, not a per-camp member snapshot.
-        // MaxCampItems bounds the latter, not all storage in the world. Retain
-        // overflow for the budgeted one-item cursor; EEDelete releases entries.
-        s_Items.Insert(item);
+        return item && (item.IsKindOf("TentBase") || item.IsKindOf("WoodenCrate") || item.IsKindOf("SeaChest") || item.IsKindOf("Barrel_ColorBase"));
+    }
+
+    static bool HCRemember(ItemBase item)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !HCStorageClass(item)) { return false; }
+        // Keep packed tents: pitching may follow EEInit. Admission rechecks state.
+        int index;
+        if (s_Indices.Find(item, index)) { return true; }
+        index = s_Items.Insert(item);
+        s_Indices.Set(item, index);
+        return true;
     }
 
     static void HCForget(ItemBase item)
     {
-        int found = s_Items.Find(item);
-        if (found >= 0) { s_Items.RemoveOrdered(found); }
+        int found;
+        if (!s_Indices.Find(item, found)) { return; }
+        int last = s_Items.Count() - 1;
+        ItemBase moved = s_Items[last];
+        s_Items.Remove(found); // Native swap-remove, preserving a dense cursor array.
+        s_Indices.Remove(item);
+        if (found != last) { s_Indices.Set(moved, found); }
     }
 
     static int HCCount() { return s_Items.Count(); }
@@ -56,6 +66,11 @@ modded class HCCampModule
     protected bool m_HCBasesEnabled;
     protected bool m_HCBasesAdmissionPrinted;
     protected int m_HCBasesCursor;
+    // Target one sweep per minute; hard per-tick cap and shared budget take priority.
+    // With a stable N, even exhausted shared budgets advance at least one row/tick:
+    // worst-case revisit <= N dispatches (deletions may move a row across the cursor).
+    protected static const int HC_BASES_CANDIDATES_PER_TICK = 16;
+    protected static const float HC_BASES_REVISIT_SECONDS = 60.0;
 
     override protected void Candidate(FireplaceBase fire, int now)
     {
@@ -179,26 +194,39 @@ modded class HCCampModule
         if (!m_Running || !m_HCBasesEnabled || !(deltaTime > 0)) { return; }
         int stashCount = HCBasesContainers.HCCount();
         if (stashCount < 1) { return; }
-        // [HC TickCost] window 12 of 096: admit one stash; charge only rows actually inspected.
-        // Keep the existing one-stash cursor and camp/player caps.
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
-        m_HCBasesCursor = m_HCBasesCursor % stashCount;
-        ItemBase nextStash = HCBasesContainers.HCAt(m_HCBasesCursor);
-        m_HCBasesCursor++;
-        HCBasesCandidate(nextStash, m_LastUtc);
+        // Scale the slice toward a minute-long sweep instead of one row per tick.
+        // Clamp before converting: large deltas/registries must never cause a burst.
+        float desired = stashCount * (deltaTime / HC_BASES_REVISIT_SECONDS);
+        int candidates = HC_BASES_CANDIDATES_PER_TICK;
+        if (desired < HC_BASES_CANDIDATES_PER_TICK) { candidates = desired; candidates++; }
+        if (candidates > stashCount) { candidates = stashCount; }
+        for (int scanned = 0; scanned < candidates && scanned < HC_BASES_CANDIDATES_PER_TICK; scanned++)
+        {
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
+            m_HCBasesCursor = m_HCBasesCursor % stashCount;
+            ItemBase nextStash = HCBasesContainers.HCAt(m_HCBasesCursor);
+            m_HCBasesCursor++;
+            HCBasesCandidate(nextStash, m_LastUtc);
+        }
     }
 }
 
 modded class ItemBase
 {
+    protected bool m_HCBasesRegistered;
     override void EEInit()
     {
         super.EEInit();
-        HCBasesContainers.HCRemember(this);
+        m_HCBasesRegistered = HCBasesContainers.HCRemember(this);
     }
     override void EEDelete(EntityAI parent)
     {
-        HCBasesContainers.HCForget(this);
+        // Unregistered/non-storage objects reach no registry lookup at all.
+        if (m_HCBasesRegistered)
+        {
+            HCBasesContainers.HCForget(this);
+            m_HCBasesRegistered = false;
+        }
         super.EEDelete(parent);
     }
 }
