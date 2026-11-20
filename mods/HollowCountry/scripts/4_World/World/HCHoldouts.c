@@ -1016,10 +1016,10 @@ class HCHoldouts : HCModule
 
     // One bounded state census per five minutes, including while publication
     // checkpoints defer simulation. Counts describe logical state, not live AI.
-    protected void HCReportWindow(float deltaTime)
+    protected void HCReportWindow(float deltaTime, bool firstDecision = false)
     {
         m_SummaryElapsed += deltaTime;
-        if (m_SummaryElapsed < 300) { return; }
+        if (!firstDecision && m_SummaryElapsed < 300) { return; }
         m_SummaryElapsed = 0;
         int dormant = 0;
         int occupied = 0;
@@ -1029,8 +1029,14 @@ class HCHoldouts : HCModule
         int phase1 = 0;
         int phase2 = 0;
         int phase3 = 0;
-        foreach (HCHoldoutRow summaryRow : m_State.Rows)
+        array<ref HCHoldoutRow> summaryRows;
+        if (m_State && m_State.Rows) { summaryRows = m_State.Rows; }
+        int summaryCount;
+        if (summaryRows) { summaryCount = summaryRows.Count(); }
+        for (int summaryIndex = 0; summaryRows && summaryIndex < summaryRows.Count() && summaryIndex < HCAILimits.Get().MaxHoldouts; summaryIndex++)
         {
+            HCHoldoutRow summaryRow = summaryRows[summaryIndex];
+            if (!summaryRow || !summaryRow.Ledger || !summaryRow.Cache) { continue; }
             if (summaryRow.Ledger.State == "DORMANT") { dormant++; }
             else if (summaryRow.Ledger.State == "OCCUPIED" || summaryRow.Ledger.State == "ALERT") { occupied++; }
             else if (summaryRow.Ledger.State == "RAIDED") { raided++; }
@@ -1040,11 +1046,28 @@ class HCHoldouts : HCModule
             else if (summaryRow.Cache.Phase == 2) { phase2++; }
             else if (summaryRow.Cache.Phase == 3) { phase3++; }
         }
-        string line = "[HC Holdouts] summary dormant=" + dormant.ToString() + " occupied=" + occupied.ToString();
+        array<ref HCInteriorFurnishRow> authored = HCInteriorTemplates.FurnishRows();
+        int catalogPending;
+        if (authored && m_CatalogCursor < authored.Count() && summaryCount < HCAILimits.Get().MaxHoldouts) { catalogPending = authored.Count() - m_CatalogCursor; }
+        string reason = "row_rotation";
+        if (!m_Ready) { reason = m_Operational.HCReason(); }
+        else if (!HCWorldModule.Get()) { reason = "world_unavailable"; }
+        else if (m_PublishCheckpointPending) { reason = "publish_checkpoint"; }
+        else if (!HCInteriorTemplates.Loaded()) { reason = "templates_loading"; }
+        else if (m_CatalogDirty) { reason = "catalog_checkpoint"; }
+        else if (catalogPending > 0) { reason = "catalog_discovery"; }
+        else if (summaryCount == 0) { reason = "no_covered_houses"; }
+        string receiptKind = "summary";
+        if (firstDecision) { receiptKind = "first_decision"; }
+        int pending = dormant + raided + abandoned;
+        string line = "[HC Holdouts] " + receiptKind + " dormant=" + dormant.ToString() + " occupied=" + occupied.ToString();
         line += " raided=" + raided.ToString() + " abandoned=" + abandoned.ToString() + " founded_window=" + m_FoundedWindow.ToString();
         line += " cache_phase0=" + phase0.ToString() + " cache_phase1=" + phase1.ToString() + " cache_phase2=" + phase2.ToString() + " cache_phase3=" + phase3.ToString();
         line += " recovery_attempts_window=" + m_RecoveryAttemptsWindow.ToString() + " structure_blocked_window=" + m_StructureBlockedWindow.ToString();
         line += " spot_blocked_window=" + m_SpotBlockedWindow.ToString() + " observer_blocked_window=" + m_ObserverBlockedWindow.ToString();
+        line += " founded=" + occupied.ToString() + " pending=" + pending.ToString() + " tick_phase=" + m_TickPhase.ToString();
+        line += " catalog_pending_rows=" + catalogPending.ToString() + " catalog_cursor=" + m_CatalogCursor.ToString();
+        line += " ready=" + m_Ready.ToString() + " reason=" + reason;
         Print(line + " runtime=PENDING");
         m_FoundedWindow = 0;
         m_RecoveryAttemptsWindow = 0;
@@ -1056,8 +1079,8 @@ class HCHoldouts : HCModule
     override void OnTick(float deltaTime)
     {
         m_TickMeasuredStage = 0;
-        if (!m_Ready || !HCWorldModule.Get()) return;
         HCReportWindow(deltaTime);
+        if (!m_Ready || !HCWorldModule.Get()) return;
         m_Elapsed += deltaTime;
         if (m_PublishCheckpointPending)
         {
@@ -1287,6 +1310,8 @@ modded class HCHoldouts
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);
+        m_SummaryElapsed = 0;
+        HCReportWindow(0, true);
         m_TickSteps = new HCStepTimer("Holdouts");
         m_TickSteps.HCDefine("catalog");
         m_TickSteps.HCDefine("publish");

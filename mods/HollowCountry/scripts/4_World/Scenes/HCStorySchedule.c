@@ -288,6 +288,50 @@ class HCStorySchedule
         Print("[HC Plan] HC-19 story_seq=" + sequence.ToString() + " active=" + active.ToString() + " occupied=" + occupied.ToString() + " window=" + window.ToString() + " terminal_replay=0 state=" + effective + " reason=" + m_Reason + " clock=world-utc runtime=PENDING");
     }
 
+    // Read-only census, <=12 retained rows. Eligibility here means a live
+    // chain's deadline is due; placement/lease/pacing still belongs to Scenes.
+    // Called by the owner before its save/placement early returns, never by
+    // HCStep (the indexed override can bypass that base method).
+    string HCWaitReason()
+    {
+        return "arrival_due";
+    }
+
+    void HCObserve(int now, string ownerWait, string receiptKind)
+    {
+        int occupied;
+        int eligible;
+        int nextArrival;
+        int waitSeconds;
+        int window;
+        string reason = ownerWait;
+        if (m_Config) { window = m_Config.Window; }
+        if (m_State && m_State.Stories && m_State.Chains)
+        {
+            occupied = HCStoryPolicy.HCOccupied(m_State);
+            nextArrival = m_State.Stories.NextArrival;
+            if (nextArrival > now) { waitSeconds = nextArrival - now; }
+            array<ref HCSceneChain> retained = m_State.Chains;
+            foreach (HCSceneChain chain : retained)
+            {
+                if (!chain.Complete && !chain.Cancelled && now >= chain.DueAt) { eligible++; }
+            }
+            if (reason == "")
+            {
+                if (!m_Ready) { reason = m_Reason; }
+                else if (occupied >= window) { reason = "window_full"; }
+                else if (retained.Count() >= HCStoryPolicy.MAX_RETAINED) { reason = "retained_cap"; }
+                else if (waitSeconds > 0) { reason = "arrival_timer"; }
+                else { reason = HCWaitReason(); }
+            }
+        }
+        if (reason == "") { reason = m_Reason; }
+        string line = "[HC Plan] HC-19 " + receiptKind + " occupied=" + occupied.ToString() + " window=" + window.ToString();
+        line += " eligible_chains=" + eligible.ToString() + " next_arrival_utc=" + nextArrival.ToString();
+        line += " arrival_wait_s=" + waitSeconds.ToString() + " ready=" + m_Ready.ToString() + " reason=" + reason;
+        Print(line + " clock=world-utc runtime=PENDING");
+    }
+
     bool HCCommit(int now)
     {
         m_State.LastNow = now;
@@ -408,5 +452,51 @@ class HCStorySchedule
         m_Config = null;
         m_Templates = null;
         m_Cursor = 0;
+    }
+}
+
+// Diagnostics stay with HC-19 but run at the Scenes lifecycle boundary: even
+// an unavailable store (before HCStart) or pending save must remain visible.
+// No module registration/readiness change and no simulation work added here.
+modded class HCScenesModule
+{
+    protected float m_StorySummaryElapsed;
+
+    protected void HCObserveStories(string receiptKind)
+    {
+        string reason = m_Fault;
+        if (reason == "" && !m_Running) { reason = m_Refusal; }
+        if (reason == "" && !m_Running) { reason = "scenes_not_running"; }
+        if (reason == "" && m_Store && m_Store.HCCheckpointPending()) { reason = "checkpoint_pending"; }
+        if (reason == "")
+        {
+            foreach (HCSceneLease lease : m_Leases)
+            {
+                if (!HCSceneKits.HCPlacementComplete(lease)) { reason = "placement_pending"; break; }
+            }
+        }
+        if (m_Stories) { m_Stories.HCObserve(Now(), reason, receiptKind); }
+        else
+        {
+            Print("[HC Plan] HC-19 " + receiptKind + " state=unavailable occupied=unknown window=unknown eligible_chains=unknown next_arrival_utc=unknown reason=" + reason + " runtime=PENDING");
+        }
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        super.OnStart(settings);
+        m_StorySummaryElapsed = 0;
+        HCObserveStories("first_decision");
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        m_StorySummaryElapsed += deltaTime;
+        if (m_StorySummaryElapsed >= 300)
+        {
+            m_StorySummaryElapsed = 0;
+            HCObserveStories("summary");
+        }
+        super.OnTick(deltaTime);
     }
 }

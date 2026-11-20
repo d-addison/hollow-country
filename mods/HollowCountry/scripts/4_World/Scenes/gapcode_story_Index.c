@@ -111,6 +111,7 @@ class HCGapcodeStoryIndex
 
     string HCReason() { return m_Reason; }
     bool HCOff() { return m_Off; }
+    bool HCHasSelectedPlan() { return m_Selected != null; }
     // Loading parses the cached source. Selection only caches a candidate and
     // reads native clearance; neither path mutates scene/save state.
     bool HCLoading() { return m_Loading; }
@@ -381,6 +382,13 @@ modded class HCStorySchedule
     protected HCGapcodeStoryIndex m_IndexedStories;
 
     void HCBindIndex(HCGapcodeStoryIndex index) { m_IndexedStories = index; }
+
+    override string HCWaitReason()
+    {
+        if (!m_IndexedStories) { return super.HCWaitReason(); }
+        if (!m_IndexedStories.HCReady() || !m_IndexedStories.HCHasSelectedPlan()) { return m_IndexedStories.HCReason(); }
+        return "arrival_due";
+    }
 
     override bool HCStep(int now, array<string> releasedIds)
     {
