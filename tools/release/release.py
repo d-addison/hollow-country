@@ -135,6 +135,21 @@ def copy_templates(source, dest):
     return rows
 
 
+def pbo_prefix(path):
+    """Read only the PBO header's prefix property (empty string when absent)."""
+    with open(path, 'rb') as stream:
+        head = stream.read(4096)
+    if not head.startswith(b'\0') or head[1:5] != b'sreV':
+        return ''
+    fields = head[21:].split(b'\0')
+    for key, value in zip(fields[0::2], fields[1::2]):
+        if not key:
+            break
+        if key == b'prefix':
+            return value.decode('ascii', 'replace')
+    return ''
+
+
 def native_compile_gate(tree, sha, workshop=WORKSHOP):
     server_root, prefix, reason = compile_gate.prerequisites()
     if reason:
@@ -238,6 +253,16 @@ def build(args):
                     shutil.copyfile(tree / 'mods' / mod / filename, stage / ('@' + mod) / filename)
             if any(p.suffix.lower() == '.biprivatekey' for p in stage.rglob('*')):
                 raise ValueError('Private key in release output refused')
+            # Two PBOs with one prefix in one mod folder crash the native server
+            # while it mounts packages (build 121); refuse that layout here.
+            for addons in sorted(stage.glob('@*/addons')):
+                seen = {}
+                for packed in sorted(addons.glob('*.pbo')):
+                    prefix = pbo_prefix(packed)
+                    if prefix.casefold() in seen:
+                        raise ValueError('Duplicate PBO prefix ' + prefix + ' in ' + addons.parent.name + ': '
+                                         + seen[prefix.casefold()] + ', ' + packed.name)
+                    seen[prefix.casefold()] = packed.name
             shutil.rmtree(target)
             if had_templates:
                 shutil.copytree(backup, target, symlinks=True)

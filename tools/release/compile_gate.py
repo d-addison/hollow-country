@@ -227,8 +227,11 @@ def compatibility_inputs(tree, workshop, cache):
         adapter.write_bytes(pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountryExpansionAI',
                                                       prefix='HollowCountryExpansionAI'),
                                      prefix='HollowCountryExpansionAI'))
-        print('compile_gate: weapon_pack_guards=staged sha256=' + receipt['sha256'])
-        yield {'extra_mods': extra_mods + [guard_mod], 'server_mod': adapter}
+        # Ship layout: the guard sits beside the HCX PBO in @HollowCountryExpansionAI/addons,
+        # exactly as the friend installer places it (a separate test-only mod hid a prefix clash).
+        print('compile_gate: weapon_pack_guards=staged sha256=' + receipt['sha256'] + ' layout=hcx_addons')
+        yield {'extra_mods': extra_mods, 'server_mod': adapter,
+               'server_extra_pbos': [guard_mod / 'addons' / weapon_pack_guards.PBO_NAME]}
 
 
 def main():

@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ITEM = '2646817942'
 PATCH = 'script_a'
 SOURCE = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXWeaponPackGuards.c'
-MEMBER = 'weapon-pack-guards/4_World/HCXWeaponPackGuards.c'
+MEMBER = '4_World/HCXWeaponPackGuards.c'
 PBO_NAME = 'hollowcountry_weapon_pack_guards.pbo'
 WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
 # Read-only installed evidence, 2026-11-20. Pin the two relevant methods, not assets.
@@ -94,10 +94,11 @@ def generate(workshop):
     # Strip the wrapper, leaving ordinary inspectable Enforce in the generated PBO.
     script = source.replace(marker, b'', 1).removesuffix(b'#endif\n')
     files = {'config.cpp': CONFIG.encode(), MEMBER: script}
-    blob = pbo.pack(files, prefix='HollowCountryExpansionAI')
-    parsed = pbo.parse(blob, prefixes=('HollowCountryExpansionAI',))
+    # Own nested prefix: the guard sits in @HollowCountryExpansionAI/addons beside the HCX PBO.
+    blob = pbo.pack(files, prefix=pbo.GUARD_PREFIX)
+    parsed = pbo.parse(blob, prefixes=(pbo.GUARD_PREFIX,))
     # Verify all original bytes survive the standard packer; no third-party payload.
-    if parsed != ('HollowCountryExpansionAI', files):
+    if parsed != (pbo.GUARD_PREFIX, files):
         raise ValueError('guard PBO roundtrip differs')
     return blob, {
         'status': 'generated', 'runtime': 'PENDING', 'pbo': PBO_NAME,

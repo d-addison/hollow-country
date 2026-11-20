@@ -295,7 +295,7 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=()):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=()):
     death_mode = infected_death_scripts is not None
     if death_mode:
         if diagnostic:
@@ -337,6 +337,17 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     if server_mod is not None:
         server_blob = Path(server_mod).read_bytes()
         pbo.parse(server_blob, prefixes=(SERVER_MOD_PREFIX,))
+    # Extra PBOs shipped in the same @HollowCountryExpansionAI/addons folder (the friend
+    # install layout). Each needs a prefix distinct from the HCX PBO and from each other.
+    server_extras = []
+    for extra in server_extra_pbos:
+        if server_blob is None:
+            raise ValueError('server_extra_pbos require server_mod')
+        extra_blob = Path(extra).read_bytes()
+        extra_prefix, _ = pbo.parse(extra_blob, prefixes=pbo.PREFIXES)
+        if extra_prefix in {SERVER_MOD_PREFIX} | {item[2] for item in server_extras}:
+            raise ValueError('duplicate PBO prefix in one mod folder: ' + extra_prefix)
+        server_extras.append((Path(extra).name, extra_blob, extra_prefix))
     patrol_blob = None
     if expansion_patrol_settings is not None:
         # Our own configuration override, staged only into the disposable mod-stack mission copy.
@@ -400,6 +411,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         server_addon = experiment / '@HollowCountryExpansionAI/addons'
         server_addon.mkdir(parents=True)
         (server_addon / SERVER_MOD_PBO).write_bytes(server_blob)
+        for extra_name, extra_blob, _ in server_extras:
+            (server_addon / extra_name).write_bytes(extra_blob)
     config = experiment / 'serverDZ.cfg'
     config.write_text(configuration())
     loaded_mods = [win(m) for m in extra_mods] + [win(addon.parent)]
@@ -472,6 +485,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
               'server_sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}
     report['extra_mods'] = [str(m) for m in extra_mods]
     report['server_mod_sha256'] = hashlib.sha256(server_blob).hexdigest() if server_blob is not None else None
+    report['server_extra_pbos'] = {name: prefix for name, _, prefix in server_extras}
     report['dependency_mission_copy'] = str(mission) if mod_stack_mission else None
     report['expansion_patrol_settings_sha256'] = hashlib.sha256(patrol_blob).hexdigest() if patrol_blob is not None else None
     report['config_sha256'] = hashlib.sha256(config.read_bytes()).hexdigest()
@@ -510,6 +524,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     ]
     if server_blob is not None:
         launch_inputs.append((server_addon / SERVER_MOD_PBO, len(server_blob), report['server_mod_sha256']))
+        launch_inputs.extend((server_addon / extra_name, len(extra_blob), hashlib.sha256(extra_blob).hexdigest())
+                             for extra_name, extra_blob, _ in server_extras)
     if settings_blob is not None:
         launch_inputs.append((profiles / 'HollowCountry/settings.json',
                               len(settings_blob), report['settings_sha256']))

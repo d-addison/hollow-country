@@ -14,7 +14,10 @@ import zipfile
 
 PREFIX = 'HollowCountry'
 # The optional server-side Expansion AI adapter is built under its own prefix, only on request.
-PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims')
+# The weapon-pack guard ships beside the HCX PBO in the same mod folder, so it needs its own
+# nested prefix: two PBOs with one prefix in one folder crash the native server at load.
+GUARD_PREFIX = 'HollowCountryExpansionAI\\weapon-pack-guards'
+PREFIXES = (PREFIX, 'HollowCountryExpansionAI', 'HollowCountryAnims', GUARD_PREFIX)
 WORDS = struct.Struct('<5I')
 VERS = 0x56657273
 MAX_BYTES = 64 * 1024 * 1024
