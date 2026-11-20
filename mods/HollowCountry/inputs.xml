@@ -3,6 +3,7 @@
     <inputs>
         <actions>
             <input name="UAHollowCountryGrade" loc="Hollow Country Grade Intensity (+10%)" />
+            <input name="UAHCEarplugs" loc="Hollow Country Earplugs: Cycle Sound Level" />
             <input name="UAHollowCountryPingOK" loc="Hollow Country Ping: OK" />
             <input name="UAHollowCountryPingHurt" loc="Hollow Country Ping: Hurt" />
             <input name="UAHollowCountryPingHelp" loc="Hollow Country Ping: Need Help" />
@@ -10,6 +11,8 @@
         </actions>
     </inputs>
     <preset>
+        <!-- Earplugs deliberately unbound: no vanilla or HC key can conflict.
+             Bind Hollow Country Earplugs in Controls; no preset button is added. -->
         <!-- Installed dta/bin.pbo core.xml:7 selects preset_X1MouseKey.xml.
              kK is absent from all four vanilla MouseKey presets (1.30.164289). -->
         <input name="UAHollowCountryGrade">
