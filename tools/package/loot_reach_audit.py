@@ -142,7 +142,7 @@ def body_clear(scene, position):
                for h in (.2, .9, 1.65))
 
 
-def approach_clear(scene, seed, stance):
+def approach_clear(scene, seed, stance, slots=()):
     # Straight same-storey corridor to a native CE floor anchor. Refuses paths
     # through walls/closed doors; does not infer open-door or stair navigation.
     if abs(seed[1] - stance[1]) > .20:
@@ -151,7 +151,8 @@ def approach_clear(scene, seed, stance):
         for dx, dz in ((0, 0), (RADIUS, 0), (-RADIUS, 0), (0, RADIUS), (0, -RADIUS)):
             a = (seed[0]+dx, seed[1]+height, seed[2]+dz)
             b = (stance[0]+dx, stance[1]+height, stance[2]+dz)
-            if not scene.clear(a, b):
+            if (not scene.clear(a, b)
+                    or any(segment_box_hit(a, b, slot['Bounds']) for slot in slots)):
                 return False
     # Continuous horizontal rays alone could bridge a floor hole. Sample the
     # supporting floor along the corridor every 25 cm.
@@ -167,6 +168,29 @@ def approach_clear(scene, seed, stance):
 
 def box_hit(point, box, margin=0):
     return all(box['Min'][a]-margin <= point[a] <= box['Max'][a]+margin for a in range(3))
+
+
+def segment_box_hit(start, end, box):
+    """Closed segment/AABB slab test, including endpoints inside optional props.
+
+    Bounds already union authored and measured furniture extents. Testing the
+    solid volume also catches segments wholly inside a box, which a triangle
+    boundary test would miss. Parallel and zero-length segments are supported.
+    """
+    enter, leave = 0.0, 1.0
+    for axis in range(3):
+        delta = end[axis] - start[axis]
+        if abs(delta) < 1e-12:
+            if not box['Min'][axis] <= start[axis] <= box['Max'][axis]:
+                return False
+            continue
+        first = (box['Min'][axis] - start[axis]) / delta
+        last = (box['Max'][axis] - start[axis]) / delta
+        enter = max(enter, min(first, last))
+        leave = min(leave, max(first, last))
+        if enter > leave:
+            return False
+    return True
 
 
 class Audit:
@@ -297,7 +321,9 @@ class Audit:
         self.assets.cache.pop(model_name, None)
         return model_name, model, visual, scene, bounds, floors, footprint
 
-    def check(self, point, source, context, templates):
+    def check(self, point, source, context, templates, stop_on_refusal=False):
+        # Dense generation can stop at a refusal. Admission always traverses
+        # every check; the independent emitted-file audit collects all reasons.
         model_name, model, visual, scene, bounds, floors, footprint = context
         point = model_point(point)
         failures = []
@@ -325,30 +351,37 @@ class Audit:
                        for y, normal, _, _ in support.hits(local[0]+dx, local[2]+dz)):
                 failures.append('floating_or_edge_support')
                 break
+        # Cheap room evidence precedes the collision rays during dense scans.
+        # Full audits still collect the same overlapping reasons below.
+        nearby = [f for f in floors if math.hypot(f[0]-point[0], f[2]-point[2]) <= 6
+                  and .25 <= point[1]-f[1] <= MAX_RISE+.20]
+        if not nearby:
+            failures.append('above_reach_or_no_floor_anchor')
+        elif not any(abs(y-f[1]) <= .20 for f in nearby
+                     for y in footprint.floors(point[0], point[2], point[1]-MAX_RISE-.20, point[1]-.25)):
+            failures.append('outside_supported_room_footprint')
+        if stop_on_refusal and failures:
+            return sorted(set(failures)), None
         # Fixed loader box needs 50 cm of empty space at the centre and edges.
         if any(not scene.clear((point[0]+dx, point[1]+.025, point[2]+dz),
                                (point[0]+dx, point[1]+.525, point[2]+dz))
                for dx, dz in ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12))):
             failures.append('under_furniture_or_ceiling')
+        if stop_on_refusal and failures:
+            return sorted(set(failures)), None
         if any(not scene.clear((point[0]-.12, point[1]+h, point[2]),
                                (point[0]+.12, point[1]+h, point[2]))
                or not scene.clear((point[0], point[1]+h, point[2]-.12),
                                   (point[0], point[1]+h, point[2]+.12))
                for h in (.06, .30, .50)):
             failures.append('wall_or_furniture_box_overlap')
+        if stop_on_refusal and failures:
+            return sorted(set(failures)), None
         # Optional runtime props can obstruct; they never provide support. Union
         # of all histories is deliberately conservative. Bounds are model frame.
         slots = [slot for _, doc in templates for slot in doc.get('PropSlots', [])]
         if any(box_hit(point, slot['Bounds'], .12) for slot in slots):
             failures.append('optional_prop_overlap')
-        nearby = [f for f in floors if math.hypot(f[0]-point[0], f[2]-point[2]) <= 6
-                  and .25 <= point[1]-f[1] <= MAX_RISE+.20]
-        if not nearby:
-            failures.append('above_reach_or_no_floor_anchor')
-            return sorted(set(failures)), None
-        if not any(abs(y-f[1]) <= .20 for f in nearby
-                   for y in footprint.floors(point[0], point[2], point[1]-MAX_RISE-.20, point[1]-.25)):
-            failures.append('outside_supported_room_footprint')
         if failures:
             return sorted(set(failures)), None
         saw_stance, saw_sight = False, False
@@ -367,13 +400,15 @@ class Audit:
                         continue
                     saw_stance = True
                     target = (point[0], point[1]+.06, point[2])
-                    if not scene.clear((x, y+1.5, z), target):
+                    eye = (x, y+1.5, z)
+                    if (not scene.clear(eye, target)
+                            or any(segment_box_hit(eye, target, slot['Bounds']) for slot in slots)):
                         continue
                     saw_sight = True
                     for seed in sorted(nearby, key=lambda f: math.hypot(f[0]-x, f[2]-z)):
                         if math.hypot(seed[0]-x, seed[2]-z) > 6:
                             continue
-                        if approach_clear(scene, seed, stance):
+                        if approach_clear(scene, seed, stance, slots):
                             return sorted(set(failures)), {
                                 'stance_model': [round(v, 5) for v in stance],
                                 'floor_anchor_model': seed, 'rise_m': round(point[1]-y, 5)}

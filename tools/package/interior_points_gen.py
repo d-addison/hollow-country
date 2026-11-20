@@ -43,6 +43,18 @@ TOPS = {
     'kicthen_desk_a', 'kicthen_desk_a_cupboards',
     'kicthen_desk_a_nocupboards', 'kicthen_desk_b', 'kicthen_desk_c',
     'kicthen_desk_single_cupboard_closed',
+    # Additional installed vanilla members, inspected read-only for this pass.
+    # Seats and appliance tops still need the same horizontal mesh support,
+    # clearance, room footprint and independently witnessed approach as shelves.
+    'bar_shelves_dz', 'rack_dz', 'tools_racking_dz', 'pultskasou',
+    'stul_kuch1', 'washing_machine', 'kitchenstove_elec',
+    'piano', 'postel_panelak1', 'postel_panelak2', 'postel_manz_kov',
+    'postel_manz_kov_rust', 'vojenska_palanda',
+    'stretcher_green', 'stretcher_red',
+    'brown_sofa_old', 'sofa_leather_new', 'sofa_leather_old',
+    'sofa_sakhal_1', 'sofacorner', 'couch_dz', 'couch_beige84x213x75_dz',
+    'church_chair', 'lobby_chair', 'vaulting_box_large', 'vaulting_box_small',
+    'paperbox_01_small_closed', 'box_c', 'box_c_multi',
 }
 PROXY = re.compile(rb'\\dz\\[^\x00\r\n]{1,400}\x00', re.I)
 
@@ -85,10 +97,16 @@ def surface_model(model):
 
 
 def role(stem):
-    if stem.startswith('kicthen_') or stem in {'kitchen_table_a', 'table_umakart', 'icebox', 'skrin_bar', 'shelf', 'shelf_1side', 'pult', 'fridge', 'kitchen_unit_a_dz'}:
+    if stem.startswith('kicthen_') or stem in {'kitchen_table_a', 'table_umakart', 'icebox', 'skrin_bar', 'shelf', 'shelf_1side', 'pult', 'pultskasou', 'fridge', 'kitchen_unit_a_dz', 'kitchenstove_elec'}:
         return 'kitchen-counter'
-    if 'matress' in stem or stem in {'bed_stacked', 'foldingbed_open', 'hospital_transport_bed'}:
+    if ('matress' in stem or stem.startswith(('postel_', 'stretcher_'))
+            or stem in {'bed_stacked', 'foldingbed_open', 'hospital_transport_bed', 'vojenska_palanda'}):
         return 'bed-mattress'
+    if ('sofa' in stem or 'couch' in stem or stem.endswith('_bench')
+            or stem in {'church_chair', 'lobby_chair'}):
+        return 'bench-seat'
+    if stem in {'washing_machine', 'piano'}:
+        return 'appliance-top'
     if stem == 'medical_table':
         return 'medical-tray'
     if stem == 'lekarnicka':
@@ -177,7 +195,7 @@ class Mesh:
                                   (measured_box['Min'][2] + measured_box['Max'][2]) / 2))
             # Sample narrowly spaced alternatives before spacing the final set.
             # This lets the reach check find the accessible edge of a long top.
-            step = .30
+            step = .15
             for x in range(math.ceil(min(v[0] for v in triangle) / step),
                            math.floor(max(v[0] for v in triangle) / step) + 1):
                 for z in range(math.ceil(min(v[2] for v in triangle) / step),
@@ -322,7 +340,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                                 'model_center': list(mesh.center)}
             for local, support in furniture_tops[mesh_key]:
                 above = [hit[0] for hit in mesh.hits(local[0], local[2]) if hit[0] > local[1] + .025]
-                open_shelf = '_open' in proxy_model or stem in {'shelf', 'shelf_1side', 'shelf_dz', 'library_a', 'case_cans_b', 'bed_stacked'}
+                open_shelf = '_open' in proxy_model or stem in {'shelf', 'shelf_1side', 'shelf_dz', 'library_a', 'case_cans_b', 'bed_stacked', 'bar_shelves_dz', 'rack_dz', 'tools_racking_dz', 'vojenska_palanda'}
                 # Closed cabinets admit only the exposed top. Open shelves may
                 # use a lower tier only with clearance for the loader's .5m box.
                 if above and (not open_shelf or min(above) - local[1] < .55):
@@ -374,7 +392,8 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                 point, source = by_role[key].popleft()
                 if near(point, chosen):
                     continue
-                failures, _ = auditor.check(point, source, context, auditor.templates.get(name, []))
+                failures, _ = auditor.check(point, source, context, auditor.templates.get(name, []),
+                                            stop_on_refusal=True)
                 audit_checked += 1
                 if failures:
                     audit_refusals.update(failures)
@@ -409,9 +428,11 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         'frame': 'stock-mapgroupproto', 'caps': {'surface_per_group': loot.MAX_SURFACE_POINTS,
         'added_container_lootmax': loot.MAX_ADDED_LOOTMAX, 'total_points': loot.MAX_TOTAL_POINTS},
         'sources': {'stock_proto_sha256': sha(stock_bytes),
-        'method': 'ODOL56 visual horizontal face support with 12cm footprint; raw building frame, restored furniture centres; measured prop centres snapped to mesh tops; 5mm lift; .60m separation; unchanged reach audit before cap; optional props excluded',
+        'method': 'ODOL56 visual horizontal face support with 12cm footprint; raw building frame, restored furniture centres; 0.15m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; .60m separation; reach audit before cap including optional-prop corridor and eye obstruction; optional props never support',
         'prop_boxes_sha256': sha(auditor.boxes_bytes),
-        'reach_generation': {'checked_candidates': audit_checked, 'refusal_counts': dict(sorted(audit_refusals.items()))},
+        'reach_generation': {'checked_candidates': audit_checked,
+            'refusal_counting': 'stop after the first failed support/room/clearance stage; final read-only audit collects all reasons',
+            'refusal_counts': dict(sorted(audit_refusals.items()))},
         'reader_repository': 'https://github.com/SXDIST/DayZObjectBuilder',
         'reader_revision': READER_REVISION, 'reader_sha256': READER_HASHES,
         'eligible_stock_groups': len(groups) + len(refused),

@@ -1,9 +1,10 @@
 # Interior loot points
 
-Current round-6 generator output: **917 above-floor points / 121 building
-classes**, using the corrected stock CE frame and unchanged reach checks. The
-shipped merge contains **2,139 HC points / 175 groups**. The requested 3,000
-above-floor points remains unmet; native acceptance remains pending. See the
+Current round-7 generator output: **1,247 above-floor points / 139 building
+classes**, including optional furniture in approach and eye-segment checks. The
+shipped merge contains **2,469 HC points / 184 groups**. Same-input unplaced
+demand falls **636 → 614**. The requested 3,000 above-floor points remains unmet
+by **1,753**; native acceptance remains pending. See the
 final section for current reproduction, coverage and installer evidence. Earlier
 rounds below are retained as historical evidence.
 
@@ -589,3 +590,185 @@ points / 175 merged groups); frame repair and scratch install/rollback pass;
 No loader, packaging, settings or other-owner file changes are needed for this
 regenerated set in the current checkout. The lead owns native acceptance and
 updates to those summary documents.
+
+## Round 7 optional-furniture reach correction and denser sampling (2026-11-20)
+
+This section supersedes the round-6 counts and its claim that optional props
+already obstructed every part of the reach witness. Issue
+[#274](https://github.com/d-addison/hollow-country/issues/274) identified the gap:
+standing positions and loot positions respected optional furniture, but corridor
+and eye rays only respected building geometry and baked furniture proxies.
+
+The audit now intersects each existing corridor ray and the eye-to-item segment
+with the solid bounds of every optional `PropSlot`, conservatively unioned across
+all authored histories. These are the same bounds already expanded to include
+independently measured native prop extents. A closed-segment slab test catches
+crossing, tangent and wholly contained segments, including endpoints inside a
+prop, parallel rays and zero-length segments. Optional furniture supplies no
+support. All previous geometry, support, spacing, standing, footprint, floor
+continuity, rise and reach checks remain in force with their original limits.
+
+The corrected read-only audit refuses **two of the original 917 points**, both
+in `Land_Tisy_KitchenRoom`, for `no_clear_floor_approach`. The refused original
+stock coordinates are `(10.918402, -3.313365, -1.738918)` and
+`(10.870401, -3.313365, -2.4)`. Its other **915 points** pass. The generator applies
+this correction before admission, so these unsupported approach witnesses cannot
+consume capacity or exclude a nearby valid alternative.
+
+The generator samples actual upward horizontal mesh faces on a **0.15 m lattice**
+(previously 0.30 m), retaining triangle centres, face-bounds centres, measured prop
+centres and inset/midline samples. This changes candidate discovery, not final
+spacing or support tolerances. Additional inspected installed vanilla model names
+cover bar shelves, racks, shop counters with tills, kitchen tables, washing
+machines, electric stoves, pianos, beds/stretchers, sofas, benches, gym boxes and
+closed boxes. Each still requires a real supporting triangle and all five
+12 cm footprint samples, 50 cm item-box clearance and an audited reach witness.
+No floor coordinates are lifted and no runtime prop becomes guaranteed support.
+
+Dense generation may stop a candidate after its first failed support, room or
+clearance stage;
+it cannot admit a candidate without completing every check. Generated refusal
+counts therefore describe evaluated stages and are not directly comparable to
+round 6's overlapping all-stage counts. The independent read-only audit retains
+its full refusal reporting and must pass on every emitted point.
+
+Read-only sources are the installed vanilla PBOs and the live mission's verified
+pre-boost receipt backups. Only registered CE inputs and limit definitions are
+copied into disposable storage outside the repository. The stock prototype pin
+and map-position pin match round 6. Type inputs reflect the currently installed
+mission and differ from the historical round-6 rehearsal: identical-input
+round-7 comparisons, rather than its historical 644, establish the unplaced
+demand change. The round-7 original-overlay baseline is **636 unplaced / 1,534
+transferred / 2,170 displaced**; removing only the two newly refused points gives
+**637 unplaced / 1,533 transferred / 2,170 displaced**. These are offline capacity
+estimates, not observed spawn counts.
+
+### Generated coverage and controlled installation
+
+The round-7 file contains **1,247 points / 139 classes**, an increase of **330
+points (36.0%) / 18 classes** over round 6. No previously admitted class loses
+coverage or its point count. The **3,000-point target remains unmet by 1,753**.
+The four missing-model classes and 144 classes with no admissible top remain
+listed in `sources.rejected_groups`; no unresolved class is filled with guesses.
+
+| Family | Classes before | Classes after | Points before | Points after |
+| --- | ---: | ---: | ---: | ---: |
+| Civic | 16 | 16 | 86 | 98 |
+| Fire | 2 | 2 | 4 | 5 |
+| Garage/shed | 21 | 24 | 171 | 195 |
+| Kitchen/shop | 10 | 10 | 94 | 110 |
+| Medical | 3 | 3 | 51 | 51 |
+| Military | 19 | 27 | 196 | 338 |
+| Police | 6 | 6 | 122 | 162 |
+| Residential | 44 | 51 | 193 | 288 |
+| **Total** | **121** | **139** | **917** | **1,247** |
+
+Of the admitted classes, **114 are placed / 3,654 instances / 1,070 placed-type
+coordinates**, versus 102 / 3,152 / 790 previously. The remaining **25 classes**
+are unplaced stock-prototype variants and do not count as occupied map coverage.
+The unchanged eligible universe is 287 stock types, 217 placed types and 9,921
+map instances. Nine admitted classes reach the unchanged 32-point cap.
+
+Admitted support roles are **611 baked ledges, 214 bed/mattress points, 114
+kitchen-counter points, 99 cabinet/shelf points, 87 desk/table points, 69 bench/
+seat points, 44 repair-bench points and nine wardrobe tops**. Appliance
+candidates produced no admitted appliance-top points; inspected names alone
+never establish a shippable surface. All 18 newly covered
+class names and their evidence are available in the generated group map. These
+include two airfield/industrial variants, a garage row, seven residential/ruin/
+slum variants, seven military variants and a workshop.
+
+The generator evaluates **117,088 candidates**, admits 1,247 after spacing/caps,
+and refuses **115,841** at the following stages. In this run each refusal has
+one reported reason; later reasons are deliberately not evaluated after refusal.
+This table is not an all-stage comparison against round 6.
+
+| Candidate refusal reason | Count |
+| --- | ---: |
+| Outside supported room footprint | 31,406 |
+| No clear standing space | 27,092 |
+| Under furniture or ceiling | 23,505 |
+| Above reach or no nearby floor anchor | 14,937 |
+| Wall/furniture box overlap | 8,383 |
+| Wall/furniture occludes eye-to-item segment | 6,575 |
+| No clear floor approach | 3,882 |
+| Outside building bounds | 61 |
+| **Total refused candidates** | **115,841** |
+
+No checked candidate reports a frame, transform or floating/edge-support error.
+The two original kitchen coordinates refused by the corrected audit are absent;
+the regenerated kitchen has **seven points versus six previously**, using valid
+alternative witnesses. The file is 1,474,307 bytes, SHA-256
+`39bdbfffd7e9b8f60fd76c83ea32faff7e48ed09ba0664ccb78740f263f73ee8`.
+
+| Same-input round-7 rehearsal | Original 917 points | Furniture-fix-only 915 | Expanded 1,247 |
+| --- | ---: | ---: | ---: |
+| Floor-policy transferred demand | 1,534 | 1,533 | 1,556 |
+| Floor-policy unplaced demand | 636 | 637 | 614 |
+| Floor-policy displaced demand | 2,170 | 2,170 | 2,170 |
+| Retained weapon-floor exception slots | 21 | 21 | 21 |
+
+The expanded shipped merge installs **2,469 HC points / 184 groups / 288
+containers**, versus 2,139 / 175 / 270. There are no stale stock pins. Installation
+changes eight copied files; rollback restores all **11 inputs byte-for-byte**
+and removes its receipt directory. All **1,222 original floor points** remain
+byte-exact against HEAD. The extra placement coordinates are not additional item
+nominals or unlimited slots: existing container and group capacity caps remain.
+
+The independent fresh read-only audit passes **1,247 checked / zero refusals**,
+without `--fix`. All 139 buildings have decoded roadway LODs; the pass inspects
+6,753 upright proxy instances and 4,996 memory selections. Static evidence still
+has **44 unresolved proxy member references, 219 visual blocker fallbacks and
+one building without decoded memory**. More admitted classes expose more of
+these missing references than round 6's 22 / 213 / one. A passing point audit
+does not establish complete collision coverage or accept any missing engine
+experiment. The earlier numeric-suffix proxy-name probe found no additional
+resolvable upright proxies; unresolved references are not silently guessed.
+
+Verification tail:
+
+```text
+original-overlay full audit: 917 checked; 2 optional-prop approach refusals
+full-audit stage-reordering replay PASS identical report
+segment/AABB manual boundary smoke PASS
+generation: checked=117088 admitted=1247 refused=115841
+fresh read-only reach audit PASS shelf_points=1247 refused=0 failure_counts={}
+floor overlay byte-exact vs HEAD PASS points=1222
+merged parse/install PASS HC_points=2469 groups=184 containers=288 stale=[]
+floor policy transferred 1534 -> 1556; unplaced 636 -> 614
+install PASS changed_files=8
+rollback byte-exact PASS inputs=11
+Python syntax PASS files=2; restricted strings PASS; git diff --check PASS
+Enforce lint/perf/native compile N/A (.c unchanged); unit suite not run
+```
+
+Suggested lead-owned README/MODULE_STATUS wording: “Default-on interior loot
+adds 1,247 statically audited above-floor points in 139 classes (2,469 total HC
+points / 184 merged groups); optional-furniture corridor/sight checks and scratch
+install/rollback pass; 3,000-point target and native CE/reach/fit/restart acceptance
+remain pending.” No other-owner source changes are needed for this overlay;
+the lead owns these summary edits and native acceptance. Keep issue #274 open
+for the remaining target and engine evidence.
+
+Reproduce with the round-5 pinned-reader download and generator command above,
+using the verified pre-boost prototype and stock map positions. Then run the
+independent audit without `--fix`:
+
+```sh
+python3 -B -m tools.package.loot_reach_audit \
+  --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
+  --reader "$HC_INTERIOR_WORK" --report "$HC_INTERIOR_WORK/reach-report.json"
+```
+
+No settings, Enforce code or floor-overlay changes are part of this pass. No new
+unit tests or Enforce harnesses are written, and no existing test module targets
+the two changed utilities. Only the changed Python utilities receive syntax and
+manual boundary checks; no unit suite is run. Enforce lint/performance and native
+compilation do not apply to this Python/data/documentation diff. The lead still
+owns the native boot and gameplay observation.
+
+Native CE admission/spawning, physical support and item fit, complete collision
+coverage, doors/stairs and approach access, vicinity/search interaction,
+persistence, restart behaviour and performance remain unproven. Acceptance needs
+one server and at most one client; multiplayer behaviour is not proven. No
+missing engine experiment is accepted by the static checks or the rehearsal.
