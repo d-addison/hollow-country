@@ -115,7 +115,7 @@ class HCBuildingClaim
         if (!groups || !groups.HCClaimHealthy())
         {
             service.m_Status.HCPublish("off", "groups_unavailable");
-            Print("[HC Plan] HC-17 claims=off state=off expiry_days=0 construction=off count=0 reason=groups_unavailable runtime=PENDING");
+            Print("[HC Plan] HC-17 claims=off state=off expiry_days=0 construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 reason=groups_unavailable runtime=PENDING");
             return true;
         }
         service.m_Config = new HCBuildingClaimConfig;
@@ -128,7 +128,7 @@ class HCBuildingClaim
         Print("[HC ClaimTargets] admitted schema=2 provenance=claim cooldowns=independent runtime=PENDING");
         HCModuleReadiness.HCDerive(service.m_Status, service.m_Healthy, "", "", "claim_journal_loaded_native_acceptance_pending");
         Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false) + " runtime=PENDING");
-        Print("[HC Plan] HC-17 claims=per-group state=" + service.m_Status.HCState() + " expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=off count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
+        Print("[HC Plan] HC-17 claims=per-group state=" + service.m_Status.HCState() + " expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 expiry=online_absence window_days=" + service.m_Config.ExpiryDays.ToString() + " runtime=PENDING");
         Print("[HC Plan] HC-17 locks=group_native_lockpick unlock=vanilla raiding=vanilla restart=native runtime=PENDING");
         return true;
@@ -140,7 +140,7 @@ class HCBuildingClaim
         m_Status.HCPublish("refused", "claim_config_clock_or_journal_fault");
         m_Observers.Clear();
         m_Examining = null;
-        Print("[HC Plan] HC-17 claims=off state=refused reason=config_clock_or_journal_fault construction=off count=0 runtime=PENDING");
+        Print("[HC Plan] HC-17 claims=off state=refused reason=config_clock_or_journal_fault construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 runtime=PENDING");
     }
 
     bool HCReady(int now)
@@ -329,6 +329,44 @@ class HCBuildingClaim
         if (!lockGroups || !lockGroups.HCClaimHealthy()) { return false; }
         int lockGroupId = lockGroups.HCClaimActorGroup(player, false);
         return s_Instance.HCCanLock(lockGroupId, HCIdentity(lockBuilding));
+    }
+
+    // The same bounded 25m claim envelope used for visits protects new native
+    // construction at the building. This grants no door immunity and never
+    // intercepts dismantling/raiding. Client previews remain native; commit ACL
+    // is server-authoritative, including a membership change mid-action.
+    static bool HCConstructionAllowed(PlayerBase player, vector position)
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return true; }
+        if (!s_Instance || s_Instance.m_OperatorDisabled) { return true; }
+        if (!s_Instance.m_Healthy || !HCActor(player)) { return false; }
+        HCGroupService groups = HCGroupService.Get();
+        if (!groups || !groups.HCClaimHealthy()) { return false; }
+        int groupId = groups.HCClaimActorGroup(player, false);
+        float radius = s_Instance.m_Config.VisitRadiusMeters;
+        foreach (HCBuildingClaimRecord claim : s_Instance.m_Data.Claims)
+        {
+            if (vector.DistanceSq(position, claim.Position) <= radius * radius && claim.GroupId != groupId) { return false; }
+        }
+        return true;
+    }
+
+    // AI cannot fortify a player's claimed building or hearth camp. There is
+    // no implicit AI group ownership and no mutation of native doors/locks.
+    static bool HCAIFortificationAllowed(vector position)
+    {
+        if (!s_Instance || s_Instance.m_OperatorDisabled) { return true; }
+        if (!s_Instance.m_Healthy) { return false; }
+        float radius = s_Instance.m_Config.VisitRadiusMeters;
+        foreach (HCBuildingClaimRecord claim : s_Instance.m_Data.Claims)
+        {
+            if (vector.DistanceSq(position, claim.Position) <= radius * radius) { return false; }
+        }
+        foreach (HCCampRecord camp : s_Instance.m_Data.Camps)
+        {
+            if (vector.DistanceSq(position, camp.Position) <= 625) { return false; }
+        }
+        return true;
     }
 
     string HCRequest(PlayerBase player, ActionTarget target, bool release)

@@ -1,112 +1,82 @@
-// HC-17 / #151: construction-specific veto; containers anywhere retain native
-// placement/cargo rules, as do tents, fireplaces, gardens, traps and lockpicks.
-// Native scripts-1.30.164289 evidence:
-// 3_Game/Entities/Object.c:511 IsKindOf;
-// 4_World/Classes/Recipes/RecipeBase.c:479/521 CheckRecipe/PerformRecipe;
-// Classes/UserActionsComponent/Actions/Continuous/ActionBuildPart.c:
-// 89/123/150 condition/continue/server commit; 416/459 hands overrides;
-// Actions/Continuous/DeployActions/ActionDeployObject.c:34/55/152/167
-// condition/continue/client finish/server finish; ActionDeployBase.c:70 native
-// placement transaction; ActionPlaceObject.c:9 inherits ActionDeployObject.
-// Entities/ItemBase/BaseBuildingBase/ShelterSite.c:1/33/164 native site/build;
-// ActionConstructor.c:187 registers hands building (obsolete ActionBuildShelter
-// is unregistered in this snapshot). No deletion/refund of pre-existing bases or kits.
-class HCNoConstruction
+// HC-17 / #304: restore native construction, recipes, hologram collision,
+// materials, locks, damage and persistence. Claim ACLs only admit NEW work;
+// dismantling, destruction and forced entry remain native.
+modded class PluginRecipesManager
 {
-    static bool HCDeniedRecipe(string recipeName)
+    // Native PluginRecipesManager.c:457. HCRecipeRegistration still requests
+    // these removals; preserve the originals without registering duplicate IDs.
+    override protected void UnregisterRecipe(string clasname)
     {
-        return recipeName == "CraftFenceKit" || recipeName == "CraftWatchtowerKit" || recipeName == "CraftTerritoryFlagKit" || recipeName == "CraftShelterKit";
-    }
-
-    static bool HCDeniedObject(Object objectToCheck)
-    {
-        return objectToCheck && (objectToCheck.IsKindOf("Fence") || objectToCheck.IsKindOf("Watchtower") || objectToCheck.IsKindOf("TerritoryFlag") || objectToCheck.IsKindOf("ShelterBase") || objectToCheck.IsKindOf("ShelterSite") || objectToCheck.IsKindOf("FenceKit") || objectToCheck.IsKindOf("WatchtowerKit") || objectToCheck.IsKindOf("TerritoryFlagKit") || objectToCheck.IsKindOf("ShelterKit"));
-    }
-
-    static bool HCDeniedTarget(ActionTarget target)
-    {
-        return target && HCDeniedObject(target.GetObject());
-    }
-}
-
-modded class RecipeBase
-{
-    override bool CheckRecipe(ItemBase item1, ItemBase item2, PlayerBase player)
-    {
-        if (HCNoConstruction.HCDeniedRecipe(ClassName())) { return false; }
-        return super.CheckRecipe(item1, item2, player);
-    }
-    override void PerformRecipe(ItemBase item1, ItemBase item2, PlayerBase player)
-    {
-        if (HCNoConstruction.HCDeniedRecipe(ClassName())) { Print("[HC Plan] HC-17 construction=refused reason=construction_recipe runtime=PENDING"); return; }
-        super.PerformRecipe(item1, item2, player);
+        if (clasname == "CraftFenceKit" || clasname == "CraftWatchtowerKit" || clasname == "CraftTerritoryFlagKit" || clasname == "CraftShelterKit") { return; }
+        super.UnregisterRecipe(clasname);
     }
 }
 
 modded class ActionBuildPart
 {
+    protected bool m_HCInvalidConstructionLogged;
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (HCNoConstruction.HCDeniedTarget(target)) { return false; }
+        if (target && target.GetObject() && !HCBuildingClaim.HCConstructionAllowed(player, target.GetObject().GetPosition())) { return false; }
         return super.ActionCondition(player, target, item);
     }
     override bool ActionConditionContinue(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedTarget(action_data.m_Target)) { return false; }
+        if (!action_data || !action_data.m_Target || !action_data.m_Target.GetObject()) { return false; }
+        if (!HCBuildingClaim.HCConstructionAllowed(action_data.m_Player, action_data.m_Target.GetObject().GetPosition())) { return false; }
         return super.ActionConditionContinue(action_data);
     }
     override void OnFinishProgressServer(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedTarget(action_data.m_Target)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_target runtime=PENDING"); return; }
+        if (!action_data || !action_data.m_Target || !action_data.m_Target.GetObject())
+        {
+            if (!m_HCInvalidConstructionLogged) { Print("[HC Plan] HC-17 build=refused reason=missing_action_target runtime=PENDING"); m_HCInvalidConstructionLogged = true; }
+            return;
+        }
+        if (!HCBuildingClaim.HCConstructionAllowed(action_data.m_Player, action_data.m_Target.GetObject().GetPosition()))
+        {
+            if (action_data.m_Player) { action_data.m_Player.MessageStatus("Building refused: claim ownership or group access changed."); }
+            return;
+        }
         super.OnFinishProgressServer(action_data);
     }
 }
 
-// Native hands subclass has its own conditions; guard those overrides too.
+// Native hands subclass overrides both conditions; the commit above is shared.
 modded class ActionBuildPartHandsGeneric
 {
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (HCNoConstruction.HCDeniedTarget(target)) { return false; }
+        if (target && target.GetObject() && !HCBuildingClaim.HCConstructionAllowed(player, target.GetObject().GetPosition())) { return false; }
         return super.ActionCondition(player, target, item);
     }
     override bool ActionConditionContinue(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedTarget(action_data.m_Target)) { return false; }
+        if (!action_data || !action_data.m_Target || !action_data.m_Target.GetObject()) { return false; }
+        if (!HCBuildingClaim.HCConstructionAllowed(action_data.m_Player, action_data.m_Target.GetObject().GetPosition())) { return false; }
         return super.ActionConditionContinue(action_data);
     }
 }
 
-modded class ActionDeployObject
-{
-    override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
-    {
-        if (HCNoConstruction.HCDeniedObject(item)) { return false; }
-        return super.ActionCondition(player, target, item);
-    }
-    override bool ActionConditionContinue(ActionData action_data)
-    {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { return false; }
-        return super.ActionConditionContinue(action_data);
-    }
-    override void OnFinishProgressClient(ActionData action_data)
-    {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_deploy runtime=PENDING"); return; }
-        super.OnFinishProgressClient(action_data);
-    }
-    override void OnFinishProgressServer(ActionData action_data)
-    {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_deploy runtime=PENDING"); return; }
-        super.OnFinishProgressServer(action_data);
-    }
-}
-
-// Guard the native transaction itself, including non-hologram deploy actions.
 modded class ActionDeployBase
 {
+    // Native ActionDeployBase.c:70/88 uses this server-validated placement DTO.
+    // Only building kits get the ACL; tents, containers etc. retain native rules.
     override void OnFinishProgressServer(ActionData action_data)
     {
-        if (!action_data || HCNoConstruction.HCDeniedObject(action_data.m_MainItem)) { Print("[HC Plan] HC-17 construction=refused reason=missing_action_or_construction_deploy runtime=PENDING"); return; }
+        PlaceObjectActionData placement = PlaceObjectActionData.Cast(action_data);
+        if (placement && placement.m_MainItem)
+        {
+            ItemBase kit = placement.m_MainItem;
+            if (kit.IsKindOf("FenceKit") || kit.IsKindOf("WatchtowerKit") || kit.IsKindOf("TerritoryFlagKit") || kit.IsKindOf("ShelterKit"))
+            {
+                if (!HCBuildingClaim.HCConstructionAllowed(placement.m_Player, placement.m_Position))
+                {
+                    if (placement.m_Player) { placement.m_Player.MessageStatus("Kit placement refused: this building is claimed by another group or claim access is unavailable."); }
+                    return;
+                }
+            }
+        }
         super.OnFinishProgressServer(action_data);
     }
 }
