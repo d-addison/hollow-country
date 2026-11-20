@@ -74,6 +74,7 @@ class HCXAffiliationCues
         if (!GetGame().IsServer() || !ai || !faction || !ai.GetInventory()) { return; }
         string wanted = Armband(HCXFactions.Id(faction));
         if (wanted == "") { return; }
+        ai.HCWarningActor = true;
         EntityAI existing = ai.FindAttachmentBySlotName("Armband");
         if (existing && existing.GetType() == wanted) { return; }
         // This hook runs only at spawn, after the provider's role loadout.

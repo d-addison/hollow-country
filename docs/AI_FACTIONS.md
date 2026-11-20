@@ -58,14 +58,63 @@ Installed Expansion `eAIDynamicPatrol.c:376–394` applies a loadout before
 first member before the group faction is assigned. No provider source
 is copied into this change.
 
-## Warning deferred
+## Pre-engagement warning — #276
 
-Installed Expansion `eAIBase.c:10857–10860` documents that
-`Expansion_SetEmote` queues an emote until its FSM can enter `PlayEmote`.
-Threat processing and combat can cancel emotes; scheduling one cannot establish
-that a hostile AI warns before firing. No safe pre-engagement warning hook was
-established from the installed API. The radius/line-of-sight warning is deferred;
-there is no new player scan, warning cooldown table or combat suppression.
+Source implementation 2026-11-20; native compile, boot and one-client playback
+acceptance remain pending. Recognised HC site actors are enrolled by the same
+spawn-time callback that assigns their faction armband. The cue is default-on
+with those actors; unrelated Expansion actors are not enrolled. No setting or
+module is added, and the existing module readiness output is unchanged.
+
+After Expansion processes its current target and line of sight, an enrolled,
+living, conscious, unrestrained AI can request one native heavy-melee vocalisation
+(`EPlayerSoundEventID.MELEE_ATTACK_HEAVY`) on first seeing a living human player
+within 80 m. This reuses a nonverbal native combat vocalisation, not spoken
+dialogue, and starts no melee action. The AI must regard the player as an enemy,
+have its weapon lowered, be outside the fighting FSM and melee, and have active
+threat below Expansion's 0.4 fighting threshold. Actors already engaging do not
+warn. A target change, loss of LOS or leaving the radius ends that contact; a
+cooldown refusal is not retried during uninterrupted contact.
+
+The server allows at most one request per AI and per player identity every
+60 seconds. The session-only identity table holds at most 64 opaque keys; at
+capacity it can reclaim one expired row, otherwise it refuses the cue. It never
+evicts a live cooldown, retains no player objects and neither logs nor persists
+identities. AI contact tracking holds one weak player reference per actor. Each
+targeting update does constant work except an eligible admission at table
+capacity, which checks at most 64 rows. There is no player/world scan, extra
+raycast, queue, persistence, combat suppression or engagement delay. Cooldowns
+count requests because a client can refuse a voice event under native sound
+priority rules; no repeated playback attempts are made.
+
+Installed API review (API names and observed ordering only; no provider code
+copied):
+
+| Class / method | Finding |
+| --- | --- |
+| `eAIBase.eAI_Targeting`, `eAI_OnUpdate`, `eAI_UpdateFSM`; `ExpansionWorld.eAI_OnUpdate` | Selected hook: targeting and LOS finish before the later FSM update in both normal and distributed update modes. The simulation-disabled path passes `checkLOS=false` and is excluded. |
+| `eAIBase.EnforceLOS`, `eAI_HasLOS` | Uses only the current target's provider LOS, including its normal 0.15 s cache interval. Non-current target caches can be stale and are not used. |
+| `eAIBase.eAI_AddTarget`, `eAI_GetTargetInformationState`, `PlayerIsEnemy`; `eAIPlayerTargetInformation.CalculateThreat` | Acquisition/threat alone does not establish visibility. The selected hook additionally requires current-target LOS and the provider's hostility decision. |
+| `eAIBase.DetermineThreatToSelf`, `ReactToThreatChange`; `eAITargetInformationState.UpdateThreat` | Threat can rise gradually or jump after aggression. Only the below-0.4 pre-engagement case is eligible; threat is never rewritten. |
+| `eAICallbacks.OnTargetSelected`, `OnLOS`, `OnActiveThreatLevelChanged` | Callbacks exist before FSM processing, but a transition-only callback would miss entry into 80 m while an already-visible target approaches. |
+| `eAIState_Fighting.OnEntry`, `eAIState_Fighting_FireWeapon.OnEntry` / `OnUpdate`, `eAIBase.TryFireWeapon` | Combat/fire hooks are too late for a not-yet-engaged warning and are left unchanged. |
+| `eAIBase.Expansion_SetEmote`, `Expansion_PlayEmote`; `eAIState_PlayEmote.Guard` | Queued emotes are unsuitable: the guard rejects raw threat above 0.2, raised weapons and fighting. Direct emotes introduce gesture locks and asynchronous cancellation. Neither route is used. |
+
+Native 1.30.164289 evidence: `PlayerBase.RequestSoundEvent` /
+`RequestSoundEventEx` / `SendSoundEventEx` sends the native replicated sound
+event, while `CheckSoundEvent` plays it on receipt. `MeleeAttackHeavyEvent`
+registers voice animation event 17; `MeleeAttackSoundEvents.CanPlay` needs no
+melee action, and damage audio keeps priority. Installed vanilla
+`sounds_hpp.pbo/config.bin` declares the male/female heavy-melee voice shaders.
+`EmoteTaunt` exists in native scripts but is deliberately not started.
+
+The lead must still run native compile and boot, then use one server and at most
+one client to check audible warning/shot ordering, native voice range and helmet
+attenuation, faction hostility, LOS/occlusion and 80 m entry, both 60-second
+cooldowns (including respawn/reconnect), contact re-entry, and unchanged combat
+response. Sound replication and client priority may affect what is heard before
+a shot; source ordering is not an engine acceptance result. Larger-load cost
+remains provisional; no multiplayer proof is claimed.
 
 ## Native checks still required
 
