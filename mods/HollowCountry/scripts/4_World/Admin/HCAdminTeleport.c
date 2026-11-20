@@ -21,9 +21,9 @@
 // work uses HCTickWork plus HCPerfSlices; no new module or budget consumer slot.
 class HCAdminTeleportConfig
 {
-    int Version = 1;
+    int Version = 2;
     int ConfigBytes = 4096;
-    int SiteBytes = 262144;
+    int SiteBytes = 1048576;
     bool Enabled = true;
     bool IncludeActiveSituations = true;
     float BuildingQueryRadiusM = 100;
@@ -60,6 +60,9 @@ class HCAdminTeleportConfig
         if (HCJsonFields.Has(encoded, "ClearanceHeightM")) { ClearanceHeightM = decoded.ClearanceHeightM; }
         if (HCJsonFields.Has(encoded, "MaxSlopeDeltaM")) { MaxSlopeDeltaM = decoded.MaxSlopeDeltaM; }
         if (HCJsonFields.Has(encoded, "BoundaryMarginM")) { BoundaryMarginM = decoded.BoundaryMarginM; }
+        // Version 1 shipped a 256 KiB site limit, below the 528-site catalogue (~1 MB).
+        // Only that untouched old default is migrated; an operator-chosen limit stays.
+        if (Version == 1 && SiteBytes == 262144) { SiteBytes = 1048576; Version = 2; }
     }
 
     bool HCValid()
@@ -68,7 +71,7 @@ class HCAdminTeleportConfig
         if (!(SiteBytes >= 4096 && SiteBytes <= 1048576)) { return false; }
         if (!(BuildingQueryRadiusM >= 25 && BuildingQueryRadiusM <= 500)) { return false; }
         if (!(MaxBuildingObjects >= 1 && MaxBuildingObjects <= 512)) { return false; }
-        if (!(Version >= 1 && Version <= 1)) { return false; }
+        if (!(Version >= 1 && Version <= 2)) { return false; }
         if (!(MaxDestinations >= 1 && MaxDestinations <= 256)) { return false; }
         if (!(MaxNameEntries >= 1 && MaxNameEntries <= 2048)) { return false; }
         if (!(RowsPerTick >= 1 && RowsPerTick <= 32)) { return false; }
@@ -162,7 +165,7 @@ class HCAdminTeleport
         if (!HCV2ThreatStore<HCAdminTeleportSites>.Load(sitesPath, m_Config.SiteBytes, m_Sites)) { m_Fault = "teleport-sites-load"; }
         string currentWorld = GetGame().GetWorldName();
         currentWorld.ToLower();
-        if (!m_Sites || m_Sites.SchemaVersion != 1 || m_Sites.WorldName != currentWorld || !m_Sites.Sites || m_Sites.Sites.Count() > m_Config.MaxDestinations)
+        if (!m_Sites || m_Sites.SchemaVersion != 1 || m_Sites.WorldName != currentWorld || !m_Sites.Sites)
         {
             m_Fault = "teleport-sites-invalid-or-missing";
             m_Sites = null;
@@ -249,7 +252,8 @@ class HCAdminTeleport
             }
             else if (m_Stage == 2)
             {
-                if (m_Sites && m_Cursor < m_Sites.Sites.Count())
+                // HCAdd caps the list at MaxDestinations; stop reading sites once it is full.
+                if (m_Sites && m_Cursor < m_Sites.Sites.Count() && m_Destinations.Count() < m_Config.MaxDestinations)
                 {
                     HCAdminTeleportSite site = m_Sites.Sites[m_Cursor];
                     m_Cursor = m_Cursor + 1;

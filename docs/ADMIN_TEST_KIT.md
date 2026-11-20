@@ -649,9 +649,9 @@ editing this file, then restart.
 
 | Config field | Default | Accepted range |
 | :--- | :--- | :--- |
-| `Version` | 1 | 1 |
+| `Version` | 2 | 1..2 (a version 1 file with the old 262144 `SiteBytes` default loads as 1048576) |
 | `ConfigBytes` | 4096 | 4096 (fixed bootstrap schema cap) |
-| `SiteBytes` | 262144 | 4096..1048576 bytes |
+| `SiteBytes` | 1048576 | 4096..1048576 bytes |
 | `Enabled` | true | boolean |
 | `MaxDestinations` | 256 | 1..256 |
 | `MaxNameEntries` | 512 | 1..2048 |
