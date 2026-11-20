@@ -4,7 +4,7 @@
 // :280 DestroyEffect stops/unregisters; 3_Game/Effects/EffectSound.c:878 SetSoundMaxVolume.
 // 3_Game/Entities/Object.c:287,392 GetPosition/GetSurfaceType;
 // 3_Game/Entities/Man.c:37,38 IsSoundInsideBuilding/IsCameraInsideVehicle;
-// 3_Game/Global/World.c:53 IsNight; Global/Game.c:612,914 ConfigIsExisting/GetTickTime.
+// 3_Game/Global/Game.c:612,914 ConfigIsExisting/GetTickTime.
 // 3_Game/Global/Game.c:931,944,1120 GetWorld/GetPlayer/IsServer;
 // 3_Game/Entities/Object.c:517 IsAlive; 4_World/Entities/ManBase/PlayerBase.c:3925 IsUnconscious.
 // 1_Core/proto/EnMath.c:106 RandomFloatInclusive; EnMath3D.c:18 Vector;
@@ -13,7 +13,6 @@
 // Installed addons/sounds_hpp.pbo, config.bin (binary, class byte offsets):
 // CfgSoundSets/WindForestLight_SoundSet @5994660 -> WindForestLight_SoundShader @4504718
 // (native windy/trees/rain/night controllers, spatial=0, loop=1).
-// CfgSoundSets/WolfHowl1_tailDistant_SoundSet @5509692 -> shader @2142317 (range 900m).
 // Installed addons/surfaces.pbo config.bin CfgSurfaces: cp_conifer_* / cp_broadleaf_*.
 // No audio or config assets copied. Quiet towns receive no extra layer; optional native
 // ambient-volume reduction deferred (avoid changing footsteps/combat audio or other mods).
@@ -23,7 +22,6 @@ class HCEnvSound
     protected EffectSound m_Sound;
     protected float m_Check;
     protected float m_NextLayer;
-    protected float m_NextHowl;
     protected float m_StopAt;
     protected bool m_Stopped;
     protected bool m_Logged;
@@ -33,7 +31,6 @@ class HCEnvSound
     {
         float now = GetGame().GetTickTime();
         m_NextLayer = now + HCc2PresentationConfig.HCGet().SoundStartupSeconds;
-        m_NextHowl = now + Math.RandomFloatInclusive(HCc2PresentationConfig.HCGet().HowlGapMinSeconds, HCc2PresentationConfig.HCGet().HowlGapMaxSeconds);
     }
 
     static bool CanPlay(float now, float nextAt, bool hasSound)
@@ -82,16 +79,7 @@ class HCEnvSound
         vector position = player.GetPosition();
         float duration;
         bool loop = false;
-        if (GetGame().GetWorld().IsNight() && now >= m_NextHowl)
-        {
-            soundSet = "WolfHowl1_tailDistant_SoundSet";
-            layer = "night-howl";
-            // An ambient tail only; never a gunshot or AI stimulus. No entities spawned.
-            position = position + Vector(220, 10, 220);
-            duration = 15;
-            m_NextHowl = now + Math.RandomFloatInclusive(HCc2PresentationConfig.HCGet().HowlGapMinSeconds, HCc2PresentationConfig.HCGet().HowlGapMaxSeconds);
-        }
-        else if (forest)
+        if (forest)
         {
             soundSet = "WindForestLight_SoundSet";
             layer = "forest-wind";
