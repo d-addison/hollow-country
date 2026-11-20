@@ -478,7 +478,7 @@ class HCAdminVisitorParty : HCXAIBaseRaid
     {
         if (!HCReady() || !HCCampProbes.HCVisitorsEnabled() || !HCCampProbes.HCEnabled() || !HCBaseRaid.HCEnabled()) { return; }
         // [HC TickCost] window 12 of 096: admit this pass once; helpers charge work actually done.
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, 1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ADMIN_VISITOR, 1)) { return; }
         if (!m_Reserved) { HCSense(); return; }
         if (!HCLiveParty() || now < m_Camp.LastVisit || now >= m_Ends) { HCCancel(); return; }
         if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { HCCancel(); return; }

@@ -288,7 +288,7 @@ class HCGapcodeRoutesCatalog
                 HCXAICaravanRoadNode previous = roads.Nodes[previousId];
                 float leg = vector.Distance(previous.Position, node.Position);
                 length += leg;
-                if (previous.Links.Find(nodeId) < 0 || node.Links.Find(previousId) < 0 || leg <= 0 || leg > Data.limits.segment_metres || length > Data.limits.journey_metres)
+                if (!previous.LinkIds.Contains(nodeId) || !node.LinkIds.Contains(previousId) || leg <= 0 || leg > Data.limits.segment_metres || length > Data.limits.journey_metres)
                 { this.HCRowRefuse(row, "ROUTE_ADJACENCY_OR_LENGTH_INVALID"); return; }
             }
             seen.Set(nodeId, true);

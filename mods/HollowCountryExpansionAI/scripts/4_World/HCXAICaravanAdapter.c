@@ -17,6 +17,8 @@ class HCXAICaravanRoadNode
 {
     vector Position;
     ref array<int> Links = new array<int>;
+    // Native EnScript.c:902/917 map Set/Contains; built once with Links.
+    ref map<int, bool> LinkIds = new map<int, bool>;
     int Parent = -2;
 }
 class HCXAICaravanRoads
@@ -110,6 +112,7 @@ class HCXAICaravanRoads
             if (Phase == "failed") { return; }
             if (target < 0 || target >= m_Count) { HCRefuse("CARAVAN_ROAD_LINK_INVALID"); return; }
             node.Links.Insert(target);
+            node.LinkIds.Set(target, true);
         }
         Nodes.Insert(node);
         if (Nodes.Count() == m_Count)

@@ -390,16 +390,32 @@ class HCXAILocalitySave : HCSaveJob
         return HCSaveJob.STEP_DONE;
     }
 }
-// Routes cache writes coalesce on the shared scheduler. The cache is disposable: a lost
-// write only requalifies routes. Failure is ignored, as the direct write always was.
+// Routes cache writes coalesce on the shared scheduler, one image stage per tick.
+// The cache is disposable: a lost write only requalifies routes.
 class HCXAIRouteSave : HCSaveJob
 {
     HCXAISiteDirector Owner;
     override string HCName() { return "HCX-routes"; }
-    override bool HCWrite()
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
+    protected int m_Revision;
+    protected int m_SnapshotRevision;
+    void HCChanged() { m_Revision++; HCDirty = true; }
+    override int HCStep()
     {
-        if (Owner) { Owner.SaveRoutes(); }
-        return true;
+        if (!Owner) { return STEP_FAILED; }
+        if (!m_Image.Active())
+        {
+            string text;
+            if (!Owner.HCRoutesText(text)) { return STEP_FAILED; }
+            m_SnapshotRevision = m_Revision;
+            // Disposable qualification cache, no inventory/creation barrier.
+            if (!m_Image.Begin(HCXAISiteDirector.ROUTES, text, HCWorldStore.MAX_BYTES, false, false)) { return STEP_FAILED; }
+            return STEP_MORE;
+        }
+        int result = m_Image.HCStepImage();
+        // Retain dirty work arriving while the scheduler owned the snapshot.
+        if (result == STEP_DONE && m_SnapshotRevision != m_Revision) { return STEP_MORE; }
+        return result;
     }
 }
 class HCXAISiteDirector : Managed
@@ -417,6 +433,7 @@ class HCXAISiteDirector : Managed
     protected ref HCXAIRouteCache m_Routes;
     protected ref HCXAICacheJournal m_Caches;
     protected ref HCXAIOwnership m_Owned;
+    protected ref HCXAIOwnership m_BootOwned;
     protected ref array<ref HCXAISiteState> m_States = new array<ref HCXAISiteState>();
     protected ref PGFilter m_Filter;
     // Sampling only: never passed to FindPath, never used for holdouts.
@@ -876,6 +893,7 @@ class HCXAISiteDirector : Managed
             }
             if (attempts > 0) { m_LocalityNextAttemptAt = now + HCXAISiteRules.HCSelectionIntervalSeconds(m_Localities); }
         }
+        int refusedThisSlice = 0;
         int visited = 0;
         int count = m_States.Count();
         float nearestWork = 1000000000;
@@ -956,8 +974,12 @@ class HCXAISiteDirector : Managed
                 m_LocalitySave.HCChanged();
                 state.Failed = true;
                 this.HCRecordRouteState(state);
-                Print("[HC Plan] HC-18 state=refused locality=" + state.LocalityId + " reason=" + row.Refusal + " pending=1 runtime=PENDING");
+                refusedThisSlice++;
             }
+        }
+        if (refusedThisSlice > 0)
+        {
+            Print("[HC Plan] HC-18 state=refused count=" + refusedThisSlice.ToString() + " reason=route_geometry_or_provider_refused pending=1 runtime=PENDING");
         }
     }
 
@@ -1015,7 +1037,7 @@ class HCXAISiteDirector : Managed
         if (factionId == "travellers") { providerFaction = "HCTravellers"; }
         if (providerFaction == "") { reason = "unknown transient faction"; return false; }
         eAIFaction faction = eAIFaction.Create(providerFaction);
-        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0 || !FileExist(EXPANSION_LOADOUT_FOLDER + loadout + ".json")) { reason = "transient faction or loadout unavailable/unfair"; return false; }
+        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0 || !HCXAIDefaults.HCLoadoutPresent(loadout)) { reason = "transient faction or loadout unavailable/unfair"; return false; }
         reason = this.MemberProblemFor(placePos);
         if (reason != "") { return false; }
         HCXAISite transientSite = new HCXAISite();
@@ -1109,6 +1131,7 @@ class HCXAISiteDirector : Managed
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         s_Active = this;
+        HCXAIStore.HCPrimeJournal();
         HCSettings preferences = HCServer.Get().GetSettings();
         m_GroupScaling = preferences && preferences.EnableGroupScaling;
         m_RingCandidates = HCOperatorSettingsRegistry.HCDefault("MaxTickWorkItems");
@@ -1163,6 +1186,11 @@ class HCXAISiteDirector : Managed
                 return;
             }
         }
+        // Persistent input reads are a startup snapshot. Admission after provider
+        // readiness retains its ownership write barrier. Formats/paths unchanged.
+        m_Routes = HCXAISiteDirector.LoadRoutes();
+        m_Caches = HCXAISiteDirector.LoadCaches();
+        m_BootOwned = HCXAISiteDirector.LoadOwned();
         Print("[HC Expansion AI] start step=policy_checked");
         if (!this.HCStartLocalities())
         {
@@ -1214,6 +1242,12 @@ class HCXAISiteDirector : Managed
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         m_Ticks++;
+        // Registration capacity cannot strand a dirty cache: advance one stage.
+        if (m_RouteSave && m_RouteSave.HCDirty && !HCSaveScheduler.HCRegistered(m_RouteSave))
+        {
+            int routeResult = m_RouteSave.HCStep();
+            if (routeResult == HCSaveJob.STEP_DONE) { m_RouteSave.HCDirty = false; }
+        }
         if (m_Phase == "wait") { this.StepWait(); return; }
         if (m_Phase == "bind") { this.StepBind(); return; }
         if (m_Phase == "qualify") { this.StepQualify(); return; }
@@ -1236,8 +1270,6 @@ class HCXAISiteDirector : Managed
             if (m_Localities) { m_LocalityStatus = "refused:provider_admission"; Print(this.HCLocalitySummary()); }
             return;
         }
-        m_Routes = HCXAISiteDirector.LoadRoutes();
-        m_Caches = HCXAISiteDirector.LoadCaches();
         if (m_Routes && !m_RouteSave)
         {
             m_RouteSave = new HCXAIRouteSave();
@@ -1314,7 +1346,7 @@ class HCXAISiteDirector : Managed
         {
             if (loadoutChecked.Contains(loadoutSite.Loadout)) { continue; }
             loadoutChecked.Set(loadoutSite.Loadout, true);
-            if (!FileExist(EXPANSION_LOADOUT_FOLDER + loadoutSite.Loadout + ".json"))
+            if (!HCXAIDefaults.HCLoadoutPresent(loadoutSite.Loadout))
             {
                 a.MissingLoadout = loadoutSite.Loadout;
                 break;
@@ -1329,7 +1361,7 @@ class HCXAISiteDirector : Managed
     // previous session (this director has created nothing yet) and is removed.
     protected bool Reconcile()
     {
-        HCXAIOwnership previous = HCXAISiteDirector.LoadOwned();
+        HCXAIOwnership previous = m_BootOwned;
         if (!previous) { return false; }
         array<eAIBase> all = new array<eAIBase>();
         all.Copy(eAIBase.eAI_GetAll());
@@ -1449,7 +1481,6 @@ class HCXAISiteDirector : Managed
             if (counted.Qualified) { qualified++; }
         }
         this.SaveRoutes();
-        if (m_RouteSave) { m_RouteSave.HCDirty = false; }
         Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v5; navmesh sample + bounded FindPath chains, one outdoor-ground retry; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
         m_Phase = "create";
         m_Cursor = 0;
@@ -1958,14 +1989,17 @@ class HCXAISiteDirector : Managed
         {
             if (state.Diagnosed) { done.Set(state.Site.Kind, true); }
         }
+        HCXAISiteState selected;
         foreach (HCXAISiteState candidate : m_States)
         {
             if (candidate.Transient || !candidate.Patrol || candidate.Diagnosed || done.Contains(candidate.Site.Kind)) { continue; }
-            candidate.Diagnosed = true;
-            Print("[HC Expansion AI] DIAGNOSTIC spawn of site " + candidate.Site.Id + " (" + candidate.Site.Kind + ")");
-            candidate.Patrol.Spawn();
-            return;
+            selected = candidate;
+            break;
         }
+        if (!selected) { return; }
+        selected.Diagnosed = true;
+        Print("[HC Expansion AI] DIAGNOSTIC spawn of site " + selected.Site.Id + " (" + selected.Site.Kind + ")");
+        selected.Patrol.Spawn();
     }
     // Select only an unmaterialized outdoor patrol anchor. HCFindLand is a
     // proposal; navmesh, route reachability and final sight veto still own it.
@@ -2415,6 +2449,9 @@ class HCXAISiteDirector : Managed
         vector at = state.CacheWorld;
         Print("[HC Expansion AI] site " + site.Id + " cache " + site.CacheClass + " seeded lifecycle " + row.Lifecycle.ToString() + " with " + created.ToString() + " items at " + at.ToString());
     }
+    // Creation barrier shared with HCXAIPickerCaches.HCPickerSeedCache: true
+    // authorizes entity/item creation immediately. Async conversion needs that
+    // caller's durable continuation as well; never return a queued receipt here.
     bool SaveCaches()
     {
         if (!m_Caches || m_Caches.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
@@ -2423,17 +2460,20 @@ class HCXAISiteDirector : Managed
         return JsonFileLoader<HCXAICacheJournal>.SaveFile(HCXAISiteDirector.CACHES, m_Caches, error);
     }
     // Dirty mark only: the scheduler job (or the Stop flush) performs the write.
-    void HCRoutesChanged()
-    {
-        if (m_RouteSave) { m_RouteSave.HCDirty = true; return; }
-        this.SaveRoutes();
-    }
+    void HCRoutesChanged() { this.SaveRoutes(); }
     bool SaveRoutes()
+    {
+        if (!m_Routes || m_Routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows() || !m_RouteSave) { return false; }
+        m_RouteSave.HCChanged();
+        return true;
+    }
+    // Native 3_Game/tools/JsonFileLoader.c:85 MakeData uses the same default
+    // prettyPrint=true as SaveFile (:40). Snapshot bytes/DTO remain compatible.
+    bool HCRoutesText(out string text)
     {
         if (!m_Routes || m_Routes.Rows.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return false; }
         string error;
-        MakeDirectory("$profile:HollowCountry");
-        return JsonFileLoader<HCXAIRouteCache>.SaveFile(HCXAISiteDirector.ROUTES, m_Routes, error);
+        return JsonFileLoader<HCXAIRouteCache>.MakeData(m_Routes, text, error);
     }
     bool SaveOwned()
     {
@@ -2487,6 +2527,10 @@ class HCXAISiteDirector : Managed
     }
     static HCXAIRouteCache LoadRoutes()
     {
+        // Startup only: interrupted disposable cache publication is requalified.
+        // No item or lease state uses this path. Native EnSystem.c:397/528.
+        string intent = HCXAISiteDirector.ROUTES + ".tmp";
+        if (FileExist(intent) && !DeleteFile(intent)) { return null; }
         if (!FileExist(HCXAISiteDirector.ROUTES)) { return new HCXAIRouteCache(); }
         string data = HCWorldStore.Read(HCXAISiteDirector.ROUTES);
         if (data == "") { return null; }
