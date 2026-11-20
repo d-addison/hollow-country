@@ -5,6 +5,7 @@ class HCGroupModule extends HCModule
     protected ref HCGroupService m_Service;
     // Wave 16: cached readiness derived from the live service, never hard-coded.
     protected string m_Refusal;
+    protected string m_AdmissionReason;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Groups"; }
@@ -18,15 +19,25 @@ class HCGroupModule extends HCModule
         if (m_Service) { started = true; }
         if (started && !HCRecoveryGate.HCReady("groups")) { fault = "recovery_gate_closed"; }
         HCModuleReadiness.HCDerive(m_Operational, started, m_Refusal, fault, "group_service_started");
+        if (!started && m_Refusal == "" && m_AdmissionReason != "") { m_Operational.HCPublish("off", m_AdmissionReason); }
         return m_Operational;
     }
 
     override bool IsEnabled(HCSettings settings)
     {
-        if (!settings || !settings.EnableGroups) return false;
+        m_Refusal = "";
+        m_AdmissionReason = "";
+        if (!settings) { m_Refusal = "core_settings_unavailable"; return false; }
+        if (!settings.EnableGroups) { m_AdmissionReason = "core_groups_disabled"; return false; }
         m_Config = HCGroupStore.LoadSettings();
-        if (!m_Config) Print("[HC Groups] settings unavailable or invalid; service inactive");
-        return m_Config && m_Config.Enabled;
+        if (!m_Config)
+        {
+            m_Refusal = "groups_settings_unavailable_or_invalid";
+            Print("[HC Groups] settings unavailable or invalid; service inactive");
+            return false;
+        }
+        if (!m_Config.Enabled) { m_AdmissionReason = "groups_settings_disabled"; return false; }
+        return true;
     }
 
     override void OnStart(HCSettings settings)

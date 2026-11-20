@@ -722,6 +722,98 @@ def bundle_rollback(mission):
             _undo_layers(target)
 
 
+def _restore_original_layers(mission, drifted):
+    """Explicit recovery: only receipt-owned targets; never used by normal rollback.
+
+    Called on scratch first, so every original and managed directory is checked
+    before live writes. The stopped server must have no concurrent file writers.
+    """
+    from tools.package import loot_boost, travel
+
+    def restore(name, original, digest, installed):
+        if digest != (None if original is None else sha(original)):
+            raise ValueError('recorded original sha mismatch: ' + name)
+        path = safe(mission / name)
+        current = read(path) if path.exists() else None
+        current_sha = None if current is None else sha(current)
+        if current_sha not in (digest, installed):
+            drifted.add(name)
+        if original is None:
+            if path.exists():
+                path.unlink()
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            # Use a separate managed staging directory, never an unowned target.
+            staging = mission / '.hc-restore-originals'
+            if staging.exists():
+                raise ValueError('restore staging already exists; reconcile manually')
+            staging.mkdir()
+            try:
+                atomic(path, original, staging)
+            finally:
+                staging.rmdir()
+
+    managed = safe(mission / loot_boost.MANAGED)
+    if managed.exists():
+        loot_boost._preflight(managed)
+        receipt = loot_boost._receipt(managed)
+        if receipt is None:
+            raise ValueError('loot boost receipt unreadable; recovery refused')
+        for row in receipt['files']:
+            # Receipt paths are validated by the existing loot receipt loader.
+            original = read(managed / row['backup'])
+            restore(row['name'], original, row['before'], row['after'])
+        loot_boost.rollback(mission)
+
+    def overlay(managed_name):
+        managed = safe(mission / managed_name)
+        if not managed.exists():
+            return
+        receipt = json.loads(read(managed / 'receipt.json', 128 * 1024 * 1024))
+        if receipt.get('schema') != 1 or not isinstance(receipt.get('files'), dict):
+            raise ValueError('invalid optional overlay receipt')
+        for name, row in receipt['files'].items():
+            if not allowed(name, managed_name) or not re.fullmatch('[0-9a-f]{64}', row['after']):
+                raise ValueError('invalid optional overlay target in receipt')
+            original = None if row['before'] is None else base64.b64decode(row['before'], validate=True)
+            restore(name, original, row['before_sha256'], row['after'])
+        rollback(mission, managed_name=managed_name)  # validates directory ownership too
+
+    overlay(MANAGED)
+    managed = safe(mission / travel.MANAGED)
+    if managed.exists():
+        receipt = travel._receipt(managed)  # validates paths, hashes and owned directory entries
+        restore('cfgeconomycore.xml', read(managed / 'core.backup'), receipt['before'], receipt['after'])
+        if receipt['schema'] == 2:
+            restore('cfgeventspawns.xml', read(managed / 'positions.backup'),
+                    receipt['positions_before'], receipt['positions_after'])
+        for name in travel.CE_FILES:
+            path = safe(managed / name)
+            if not path.exists() or sha(read(path)) != receipt[name]:
+                drifted.add(travel.MANAGED + '/' + name)
+        # These generated files had no originals. _receipt rejected all unknown entries.
+        shutil.rmtree(managed)
+    overlay(BUNDLE_MANAGED)
+
+
+def restore_originals(mission):
+    """Rehearse complete recovery; report drift; restore only receipted files."""
+    mission = mission_target(mission)
+    for path in mission.rglob('*'):
+        safe(path)
+    if (mission / '.hc-restore-originals').exists():
+        raise ValueError('restore staging already exists; reconcile manually')
+    drifted = set()
+    with tempfile.TemporaryDirectory(prefix='hc-restore-originals-') as directory:
+        scratch = Path(directory) / 'mission'
+        shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
+        _restore_original_layers(scratch, drifted)
+        for name in sorted(drifted):
+            print('drifted; restoring recorded original: ' + name)
+        _restore_original_layers(mission, set())
+    print('HC originals restored; operator tuning in owned files was discarded; runtime acceptance pending')
+
+
 def friend_bundle_plan(mission, rows):
     """Strip all generated dependency data and undo its edits in export bytes only."""
     before = installed_before(safe(mission))
@@ -932,14 +1024,16 @@ def launcher_rollback(args, repo, out, launcher):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    parser.add_argument('command', choices=('plan', 'apply', 'rollback', 'bundle-plan', 'bundle-apply', 'bundle-rollback'))
+    parser.add_argument('command', choices=('plan', 'apply', 'rollback', 'bundle-plan', 'bundle-apply', 'bundle-rollback', 'restore-originals'))
     parser.add_argument('--bundle', type=Path, default=ROOT)
     parser.add_argument('--mission', required=True, type=Path)
     parser.add_argument('--workshop-dir', type=Path)
     parser.add_argument('--loaded-mods', default='')
     args = parser.parse_args(argv)
     try:
-        if args.command.startswith('bundle-'):
+        if args.command == 'restore-originals':
+            restore_originals(args.mission)
+        elif args.command.startswith('bundle-'):
             if args.command == 'bundle-rollback':
                 bundle_rollback(args.mission)
             elif args.command == 'bundle-plan':

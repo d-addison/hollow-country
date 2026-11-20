@@ -6,7 +6,8 @@ PBO/server tests, client joins, persistence and single-client checks remain pend
 Nothing in a bundle build establishes DayZ behavior or production acceptance.
 
 The server and every client use this ordered list. Subscribe to the original
-Workshop items; never repack, modify or redistribute them.
+Workshop items; never repack, modify or redistribute them. Players must also
+subscribe to Expansion-Licensed and Expansion-Vehicles, in the manifest order below.
 
 | Item | Workshop ID | Installed server folder |
 | :--- | :--- | :--- |
@@ -14,6 +15,8 @@ Workshop items; never repack, modify or redistribute them.
 | Community Online Tools | 1564026768 | `@COT` |
 | Dabs Framework | 2545327648 | `@DabsFramework` |
 | Expansion Core | 2291785308 | `@Expansion-Core` |
+| Expansion-Licensed | 2116157322 | `@Expansion-Licensed` |
+| Expansion-Vehicles | 2291785437 | `@Expansion-Vehicles` |
 | Expansion AI | 2792982069 | `@Expansion-AI` |
 | Expansion Navigation | 2792984722 | `@Expansion-Navigation` |
 | SNAFU Weapons | 2443122116 | `@SnafuWeapons` |
@@ -188,7 +191,7 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-Licensed;@Expansion-Vehicles;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
 ```
 
 ## Release notes (2026-11-19 persistence recovery)

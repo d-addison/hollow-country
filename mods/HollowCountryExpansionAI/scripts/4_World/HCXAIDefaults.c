@@ -118,12 +118,72 @@ class HCXAIDefaults
         return policy.Sites.Count();
     }
 
+    // Native scripts-1.30.164289: 3_Game/tools/JsonFileLoader.c:69 LoadData,
+    // :85 MakeData. Compare typed values so JSON whitespace is not site drift.
+    protected static string PolicyDifferences()
+    {
+        HCXAISitePolicy profile;
+        HCXAISitePolicy shipped;
+        string error;
+        string profileData = HCWorldStore.Read(HCXAISiteDirector.POLICY);
+        string shippedData = HCWorldStore.Read(HCXAIDefaults.Shipped() + HCXAIDefaults.SitesFile());
+        if (!JsonFileLoader<HCXAISitePolicy>.LoadData(profileData, profile, error) || !profile) { return "comparison=profile_unreadable"; }
+        if (!JsonFileLoader<HCXAISitePolicy>.LoadData(shippedData, shipped, error) || !shipped) { return "comparison=shipped_unreadable"; }
+        if (!profile.Sites || !shipped.Sites) { return "comparison=sites_unreadable"; }
+        if (profile.Sites.Count() > HCXAISiteRules.HCMaxCatalogRows() || shipped.Sites.Count() > HCXAISiteRules.HCMaxCatalogRows()) { return "comparison=sites_row_budget"; }
+        if (profile.BuildVersion != shipped.BuildVersion)
+        {
+            Print("[HC Expansion AI] sites policy build stamp differs: profile=" + profile.BuildVersion + " shipped=" + shipped.BuildVersion);
+        }
+        string keys = "";
+        int count = 0;
+        HCXAIDefaults.DriftKey(profile.SchemaVersion != shipped.SchemaVersion, "SchemaVersion", keys, count);
+        HCXAIDefaults.DriftKey(profile.WorldName != shipped.WorldName, "WorldName", keys, count);
+        HCXAIDefaults.DriftKey(profile.BuildVersion != shipped.BuildVersion, "BuildVersion", keys, count);
+        HCXAIDefaults.DriftKey(profile.ObserverPolicy != shipped.ObserverPolicy, "ObserverPolicy", keys, count);
+        HCXAIDefaults.DriftKey(profile.MaxActiveAI != shipped.MaxActiveAI, "MaxActiveAI", keys, count);
+        HCXAIDefaults.DriftKey(profile.MaxActiveSites != shipped.MaxActiveSites, "MaxActiveSites", keys, count);
+        HCXAIDefaults.DriftKey(profile.MinPlayerDistance != shipped.MinPlayerDistance, "MinPlayerDistance", keys, count);
+        HCXAIDefaults.DriftKey(profile.LineOfSightRange != shipped.LineOfSightRange, "LineOfSightRange", keys, count);
+        HCXAIDefaults.DriftKey(profile.MaxLegLength != shipped.MaxLegLength, "MaxLegLength", keys, count);
+        HCXAIDefaults.DriftKey(profile.CacheClearRadius != shipped.CacheClearRadius, "CacheClearRadius", keys, count);
+        HCXAIDefaults.DriftKey(profile.AIRespawnSeconds != shipped.AIRespawnSeconds, "AIRespawnSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.PatrolRespawnSeconds != shipped.PatrolRespawnSeconds, "PatrolRespawnSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.HoldoutRespawnSeconds != shipped.HoldoutRespawnSeconds, "HoldoutRespawnSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.MilitaryRespawnSeconds != shipped.MilitaryRespawnSeconds, "MilitaryRespawnSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.MemberReplaceSeconds != shipped.MemberReplaceSeconds, "MemberReplaceSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.RaidCooldownFloorSeconds != shipped.RaidCooldownFloorSeconds, "RaidCooldownFloorSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.ActivationRadiusScale != shipped.ActivationRadiusScale, "ActivationRadiusScale", keys, count);
+        HCXAIDefaults.DriftKey(profile.BetrayalRetentionSeconds != shipped.BetrayalRetentionSeconds, "BetrayalRetentionSeconds", keys, count);
+        HCXAIDefaults.DriftKey(profile.MaxBetrayalRows != shipped.MaxBetrayalRows, "MaxBetrayalRows", keys, count);
+        HCXAIDefaults.DriftKey(profile.MaxSignalWorkPerSecond != shipped.MaxSignalWorkPerSecond, "MaxSignalWorkPerSecond", keys, count);
+        string profileSites;
+        string shippedSites;
+        if (!JsonFileLoader<array<ref HCXAISite>>.MakeData(profile.Sites, profileSites, error, false)) { return "comparison=sites_unreadable"; }
+        if (!JsonFileLoader<array<ref HCXAISite>>.MakeData(shipped.Sites, shippedSites, error, false)) { return "comparison=sites_unreadable"; }
+        string sites = "same";
+        if (profileSites != shippedSites) { sites = "different"; }
+        if (keys == "") { keys = "none"; }
+        return "policy_keys=" + keys + " differing_key_count=" + count.ToString() + " site_list=" + sites;
+    }
+
+    protected static void DriftKey(bool differs, string key, inout string keys, inout int count)
+    {
+        if (!differs) { return; }
+        if (count < 3)
+        {
+            if (keys != "") { keys = keys + ","; }
+            keys = keys + key;
+        }
+        count++;
+    }
+
     // "" when the operator policy is the shipped default; otherwise one line
     // naming the drift. The operator file is kept either way.
     static string PolicyDrift(bool identical, int profileSites, int shippedSites)
     {
         if (identical) { return ""; }
         if (shippedSites < 1) { return "[HC Expansion AI] sites policy shipped default unreadable; operator file kept"; }
-        return "[HC Expansion AI] sites policy differs from shipped default: profile sites=" + profileSites.ToString() + " shipped sites=" + shippedSites.ToString() + "; operator file kept; delete it to adopt the shipped default";
+        return "[HC Expansion AI] sites policy differs from shipped default: " + HCXAIDefaults.PolicyDifferences() + "; profile sites=" + profileSites.ToString() + " shipped sites=" + shippedSites.ToString() + "; operator file kept; delete it to adopt the shipped default";
     }
 }
