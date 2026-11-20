@@ -151,7 +151,7 @@ class HCTapedLightService
     static bool StateValid(HCTapedLightState s)
     {
         if (!s || s.Version != 1 || !s.Records) { return false; }
-        if (s.Records.Count() > 128) { return false; }
+        if (s.Records.Count() > 256) { return false; }
         int index = 0;
         foreach (HCTapedLightRecord r : s.Records)
         {
@@ -197,6 +197,56 @@ class HCTapedLightService
             index = index + 1;
         }
         return true;
+    }
+    // Keep the last 16 operation receipts, their mount predecessors, every
+    // current custody record and unresolved intent. Older completed cycles
+    // cannot be replayed as moves: Run still requires fresh physical custody.
+    // Three bounded passes over <=256 entries; no world/inventory scan.
+    static void Compact(HCTapedLightState s)
+    {
+        ref map<string, int> last = new map<string, int>;
+        ref map<int, bool> keep = new map<int, bool>;
+        int count = s.Records.Count();
+        for (int i = 0; i < count; i++)
+        {
+            HCTapedLightRecord r = s.Records[i];
+            bool recent = i >= count - 16;
+            bool unresolved = r.Phase != HCTapedLightPhase.MOUNTED && r.Phase != HCTapedLightPhase.REMOVED;
+            if (recent || unresolved)
+            {
+                keep.Set(i, true);
+                if (!r.Mounting && last.Contains(r.LightId)) { keep.Set(last.Get(r.LightId), true); }
+            }
+            last.Set(r.LightId, i);
+        }
+        foreach (string lightId, int latest : last)
+        {
+            if (s.Records[latest].Phase == HCTapedLightPhase.MOUNTED) { keep.Set(latest, true); }
+        }
+        for (int n = count - 1; n >= 0; n--)
+        {
+            if (!keep.Contains(n)) { s.Records.Remove(n); }
+        }
+    }
+    // 256 includes migration headroom: an old, valid 128-mount journal
+    // already owes 128 removals. New mounts must reserve all of those slots.
+    static bool HasCapacity(HCTapedLightState s, bool mounting)
+    {
+        if (s.Records.Count() >= 256) { return false; }
+        if (!mounting) { return true; }
+        ref map<string, bool> held = new map<string, bool>;
+        foreach (HCTapedLightRecord r : s.Records)
+        {
+            held.Set(r.LightId, r.Phase == HCTapedLightPhase.MOUNTED);
+        }
+        int outstanding = 0;
+        foreach (string lightId, bool mounted : held)
+        {
+            if (mounted) { outstanding++; }
+        }
+        // One new intent plus a future removal for each outstanding mount,
+        // including this one. A removal preserves this capacity invariant.
+        return s.Records.Count() + outstanding + 2 <= 256;
     }
     static int Open(HCTapedLightState s, HCTapedLightPort p)
     {
@@ -292,7 +342,8 @@ class HCTapedLightService
             if (!SameBinding(latest.BindingData, b)) { return HCTapedLightCode.BLOCKED; }
         }
         if (!p.CanTransfer(b, mounting)) { return HCTapedLightCode.BLOCKED; }
-        if (s.Records.Count() >= 128) { return HCTapedLightCode.LIMIT; }
+        Compact(s);
+        if (!HasCapacity(s, mounting)) { return HCTapedLightCode.LIMIT; }
         s.Busy = true;
         // Read back the intent before custody can become uncertain. Later
         // failure remains quarantined even if a fault-image write also fails.
@@ -383,8 +434,10 @@ class HCTapedLightCustody
     InventoryLocation Destination() { return null; }
 }
 
-// Immutable intent + full-image pairs, bounded at 768 images / 128 operations.
-// A partial highest pair blocks recovery. No older-state fallback or compaction.
+// Legacy format: immutable intent/image pairs, at most 768 image pairs.
+// Current format: two checkpoint pairs, <=256 records, <=1 MiB per image.
+// Legacy images migrate to two rotating checkpoint banks. Partial pairs block
+// recovery; no older-state fallback. Readback is not a native durability proof.
 // Exclusive server/profile ownership is required. File APIs supply no fsync.
 class HCTapedLightJournal
 {
@@ -392,6 +445,7 @@ class HCTapedLightJournal
     protected int mHCSequence;
     protected bool mHCFault;
     protected ref HCTapedLightState mHCState;
+    protected bool mHCCheckpoint;
 
     string Build()
     {
@@ -410,13 +464,13 @@ class HCTapedLightJournal
     }
     bool WriteNew(string path, string text)
     {
-        if (FileExist(path) || text.Length() < 1 || text.Length() > 262144) { return false; }
+        if (FileExist(path) || text.Length() < 1 || text.Length() > 1048576) { return false; }
         FileHandle handle = OpenFile(path, FileMode.WRITE);
         if (!handle) { return false; }
         FPrint(handle, text);
         CloseFile(handle);
         string actual;
-        return Read(path, 262144, actual) && actual == text;
+        return Read(path, 1048576, actual) && actual == text;
     }
     bool Configure(string name)
     {
@@ -448,6 +502,10 @@ class HCTapedLightJournal
     bool Load(HCTapedLightState state)
     {
         if (mHCFault || mHCRoot == "" || mHCState) { return false; }
+        if (FileExist(mHCRoot + "/checkpoint_0.intent") || FileExist(mHCRoot + "/checkpoint_1.intent") || FileExist(mHCRoot + "/checkpoint_0.json") || FileExist(mHCRoot + "/checkpoint_1.json"))
+        {
+            return LoadCheckpoint(state);
+        }
         string filename;
         FileAttr attr;
         FindFileHandle handle = FindFile(mHCRoot + "/*", filename, attr, FindFileFlags.DIRECTORIES);
@@ -504,20 +562,78 @@ class HCTapedLightJournal
         mHCState = state;
         return true;
     }
-    bool Save(HCTapedLightRecord record, int phase)
+    // Sequence comes from durable image history, never compacted record count.
+    string NextKey()
     {
-        if (!GetGame().IsServer() || mHCFault || !mHCState) { return false; }
-        if (mHCSequence >= 768 || !record || record.Phase != phase) { return false; }
-        if (mHCState.Records.Find(record) < 0) { return false; }
+        return "op_" + (mHCSequence + 1).ToString();
+    }
+    bool LoadCheckpoint(HCTapedLightState state)
+    {
+        HCTapedLightJournalImage newest;
+        for (int bank = 0; bank < 2; bank++)
+        {
+            string stem = mHCRoot + "/checkpoint_" + bank.ToString();
+            bool intentExists = FileExist(stem + ".intent");
+            bool imageExists = FileExist(stem + ".json");
+            if (!intentExists && !imageExists) { continue; }
+            string marker;
+            string text;
+            string error;
+            HCTapedLightJournalImage image;
+            if (!intentExists || !imageExists || !Read(stem + ".intent", 32, marker) || !Read(stem + ".json", 1048576, text)) { mHCFault = true; return false; }
+            if (!JsonFileLoader<HCTapedLightJournalImage>.LoadData(text, image, error)) { mHCFault = true; return false; }
+            if (!image || image.Sequence < 1 || image.Sequence.ToString() != marker || image.Sequence % 2 != bank) { mHCFault = true; return false; }
+            if (!HCTapedLightService.StateValid(image.State)) { mHCFault = true; return false; }
+            if (!newest || image.Sequence > newest.Sequence) { newest = image; }
+        }
+        if (!newest) { mHCFault = true; return false; }
+        state.Version = newest.State.Version;
+        state.Records = newest.State.Records;
+        state.Quarantined = newest.State.Quarantined;
+        mHCSequence = newest.Sequence;
+        mHCState = state;
+        mHCCheckpoint = true;
+        return true;
+    }
+    // Native 1_Core/proto/EnSystem.c:528 DeleteFile. Only obsolete images are
+    // reclaimed, after a complete checkpoint is read back. A crash during the
+    // bank overwrite leaves a mismatched pair and fails closed on restart.
+    bool Replace(string path, string text)
+    {
+        if (FileExist(path) && !DeleteFile(path)) { return false; }
+        return WriteNew(path, text);
+    }
+    bool Checkpoint()
+    {
+        if (!GetGame().IsServer() || mHCFault || !mHCState || mHCSequence >= 2000000000) { return false; }
+        HCTapedLightJournalImage image = new HCTapedLightJournalImage;
+        image.Sequence = mHCSequence + 1;
+        image.State = mHCState;
         string text;
         string error;
-        if (!JsonFileLoader<HCTapedLightState>.MakeData(mHCState, text, error)) { mHCFault = true; return false; }
-        int next = mHCSequence + 1;
-        string number = next.ToString();
-        if (!WriteNew(mHCRoot + "/intent_" + number + ".txt", number)) { mHCFault = true; return false; }
-        if (!WriteNew(mHCRoot + "/state_" + number + ".json", text)) { mHCFault = true; return false; }
-        mHCSequence = next;
+        if (!JsonFileLoader<HCTapedLightJournalImage>.MakeData(image, text, error)) { mHCFault = true; return false; }
+        string stem = mHCRoot + "/checkpoint_" + (image.Sequence % 2).ToString();
+        if (!Replace(stem + ".intent", image.Sequence.ToString()) || !Replace(stem + ".json", text)) { mHCFault = true; return false; }
+        int legacyHighest = mHCSequence;
+        mHCSequence = image.Sequence;
+        if (!mHCCheckpoint)
+        {
+            mHCCheckpoint = true;
+            // Migration only: at most the old 768 pairs. Recovery thereafter
+            // uses checkpoint banks even if a crash interrupted reclamation.
+            for (int n = 1; n <= legacyHighest; n++)
+            {
+                DeleteFile(mHCRoot + "/intent_" + n.ToString() + ".txt");
+                DeleteFile(mHCRoot + "/state_" + n.ToString() + ".json");
+            }
+        }
         return true;
+    }
+    bool Save(HCTapedLightRecord record, int phase)
+    {
+        if (!record || record.Phase != phase || !mHCState) { return false; }
+        if (mHCState.Records.Find(record) < 0) { return false; }
+        return Checkpoint();
     }
 }
 
@@ -762,6 +878,8 @@ class HCTapedLightPort
         if (!ActorAllowed() || !CustodyAvailable()) { return false; }
         return mHCJournal.Load(state);
     }
+    string NextKey() { return mHCJournal.NextKey(); }
+
     bool Write(HCTapedLightRecord record, int phase)
     {
         if (!mHCJournal || !GetGame().IsServer()) { return false; }

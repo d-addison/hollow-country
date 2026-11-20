@@ -488,9 +488,68 @@ class HCTapedLightRuntime
         if (!CanExecute(actor, host, mounting)) { return HCTapedLightCode.DENIED; }
         s_Busy = true;
         int result = ExecuteOwned(actor, host, mounting);
+        HCTapedLightPermit.End();
         s_Busy = false;
         Print("[HollowCountry] Taped light result=" + result.ToString() + " runtime acceptance PENDING");
         return result;
+    }
+
+    // EEItemDetached is physical evidence, including native inventory moves.
+    // No tape refund and no move/recreation: record the ended custody only.
+    static void Detached(EntityAI host, EntityAI light, string slotName)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !host || !light || s_Busy || s_Stopped) { return; }
+        if (light.GetType() != "TLRLight" && light.GetType() != "UniversalLight") { return; }
+        if (slotName != "weaponFlashlight" && slotName != "pistolFlashlight" && slotName != "helmetFlashlight" && slotName != "Chemlight") { return; }
+        if (!FileExist("$profile:HollowCountry/TapedLights/v1/build.txt")) { return; }
+        s_Busy = true;
+        if (!RecordDetach(host, light, slotName)) { s_Stopped = true; }
+        s_Busy = false;
+    }
+    protected static bool RecordDetach(EntityAI host, EntityAI light, string slotName)
+    {
+        HCTapedLightJournal journal = new HCTapedLightJournal;
+        if (!journal.Configure("v1")) { return false; }
+        HCTapedLightState state = new HCTapedLightState;
+        if (!journal.Load(state) || state.Quarantined) { return false; }
+        HCTapedLightPort keys = new HCTapedLightPort;
+        string lightKey = keys.PersistentKey(light);
+        string hostKey = keys.PersistentKey(host);
+        HCTapedLightRecord latest;
+        foreach (HCTapedLightRecord old : state.Records)
+        {
+            if (old.Phase != HCTapedLightPhase.MOUNTED && old.Phase != HCTapedLightPhase.REMOVED) { return false; }
+            if (old.LightId == lightKey) { latest = old; }
+        }
+        if (!latest || latest.Phase != HCTapedLightPhase.MOUNTED) { return true; }
+        if (latest.HostId != hostKey || latest.BindingData.SlotName != slotName) { return true; }
+        HCTapedLightService.Compact(state);
+        if (!HCTapedLightService.HasCapacity(state, false)) { return false; }
+        HCTapedLightRecord receipt = new HCTapedLightRecord;
+        receipt.RecordKey = journal.NextKey();
+        receipt.ActorId = latest.ActorId;
+        receipt.HostId = latest.HostId;
+        receipt.LightId = latest.LightId;
+        receipt.Mounting = false;
+        receipt.Phase = HCTapedLightPhase.REMOVED;
+        receipt.BindingData = HCTapedLightService.CopyBinding(latest.BindingData);
+        // A historical custody receipt, not a claim about current health or
+        // actor ownership. Preserve the prior snapshot and adjust only place.
+        HCTapedLightSnapshot before = new HCTapedLightSnapshot;
+        before.ActorId = latest.BeforeData.ActorId;
+        before.HostId = latest.BeforeData.HostId;
+        before.LightId = latest.BeforeData.LightId;
+        before.BatteryId = latest.BeforeData.BatteryId;
+        before.HostHealth = latest.BeforeData.HostHealth;
+        before.LightHealth = latest.BeforeData.LightHealth;
+        before.BatteryHealth = latest.BeforeData.BatteryHealth;
+        before.BatteryEnergy = latest.BeforeData.BatteryEnergy;
+        before.LightEnergy = latest.BeforeData.LightEnergy;
+        before.Place = 1;
+        receipt.BeforeData = before;
+        state.Records.Insert(receipt);
+        if (!HCTapedLightService.StateValid(state)) { return false; }
+        return journal.Checkpoint();
     }
 
     protected static int ExecuteOwned(PlayerBase actor, ItemBase host, bool mounting)
@@ -505,6 +564,7 @@ class HCTapedLightRuntime
         ref HCTapedLightV1Qualification qualification = new HCTapedLightV1Qualification;
         HCTapedLightBinding binding = qualification.Resolve(host, light);
         if (!binding) { return HCTapedLightCode.BLOCKED; }
+        if (!HCTapedLightPermit.Begin(host, light, binding)) { return HCTapedLightCode.BLOCKED; }
         ref HCTapedLightV1Custody custody = new HCTapedLightV1Custody(binding);
         ref HCTapedLightPort port = new HCTapedLightPort;
         if (!port.Configure(actor, host, light, tape, qualification, custody, "v1")) { return HCTapedLightCode.BLOCKED; }
@@ -516,8 +576,8 @@ class HCTapedLightRuntime
             return opened;
         }
         // One server journal serializes all actors, preventing independent
-        // caches from overwriting history. Never compact or fall back on faults.
-        string key = "op_" + state.Records.Count().ToString();
+        // caches from overwriting history. Sequence keys survive compaction.
+        string key = port.NextKey();
         int result = HCTapedLightService.Run(state, port, key, mounting);
         if (result == HCTapedLightCode.QUARANTINED) { s_Stopped = true; }
         return result;
