@@ -17,6 +17,8 @@ class HCServer
     protected bool m_Started;
     protected bool m_SettingsRefusalLogged;
     protected float m_LastTick;
+    // False until the first queued Tick after Start rebaselines the clock.
+    protected bool m_TickBaselined;
     protected float m_OperationalRefreshAt;
     protected ref HCPerfSampler m_Perf = new HCPerfSampler();
     // Wave 13 (#138): ONE shared per-tick work budget, reset to MaxTickWorkItems at the top of Tick()
@@ -140,6 +142,7 @@ class HCServer
         foreach (HCModule readyModule : modules) { readyModule.HCReadyReport(); }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
+        m_TickBaselined = false;
         m_OperationalRefreshAt = m_LastTick + 15;
         m_Perf.Start(60);
         m_TickActive = false;
@@ -164,6 +167,16 @@ class HCServer
     {
         if (!m_Started || !GetGame() || !GetGame().IsServer()) return;
         float now = GetGame().GetTickTime();
+        // Native mission and CE init run between Start and the first queued tick and can take
+        // minutes on slow disks (10 min observed on an HDD install). That gap is not a clock
+        // jump: rebaseline once, then the discontinuity guard applies to every later tick.
+        if (!m_TickBaselined)
+        {
+            m_TickBaselined = true;
+            m_LastTick = now;
+            m_OperationalRefreshAt = now + 15;
+            return;
+        }
         float elapsed = now - m_LastTick;
         m_LastTick = now;
         // Preserve real TTL/cooldown time without unbounded catch-up callbacks.
