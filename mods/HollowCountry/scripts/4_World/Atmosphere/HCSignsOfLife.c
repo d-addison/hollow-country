@@ -382,6 +382,8 @@ modded class HCModuleRegistry
 // 1_Core/proto/Serializer.c:57 Write, :58 Read; 3_Game/Global/Game.c:945
 // GetPlayers, :1120 IsServer; Entities/Man.c:21 GetIdentity;
 // 1_Core/proto/EnScript.c:380/385/407 Count/Clear/Insert.
+// 3_Game/Entities/Object.c:287 GetPosition;
+// 1_Core/proto/EnConvert.c:210 vector.DistanceSq.
 // 4853903 was unused in mods/ when assigned. Two-client acceptance pending.
 class HCSignsHoldoutRPC
 {
@@ -392,10 +394,20 @@ class HCSignsHoldoutRPC
     {
         if (!GetGame().IsServer() || !identity || !player) { return; }
         if (player.GetIdentity() != identity || s_Occupied.Count() > 24) { return; }
-        ScriptRPC rpc = new ScriptRPC;
-        rpc.Write(s_Occupied.Count());
+        // Same ambience radius as client house scans, with a 25 m edge margin.
+        // Filter before serialization; remote house coordinates never go on wire.
+        float radius = HCSignsConfig.HCGet().HouseRadius + 25.0;
+        vector center = player.GetPosition();
+        array<vector> nearby = new array<vector>;
         array<vector> occupied = s_Occupied;
-        foreach (vector position : occupied) { rpc.Write(position); }
+        foreach (vector position : occupied)
+        {
+            if (vector.DistanceSq(position, center) <= radius * radius) { nearby.Insert(position); }
+        }
+        ScriptRPC rpc = new ScriptRPC;
+        // An empty snapshot explicitly clears positions from the previous area.
+        rpc.Write(nearby.Count());
+        foreach (vector nearbyPosition : nearby) { rpc.Write(nearbyPosition); }
         // Null target avoids waiting for the player entity to replicate.
         rpc.Send(null, HCSignsHoldoutRPC.RPC_HOLDOUTS, true, identity);
     }
@@ -412,9 +424,13 @@ class HCSignsHoldoutRPC
                 if (positions[compareIndex] != s_Occupied[compareIndex]) { changed = true; }
             }
         }
-        if (!changed) { return; }
-        s_Occupied.Clear();
-        foreach (vector position : positions) { s_Occupied.Insert(position); }
+        if (changed)
+        {
+            s_Occupied.Clear();
+            foreach (vector position : positions) { s_Occupied.Insert(position); }
+        }
+        // Refresh on every publish even if occupancy is unchanged: recipients
+        // can move into/out of range. Work stays <=24 positions per capped peer.
         array<Man> players = new array<Man>;
         GetGame().GetPlayers(players);
         int playerCount = Math.Min(players.Count(), HCSignsConfig.HCGet().SnapshotPlayers);
@@ -423,6 +439,6 @@ class HCSignsHoldoutRPC
             PlayerBase player = PlayerBase.Cast(players[playerIndex]);
             if (player) { SendTo(player.GetIdentity(), player); }
         }
-        Print("[HollowCountry] V2 signs of life holdout snapshot=" + s_Occupied.Count().ToString());
+        if (changed) { Print("[HollowCountry] V2 signs of life holdout snapshot=" + s_Occupied.Count().ToString()); }
     }
 }
