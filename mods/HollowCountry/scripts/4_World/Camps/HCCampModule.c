@@ -146,6 +146,12 @@ class HCCampModule : HCModule
     protected static HCCampModule s_Instance;
     protected static ref array<FireplaceBase> s_Fires = new array<FireplaceBase>();
     protected static bool s_FireCapLogged;
+    protected ref HCCampSaveJob m_SaveJob;
+    protected int m_CheckpointRevision;
+    protected int m_DurableRevision;
+    protected ref array<ref HCCampRecognition> m_Recognitions = new array<ref HCCampRecognition>;
+    protected ref HCCampRecord m_VisitorCamp;
+    protected int m_VisitorReceipt;
     protected int m_CheckpointUtc;
     protected ref HCV2ThreatStore<HCCampData> m_CheckpointWriter = new HCV2ThreatStore<HCCampData>;
     protected ref HCCampData m_Data;
@@ -169,8 +175,6 @@ class HCCampModule : HCModule
     protected int m_PendingSince;
     protected int m_PendingStage;
     protected int m_PendingCheckpoint;
-    protected int m_CompletedCheckpoints;
-    protected bool m_RoutineCheckpoint;
     protected ref HCWorkBudget m_MaintenanceWork = new HCWorkBudget;
 
     override string GetName() { return "Camps"; }
@@ -237,8 +241,10 @@ class HCCampModule : HCModule
         m_LastSaved = m_LastUtc;
         m_PendingCamp = null;
         m_PendingScan = null;
-        m_RoutineCheckpoint = false;
         m_Running = true;
+        m_SaveJob = new HCCampSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         m_Status.HCPublish("ready", "camp_store_loaded_native_acceptance_pending");
         s_Instance = this;
         if (settings.EnableGroups)
@@ -264,17 +270,35 @@ class HCCampModule : HCModule
         Print("[HollowCountry] V2 camps disabled: UTC/schema/world/persistence fault; preserve camps.json, .tmp and .bak");
     }
 
-    // Perf batch E / #261: custody barrier, also called by HCBuildingClaim,
-    // HCBaseRaid, HCCampVisitors and HCCampProbes before their side effects.
-    // Those owners need durable continuations before this can become a request.
-    // Routine maintenance already uses HCStepCheckpoint below.
+    HCSaveJob HCCheckpointJob() { return m_SaveJob; }
+    int HCRequestCheckpoint(int now, bool barrier = true)
+    {
+        if (!m_Running || !m_SaveJob || now < m_LastUtc) { Fail(); return -1; }
+        m_CheckpointRevision++;
+        m_SaveJob.HCDirty = true;
+        if (barrier) { m_SaveJob.HCUrgent = true; m_SaveJob.HCDue = 0; }
+        return m_CheckpointRevision;
+    }
+    bool HCDurable(int receipt) { return m_Running && receipt > 0 && m_DurableRevision >= receipt; }
+    protected void HCRecognise(HCCampRecord camp, int now, int kind)
+    {
+        int receipt = HCRequestCheckpoint(now);
+        if (receipt < 1) { return; }
+        HCCampRecognition notice = new HCCampRecognition;
+        notice.Camp = camp;
+        notice.Receipt = receipt;
+        notice.Kind = kind;
+        m_Recognitions.Insert(notice); // At most one discovery and one promotion per bounded camp.
+    }
+    void HCVisitorReceipt(HCCampRecord camp, int receipt) { m_VisitorCamp = camp; m_VisitorReceipt = receipt; }
+
+    // Explicit authenticated actions and shutdown retain their synchronous barrier.
     bool Commit(int now)
     {
-        bool hadCheckpoint = m_CheckpointWriter.SaveInFlight();
         if (!m_Running || now < m_LastUtc || !m_CheckpointWriter.FinishSave() || !HCCampStore.Save(m_Data, now)) { Fail(); return false; }
-        if (hadCheckpoint) { m_CompletedCheckpoints++; }
-        m_CompletedCheckpoints++;
         m_LastSaved = now;
+        m_DurableRevision = m_CheckpointRevision;
+        if (m_SaveJob) { m_SaveJob.HCDirty = false; m_SaveJob.HCUrgent = false; }
         return true;
     }
 
@@ -288,10 +312,10 @@ class HCCampModule : HCModule
             m_CheckpointUtc = now;
             if (!HCCampStore.CanCheckpoint(m_Data, now)) { Fail(); return HCSaveJob.STEP_FAILED; }
         }
-        int result = m_CheckpointWriter.SaveStep(HCCampStore.PATH, m_Data, HCCampStore.BYTES);
+        int result = m_CheckpointWriter.SaveStep(HCCampStore.PATH, m_Data, HCCampStore.BYTES, m_CheckpointRevision);
         if (result == HCSaveJob.STEP_FAILED) { Fail(); }
         // Use the snapshot timestamp so a later automatic Commit remains due.
-        if (result == HCSaveJob.STEP_DONE) { m_LastSaved = m_CheckpointUtc; m_CompletedCheckpoints++; }
+        if (result == HCSaveJob.STEP_DONE) { m_LastSaved = m_CheckpointUtc; m_DurableRevision = m_CheckpointRevision; if (m_SaveJob) { m_SaveJob.HCDirty = false; m_SaveJob.HCUrgent = false; } }
         return result;
     }
 
@@ -373,9 +397,7 @@ class HCCampModule : HCModule
         if (camp.FireRef == "") { camp.FireRef = camp.Id + "-hearth"; }
         camp.LastLit = now;
         m_Data.Camps.Insert(camp);
-        if (!Commit(now)) { return; }
-        Tell(camp, "Your group's fire is recognised as a camp. Nearby native structures determine its tier.");
-        Print("[HollowCountry] V2 camps recognised camp=" + camp.Id + " tier=0");
+        HCRecognise(camp, now, 0);
     }
 
     protected FireplaceBase FireFor(HCCampRecord camp)
@@ -404,14 +426,13 @@ class HCCampModule : HCModule
         camp.Flag = scan.Flag;
         camp.Members = scan.Items;
         // Maintenance is a continuation, not a synchronous custody barrier.
-        // Finish any older snapshot, then persist this scan before side effects.
+        // The shared job refreshes an older image before acknowledging this scan.
         m_PendingCamp = camp;
         m_PendingScan = scan;
         m_PendingPreviousTier = previous;
         m_PendingSince = now;
         m_PendingStage = 0;
-        m_PendingCheckpoint = m_CompletedCheckpoints + 1;
-        if (m_CheckpointWriter.SaveInFlight()) { m_PendingCheckpoint++; }
+        m_PendingCheckpoint = HCRequestCheckpoint(now);
     }
 
     protected void HCResumeCamp(int now)
@@ -419,13 +440,7 @@ class HCCampModule : HCModule
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
         m_MaintenanceWork.HCReset(1);
         if (!m_MaintenanceWork.HCContinue()) { return; }
-        if (m_CompletedCheckpoints < m_PendingCheckpoint)
-        {
-            // Same writer used by BuildingClaimVisits. Its completion counter
-            // also observes scheduler/barrier progress; no second store owner.
-            HCStepCheckpoint(now);
-            return;
-        }
+        if (!HCDurable(m_PendingCheckpoint)) { return; }
         HCCampRecord camp = m_PendingCamp;
         HCCampScan scan = m_PendingScan;
         if (now - m_PendingSince > 60)
@@ -653,6 +668,29 @@ class HCCampModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !(deltaTime > 0)) { return; }
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
+        if (m_SaveJob.HCFaulted) { Fail(); return; }
+        if (m_Recognitions.Count() > 0 && HCDurable(m_Recognitions[0].Receipt))
+        {
+            HCCampRecognition notice = m_Recognitions[0];
+            m_Recognitions.RemoveOrdered(0);
+            m_Players.Clear();
+            GetGame().GetPlayers(m_Players);
+            if (notice.Kind != 2 && m_Players.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { Tell(notice.Camp, "Your group's fire is recognised as a camp. Nearby native structures determine its tier."); }
+            if (notice.Kind == 0) { Print("[HollowCountry] V2 camps recognised camp=" + notice.Camp.Id + " tier=0"); }
+            else if (notice.Kind == 1) { Print("[HC Plan] HC-17 containers=promoted_to_hearth camp=" + notice.Camp.Id + " runtime=PENDING"); }
+            else { Print("[HC Plan] HC-17 containers=recognised camp=" + notice.Camp.Id + " persistence=native runtime=PENDING"); }
+        }
+        if (m_VisitorCamp && HCDurable(m_VisitorReceipt))
+        {
+            Print("[HC Plan] HC-16 camp=" + m_VisitorCamp.Id + " level=" + m_VisitorCamp.Tier.ToString() + " supply=0 roles=0 state=refused refusal=VISITOR_BODY_NOT_OBSERVED runtime=PENDING");
+            m_VisitorCamp = null;
+        }
+        // Warning recipients must come from the current server roster after the save.
+        m_Players.Clear();
+        GetGame().GetPlayers(m_Players);
+        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); }
+        HCBaseRaid.HCAdvanceWarning(this, HCWorldClock.UTC());
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
         if (claims) { claims.HCStep(deltaTime); }
         HCReached.Mark("camps.maintenance");
@@ -662,16 +700,6 @@ class HCCampModule : HCModule
             if (pendingNow < m_LastUtc || pendingNow < 1) { Fail(); return; }
             m_LastUtc = pendingNow;
             HCResumeCamp(pendingNow);
-            return;
-        }
-        if (m_RoutineCheckpoint)
-        {
-            int checkpointNow = HCWorldClock.UTC();
-            if (checkpointNow < m_LastUtc || checkpointNow < 1) { Fail(); return; }
-            m_LastUtc = checkpointNow;
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
-            int checkpointResult = HCStepCheckpoint(checkpointNow);
-            if (checkpointResult != HCSaveJob.STEP_MORE) { m_RoutineCheckpoint = false; }
             return;
         }
         m_Elapsed += Math.Min(deltaTime, HCGCCampGroupConfig.Get().CampTickSeconds);
@@ -692,7 +720,7 @@ class HCCampModule : HCModule
         }
         if (!m_Running) { return; }
         HCStepEncounter(now);
-        if (m_Running && !m_PendingCamp && now - m_LastSaved >= HCGCCampGroupConfig.Get().CampSaveSeconds) { m_RoutineCheckpoint = true; }
+        if (m_Running && !m_PendingCamp && !m_SaveJob.HCDirty && now - m_LastSaved >= HCGCCampGroupConfig.Get().CampSaveSeconds) { HCRequestCheckpoint(now); }
     }
 
     override void OnStop()
@@ -701,10 +729,31 @@ class HCCampModule : HCModule
         m_PendingScan = null;
         HCBuildingClaim.HCStop();
         if (m_Running) { Commit(HCWorldClock.UTC()); }
+        HCSaveScheduler.HCUnregister(m_SaveJob);
+        m_Recognitions.Clear();
+        m_VisitorCamp = null;
         m_Running = false;
         m_Status.HCPublish("off", "camp_owner_stopped");
         if (s_Instance == this) { s_Instance = null; }
         m_Players.Clear();
+    }
+}
+
+class HCCampRecognition
+{
+    ref HCCampRecord Camp;
+    int Receipt;
+    int Kind;
+}
+
+class HCCampSaveJob : HCSaveJob
+{
+    HCCampModule Owner;
+    override string HCName() { return "Camps"; }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepCheckpoint(HCWorldClock.UTC());
     }
 }
 

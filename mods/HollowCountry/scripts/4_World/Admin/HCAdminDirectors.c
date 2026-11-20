@@ -386,8 +386,8 @@ modded class HCCampModule
         int previous = selected.Tier;
         selected.Tier = requested;
         reason = "camp-tier-persistence-refused";
-        if (!Commit(HCWorldClock.UTC())) { selected.Tier = previous; return false; }
-        reason = "camp-tier-persisted; next-normal-scan-reclassifies; runtime=PENDING";
+        if (HCRequestCheckpoint(HCWorldClock.UTC()) < 1) { selected.Tier = previous; return false; }
+        reason = "camp-tier-checkpoint-queued; next-normal-scan-reclassifies; runtime=PENDING";
         return true;
     }
 
@@ -684,7 +684,7 @@ modded class HCSearchRefreshModule
         int previousLast = m_State.LastUtc;
         row.SearchedUtc = now - HCSearchRefreshPolicy.Interval(row.SiteId);
         m_State.LastUtc = now;
-        if (!m_Store.Save(m_State))
+        if (!HCRequestCheckpoint(true))
         {
             row.SearchedUtc = previousSearched;
             m_State.LastUtc = previousLast;

@@ -632,6 +632,12 @@ class HCScavengeTrip
     bool m_Ready;
     bool m_Busy;
     protected int m_Reports;
+    protected HCCampModule m_TheftPendingOwner;
+    protected ref HCCampRecord m_TheftPendingCamp;
+    protected ItemBase m_TheftPendingCrate;
+    protected int m_TheftPendingReceipt;
+    protected int m_TheftPendingUtc;
+    protected int m_TheftPendingLimit;
 
     void HCOpen()
     {
@@ -649,8 +655,9 @@ class HCScavengeTrip
     // #201: substitute only an observed local source before the first debit.
     // The existing HCStep owns acquire/return intents and the same-item TakeToDst.
     // One item per trip is the existing structural custody ceiling.
-    string HCTheftPickup(HCCampModule owner, HCCampRecord camp, ItemBase crate, int now, int dailyLimit)
+    string HCTheftPickup(HCCampModule owner, HCCampRecord camp, ItemBase crate, int now, int dailyLimit, bool durable = false)
     {
+        if (!durable && m_TheftPendingCamp) { return "THEFT_CHECKPOINT_PENDING"; }
         if (!m_Ready || m_Busy || !m_State || !m_IO) { return "THEFT_PICKER_UNAVAILABLE"; }
         if (m_State.Phase != "leaving" || m_IO.HCTheftCamp) { return "THEFT_NO_EMPTY_TRAVELLING_PARTY"; }
         if (!m_IO.HCPartyCurrent(m_State) || !m_IO.HCLive()) { return "THEFT_PARTY_LEASE_LOST"; }
@@ -668,8 +675,19 @@ class HCScavengeTrip
         if (sourceId == "" || itemId == "") { return "THEFT_PERSISTENT_ID_ABSENT"; }
         // Two stores cannot be atomic with Hive. A partial barrier spends the
         // opportunity conservatively; never roll back/replay a native transfer.
-        camp.LastTheft = now;
-        if (!owner.Commit(now)) { return "THEFT_CAMP_STORE_UNAVAILABLE"; }
+        if (!durable)
+        {
+            camp.LastTheft = now;
+            int receipt = owner.HCRequestCheckpoint(now);
+            if (receipt < 1) { return "THEFT_CAMP_STORE_UNAVAILABLE"; }
+            m_TheftPendingOwner = owner;
+            m_TheftPendingCamp = camp;
+            m_TheftPendingCrate = crate;
+            m_TheftPendingReceipt = receipt;
+            m_TheftPendingUtc = now;
+            m_TheftPendingLimit = dailyLimit;
+            return "";
+        }
         if (today != m_State.HCTheftDay) { m_State.HCTheftAttempts = 0; }
         m_State.HCTheftDay = today;
         m_State.HCTheftAttempts = m_State.HCTheftAttempts + 1;
@@ -746,6 +764,16 @@ class HCScavengeTrip
     void HCStep()
     {
         if (!m_Ready || m_Busy || !m_State || !m_IO) { return; }
+        if (m_TheftPendingCamp)
+        {
+            int now = HCWorldClock.UTC();
+            if (!m_TheftPendingOwner || m_TheftPendingOwner != HCCampModule.Get() || now < m_TheftPendingUtc || now - m_TheftPendingUtc > 60) { m_TheftPendingCamp = null; return; }
+            if (!m_TheftPendingOwner.HCDurable(m_TheftPendingReceipt)) { return; }
+            HCCampRecord camp = m_TheftPendingCamp;
+            m_TheftPendingCamp = null;
+            HCTheftPickup(m_TheftPendingOwner, camp, m_TheftPendingCrate, now, m_TheftPendingLimit, true);
+            return;
+        }
         bool returning = m_State.Phase == "returning";
         if (!returning && m_State.Phase != "leaving") { return; }
         if (!m_IO.HCPartyCurrent(m_State)) { HCLose("PARTY_LEASE_LOST"); return; }

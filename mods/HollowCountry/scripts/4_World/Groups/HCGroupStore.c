@@ -147,40 +147,72 @@ class HCGroupStore
         return true;
     }
 
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
+    protected int m_Part;
+    protected string m_PendingText;
+    protected string m_ReceiptText;
+    protected int m_TargetRevision;
+
+    // Write/verify immutable intent, then image, then commit. Publish/prune only
+    // after all three agree. A partial highest triple keeps Open fail-closed.
+    int SaveStep(HCGroupState state)
+    {
+        if (m_Fault) { return HCSaveJob.STEP_FAILED; }
+        if (m_Part == 0)
+        {
+            if (!state || state.Revision != m_Latest + 1 || !HCGroupRules.StateValid(state, m_Settings, GetGame().GetWorldName())) { Fault(); return HCSaveJob.STEP_FAILED; }
+            string error;
+            array<ref HCGroupInvitation> invitations = state.Invitations;
+            state.Invitations = new array<ref HCGroupInvitation>;
+            bool serialized = JsonFileLoader<HCGroupState>.MakeData(state, m_PendingText, error);
+            state.Invitations = invitations;
+            if (!serialized || m_PendingText.Length() > m_Settings.MaxStoreBytes) { Fault(); return HCSaveJob.STEP_FAILED; }
+            HCGroupReceipt receipt = new HCGroupReceipt;
+            receipt.Revision = state.Revision;
+            receipt.WorldName = state.WorldName;
+            receipt.Length = m_PendingText.Length();
+            receipt.Hash = m_PendingText.Hash();
+            if (!JsonFileLoader<HCGroupReceipt>.MakeData(receipt, m_ReceiptText, error)) { Fault(); return HCSaveJob.STEP_FAILED; }
+            m_TargetRevision = state.Revision;
+            m_Part = 1;
+            return HCSaveJob.STEP_MORE;
+        }
+        int old = m_TargetRevision - m_Settings.KeepRevisions;
+        if (m_Part > 6 || (m_Part > 3 && old < 1))
+        {
+            m_Latest = m_TargetRevision;
+            m_Part = 0;
+            m_PendingText = "";
+            m_ReceiptText = "";
+            return HCSaveJob.STEP_DONE;
+        }
+        if (!m_Image.Active())
+        {
+            bool began;
+            if (m_Part == 1) { began = m_Image.BeginNew(PathFor("intent_", m_TargetRevision), m_ReceiptText, 1024); }
+            if (m_Part == 2) { began = m_Image.BeginNew(PathFor("state_", m_TargetRevision), m_PendingText, m_Settings.MaxStoreBytes); }
+            if (m_Part == 3) { began = m_Image.BeginNew(PathFor("commit_", m_TargetRevision), m_ReceiptText, 1024); }
+            if (m_Part == 4) { began = m_Image.BeginRemove(PathFor("intent_", old)); }
+            if (m_Part == 5) { began = m_Image.BeginRemove(PathFor("state_", old)); }
+            if (m_Part == 6) { began = m_Image.BeginRemove(PathFor("commit_", old)); }
+            if (!began) { Fault(); return HCSaveJob.STEP_FAILED; }
+        }
+        int result = m_Image.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { Fault(); return result; }
+        if (result == HCSaveJob.STEP_DONE) { m_Part++; }
+        return HCSaveJob.STEP_MORE;
+    }
+
     bool Save(HCGroupState state)
     {
-        if (m_Fault || !state || state.Revision != m_Latest + 1 || !HCGroupRules.StateValid(state, m_Settings, GetGame().GetWorldName())) return Fault();
-        // Invitations stay ephemeral on disk: hold the live array in a local,
-        // serialise once with an empty one, then put the live array back. A
-        // native Swap between ref arrays does not compile.
-        string text;
-        string error;
-        array<ref HCGroupInvitation> invitations = state.Invitations;
-        state.Invitations = new array<ref HCGroupInvitation>();
-        bool serialized = JsonFileLoader<HCGroupState>.MakeData(state, text, error);
-        state.Invitations = invitations;
-        if (!serialized || text.Length() > m_Settings.MaxStoreBytes) return Fault();
-        HCGroupReceipt receipt = new HCGroupReceipt;
-        receipt.Revision = state.Revision;
-        receipt.WorldName = state.WorldName;
-        receipt.Length = text.Length();
-        receipt.Hash = text.Hash();
-        if (!HCGroupJson<HCGroupReceipt>.WriteNew(PathFor("intent_", state.Revision), receipt, 1024)) return Fault();
-        if (!HCGroupIO.WriteNew(PathFor("state_", state.Revision), text, m_Settings.MaxStoreBytes)) return Fault();
-        if (!HCGroupJson<HCGroupReceipt>.WriteNew(PathFor("commit_", state.Revision), receipt, 1024)) return Fault();
-        m_Latest = state.Revision;
-        // Only exact owned old triples are pruned after a verified new commit.
-        // Partial pruning leaves highest intact; any failure disables mutations.
-        int old = m_Latest - m_Settings.KeepRevisions;
-        if (old > 0)
+        int result = HCSaveJob.STEP_MORE;
+        int stages;
+        // Startup and explicit owner barriers only; routine batches use SaveStep.
+        while (result == HCSaveJob.STEP_MORE && stages < HCStagedSaveImage.HC_MAX_STAGES + 32)
         {
-            string oldIntent = PathFor("intent_", old);
-            string oldImage = PathFor("state_", old);
-            string oldCommit = PathFor("commit_", old);
-            if (FileExist(oldIntent) && !DeleteFile(oldIntent)) return Fault();
-            if (FileExist(oldImage) && !DeleteFile(oldImage)) return Fault();
-            if (FileExist(oldCommit) && !DeleteFile(oldCommit)) return Fault();
+            result = SaveStep(state);
+            stages++;
         }
-        return true;
+        return result == HCSaveJob.STEP_DONE;
     }
 }

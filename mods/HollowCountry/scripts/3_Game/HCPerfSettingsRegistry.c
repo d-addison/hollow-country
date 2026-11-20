@@ -36,6 +36,18 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Performance.TickWeight_AI_ROUTES", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.TickWeight_POLICE_BIND", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.TickWeight_ROADS", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_INFECTED_VARIETY", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_INFECTED_VARIETY_ROUTES", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_SITUATION_RUNTIME", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_SITUATION_SMOKE", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_ADMIN_VISITOR", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_TACTICS_SCAN", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_AI_TRADE_PRODUCER", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_CONVOY_ROUTE", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_CONVOY_RUN", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_SEARCH_COVERAGE", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_SEARCH_RETIREMENT", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_WILDLIFE", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.EnableSharedSaves", "bool", 1, 0, 1, "HCPerfConfig");
         HCAdd("Performance.SliceMs", "int", 4, 1, 10, "HCPerfConfig");
         HCAdd("Performance.SaveStageTargetMs", "int", 10, 1, 10, "HCPerfConfig");

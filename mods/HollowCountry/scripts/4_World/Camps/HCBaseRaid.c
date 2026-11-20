@@ -61,6 +61,7 @@ class HCBaseRaidPort
     // Cached sensing state only; status reads must not search for a party.
     string HCWaitingReason() { return ""; }
     bool HCSeen(HCCampRecord camp, HCCampScan scan) { return false; }
+    bool HCRetainedSeen(HCCampRecord camp, HCCampScan scan) { return false; }
     bool HCReserve(HCCampModule owner, HCCampRecord camp, int now) { return false; }
     void HCWarned(HCCampRecord camp, int now) {}
     void HCCancel() {}
@@ -70,6 +71,35 @@ class HCBaseRaidPort
 
 class HCBaseRaid
 {
+    protected static HCCampModule s_WarningOwner;
+    protected static ref HCCampRecord s_WarningCamp;
+    protected static ref HCCampScan s_WarningScan;
+    protected static HCBaseRaidPort s_WarningPort;
+    protected static int s_WarningReceipt;
+    protected static int s_WarningUtc;
+
+    static void HCAdvanceWarning(HCCampModule owner, int now)
+    {
+        if (!s_WarningCamp || owner != s_WarningOwner) { return; }
+        HCBaseRaidPort port = s_WarningPort;
+        if (owner != HCCampModule.Get() || now < s_WarningUtc || now - s_WarningUtc > 60)
+        {
+            if (port) { port.HCCancel(); }
+            s_WarningCamp = null;
+            return;
+        }
+        if (!owner.HCDurable(s_WarningReceipt)) { return; }
+        HCCampRecord camp = s_WarningCamp;
+        s_WarningCamp = null;
+        if (!HCEnabled() || !port || port != HCGet() || !port.HCReady() || !port.HCRetainedSeen(camp, s_WarningScan) || !HCRecipients(owner, camp))
+        {
+            if (port) { port.HCCancel(); }
+            return;
+        }
+        owner.Tell(camp, "Raiders have noticed your camp. A warned probe may return after a warning delay if it is unattended.");
+        port.HCWarned(camp, now);
+    }
+
     protected static ref HCBaseRaidPort s_Port;
     protected static ref HCBaseRaidConfig s_Config;
     protected static ref HCEncounterStore<HCBaseRaidConfig> s_Store;
@@ -170,7 +200,7 @@ class HCBaseRaid
     static bool HCWarn(HCCampModule owner, HCCampRecord camp, HCCampScan scan, int now)
     {
         s_RequestRefusal = "BASE_RAID_DISABLED_OR_INVALID_REQUEST";
-        if (!HCBaseRaid.HCEnabled() || !owner || !camp || !scan || now < 1) { return false; }
+        if (s_WarningCamp || !HCBaseRaid.HCEnabled() || !owner || !camp || !scan || now < 1) { return false; }
         s_RequestRefusal = "";
         HCBaseRaidPort port = HCBaseRaid.HCGet();
         if (!port) { HCBaseRaid.HCRefuse("PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); return false; }
@@ -181,9 +211,14 @@ class HCBaseRaid
         // Existing probe cooldown is 3 real days, stricter than one/day. Save
         // before the existing warning; uncertain IO never refunds/replays it.
         camp.LastProbe = now;
-        if (!owner.Commit(now)) { port.HCCancel(); s_RequestRefusal = "BASE_RAID_PERSISTENCE_REFUSED"; return false; }
-        owner.Tell(camp, "Raiders have noticed your camp. A warned probe may return after a warning delay if it is unattended.");
-        port.HCWarned(camp, now);
+        int receipt = owner.HCRequestCheckpoint(now);
+        if (receipt < 1) { port.HCCancel(); s_RequestRefusal = "BASE_RAID_PERSISTENCE_REFUSED"; return false; }
+        s_WarningOwner = owner;
+        s_WarningCamp = camp;
+        s_WarningScan = scan;
+        s_WarningPort = port;
+        s_WarningReceipt = receipt;
+        s_WarningUtc = now;
         return true;
     }
 }

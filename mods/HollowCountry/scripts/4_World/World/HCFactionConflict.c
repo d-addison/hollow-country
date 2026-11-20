@@ -774,9 +774,17 @@ modded class HCWorldModule
     // Observed player/AI kills are included by the existing real death hook.
     // This does not debit population twice. Absolute holding removal is safe
     // on replay; the world checkpoint precedes the journal applied receipt.
+    protected string m_ConflictCheckpoint;
+
     bool HCConflictObserved(HCTerritoryOutcomeRow row, HCConflictConfig config)
     {
         if (!m_Running || !HCRecoveryGate.HCReady("world") || m_Store.SaveInFlight()) { return false; }
+        if (m_ConflictCheckpoint != "")
+        {
+            if (m_ConflictCheckpoint != row.Id || !HCFlushRoutine()) { return false; }
+            m_ConflictCheckpoint = "";
+            return true;
+        }
         HCWorldPlace place = m_Data.Place(row.PlaceId);
         if (!place || !HCConflictFar(place, config)) { return false; }
         HCWorldFaction left = m_Data.Faction(row.LeftFaction);
@@ -785,6 +793,7 @@ modded class HCWorldModule
         string cell = HCFactionConflict.Cell(place.Position);
         if (row.State == "LEFT_REMAINS") { HCConflictPublish(left, right, place, cell); }
         if (row.State == "RIGHT_REMAINS") { HCConflictPublish(right, left, place, cell); }
+        m_ConflictCheckpoint = row.Id;
         return HCFlushRoutine();
     }
 

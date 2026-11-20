@@ -173,6 +173,27 @@ class HCGroupService
     protected ref HCGroupSettings m_Config;
     protected ref HCGroupState m_State;
     protected ref HCGroupStore m_Store;
+    protected ref HCGroupBatchSaveJob m_SaveJob;
+    protected ref HCGroupState m_PendingState;
+
+    int HCStepBatchSave()
+    {
+        if (!m_Healthy || !m_PendingState) { return HCSaveJob.STEP_FAILED; }
+        int result = m_Store.SaveStep(m_PendingState);
+        if (result == HCSaveJob.STEP_FAILED) { m_Healthy = false; Stop(); return result; }
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            // Routine discovery changes no ACL/invitations. Preserve current
+            // ephemeral invitation expiry/disconnect changes made during IO.
+            m_PendingState.Invitations = m_State.Invitations;
+            m_State = m_PendingState;
+            m_PendingState = null;
+            Broadcast();
+            HCPostBatchSave();
+        }
+        return result;
+    }
+
     protected ref array<ref HCGroupPeer> m_Peers = new array<ref HCGroupPeer>();
     protected ref map<string, string> m_Names = new map<string, string>();
     protected bool m_Healthy;
@@ -310,6 +331,9 @@ class HCGroupService
         // Fresh anti-stale receipt, not a credential: authority is sender.GetId.
         m_Boot = m_LastUtc.ToString() + "-" + Math.RandomIntInclusive(1, 1000000000).ToString();
         m_Healthy = true;
+        m_SaveJob = new HCGroupBatchSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         s_Instance = this;
         array<Man> players = new array<Man>();
         GetGame().GetPlayers(players);
@@ -380,7 +404,18 @@ class HCGroupService
     {
         // Best-effort final discovery flush. FlushBatch never calls Stop, and
         // a failed or faulted Commit leaves the last durable revision intact.
-        if (m_Healthy && m_PendingVisits.Count() > 0) FlushBatch();
+        if (m_SaveJob && m_Healthy)
+        {
+            if (!HCSaveScheduler.HCFlush(m_SaveJob)) { m_Healthy = false; }
+            if (m_Healthy && m_PendingVisits.Count() > 0)
+            {
+                FlushBatch();
+                if (!HCSaveScheduler.HCFlush(m_SaveJob)) { m_Healthy = false; }
+            }
+        }
+        HCSaveScheduler.HCUnregister(m_SaveJob);
+        if (m_SaveJob) { m_SaveJob.Owner = null; }
+        m_SaveJob = null;
         m_Healthy = false;
         foreach (HCGroupPeer peer : m_Peers) SendSnapshot(peer, HCGroupSnapshotKind.CLEAR, 0);
         m_Peers.Clear();
@@ -490,6 +525,8 @@ class HCGroupService
     // Every path retains INVITE's ACL, group/invite caps, expiry and persistence.
     protected int HCApplyMutation(HCGroupRequest request, string uid, int now)
     {
+        // The staged candidate must publish before another revision is cloned.
+        if (m_PendingState) { return HCGroupCode.CONFLICT; }
         HCGroupState candidate;
         if (!Clone(candidate)) return HCGroupCode.STORAGE;
         HCGroupRules.ExpireMarkers(candidate, now, false);
@@ -537,6 +574,31 @@ class HCGroupService
 
     int Commit(HCGroupState candidate)
     {
+        if (m_PendingState) { return HCGroupCode.CONFLICT; }
+        int result = HCPrepareCommit(candidate);
+        if (result != HCGroupCode.OK) { return result; }
+        // Authenticated action durability barrier; routine discovery never calls it.
+        if (!m_Store.Save(candidate)) { return HCGroupCode.STORAGE; }
+        m_State = candidate;
+        return HCGroupCode.OK;
+    }
+
+    void HCPostBatchSave() {}
+
+    int HCQueueCommit(HCGroupState candidate)
+    {
+        if (m_PendingState || !m_SaveJob) { return HCGroupCode.CONFLICT; }
+        int result = HCPrepareCommit(candidate);
+        if (result != HCGroupCode.OK) { return result; }
+        m_PendingState = candidate;
+        m_SaveJob.HCDirty = true;
+        m_SaveJob.HCUrgent = true;
+        m_SaveJob.HCDue = GetGame().GetTickTime();
+        return HCGroupCode.OK; // accepted, publication is HCStepBatchSave's responsibility
+    }
+
+    protected int HCPrepareCommit(HCGroupState candidate)
+    {
         if (!candidate || !HCGroupRules.ClockAllows(m_State, m_LastUtc)) return HCGroupCode.STORAGE;
         EvictExplorers(candidate, false);
         candidate.LastMutationUtc = m_LastUtc;
@@ -558,8 +620,6 @@ class HCGroupService
             if (!resized) return HCGroupCode.STORAGE;
         }
         if (text.Length() > m_Config.MaxStoreBytes) return HCGroupCode.LIMIT;
-        if (!m_Store.Save(candidate)) return HCGroupCode.STORAGE;
-        m_State = candidate;
         return HCGroupCode.OK;
     }
 
@@ -698,6 +758,7 @@ class HCGroupService
     // is untouched. NOT_FOUND means nothing to write. Never calls Stop.
     int FlushBatch()
     {
+        if (m_PendingState) { return HCGroupCode.NOT_FOUND; }
         m_BatchTime = 0;
         if (m_PendingVisits.Count() == 0 && !HCGroupRules.MarkersExpired(m_State, m_LastUtc)) return HCGroupCode.NOT_FOUND;
         HCGroupState candidate;
@@ -719,7 +780,8 @@ class HCGroupService
         {
             if (Live(Peer(observer.Id))) observer.LastSeenUtc = m_LastUtc;
         }
-        int result = Commit(candidate);
+        int result = HCQueueCommit(candidate);
+        if (result == HCGroupCode.OK) { return HCGroupCode.NOT_FOUND; }
         if (result == HCGroupCode.LIMIT) m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60.0;
         return result;
     }
@@ -868,6 +930,8 @@ class HCGroupService
     void Tick(float deltaTime)
     {
         if (!m_Healthy) return;
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
+        if (!m_Healthy) { Stop(); return; }
         BeginVisibilityTick();
         int now = HCGroupClock.Utc();
         if (!HCGroupRules.TimestampValid(now) || now < m_LastUtc) { Stop(); return; }
@@ -904,5 +968,16 @@ class HCGroupService
             m_PositionTime = 0;
             if (!m_FullSent) SendRound(HCGroupSnapshotKind.POSITIONS);
         }
+    }
+}
+
+class HCGroupBatchSaveJob : HCSaveJob
+{
+    HCGroupService Owner;
+    override string HCName() { return "GroupDiscovery"; }
+    override int HCStep()
+    {
+        if (!Owner) { return HCSaveJob.STEP_FAILED; }
+        return Owner.HCStepBatchSave();
     }
 }

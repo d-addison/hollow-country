@@ -410,7 +410,7 @@ class HCWildlifeProviders
         // Share the existing world-incident consumer: these are incident
         // observations. One finite slice; no fresh consumer id or timer.
         HCUnitBudget work = HCServer.HCTickWork();
-        if (!work.HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, m_Config.WorkUnits)) { return; }
+        if (!work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, m_Config.WorkUnits)) { return; }
         if (m_Config.InteractionObservationEnabled) { m_Interactions.HCSweep(nowMs); }
         if (m_Config.SeasonalRoutesEnabled)
         {
@@ -433,7 +433,7 @@ class HCWildlifeProviders
         int examined = 0;
         while (examined < facts.Count() && examined < m_Config.MaxPairChecksPerTick)
         {
-            if (!work.HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { break; }
+            if (!work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { break; }
             if (m_ClueCursor >= facts.Count()) { m_ClueCursor = 0; }
             HCWildlifeFact fact = facts.Get(m_ClueCursor);
             m_ClueCursor = m_ClueCursor + 1;
@@ -450,7 +450,7 @@ class HCWildlifeProviders
         if (!victim || victim.IsPendingDeletion() || !damageResult) { return; }
         int nowMs = GetGame().GetTime();
         if (nowMs < s_Owner.m_LastNow || nowMs < 0) { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENTS, 1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { return; }
         // Actual positive blood damage only, never inferred from proximity,
         // bleeding state, live position polling or a targeting eligibility query.
         if (s_Owner.m_Config.CluesEnabled && s_Owner.m_ClueFault == "" && !HCWorldIncidents.HCOff() && HCWorldIncidents.HCGet().HCActive() && damageResult.GetDamage(zone, "Blood") > 0)

@@ -36,7 +36,7 @@ class HCLootInteriorCoverage
         int examined;
         while (m_Next < rows.Count() && examined < HCInteriorTemplates.TEMPLATE_CHECKS_PER_STEP)
         {
-            if (!work.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_MAINT, 1)) return;
+            if (!work.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COVERAGE, 1)) return;
             HCInteriorTemplateClassRow row = rows[m_Next];
             m_Next++;
             examined++;

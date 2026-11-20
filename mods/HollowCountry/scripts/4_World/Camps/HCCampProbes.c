@@ -139,7 +139,8 @@ class HCCampProbes
             // Clear old abstract leases once; never turn them into casualties.
             camp.ProbePhase = 0;
             camp.ProbeUntil = 0;
-            if (!module.Commit(now)) { return; }
+            module.HCRequestCheckpoint(now);
+            return; // A later scan may warn only after this metadata is durable.
         }
         if (!Eligible(camp.Tier, HCEscalationClock.Day(), now, camp.LastProbe, scan.Hidden(burning))) { return; }
         HCBaseRaid.HCWarn(module, camp, scan, now);

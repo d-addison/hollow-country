@@ -191,13 +191,15 @@ enum HCLeadReceiveResult
 {
     REFUSED = 0,
     HELD = 1,
-    RETAINED = 2
+    RETAINED = 2,
+    PENDING = 3
 }
 
 class HCLeadModule : HCModule
 {
     protected static HCLeadModule s_Instance;
     protected ref HCLeadStore m_Store;
+    protected ref map<string, int> m_PendingReceipts = new map<string, int>;
     protected ref array<ref HCWorldLead> m_Catalog = new array<ref HCWorldLead>();
     protected ref array<ref HCWorldFact> m_Facts = new array<ref HCWorldFact>();
     protected int m_Cursor;
@@ -245,6 +247,7 @@ class HCLeadModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (!Get() || deltaTime <= 0) { return; }
+        m_Store.HCPumpCheckpoint();
         m_Elapsed += deltaTime;
         m_LogElapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
@@ -255,6 +258,7 @@ class HCLeadModule : HCModule
         {
             if (m_Store.Data.Leads[expiredIndex].Expires <= now)
             {
+                m_PendingReceipts.Remove(m_Store.Data.Leads[expiredIndex].Id);
                 m_Store.Data.Leads.RemoveOrdered(expiredIndex);
                 HCReached.Mark("leads.expired_item");
                 changed = true;
@@ -320,6 +324,7 @@ class HCLeadModule : HCModule
     override void OnStop()
     {
         s_Instance = null;
+        m_PendingReceipts.Clear();
         m_Status.HCStop();
     }
 
@@ -366,7 +371,8 @@ class HCLeadModule : HCModule
 
     bool Receive(HCWorldLead offer, string groupId, string source)
     {
-        return ReceiveResult(offer, groupId, source) != HCLeadReceiveResult.REFUSED;
+        int result = ReceiveResult(offer, groupId, source);
+        return result == HCLeadReceiveResult.RETAINED || result == HCLeadReceiveResult.HELD;
     }
 
     int ReceiveResult(HCWorldLead offer, string groupId, string source)
@@ -380,7 +386,14 @@ class HCLeadModule : HCModule
             // so the per-group cap counts them too or Save would fault the store.
             count++;
             if (prior.Expires <= HCWorldClock.UTC()) { continue; }
-            if (prior.TargetPlaceId == offer.TargetPlaceId && prior.TextId == offer.TextId) { return HCLeadReceiveResult.HELD; }
+            if (prior.TargetPlaceId == offer.TargetPlaceId && prior.TextId == offer.TextId)
+            {
+                int pending;
+                if (!m_PendingReceipts.Find(prior.Id, pending)) { return HCLeadReceiveResult.HELD; }
+                if (!m_Store.HCDurable(pending)) { return HCLeadReceiveResult.PENDING; }
+                m_PendingReceipts.Remove(prior.Id);
+                return HCLeadReceiveResult.RETAINED;
+            }
         }
         if (count >= 5 || m_Store.Data.Leads.Count() >= 64) { return HCLeadReceiveResult.REFUSED; }
         HCWorldLead received = HCLeadPolicy.Copy(offer);
@@ -388,8 +401,10 @@ class HCLeadModule : HCModule
         received.GroupId = groupId;
         received.Source = source;
         m_Store.Data.Leads.Insert(received);
-        if (!m_Store.Save()) { return HCLeadReceiveResult.REFUSED; }
-        return HCLeadReceiveResult.RETAINED;
+        int revision = m_Store.HCRequestBarrier();
+        if (revision < 0) { return HCLeadReceiveResult.REFUSED; }
+        m_PendingReceipts.Set(received.Id, revision);
+        return HCLeadReceiveResult.PENDING;
     }
 
     void ReceivePlayer(HCWorldLead offer, PlayerBase player, string source)
@@ -411,6 +426,8 @@ class HCLeadModule : HCModule
         if (!Get()) { return; }
         foreach (HCWorldLead row : m_Store.Data.Leads)
         {
+            int pending;
+            if (m_PendingReceipts.Find(row.Id, pending) && !m_Store.HCDurable(pending)) { continue; }
             if (row.GroupId == groupId && row.Expires > HCWorldClock.UTC()) { output.Insert(HCLeadPolicy.Copy(row)); }
         }
     }

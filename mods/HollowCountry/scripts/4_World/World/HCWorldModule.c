@@ -18,6 +18,9 @@ class HCWorldModule : HCModule
     protected bool m_Dirty;
     protected float m_StepSeconds;
     protected ref HCWorldSaveJob m_SaveJob;
+    protected int m_CheckpointGeneration;
+    protected int m_DurableGeneration;
+    protected int m_BarrierGeneration;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected int m_WorkLeft;
     protected bool m_StepActive;
@@ -125,6 +128,7 @@ class HCWorldModule : HCModule
             m_WorkBudget.HCDeferred(GetName(), m_WorkLeft);
         }
         if (m_Dirty) { m_SaveJob.HCDirty = true; }
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
     }
 
     override void OnStop()
@@ -141,14 +145,21 @@ class HCWorldModule : HCModule
         HCPersistenceDisposition.HCStopStore("world");
     }
 
-    // Durability barrier: HCConflictObserved must commit the world outcome
-    // before the encounter journal acknowledges it; routine OnTick only dirties
-    // the existing staged job. Deferral needs an encounter continuation protocol.
+    // Pollable conflict continuation: the encounter keeps its applied receipt
+    // unacknowledged until a snapshot containing this outcome has committed.
     bool HCFlushRoutine()
     {
-        if (!m_Store.Save(m_Data)) { return false; }
-        m_Dirty = false;
-        m_StepsSinceSave = 0;
+        if (!m_Running || !m_SaveJob) { return false; }
+        if (m_BarrierGeneration == 0)
+        {
+            m_BarrierGeneration = m_CheckpointGeneration + 1;
+            m_SaveJob.HCDirty = true;
+            m_SaveJob.HCUrgent = true;
+            m_SaveJob.HCDue = GetGame().GetTickTime();
+            return false;
+        }
+        if (m_DurableGeneration < m_BarrierGeneration) { return false; }
+        m_BarrierGeneration = 0;
         return true;
     }
 
@@ -158,13 +169,18 @@ class HCWorldModule : HCModule
     int HCStepRoutine()
     {
         bool starting = !m_Store.SaveInFlight();
+        if (starting) { m_CheckpointGeneration++; }
         int result = m_Store.SaveStep(m_Data);
+        if (result == HCSaveJob.STEP_DONE) { m_DurableGeneration = m_CheckpointGeneration; }
         if (starting && result == HCSaveJob.STEP_MORE)
         {
             m_Dirty = false;
             m_StepsSinceSave = 0;
         }
         if (result == HCSaveJob.STEP_FAILED) { m_Dirty = true; }
+        // A conflict arriving during an older image needs the following snapshot.
+        // Retain scheduler ownership/urgency, including when routine saves are off.
+        if (result == HCSaveJob.STEP_DONE && m_BarrierGeneration > m_DurableGeneration) { return HCSaveJob.STEP_MORE; }
         return result;
     }
 
@@ -572,7 +588,6 @@ class HCWorldSaveJob : HCSaveJob
 {
     HCWorldModule Owner;
     override string HCName() { return "World"; }
-    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
     override int HCStep()
     {
         if (!Owner) { return HCSaveJob.STEP_FAILED; }

@@ -320,7 +320,7 @@ class HCWorldStore
         if (m_Fault) { return false; }
         // Finish an older snapshot before serializing current barrier state.
         int remainingStages;
-        while (SaveInFlight() && remainingStages < 8)
+        while (SaveInFlight() && remainingStages < HCStagedSaveImage.HC_MAX_STAGES + 3)
         {
             remainingStages++;
             if (SaveStep(data) == HCSaveJob.STEP_FAILED) { return false; }
@@ -328,7 +328,7 @@ class HCWorldStore
         if (SaveInFlight()) { return false; }
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
-        while (result == HCSaveJob.STEP_MORE && guard < 8)
+        while (result == HCSaveJob.STEP_MORE && guard < HCStagedSaveImage.HC_MAX_STAGES + 3)
         {
             result = SaveStep(data);
             guard = guard + 1;
