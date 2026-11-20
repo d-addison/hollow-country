@@ -67,6 +67,8 @@ class HCCampProbes
         if (!s_Visitor) { s_VisitorStatus.HCPublish("degraded", "CAMP_VISITOR_PROVIDER_UNAVAILABLE"); return s_VisitorStatus; }
         if (!s_Visitor.HCReady()) { s_VisitorStatus.HCPublish("degraded", s_Visitor.HCRefusal()); return s_VisitorStatus; }
         s_VisitorStatus.HCPublish("ready", "physical_visitor_provider_bound_runtime_pending");
+        string waiting = s_Visitor.HCWaitingReason();
+        if (waiting != "") { s_VisitorStatus.HCPublish("ready", waiting); }
         return s_VisitorStatus;
     }
 

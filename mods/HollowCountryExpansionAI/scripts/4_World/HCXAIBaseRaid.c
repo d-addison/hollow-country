@@ -80,6 +80,11 @@ class HCXAIBaseRaid : HCBaseRaidPort
     }
 
     override bool HCReady() { return m_Healthy && m_Config && m_Store && m_Store.Healthy(); }
+    override string HCWaitingReason()
+    {
+        if (!m_Reserved && !m_Seen) { return "BASE_RAID_WAITING_FOR_LOCAL_PARTY_OR_TARGET"; }
+        return "";
+    }
     override string HCRefusal()
     {
         if (m_Reason != "") { return m_Reason; }
@@ -415,6 +420,12 @@ class HCAdminVisitorParty : HCXAIBaseRaid
     protected HCXAIAdapter m_HCAdapter;
     protected HCXAISiteDirector m_HCDirector;
 
+    override string HCWaitingReason()
+    {
+        if (!m_Reserved && !m_Seen) { return "CAMP_VISITOR_WAITING_FOR_LOCAL_PARTY_OR_TARGET"; }
+        return "";
+    }
+
     void HCOpenVisitor(HCXAIAdapter adapter)
     {
         if (!HCCampProbes.HCVisitorsEnabled() || !HCBaseRaid.HCEnabled()) { return; }
@@ -522,9 +533,14 @@ modded class HCXAIAdapter
         m_HCBaseRaid = new HCXAIBaseRaid;
         m_HCBaseRaid.HCOpen();
         HCBaseRaid.HCBind(m_HCBaseRaid);
+        // Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print.
+        // Binding proves registration, independently of journal/site readiness
+        // or the normal 600 m player interest gate on physical site parties.
+        Print("[HC BaseRaid] addon provider=bound runtime=PENDING");
         m_HCVisitorParty = new HCAdminVisitorParty;
         m_HCVisitorParty.HCOpenVisitor(this);
         HCCampProbes.HCBindVisitor(m_HCVisitorParty);
+        Print("[HC CampVisitors] addon provider=bound runtime=PENDING");
     }
     override void OnTick(float deltaTime)
     {
