@@ -1,6 +1,6 @@
 // #32 infected death selection policy: pure scalar decision, no engine access.
-// Chooses between the two vanilla death animation variants only. It never
-// applies an impulse, moves an actor or touches corpse, loot or cleanup.
+// Chooses between the two vanilla death animation variants only. The caller pairs an
+// upgraded IMPULSE with the vanilla-style impulse (#240); corpse, loot and cleanup stay vanilla.
 // DEFAULT and IMPULSE visual differences are UNOBSERVED; see docs/INFECTED_DEATHS.md.
 class HCInfectedDeathPolicy
 {
@@ -9,6 +9,13 @@ class HCInfectedDeathPolicy
     static float FrontHalfAngle()
     {
         return 60.0;
+    }
+
+    // #240: horizontal push (impulse units, vanilla scale 80 per m/s) away from the attacker
+    // that accompanies an upgraded IMPULSE death. Vertical part stays vanilla (80 * 1.5).
+    static float PushImpulse()
+    {
+        return 80.0;
     }
 
     static bool IsLegZone(string zone)

@@ -81,6 +81,29 @@ modded class ZombieBase
         int ammoHitAnimation = GetGame().ConfigGetInt("cfgAmmo " + data.m_AmmoType + " hitAnimation");
         pAnimType = HCInfectedDeathPolicy.SelectDeathType(nativeType, IsBeingBackstabbed(), ammoHitAnimation, m_HeavyHitOverride, data.m_DamageZone, pAnimHitDir);
         HCInfectedDeathLog.Decision(data.m_AmmoType, data.m_DamageZone, nativeType, pAnimType, pAnimHitDir);
+        // #240: vanilla only plays IMPULSE together with dBodyApplyImpulse (doPhxImpulse ammo,
+        // ZombieBase.c:370-388). Our upgrade played the IMPULSE clip with no impulse, so the
+        // corpse tipped over stiffly from the feet. Apply the vanilla vertical impulse (80 * 1.5)
+        // plus a small push away from the attacker, once, at death. Server only, no movement of
+        // a live actor. Native: 1_Core/proto/EnPhysics.c:141 dBodyApplyImpulse;
+        // 3_Game/Entities/EntityAI.c:879 GetHierarchyRoot; Object.c:287 GetPosition;
+        // 1_Core/proto/EnConvert.c Normalize.
+        if (pAnimType == DayZInfectedDeathAnims.ANIM_DEATH_IMPULSE && nativeType != DayZInfectedDeathAnims.ANIM_DEATH_IMPULSE)
+        {
+            vector push = "0 0 0";
+            EntityAI attacker = pSource;
+            if (pSource && pSource.GetHierarchyRoot()) { attacker = pSource.GetHierarchyRoot(); }
+            if (attacker)
+            {
+                push = GetPosition() - attacker.GetPosition();
+                push[1] = 0;
+                if (push.Length() > 0.01) { push.Normalize(); }
+                else { push = "0 0 0"; }
+            }
+            vector impulse = push * HCInfectedDeathPolicy.PushImpulse();
+            impulse[1] = 80 * 1.5;
+            dBodyApplyImpulse(this, impulse);
+        }
         return result;
     }
 }
