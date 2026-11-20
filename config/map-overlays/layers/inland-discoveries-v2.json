@@ -1,14 +1,20 @@
 {
   "basis": {
-    "candidate_count": 2757,
+    "candidate_evidence_options": 46751,
     "inventory": {
       "groups": 11679,
       "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
     },
-    "rule": "Add up to 301 bounded sites in deterministic geographic rounds, retaining v1 layers.\n\n    Every piece passes the existing flat-height and spacing checks. New layers\n    additionally reserve 16 m from vanilla group origins and reject unsupported\n    or >3 percent support planes. No decoded WRP terrain/road data is available;\n    these are conservative vanilla-row proxies. Remote candidates remain near\n    isolated mapped structures: deep woods without height evidence are excluded.\n    ",
+    "military_search_radius_m": 3000.0,
+    "rule": "Replan every authored composition, preserving site identity and every v2 requested rich kit.\n\n    Candidate order, headings and original planning anchors are stable across input row\n    order and repeated refreshes. V1 upgrades may retain their original kit when\n    no supported local upgrade fits; v2 kits and site counts never silently fall back.\n    Roads, collision bounds and navmesh are not observable from vanilla group origins.\n    ",
     "site_spacing_m": 55.0,
-    "terrain": "Vanilla group origins only; binary OPRW terrain is not decoded.",
-    "tier": "Geographic inland bias only; CE area flags retain authority."
+    "support_radii_m": [
+      60.0,
+      75.0,
+      90.0,
+      120.0
+    ],
+    "terrain": "Vanilla group origins only; terrain, roads and navmesh unverified."
   },
   "id": "inland-discoveries-v2",
   "kind": "hollow-country-map-overlay",
@@ -23,969 +29,1263 @@
   "sites": [
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
-      "heading": 0.0,
+      "composition": "field-hq",
+      "heading": 15.0,
       "id": "s001",
       "placement_evidence": {
-        "height_median_m": 5.043074,
-        "height_spread_m": 0.5689,
-        "nearest_group_m": 43.2335,
-        "radius_m": 60.0,
+        "height_median_m": 74.307274,
+        "height_spread_m": 0.7062,
+        "nearest_group_m": 62.5305,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 1.6384,
+        "rows": 3,
+        "support_slope_pct": 2.8811,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         13880.0,
         5.043074,
         13540.0
       ],
+      "pos": [
+        14820.0,
+        74.307274,
+        14495.0
+      ],
       "requested_composition": "field-hq",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.6 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.7 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 90.0,
+      "composition": "sniper-overwatch",
+      "heading": 300.0,
       "id": "s002",
       "placement_evidence": {
-        "height_median_m": 52.684521,
-        "height_spread_m": 0.9606,
-        "nearest_group_m": 25.039,
+        "height_median_m": 5.061551,
+        "height_spread_m": 0.6993,
+        "nearest_group_m": 27.8362,
+        "prop_bounds_measured": false,
         "radius_m": 60.0,
         "roads_surveyed": false,
         "rows": 7,
-        "support_slope_pct": 1.8554,
+        "support_slope_pct": 1.1163,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         12640.0,
         52.684521,
         13840.0
       ],
+      "pos": [
+        13895.0,
+        5.061551,
+        13525.0
+      ],
       "requested_composition": "sniper-overwatch",
-      "y_basis": "median of 7 vanilla rows within 60 m, spread 1.0 m"
+      "support_radius_m": 60.0,
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.7 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "checkpoint",
-      "heading": 180.0,
+      "composition": "abandoned-checkpoint",
+      "heading": 30.0,
       "id": "s003",
       "placement_evidence": {
         "height_median_m": 5.042959,
         "height_spread_m": 0.1525,
-        "nearest_group_m": 36.7115,
-        "radius_m": 60.0,
+        "nearest_group_m": 32.0764,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
         "rows": 5,
         "support_slope_pct": 1.363,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         13940.0,
         5.042959,
         13590.0
       ],
+      "pos": [
+        13935.0,
+        5.042959,
+        13590.0
+      ],
       "requested_composition": "abandoned-checkpoint",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.2 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 5 vanilla rows within 75 m, spread 0.2 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "tent-camp",
-      "heading": 270.0,
+      "composition": "overrun-camp",
+      "heading": 0.0,
       "id": "s004",
       "placement_evidence": {
-        "height_median_m": 423.53125,
-        "height_spread_m": 0.6616,
-        "nearest_group_m": 34.2534,
-        "radius_m": 60.0,
+        "height_median_m": 288.981323,
+        "height_spread_m": 1.2568,
+        "nearest_group_m": 50.2945,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 6,
-        "support_slope_pct": 0.6209,
+        "rows": 4,
+        "support_slope_pct": 1.6916,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         630.0,
         423.53125,
         11150.0
       ],
+      "pos": [
+        265.0,
+        288.981323,
+        8520.0
+      ],
       "requested_composition": "overrun-camp",
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.7 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "field-hospital",
+      "composition": "medevac-station",
       "heading": 0.0,
       "id": "s005",
       "placement_evidence": {
-        "height_median_m": 342.783478,
-        "height_spread_m": 0.1586,
-        "nearest_group_m": 49.2096,
-        "radius_m": 60.0,
+        "height_median_m": 325.640839,
+        "height_spread_m": 0.5265,
+        "nearest_group_m": 63.1132,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
         "roads_surveyed": false,
-        "rows": 6,
-        "support_slope_pct": 2.8281,
+        "rows": 7,
+        "support_slope_pct": 1.0588,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         5980.0,
         342.783478,
         14310.0
       ],
+      "pos": [
+        4640.0,
+        325.640839,
+        11065.0
+      ],
       "requested_composition": "medevac-station",
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.2 m"
+      "support_radius_m": 90.0,
+      "y_basis": "median of 7 vanilla rows within 90 m, spread 0.5 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "comms-post",
-      "heading": 90.0,
+      "composition": "radio-relay",
+      "heading": 150.0,
       "id": "s006",
       "placement_evidence": {
-        "height_median_m": 229.239365,
-        "height_spread_m": 1.3163,
-        "nearest_group_m": 32.2325,
-        "radius_m": 60.0,
+        "height_median_m": 338.690094,
+        "height_spread_m": 1.4921,
+        "nearest_group_m": 35.4489,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 2.0888,
+        "rows": 3,
+        "support_slope_pct": 2.7244,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         5770.0,
         229.239365,
         13630.0
       ],
+      "pos": [
+        4390.0,
+        338.690094,
+        11025.0
+      ],
       "requested_composition": "radio-relay",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.3 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 1.5 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "supply-dump",
-      "heading": 180.0,
+      "composition": "ammo-dump",
+      "heading": 240.0,
       "id": "s007",
       "placement_evidence": {
-        "height_median_m": 423.422638,
-        "height_spread_m": 0.3173,
-        "nearest_group_m": 36.7034,
-        "radius_m": 60.0,
+        "height_median_m": 288.981323,
+        "height_spread_m": 1.2568,
+        "nearest_group_m": 67.5924,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 0.2861,
+        "rows": 4,
+        "support_slope_pct": 1.6916,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         420.0,
         423.422638,
         11080.0
       ],
+      "pos": [
+        390.0,
+        288.981323,
+        8615.0
+      ],
       "requested_composition": "ammo-dump",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.3 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
+      "composition": "mortar-pit",
+      "heading": 120.0,
       "id": "s008",
       "placement_evidence": {
-        "height_median_m": 423.046692,
-        "height_spread_m": 0.4312,
-        "nearest_group_m": 42.336,
-        "radius_m": 60.0,
+        "height_median_m": 422.772644,
+        "height_spread_m": 0.9395,
+        "nearest_group_m": 38.2105,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 1.5864,
+        "rows": 9,
+        "support_slope_pct": 1.8018,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         530.0,
         423.046692,
         11000.0
       ],
+      "pos": [
+        525.0,
+        422.772644,
+        11000.0
+      ],
       "requested_composition": "mortar-pit",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.4 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 9 vanilla rows within 75 m, spread 0.9 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "supply-dump",
-      "heading": 0.0,
+      "composition": "fuel-depot",
+      "heading": 30.0,
       "id": "s009",
       "placement_evidence": {
-        "height_median_m": 361.478088,
-        "height_spread_m": 0.2916,
-        "nearest_group_m": 29.992,
-        "radius_m": 60.0,
+        "height_median_m": 435.890961,
+        "height_spread_m": 1.3943,
+        "nearest_group_m": 47.6607,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
         "roads_surveyed": false,
-        "rows": 3,
-        "support_slope_pct": 1.4393,
+        "rows": 4,
+        "support_slope_pct": 1.2566,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         3620.0,
         361.478088,
         14950.0
       ],
+      "pos": [
+        1895.0,
+        435.890961,
+        14910.0
+      ],
       "requested_composition": "fuel-depot",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.3 m"
+      "support_radius_m": 90.0,
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 1.4 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
+      "composition": "motor-pool",
       "heading": 90.0,
       "id": "s010",
       "placement_evidence": {
-        "height_median_m": 423.468597,
-        "height_spread_m": 0.458,
-        "nearest_group_m": 29.8243,
-        "radius_m": 60.0,
+        "height_median_m": 423.370544,
+        "height_spread_m": 0.3173,
+        "nearest_group_m": 56.2861,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 0.6487,
+        "rows": 7,
+        "support_slope_pct": 0.2953,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         540.0,
         423.468597,
         11170.0
       ],
+      "pos": [
+        395.0,
+        423.370544,
+        11060.0
+      ],
       "requested_composition": "motor-pool",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.5 m"
+      "support_radius_m": 90.0,
+      "y_basis": "median of 7 vanilla rows within 90 m, spread 0.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
-      "heading": 180.0,
+      "composition": "fob-compound",
+      "heading": 300.0,
       "id": "s011",
       "placement_evidence": {
-        "height_median_m": 342.783478,
-        "height_spread_m": 0.1586,
-        "nearest_group_m": 39.0383,
-        "radius_m": 60.0,
+        "height_median_m": 35.084713,
+        "height_spread_m": 0.9001,
+        "nearest_group_m": 59.588,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 6,
-        "support_slope_pct": 2.8281,
+        "rows": 5,
+        "support_slope_pct": 2.1962,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         6030.0,
         342.783478,
         14360.0
       ],
+      "pos": [
+        13500.0,
+        35.084713,
+        13365.0
+      ],
       "requested_composition": "fob-compound",
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.2 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 5 vanilla rows within 120 m, spread 0.9 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "checkpoint",
-      "heading": 270.0,
+      "composition": "crashed-convoy",
+      "heading": 0.0,
       "id": "s012",
       "placement_evidence": {
-        "height_median_m": 423.250061,
-        "height_spread_m": 0.3051,
-        "nearest_group_m": 40.2942,
-        "radius_m": 60.0,
+        "height_median_m": 304.713165,
+        "height_spread_m": 1.1835,
+        "nearest_group_m": 39.737,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
-        "rows": 3,
-        "support_slope_pct": 2.7688,
+        "rows": 5,
+        "support_slope_pct": 1.6441,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         470.0,
         423.250061,
         10990.0
       ],
+      "pos": [
+        2875.0,
+        304.713165,
+        8110.0
+      ],
       "requested_composition": "crashed-convoy",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.3 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 5 vanilla rows within 75 m, spread 1.2 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
-      "heading": 0.0,
+      "composition": "field-hq",
+      "heading": 30.0,
       "id": "s013",
       "placement_evidence": {
-        "height_median_m": 59.30331,
-        "height_spread_m": 1.3707,
-        "nearest_group_m": 38.3467,
-        "radius_m": 60.0,
+        "height_median_m": 74.307274,
+        "height_spread_m": 0.7062,
+        "nearest_group_m": 55.7991,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 2.9841,
+        "rows": 3,
+        "support_slope_pct": 2.8811,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         10290.0,
         59.30331,
         14200.0
       ],
+      "pos": [
+        14770.0,
+        74.307274,
+        14545.0
+      ],
       "requested_composition": "field-hq",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.4 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.7 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 90.0,
+      "composition": "sniper-overwatch",
+      "heading": 300.0,
       "id": "s014",
       "placement_evidence": {
-        "height_median_m": 24.458097,
-        "height_spread_m": 0.6194,
-        "nearest_group_m": 24.5236,
-        "radius_m": 60.0,
+        "height_median_m": 52.708706,
+        "height_spread_m": 1.4634,
+        "nearest_group_m": 32.8947,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 1.5541,
+        "rows": 8,
+        "support_slope_pct": 2.2965,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         12410.0,
         24.458097,
         14350.0
       ],
+      "pos": [
+        12645.0,
+        52.708706,
+        13800.0
+      ],
       "requested_composition": "sniper-overwatch",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.6 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 8 vanilla rows within 75 m, spread 1.5 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "checkpoint",
-      "heading": 180.0,
+      "composition": "abandoned-checkpoint",
+      "heading": 0.0,
       "id": "s015",
       "placement_evidence": {
         "height_median_m": 342.783478,
         "height_spread_m": 0.1586,
         "nearest_group_m": 39.4564,
-        "radius_m": 60.0,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
         "rows": 6,
         "support_slope_pct": 2.8281,
         "terrain_measured": false
       },
+      "planning_origin": [
+        5980.0,
+        342.783478,
+        14400.0
+      ],
       "pos": [
         5980.0,
         342.783478,
         14400.0
       ],
       "requested_composition": "abandoned-checkpoint",
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.2 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 6 vanilla rows within 75 m, spread 0.2 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "tent-camp",
-      "heading": 270.0,
+      "composition": "overrun-camp",
+      "heading": 0.0,
       "id": "s016",
       "placement_evidence": {
-        "height_median_m": 423.26416,
-        "height_spread_m": 1.302,
-        "nearest_group_m": 33.6831,
-        "radius_m": 60.0,
+        "height_median_m": 288.981323,
+        "height_spread_m": 1.2568,
+        "nearest_group_m": 45.7443,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 8,
-        "support_slope_pct": 1.6444,
+        "rows": 4,
+        "support_slope_pct": 1.6916,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         590.0,
         423.26416,
         11090.0
       ],
+      "pos": [
+        260.0,
+        288.981323,
+        8575.0
+      ],
       "requested_composition": "overrun-camp",
-      "y_basis": "median of 8 vanilla rows within 60 m, spread 1.3 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "field-hospital",
-      "heading": 0.0,
+      "composition": "medevac-station",
+      "heading": 135.0,
       "id": "s017",
       "placement_evidence": {
-        "height_median_m": 173.439331,
-        "height_spread_m": 0.6483,
-        "nearest_group_m": 32.659,
-        "radius_m": 60.0,
+        "height_median_m": 217.751877,
+        "height_spread_m": 0.1488,
+        "nearest_group_m": 87.4556,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 2.0237,
+        "rows": 3,
+        "support_slope_pct": 1.1964,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         5100.0,
         173.439331,
         12980.0
       ],
+      "pos": [
+        6715.0,
+        217.751877,
+        13330.0
+      ],
       "requested_composition": "medevac-station",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.6 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.1 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "comms-post",
-      "heading": 90.0,
+      "composition": "radio-relay",
+      "heading": 15.0,
       "id": "s018",
       "placement_evidence": {
-        "height_median_m": 265.338409,
-        "height_spread_m": 1.1333,
-        "nearest_group_m": 27.5285,
-        "radius_m": 60.0,
+        "height_median_m": 423.351746,
+        "height_spread_m": 0.5411,
+        "nearest_group_m": 60.9232,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 1.0975,
+        "rows": 9,
+        "support_slope_pct": 0.5129,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         2170.0,
         265.338409,
         10940.0
       ],
+      "pos": [
+        435.0,
+        423.351746,
+        10960.0
+      ],
       "requested_composition": "radio-relay",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.1 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 9 vanilla rows within 120 m, spread 0.5 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "supply-dump",
-      "heading": 180.0,
+      "composition": "ammo-dump",
+      "heading": 285.0,
       "id": "s019",
       "placement_evidence": {
         "height_median_m": 227.979782,
         "height_spread_m": 0.3402,
-        "nearest_group_m": 26.7164,
-        "radius_m": 60.0,
+        "nearest_group_m": 30.8507,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
         "rows": 4,
         "support_slope_pct": 1.0677,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         6080.0,
         227.979782,
         13380.0
       ],
+      "pos": [
+        6060.0,
+        227.979782,
+        13420.0
+      ],
       "requested_composition": "ammo-dump",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 4 vanilla rows within 75 m, spread 0.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
+      "composition": "mortar-pit",
+      "heading": 120.0,
       "id": "s020",
       "placement_evidence": {
-        "height_median_m": 295.578888,
-        "height_spread_m": 0.8344,
-        "nearest_group_m": 31.8226,
-        "radius_m": 60.0,
+        "height_median_m": 273.046661,
+        "height_spread_m": 1.3441,
+        "nearest_group_m": 73.09,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 7,
-        "support_slope_pct": 2.6498,
+        "rows": 4,
+        "support_slope_pct": 2.7378,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         370.0,
         295.578888,
         9480.0
       ],
+      "pos": [
+        2980.0,
+        273.046661,
+        9675.0
+      ],
       "requested_composition": "mortar-pit",
-      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.8 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "supply-dump",
-      "heading": 0.0,
+      "composition": "fuel-depot",
+      "heading": 135.0,
       "id": "s021",
       "placement_evidence": {
-        "height_median_m": 168.729721,
-        "height_spread_m": 1.4619,
-        "nearest_group_m": 37.5446,
-        "radius_m": 60.0,
+        "height_median_m": 340.7052,
+        "height_spread_m": 1.4328,
+        "nearest_group_m": 46.2594,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
         "roads_surveyed": false,
-        "rows": 7,
-        "support_slope_pct": 1.0864,
+        "rows": 5,
+        "support_slope_pct": 0.4752,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         4900.0,
         168.729721,
         12790.0
       ],
+      "pos": [
+        4710.0,
+        340.7052,
+        10585.0
+      ],
       "requested_composition": "fuel-depot",
-      "y_basis": "median of 7 vanilla rows within 60 m, spread 1.5 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 5 vanilla rows within 75 m, spread 1.4 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
-      "heading": 90.0,
+      "composition": "motor-pool",
+      "heading": 45.0,
       "id": "s022",
       "placement_evidence": {
-        "height_median_m": 177.661804,
-        "height_spread_m": 0.8473,
-        "nearest_group_m": 39.5545,
-        "radius_m": 60.0,
+        "height_median_m": 227.979782,
+        "height_spread_m": 0.3402,
+        "nearest_group_m": 86.5327,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 2.9088,
+        "rows": 4,
+        "support_slope_pct": 1.0677,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         4350.0,
         177.661804,
         13030.0
       ],
+      "pos": [
+        6040.0,
+        227.979782,
+        13335.0
+      ],
       "requested_composition": "motor-pool",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.8 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 0.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
-      "heading": 180.0,
+      "composition": "fob-compound",
+      "heading": 135.0,
       "id": "s023",
-      "placement_evidence": {
-        "height_median_m": 173.324539,
-        "height_spread_m": 0.658,
-        "nearest_group_m": 26.0009,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 7,
-        "support_slope_pct": 2.1344,
-        "terrain_measured": false
-      },
-      "pos": [
-        5030.0,
-        173.324539,
-        12950.0
-      ],
-      "requested_composition": "fob-compound",
-      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.7 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "checkpoint",
-      "heading": 270.0,
-      "id": "s024",
-      "placement_evidence": {
-        "height_median_m": 59.724495,
-        "height_spread_m": 0.1569,
-        "nearest_group_m": 31.86,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 3,
-        "support_slope_pct": 2.3994,
-        "terrain_measured": false
-      },
-      "pos": [
-        10230.0,
-        59.724495,
-        14110.0
-      ],
-      "requested_composition": "crashed-convoy",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "forward-outpost",
-      "heading": 0.0,
-      "id": "s025",
-      "placement_evidence": {
-        "height_median_m": 280.203003,
-        "height_spread_m": 1.1742,
-        "nearest_group_m": 34.4491,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 1.9534,
-        "terrain_measured": false
-      },
-      "pos": [
-        5860.0,
-        280.203003,
-        10080.0
-      ],
-      "requested_composition": "field-hq",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.2 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 90.0,
-      "id": "s026",
-      "placement_evidence": {
-        "height_median_m": 229.74263,
-        "height_spread_m": 0.213,
-        "nearest_group_m": 27.3568,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 0.0996,
-        "terrain_measured": false
-      },
-      "pos": [
-        1970.0,
-        229.74263,
-        9850.0
-      ],
-      "requested_composition": "sniper-overwatch",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.2 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "checkpoint",
-      "heading": 180.0,
-      "id": "s027",
-      "placement_evidence": {
-        "height_median_m": 24.447157,
-        "height_spread_m": 1.4552,
-        "nearest_group_m": 44.0614,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 2.7389,
-        "terrain_measured": false
-      },
-      "pos": [
-        13670.0,
-        24.447157,
-        13340.0
-      ],
-      "requested_composition": "abandoned-checkpoint",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.5 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "tent-camp",
-      "heading": 270.0,
-      "id": "s028",
       "placement_evidence": {
         "height_median_m": 342.783478,
         "height_spread_m": 0.1586,
-        "nearest_group_m": 35.3578,
-        "radius_m": 60.0,
+        "nearest_group_m": 50.4733,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
         "roads_surveyed": false,
         "rows": 6,
         "support_slope_pct": 2.8281,
         "terrain_measured": false
       },
+      "planning_origin": [
+        5030.0,
+        173.324539,
+        12950.0
+      ],
       "pos": [
-        5940.0,
+        5935.0,
         342.783478,
-        14360.0
+        14330.0
       ],
-      "requested_composition": "overrun-camp",
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.2 m"
+      "requested_composition": "fob-compound",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 6 vanilla rows within 90 m, spread 0.2 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "field-hospital",
+      "composition": "crashed-convoy",
       "heading": 0.0,
-      "id": "s029",
-      "placement_evidence": {
-        "height_median_m": 340.7052,
-        "height_spread_m": 1.4328,
-        "nearest_group_m": 30.3491,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 6,
-        "support_slope_pct": 0.4381,
-        "terrain_measured": false
-      },
-      "pos": [
-        4760.0,
-        340.7052,
-        10550.0
-      ],
-      "requested_composition": "medevac-station",
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.4 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "comms-post",
-      "heading": 90.0,
-      "id": "s030",
-      "placement_evidence": {
-        "height_median_m": 339.621552,
-        "height_spread_m": 0.9356,
-        "nearest_group_m": 28.8767,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 1.7364,
-        "terrain_measured": false
-      },
-      "pos": [
-        4140.0,
-        339.621552,
-        11030.0
-      ],
-      "requested_composition": "radio-relay",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.9 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "supply-dump",
-      "heading": 180.0,
-      "id": "s031",
-      "placement_evidence": {
-        "height_median_m": 476.049225,
-        "height_spread_m": 1.0933,
-        "nearest_group_m": 41.2071,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 0.9214,
-        "terrain_measured": false
-      },
-      "pos": [
-        4570.0,
-        476.049225,
-        15270.0
-      ],
-      "requested_composition": "ammo-dump",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.1 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
-      "id": "s032",
-      "placement_evidence": {
-        "height_median_m": 228.98555,
-        "height_spread_m": 0.2293,
-        "nearest_group_m": 32.2799,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 3,
-        "support_slope_pct": 1.3499,
-        "terrain_measured": false
-      },
-      "pos": [
-        1960.0,
-        228.98555,
-        10030.0
-      ],
-      "requested_composition": "mortar-pit",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "supply-dump",
-      "heading": 0.0,
-      "id": "s033",
-      "placement_evidence": {
-        "height_median_m": 92.500092,
-        "height_spread_m": 0.2248,
-        "nearest_group_m": 34.2383,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 0.5273,
-        "terrain_measured": false
-      },
-      "pos": [
-        12790.0,
-        92.500092,
-        14590.0
-      ],
-      "requested_composition": "fuel-depot",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 90.0,
-      "id": "s034",
-      "placement_evidence": {
-        "height_median_m": 229.692368,
-        "height_spread_m": 0.6737,
-        "nearest_group_m": 24.2053,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 0.7662,
-        "terrain_measured": false
-      },
-      "pos": [
-        2060.0,
-        229.692368,
-        9880.0
-      ],
-      "requested_composition": "sniper-overwatch",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.7 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "field-hospital",
-      "heading": 0.0,
-      "id": "s035",
-      "placement_evidence": {
-        "height_median_m": 2.154119,
-        "height_spread_m": 0.6282,
-        "nearest_group_m": 37.5131,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 1.9907,
-        "terrain_measured": false
-      },
-      "pos": [
-        15280.0,
-        2.154119,
-        13820.0
-      ],
-      "requested_composition": "medevac-station",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.6 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
-      "id": "s036",
-      "placement_evidence": {
-        "height_median_m": 59.66573,
-        "height_spread_m": 1.0531,
-        "nearest_group_m": 23.4827,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 5,
-        "support_slope_pct": 2.3315,
-        "terrain_measured": false
-      },
-      "pos": [
-        10230.0,
-        59.66573,
-        14170.0
-      ],
-      "requested_composition": "mortar-pit",
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.1 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 90.0,
-      "id": "s037",
-      "placement_evidence": {
-        "height_median_m": 171.708527,
-        "height_spread_m": 0.7233,
-        "nearest_group_m": 23.7092,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 4,
-        "support_slope_pct": 2.6769,
-        "terrain_measured": false
-      },
-      "pos": [
-        11390.0,
-        171.708527,
-        12530.0
-      ],
-      "requested_composition": "sniper-overwatch",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.7 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
-      "id": "s038",
-      "placement_evidence": {
-        "height_median_m": 205.296631,
-        "height_spread_m": 0.457,
-        "nearest_group_m": 29.4541,
-        "radius_m": 60.0,
-        "roads_surveyed": false,
-        "rows": 3,
-        "support_slope_pct": 1.3628,
-        "terrain_measured": false
-      },
-      "pos": [
-        8550.0,
-        205.296631,
-        13950.0
-      ],
-      "requested_composition": "mortar-pit",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.5 m"
-    },
-    {
-      "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 90.0,
-      "id": "s039",
+      "id": "s024",
       "placement_evidence": {
         "height_median_m": 74.307274,
         "height_spread_m": 0.7062,
-        "nearest_group_m": 26.9358,
-        "radius_m": 60.0,
+        "nearest_group_m": 40.5588,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
         "rows": 3,
         "support_slope_pct": 2.8811,
         "terrain_measured": false
       },
+      "planning_origin": [
+        10230.0,
+        59.724495,
+        14110.0
+      ],
       "pos": [
+        14800.0,
+        74.307274,
+        14610.0
+      ],
+      "requested_composition": "crashed-convoy",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.7 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "field-hq",
+      "heading": 0.0,
+      "id": "s025",
+      "placement_evidence": {
+        "height_median_m": 339.0,
+        "height_spread_m": 1.4392,
+        "nearest_group_m": 29.5348,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 0.8345,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        5860.0,
+        280.203003,
+        10080.0
+      ],
+      "pos": [
+        4930.0,
+        339.0,
+        10090.0
+      ],
+      "requested_composition": "field-hq",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 6 vanilla rows within 90 m, spread 1.4 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "sniper-overwatch",
+      "heading": 15.0,
+      "id": "s026",
+      "placement_evidence": {
+        "height_median_m": 250.762009,
+        "height_spread_m": 1.4967,
+        "nearest_group_m": 33.1769,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.4427,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        1970.0,
+        229.74263,
+        9850.0
+      ],
+      "pos": [
+        1955.0,
+        250.762009,
+        11305.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 1.5 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "abandoned-checkpoint",
+      "heading": 330.0,
+      "id": "s027",
+      "placement_evidence": {
+        "height_median_m": 85.021843,
+        "height_spread_m": 0.6743,
+        "nearest_group_m": 43.8906,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 1.506,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        13670.0,
+        24.447157,
+        13340.0
+      ],
+      "pos": [
+        9520.0,
+        85.021843,
+        13600.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "support_radius_m": 75.0,
+      "y_basis": "median of 8 vanilla rows within 75 m, spread 0.7 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "overrun-camp",
+      "heading": 0.0,
+      "id": "s028",
+      "placement_evidence": {
+        "height_median_m": 338.999969,
+        "height_spread_m": 0.0152,
+        "nearest_group_m": 46.5057,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.0165,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        5940.0,
+        342.783478,
+        14360.0
+      ],
+      "pos": [
+        4585.0,
+        338.999969,
+        10705.0
+      ],
+      "requested_composition": "overrun-camp",
+      "support_radius_m": 75.0,
+      "y_basis": "median of 3 vanilla rows within 75 m, spread 0.0 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "medevac-station",
+      "heading": 180.0,
+      "id": "s029",
+      "placement_evidence": {
+        "height_median_m": 339.0,
+        "height_spread_m": 0.0093,
+        "nearest_group_m": 33.3386,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.0096,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        4760.0,
+        340.7052,
+        10550.0
+      ],
+      "pos": [
+        4805.0,
+        339.0,
+        10150.0
+      ],
+      "requested_composition": "medevac-station",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.0 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "radio-relay",
+      "heading": 30.0,
+      "id": "s030",
+      "placement_evidence": {
+        "height_median_m": 338.690094,
+        "height_spread_m": 0.2864,
+        "nearest_group_m": 69.0863,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.3041,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        4140.0,
+        339.621552,
+        11030.0
+      ],
+      "pos": [
+        4310.0,
+        338.690094,
+        10920.0
+      ],
+      "requested_composition": "radio-relay",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.3 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "ammo-dump",
+      "heading": 90.0,
+      "id": "s031",
+      "placement_evidence": {
+        "height_median_m": 227.979782,
+        "height_spread_m": 0.3402,
+        "nearest_group_m": 59.5191,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.0677,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        4570.0,
+        476.049225,
+        15270.0
+      ],
+      "pos": [
+        6115.0,
+        227.979782,
+        13485.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 0.3 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "mortar-pit",
+      "heading": 345.0,
+      "id": "s032",
+      "placement_evidence": {
+        "height_median_m": 339.042572,
+        "height_spread_m": 1.2093,
+        "nearest_group_m": 52.8086,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.2317,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        1960.0,
+        228.98555,
+        10030.0
+      ],
+      "pos": [
+        4530.0,
+        339.042572,
+        10645.0
+      ],
+      "requested_composition": "mortar-pit",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 6 vanilla rows within 90 m, spread 1.2 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "fuel-depot",
+      "heading": 90.0,
+      "id": "s033",
+      "placement_evidence": {
+        "height_median_m": 21.556192,
+        "height_spread_m": 1.2192,
+        "nearest_group_m": 49.8201,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 1.5172,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        12790.0,
+        92.500092,
+        14590.0
+      ],
+      "pos": [
+        13390.0,
+        21.556192,
+        14275.0
+      ],
+      "requested_composition": "fuel-depot",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 7 vanilla rows within 120 m, spread 1.2 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "sniper-overwatch",
+      "heading": 105.0,
+      "id": "s034",
+      "placement_evidence": {
+        "height_median_m": 422.610596,
+        "height_spread_m": 1.302,
+        "nearest_group_m": 69.9889,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 12,
+        "support_slope_pct": 2.3059,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        2060.0,
+        229.692368,
+        9880.0
+      ],
+      "pos": [
+        605.0,
+        422.610596,
+        11045.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 12 vanilla rows within 90 m, spread 1.3 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "medevac-station",
+      "heading": 345.0,
+      "id": "s035",
+      "placement_evidence": {
+        "height_median_m": 74.307274,
+        "height_spread_m": 0.7062,
+        "nearest_group_m": 72.3999,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.8811,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        15280.0,
+        2.154119,
+        13820.0
+      ],
+      "pos": [
+        14890.0,
+        74.307274,
+        14505.0
+      ],
+      "requested_composition": "medevac-station",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.7 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "mortar-pit",
+      "heading": 30.0,
+      "id": "s036",
+      "placement_evidence": {
+        "height_median_m": 5.043074,
+        "height_spread_m": 0.0222,
+        "nearest_group_m": 43.4214,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.2409,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        10230.0,
+        59.66573,
+        14170.0
+      ],
+      "pos": [
+        13845.0,
+        5.043074,
+        13580.0
+      ],
+      "requested_composition": "mortar-pit",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 0.0 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "sniper-overwatch",
+      "heading": 315.0,
+      "id": "s037",
+      "placement_evidence": {
+        "height_median_m": 141.209244,
+        "height_spread_m": 0.8868,
+        "nearest_group_m": 25.0723,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 0.5132,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        11390.0,
+        171.708527,
+        12530.0
+      ],
+      "pos": [
+        11960.0,
+        141.209244,
+        12455.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 60.0,
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "mortar-pit",
+      "heading": 0.0,
+      "id": "s038",
+      "placement_evidence": {
+        "height_median_m": 342.783478,
+        "height_spread_m": 0.1586,
+        "nearest_group_m": 85.1035,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 2.8281,
+        "terrain_measured": false
+      },
+      "planning_origin": [
+        8550.0,
+        205.296631,
+        13950.0
+      ],
+      "pos": [
+        6050.0,
+        342.783478,
+        14420.0
+      ],
+      "requested_composition": "mortar-pit",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 6 vanilla rows within 120 m, spread 0.2 m"
+    },
+    {
+      "area": "inland field position; tier subject to stock CE area flags",
+      "composition": "sniper-overwatch",
+      "heading": 240.0,
+      "id": "s039",
+      "placement_evidence": {
+        "height_median_m": 74.307274,
+        "height_spread_m": 0.7062,
+        "nearest_group_m": 22.9217,
+        "prop_bounds_measured": false,
+        "radius_m": 75.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.8811,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         14860.0,
         74.307274,
         14570.0
       ],
+      "pos": [
+        14860.0,
+        74.307274,
+        14560.0
+      ],
       "requested_composition": "sniper-overwatch",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.7 m"
+      "support_radius_m": 75.0,
+      "y_basis": "median of 3 vanilla rows within 75 m, spread 0.7 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
+      "composition": "mortar-pit",
+      "heading": 0.0,
       "id": "s040",
       "placement_evidence": {
-        "height_median_m": 40.52457,
-        "height_spread_m": 0.6521,
-        "nearest_group_m": 28.6414,
-        "radius_m": 60.0,
+        "height_median_m": 221.812576,
+        "height_spread_m": 0.2813,
+        "nearest_group_m": 77.86,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 7,
-        "support_slope_pct": 1.837,
+        "rows": 4,
+        "support_slope_pct": 0.5145,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         11340.0,
         40.52457,
         14290.0
       ],
+      "pos": [
+        10995.0,
+        221.812576,
+        13470.0
+      ],
       "requested_composition": "mortar-pit",
-      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.7 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 0.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
+      "composition": "mortar-pit",
+      "heading": 30.0,
       "id": "s041",
       "placement_evidence": {
         "height_median_m": 319.199219,
         "height_spread_m": 0.3419,
-        "nearest_group_m": 27.5554,
-        "radius_m": 60.0,
+        "nearest_group_m": 31.3558,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
         "roads_surveyed": false,
         "rows": 4,
         "support_slope_pct": 0.7956,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         4530.0,
         319.199219,
         8380.0
       ],
+      "pos": [
+        4580.0,
+        319.199219,
+        8390.0
+      ],
       "requested_composition": "mortar-pit",
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+      "support_radius_m": 90.0,
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 0.3 m"
     },
     {
       "area": "inland field position; tier subject to stock CE area flags",
-      "composition": "mg-nest",
-      "heading": 270.0,
+      "composition": "mortar-pit",
+      "heading": 45.0,
       "id": "s042",
       "placement_evidence": {
-        "height_median_m": 340.664581,
-        "height_spread_m": 0.6255,
-        "nearest_group_m": 33.5465,
-        "radius_m": 60.0,
+        "height_median_m": 339.0,
+        "height_spread_m": 0.01,
+        "nearest_group_m": 29.0584,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
         "roads_surveyed": false,
-        "rows": 3,
-        "support_slope_pct": 2.3061,
+        "rows": 4,
+        "support_slope_pct": 0.0098,
         "terrain_measured": false
       },
-      "pos": [
+      "planning_origin": [
         4170.0,
         340.664581,
         10370.0
       ],
+      "pos": [
+        4885.0,
+        339.0,
+        10230.0
+      ],
       "requested_composition": "mortar-pit",
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m"
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 0.0 m"
     }
   ],
   "status": "runtime-unverified",

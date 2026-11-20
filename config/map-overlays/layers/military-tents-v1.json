@@ -1,107 +1,483 @@
 {
   "basis": {
+    "candidate_evidence_options": 46751,
     "inventory": {
       "groups": 11679,
       "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
     },
-    "rule": "Rule: group the military-style rows (Land_Mil_*, Land_Tisy_*, Land_Medical_Tent*) into clusters by single linkage at 250 m; keep clusters with at least 6 rows and fewer than 25 percent tents; around each non-tent row try 8 compass bearings at 20 m and 28 m; a site must be within 100 m of the cluster centre, at least 12 m from every vanilla row, have at least 3 vanilla rows within 60 m whose heights span at most 1.2 m (flat ground assumption; y is their median); choose the sites nearest the centre, pairs at least 15 m apart. Class cycles through the Big1 tent family, yaw alternates 0 and 180 (the only yaws that do not depend on the unverified sign convention)."
+    "military_search_radius_m": 3000.0,
+    "rule": "Replan every authored composition, preserving site identity and every v2 requested rich kit.\n\n    Candidate order, headings and original planning anchors are stable across input row\n    order and repeated refreshes. V1 upgrades may retain their original kit when\n    no supported local upgrade fits; v2 kits and site counts never silently fall back.\n    Roads, collision bounds and navmesh are not observable from vanilla group origins.\n    ",
+    "site_spacing_m": 55.0,
+    "support_radii_m": [
+      60.0,
+      90.0,
+      120.0
+    ],
+    "terrain": "Vanilla group origins only; terrain, roads and navmesh unverified."
   },
   "id": "military-tents-v1",
   "kind": "hollow-country-map-overlay",
   "limits": {
-    "max_objects": 30
+    "max_loot": 600,
+    "max_objects": 3500,
+    "max_support_slope_pct": 3.0,
+    "vanilla_clearance_m": 16.0
   },
   "objects": [
     {
       "area": "cluster@4026,11775",
       "class": "Land_Mil_Tent_Big1_1",
+      "guard_slots": [
+        [
+          4030.0,
+          376.888794,
+          11881.0
+        ],
+        [
+          4034.0,
+          376.888794,
+          11885.0
+        ],
+        [
+          4038.0,
+          376.888794,
+          11877.0
+        ],
+        [
+          4038.0,
+          376.888794,
+          11889.0
+        ],
+        [
+          4042.0,
+          376.888794,
+          11881.0
+        ],
+        [
+          4046.0,
+          376.888794,
+          11877.0
+        ]
+      ],
       "id": "t01",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 376.888794,
+        "height_spread_m": 0.0562,
+        "nearest_group_m": 22.3323,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.0377,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4044.935303,
         376.888794,
         11865.339844
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.1 m",
-      "yaw": 0.0
+      "pos": [
+        4050.0,
+        376.888794,
+        11865.0
+      ],
+      "support_radius_m": 60.0,
+      "y_basis": "median of 5 vanilla rows within 60 m",
+      "yaw": 0.0,
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     },
     {
       "area": "cluster@4525,8295",
       "class": "Land_Mil_Tent_Big1_2",
+      "guard_slots": [
+        [
+          4506.0,
+          319.369537,
+          8351.0
+        ],
+        [
+          4506.0,
+          319.369537,
+          8359.0
+        ],
+        [
+          4506.0,
+          319.369537,
+          8367.0
+        ],
+        [
+          4510.0,
+          319.369537,
+          8355.0
+        ],
+        [
+          4510.0,
+          319.369537,
+          8363.0
+        ],
+        [
+          4510.0,
+          319.369537,
+          8371.0
+        ]
+      ],
       "id": "t02",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 319.369537,
+        "height_spread_m": 0.8725,
+        "nearest_group_m": 22.8747,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 1.4204,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4537.820639,
         319.369537,
         8346.936685
       ],
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.9 m",
-      "yaw": 180.0
+      "pos": [
+        4530.0,
+        319.369537,
+        8355.0
+      ],
+      "support_radius_m": 60.0,
+      "y_basis": "median of 6 vanilla rows within 60 m",
+      "yaw": 180.0,
+      "zone_id": "vmc",
+      "zone_role": "outpost"
     },
     {
       "area": "cluster@4525,8295",
       "class": "Land_Mil_Tent_Big1_3",
+      "guard_slots": [
+        [
+          4481.0,
+          319.030518,
+          8393.0
+        ],
+        [
+          4485.0,
+          319.030518,
+          8389.0
+        ],
+        [
+          4489.0,
+          319.030518,
+          8385.0
+        ],
+        [
+          4489.0,
+          319.030518,
+          8393.0
+        ],
+        [
+          4489.0,
+          319.030518,
+          8401.0
+        ],
+        [
+          4493.0,
+          319.030518,
+          8389.0
+        ]
+      ],
       "id": "t03",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 319.030518,
+        "height_spread_m": 0.1716,
+        "nearest_group_m": 62.5246,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.3907,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4511.184897,
         319.199219,
         8351.945474
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.6 m",
-      "yaw": 0.0
+      "pos": [
+        4505.0,
+        319.030518,
+        8405.0
+      ],
+      "support_radius_m": 90.0,
+      "y_basis": "median of 3 vanilla rows within 90 m",
+      "yaw": 0.0,
+      "zone_id": "vmc",
+      "zone_role": "outpost"
     },
     {
       "area": "cluster@4525,8295",
       "class": "Land_Mil_Tent_Big1_4",
+      "guard_slots": [
+        [
+          4561.0,
+          319.199219,
+          8345.0
+        ],
+        [
+          4569.0,
+          319.199219,
+          8341.0
+        ],
+        [
+          4573.0,
+          319.199219,
+          8321.0
+        ],
+        [
+          4573.0,
+          319.199219,
+          8333.0
+        ],
+        [
+          4573.0,
+          319.199219,
+          8345.0
+        ],
+        [
+          4577.0,
+          319.199219,
+          8325.0
+        ]
+      ],
       "id": "t04",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 319.199219,
+        "height_spread_m": 0.8725,
+        "nearest_group_m": 23.6855,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.652,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4557.619629,
         319.369537,
         8347.137695
       ],
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.9 m",
-      "yaw": 180.0
+      "pos": [
+        4585.0,
+        319.199219,
+        8345.0
+      ],
+      "support_radius_m": 60.0,
+      "y_basis": "median of 5 vanilla rows within 60 m",
+      "yaw": 180.0,
+      "zone_id": "vmc",
+      "zone_role": "outpost"
     },
     {
       "area": "cluster@2076,3397",
       "class": "Land_Mil_Tent_Big1_5",
+      "guard_slots": [
+        [
+          2071.0,
+          110.957024,
+          3463.0
+        ],
+        [
+          2071.0,
+          110.957024,
+          3471.0
+        ],
+        [
+          2075.0,
+          110.957024,
+          3459.0
+        ],
+        [
+          2075.0,
+          110.957024,
+          3467.0
+        ],
+        [
+          2079.0,
+          110.957024,
+          3455.0
+        ],
+        [
+          2079.0,
+          110.957024,
+          3463.0
+        ]
+      ],
       "id": "t05",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 110.957024,
+        "height_spread_m": 0.621,
+        "nearest_group_m": 22.9903,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 8,
+        "support_slope_pct": 1.1763,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2095.537109,
         110.957024,
         3477.254883
       ],
-      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.6 m",
-      "yaw": 0.0
+      "pos": [
+        2095.0,
+        110.957024,
+        3475.0
+      ],
+      "support_radius_m": 60.0,
+      "y_basis": "median of 8 vanilla rows within 60 m",
+      "yaw": 0.0,
+      "zone_id": "pavlovo",
+      "zone_role": "outpost"
     },
     {
       "area": "cluster@2076,3397",
       "class": "Land_Mil_Tent_Big1_1",
+      "guard_slots": [
+        [
+          2121.0,
+          110.809235,
+          3496.0
+        ],
+        [
+          2121.0,
+          110.809235,
+          3504.0
+        ],
+        [
+          2121.0,
+          110.809235,
+          3512.0
+        ],
+        [
+          2125.0,
+          110.809235,
+          3500.0
+        ],
+        [
+          2125.0,
+          110.809235,
+          3508.0
+        ],
+        [
+          2125.0,
+          110.809235,
+          3516.0
+        ]
+      ],
       "id": "t06",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 110.809235,
+        "height_spread_m": 0.621,
+        "nearest_group_m": 49.7412,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 1.1412,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2115.336099,
         110.809235,
         3485.455893
       ],
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.3 m",
-      "yaw": 180.0
+      "pos": [
+        2145.0,
+        110.809235,
+        3500.0
+      ],
+      "support_radius_m": 90.0,
+      "y_basis": "median of 7 vanilla rows within 90 m",
+      "yaw": 180.0,
+      "zone_id": "pavlovo",
+      "zone_role": "outpost"
     },
     {
       "area": "cluster@2630,1284",
       "class": "Land_Mil_Tent_Big1_2",
+      "guard_slots": [
+        [
+          2446.0,
+          5.27253,
+          1267.0
+        ],
+        [
+          2446.0,
+          5.27253,
+          1275.0
+        ],
+        [
+          2446.0,
+          5.27253,
+          1283.0
+        ],
+        [
+          2450.0,
+          5.27253,
+          1263.0
+        ],
+        [
+          2450.0,
+          5.27253,
+          1271.0
+        ],
+        [
+          2450.0,
+          5.27253,
+          1279.0
+        ]
+      ],
       "id": "t07",
       "loot": "proto",
-      "pos": [
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 5.27253,
+        "height_spread_m": 0.5456,
+        "nearest_group_m": 41.1742,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.8857,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2547.164749,
         23.355591,
         1279.469314
       ],
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.4 m",
-      "yaw": 0.0
+      "pos": [
+        2470.0,
+        5.27253,
+        1275.0
+      ],
+      "support_radius_m": 90.0,
+      "y_basis": "median of 4 vanilla rows within 90 m",
+      "yaw": 0.0,
+      "zone_id": "prison-island-approach",
+      "zone_role": "outpost"
     }
   ],
   "purpose": "Extra military tents in tent-poor vanilla military clusters.",

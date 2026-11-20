@@ -1,126 +1,617 @@
 {
   "basis": {
+    "candidate_evidence_options": 46751,
     "inventory": {
       "groups": 11679,
       "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
     },
-    "rule": "Bases are Land_Mil_ rows (no tents or guard booths) linked at 120 m with at least 4 rows. The approach is the bearing from the base centre to the nearest vanilla guard booth 60 m or more away (within the base extent + 350 m), else to the nearest settlement (no road data offline). Per base, in rounds: a forward outpost on the approach, an MG nest 35 degrees to the left, a comms post behind the base, then an MG nest 35 degrees to the right. Each site is found by walking out from the base edge along its bearing in 10 m steps with bearing offsets of 0, 12 and 24 degrees, and is kept only if every piece clears vanilla groups by 10 m and has flat vanilla height support."
+    "military_search_radius_m": 3000.0,
+    "rule": "Replan every authored composition, preserving site identity and every v2 requested rich kit.\n\n    Candidate order, headings and original planning anchors are stable across input row\n    order and repeated refreshes. V1 upgrades may retain their original kit when\n    no supported local upgrade fits; v2 kits and site counts never silently fall back.\n    Roads, collision bounds and navmesh are not observable from vanilla group origins.\n    ",
+    "site_spacing_m": 55.0,
+    "support_radii_m": [
+      60.0,
+      90.0,
+      120.0
+    ],
+    "terrain": "Vanilla group origins only; terrain, roads and navmesh unverified."
   },
   "id": "military-outposts-v1",
   "kind": "hollow-country-map-overlay",
   "limits": {
-    "max_objects": 140
+    "max_loot": 600,
+    "max_objects": 3500,
+    "max_support_slope_pct": 3.0,
+    "vanilla_clearance_m": 16.0
   },
   "objects": [],
   "purpose": "Forward outposts, MG nests and comms posts at the approaches to the vanilla military bases and barracks clusters.",
   "sites": [
     {
       "area": "base@4567,10700 via guard booth Land_Guardhouse",
-      "composition": "forward-outpost",
-      "heading": 101.69278,
+      "composition": "field-hq",
+      "guard_slots": [
+        [
+          5059.349671,
+          339.0,
+          10007.152475
+        ],
+        [
+          5051.793151,
+          339.0,
+          10023.762683
+        ],
+        [
+          5058.004808,
+          339.0,
+          10000.580463
+        ],
+        [
+          5047.342459,
+          339.0,
+          10028.781781
+        ],
+        [
+          5050.448288,
+          339.0,
+          10017.190671
+        ],
+        [
+          5052.001202,
+          339.0,
+          10011.395116
+        ]
+      ],
+      "heading": 165.0,
       "id": "o01",
-      "pos": [
+      "original_composition": "forward-outpost",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 339.0,
+        "height_spread_m": 1.2962,
+        "nearest_group_m": 49.8225,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.8919,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4735.345621,
         340.312256,
         10665.26933
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.3 m"
+      "pos": [
+        5050.0,
+        339.0,
+        10015.0
+      ],
+      "requested_composition": "field-hq",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.3 m",
+      "zone_id": "nwaf",
+      "zone_role": "hq"
     },
     {
       "area": "base@4501,9555 via guard booth Land_Guardhouse",
       "composition": "forward-outpost",
-      "heading": 177.236852,
+      "guard_apron_m": 8,
+      "guard_slots": [
+        [
+          4439.0,
+          340.724792,
+          9397.0
+        ],
+        [
+          4445.0,
+          340.724792,
+          9397.0
+        ],
+        [
+          4451.0,
+          340.724792,
+          9397.0
+        ],
+        [
+          4469.0,
+          340.724792,
+          9427.0
+        ]
+      ],
+      "heading": 0.0,
       "id": "o02",
-      "pos": [
+      "original_composition": "forward-outpost",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 340.724792,
+        "height_spread_m": 1.0462,
+        "nearest_group_m": 56.6959,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.5915,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4507.424015,
         340.724792,
         9429.239949
       ],
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+      "pos": [
+        4450.0,
+        340.724792,
+        9415.0
+      ],
+      "requested_composition": "field-hq",
+      "support_radius_m": 90.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 1.0 m",
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     },
     {
       "area": "base@10946,13397 via nearest settlement",
-      "composition": "forward-outpost",
-      "heading": 142.235059,
+      "composition": "field-hq",
+      "guard_slots": [
+        [
+          10948.0,
+          221.812576,
+          13365.0
+        ],
+        [
+          10951.0,
+          221.812576,
+          13338.0
+        ],
+        [
+          10951.0,
+          221.812576,
+          13344.0
+        ],
+        [
+          10951.0,
+          221.812576,
+          13371.0
+        ],
+        [
+          10954.0,
+          221.812576,
+          13350.0
+        ],
+        [
+          10954.0,
+          221.812576,
+          13356.0
+        ]
+      ],
+      "heading": 0.0,
       "id": "o03",
-      "pos": [
+      "original_composition": "forward-outpost",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 221.812576,
+        "height_spread_m": 0.2813,
+        "nearest_group_m": 44.2057,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.5145,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         10955.902728,
         221.812576,
         13357.428079
       ],
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.3 m"
+      "pos": [
+        10955.0,
+        221.812576,
+        13355.0
+      ],
+      "requested_composition": "field-hq",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 0.3 m",
+      "zone_id": "krasnostav",
+      "zone_role": "hq"
     },
     {
       "area": "base@1471,13659 via guard booth Land_Mil_Guardhouse1",
-      "composition": "mg-nest",
-      "heading": 34.090696,
+      "composition": "sniper-overwatch",
+      "guard_slots": [
+        [
+          1847.620376,
+          435.890961,
+          14817.266547
+        ],
+        [
+          1849.381341,
+          435.890961,
+          14799.103425
+        ],
+        [
+          1841.824821,
+          435.890961,
+          14815.713632
+        ],
+        [
+          1848.036478,
+          435.890961,
+          14792.531412
+        ],
+        [
+          1840.479958,
+          435.890961,
+          14809.14162
+        ],
+        [
+          1842.809329,
+          435.890961,
+          14800.448288
+        ]
+      ],
+      "heading": 165.0,
       "id": "o04",
-      "pos": [
+      "original_composition": "mg-nest",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 435.890961,
+        "height_spread_m": 1.3943,
+        "nearest_group_m": 58.1822,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.2566,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         1484.266603,
         448.515259,
         13735.654646
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.5 m"
+      "pos": [
+        1845.0,
+        435.890961,
+        14800.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.4 m",
+      "zone_id": "tisy",
+      "zone_role": "perimeter"
     },
     {
       "area": "base@4501,9555 via guard booth Land_Guardhouse",
-      "composition": "mg-nest",
-      "heading": 142.236852,
+      "composition": "sniper-overwatch",
+      "guard_slots": [
+        [
+          4525.937822,
+          340.724792,
+          9409.643594
+        ],
+        [
+          4537.535898,
+          340.724792,
+          9423.732051
+        ],
+        [
+          4531.133975,
+          340.724792,
+          9406.643594
+        ],
+        [
+          4543.133975,
+          340.724792,
+          9427.428203
+        ],
+        [
+          4536.732051,
+          340.724792,
+          9410.339746
+        ],
+        [
+          4541.232051,
+          340.724792,
+          9418.133975
+        ]
+      ],
+      "heading": 30.0,
       "id": "o05",
-      "pos": [
+      "original_composition": "mg-nest",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 340.724792,
+        "height_spread_m": 1.0462,
+        "nearest_group_m": 36.9222,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.5915,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4535.505542,
         340.724792,
         9415.20083
       ],
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+      "pos": [
+        4540.0,
+        340.724792,
+        9420.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 60.0,
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m",
+      "zone_id": "nwaf",
+      "zone_role": "perimeter"
     },
     {
       "area": "base@5047,9765 via nearest settlement",
-      "composition": "mg-nest",
-      "heading": 23.249794,
+      "composition": "sniper-overwatch",
+      "guard_slots": [
+        [
+          4923.736544,
+          339.0,
+          9933.636039
+        ],
+        [
+          4938.585786,
+          339.0,
+          9944.242641
+        ],
+        [
+          4927.979185,
+          339.0,
+          9929.393398
+        ],
+        [
+          4944.949747,
+          339.0,
+          9946.363961
+        ],
+        [
+          4934.343146,
+          339.0,
+          9931.514719
+        ],
+        [
+          4938.585786,
+          339.0,
+          9935.757359
+        ]
+      ],
+      "heading": 45.0,
       "id": "o06",
-      "pos": [
+      "original_composition": "mg-nest",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 339.0,
+        "height_spread_m": 1.2962,
+        "nearest_group_m": 28.0824,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.3202,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         5063.403227,
         340.438568,
         9849.918105
       ],
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+      "pos": [
+        4940.0,
+        339.0,
+        9940.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 1.3 m",
+      "zone_id": "nwaf",
+      "zone_role": "perimeter"
     },
     {
       "area": "base@2589,1288 via guard booth Land_Guardhouse",
-      "composition": "mg-nest",
-      "heading": 26.889814,
+      "composition": "sniper-overwatch",
+      "guard_slots": [
+        [
+          1875.356406,
+          7.562396,
+          2085.937822
+        ],
+        [
+          1861.267949,
+          7.562396,
+          2097.535898
+        ],
+        [
+          1878.356406,
+          7.562396,
+          2091.133975
+        ],
+        [
+          1857.571797,
+          7.562396,
+          2103.133975
+        ],
+        [
+          1874.660254,
+          7.562396,
+          2096.732051
+        ],
+        [
+          1866.866025,
+          7.562396,
+          2101.232051
+        ]
+      ],
+      "heading": 300.0,
       "id": "o07",
-      "pos": [
+      "original_composition": "mg-nest",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 7.562396,
+        "height_spread_m": 1.2761,
+        "nearest_group_m": 30.1825,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.7619,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2625.774467,
         1.661024,
         1427.5663
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.5 m"
+      "pos": [
+        1865.0,
+        7.562396,
+        2100.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 5 vanilla rows within 90 m, spread 1.3 m",
+      "zone_id": "prison-island-approach",
+      "zone_role": "perimeter"
     },
     {
       "area": "base@4409,10938 via nearest settlement",
-      "composition": "mg-nest",
-      "heading": 104.862372,
+      "composition": "sniper-overwatch",
+      "guard_slots": [
+        [
+          4609.103425,
+          325.503021,
+          10990.618659
+        ],
+        [
+          4602.531412,
+          325.503021,
+          10991.963522
+        ],
+        [
+          4619.14162,
+          325.503021,
+          10999.520042
+        ],
+        [
+          4610.448288,
+          325.503021,
+          10997.190671
+        ],
+        [
+          4598.080721,
+          325.503021,
+          10996.98262
+        ],
+        [
+          4623.384261,
+          325.503021,
+          11006.868511
+        ]
+      ],
+      "heading": 255.0,
       "id": "o08",
-      "pos": [
+      "original_composition": "mg-nest",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 325.503021,
+        "height_spread_m": 0.1688,
+        "nearest_group_m": 27.627,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 0.7133,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4620.295828,
         325.503021,
         10971.670008
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.2 m"
+      "pos": [
+        4610.0,
+        325.503021,
+        10995.0
+      ],
+      "requested_composition": "sniper-overwatch",
+      "support_radius_m": 60.0,
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.2 m",
+      "zone_id": "nwaf",
+      "zone_role": "perimeter"
     },
     {
       "area": "base@4518,8303 via guard booth Land_Guardhouse",
       "composition": "comms-post",
-      "heading": 229.391376,
+      "guard_slots": [
+        [
+          4608.838595,
+          319.199219,
+          8325.390994
+        ],
+        [
+          4614.63415,
+          319.199219,
+          8323.83808
+        ],
+        [
+          4620.845807,
+          319.199219,
+          8347.0203
+        ],
+        [
+          4620.429705,
+          319.199219,
+          8322.285166
+        ],
+        [
+          4626.22526,
+          319.199219,
+          8320.732251
+        ],
+        [
+          4632.797272,
+          319.199219,
+          8322.077115
+        ]
+      ],
+      "heading": 15.0,
       "id": "o09",
-      "pos": [
+      "original_composition": "comms-post",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 319.199219,
+        "height_spread_m": 0.8725,
+        "nearest_group_m": 56.432,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 5,
+        "support_slope_pct": 1.652,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4584.594974,
         319.199219,
         8339.224544
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.9 m"
+      "pos": [
+        4620.0,
+        319.199219,
+        8340.0
+      ],
+      "requested_composition": "radio-relay",
+      "support_radius_m": 90.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 5 vanilla rows within 90 m, spread 0.9 m",
+      "zone_id": "vmc",
+      "zone_role": "outpost"
     }
   ],
   "status": "runtime-unverified",

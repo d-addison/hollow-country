@@ -22,6 +22,7 @@ import math
 import os
 from pathlib import Path
 import re
+import random
 import shutil
 import stat
 import sys
@@ -222,7 +223,8 @@ def expand_layer(source, layer):
             objects.append({'id': '%s-p%02d' % (site['id'], n), 'class': piece['class'],
                             'pos': [x, round(float(pos[1]) + float(piece.get('dy', 0.0)), 6), z],
                             'yaw': wrap(float(piece['yaw']) + float(heading)), 'loot': piece['loot'],
-                            'area': site.get('area', ''), 'site': site['id']})
+                            'area': site.get('area', ''), 'site': site['id'],
+                            **({'support_radius_m': site['support_radius_m']} if 'support_radius_m' in site else {})})
     return objects
 
 
@@ -341,7 +343,7 @@ def validate(source, vanilla=None, proto_names=None):
             _validate_site(name, site, source, limits, seen_sites, errors)
             slope_cap = (layer.get('limits') or {}).get('max_support_slope_pct')
             if vanilla is not None and slope_cap is not None and isinstance(site, dict) and _finite_list(site.get('pos'), 3):
-                evidence = height_evidence(vanilla_grid, site['pos'][0], site['pos'][2], limits['flat_radius_m'])
+                evidence = height_evidence(vanilla_grid, site['pos'][0], site['pos'][2], site.get('support_radius_m', limits['flat_radius_m']))
                 slope = evidence.get('support_slope_pct')
                 if slope is None or slope > slope_cap:
                     errors.append('%s/%s: unsupported or excessive vanilla-row support slope' % (name, site.get('id')))
@@ -369,7 +371,8 @@ def validate(source, vanilla=None, proto_names=None):
             if pos is not None:
                 site_key = (name, item['site']) if isinstance(item.get('site'), str) else None
                 placed.append((name, item['id'] if isinstance(item.get('id'), str) else '?', pos,
-                               (layer.get('limits') or {}), site_key))
+                               dict(layer.get('limits') or {},
+                                    flat_radius_m=item.get('support_radius_m', limits['flat_radius_m'])), site_key))
             info = source.classes['classes'].get(item.get('class')) if isinstance(item, dict) else None
             if isinstance(item, dict) and item.get('loot') == 'proto' and 'site' not in item \
                     and isinstance(info, dict) and info.get('loot_group') is False:
@@ -385,6 +388,7 @@ def validate(source, vanilla=None, proto_names=None):
         errors.append('total of %d loot objects exceeds the total loot cap of %d' % (
             loot_total, limits['max_loot_total']))
     errors.extend(_spacing_errors(placed, limits))
+    errors.extend(_zone_site_errors(source, vanilla_grid))
     if vanilla is not None:
         errors.extend(_vanilla_errors(placed, vanilla, limits))
     return errors
@@ -458,7 +462,8 @@ def _vanilla_errors(placed, vanilla, limits):
             errors.append('vanilla group %s is %.1f m from %s/%s (clearance %.1f m)' % (
                 row[0], math.hypot(row[1] - pos[0], row[3] - pos[2]), layer_id, object_id, need))
         if site is not None:
-            errors.extend(_flat_errors('%s/%s' % (layer_id, object_id), pos, grid, limits))
+            errors.extend(_flat_errors('%s/%s' % (layer_id, object_id), pos, grid,
+                                            dict(limits, flat_radius_m=own.get('flat_radius_m', limits['flat_radius_m']))))
     return errors
 
 
@@ -726,7 +731,7 @@ def place_site(source, composition, x, z, heading, rows, taken=None):
         elif any(math.hypot(px - tx, pz - tz) < apart for tx, tz in taken or ()):
             return None
     return {'composition': composition, 'pos': [round(x, 6), y, round(z, 6)],
-            'heading': round(heading % 360.0, 6),
+            'heading': round(heading % 360.0, 6), 'support_radius_m': limits['flat_radius_m'],
             'y_basis': 'median of %d vanilla rows within %d m, spread %.1f m' % (
                 len(heights), limits['flat_radius_m'], heights[-1] - heights[0])}
 
@@ -1017,7 +1022,7 @@ def plan_expansion(source, rows, inventory=None):
                                     round((row[3] + dz) / 10) * 10.0))
     supported = []
     for x, z in sorted(candidates):
-        evidence = height_evidence(grid, x, z)
+        evidence = height_evidence(grid, x, z, radius)
         slope = evidence.get('support_slope_pct')
         if evidence['rows'] < limits['flat_min_rows'] or slope is None or slope > 3.0:
             continue
@@ -1078,6 +1083,481 @@ def plan_expansion(source, rows, inventory=None):
     for turn in range(70):
         select(layers[2], rural, 12 + turn % 8, 'town-edge / isolated mapped structure; road and forest fit unverified')
     return {l['id']: l for l in layers}
+
+
+RICH_UPGRADES = {'forward-outpost': 'field-hq', 'mg-nest': 'sniper-overwatch',
+                 'comms-post': 'radio-relay', 'supply-dump': 'ammo-dump',
+                 'field-hospital': 'medevac-station', 'checkpoint': 'abandoned-checkpoint',
+                 'tent-camp': 'overrun-camp'}
+
+
+def guard_clear(source, pos, objects):
+    """Keep outside authored rotated footprint reserves plus a 2 m walking apron."""
+    for obj in objects:
+        dx, dz = pos[0]-obj['pos'][0], pos[2]-obj['pos'][2]
+        if math.hypot(dx, dz) < 8:
+            return False
+        reserve = source.classes['classes'].get(obj['class'], {}).get('footprint_reserve_m')
+        if reserve:
+            angle = math.radians(obj['yaw'])
+            right = dx*math.cos(angle)-dz*math.sin(angle)
+            forward = dx*math.sin(angle)+dz*math.cos(angle)
+            if abs(right) < reserve[0]/2+2 and abs(forward) < reserve[1]/2+2:
+                return False
+    return True
+
+
+def _zone_site_errors(source, grid):
+    errors = []
+    layers = [l for l in source.layers if isinstance(l, dict)]
+    if not any(isinstance(t, dict) and 'zone_id' in t for l in layers
+               for key in ('sites', 'objects') for t in (l.get(key) if isinstance(l.get(key), list) else [])):
+        return errors
+    objects = [o for l in layers for o in expand_layer(source, l)]
+    for layer in layers:
+        for site in list(layer.get('sites') or []) + list(layer.get('objects') or []):
+            if not isinstance(site, dict) or 'zone_id' not in site:
+                continue
+            label = layer['id']+'/'+str(site.get('id'))
+            if not isinstance(site['zone_id'], str) or not LAYER_ID.fullmatch(site['zone_id']):
+                errors.append(label+': invalid zone_id')
+            if site.get('zone_role') not in ('hq', 'perimeter', 'outpost', 'depot'):
+                errors.append(label+': invalid zone_role')
+            slots = site.get('guard_slots')
+            if not isinstance(slots, list) or not 2 <= len(slots) <= 6:
+                errors.append(label+': guard_slots needs 2..6 positions')
+                continue
+            for pos in slots:
+                if not _finite_list(pos, 3):
+                    errors.append(label+': invalid guard position')
+                    continue
+                if not guard_clear(source, pos, objects):
+                    errors.append(label+': guard position overlaps prop reserve')
+                if grid is not None:
+                    if any(True for _ in grid.near(pos[0], pos[2], 16)):
+                        errors.append(label+': guard position lacks vanilla clearance')
+                    errors.extend(_flat_errors(label+'/guard', pos, grid, dict(
+                        limits_of(source.profile), flat_radius_m=site.get(
+                            'support_radius_m', limits_of(source.profile)['flat_radius_m']))))
+    return errors
+
+
+def guard_positions(source, site, grid, apron=0):
+    """Open-origin candidates inside the footprint; collision/navmesh still require native inspection."""
+    objects = expand_layer(source, {'sites': [dict(site, id='candidate')]})
+    cx, y, cz = site['pos']
+    comp = source.compositions['compositions'][site['composition']]
+    xmin, xmax = min(p['dx'] for p in comp['pieces']), max(p['dx'] for p in comp['pieces'])
+    zmin, zmax = min(p['dz'] for p in comp['pieces']), max(p['dz'] for p in comp['pieces'])
+    points = []
+    for dx in range(math.ceil(xmin + (4 if not apron else -apron)),
+                    math.floor(xmax - (4 if not apron else -apron)) + 1, 3):
+        for dz in range(math.ceil(zmin + (4 if not apron else -apron)),
+                        math.floor(zmax - (4 if not apron else -apron)) + 1, 3):
+            x, z = piece_world({'dx': dx, 'dz': dz}, cx, cz, site['heading'])
+            pos = [x, y, z]
+            # Reserve 8 m around all props, 16 m around vanilla group origins.
+            if not guard_clear(source, pos, objects):
+                continue
+            if any(True for _ in grid.near(x, z, 16)) or _flat_errors('', pos, grid, limits_of(source.profile)):
+                continue
+            if any(math.hypot(x-p[0], z-p[2]) < 5 for p in points):
+                continue
+            points.append(pos)
+            if len(points) == 6:
+                return points
+    return points
+
+
+def _placement_candidates(rows, grid, radius=90.0, support_radii=None):
+    candidates = set()
+    for row in rows:
+        for dx in range(-60, 61, 10):
+            for dz in range(-60, 61, 10):
+                candidates.add((round((row[1]+dx)/5)*5.0, round((row[3]+dz)/5)*5.0))
+    supported = []
+    for x, z in sorted(candidates):
+        for support_radius in (sorted({60.0, 75.0, 90.0, float(radius)})
+                               if support_radii is None else support_radii):
+            e = height_evidence(grid, x, z, support_radius)
+            slope = e.get('support_slope_pct')
+            if (e['rows'] >= 3 and slope is not None and slope <= 3
+                    and e['height_spread_m'] <= 1.5 and e['nearest_group_m'] >= 22):
+                supported.append((x, z, e))
+    return supported
+
+
+def _military_options(planning, jobs, supported, grid, taken):
+    """Bounded offline packing: scarce named-area patches get alternatives before global finds."""
+    options, fit_cache = {}, {}
+    for job in jobs:
+        if job[1] in ('civilian-stories-v2', 'inland-discoveries-v2'):
+            continue
+        _, layer_id, ident, layer, site, original, desired = job
+        if layer_id == 'military-zones-v2':
+            _, ax, az = next(a for a in EXPANSION_AREAS if a[0] == site['area'])
+        else:
+            ax, _, az = original
+        pool = sorted((p for p in supported if p[2]['radius_m'] != 75
+                       and math.hypot(p[0]-ax, p[1]-az) <= 3000),
+                      key=lambda p: (math.hypot(p[0]-ax, p[1]-az) > 1800,
+                                     math.hypot(p[0]-original[0], p[1]-original[2]), p[0], p[1]))
+        choices, buckets = [], {}
+        for x, z, evidence in pool:
+            bucket = (int(x//55), int(z//55))
+            if buckets.get(bucket, 0) >= 4:
+                continue
+            key = (desired, x, z, evidence['radius_m'])
+            planning.profile['limits']['flat_radius_m'] = evidence['radius_m']
+            if key not in fit_cache:
+                fit_cache[key] = None
+                planning.profile['limits']['flat_radius_m'] = evidence['radius_m']
+                for heading in range(0, 360, 15):
+                    found = place_site(planning, desired, x, z, heading, grid, taken)
+                    if found is None:
+                        continue
+                    slots = [p for p in guard_positions(planning, found, grid)
+                             if not any(True for _ in taken.near(p[0], p[2], 16))]
+                    if len(slots) < 2 and desired == site.get('original_composition', site['composition']):
+                        slots = [p for p in guard_positions(planning, found, grid, apron=8)
+                                 if not any(True for _ in taken.near(p[0], p[2], 16))]
+                        found['guard_apron_m'] = 8
+                    if len(slots) >= 2:
+                        found['placement_evidence'] = dict(evidence, guard_navmesh_verified=False,
+                                                           prop_bounds_measured=False)
+                        objects = expand_layer(planning, {'sites': [dict(found, id='candidate')]})
+                        fit_cache[key] = (found, slots, objects)
+                        break
+            choice = fit_cache[key]
+            if choice is not None:
+                choices.append(choice)
+                buckets[bucket] = buckets.get(bucket, 0)+1
+        legacy = site.get('original_composition', site['composition'])
+        if layer_id not in EXPANSION_IDS and desired != legacy:
+            fallback = (*job[:6], legacy)
+            choices.extend(_military_options(planning, [fallback], supported, grid, taken)[(layer_id, ident)])
+        if not choices:
+            raise ValueError('no military fit: %s/%s (%s)' % (layer_id, ident, desired))
+        options[(layer_id, ident)] = choices
+    return options
+
+
+def _pack_choices(options, initial_centres=None):
+    domains = {k: sum(1 << i for i, c in enumerate(v) if initial_centres is None
+                      or not any(True for _ in initial_centres.near(c[0]['pos'][0], c[0]['pos'][2], 55)))
+               for k, v in options.items()}
+    if any(not d for d in domains.values()):
+        raise ValueError('site alternatives blocked by standalone sites')
+    conflicts, geometry = {}, {}
+    def geom(choice):
+        found, slots, objects = choice
+        key = (found['composition'], *found['pos'], found['heading'], found['support_radius_m'])
+        if key not in geometry:
+            points = [o['pos'] for o in objects]+slots
+            radius = max(math.hypot(p[0]-found['pos'][0], p[2]-found['pos'][2]) for p in points)
+            geometry[key] = (Grid([('', *p) for p in points]), points, radius)
+        return key, geometry[key]
+    def blocked(choice, target):
+        key, (occupied, _, radius) = geom(choice)
+        cache_key = (key, target)
+        if cache_key in conflicts:
+            return conflicts[cache_key]
+        x, _, z = choice[0]['pos']
+        mask = 0
+        for index, other in enumerate(options[target]):
+            ox, _, oz = other[0]['pos']
+            gap = math.hypot(x-ox, z-oz)
+            _, (_, points, other_radius) = geom(other)
+            if gap < 55 or (gap <= radius+other_radius+16 and any(
+                    any(True for _ in occupied.near(p[0], p[2], 16)) for p in points)):
+                mask |= 1 << index
+        conflicts[cache_key] = mask
+        return mask
+    # Repair a complete assignment before exponential backtracking. Sparse geometric
+    # conflicts leave many equivalent patches; deterministic min-conflicts can
+    # trade those patches without exhausting a prefix of the site ordering.
+    keys = sorted(options)
+    rng = random.Random(517)
+    for restart in range(3):
+        selected = {k: ((domains[k] & -domains[k]).bit_length()-1 if restart == 0 else
+                        rng.choice([i for i in range(len(options[k])) if domains[k] & (1 << i)]))
+                    for k in keys}
+        scores = {k: [0] * len(options[k]) for k in keys}
+        def adjust(choice, owner, delta):
+            for target in keys:
+                if target == owner:
+                    continue
+                mask = blocked(choice, target) & domains[target]
+                while mask:
+                    bit = mask & -mask
+                    mask -= bit
+                    scores[target][bit.bit_length()-1] += delta
+        def move(key, index):
+            if selected[key] == index:
+                return
+            adjust(options[key][selected[key]], key, -1)
+            selected[key] = index
+            adjust(options[key][index], key, 1)
+        for key in keys:
+            adjust(options[key][selected[key]], key, 1)
+        for step in range(3000):
+            bad = [k for k in keys if scores[k][selected[k]]]
+            if step % 250 == 0:
+                print('placement repair: restart=%d iteration=%d conflicting_sites=%d' %
+                      (restart+1, step, len(bad)), file=sys.stderr, flush=True)
+            if not bad:
+                # Prefer authored ordering (rich upgrades first, then nearer anchors)
+                # once a complete compatible assignment exists.
+                for key in keys:
+                    move(key, next(i for i, n in enumerate(scores[key])
+                                   if n == 0 and domains[key] & (1 << i)))
+                return {k: options[k][selected[k]][:2] for k in keys}
+            key = rng.choice(bad)
+            best = min(n for i, n in enumerate(scores[key]) if domains[key] & (1 << i))
+            choices = [i for i, n in enumerate(scores[key])
+                       if n == best and domains[key] & (1 << i)]
+            move(key, rng.choice(choices))
+    nodes, depth = [0], [0]
+    def search(remaining):
+        depth[0] = max(depth[0], len(options)-len(remaining))
+        if not remaining:
+            return {}
+        nodes[0] += 1
+        if nodes[0] > 20000:
+            return None
+        key = min(remaining, key=lambda k: (remaining[k].bit_count(), k))
+        choices = remaining[key]
+        while choices:
+            bit = choices & -choices
+            choices -= bit
+            choice = options[key][bit.bit_length()-1]
+            next_domains = {}
+            for target, domain in remaining.items():
+                if target == key:
+                    continue
+                available = domain & ~blocked(choice, target)
+                if not available:
+                    break
+                next_domains[target] = available
+            else:
+                result = search(next_domains)
+                if result is not None:
+                    result[key] = choice[:2]
+                    return result
+        return None
+    result = search(domains)
+    if result is None:
+        raise ValueError('site packing exhausted bounded alternatives: nodes=%d depth=%d/%d' %
+                         (nodes[0], depth[0], len(options)))
+    return result
+
+
+def _story_options(planning, jobs, supported, grid, taken, centres):
+    options, fits = {}, {}
+    for job in jobs:
+        if job[1] not in ('inland-discoveries-v2', 'civilian-stories-v2'):
+            continue
+        _, layer_id, ident, layer, site, origin, desired = job
+        pool = [p for p in supported if layer_id != 'inland-discoveries-v2'
+                or (p[1] >= 5000 and (p[0] < 12000 or p[1] >= 12000))]
+        pool.sort(key=lambda p: (
+            layer_id == 'inland-discoveries-v2' and not (p[1] >= 7000 and (p[0] < 6500 or p[1] >= 12000)),
+            math.hypot(p[0]-origin[0], p[1]-origin[2]), p[0], p[1]))
+        choices, buckets = [], {}
+        for x, z, evidence in pool:
+            bucket = (int(x//55), int(z//55))
+            if buckets.get(bucket, 0) >= 4 or any(True for _ in centres.near(x, z, 55)):
+                continue
+            key = (desired, x, z, evidence['radius_m'])
+            if key not in fits:
+                fits[key] = None
+                planning.profile['limits']['flat_radius_m'] = evidence['radius_m']
+                for heading in range(0, 360, 15):
+                    found = place_site(planning, desired, x, z, heading, grid, taken)
+                    if found is None:
+                        continue
+                    found['placement_evidence'] = dict(evidence, prop_bounds_measured=False)
+                    objects = expand_layer(planning, {'sites': [dict(found, id='candidate')]})
+                    fits[key] = (found, [], objects)
+                    break
+            if fits[key] is not None:
+                choices.append(fits[key])
+                buckets[bucket] = buckets.get(bucket, 0)+1
+                if len(choices) >= 256:
+                    break
+        if not choices:
+            raise ValueError('no story alternatives: %s/%s (%s)' % (layer_id, ident, desired))
+        options[(layer_id, ident)] = choices
+    return options
+
+
+def refresh_placements(source, rows, inventory=None):
+    """Replan every authored composition, preserving site identity and every v2 requested rich kit.
+
+    Candidate order, headings and original planning anchors are stable across input row
+    order and repeated refreshes. V1 upgrades may retain their original kit when
+    no supported local upgrade fits; v2 kits and site counts never silently fall back.
+    Roads, collision bounds and navmesh are not observable from vanilla group origins.
+    """
+    rows = sorted(rows)
+    grid = Grid(rows)
+    profile = json.loads(json.dumps(source.profile))
+    profile['limits']['piece_vanilla_clearance_m'] = 16.0
+    planning = Source(profile, source.classes, [], source.compositions)
+    supported = _placement_candidates(rows, grid, profile['limits']['flat_radius_m'])
+    layers = json.loads(json.dumps(source.layers))
+    # Single tents retain their class, but receive the same fresh support and guard checks.
+    taken, centres = Grid([]), Grid([])
+    for layer in layers:
+        for obj in layer['objects']:
+            origin = obj.setdefault('planning_origin', obj['pos'][:])
+            for x, z, evidence in sorted((p for p in supported if p[2]['radius_m'] in (60, 90)), key=lambda p: (
+                    math.hypot(p[0]-origin[0], p[1]-origin[2]), p[0], p[1])):
+                if math.hypot(x-origin[0], z-origin[2]) > 1800:
+                    raise ValueError('no supported tent placement: '+obj['id'])
+                if any(True for _ in centres.near(x, z, 55)):
+                    continue
+                candidate = dict(obj, pos=[x, evidence['height_median_m'], z])
+                planning.profile['limits']['flat_radius_m'] = evidence['radius_m']
+                slots = []
+                for dx in range(-24, 25, 4):
+                    for dz in range(-24, 25, 4):
+                        pos = [x+dx, candidate['pos'][1], z+dz]
+                        if math.hypot(dx, dz) > 28 or not guard_clear(planning, pos, [candidate]):
+                            continue
+                        if any(True for _ in grid.near(pos[0], pos[2], 16)):
+                            continue
+                        if any(True for _ in taken.near(pos[0], pos[2], 16)):
+                            continue
+                        if _flat_errors('', pos, grid, limits_of(profile)):
+                            continue
+                        if any(math.hypot(pos[0]-p[0], pos[2]-p[2]) < 5 for p in slots):
+                            continue
+                        slots.append(pos)
+                        if len(slots) == 6:
+                            break
+                    if len(slots) == 6:
+                        break
+                if len(slots) < 2:
+                    continue
+                obj.update(pos=candidate['pos'], guard_slots=slots, support_radius_m=evidence['radius_m'],
+                           placement_evidence=dict(
+                    evidence, guard_navmesh_verified=False, prop_bounds_measured=False),
+                    y_basis='median of %d vanilla rows within %d m' % (evidence['rows'], evidence['radius_m']))
+                taken.add((obj['class'], *obj['pos']))
+                centres.add(('', *obj['pos']))
+                for pos in slots:
+                    taken.add(('', *pos))
+                break
+    jobs = []
+    for layer in layers:
+        layer['limits'] = dict(layer.get('limits') or {}, max_objects=3500, max_loot=600,
+                               vanilla_clearance_m=16.0, max_support_slope_pct=3.0)
+        layer['basis'] = {'inventory': inventory or {}, 'rule': refresh_placements.__doc__,
+                          'candidate_evidence_options': len(supported), 'site_spacing_m': 55.0,
+                          'support_radii_m': ([60.0, 75.0, 90.0, 120.0] if layer['id'] in
+                                              ('inland-discoveries-v2', 'civilian-stories-v2') else [60.0, 90.0, 120.0]), 'military_search_radius_m': 3000.0,
+                          'terrain': 'Vanilla group origins only; terrain, roads and navmesh unverified.'}
+        for site in layer.get('sites', []):
+            original = site.setdefault('planning_origin', site['pos'][:])
+            if layer['id'] not in EXPANSION_IDS:
+                site.setdefault('original_composition', site['composition'])
+            desired = site.get('requested_composition', RICH_UPGRADES.get(site['composition'], site['composition']))
+            site['requested_composition'] = desired
+            comp = source.compositions['compositions'][desired]
+            size = max(math.hypot(p['dx'], p['dz']) for p in comp['pieces'])
+            jobs.append((-size, layer['id'], site['id'], layer, site, original, desired))
+    # Explicit tents reserve their props and slots; 55 m centre spacing applies to compositions.
+    centres = Grid([])
+    options = _military_options(planning, jobs, supported, grid, taken)
+    options.update(_story_options(planning, jobs, supported, grid, taken, centres))
+    packed = _pack_choices(options)
+    priority = {'military-zones-v2': 0, 'military-outposts-v1': 1, 'supply-dumps-v1': 1,
+                'roadside-checkpoints-v1': 1, 'inland-discoveries-v2': 2, 'civilian-stories-v2': 2}
+    for _, _, _, layer, site, original, desired in sorted(
+            jobs, key=lambda j: (priority.get(j[1], 1), *j[:3])):
+        found, slots = packed[(layer['id'], site['id'])]
+        site.update(found)
+        if found['composition'] != desired:
+            site['upgrade_deferred'] = 'Original kit retained to satisfy combined military clearance.'
+        if layer['id'] == 'military-zones-v2':
+            _, ax, az = next(a for a in EXPANSION_AREAS if a[0] == site['area'])
+            site['placement_evidence']['area_anchor_distance_m'] = round(
+                math.hypot(site['pos'][0]-ax, site['pos'][2]-az), 3)
+        if layer['id'].startswith('military-') or layer['id'] in ('supply-dumps-v1', 'roadside-checkpoints-v1'):
+            site['guard_slots'] = slots
+        for o in expand_layer(planning, {'sites': [site]}):
+            taken.add((o['class'], *o['pos']))
+        centres.add(('', *site['pos']))
+        for pos in slots:
+            taken.add(('', *pos))
+    # Named geographic military clusters, shared across v1 and v2. Site references are qualified.
+    for layer in layers:
+        if not (layer['id'].startswith('military-') or layer['id'] in ('supply-dumps-v1', 'roadside-checkpoints-v1')):
+            continue
+        for site in list(layer.get('sites', [])) + layer['objects']:
+            area, _, _ = min(EXPANSION_AREAS, key=lambda a: math.hypot(a[1]-site['pos'][0], a[2]-site['pos'][2]))
+            if layer['id'] == 'military-zones-v2':
+                area = site['area']
+            site['zone_id'] = re.sub(r'[^a-z0-9]+', '-', area.lower()).strip('-')
+            kit = site.get('composition', '')
+            site['zone_role'] = ('hq' if kit in ('field-hq', 'fob-compound') else
+                                 'depot' if kit in ('ammo-dump', 'fuel-depot', 'supply-drop-site') else
+                                 'perimeter' if kit in ('abandoned-checkpoint', 'sniper-overwatch') else 'outpost')
+    return {l['id']: l for l in layers}
+
+
+def military_zones(source):
+    """Generate a compact deployment contract; initial states are seeds for dynamic runtime state."""
+    grouped = {}
+    for layer in enabled_layers(source):
+        for site in list(layer.get('sites', [])) + layer['objects']:
+            if 'zone_id' not in site:
+                continue
+            grouped.setdefault(site['zone_id'], []).append((layer['id']+'/'+site['id'], site))
+    objects = [o for layer in enabled_layers(source) for o in expand_layer(source, layer)]
+    high = {'tisy', 'kamensk', 'nwaf', 'vmc', 'myshkino', 'troitskoe'}
+    ranked = sorted(grouped, key=lambda k: (
+        int(sha(k.encode()), 16) - (3 * (1 << 256) // 10 if k in high else 0), k))
+    held, overrun = round(len(ranked)*.4), round(len(ranked)*.35)
+    states = {k: ('held' if i < held else 'overrun' if i < held+overrun else 'abandoned')
+              for i, k in enumerate(ranked)}
+    zones = []
+    for ident, sites in sorted(grouped.items()):
+        positions = [s['pos'] for _, s in sites]
+        center = [round(sum(p[i] for p in positions)/len(positions), 1) for i in range(3)]
+        # A runtime patrol owns at most six members; keep its spawn positions together.
+        anchor = min(sites, key=lambda item: (
+            {'hq': 0, 'outpost': 1, 'depot': 2, 'perimeter': 3}[item[1]['zone_role']],
+            math.hypot(item[1]['pos'][0]-center[0], item[1]['pos'][2]-center[2]), item[0]))[1]
+        center = [round(v, 1) for v in anchor['pos']]
+        slots = [[round(v, 1) for v in p] for p in anchor['guard_slots']]
+        # Rounding can move an edge candidate into an authored prop reserve.
+        slots = [p for p in slots if guard_clear(source, p, objects)]
+        if len(slots) < 3:
+            slots.extend([round(v, 1) for v in p] for _, site in sorted(sites)
+                         if site is not anchor for p in site['guard_slots']
+                         if math.dist(p, center) <= 1950
+                         and guard_clear(source, [round(v, 1) for v in p], objects))
+            slots = slots[:6]
+        if len(slots) < 3:
+            raise ValueError('zone needs at least three nearby guard slots: '+ident)
+        zones.append({'id': ident, 'area': next(a[0] for a in EXPANSION_AREAS
+                                              if re.sub(r'[^a-z0-9]+', '-', a[0].lower()).strip('-') == ident),
+                      'center': center, 'radius_m': min(2000.0, round(max(math.dist(p, center)
+                                                            for p in positions)+60, 1)),
+                      'tier': 4 if ident in high else 3,
+                      'sites': [key for key, _ in sorted(sites)],
+                      'guard_slots': slots,
+                      'default_state': states[ident]})
+    return {'zones': zones}
+
+
+def zone_bytes(source):
+    data = (json.dumps(military_zones(source), separators=(',', ':')) + '\n').encode()
+    if len(data) >= 60000:
+        raise ValueError('zone contract exceeds 60 KB')
+    return data
 
 
 # ---- report and map image -------------------------------------------------------------------------------------
@@ -1336,11 +1816,12 @@ def _layer_from_sites(sites, rule_text, inventory_sha, count):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('validate', 'compose', 'install', 'rollback', 'suggest', 'plan', 'report',
-                                            'map', 'expand-plan'))
+                                            'map', 'expand-plan', 'refresh-plan', 'zones'))
     parser.add_argument('--source', type=Path, default=SOURCE)
     parser.add_argument('--mission', type=Path, help='mission copy to read mapgrouppos.xml / mapgroupproto.xml from')
     parser.add_argument('--target', type=Path)
     parser.add_argument('--out', type=Path)
+    parser.add_argument('--zones-out', type=Path)
     parser.add_argument('--server-root', type=Path, help='DayZ server folder; checks class names against its addons')
     parser.add_argument('--per-cluster', type=int, default=None,
                         help='suggest: tents per cluster (2); plan: sites per base in the outposts layer (4)')
@@ -1353,6 +1834,8 @@ def main(argv=None):
     parser.add_argument('--size', type=int, default=1024, help='map: image size in pixels')
     parser.add_argument('--window', help='map: x,z,half-size in metres to zoom (default the whole map)')
     args = parser.parse_args(argv)
+    if args.zones_out is not None and args.command not in ('expand-plan', 'refresh-plan'):
+        parser.error('--zones-out requires expand-plan or refresh-plan')
     try:
         if args.command == 'rollback':
             if args.target is None:
@@ -1370,10 +1853,17 @@ def main(argv=None):
                                                digest, len(rows)), indent=2))
             return 0
         source = load_source(args.source)
+        if args.command == 'zones':
+            if args.out is None:
+                parser.error('--out is required')
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            check(source)
+            args.out.write_bytes(zone_bytes(source))
+            return 0
         if args.command == 'report':
             sys.stdout.write(report(source, as_text=True))
             return 0
-        if args.command in ('plan', 'map', 'expand-plan'):
+        if args.command in ('plan', 'map', 'expand-plan', 'refresh-plan'):
             if args.mission is None or args.out is None:
                 parser.error('--mission and --out are required')
             rows = read_vanilla(args.mission)
@@ -1386,8 +1876,8 @@ def main(argv=None):
                 print('Map image written to %s' % args.out)
                 return 0
             inventory = {'mapgrouppos_sha256': sha((Path(args.mission) / POS).read_bytes()), 'groups': len(rows)}
-            if args.command == 'expand-plan':
-                layers = plan_expansion(source, rows, inventory)
+            if args.command in ('expand-plan', 'refresh-plan'):
+                layers = (refresh_placements if args.command == 'refresh-plan' else plan_expansion)(source, rows, inventory)
                 proposed = Source(source.profile, source.classes,
                                   [l for l in source.layers if l['id'] not in layers] + list(layers.values()),
                                   source.compositions)
@@ -1397,9 +1887,13 @@ def main(argv=None):
                                      max_dumps=args.max_dumps, max_roadside=args.max_roadside,
                                      tents_per_cluster=args.tents_per_cluster, max_tents=args.max_tents,
                                      inventory=inventory)
+            zone_data = zone_bytes(proposed) if args.zones_out is not None else None
             args.out.mkdir(parents=True, exist_ok=True)
             for ident, layer in layers.items():
                 (args.out / (ident + '.json')).write_bytes(canonical(layer))
+            if args.zones_out is not None:
+                args.zones_out.parent.mkdir(parents=True, exist_ok=True)
+                args.zones_out.write_bytes(zone_data)
             print('Planned layers written to %s: %s' % (args.out, ', '.join(
                 '%s (%d sites/objects)' % (i, len(l.get('sites') or []) + len(l['objects'])) for i, l in layers.items())))
             return 0

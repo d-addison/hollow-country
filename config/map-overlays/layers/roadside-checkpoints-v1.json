@@ -1,78 +1,364 @@
 {
   "basis": {
+    "candidate_evidence_options": 46751,
     "inventory": {
       "groups": 11679,
       "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
     },
-    "rule": "Anchors are vanilla guard booths (Land_Guardhouse, Land_Mil_Guardhouse1/2) more than 300 m outside every base extent, one per 150 m. The checkpoint stands 20, 28, 36 or 44 m from the booth on the first of 8 compass bearings that passes the per-piece rules; its lane runs toward the nearest settlement. The real road direction is not available offline, so lane alignment with the road is unverified."
+    "military_search_radius_m": 3000.0,
+    "rule": "Replan every authored composition, preserving site identity and every v2 requested rich kit.\n\n    Candidate order, headings and original planning anchors are stable across input row\n    order and repeated refreshes. V1 upgrades may retain their original kit when\n    no supported local upgrade fits; v2 kits and site counts never silently fall back.\n    Roads, collision bounds and navmesh are not observable from vanilla group origins.\n    ",
+    "site_spacing_m": 55.0,
+    "support_radii_m": [
+      60.0,
+      90.0,
+      120.0
+    ],
+    "terrain": "Vanilla group origins only; terrain, roads and navmesh unverified."
   },
   "id": "roadside-checkpoints-v1",
   "kind": "hollow-country-map-overlay",
   "limits": {
-    "max_objects": 130
+    "max_loot": 600,
+    "max_objects": 3500,
+    "max_support_slope_pct": 3.0,
+    "vanilla_clearance_m": 16.0
   },
   "objects": [],
   "purpose": "Sandbag and barrier checkpoints beside the vanilla guard booths that stand away from the military bases.",
   "sites": [
     {
       "area": "booth Land_Guardhouse@1876,2128",
-      "composition": "checkpoint",
-      "heading": 340.931748,
+      "composition": "abandoned-checkpoint",
+      "guard_slots": [
+        [
+          2062.215815,
+          2.022192,
+          2084.552228
+        ],
+        [
+          2086.174492,
+          2.022192,
+          2087.866107
+        ],
+        [
+          2063.76873,
+          2.022192,
+          2078.756673
+        ],
+        [
+          2069.564285,
+          2.022192,
+          2080.309587
+        ],
+        [
+          2075.35984,
+          2.022192,
+          2081.862501
+        ],
+        [
+          2081.155395,
+          2.022192,
+          2083.415416
+        ]
+      ],
+      "heading": 75.0,
       "id": "r01",
-      "pos": [
+      "original_composition": "checkpoint",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 2.022192,
+        "height_spread_m": 0.3824,
+        "nearest_group_m": 61.1646,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.567,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         1862.200882,
         7.562396,
         2113.827835
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.3 m"
+      "pos": [
+        2080.0,
+        2.022192,
+        2080.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.4 m",
+      "zone_id": "prison-island-approach",
+      "zone_role": "perimeter"
     },
     {
       "area": "booth Land_Guardhouse@2163,3405",
-      "composition": "checkpoint",
-      "heading": 173.36385,
+      "composition": "abandoned-checkpoint",
+      "guard_slots": [
+        [
+          2114.0,
+          2.022192,
+          2148.0
+        ],
+        [
+          2114.0,
+          2.022192,
+          2142.0
+        ],
+        [
+          2114.0,
+          2.022192,
+          2136.0
+        ],
+        [
+          2138.0,
+          2.022192,
+          2136.0
+        ],
+        [
+          2120.0,
+          2.022192,
+          2133.0
+        ],
+        [
+          2126.0,
+          2.022192,
+          2133.0
+        ]
+      ],
+      "heading": 90.0,
       "id": "r02",
-      "pos": [
+      "original_composition": "checkpoint",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 2.022192,
+        "height_spread_m": 0.3824,
+        "nearest_group_m": 39.3412,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.567,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2162.721436,
         94.254608,
         3432.975098
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.0 m"
+      "pos": [
+        2130.0,
+        2.022192,
+        2130.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.4 m",
+      "zone_id": "prison-island-approach",
+      "zone_role": "perimeter"
     },
     {
       "area": "booth Land_Guardhouse@13439,14268",
       "composition": "checkpoint",
-      "heading": 125.227892,
+      "guard_apron_m": 8,
+      "guard_slots": [
+        [
+          12812.456531,
+          92.500092,
+          14605.511076
+        ],
+        [
+          12808.21389,
+          92.500092,
+          14598.162607
+        ],
+        [
+          12791.964037,
+          92.500092,
+          14612.443443
+        ],
+        [
+          12786.168482,
+          92.500092,
+          14610.890529
+        ],
+        [
+          12791.035276,
+          92.500092,
+          14581.136297
+        ],
+        [
+          12780.372927,
+          92.500092,
+          14609.337614
+        ]
+      ],
+      "heading": 165.0,
       "id": "r03",
-      "pos": [
+      "original_composition": "checkpoint",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 92.500092,
+        "height_spread_m": 0.2248,
+        "nearest_group_m": 37.365,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.5273,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         13425.11763,
         21.21163,
         14253.406692
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.2 m"
+      "pos": [
+        12790.0,
+        92.500092,
+        14585.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.2 m",
+      "zone_id": "neaf",
+      "zone_role": "outpost"
     },
     {
       "area": "booth Land_Guardhouse@13591,12143",
-      "composition": "checkpoint",
-      "heading": 278.84361,
+      "composition": "abandoned-checkpoint",
+      "guard_slots": [
+        [
+          13105.990381,
+          117.463539,
+          13041.356406
+        ],
+        [
+          13100.794229,
+          117.463539,
+          13044.356406
+        ],
+        [
+          13086.196152,
+          117.463539,
+          13025.071797
+        ],
+        [
+          13095.598076,
+          117.463539,
+          13047.356406
+        ],
+        [
+          13092.598076,
+          117.463539,
+          13042.160254
+        ],
+        [
+          13089.598076,
+          117.463539,
+          13036.964102
+        ]
+      ],
+      "heading": 210.0,
       "id": "r04",
-      "pos": [
+      "original_composition": "checkpoint",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 117.463539,
+        "height_spread_m": 1.2427,
+        "nearest_group_m": 34.3924,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 9,
+        "support_slope_pct": 1.7154,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         13591.283203,
         53.999641,
         12171.311523
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.4 m"
+      "pos": [
+        13085.0,
+        117.463539,
+        13035.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "support_radius_m": 90.0,
+      "y_basis": "median of 9 vanilla rows within 90 m, spread 1.2 m",
+      "zone_id": "neaf",
+      "zone_role": "perimeter"
     },
     {
       "area": "booth Land_Mil_Guardhouse1@6006,2557",
       "composition": "checkpoint",
-      "heading": 282.40685,
+      "guard_apron_m": 8,
+      "guard_slots": [
+        [
+          6026.21539,
+          59.826645,
+          2454.48334
+        ],
+        [
+          6031.411543,
+          59.826645,
+          2451.48334
+        ],
+        [
+          6036.607695,
+          59.826645,
+          2448.48334
+        ],
+        [
+          6059.107695,
+          59.826645,
+          2487.454483
+        ],
+        [
+          6041.803848,
+          59.826645,
+          2445.48334
+        ],
+        [
+          6048.5,
+          59.826645,
+          2445.081416
+        ]
+      ],
+      "heading": 30.0,
       "id": "r05",
-      "pos": [
+      "original_composition": "checkpoint",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 59.826645,
+        "height_spread_m": 0.722,
+        "nearest_group_m": 75.6958,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.9454,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         6031.663364,
         59.826645,
         2531.742398
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.7 m"
+      "pos": [
+        6060.0,
+        59.826645,
+        2465.0
+      ],
+      "requested_composition": "abandoned-checkpoint",
+      "support_radius_m": 120.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.7 m",
+      "zone_id": "balota",
+      "zone_role": "outpost"
     }
   ],
   "status": "runtime-unverified",
