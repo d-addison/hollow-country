@@ -13,7 +13,7 @@ class HCXAIFortificationSite
 {
     string Id;
     vector Anchor;
-    int Slot;
+    int PartIndex;
     int Attempt;
 }
 class HCXAIFortification
@@ -96,7 +96,7 @@ class HCXAIFortification
         if (!m_Work.HCContinue()) { return; }
         HCXAIFortificationSite site = m_Queue[0];
         m_Queue.RemoveOrdered(0);
-        if (site.Slot >= SITE_PARTS) { return; }
+        if (site.PartIndex >= SITE_PARTS) { return; }
         HCXZoneGuards guards = HCXZoneGuards.Active();
         if (guards && guards.BySite(site.Id) && !guards.Held(site.Id))
         {
@@ -106,10 +106,10 @@ class HCXAIFortification
             m_Queue.Insert(site);
             return;
         }
-        string key = site.Id + ":" + site.Slot.ToString();
+        string key = site.Id + ":" + site.PartIndex.ToString();
         if (m_State.Reserved.Find(key) >= 0)
         {
-            site.Slot++;
+            site.PartIndex++;
             site.Attempt = 0;
             m_Queue.Insert(site);
             return;
@@ -117,7 +117,7 @@ class HCXAIFortification
         if (m_State.Reserved.Count() >= GLOBAL_CAP) { m_CapRefused++; return; }
         // Spread 3 isolated pieces around the perimeter; never seal an entrance.
         // Eight deterministic exterior alternatives per slot, no random retries.
-        float bearing = Math.AbsInt(site.Id.Hash() % 360) + site.Slot * 120 + site.Attempt * 15;
+        float bearing = Math.AbsInt(site.Id.Hash() % 360) + site.PartIndex * 120 + site.Attempt * 15;
         float radians = bearing * Math.DEG2RAD;
         vector at = site.Anchor + Vector(Math.Sin(radians) * 18, 0, Math.Cos(radians) * 18);
         at[1] = GetGame().SurfaceY(at[0], at[2]);
@@ -133,7 +133,7 @@ class HCXAIFortification
         string kind = "Fence";
         vector size = "7 4 7";
         vector center = at + Vector(0, 2.1, 0);
-        if (site.Slot == 2) { kind = "Watchtower"; size = "9 12 9"; center = at + Vector(0, 6.1, 0); }
+        if (site.PartIndex == 2) { kind = "Watchtower"; size = "9 12 9"; center = at + Vector(0, 6.1, 0); }
         array<Object> exclude = new array<Object>;
         bool clear = HCBuildingClaim.HCAIFortificationAllowed(at);
         if (!clear) { m_ClaimRefused++; }
@@ -143,7 +143,7 @@ class HCXAIFortification
         if (!clear)
         {
             site.Attempt++;
-            if (site.Attempt >= 8) { m_NoRoom++; site.Slot++; site.Attempt = 0; }
+            if (site.Attempt >= 8) { m_NoRoom++; site.PartIndex++; site.Attempt = 0; }
             m_Queue.Insert(site);
             return;
         }
@@ -157,7 +157,7 @@ class HCXAIFortification
         BaseBuildingBase fort = HCCampFortification.Place(kind, at, Vector(bearing, 0, 0));
         if (fort) { m_Placed++; HCReached.Mark("camps.ai_fortification_spawn"); }
         else { m_SpawnFailed++; }
-        site.Slot++;
+        site.PartIndex++;
         site.Attempt = 0;
         m_Queue.Insert(site);
     }
