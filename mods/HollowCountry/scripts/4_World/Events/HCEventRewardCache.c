@@ -148,22 +148,33 @@ class HCEventCacheSpawner
         if (!HCPhysicalEnabled()) { if (police) { PoliceRefused("police_physical_disabled"); } return null; }
         HCW38SituationPolicy policy = HCW38SituationPolicy.HCGet();
         if (!policy) { if (police) { PoliceRefused("police_policy_invalid"); } return null; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { if (police) { PoliceRefused("police_work_budget"); } return null; }
+        int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
+        if (police) { consumer = HCUnitBudget.HC_WORK_POLICE_BIND; }
+        if (!HCServer.HCTickWork().HCTakeFor(consumer, 8)) { if (police) { PoliceRefused("police_work_budget"); } return null; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(anchor, mission.Radius, nearby, proxies);
         int remaining = policy.PhysicalScanObjects;
         bool matchingStock = false;
+        ItemBase groundItem;
+        ItemBase deliveryContainer;
+        array<string> classes;
+        if (police) { classes = HCW38SituationPolicy.PoliceClasses(mission.Family); }
         foreach (Object candidate : nearby)
         {
             if (remaining <= 0) { break; }
             remaining = remaining - 1;
             ItemBase cache = ItemBase.Cast(candidate);
-            if (!HCPhysicalStock(cache) || cache.GetType() != containerClass) { continue; }
+            if (!HCPhysicalGround(cache)) { continue; }
             if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
             if (police)
             {
+                if (!groundItem && cache.HCEventEconomyCandidate() && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { groundItem = cache; }
+                if (cache.GetType() != containerClass || !cache.GetInventory() || !cache.GetInventory().GetCargo()) { continue; }
                 matchingStock = true;
+                // Delivery still means putting the actual item into the native
+                // container at Destination. Empty containers are valid destinations.
+                if (vector.DistanceSq(cache.GetPosition(), mission.Destination) <= mission.Radius * mission.Radius) { deliveryContainer = cache; }
                 CargoBase cargo = cache.GetInventory().GetCargo();
                 int count = cargo.GetItemCount();
                 if (count > policy.PhysicalScanCargo) { count = policy.PhysicalScanCargo; }
@@ -172,27 +183,15 @@ class HCEventCacheSpawner
                 {
                     ItemBase item = ItemBase.Cast(cargo.GetItem(index));
                     index = index + 1;
-                    if (!item || item.IsRuined()) { continue; }
-                    int family = 0;
-                    if (item.GetType() == "BandageDressing") { family = HCEventFamily.RECOVERY; }
-                    if (item.GetType() == "SodaCan_Cola") { family = HCEventFamily.DELIVERY; }
-                    if (item.GetType() == "MetalWire") { family = HCEventFamily.STATIC_SALVAGE; }
-                    if (family == 0) { continue; }
-                    string targetId = mission.SiteId + "-" + family.ToString();
-                    if (PoliceTarget(targetId)) { continue; }
-                    HCEventTarget supply = new HCEventTarget;
-                    supply.MissionId = targetId;
-                    supply.Item = item;
-                    supply.DeliveryContainer = cache;
-                    if (!s_PoliceTargets) { s_PoliceTargets = new array<ref HCEventTarget>; }
-                    s_PoliceTargets.Insert(supply);
+                    if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetHierarchyRootPlayer()) { continue; }
+                    if (item.GetHierarchyParent() != cache || !PoliceItemMatches(item, mission, classes) || PoliceItemUsed(item)) { continue; }
+                    if (mission.Family == HCEventFamily.DELIVERY && !deliveryContainer) { continue; }
+                    if (mission.Family == HCEventFamily.DELIVERY) { return RememberPolice(mission, item, deliveryContainer); }
+                    return RememberPolice(mission, item, cache);
                 }
-                // A barrel with another family's item must not hide a later
-                // barrel containing this mission's item. Never author cargo.
-                HCEventTarget matched = PoliceTarget(mission.Id);
-                if (matched) { return matched; }
                 continue;
             }
+            if (!HCPhysicalStock(cache) || cache.GetType() != containerClass) { continue; }
             HCEventTarget result = new HCEventTarget;
             result.MissionId = mission.Id;
             result.Item = cache;
@@ -201,8 +200,10 @@ class HCEventCacheSpawner
         }
         if (police)
         {
+            if (groundItem && (mission.Family != HCEventFamily.DELIVERY || deliveryContainer)) { return RememberPolice(mission, groundItem, deliveryContainer); }
             string reason = "police_stock_absent";
             if (matchingStock) { reason = "police_cargo_item_absent"; }
+            if (groundItem && mission.Family == HCEventFamily.DELIVERY) { reason = "police_delivery_container_absent"; }
             if (nearby.Count() > policy.PhysicalScanObjects) { reason = "police_scan_limit"; }
             string details = "; wanted=" + mission.ItemClass + "; container=" + containerClass;
             details = details + "; queried=" + nearby.Count().ToString() + "; scan_cap=" + policy.PhysicalScanObjects.ToString();
@@ -210,6 +211,44 @@ class HCEventCacheSpawner
         }
         HCPhysicalPending();
         return null;
+    }
+
+    // Exact configured classes only; retain the original wanted barrel item.
+    static bool PoliceItemMatches(ItemBase item, HCEventMission mission, array<string> classes)
+    {
+        if (item.GetType() == mission.ItemClass) { return true; }
+        return classes && classes.Find(item.GetType()) >= 0;
+    }
+    static bool PoliceItemUsed(ItemBase item)
+    {
+        if (!s_PoliceTargets) { return false; }
+        foreach (HCEventTarget target : s_PoliceTargets)
+        {
+            if (target.Item == item) { return true; }
+        }
+        return false;
+    }
+    static HCEventTarget RememberPolice(HCEventMission mission, ItemBase item, ItemBase container)
+    {
+        HCEventTarget supply = new HCEventTarget;
+        supply.MissionId = mission.Id;
+        supply.Item = item;
+        supply.DeliveryContainer = container;
+        if (!s_PoliceTargets) { s_PoliceTargets = new array<ref HCEventTarget>; }
+        s_PoliceTargets.Insert(supply);
+        return supply;
+    }
+    // Rosters are rebuilt on retry. Pin the objective to the actual native class
+    // before Announce so Ready and later inventory evidence retain exact matching.
+    static void PoliceObjectiveClass(HCEventMission mission)
+    {
+        if (!HCEventSites.PoliceSupplies(mission)) { return; }
+        HCEventTarget supply = PoliceTarget(mission.Id);
+        if (supply && supply.Item) { mission.ItemClass = supply.Item.GetType(); }
+    }
+    static bool HCPhysicalGround(ItemBase item)
+    {
+        return item && !item.IsPendingDeletion() && !item.IsRuined() && !item.GetHierarchyRootPlayer() && !item.GetHierarchyParent();
     }
 
     protected static bool s_PhysicalPendingPrinted;

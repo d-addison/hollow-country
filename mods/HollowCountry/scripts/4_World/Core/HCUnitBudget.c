@@ -72,7 +72,8 @@ class HCUnitBudget
     // HC-18 regional road route source check and resolve. Own slot: it steps after the
     // site director in the same Step, which took AI_SITES first every tick (096).
     static const int HC_WORK_AI_ROUTES = 24;
-    static const int HC_WORK_CONSUMERS = 25;
+    static const int HC_WORK_POLICE_BIND = 25;
+    static const int HC_WORK_CONSUMERS = 26;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;

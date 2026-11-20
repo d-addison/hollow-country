@@ -17,6 +17,11 @@ class HCW38SituationPolicy
     int MaxIncidentItems = 16;
     int PhysicalScanObjects = 64;
     int PhysicalScanCargo = 16;
+    // Additive police settings; older complete policies retain these defaults.
+    int PoliceSlowRetrySeconds = 300;
+    ref array<string> PoliceRecoveryClasses = {"PersonalRadio", "Binoculars"};
+    ref array<string> PoliceDeliveryClasses = {"PoliceCap"};
+    ref array<string> PoliceSalvageClasses = {"Handcuffs", "HandcuffKeys"};
     float MaxRaidMeters = 600;
     float ShelterMeters = 20;
     string InfectedClass = "ZmbM_CitizenASkinny_Brown";
@@ -38,7 +43,12 @@ class HCW38SituationPolicy
             string error;
             if (!HCGroupIO.Read(path, 4096, encoded)) { HCInvalid(); return null; }
             if (!HCFields(encoded)) { HCInvalid(); return null; }
+            HCW38SituationPolicy defaults = new HCW38SituationPolicy;
             if (!JsonFileLoader<HCW38SituationPolicy>.LoadData(encoded, policy, error)) { HCInvalid(); return null; }
+            if (!HCJsonFields.Has(encoded, "PoliceSlowRetrySeconds")) { policy.PoliceSlowRetrySeconds = defaults.PoliceSlowRetrySeconds; }
+            if (!HCJsonFields.Has(encoded, "PoliceRecoveryClasses")) { policy.PoliceRecoveryClasses = defaults.PoliceRecoveryClasses; }
+            if (!HCJsonFields.Has(encoded, "PoliceDeliveryClasses")) { policy.PoliceDeliveryClasses = defaults.PoliceDeliveryClasses; }
+            if (!HCJsonFields.Has(encoded, "PoliceSalvageClasses")) { policy.PoliceSalvageClasses = defaults.PoliceSalvageClasses; }
         }
         if (!HCValid(policy)) { HCInvalid(); return null; }
         s_Instance = policy;
@@ -62,11 +72,33 @@ class HCW38SituationPolicy
         Print("[HC Situations] SITUATION_POLICY_INVALID runtime=PENDING");
     }
 
+    static array<string> PoliceClasses(int family)
+    {
+        HCW38SituationPolicy policy = HCGet();
+        if (!policy) { return null; }
+        if (family == HCEventFamily.RECOVERY) { return policy.PoliceRecoveryClasses; }
+        if (family == HCEventFamily.DELIVERY) { return policy.PoliceDeliveryClasses; }
+        if (family == HCEventFamily.STATIC_SALVAGE) { return policy.PoliceSalvageClasses; }
+        return null;
+    }
+
+    static bool PoliceClassesValid(array<string> classes)
+    {
+        if (!classes || classes.Count() < 1 || classes.Count() > 8) { return false; }
+        foreach (string name : classes)
+        {
+            if (!HCEventDirector.TextValid(name, 96)) { return false; }
+        }
+        return true;
+    }
+
     static bool HCValid(HCW38SituationPolicy policy)
     {
         // JsonFileLoader zero-fills absent values. Every nonzero field below
         // has an explicit guard; partial/zero/NaN policies never uncap work.
         if (!policy || policy.Version != 1 || policy.ScanRows < 1 || policy.ScanRows > 32) { return false; }
+        if (policy.PoliceSlowRetrySeconds < 60 || policy.PoliceSlowRetrySeconds > 3600) { return false; }
+        if (!PoliceClassesValid(policy.PoliceRecoveryClasses) || !PoliceClassesValid(policy.PoliceDeliveryClasses) || !PoliceClassesValid(policy.PoliceSalvageClasses)) { return false; }
         if (policy.MaxConcurrent != 1 || policy.MaxThreats < 1 || policy.MaxThreats > 6) { return false; }
         if (policy.MaxMembers < 1 || policy.MaxMembers > 6 || policy.MaxRouteNodes < 2 || policy.MaxRouteNodes > 64) { return false; }
         if (policy.MaxIncidents < 1 || policy.MaxIncidents > 64 || policy.MaxIncidentItems < 1 || policy.MaxIncidentItems > 16) { return false; }
