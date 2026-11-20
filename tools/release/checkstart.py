@@ -47,6 +47,7 @@ def watch(args, before, old_dumps):
     discard = False
     identity = None
     observed_running = False
+    unknown_polls = 0
     while True:
         now = time.monotonic()
         if now - began >= args.timeout_seconds:
@@ -95,7 +96,10 @@ def watch(args, before, old_dumps):
                 return 'process_gone', rpt
         elif state == 'running':
             observed_running = True
-        if state == 'unknown':
+        # WSL interop flakes (vsock accept timeouts) for single polls; only a run of
+        # consecutive unknown states ends the watch.
+        unknown_polls = unknown_polls + 1 if state == 'unknown' else 0
+        if unknown_polls >= 5:
             return 'interop_unknown', rpt
         now = time.monotonic()
         if now - last_growth >= args.stall_seconds:
