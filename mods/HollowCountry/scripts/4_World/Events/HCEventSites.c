@@ -3,8 +3,9 @@
 // Source: dayzOffline.chernarusplus/mapgrouppos.xml, SHA-256 below.
 // No field survey, clearance, destination-container or loot guarantee exists.
 // Police supply lookup is also turned off by events_sites.disable. It borrows
-// existing physical cargo within the source-centred mission radius; no barrel
-// placement is authored. Both origins match the stock mapgrouppos rows exactly.
+// existing physical cargo within the source-centred mission radius, falling back
+// to one journaled HC cache per site. Barrel_Green is an HC cache/delivery class,
+// not a promise of CE cargo. Both station origins match stock mapgrouppos rows.
 // No field clearance/door/path acceptance is implied; Surveyed stays false.
 class HCEventSites
 {

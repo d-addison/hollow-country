@@ -457,10 +457,22 @@ class HCEventModule : HCModule
                 bool bound = HCEventWorldBinding.Bind(m_NativeObserver, mission);
                 if (policeRetry && !remembered)
                 {
+                    if (!bound && HCEventWorldBinding.PoliceWaitingForPlayers()) { return; }
                     if (!bound && HCEventSites.PoliceSupplies(mission) && HCEventCacheSpawner.PoliceReason() == "police_work_budget") { return; }
                     // Saturate at seven so the exhaustion receipt is emitted once.
                     if (m_PoliceRetryAttempts[retrySlot] < 7) { m_PoliceRetryAttempts[retrySlot] = m_PoliceRetryAttempts[retrySlot] + 1; }
                     if (m_PoliceRetryAttempts[retrySlot] >= 6) { m_PoliceRetryAfter[retrySlot] = context.Now + policePolicy.PoliceSlowRetrySeconds; }
+                }
+                if (policeRetry && !bound)
+                {
+                    // Binding logs state changes. Do not repeatedly Announce a known
+                    // unavailable target; after six failures keep the slow timer alive.
+                    if (!remembered && m_PoliceRetryAttempts[retrySlot] == 6)
+                    {
+                        Print("[HC Events] police binding slow retry; " + mission.Id + "; attempts=6; retryable=1 runtime=PENDING");
+                        return;
+                    }
+                    return;
                 }
                 HCEventCacheSpawner.PoliceObjectiveClass(mission);
                 int admission = m_Runtime.Announce(mission, context);

@@ -1,21 +1,55 @@
-// #147 physical spoils: expose existing CE/camp stock in place. No item mint,
-// move, quantity write, grant prompt or deletion. Taking loot is native inventory.
-// Items a player takes are ordinary loot; native persistence remains authoritative.
-// Native scripts-1.30.164289: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D,
-// :1120 IsServer; Entities/Object.c:215 IsPendingDeletion, :287 GetPosition;
-// Entities/EntityAI.c:882/885 hierarchy; Inventory.c:138 GetCargo;
-// 3_Game/Systems/Inventory/Cargo.c:28 GetItemCount, :33 GetItem;
-// Object.c:467 GetType; EnConvert.c:210 DistanceSq; EnScript.c:380/407 Count/Insert.
-// Existing journal API remains for older callers; this path never replenishes
-// an allowance on restart. A real container can be referenced twice, never cloned.
+// Police: borrow real stock first; otherwise reserve one finite HC cache per site.
+// Native persistence owns the cache and its cargo after creation; depleted caches
+// are never refilled. The durable reservation precedes creation, including failures.
+// Native scripts-1.30.164289: Global/Game.c:703/705 CreateObjectEx/ObjectDelete;
+// CE/CentralEconomy.c:9/17/28 ECE_SETUP/CREATEPHYSICS/KEEPHEIGHT;
+// Systems/Inventory/Inventory.c:876 CreateInInventory; Entities/Object.c:287 GetPosition.
 class HCEventPoliceRewardIO : HCEventRewardIO
 {
     void HCEventPoliceRewardIO()
     {
-        m_Root = "$profile:HollowCountry/Events/police-rewards";
+        m_Root = "$profile:HollowCountry/Events/police-cache-stock";
     }
 }
-// Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition, :57 PGFilter.SetFlags;
+// Unlike the legacy per-boot allowance, these immutable site grants survive restart.
+// Existing HCEventJournalIO provides bounded write/readback; no replay or refund.
+class HCEventPoliceStockLedger : HCEventRewardLedger
+{
+    override HCEventRewardPlan Commit(string siteId)
+    {
+        if (siteId != "coastal-police-source" && siteId != "inland-police-source") { return null; }
+        if (!m_IO || !m_IO.Ensure() || m_Fault) { return null; }
+        string name = siteId + ".txt";
+        if (m_IO.Exists(name) || m_Granted.Find(siteId) >= 0) { return null; }
+        m_Granted.Insert(siteId);
+        HCEventRewardPlan plan = new HCEventRewardPlan;
+        plan.SiteId = siteId;
+        plan.Items.Insert("BandageDressing");
+        plan.Items.Insert("SodaCan_Cola");
+        plan.Items.Insert("MetalWire");
+        if (!m_IO.WriteNew(name, "HC-POLICE-STOCK v1 " + siteId, 128)) { Fault(); return null; }
+        return plan;
+    }
+}
+// Native: 4_World/Entities/ItemBase/Barrel_ColorBase.c:52/59 store hooks;
+// 1_Core/proto/Serializer.c:57/58 Write/Read. Older untagged barrels stay unowned.
+// Persist only ownership, never cargo contents or a replenishment instruction.
+modded class Barrel_Green
+{
+    string HCPoliceStockSite;
+    override void OnStoreSave(ParamsWriteContext ctx)
+    {
+        super.OnStoreSave(ctx);
+        ctx.Write(HCPoliceStockSite);
+    }
+    override bool OnStoreLoad(ParamsReadContext ctx, int version)
+    {
+        if (!super.OnStoreLoad(ctx, version)) { return false; }
+        if (!ctx.Read(HCPoliceStockSite)) { HCPoliceStockSite = ""; }
+        return true;
+    }
+}
+// Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition, :65 PGFilter.SetFlags;
 // Game.c GetWorld().GetAIWorld(). Outdoor walkable polygons only (INSIDE excluded).
 class HCEventPoliceNav
 {
@@ -57,7 +91,7 @@ class HCEventCacheSpawner
             pool.Entries.Insert(HCEventRewardPools.Entry("BandageDressing", 2));
             pool.Entries.Insert(HCEventRewardPools.Entry("SodaCan_Cola", 2));
             pool.Entries.Insert(HCEventRewardPools.Entry("MetalWire", 2));
-            s_PoliceLedger = new HCEventRewardLedger;
+            s_PoliceLedger = new HCEventPoliceStockLedger;
             HCEventPoliceRewardIO policeIO = new HCEventPoliceRewardIO;
             s_PoliceLedger.Configure(policeIO, pool);
         }
@@ -81,9 +115,7 @@ class HCEventCacheSpawner
         if (!HCEventRuntimePolicy.MissionValid(mission, mission.WorldName)) { PoliceRefused("police_mission_invalid"); return null; }
         HCEventTarget existing = PoliceTarget(mission.Id);
         if (existing) { return existing; }
-        // Physical stock lookup is centred on the exact stock station origin.
-        // The old +6,+6 placement offset clipped the opposite side of the 15 m
-        // lookup sphere; no placement/navmesh operation occurs on this path.
+        // Keep the CE lookup at the exact origin; only the HC fallback uses navmesh.
         Spawn(mission, mission.Source, mission.ContainerClass, true);
         return PoliceTarget(mission.Id);
     }
@@ -94,8 +126,7 @@ class HCEventCacheSpawner
         if (!HCEventRuntimePolicy.MissionValid(mission, mission.WorldName)) { return null; }
         return Spawn(mission, mission.Source, mission.ItemClass, false);
     }
-    // Legacy terrain helper retained for caller compatibility. Physical stock
-    // lookup never materializes at this point or alters its native owner.
+    // Used only for newly reserved HC stock; never moves existing world stock.
     static vector SpawnPosition(HCEventMission mission, vector anchor, bool police)
     {
         if (police) { PoliceRefused(""); }
@@ -156,6 +187,7 @@ class HCEventCacheSpawner
         GetGame().GetObjectsAtPosition3D(anchor, mission.Radius, nearby, proxies);
         int remaining = policy.PhysicalScanObjects;
         bool matchingStock = false;
+        Barrel_Green ownedCache;
         ItemBase groundItem;
         ItemBase deliveryContainer;
         array<string> classes;
@@ -169,7 +201,11 @@ class HCEventCacheSpawner
             if (vector.DistanceSq(cache.GetPosition(), mission.Source) > mission.Radius * mission.Radius) { continue; }
             if (police)
             {
-                if (!groundItem && cache.HCEventEconomyCandidate() && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { groundItem = cache; }
+                Barrel_Green tagged = Barrel_Green.Cast(cache);
+                if (tagged && tagged.HCPoliceStockSite == mission.SiteId) { ownedCache = tagged; }
+                // Persisted stock has no new-CE callback this boot. Borrow the
+                // actual uncarried item; this path neither clones nor claims CE ownership.
+                if (!groundItem && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { groundItem = cache; }
                 if (cache.GetType() != containerClass || !cache.GetInventory() || !cache.GetInventory().GetCargo()) { continue; }
                 matchingStock = true;
                 // Delivery still means putting the actual item into the native
@@ -207,9 +243,56 @@ class HCEventCacheSpawner
             if (nearby.Count() > policy.PhysicalScanObjects) { reason = "police_scan_limit"; }
             string details = "; wanted=" + mission.ItemClass + "; container=" + containerClass;
             details = details + "; queried=" + nearby.Count().ToString() + "; scan_cap=" + policy.PhysicalScanObjects.ToString();
+            // Never create after an incomplete scan: a persisted cache may be omitted.
+            if (nearby.Count() <= policy.PhysicalScanObjects)
+            {
+                if (!ownedCache) { ownedCache = CreatePoliceStock(mission); }
+                if (ownedCache) { return PoliceStockTarget(mission, ownedCache); }
+                if (PoliceReason() != "") { return null; }
+            }
             PoliceRefused(reason, details);
         }
         HCPhysicalPending();
+        return null;
+    }
+
+    static Barrel_Green CreatePoliceStock(HCEventMission mission)
+    {
+        vector position = SpawnPosition(mission, mission.Source, true);
+        if (position == vector.Zero) { return null; }
+        HCEventRewardPlan plan = PoliceLedger().Commit(mission.SiteId);
+        if (!plan) { PoliceRefused("police_cache_reserved_or_spent"); return null; }
+        Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
+        if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
+        cache.HCPoliceStockSite = mission.SiteId;
+        // Native: ItemBase/Barrel_ColorBase.c:87 Open, :512 cargo requires IsOpen.
+        // Open only the new owned cache before its initial cargo is created.
+        cache.Open();
+        foreach (string itemClass : plan.Items)
+        {
+            if (!cache.GetInventory().CreateInInventory(itemClass))
+            {
+                // Only our unpublished cache is deleted; never borrowed CE stock.
+                GetGame().ObjectDelete(cache);
+                PoliceRefused("police_cache_cargo_failed");
+                return null;
+            }
+        }
+        Print("[HC Events] police cache created; " + mission.SiteId + "; stock=finite; refill=never runtime=PENDING");
+        return cache;
+    }
+    static HCEventTarget PoliceStockTarget(HCEventMission mission, Barrel_Green cache)
+    {
+        CargoBase cargo = cache.GetInventory().GetCargo();
+        int count = cargo.GetItemCount();
+        if (count > 16) { count = 16; }
+        for (int index = 0; index < count; index++)
+        {
+            ItemBase item = ItemBase.Cast(cargo.GetItem(index));
+            if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetType() != mission.ItemClass || PoliceItemUsed(item)) { continue; }
+            return RememberPolice(mission, item, cache);
+        }
+        PoliceRefused("police_cache_depleted");
         return null;
     }
 

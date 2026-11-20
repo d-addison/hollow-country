@@ -6,7 +6,7 @@
 // 1_Core/proto/EnString.c:171 ToLower; EnConvert.c:210 DistanceSq;
 // 1_Core/proto/EnEntity.c:518 GetID. HCEventEconomyCandidate is an HC hook.
 // 1_Core/proto/EnMath3D.c:18 Vector; EnDebug.c:96 Print.
-// Query is local, never GetPlayers/world traversal. The native API allocates its
+// World-object queries are local. The native API allocates its
 // result before our refusal; this is not an engine-side query cap. The 15 m item
 // lookup keeps 128 objects; the 60 m infected scan keeps the same object density
 // (128 per 15 m sphere, scaled by volume: 128 * (60/15)^3 = 8192). Release 020
@@ -277,6 +277,32 @@ class HCEventWorldBinding
         }
         return bound;
     }
+    static bool PoliceWaitingForPlayers()
+    {
+        return s_FailReason == "police_waiting_for_player";
+    }
+    // Native: 3_Game/Global/Game.c:945 GetPlayers; Entities/Object.c:287/517
+    // GetPosition/IsAlive. Inspect at most 64 connected players, never world actors.
+    // 200 m is an activation opportunity, not a guarantee CE has spawned infected.
+    static bool PolicePlayerNear(HCEventMission mission)
+    {
+        array<Man> players = new array<Man>;
+        GetGame().GetPlayers(players);
+        int count = players.Count();
+        if (count > 64) { count = 64; }
+        for (int index = 0; index < count; index++)
+        {
+            Man player = players[index];
+            if (!player || !player.IsAlive()) { continue; }
+            vector position = player.GetPosition();
+            float dx = position[0] - mission.Source[0];
+            float dz = position[2] - mission.Source[2];
+            if (dx * dx + dz * dz <= 40000) { return true; }
+        }
+        s_FailReason = "police_waiting_for_player";
+        s_FailDetails = "; activation_radius_m=200; attempts_spent=0";
+        return BindFailed(mission);
+    }
     static bool BindCandidate(HCEventNativeObserver observer, HCEventMission mission)
     {
         s_FailDetails = "";
@@ -287,6 +313,7 @@ class HCEventWorldBinding
         if (mission.RewardCache) { return BindCache(observer, mission); }
         if (HCEventSites.PoliceSupplies(mission)) { return BindPolice(observer, mission); }
         if (!observer.ResetUnleasedTarget(mission.Id)) { return true; }
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR && mission.AnchorClass == "Land_Village_PoliceStation" && !PolicePlayerNear(mission)) { return false; }
         s_FailReason = "";
         vector origin = mission.Source;
         float radius = 15;
