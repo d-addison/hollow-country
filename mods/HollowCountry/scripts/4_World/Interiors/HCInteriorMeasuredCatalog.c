@@ -1,3 +1,10 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:866/902/917 map Get/Set/Contains.
+class HCInteriorSourceLookup
+{
+    ref map<string, string> Left;
+    ref map<string, string> Right;
+}
+
 // Candidate import only. Operator assertions are NOT native cryptographic
 // verification, measured fit, CE ownership, or production acceptance.
 class HCInteriorMeasuredCatalogBinding
@@ -162,7 +169,7 @@ class HCInteriorMeasuredCatalog
 
     static bool MeasuredIdentifier(string value)
     {
-        if (!MeasuredText(value, 1, 64))
+        if (value.Length() > 64 || !MeasuredText(value, 1, 64))
         {
             return false;
         }
@@ -186,7 +193,7 @@ class HCInteriorMeasuredCatalog
 
     static bool MeasuredPortablePath(string value)
     {
-        if (!MeasuredText(value, 1, 160))
+        if (value.Length() > 160 || !MeasuredText(value, 1, 160))
         {
             return false;
         }
@@ -243,7 +250,7 @@ class HCInteriorMeasuredCatalog
             if (stem.Length() == 4)
             {
                 string prefix = stem.Substring(0, 3);
-                string suffix = stem.Get(3);
+                string suffix = stem.Substring(3, 1);
                 int digit = suffix.ToAscii();
                 if ((prefix == "com" || prefix == "lpt") && digit >= 48 && digit <= 57)
                 {
@@ -260,11 +267,12 @@ class HCInteriorMeasuredCatalog
         {
             return -1;
         }
+        HCTextWindow digits = new HCTextWindow(value);
         int result = 0;
         int i = begin;
         while (i < begin + count)
         {
-            string ch = value.Get(i);
+            string ch = digits.At(i);
             int code = ch.ToAscii();
             if (code < 48 || code > 57)
             {
@@ -772,19 +780,21 @@ class HCInteriorMeasuredCatalog
             return false;
         }
         array<string> required = new array<string>();
-        array<string> seen = new array<string>();
+        map<string, bool> seen = new map<string, bool>;
         keys.Split(" ", required);
+        map<string, bool> requiredIndex = new map<string, bool>;
+        foreach (string requiredKey : required) { requiredIndex.Set(requiredKey, true); }
         int fields = 0;
         while (fields < required.Count())
         {
             MeasuredSpace(cursor);
             int keyBegin = cursor.Index + 1;
             string key = MeasuredString(cursor, true);
-            if (cursor.Failed || required.Find(key) < 0 || seen.Find(key) >= 0)
+            if (cursor.Failed || !requiredIndex.Contains(key) || seen.Contains(key))
             {
                 return false;
             }
-            seen.Insert(key);
+            seen.Set(key, true);
             if ((schema == "context" && key == "World") || (schema == "report" && key == "world"))
             {
                 cursor.WorldKey = keyBegin;
@@ -918,10 +928,13 @@ class HCInteriorMeasuredCatalog
         array<string> names = new array<string>();
         string keys = "HCInteriorCatalog.c HCInteriorRules.c HCInteriorStore.c";
         keys.Split(" ", names);
+        HCInteriorSourceLookup lookup = new HCInteriorSourceLookup;
+        lookup.Left = left;
+        lookup.Right = right;
         foreach (string name : names)
         {
-            string value = left.Get(name);
-            if (!MeasuredHash(value) || value != right.Get(name))
+            string value = lookup.Left.Get(name);
+            if (!MeasuredHash(value) || value != lookup.Right.Get(name))
             {
                 return false;
             }
@@ -940,7 +953,7 @@ class HCInteriorMeasuredCatalog
         {
             return false;
         }
-        array<string> paths = new array<string>();
+        map<string, bool> paths = new map<string, bool>;
         foreach (HCInteriorMeasuredCatalogObservation value : values)
         {
             if (!value || !MeasuredPortablePath(value.Path) || !MeasuredHash(value.Sha256))
@@ -953,11 +966,11 @@ class HCInteriorMeasuredCatalog
             }
             string folded = value.Path;
             folded.ToLower();
-            if (paths.Find(folded) >= 0)
+            if (paths.Contains(folded))
             {
                 return false;
             }
-            paths.Insert(folded);
+            paths.Set(folded, true);
         }
         return true;
     }
@@ -1100,14 +1113,14 @@ class HCInteriorMeasuredCatalog
         }
         bool door = false;
         bool stairs = false;
-        array<string> keepoutIds = new array<string>();
+        map<string, bool> keepoutIds = new map<string, bool>;
         foreach (HCInteriorMeasuredCatalogKeepout keepout : survey.Keepouts)
         {
-            if (!keepout || !MeasuredIdentifier(keepout.Id) || keepoutIds.Find(keepout.Id) >= 0 || !MeasuredBox(keepout.Bounds) || !MeasuredContains(survey.Bounds, keepout.Bounds))
+            if (!keepout || !MeasuredIdentifier(keepout.Id) || keepoutIds.Contains(keepout.Id) || !MeasuredBox(keepout.Bounds) || !MeasuredContains(survey.Bounds, keepout.Bounds))
             {
                 return false;
             }
-            keepoutIds.Insert(keepout.Id);
+            keepoutIds.Set(keepout.Id, true);
             if (keepout.Kind == "door")
             {
                 door = true;
@@ -1188,18 +1201,18 @@ class HCInteriorMeasuredCatalog
         {
             return false;
         }
-        array<string> groupIds = new array<string>();
+        map<string, bool> groupIds = new map<string, bool>;
         foreach (HCInteriorMeasuredCatalogGroup group : policy.ItemGroups)
         {
-            if (!group || !MeasuredIdentifier(group.Id) || groupIds.Find(group.Id) >= 0 || !group.Items || group.Items.Count() < 1 || group.Items.Count() > 2)
+            if (!group || !MeasuredIdentifier(group.Id) || groupIds.Contains(group.Id) || !group.Items || group.Items.Count() < 1 || group.Items.Count() > 2)
             {
                 return false;
             }
-            groupIds.Insert(group.Id);
-            array<string> items = new array<string>();
+            groupIds.Set(group.Id, true);
+            map<string, bool> items = new map<string, bool>;
             foreach (string item : group.Items)
             {
-                if (items.Find(item) >= 0 || (item != "Rag" && item != "Battery9V"))
+                if (items.Contains(item) || (item != "Rag" && item != "Battery9V"))
                 {
                     return false;
                 }
@@ -1207,25 +1220,20 @@ class HCInteriorMeasuredCatalog
                 {
                     return false;
                 }
-                items.Insert(item);
+                items.Set(item, true);
             }
         }
-        array<string> layouts = new array<string>();
-        array<string> used = new array<string>();
+        map<string, ref HCInteriorMeasuredCatalogLayout> layoutIndex = new map<string, ref HCInteriorMeasuredCatalogLayout>;
+        foreach (HCInteriorMeasuredCatalogLayout indexedLayout : record.Layouts) { layoutIndex.Set(indexedLayout.Id, indexedLayout); }
+        map<string, bool> layouts = new map<string, bool>;
+        map<string, bool> used = new map<string, bool>;
         foreach (HCInteriorMeasuredCatalogRule rule : policy.Rules)
         {
-            if (!rule || layouts.Find(rule.LayoutId) >= 0 || !MeasuredIdentifier(rule.Risk) || !MeasuredText(rule.Rationale, 16, 512) || !MeasuredReference(record, rule.Observation, "geometry"))
+            if (!rule || layouts.Contains(rule.LayoutId) || !MeasuredIdentifier(rule.Risk) || !MeasuredText(rule.Rationale, 16, 512) || !MeasuredReference(record, rule.Observation, "geometry"))
             {
                 return false;
             }
-            HCInteriorMeasuredCatalogLayout matched = null;
-            foreach (HCInteriorMeasuredCatalogLayout layout : record.Layouts)
-            {
-                if (layout.Id == rule.LayoutId)
-                {
-                    matched = layout;
-                }
-            }
+            HCInteriorMeasuredCatalogLayout matched = layoutIndex.Get(rule.LayoutId);
             if (!matched || rule.History != matched.History || rule.Room != matched.Survey.Props[0].Room)
             {
                 return false;
@@ -1238,18 +1246,18 @@ class HCInteriorMeasuredCatalog
             {
                 return false;
             }
-            layouts.Insert(rule.LayoutId);
-            array<string> selected = new array<string>();
+            layouts.Set(rule.LayoutId, true);
+            map<string, bool> selected = new map<string, bool>;
             foreach (string id : rule.ItemGroups)
             {
-                if (selected.Find(id) >= 0 || !MeasuredGroup(policy, id))
+                if (selected.Contains(id) || !MeasuredGroup(policy, id))
                 {
                     return false;
                 }
-                selected.Insert(id);
-                if (used.Find(id) < 0)
+                selected.Set(id, true);
+                if (!used.Contains(id))
                 {
-                    used.Insert(id);
+                    used.Set(id, true);
                 }
             }
         }
@@ -1472,9 +1480,13 @@ class HCInteriorMeasuredCatalog
         return HCJsonFields.Every(recordText, "Index", 6, "Room");
     }
 
-    static void MeasuredEnsureLoaded()
+    // Compatibility for catalog selection: OnStart owns loading. Selection never opens files.
+    static void MeasuredEnsureLoaded() {}
+
+    static void MeasuredLoadAtStart()
     {
-        if (s_Attempted || !GetGame() || !GetGame().IsServer())
+        if (s_Attempted) { return; }
+        if (!GetGame() || !GetGame().IsServer())
         {
             return;
         }
@@ -1648,6 +1660,12 @@ class HCInteriorMeasuredCatalog
 
     // Filters the existing finite allocation; never grants, replenishes,
     // changes condition, or supplies an independent CE/inventory transaction.
+    static bool MeasuredGroupHasItem(HCInteriorMeasuredCatalogGroup group, string item)
+    {
+        // Validated policies have one or two items; no per-group linear search.
+        return group.Items[0] == item || (group.Items.Count() == 2 && group.Items[1] == item);
+    }
+
     static int MeasuredAllocation(int index, HCInteriorCandidate candidate, int proposed, int rags, int batteries)
     {
         if (index < 0 || index > 2 || proposed < 1 || proposed > 2 || rags < 0 || batteries < 0 || rags > 4 || batteries > 2 || !MeasuredLive(candidate))
@@ -1681,7 +1699,7 @@ class HCInteriorMeasuredCatalog
         foreach (string groupId : rule.ItemGroups)
         {
             HCInteriorMeasuredCatalogGroup group = MeasuredGroup(policy, groupId);
-            if (group && group.Items.Find(item) >= 0)
+            if (group && MeasuredGroupHasItem(group, item))
             {
                 return proposed;
             }

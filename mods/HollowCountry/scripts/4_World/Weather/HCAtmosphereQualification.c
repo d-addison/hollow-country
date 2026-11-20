@@ -62,136 +62,97 @@ class HCAtmosphereQualification
         return nameChars.IndexOf(ch) >= 0;
     }
 
-    // Value of one attribute in a lowercased start-tag body, skipping quoted
-    // values so a name inside another value never matches. "" = absent,
-    // "?" = malformed (unterminated quote or unquoted value).
+    // Windowed searches never copy/rescan the remaining XML document per token.
+    // HCTextWindow uses inspected EnString.c:113/:448 Substring/Get (1.30.164289).
+    static int HCXmlFind(HCTextWindow text, int start, string token)
+    {
+        int size = token.Length();
+        for (int index = start; index + size <= text.Length(); index++)
+        {
+            if (text.Range(index, size) == token) { return index; }
+        }
+        return -1;
+    }
+
+    // Value of one attribute; skip quoted values to avoid matching names in values.
     static string HCXmlAttribute(string tag, string name)
     {
-        int length = tag.Length();
+        HCTextWindow window = new HCTextWindow(tag);
+        int length = window.Length();
         int index = 0;
-        int next = 0;
-        int stop = 0;
-        int close = 0;
-        string ch = "";
-        string tail = "";
-        string attribute = "";
-        string mark = "";
         int quoteCode = 34;
         string quote = quoteCode.AsciiToString();
         while (index < length)
         {
-            ch = tag.Substring(index, 1);
+            string ch = window.At(index);
+            int next;
+            int close;
             if (ch == "'" || ch == quote)
             {
-                next = index + 1;
-                tail = tag.Substring(next, length - next);
-                close = tail.IndexOf(ch);
-                if (close < 0)
-                    return "?";
-                index = next + close + 1;
+                close = HCXmlFind(window, index + 1, ch);
+                if (close < 0) { return "?"; }
+                index = close + 1;
                 continue;
             }
-            if (!HCAtmosphereQualification.HCXmlNameChar(ch))
-            {
-                index = index + 1;
-                continue;
-            }
-            stop = index;
-            while (stop < length)
-            {
-                ch = tag.Substring(stop, 1);
-                if (!HCAtmosphereQualification.HCXmlNameChar(ch))
-                    break;
-                stop = stop + 1;
-            }
-            attribute = tag.Substring(index, stop - index);
+            if (!HCXmlNameChar(ch)) { index++; continue; }
+            int stop = index;
+            while (stop < length && HCXmlNameChar(window.At(stop))) { stop++; }
+            // Root attribute names are compared once, without copying a tail.
+            bool matches = stop - index == name.Length() && window.Range(index, stop - index) == name;
             index = stop;
-            if (attribute != name)
-                continue;
-            if (stop + 2 >= length)
-                return "?";
-            ch = tag.Substring(stop, 1);
-            next = stop + 1;
-            mark = tag.Substring(next, 1);
-            if (ch != "=" || (mark != "'" && mark != quote))
-                return "?";
+            if (!matches) { continue; }
+            if (stop + 2 >= length) { return "?"; }
+            ch = window.At(stop);
+            string mark = window.At(stop + 1);
+            if (ch != "=" || (mark != "'" && mark != quote)) { return "?"; }
             next = stop + 2;
-            tail = tag.Substring(next, length - next);
-            close = tail.IndexOf(mark);
-            if (close < 0)
-                return "?";
-            return tail.Substring(0, close);
+            close = HCXmlFind(window, next, mark);
+            if (close < 0) { return "?"; }
+            return window.Range(next, close - next);
         }
         return "";
     }
 
-    // True only when the first element after <?...?> declarations and
-    // <!--...--> comments is <weather ...> with enable 0/false and reset absent
-    // or 0/false (the stock mission and generator forms). Commented-out roots,
-    // other roots, doctype/CDATA and malformed attributes refuse. Bounded: at
-    // most 64 prolog items and a 1024-character root tag of a 64 KiB document.
+    // At most 64 prolog items, a 1024-character root tag and a 64 KiB document.
+    // Retains the original root/attribute acceptance and malformed-input refusals.
     static bool DisabledXmlRoot(string document)
     {
         int total = document.Length();
-        if (total < 1 || total > 65536)
-            return false;
+        if (total < 1 || total > 65536) { return false; }
         string text = document;
         text.ToLower();
-        // DayZ 023 boot: a Substring past the end raised "Wrong parameter
-        // value" here; bound every slice by the lowered text's own length.
         total = text.Length();
-        if (total < 1 || total > 65536)
-            return false;
+        if (total < 1 || total > 65536) { return false; }
+        HCTextWindow window = new HCTextWindow(text);
         int cursor = 0;
-        int steps = 0;
-        int open = 0;
-        int close = 0;
-        string rest = "";
-        string tag = "";
-        string enable = "";
-        string reset = "";
-        while (steps < 64)
+        for (int steps = 0; steps < 64; steps++)
         {
-            steps = steps + 1;
-            if (cursor < 0 || cursor >= total)
-                return false;
-            rest = text.Substring(cursor, total - cursor);
-            open = rest.IndexOf("<");
-            if (open < 0)
-                return false;
-            cursor = cursor + open;
-            if (cursor >= total)
-                return false;
-            rest = text.Substring(cursor, total - cursor);
-            if (rest.IndexOf("<?") == 0)
+            if (cursor < 0 || cursor >= total) { return false; }
+            cursor = HCXmlFind(window, cursor, "<");
+            if (cursor < 0) { return false; }
+            int close;
+            if (window.Range(cursor, 2) == "<?")
             {
-                close = rest.IndexOf("?>");
-                if (close < 0)
-                    return false;
-                cursor = cursor + close + 2;
+                close = HCXmlFind(window, cursor, "?>");
+                if (close < 0) { return false; }
+                cursor = close + 2;
                 continue;
             }
-            if (rest.IndexOf("<!--") == 0)
+            if (window.Range(cursor, 4) == "<!--")
             {
-                close = rest.IndexOf("-->");
-                if (close < 0)
-                    return false;
-                cursor = cursor + close + 3;
+                close = HCXmlFind(window, cursor, "-->");
+                if (close < 0) { return false; }
+                cursor = close + 3;
                 continue;
             }
-            if (rest.IndexOf("<weather") != 0 || rest.Length() < 9)
-                return false;
-            tag = rest.Substring(8, 1);
-            if (HCAtmosphereQualification.HCXmlNameChar(tag))
-                return false;
-            close = rest.IndexOf(">");
-            if (close < 8 || close > 1024)
-                return false;
-            tag = rest.Substring(8, close - 8);
-            enable = HCAtmosphereQualification.HCXmlAttribute(tag, "enable");
-            reset = HCAtmosphereQualification.HCXmlAttribute(tag, "reset");
-            if (enable != "0" && enable != "false")
-                return false;
+            if (window.Range(cursor, 8) != "<weather" || total - cursor < 9) { return false; }
+            if (HCXmlNameChar(window.At(cursor + 8))) { return false; }
+            close = HCXmlFind(window, cursor, ">");
+            if (close < cursor + 8 || close - cursor > 1024) { return false; }
+            string tag = window.Range(cursor + 8, close - cursor - 8);
+            string enable = HCXmlAttribute(tag, "enable");
+            string reset = HCXmlAttribute(tag, "reset");
+            if (enable != "0" && enable != "false") { return false; }
             return reset == "" || reset == "0" || reset == "false";
         }
         return false;

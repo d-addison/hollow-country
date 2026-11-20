@@ -400,18 +400,18 @@ class HCSearchHouses
     bool OpenJournal()
     {
         if (m_Journal) return m_Journal.Healthy();
+        // Retain the initialization result, including failures, for this owner lifetime.
+        m_Journal = new HCSearchHouseJournal;
         if (m_Fault) return false;
         string pin = HCInteriorTemplates.SourcePin();
         string worldName = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName());
         string build = HCBuildIdentity.Canonical();
-        HCSearchHouseJournal journal = new HCSearchHouseJournal;
-        if (!journal.Open(SOURCE_ID, pin, worldName, build))
+        if (!m_Journal.Open(SOURCE_ID, pin, worldName, build))
         {
             m_Fault = true;
             Print("[HC Search Houses] journal refused; house search stays refused");
             return false;
         }
-        m_Journal = journal;
         return true;
     }
 

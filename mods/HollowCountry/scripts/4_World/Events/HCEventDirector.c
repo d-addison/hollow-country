@@ -148,18 +148,19 @@ class HCEventDirector
                 return false;
             }
         }
-        int memberIndex = 0;
+        // Native EnScript.c:917/926: hash membership preserves duplicate rejection.
+        map<string, bool> members = new map<string, bool>;
         foreach (string member : record.Participants)
         {
             if (!TextValid(member, 96))
             {
                 return false;
             }
-            if (record.Participants.Find(member) != memberIndex)
+            if (members.Contains(member))
             {
                 return false;
             }
-            memberIndex = memberIndex + 1;
+            members.Insert(member, true);
         }
         return true;
     }
@@ -208,18 +209,18 @@ class HCEventDirector
         {
             return false;
         }
-        int sessionIndex = 0;
+        map<string, bool> sessions = new map<string, bool>;
         foreach (string session : state.Sessions)
         {
             if (!TextValid(session, 96))
             {
                 return false;
             }
-            if (state.Sessions.Find(session) != sessionIndex)
+            if (sessions.Contains(session))
             {
                 return false;
             }
-            sessionIndex = sessionIndex + 1;
+            sessions.Insert(session, true);
         }
         int recordIndex = state.PrunedThrough + 1;
         int actors = 0;
@@ -551,17 +552,12 @@ class HCEventDirector
     static void CompactSessions(HCEventState state)
     {
         array<string> retained = new array<string>();
+        map<string, bool> needed = new map<string, bool>;
+        needed.Insert(state.Session, true);
+        foreach (HCEventRecord record : state.Records) { needed.Set(record.Session, true); }
         foreach (string session : state.Sessions)
         {
-            bool needed = session == state.Session;
-            foreach (HCEventRecord record : state.Records)
-            {
-                if (record.Session == session)
-                {
-                    needed = true;
-                }
-            }
-            if (needed)
+            if (needed.Contains(session))
             {
                 retained.Insert(session);
             }

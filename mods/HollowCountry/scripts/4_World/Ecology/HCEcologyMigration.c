@@ -132,6 +132,10 @@ class HCEcologyMigration
 		return result;
 	}
 
+    // Perf batch E / #261: Prepare MUST be durable before native Move above;
+    // Complete must persist its outcome before another cohort submission.
+    // A queued request alone would remove crash reservations and allow replay.
+    // The Infected owner needs a continuation/revalidation seam before deferral.
 	bool Persist()
 	{
 		if (m_Fault || !m_State || !m_Store || m_State.Revision >= 1000000000) { return false; }

@@ -1,6 +1,18 @@
 // Native bounded file/serialization adapters; no qualification is inferred here.
 class HCXAIStore
 {
+    protected static bool s_JournalPrimed;
+    protected static bool s_JournalUncertain;
+    protected static ref HCXAIJournalData s_BootJournal;
+    // Called by the site director's Start before encounters can tick. A failed
+    // boot read stays refused; never retry a disk read from lease maintenance.
+    static void HCPrimeJournal()
+    {
+        if (s_JournalPrimed) { return; }
+        s_JournalPrimed = true;
+        s_BootJournal = HCXAIStore.HCReadBootJournal();
+    }
+
     static string NativeBuild()
     {
         string version;
@@ -17,6 +29,11 @@ class HCXAIStore
         return frozen;
     }
     static HCXAIJournalData LoadJournal()
+    {
+        if (s_JournalUncertain) { return null; }
+        return s_BootJournal;
+    }
+    protected static HCXAIJournalData HCReadBootJournal()
     {
         string path = "$profile:HollowCountry/expansion-ai-leases.json";
         // No atomic rename is exposed by the pinned native file API. A retained
@@ -39,12 +56,15 @@ class HCXAIStore
         if (!JsonFileLoader<HCXAIJournalData>.LoadData(data, journal, error)) { return null; }
         return journal;
     }
+    // Begin/Prune/End consume this bool as a durability receipt. Queuing here
+    // would release reservations or admit creation before persistence. Staging
+    // requires continuations in HCXAIJournal/HCXAIEncounters (outside this batch).
     static bool SaveJournal(HCXAIJournalData journal)
     {
         if (!GetGame() || !GetGame().IsServer() || !journal || !journal.Rows || journal.Rows.Count() > 64) { return false; }
         string path = "$profile:HollowCountry/expansion-ai-leases.json";
         string pending = "$profile:HollowCountry/expansion-ai-leases.pending.json";
-        if (FileExist(pending)) { return false; }
+        if (FileExist(pending)) { s_JournalUncertain = true; return false; }
         string expected;
         string actual;
         string error;
@@ -52,6 +72,7 @@ class HCXAIStore
         MakeDirectory("$profile:HollowCountry");
         // Verify staging before touching committed bytes. Keep the guard on every
         // failure, including uncertain copy/readback, for explicit reconciliation.
+        s_JournalUncertain = true;
         if (!JsonFileLoader<HCXAIJournalData>.SaveFile(pending, journal, error)) { return false; }
         HCXAIJournalData staged = HCXAIStore.ReadJournal(pending);
         if (!staged || !JsonFileLoader<HCXAIJournalData>.MakeData(staged, actual, error) || actual != expected) { return false; }
@@ -59,7 +80,10 @@ class HCXAIStore
         HCXAIJournalData observed = HCXAIStore.ReadJournal(path);
         if (!observed || !JsonFileLoader<HCXAIJournalData>.MakeData(observed, actual, error)) { return false; }
         if (actual != expected || !DeleteFile(pending)) { return false; }
-        return !FileExist(pending);
+        if (FileExist(pending)) { return false; }
+        s_JournalUncertain = false;
+        s_BootJournal = journal;
+        return true;
     }
     static HCXAIProfile Load()
     {

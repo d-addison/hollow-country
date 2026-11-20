@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // HC-49 / #149 -> HC-15/48 bounded observations -> HC-19 issued story identity.
 // Native evidence under ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/:
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print;
@@ -151,23 +152,23 @@ class HCWildlifeScenes
                 spent.Set(spentId, true);
             }
         }
-        array<string> identities = new array<string>();
-        array<string> bodies = new array<string>();
-        array<int> stories = new array<int>();
+        map<string, bool> identities = new map<string, bool>();
+        map<string, bool> bodies = new map<string, bool>();
+        map<int, bool> stories = new map<int, bool>();
         int active = 0;
         foreach (HCWildlifeSceneRow row : state.Rows)
         {
             if (!row || !HCEventDirector.TextValid(row.Id, 96) || row.Origin != "observed") { return false; }
-            if (row.StorySequence < 1 || row.StorySequence >= 999999999 || stories.Find(row.StorySequence) >= 0) { return false; }
+            if (row.StorySequence < 1 || row.StorySequence >= 999999999 || stories.Contains(row.StorySequence)) { return false; }
             if (row.DueAt < 1 || row.EndsAt <= row.DueAt || row.EndsAt > 1000086400) { return false; }
-            if (identities.Find(row.Id) >= 0) { return false; }
-            identities.Insert(row.Id);
-            stories.Insert(row.StorySequence);
+            if (identities.Contains(row.Id)) { return false; }
+            identities.Set(row.Id, true);
+            stories.Set(row.StorySequence, true);
             if (row.CorpseId != "")
             {
-                if (!HCEventDirector.TextValid(row.CorpseId, 96) || bodies.Find(row.CorpseId) >= 0) { return false; }
+                if (!HCEventDirector.TextValid(row.CorpseId, 96) || bodies.Contains(row.CorpseId)) { return false; }
                 if (state.Version == 2 && !spent.Contains(row.CorpseId)) { return false; }
-                bodies.Insert(row.CorpseId);
+                bodies.Set(row.CorpseId, true);
             }
             if (row.Supply == "pending" || row.Supply == "native_skinnable") { active = active + 1; }
             if (row.Supply == "pending" && row.CorpseId != "") { return false; }

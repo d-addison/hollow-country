@@ -86,6 +86,9 @@ class HCGapcodeStoryIndex
     protected ref HCGapcodeStoryLimits m_Limits;
     protected FileHandle m_Input;
     protected bool m_InputOpen;
+    protected bool m_Loading;
+    protected ref array<string> m_Lines = new array<string>;
+    protected int m_LineCursor;
     protected bool m_RowComma;
     protected bool m_HaveRow;
     protected HCScenesModule m_Owner;
@@ -118,12 +121,33 @@ class HCGapcodeStoryIndex
         m_Input = OpenFile("$mission:hollow-country/events/story-sites.json", FileMode.READ);
         if (m_Input) { m_InputOpen = true; }
         if (!m_InputOpen) { HCRefuse("HC42_INDEX_MISSING"); return; }
+        // Native EnSystem.c:501 FGets; cache the capped source during startup.
+        // Parsing and native preflight retain their existing per-tick budgets.
+        string cachedLine;
+        int read = FGets(m_Input, cachedLine);
+        while (read > 0)
+        {
+            m_Bytes = m_Bytes + read;
+            if (cachedLine.Length() > m_Limits.MaxLineBytes || m_Bytes > m_Limits.MaxFileBytes)
+            {
+                HCRefuse("HC42_INDEX_INVALID");
+                m_Lines.Clear();
+                return;
+            }
+            m_Lines.Insert(cachedLine);
+            read = FGets(m_Input, cachedLine);
+        }
+        CloseFile(m_Input);
+        m_InputOpen = false;
+        m_Loading = true;
         Print(HCV2Admission.Line("HC-42 indexed stories", true, "HC42_KIT_SITE_SURVEY", false) + " runtime=PENDING");
     }
 
     void HCStop()
     {
         if (m_InputOpen) { CloseFile(m_Input); m_InputOpen = false; }
+        m_Loading = false;
+        m_Lines.Clear();
     }
 
     void HCLog()
@@ -224,7 +248,7 @@ class HCGapcodeStoryIndex
     void HCStep(HCScenesModule owner)
     {
         m_Owner = owner;
-        if (m_InputOpen)
+        if (m_Loading)
         {
             // One shared unit per batch of ReadLinesPerTick lines: the shared budget is usually spent
             // by earlier consumers, and one unit per line read the 1075-line index at ~1 line/s.
@@ -235,8 +259,7 @@ class HCGapcodeStoryIndex
             for (int row = 0; row < m_Limits.ReadLinesPerTick; row++)
             {
                 if (!m_Work.HCContinue()) { return; }
-                int read = FGets(m_Input, line);
-                if (read <= 0)
+                if (m_LineCursor >= m_Lines.Count())
                 {
                     HCStop();
                     if (m_Phase != 5 || m_Pairs.Count() < 1) { HCRefuse("HC42_INDEX_INVALID"); return; }
@@ -246,8 +269,9 @@ class HCGapcodeStoryIndex
                     HCLog();
                     return;
                 }
-                m_Bytes = m_Bytes + read;
-                if (line.Length() > m_Limits.MaxLineBytes || m_Bytes > m_Limits.MaxFileBytes || !HCLine(line)) { HCRefuse("HC42_INDEX_INVALID"); return; }
+                line = m_Lines[m_LineCursor];
+                m_LineCursor++;
+                if (!HCLine(line)) { HCRefuse("HC42_INDEX_INVALID"); return; }
             }
             return;
         }

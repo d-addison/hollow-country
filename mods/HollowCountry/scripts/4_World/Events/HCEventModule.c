@@ -46,7 +46,7 @@ class HCEventModule : HCModule
     protected float m_StartedAt;
     protected string m_Session;
     protected string m_StartRefusal;
-    protected ref array<string> m_AnnouncedMissions;
+    protected ref map<string, bool> m_AnnouncedMissions;
     // Same provider the runtime owns; read-only here so the roster offers the
     // AI encounter family only while that provider reports ready.
     protected ref HCEventAIProvider m_AIProvider;
@@ -284,7 +284,7 @@ class HCEventModule : HCModule
         m_PoliceRetryAfter = new array<float>;
         int retrySlots = m_Config.Sites.Count() * 7;
         while (m_PoliceRetryAttempts.Count() < retrySlots) { m_PoliceRetryAttempts.Insert(0); m_PoliceRetryAfter.Insert(0); }
-        m_AnnouncedMissions = new array<string>();
+        m_AnnouncedMissions = new map<string, bool>;
         m_StartedAt = GetGame().GetTickTime();
         m_Session = "events-" + Math.RandomIntInclusive(1, 1000000000).ToString() + "-" + Math.RandomIntInclusive(1, 1000000000).ToString();
         HCEventContext context = Context();
@@ -305,8 +305,10 @@ class HCEventModule : HCModule
         BindReviewedTargets(observer, m_Config);
         bool aiReady = AIReady(context);
         int admitted = 0;
-        foreach (HCEventSite site : m_Config.Sites)
+        // SettingsValid admits at most eight sites; make that startup bound explicit.
+        for (int startupSite = 0; startupSite < 8 && startupSite < m_Config.Sites.Count(); startupSite++)
         {
+            HCEventSite site = m_Config.Sites[startupSite];
             string siteWorld;
             if (site)
             {
@@ -427,9 +429,10 @@ class HCEventModule : HCModule
         siteWorld.ToLower();
         if (siteWorld != context.WorldName) { return; }
         array<ref HCEventMission> roster = HCEventRoster.Build(site, AIReady(context));
+        string rosterReceipt;
         foreach (HCEventMission mission : roster)
         {
-            bool remembered = m_AnnouncedMissions.Find(mission.Id) >= 0;
+            bool remembered = m_AnnouncedMissions.Contains(mission.Id);
             bool offerDue = !remembered || context.Now >= 7200;
             bool matchingFamily = mission.Family == family && offerDue;
             if (matchingFamily && !m_Runtime.HasMission(mission.Id))
@@ -481,15 +484,16 @@ class HCEventModule : HCModule
                     // Remembered once, so this line appears once per mission id.
                     if (RememberAnnounced(mission.Id))
                     {
-                        Print("[HC Events] mission admitted later; " + mission.Id + " runtime=PENDING");
+                        rosterReceipt = "[HC Events] mission admitted later; " + mission.Id + " runtime=PENDING";
                     }
                 }
                 else if (policeRetry && !remembered && m_PoliceRetryAttempts[retrySlot] == 6)
                 {
-                    Print("[HC Events] police binding retries exhausted; " + mission.Id + "; attempts=6; code=" + admission.ToString() + " runtime=PENDING");
+                    rosterReceipt = "[HC Events] police binding retries exhausted; " + mission.Id + "; attempts=6; code=" + admission.ToString() + " runtime=PENDING";
                 }
             }
         }
+        if (rosterReceipt != "") { Print("" + rosterReceipt); }
     }
     // No provider, or a provider that is not ready, means no AI mission is offered.
     bool AIReady(HCEventContext context)
@@ -501,9 +505,9 @@ class HCEventModule : HCModule
     // True only when the id was newly remembered.
     bool RememberAnnounced(string missionId)
     {
-        if (m_AnnouncedMissions && m_AnnouncedMissions.Count() < 64 && m_AnnouncedMissions.Find(missionId) < 0)
+        if (m_AnnouncedMissions && m_AnnouncedMissions.Count() < 64 && !m_AnnouncedMissions.Contains(missionId))
         {
-            m_AnnouncedMissions.Insert(missionId);
+            m_AnnouncedMissions.Insert(missionId, true);
             return true;
         }
         return false;

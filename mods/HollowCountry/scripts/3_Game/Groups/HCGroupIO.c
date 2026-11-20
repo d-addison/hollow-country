@@ -1,3 +1,17 @@
+// Snapshot-local membership index. Rebuild from the authoritative array before
+// each operation; no stale ACL cache survives a mutation. Native snapshot
+// scripts-1.30.164289: 1_Core/proto/EnScript.c:917,926 Contains/Insert.
+class HCGroupStringIndex
+{
+    protected ref map<string, bool> m_Keys = new map<string, bool>;
+    void HCGroupStringIndex(array<string> values)
+    {
+        foreach (string value : values) { m_Keys.Insert(value, true); }
+    }
+    bool Has(string value) { return m_Keys.Contains(value); }
+    void Add(string value) { m_Keys.Insert(value, true); }
+}
+
 // Bounded profile file IO shared by 4_World modules. It lives in 3_Game so
 // every 4_World file sees it regardless of compile order (DayZ 021 boot:
 // 'Bad type HCGroupJson' from Groups/HCDeathPin.c compiled before HCGroupStore.c).

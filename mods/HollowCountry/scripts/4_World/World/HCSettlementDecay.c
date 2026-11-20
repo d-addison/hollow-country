@@ -117,6 +117,7 @@ class HCSettlementDecay : HCModule
     protected ref array<string> m_RefusalReasons = new array<string>;
     protected bool m_Started;
     protected bool m_Initialized;
+    protected bool m_Existing;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "SettlementDecay"; }
@@ -160,6 +161,17 @@ class HCSettlementDecay : HCModule
     {
         Print(HCV2Admission.Line("SettlementDecay", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
         m_Store = new HCSettlementDecayStore;
+        // Native EnSystem.c:397 FileExist; read once at start, validate epoch
+        // after World starts. Repeated ticks never reopen the settlement image.
+        if (!HCV2ThreatStore<HCSettlementState>.CanOpen(HCSettlementDecayStore.PATH)) { Fail(); return; }
+        m_Existing = FileExist(HCSettlementDecayStore.PATH);
+        if (m_Existing)
+        {
+            string image;
+            string error;
+            if (!HCGroupIO.Read(HCSettlementDecayStore.PATH, 16384, image) || !JsonFileLoader<HCSettlementState>.LoadData(image, m_State, error)) { Fail(); return; }
+            if (!HCSettlementDecayStore.HCFieldsPresent(image)) { Fail(); return; }
+        }
         m_SaveJob = new HCSettlementSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
@@ -184,13 +196,9 @@ class HCSettlementDecay : HCModule
     protected bool Initialize(HCWorldModule world, int now)
     {
         m_Catalog = HCWorldData.Fresh(world.Epoch());
-        if (!HCV2ThreatStore<HCSettlementState>.CanOpen(HCSettlementDecayStore.PATH)) { return false; }
-        if (FileExist(HCSettlementDecayStore.PATH))
+        if (m_Existing)
         {
-            string image;
-            string error;
-            if (!HCGroupIO.Read(HCSettlementDecayStore.PATH, 16384, image) || !JsonFileLoader<HCSettlementState>.LoadData(image, m_State, error)) { return false; }
-            if (!HCSettlementDecayStore.HCFieldsPresent(image) || !Valid(world, now)) { return false; }
+            if (!Valid(world, now)) { return false; }
         }
         else
         {
@@ -210,7 +218,7 @@ class HCSettlementDecay : HCModule
                 row.Notices = 0;
                 m_State.Towns.Insert(row);
             }
-            if (!Persist()) { return false; }
+            HCQueueRoutine();
         }
         // Old stores retain their ordered prefix; only new catalog towns append.
         bool appended = false;
@@ -225,7 +233,7 @@ class HCSettlementDecay : HCModule
             m_State.Towns.Insert(appendedTown);
             appended = true;
         }
-        if (appended && !Persist()) { return false; }
+        if (appended) { HCQueueRoutine(); }
         array<ref HCSettlementTown> initializedTowns = m_State.Towns;
         foreach (HCSettlementTown initialized : initializedTowns)
         {
@@ -236,15 +244,17 @@ class HCSettlementDecay : HCModule
         return true;
     }
 
-    protected bool Persist()
+    protected void HCQueueRoutine()
     {
-        return m_Store.Save(m_State);
+        m_StateRevision++;
+        m_SaveJob.HCDirty = true;
     }
 
     bool HCFlushRoutine()
     {
         if (m_Fault || !m_State) { return false; }
-        if (!Persist()) { Fail(); return false; }
+        m_SaveJob.HCDirty = true;
+        if (!HCSaveScheduler.HCFlush(m_SaveJob)) { Fail(); return false; }
         return true;
     }
 

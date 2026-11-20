@@ -456,8 +456,9 @@ class HCInteriorTemplatesStrict
             {
                 return "";
             }
-            if (size > PIECE_CHARS) { size = PIECE_CHARS; }
+            if (size > 1024) { size = 1024; }
             string piece = text.Substring(start, size);
+            if (piece.Length() > 1024) { return ""; }
             // An authored DTO name would alias the renamed key; checked per piece because
             // multi-character scans are only trusted on 1 KB text.
             if (piece.IndexOf(nativeKey) >= 0)
@@ -553,7 +554,7 @@ class HCInteriorTemplatesStrict
             {
                 return false;
             }
-            if (size > PIECE_CHARS) { size = PIECE_CHARS; }
+            if (size > 1024) { size = 1024; }
             string piece = text.Substring(start, size);
             string work = piece;
             int at = 0;

@@ -42,6 +42,7 @@ class HCSearchHouseJournal
     protected ref map<string, int> m_Sites = new map<string, int>;
     protected ref array<string> m_ReleasedSites = new array<string>;
     protected ref HCSearchRetirementStore m_Retired;
+    protected ref map<string, bool> m_LegacyNames = new map<string, bool>;
 
     bool Fail(string reason)
     {
@@ -72,18 +73,19 @@ class HCSearchHouseJournal
     {
         if (m_Supplies.Contains(supplyId)) { return true; }
         if (m_Retired && m_Retired.Contains(supplyId)) { return true; }
-        // Only existence is read here; the stricter TombstonePath validates every write.
-        return FileExist(m_Root + "/spent_" + supplyId + ".json");
+        // Legacy files are immutable until retirement; cache their names at open.
+        return m_LegacyNames.Contains("spent_" + supplyId + ".json");
     }
 
     string TombstonePath(string supplyId)
     {
         if (!HCSearchRules.TextValid(supplyId, 64)) { return ""; }
         string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+        HCTextWindow identity = new HCTextWindow(supplyId);
         int characterIndex = 0;
-        while (characterIndex < supplyId.Length())
+        while (characterIndex < identity.Length())
         {
-            if (alphabet.IndexOf(supplyId.Get(characterIndex)) < 0) { return ""; }
+            if (alphabet.IndexOf(identity.At(characterIndex)) < 0) { return ""; }
             characterIndex++;
         }
         return m_Root + "/spent_" + supplyId + ".json";
@@ -148,8 +150,25 @@ class HCSearchHouseJournal
         {
             if (!EnsureRetirement()) { return false; }
         }
+        CacheLegacyNames();
         if (!Restore()) return false;
         return true;
+    }
+
+    // Native 1_Core/proto/EnSystem.c:520-522 directory enumeration; immutable
+    // legacy names are loaded once with journal recovery, never probed per supply.
+    protected void CacheLegacyNames()
+    {
+        string name;
+        FileAttr attributes;
+        FindFileHandle handle = FindFile(m_Root + "/spent_*.json", name, attributes, FindFileFlags.DIRECTORIES);
+        bool more = name != "";
+        while (more)
+        {
+            m_LegacyNames.Set(name, true);
+            more = FindNextFile(handle, name, attributes);
+        }
+        CloseFindFile(handle);
     }
 
     string PathFor(int index, string kind)

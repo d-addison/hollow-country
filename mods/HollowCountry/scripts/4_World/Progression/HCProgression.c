@@ -207,26 +207,47 @@ class HCProgressionModule : HCModule
         return true;
     }
 
-    // Oldest last gain (or life reset for zero-gain/dead rows) leaves first.
-    // Physical store limit is 128, so each eviction scans <=128 rows.
+    // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:493 array.Sort.
+    // Select the eviction threshold once; ties retain the original oldest-first
+    // array order. Rebuild survivors once instead of scanning/shifting per eviction.
     protected void HCPruneRows(int limit)
     {
-        while (m_State.Players.Count() > limit)
+        int excess = m_State.Players.Count() - limit;
+        if (excess <= 0) { return; }
+        array<int> activityTimes = new array<int>;
+        foreach (HCProgressionRow candidate : m_State.Players)
         {
-            int oldest = 0;
-            int oldestUtc = 2146000001;
-            for (int rowIndex = 0; rowIndex < m_State.Players.Count(); rowIndex++)
-            {
-                HCProgressionRow row = m_State.Players[rowIndex];
-                int activity = row.GainUtc;
-                if (activity == 0) { activity = row.DecayUtc; }
-                if (activity < oldestUtc) { oldest = rowIndex; oldestUtc = activity; }
-            }
-            m_State.Players.RemoveOrdered(oldest);
-            if (oldest < m_Cursor) { m_Cursor = m_Cursor - 1; }
-            if (m_Cursor >= m_State.Players.Count()) { m_Cursor = 0; }
-            HCChanged();
+            int activity = candidate.GainUtc;
+            if (activity == 0) { activity = candidate.DecayUtc; }
+            activityTimes.Insert(activity);
         }
+        activityTimes.Sort();
+        int threshold = activityTimes[excess - 1];
+        int below = 0;
+        foreach (int timestamp : activityTimes)
+        {
+            if (timestamp < threshold) { below++; }
+        }
+        int ties = excess - below;
+        int removedBeforeCursor = 0;
+        array<ref HCProgressionRow> retained = new array<ref HCProgressionRow>;
+        for (int rowIndex = 0; rowIndex < m_State.Players.Count(); rowIndex++)
+        {
+            HCProgressionRow row = m_State.Players[rowIndex];
+            int rowActivity = row.GainUtc;
+            if (rowActivity == 0) { rowActivity = row.DecayUtc; }
+            bool remove = rowActivity < threshold;
+            if (rowActivity == threshold && ties > 0) { remove = true; ties--; }
+            if (remove)
+            {
+                if (rowIndex < m_Cursor) { removedBeforeCursor++; }
+                HCChanged();
+            }
+            else { retained.Insert(row); }
+        }
+        m_State.Players = retained;
+        m_Cursor = m_Cursor - removedBeforeCursor;
+        if (m_Cursor >= retained.Count()) { m_Cursor = 0; }
     }
 
     override string GetName() { return "Progression"; }
@@ -265,7 +286,8 @@ class HCProgressionModule : HCModule
             if (!row || !HCValidKey(row.Key)) { return false; }
             if (m_State.Version == 2)
             {
-                if (row.CharacterKey != "" && (row.CharacterKey.Length() < 8 || row.CharacterKey.Length() > 49 || row.CharacterKey.Get(0) != "c")) { return false; }
+                HCTextWindow characterKey = new HCTextWindow(row.CharacterKey);
+                if (row.CharacterKey != "" && (row.CharacterKey.Length() < 8 || row.CharacterKey.Length() > 49 || characterKey.At(0) != "c")) { return false; }
                 if (row.LegacyDeferred)
                 {
                     if (row.CharacterKey != "" || row.Dead) { return false; }

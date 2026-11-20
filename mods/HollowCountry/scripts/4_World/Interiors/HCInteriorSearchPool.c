@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains.
 // One finite precommitted supplementary pool, shared by every registered site.
 // CE is not debited here: production remains gated on an observed CE bridge.
 class HCInteriorJournalIdentity
@@ -30,7 +31,7 @@ class HCInteriorSearchPool
     protected ref array<ref HCInteriorAllocation> m_Entries = new array<ref HCInteriorAllocation>;
     protected bool m_Opened;
 
-    // O(12^2) at startup only. No caller can add an allocation after this step.
+    // Indexed duplicate detection at startup only. No caller can add an allocation after this step.
     bool Open(HCInteriorManifest manifest)
     {
         if (m_Opened) return false;
@@ -40,6 +41,8 @@ class HCInteriorSearchPool
         int rags;
         int batteries;
         if (manifest.Assignments.Count() < 1 || manifest.Assignments.Count() > 12) return false;
+        map<int, bool> slots = new map<int, bool>;
+        map<string, bool> sites = new map<string, bool>;
         foreach (HCInteriorAssignment assignment : manifest.Assignments)
         {
             if (!assignment || assignment.SlotId < 0 || assignment.SlotId >= 12 || assignment.InstanceId == "" || assignment.InstanceId.Length() > 512 || !HCInteriorCatalog.ItemAllowed(assignment.Item)) return false;
@@ -49,10 +52,9 @@ class HCInteriorSearchPool
             entry.SlotId = assignment.SlotId;
             entry.SiteId = assignment.InstanceId + "_storage_v1";
             entry.Item = assignment.Item;
-            foreach (HCInteriorAllocation previous : m_Entries)
-            {
-                if (previous.SlotId == entry.SlotId || previous.SiteId == entry.SiteId) return false;
-            }
+            if (slots.Contains(entry.SlotId) || sites.Contains(entry.SiteId)) return false;
+            slots.Set(entry.SlotId, true);
+            sites.Set(entry.SiteId, true);
             m_Entries.Insert(entry);
         }
         return HCInteriorRules.PoolWithinBounds(m_Entries.Count(), rags, batteries);

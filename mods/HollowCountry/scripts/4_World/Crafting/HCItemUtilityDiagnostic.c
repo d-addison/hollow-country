@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // N2/N3, explicit disposable-profile invocation ONLY. No constructor, module,
 // mission, timer, RPC or startup hook. Caller pins the complete N1 queue, calls
 // Begin, ObserveNext once per row and PollCleanup until confirmed, and enforces
@@ -296,6 +297,8 @@ class HCItemUtilityDiagnostic
             row.Status = "array-limit-pending";
             return;
         }
+        map<string, bool> ancestorsSeen = new map<string, bool>;
+        foreach (string priorAncestor : row.Ancestors) { ancestorsSeen.Set(priorAncestor, true); }
         string ancestor;
         string current = request.ItemClass;
         for (int depth = 0; depth < 64; depth++)
@@ -305,8 +308,9 @@ class HCItemUtilityDiagnostic
                 row.AncestryComplete = true;
                 return;
             }
-            if (ancestor.Length() > 128 || row.Ancestors.Find(ancestor) >= 0) return;
+            if (ancestor.Length() > 128 || ancestorsSeen.Contains(ancestor)) return;
             row.Ancestors.Insert(ancestor);
+            ancestorsSeen.Set(ancestor, true);
             current = ancestor;
         }
     }

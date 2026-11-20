@@ -189,10 +189,11 @@ class HCSearchRetirementPolicy
     {
         string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
         int hash = 0;
+        HCTextWindow identity = new HCTextWindow(supplyId);
         int characterIndex = 0;
-        while (characterIndex < supplyId.Length())
+        while (characterIndex < identity.Length())
         {
-            hash = (hash * 31 + alphabet.IndexOf(supplyId.Get(characterIndex)) + 1) % 59392;
+            hash = (hash * 31 + alphabet.IndexOf(identity.At(characterIndex)) + 1) % 59392;
             characterIndex++;
         }
         return hash;
@@ -378,10 +379,11 @@ class HCSearchRefreshPolicy
     {
         string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-:+/=";
         int hash = 0;
+        HCTextWindow identity = new HCTextWindow(siteId);
         int index = 0;
-        while (index < siteId.Length())
+        while (index < identity.Length())
         {
-            hash = (hash * 31 + alphabet.IndexOf(siteId.Get(index)) + 1) % (jitterSeconds + 1);
+            hash = (hash * 31 + alphabet.IndexOf(identity.At(index)) + 1) % (jitterSeconds + 1);
             index++;
         }
         return minimumSeconds + hash;
@@ -1002,16 +1004,17 @@ class HCSearchRefreshPilotHouses : HCSearchHouses
 
     override bool OpenJournal()
     {
+        if (!HCSearchRules.PinValid(m_PilotPin)) return false;
         if (m_Journal) return m_Journal.Healthy();
-        if (m_Fault || !HCSearchRules.PinValid(m_PilotPin)) return false;
-        HCSearchHouseJournal journal = new HCSearchRefreshPilotJournal;
-        if (!journal.Open("stock-ce-measured-refresh-v2", m_PilotPin, HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()), HCBuildIdentity.Canonical()))
+        // Cache both success and refusal; initialization is once per owner lifetime.
+        m_Journal = new HCSearchRefreshPilotJournal;
+        if (m_Fault) return false;
+        if (!m_Journal.Open("stock-ce-measured-refresh-v2", m_PilotPin, HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()), HCBuildIdentity.Canonical()))
         {
             m_Fault = true;
             Print("[HC Search Refresh] pilot journal refused; pilot house search stays refused");
             return false;
         }
-        m_Journal = journal;
         return true;
     }
 

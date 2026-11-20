@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains.
 // Native 1.30.164289: 4_World/Entities/ManBase/PlayerBase.c:6924 MessageStatus;
 // 3_Game/Global/Game.c:703 CreateObjectEx;
 // 3_Game/CE/CentralEconomy.c:30-33 NOLIFETIME/NOPERSISTENCY_WORLD flags.
@@ -95,6 +96,8 @@ class HCInteriorsModule : HCModule
         if (!m_Config.Candidates || m_Config.Candidates.Count() < 1 || m_Config.Candidates.Count() > 12) return Reject("candidate count exceeds manifest bound or is empty");
         if (settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior) < 2) return Reject("prop budget below the two-prop minimum");
         m_PropLimit = Math.Min(settings.HCSearchCap("MaxPropsPerInterior", settings.MaxPropsPerInterior), 5);
+        map<int, bool> slots = new map<int, bool>;
+        map<string, bool> identities = new map<string, bool>;
         ref array<ref HCInteriorCandidate> sorted = new array<ref HCInteriorCandidate>;
         for (int slot = 0; slot < 12; slot++)
         {
@@ -105,10 +108,9 @@ class HCInteriorsModule : HCModule
                 // Yaw-only pilot. No invented conversion of tilted local rotations.
                 if (candidate.Orientation[1] != 0 || candidate.Orientation[2] != 0) return Reject("tilted building unsupported by yaw-only pilot");
                 if (candidate.SlotId != slot) continue;
-                foreach (HCInteriorCandidate previous : sorted)
-                {
-                    if (previous.SlotId == candidate.SlotId || previous.Key() == candidate.Key()) return Reject("duplicate slot/quantized building identity");
-                }
+                if (slots.Contains(candidate.SlotId) || identities.Contains(candidate.Key())) return Reject("duplicate slot/quantized building identity");
+                slots.Set(candidate.SlotId, true);
+                identities.Set(candidate.Key(), true);
                 sorted.Insert(candidate);
             }
         }
@@ -228,11 +230,13 @@ class HCInteriorsModule : HCModule
             if (entry.SiteId != assignment.InstanceId + "_storage_v1" || context.InstanceId != assignment.InstanceId || context.LayoutId != assignment.LayoutId || context.History != assignment.History || context.MeasuredRecordSha256 != assignment.MeasuredRecordSha256) return false;
             if (context.SourcePin != manifest.SourcePin || !HCSearchRules.PinValid(context.EvidencePin) || !HCSearchRules.TextValid(context.GroupId, 128) || !HCSearchRules.TextValid(context.Room, 128)) return false;
             if (!context.Items || context.Items.Count() < 1 || context.Items.Count() > 4096) return false;
+            map<string, bool> itemIndex = new map<string, bool>;
             foreach (string itemClass : context.Items)
             {
                 if (!HCSearchRules.TextValid(itemClass, 128)) return false;
+                itemIndex.Set(itemClass, true);
             }
-            if (entry.ItemClass != "" && context.Items.Find(entry.ItemClass) < 0) return false;
+            if (entry.ItemClass != "" && !itemIndex.Contains(entry.ItemClass)) return false;
             index++;
         }
         return true;
@@ -275,7 +279,7 @@ class HCInteriorsModule : HCModule
             return;
         }
         Print("[HC Interiors] legacy pilot search awaits trusted native supply/context binding; no supplementary grant fallback");
-        HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
+        HCInteriorMeasuredCatalog.MeasuredLoadAtStart();
         m_PlacementProof = HCInteriorRules.PlacementAdmitted();
         m_SearchProof = HCInteriorRules.SearchAdmitted();
         #ifdef DIAG_DEVELOPER
@@ -349,6 +353,8 @@ class HCInteriorsModule : HCModule
         array<CargoBase> cargos = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(point, 0.75, objects, cargos);
         if (objects.Count() > 256) return 3;
+        map<Object, bool> ownedIndex = new map<Object, bool>;
+        foreach (Object ownedObject : m_Objects) { ownedIndex.Set(ownedObject, true); }
         int matches;
         int ownedCount;
         bool exact = true;
@@ -356,7 +362,7 @@ class HCInteriorsModule : HCModule
         {
             if (!object || object.GetType() != type || vector.DistanceSq(object.GetPosition(), point) >= 0.0625) continue;
             matches++;
-            if (m_Objects.Find(object) >= 0)
+            if (ownedIndex.Contains(object))
             {
                 ownedCount++;
                 reusable = object;
@@ -367,6 +373,8 @@ class HCInteriorsModule : HCModule
         if (decision != 1) reusable = null;
         return decision;
     }
+
+    protected bool m_OrphanLogged;
 
     void PlaceCandidate(int index)
     {
@@ -396,7 +404,11 @@ class HCInteriorsModule : HCModule
             Object reusable;
             if (InspectProp(building.ModelToWorld(check.Position), checkOrientation, check.Type, reusable) == 3)
             {
-                Print("[HC Interiors] possible orphan/native prop; slot quarantined " + candidate.SlotId.ToString());
+                if (!m_OrphanLogged)
+                {
+                    m_OrphanLogged = true;
+                    Print("[HC Interiors] possible orphan/native prop; slot quarantined " + candidate.SlotId.ToString());
+                }
                 m_Store.HoldSlot(candidate.SlotId, "foreign-or-ambiguous-prop");
                 return;
             }

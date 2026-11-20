@@ -257,7 +257,7 @@ class HCXConvoyRun
         if (!HCAlive()) { HCWalk("CONVOY_PARTY_LOST"); return; }
         if (mHCScans > 0 && now - mHCScanAt < mHCPolicy.SeekSeconds * 1000) { return; }
         if (mHCScans >= mHCPolicy.MaxSeekScans) { HCWalk("CONVOY_NO_QUALIFIED_WORLD_VEHICLE"); return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 8)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONVOY_RUN, 8)) { return; }
         mHCScanAt = now;
         mHCScans++;
         if (HCXConvoyRoute.HCFlat(mHCLeader.GetPosition(), HCDestination()) < mHCPolicy.MinDriveMeters) { HCWalk("CONVOY_DESTINATION_NEAR"); return; }

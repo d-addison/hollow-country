@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/926 map.Contains/Insert.
 // Finite, journaled reward ledger for reviewed event caches. It decides and records;
 // it never touches the engine world. Native: 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnString.c:20 ToInt, :113 Substring, :240 IndexOf, :304 Trim; EnConvert.c:553 ToString.
@@ -44,13 +45,13 @@ class HCEventRewardPools
         if (!pool || pool.Version != 1 || !pool.Entries) { return false; }
         if (pool.MaxCaches < 1 || pool.MaxCaches > 8 || pool.ItemsPerCache < 1 || pool.ItemsPerCache > 8) { return false; }
         if (pool.Entries.Count() < 1 || pool.Entries.Count() > 16) { return false; }
-        array<string> seen = new array<string>();
+        map<string, bool> seen = new map<string, bool>();
         int total = 0;
         foreach (HCEventRewardEntry entry : pool.Entries)
         {
             if (!entry || !HCEventDirector.TextValid(entry.Type, 96) || entry.Count < 1 || entry.Count > 16) { return false; }
-            if (seen.Find(entry.Type) >= 0) { return false; }
-            seen.Insert(entry.Type);
+            if (seen.Contains(entry.Type)) { return false; }
+            seen.Insert(entry.Type, true);
             total = total + entry.Count;
         }
         return total <= 64;
@@ -177,7 +178,9 @@ class HCEventRewardLedger
     HCEventRewardPlan Commit(string siteId)
     {
         if (!HCEventDirector.TextValid(siteId, 48) || siteId.Trim().Length() < 1) { return null; }
-        if (!Start()) { return null; }
+        // Owners start the ledger before publishing it (wildlife HCStart and
+        // HCEventRewards.Ledger). Tick grants must never enumerate/prune boots.
+        if (!m_Ready || m_Fault) { HCRefuse("not_started_or_faulted"); return null; }
         if (m_Granted.Find(siteId) >= 0 || m_Granted.Count() >= m_Pool.MaxCaches) { return null; }
         HCEventRewardPlan plan = Take(siteId);
         if (plan.Items.Count() < 1) { return null; }
@@ -206,6 +209,7 @@ class HCEventRewards
         {
             s_Ledger = new HCEventRewardLedger;
             s_Ledger.Configure(new HCEventRewardIO, HCEventRewardPools.V1());
+            s_Ledger.Start();
         }
         return s_Ledger;
     }

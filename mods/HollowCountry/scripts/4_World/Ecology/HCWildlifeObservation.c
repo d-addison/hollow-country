@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // HC-15 / #149: native wildlife baseline, not a movement/feeding controller.
 // Spec -> plan -> task: HC-15 in the consolidated coverage brief; trace owner
 // HC-11 must retain N9 herd/flee/regroup/predator/pair experiments as PENDING.
@@ -185,13 +186,13 @@ class HCWildlifeObservation
         if (config.TickMs < 1 || config.TickMs > 60000 || config.FactLifetimeMs < 1 || config.FactLifetimeMs > 60000) { return false; }
         if (!(config.PlayerObservationRadiusM > 0) || !(config.PlayerObservationRadiusM <= FLT_MAX)) { return false; }
         if (config.Species.Count() < 1 || config.Species.Count() > 32 || config.TargetPairs.Count() > 16) { return false; }
-        array<string> speciesSeen = new array<string>;
+        map<string, bool> speciesSeen = new map<string, bool>;
         foreach (string species : config.Species)
         {
-            if (!HCEcologyRules.TextValid(species) || speciesSeen.Find(species) >= 0) { return false; }
-            speciesSeen.Insert(species);
+            if (!HCEcologyRules.TextValid(species) || speciesSeen.Contains(species)) { return false; }
+            speciesSeen.Set(species, true);
         }
-        array<string> pairsSeen = new array<string>;
+        map<string, bool> pairsSeen = new map<string, bool>;
         foreach (HCWildlifeTargetPair pair : config.TargetPairs)
         {
             if (!pair || pair.Verdict != "pending_native_pair_matrix") { return false; }
@@ -199,8 +200,8 @@ class HCWildlifeObservation
             if (pair.Target != "animal" && pair.Target != "ai" && pair.Target != "infected") { return false; }
             if (pair.Source != "animal" && pair.Target != "animal") { return false; }
             string key = pair.Source + ":" + pair.Target;
-            if (pairsSeen.Find(key) >= 0) { return false; }
-            pairsSeen.Insert(key);
+            if (pairsSeen.Contains(key)) { return false; }
+            pairsSeen.Set(key, true);
         }
         return true;
     }

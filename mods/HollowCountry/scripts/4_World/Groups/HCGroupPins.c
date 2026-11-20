@@ -14,10 +14,11 @@
 
 class HCGroupPinPolicy
 {
-    static bool AddTrail(HCGroupRecord group, string shelterId)
+    static bool AddTrail(HCGroupRecord group, string shelterId, HCGroupStringIndex trails)
     {
-        if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= HCGCCampGroupConfig.Get().TrailPins || group.HCTrailPlaceIds.Find(shelterId) >= 0) { return false; }
+        if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= HCGCCampGroupConfig.Get().TrailPins || !trails || trails.Has(shelterId)) { return false; }
         group.HCTrailPlaceIds.Insert(shelterId);
+        trails.Add(shelterId);
         return true;
     }
 
@@ -123,6 +124,7 @@ class HCGroupPins : HCModule
             }
         }
         if (!m_Trail || !group.HCTrailPlaceIds) { return; }
+        HCGroupStringIndex trails = new HCGroupStringIndex(group.HCTrailPlaceIds);
         int shelterCount = HCShelterCatalog.Count();
         if (shelterCount > HCGCCampGroupConfig.Get().ShelterQueries) { shelterCount = HCGCCampGroupConfig.Get().ShelterQueries; }
         for (int shelterIndex = 0; shelterIndex < shelterCount; shelterIndex++)
@@ -131,7 +133,7 @@ class HCGroupPins : HCModule
             HCShelterEntry placedShelter = HCShelterCatalog.Get(shelterIndex);
             if (!placedShelter || !placedShelter.Placed) { continue; }
             HCGroupPlace trailPin = HCGroupPinPolicy.TrailPin(placedShelter);
-            if (trailPin && group.HCTrailPlaceIds.Find(trailPin.Id) >= 0) { output.Insert(trailPin); }
+            if (trailPin && trails.Has(trailPin.Id)) { output.Insert(trailPin); }
         }
     }
 
@@ -206,6 +208,8 @@ modded class HCGroupService
         if (!HCGroupRules.PositionValid(actual)) { return; }
         HCGroupState candidate;
         HCGroupRecord candidateGroup;
+        HCGroupStringIndex candidateTrails;
+        HCGroupStringIndex trails = new HCGroupStringIndex(group.HCTrailPlaceIds);
         int shelterCount = HCShelterCatalog.Count();
         if (shelterCount > HCGCCampGroupConfig.Get().ShelterQueries) { shelterCount = HCGCCampGroupConfig.Get().ShelterQueries; }
         for (int shelterIndex = 0; shelterIndex < shelterCount; shelterIndex++)
@@ -213,7 +217,7 @@ modded class HCGroupService
             HCShelterEntry placedShelter = HCShelterCatalog.Get(shelterIndex);
             if (!placedShelter || !placedShelter.Placed) { continue; }
             HCGroupPlace shelter = HCGroupPinPolicy.TrailPin(placedShelter);
-            if (!shelter || group.HCTrailPlaceIds.Find(shelter.Id) >= 0) { continue; }
+            if (!shelter || trails.Has(shelter.Id)) { continue; }
             float dx = actual[0] - shelter.Position[0];
             float dz = actual[2] - shelter.Position[2];
             if (dx * dx + dz * dz > HCGCCampGroupConfig.Get().TrailRadiusMeters * HCGCCampGroupConfig.Get().TrailRadiusMeters) { continue; }
@@ -222,8 +226,9 @@ modded class HCGroupService
                 if (!Clone(candidate)) { m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60; return; }
                 candidateGroup = HCGroupRules.ById(candidate, group.Id);
                 if (!candidateGroup) { return; }
+                candidateTrails = new HCGroupStringIndex(candidateGroup.HCTrailPlaceIds);
             }
-            HCGroupPinPolicy.AddTrail(candidateGroup, shelter.Id);
+            HCGroupPinPolicy.AddTrail(candidateGroup, shelter.Id, candidateTrails);
         }
         if (!candidate) { return; }
         if (candidateGroup.Revision >= 1000000000) { return; }
@@ -234,14 +239,15 @@ modded class HCGroupService
         if (result == HCGroupCode.OK)
         {
             Broadcast();
+            HCGroupStringIndex committedTrails = new HCGroupStringIndex(candidateGroup.HCTrailPlaceIds);
             // Notify only after the discovery ledger was committed successfully.
             for (int noticeIndex = 0; noticeIndex < shelterCount; noticeIndex++)
             {
                 HCShelterEntry discoveredShelter = HCShelterCatalog.Get(noticeIndex);
                 if (!discoveredShelter || !discoveredShelter.Placed) { continue; }
                 string discoveredId = "hc-found:" + discoveredShelter.Name;
-                bool newlyFound = group.HCTrailPlaceIds.Find(discoveredId) < 0;
-                bool committedFound = candidateGroup.HCTrailPlaceIds.Find(discoveredId) >= 0;
+                bool newlyFound = !trails.Has(discoveredId);
+                bool committedFound = committedTrails.Has(discoveredId);
                 if (newlyFound && committedFound)
                 {
                     NotificationSystem.SendNotificationToPlayerExtended(explorer.Player, 10, discoveredShelter.Name, discoveredShelter.History);
@@ -258,7 +264,9 @@ modded class HCGroupService
         int deathCount = 0;
         int scanCount = m_State.Groups.Count();
         if (scanCount > HCGCCampGroupConfig.Get().PinLogGroups) { scanCount = HCGCCampGroupConfig.Get().PinLogGroups; }
-        for (int scanIndex = 0; scanIndex < scanCount; scanIndex++)
+        // HCGCCampGroupConfig.HCNormalize bounds PinLogGroups to 1..4.
+        // Keep that invariant explicit here: this is a rolling diagnostic sample.
+        for (int scanIndex = 0; scanIndex < 4 && scanIndex < scanCount; scanIndex++)
         {
             if (m_HCPinsLogCursor >= m_State.Groups.Count()) { m_HCPinsLogCursor = 0; }
             HCGroupRecord group = m_State.Groups[m_HCPinsLogCursor];

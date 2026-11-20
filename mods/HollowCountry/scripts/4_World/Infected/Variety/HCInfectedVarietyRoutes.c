@@ -153,12 +153,12 @@ class HCInfectedVarietyRoutes
             // Safety release (expiry, wake, combat, ownership, sight) never waits
             // for budget; only segment advancement and native upkeep are funded.
             bool keep;
-            if (HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { keep = s_Pack.Tick(now); }
+            if (HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY_ROUTES, 8)) { keep = s_Pack.Tick(now); }
             else { keep = s_Pack.HCMaintain(now); }
             if (!keep) { HCClearRoster(); s_Pack = null; }
             return;
         }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, 8)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INFECTED_VARIETY_ROUTES, 8)) { return; }
         s_NextScan = now + s_Config.MigrationScanSeconds;
         array<HCInfectedActor> roster = HCInfectedModule.Instance.HCVarietyRouteRoster();
         if (!roster || roster.Count() < 1) { return; }

@@ -100,6 +100,8 @@ class HCHearthFires
     protected static bool s_ReclaimFirst;
     protected static EntityAI s_Spending;
     protected static bool s_Running;
+    protected static bool s_EnabledLoaded;
+    protected static bool s_Enabled;
     protected static ref HCOperationalStatus s_Status = new HCOperationalStatus;
     protected static ref map<Object, int> s_Attempts = new map<Object, int>;
 
@@ -111,7 +113,11 @@ class HCHearthFires
     static bool HCActive() { return s_Running; }
     static bool HCEnabled()
     {
-        return HCHearthConfig.HCGet().Enabled && !FileExist("$profile:HollowCountry/acceptance/hearth-fires.disable");
+        // Admission files are a boot snapshot, like the cached hearth config.
+        if (s_EnabledLoaded) { return s_Enabled; }
+        s_EnabledLoaded = true;
+        s_Enabled = HCHearthConfig.HCGet().Enabled && !FileExist("$profile:HollowCountry/acceptance/hearth-fires.disable");
+        return s_Enabled;
     }
     static void HCStart()
     {

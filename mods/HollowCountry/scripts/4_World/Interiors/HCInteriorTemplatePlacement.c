@@ -315,7 +315,7 @@ class HCInteriorTemplatePlacement
             }
             mark = TickCount(0);
             HCInteriorTemplatePropSlot slot = HCInteriorTemplates.Prop(templateRow, slotId);
-            if (!slot || slot.History.Find(row.History) < 0 || !HCInteriorTemplates.SlotClear(templateRow, slot))
+            if (!slot || !HCInteriorTemplates.HistoryAllows(slot, row.History) || !HCInteriorTemplates.SlotClear(templateRow, slot))
 
             {
                 steps.HCAdd(STEP_LOOKUP, TickCount(mark));

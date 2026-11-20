@@ -145,6 +145,9 @@ class HCAdminModule : HCModule
     protected int m_CaptureTicket;
     protected ref HCDebugSnapshot m_Capture;
     protected bool m_DebugEnabled;
+    protected bool m_LootMapRootReady;
+    // Native EnScript.c:857,902,917 map Clear/Set/Contains.
+    protected ref map<string, bool> m_SeenAdmins = new map<string, bool>;
     protected bool m_OperatorControls;
     protected float m_DeniedOverflowAt;
     protected ref HCAdminLootMap m_LootMap;
@@ -200,17 +203,17 @@ class HCAdminModule : HCModule
         }
         if (!m_Admins || !m_Admins.PlainIds) { HCStartRefused("admin_allowlist_missing_after_load"); return; }
         if (m_Admins.PlainIds.Count() > 32) { HCStartRefused("admin_allowlist_count_exceeds_32"); return; }
-        array<string> seen = new array<string>;
+        m_SeenAdmins.Clear();
         for (int idIndex = 0; idIndex < m_Admins.PlainIds.Count(); idIndex++)
         {
             string plainId = m_Admins.PlainIds[idIndex];
-            if (plainId == "" || plainId.Length() > 64 || seen.Find(plainId) >= 0)
+            if (plainId == "" || plainId.Length() > 64 || m_SeenAdmins.Contains(plainId))
             {
                 HCStartRefused("admin_allowlist_invalid_or_duplicate_entry");
                 m_Admins = null;
                 return;
             }
-            seen.Insert(plainId);
+            m_SeenAdmins.Set(plainId, true);
         }
         m_Permissions = new HCAdminPermissionAdapter;
         m_Permissions.HCStart();
@@ -228,6 +231,13 @@ class HCAdminModule : HCModule
             m_Identities.Insert(null);
         }
         m_DebugEnabled = settings.EnableDebugSnapshot;
+        // Profile directories are admitted once at module start, never per command.
+        m_LootMapRootReady = false;
+        if (m_DebugEnabled)
+        {
+            string root = "$profile:HollowCountry/debug";
+            m_LootMapRootReady = FileExist(root) || MakeDirectory(root);
+        }
         m_OperatorControls = !FileExist("$profile:HollowCountry/acceptance/AdminControls.disable");
         Print(HCV2Admission.Line("AdminControls", m_OperatorControls, "203", false) + " runtime=PENDING");
         m_Running = true;
@@ -321,12 +331,11 @@ class HCAdminModule : HCModule
         string filter = command.Substring(8, command.Length() - 8);
         int tickMs = HCServer.Get().GetSettings().TickIntervalMs;
         bool started = job.HCStart(filter, tickMs);
-        string root = "$profile:HollowCountry/debug";
         if (!HCV2ThreatStore<HCAdminLootDocument>.CanOpen(HCAdminLootMap.PATH))
         {
             HCReply(sender, ticket, "lootmap", false, "lootmap_store_recovery_required"); return false;
         }
-        if (!FileExist(root) && !MakeDirectory(root)) { HCReply(sender, ticket, "lootmap", false, "lootmap_export_directory"); return false; }
+        if (!m_LootMapRootReady) { HCReply(sender, ticket, "lootmap", false, "lootmap_export_directory"); return false; }
         // Replace any previous export with pending/refused, before work begins.
         if (!HCV2ThreatStore<HCAdminLootDocument>.Save(HCAdminLootMap.PATH, job.HCDocument(), HCAdminLootMap.MAX_BYTES))
         {
@@ -476,7 +485,9 @@ class HCAdminModule : HCModule
         reply.Notice = "Status: enabled means requested; n/a means no public metric. Runtime acceptance pending.";
         reply.Authorized = HCAuthorized(sender);
         HCServer.Get().HCAdminDescribe(reply);
-        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { Print(reply.Lines[lineIndex]); }
+        string summary;
+        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { summary += "\n" + reply.Lines[lineIndex]; }
+        if (summary != "") { Print("" + summary); }
         Print("[HC Admin] cmd=status result=ok reason=bounded-module-status");
         HCSend(sender, reply);
     }
@@ -488,7 +499,9 @@ class HCAdminModule : HCModule
         reply.Ticket = ticket;
         reply.Notice = "Kit: available=0 names the reason. Runtime acceptance pending.";
         HCServer.Get().HCAdminKit(reply);
-        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { Print(reply.Lines[lineIndex]); }
+        string summary;
+        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { summary += "\n" + reply.Lines[lineIndex]; }
+        if (summary != "") { Print("" + summary); }
         Print("[HC Admin] cmd=kit result=ok reason=bounded-command-list");
         HCSend(sender, reply);
     }
@@ -500,7 +513,9 @@ class HCAdminModule : HCModule
         reply.Ticket = ticket;
         reply.Notice = "List: state near you, read-only. Runtime acceptance pending.";
         HCServer.Get().HCAdminNearby(reply, pos);
-        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { Print(reply.Lines[lineIndex]); }
+        string summary;
+        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { summary += "\n" + reply.Lines[lineIndex]; }
+        if (summary != "") { Print("" + summary); }
         Print("[HC Admin] cmd=list result=ok reason=bounded-nearby-state");
         HCSend(sender, reply);
     }

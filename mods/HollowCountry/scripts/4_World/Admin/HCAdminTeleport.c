@@ -422,7 +422,7 @@ class HCAdminTeleport
         if (!GetGame().IsServer() || !admin || !admin.HCAuthorized(sender)) { return false; }
         reason = "teleport-disabled";
         if (!m_Enabled || !admin.HCOperatorControls() || !HCServer.Get().GetSettings().EnableAdminMap) { return false; }
-        if (FileExist("$profile:HollowCountry/acceptance/AdminControls.disable") || FileExist("$profile:HollowCountry/acceptance/AdminTeleport.disable")) { return false; }
+        // Operator admission is cached by HCStart/HCAdminModule.OnStart; restart to change it.
         reason = "live-sender-unavailable";
         if (!player) { return false; }
         reason = "in-vehicle";

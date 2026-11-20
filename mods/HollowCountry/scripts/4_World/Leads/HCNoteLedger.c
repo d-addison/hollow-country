@@ -75,6 +75,24 @@ class HCTraceDefaults
     float CleanupQuietMetres = 500;
 }
 
+// Native EnScript.c:877/926 map.Find/Insert; candidate arrays preserve ledger order.
+class HCNoteTextMatches
+{
+    ref array<ref HCLeadNote> Entries = new array<ref HCLeadNote>;
+    int Cursor;
+
+    HCLeadNote HCTake()
+    {
+        while (Cursor < Entries.Count())
+        {
+            HCLeadNote entry = Entries[Cursor];
+            Cursor++;
+            if (!HCNoteEntities.Find(entry.Row.Id)) { return entry; }
+        }
+        return null;
+    }
+}
+
 class HCNoteLedger : HCModule
 {
     protected static HCNoteLedger s_Instance;
@@ -143,25 +161,46 @@ class HCNoteLedger : HCModule
         LogCount();
     }
 
+    protected ref map<string, ref HCNoteTextMatches> m_LoadedText;
+
+    protected void HCIndexText(string text, HCLeadNote entry)
+    {
+        HCNoteTextMatches matches;
+        if (!m_LoadedText.Find(text, matches))
+        {
+            matches = new HCNoteTextMatches;
+            m_LoadedText.Insert(text, matches);
+        }
+        matches.Entries.Insert(entry);
+    }
+
     // Re-identify restored HC notes by their exact vanilla note text.
     protected void ResolveLoaded()
     {
         array<Paper> loaded = HCNoteEntities.TakeLoaded();
         if (!loaded) { return; }
+        m_LoadedText = new map<string, ref HCNoteTextMatches>;
+        foreach (HCLeadNote indexed : m_Store.Data.Notes)
+        {
+            if (!indexed || HCNoteEntities.Find(indexed.Row.Id)) { continue; }
+            string current = HCText(indexed);
+            HCIndexText(current, indexed);
+            if (indexed.NativeText == "")
+            {
+                string legacy = HCLeadPolicy.LegacyText(indexed.Lead);
+                if (legacy != current) { HCIndexText(legacy, indexed); }
+            }
+        }
         foreach (Paper paper : loaded)
         {
             if (!paper || paper.HCNoteId() != "" || !paper.GetWrittenNoteData()) { continue; }
             string noteText = paper.GetWrittenNoteData().GetNoteText();
-            foreach (HCLeadNote entry : m_Store.Data.Notes)
-            {
-                if (!entry || HCNoteEntities.Find(entry.Row.Id)) { continue; }
-                bool currentText = HCText(entry) == noteText;
-                bool legacyText = entry.NativeText == "" && HCLeadPolicy.LegacyText(entry.Lead) == noteText;
-                if (!currentText && !legacyText) { continue; }
-                paper.HCAssignNote(entry.Row.Id);
-                break;
-            }
+            HCNoteTextMatches matches;
+            if (!m_LoadedText.Find(noteText, matches)) { continue; }
+            HCLeadNote entry = matches.HCTake();
+            if (entry) { paper.HCAssignNote(entry.Row.Id); }
         }
+        m_LoadedText = null;
     }
 
     void LogCount()

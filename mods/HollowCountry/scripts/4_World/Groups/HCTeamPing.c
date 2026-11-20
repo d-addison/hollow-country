@@ -143,11 +143,12 @@ class HCTeamPingModule : HCModule
         if (cap > HCGCCampGroupConfig.Get().PinLimit) { cap = HCGCCampGroupConfig.Get().PinLimit; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
+        HCGroupStringIndex members = new HCGroupStringIndex(group.Members);
         foreach (HCTeamPingRow row : m_Rows)
         {
             if (output.Count() >= cap) { break; }
             if (row.GroupId != group.Id || row.Epoch != group.Epoch) { continue; }
-            if (group.Members.Find(row.Account) < 0 || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { continue; }
+            if (!members.Has(row.Account) || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { continue; }
             HCGroupService service = HCGroupService.Get();
             if (!service) { continue; }
             HCGroupPeer source = service.Peer(row.Account);
@@ -200,15 +201,18 @@ class HCTeamPingModule : HCModule
         if (!service || !service.HCPresentationRange(uid, pin.Position)) { return false; }
         HCGroupPeer recipient = service.Peer(uid);
         int now = HCGroupClock.Utc();
+        HCTeamPingRow selected;
         foreach (HCTeamPingRow row : m_Rows)
         {
             if (row.Pin.Id != pin.Id || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { continue; }
-            HCGroupPeer peer = service.Peer(row.Account);
-            HCGroupRecord group = service.HCPingGroup(peer);
-            if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session) { return false; }
-            return group.Members.Find(uid) >= 0 && service.VisibilityAllows(peer, recipient);
+            selected = row;
+            break;
         }
-        return false;
+        if (!selected) { return false; }
+        HCGroupPeer peer = service.Peer(selected.Account);
+        HCGroupRecord group = service.HCPingGroup(peer);
+        if (!group || group.Id != selected.GroupId || group.Epoch != selected.Epoch || peer.Session != selected.Session) { return false; }
+        return group.Members.Find(uid) >= 0 && service.VisibilityAllows(peer, recipient);
     }
     void HCReport(string reason, int recipients)
     {
@@ -292,9 +296,10 @@ modded class HCGroupService
         HCGroupRecord current = HCPingGroup(source);
         if (!group || !current || current.Id != group.Id || current.Epoch != group.Epoch) { return 0; }
         int count = 0;
+        HCGroupStringIndex members = new HCGroupStringIndex(group.Members);
         foreach (HCGroupPeer recipient : m_Peers)
         {
-            if (!HCPingGroup(recipient) || group.Members.Find(recipient.Id) < 0) { continue; }
+            if (!HCPingGroup(recipient) || !members.Has(recipient.Id)) { continue; }
             if (!HCPresentationRange(recipient.Id, source.Player.GetPosition()) || !VisibilityAllows(source, recipient)) { continue; }
             // The sender sees its own marker but is not told about itself.
             if (recipient.Id != source.Id) { NotificationSystem.SendNotificationToPlayerExtended(recipient.Player, 5, "Teammate status", source.Name + ": " + label); }

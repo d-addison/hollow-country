@@ -131,9 +131,15 @@ class HCInteriorRules
         return !FileExist("$profile:HollowCountry/acceptance/interior_placement.disable");
     }
 
+    protected static bool s_SearchMarkerLoaded;
+    protected static bool s_SearchMarkerOptIn;
+
     static bool SearchOptIn()
     {
-        return !FileExist("$profile:HollowCountry/acceptance/interior_search.disable");
+        if (s_SearchMarkerLoaded) { return s_SearchMarkerOptIn; }
+        s_SearchMarkerLoaded = true;
+        s_SearchMarkerOptIn = !FileExist("$profile:HollowCountry/acceptance/interior_search.disable");
+        return s_SearchMarkerOptIn;
     }
 
     static bool PlacementAdmitted()

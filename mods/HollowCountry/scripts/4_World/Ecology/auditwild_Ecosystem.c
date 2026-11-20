@@ -1,3 +1,4 @@
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // #149/#150 spec -> phase selection / historical clues / actual contact receipts.
 // Source work only: animal goals, consumption, crow attraction and interaction
 // enforcement remain unavailable; no behaviour-slot override or teleport.
@@ -64,14 +65,14 @@ class HCWildlifeRoutes
         if (config.ClueLifetimeSeconds < 1 || config.ClueLifetimeSeconds > 3600) { return false; }
         // A zero sight range prevents unsupported animal perception claims.
         // Future consumers need an inspected animal perception port first.
-        array<string> keys = new array<string>;
+        map<string, bool> keys = new map<string, bool>;
         array<ref HCWildlifeRoute> routes = config.Routes;
         foreach (HCWildlifeRoute row : routes)
         {
             if (!HCValidRoute(row) || row.Source == "") { return false; }
             string key = row.Species + ":" + row.Phase.ToString();
-            if (keys.Find(key) >= 0) { return false; }
-            keys.Insert(key);
+            if (keys.Contains(key)) { return false; }
+            keys.Set(key, true);
         }
         return keys.Count() == 8;
     }
