@@ -130,100 +130,163 @@ rendering and static lights, actual CE loot eligibility/positions/quantities,
 restart behavior and performance at the target 3–6-player load. Acceptance remains
 one server plus at most one client; multiplayer behavior is not proven.
 
-## Layers (2026-11-20)
+## Layers (2026-11-20, r5 placement)
 
-All seven layers in `config/map-overlays/profile.json` are enabled by default.
-The 2026-11-20 placement expansion grows the four-layer baseline from **30 sites,
-350 objects and 49 CE rows** to **196 sites, 2,826 objects and 307 CE rows**.
-Counts include the seven explicit tents as individual sites. Each CE row refers
-to an installed vanilla `mapgroupproto.xml` group; the overlay never creates loot
-items directly or overrides the economy's tier eligibility or quantity budgets.
+All seven layers in `config/map-overlays/profile.json` ship enabled. The r5
+refresh preserves **196 site identities** (189 composition sites and seven
+standalone military tents). Its starting r4 data expands to **2,826 objects and
+415 CE rows**; the earlier 307-row report predates the r4 composition edits.
+Every v2 site now uses its `requested_composition`; v1 composition sites upgrade
+to the corresponding rich kit wherever the combined placement permits it. The standalone tents retain their vanilla class.
+No kit redesign or scripted loot spawning is involved. CE rows still join the
+installed vanilla `mapgroupproto.xml`; the economy owns loot and tier eligibility.
 
-| Layer | Sites | Objects | CE rows |
+| Layer | Sites | Objects, r4 → r5 | CE rows, r4 → r5 |
 | --- | ---: | ---: | ---: |
-| military-tents-v1 | 7 | 7 | 7 |
-| military-outposts-v1 | 9 | 140 | 12 |
-| supply-dumps-v1 | 9 | 133 | 25 |
-| roadside-checkpoints-v1 | 5 | 70 | 5 |
-| military-zones-v2 | 68 | 1,024 | 106 |
-| inland-discoveries-v2 | 42 | 612 | 64 |
-| civilian-stories-v2 | 56 | 840 | 88 |
-| **Total** | **196** | **2,826** | **307** |
+| `civilian-stories-v2` | 56 | 840 → 1046 | 118 → 182 |
+| `inland-discoveries-v2` | 42 | 612 → 802 | 90 → 141 |
+| `military-outposts-v1` | 9 | 140 → 159 | 18 → 27 |
+| `military-tents-v1` | 7 | 7 → 7 | 7 → 7 |
+| `military-zones-v2` | 68 | 1024 → 1319 | 146 → 233 |
+| `roadside-checkpoints-v1` | 5 | 70 → 82 | 10 → 13 |
+| `supply-dumps-v1` | 9 | 133 → 144 | 26 → 28 |
+| **Total** | **196** | **2,826 → 3,559** | **415 → 631** |
 
-The military layer searches in fair rounds around NWAF, NEAF, Balota, Tisy,
-Kamensk, VMC, Zelenogorsk, Myshkino, Pavlovo, Troitskoe, Severograd, Krasnostav,
-Vybor, Stary Sobor, Green Mountain, Altar and the Prison Island approach. Each
-has at least two sites in the current plan; NWAF has eight. Search centres are
-geographic labels with a maximum 1,800 m search radius, not measured base
-boundaries. Inland discovery candidates favour the northern/western interior
-(`z >= 7000` and either `x < 6500` or `z >= 12000`). That is a geographic bias
-for higher-tier military country, not verification of individual CE area flags.
-Civilian candidates spread town-edge and isolated-structure finds across the map.
+Placement preserves site IDs and `planning_origin` anchors. It regenerates
+positions and headings against the real kit pieces, including o04/o06/o07 and
+r02/r05. Named military sites first search within 1,800 m of their named centre. The combined packing search may use alternatives out to 3,000 m when needed;
+`area_anchor_distance_m` records the resulting distance. These geographic labels
+are not measured military boundaries. Inland finds
+prefer the original north/west core (`z >= 7000` and either `x < 6500` or
+`z >= 12000`), with a broader interior fallback (`z >= 5000` and either
+`x < 12000` or `z >= 12000`).
+Civilian scenes may move farther to find evidence supporting their wider kits.
 
-Every new site records `requested_composition` for one of the twenty scene-worker
-kits. Until those kits land, `composition` uses an existing authored kit: all
-166 new sites currently use those existing layouts. Re-running `expand-plan`
-after merging the scene changes selects available requested kits and searches
-again against their actual pieces. **Do not replace composition IDs in place:**
-new footprints require a fresh placement plan, count report, validation and
-scratch install. Detailed convoy, ridgeline, woodland and town-entry storytelling
-remains dependent on the scene kits and native terrain/road inspection.
+Candidates, 15-degree headings and alternative placement order are deterministic.
+A fixed-seed conflict-repair pass (three attempts of 3,000 moves), followed
+by bounded backtracking (20,000 nodes, at most 256
+alternatives per story site) allocates military v1/v2, inland and civilian sites together. This keeps
+large inland kits from losing their scarce flat patches to earlier military
+placements. Story alternatives are capped at four per 55 m grid cell. Every piece clears vanilla group origins by
+16 m, separate sites retain 55 m between centres, and separate sites' pieces
+retain 16 m during planning. Guard candidates are reserved against later props.
+Distances from vanilla buildings are origin distances, not measured model bounds.
 
-Planning is deterministic under stock XML row reordering: sorted candidates,
-cardinal headings and SHA-256 coordinate ordering replace random selection.
-Each new site's pieces retain at least 16 m from vanilla group origins, sites
-retain 55 m between centres, and pieces of separate new sites are separated by
-at least 16 m during planning. Every piece requires at least three vanilla rows
-within 60 m, a maximum 1.5 m height spread and at most 0.8 m deviation from the
-local median. Site centres additionally require a nondegenerate support plane
-with slope at most 3 percent. `placement_evidence` records row counts, height
-spread, support slope, nearest group distance and explicit terrain/road unknowns.
-These distances describe object origins, not measured model collision bounds.
+Each composition records `support_radius_m` (60, 90 or 120 m for military compositions;
+60, 75, 90 or 120 m for inland and civilian stories; standalone tents retain
+60 or 90 m). Every piece requires
+at least three stock group rows inside that radius, no more than 1.5 m height
+spread, and no more than 0.8 m deviation from their median. The same radius is
+used for the site's support-plane slope limit of 3 percent. The 90 m and 120 m neighbourhoods
+allow height support across the wider rich-kit footprints; smaller radii remain
+available where larger neighbourhoods cross a height change. The 120 m option
+adds candidate patches needed by the complete rich-kit layout; it increases
+the distance over which height is inferred, without measuring intervening terrain. Validation rechecks each
+piece and guard slot using its site's recorded radius. `placement_evidence`
+records the sample count, median, spread, slope proxy and nearest group origin.
 
-The installed Chernarus terrain is a binary WRP; no decoded height raster or road
-network is available to this tool. Group origins remain the height evidence.
-Deep woodland without sufficient rows is excluded. Offline checks cannot prove
-ground contact, model fit, road clearance, door access, native yaw conventions,
-CE loot spawning, individual loot tiers or target-load performance. All layers
-remain `runtime-unverified`; their larger count is not gameplay acceptance.
+These are offline evidence rules. The binary WRP has no decoded terrain raster
+or road network available to this tool. `terrain_measured`, `roads_surveyed`,
+`prop_bounds_measured` and `guard_navmesh_verified` remain false. Native ground
+contact, slope, road clearance, door access, collision, yaw, navigation, CE loot
+and target-load cost remain unproven. All layers remain `runtime-unverified`;
+no engine experiment is accepted by this refresh.
 
-Profile caps are 7,000 objects / 1,200 CE rows overall and 3,500 objects / 600 CE
-rows per layer. The new layers also carry individual object/loot caps and the
-16 m clearance / 3 percent support-slope requirements. Existing v1 layer caps
-and positions are preserved. These are packaging bounds; runtime performance
-budgets still need measurement with the target 3–6 players.
+Military v2 and all four military v1 layers carry `zone_id`, `zone_role`
+(`hq`, `perimeter`, `outpost`, `depot`) and 2–6 `guard_slots` per site, including
+the standalone tents. Slots lie inside the authored site envelope: the composition footprint, an
+explicit `guard_apron_m=8` perimeter allowance for dense legacy layouts when
+needed, or within 28 m of a standalone tent. They clear prop origins by 8 m and rotated authored
+`footprint_reserve_m` rectangles by a 2 m apron, plus 16 m from vanilla group
+origins. Authored reserves are not measured collision boxes. Native navmesh and
+physical walkability must be inspected before treating the positions as accepted.
 
-Use a **stock, private mission copy**, with previous overlays rolled back first:
+`mission/hollow-country/ai/zones.json` is generated from the enabled layers by
+`map_overlay.py`. The top level is exactly `{"zones": [...]}`, matching the runtime
+JsonFileLoader DTO; there is no `schema` field. Coordinates are rounded to
+0.1 m and the compact file is required to stay below 60 KB. The schema of each
+record in `zones` is:
+
+- `id`, `area`: stable slug and display area.
+- `center`: selected HQ/outpost site origin `[x,y,z]`, in world metres.
+  Prefer HQ, then outpost, depot and perimeter; break ties by distance to the
+  mean site position and qualified ID. `radius_m` is the farthest site distance
+  plus 60 m, capped at the runtime limit of 2,000 m. This is the patrol influence
+  envelope; named cluster membership in `sites` can extend beyond it.
+- `tier`: geographic proxy (4 for the higher military areas, otherwise 3), not
+  a CE area override.
+- `sites`: qualified `layer-id/site-id` references, since v2 layers reuse IDs.
+- `guard_slots`: 3–6 authored positions `[x,y,z]` from the selected anchor
+  site, supplemented by nearby cluster slots only when needed to reach three.
+  The runtime accepts at most eight slots and spawns at most six members. All
+  military sites retain their own 2–6 slots in the layer metadata.
+- `default_state`: `held`, `overrun` or `abandoned`, an initial state seed.
+
+The catalog contains **17 zones**: **7 held / 6 overrun / 4 abandoned**
+(41.2% / 35.3% / 23.5%). Four of six higher-tier zones start held, compared
+with three of eleven lower-tier zones. All 98 military sites carry metadata,
+with **562 per-site guard candidates**. The runtime catalog selects **98 slots**
+across its anchor sites and occupies **7,151 bytes**. Rounded slots are rechecked
+against authored prop reserves; four edge candidates are omitted after rounding.
+Eighteen site members lie beyond their anchor’s capped 2,000 m patrol radius.
+Their layer metadata remains available; expanding runtime influence needs the
+zoneguards owner to change its radius contract and revisit overlapping zones.
+
+Zone state seeds use SHA-256 ordering with a 0.3 rank bias toward held
+for higher tiers; this increases their held share while retaining higher-tier
+overrun zones.
+Runtime guards, infected, richer guarded loot and transitions over days belong
+to the zone/story workers. Regenerating the source must not reset saved runtime
+state. The release bundle copies authored mission JSON from the repo. The zoneguards
+module consumes `hollow-country/ai/zones.json` in the mission; subsequent state
+belongs to its runtime journal.
+
+Profile caps remain 7,000 objects / 1,200 CE rows overall and 3,500 objects / 600
+CE rows per layer. Refreshed layer caps match those bounds. They are packaging
+limits; performance budgets remain provisional for the target 3–6 players.
+
+Use a private stock mission copy, rolling back any earlier overlays first:
 
 ```bash
-python3 -B -m tools.package.map_overlay expand-plan --mission /tmp/hc-placement/mission --out config/map-overlays/layers
+python3 -B -m tools.package.map_overlay refresh-plan --mission /tmp/hc-placement/mission --out config/map-overlays/layers --zones-out mission/hollow-country/ai/zones.json
 python3 -B -m tools.package.map_overlay validate --mission /tmp/hc-placement/mission
 python3 -B -m tools.package.map_overlay report
+python3 -B -m tools.package.map_overlay zones --out /tmp/hc-placement/zones.json
 python3 -B -m tools.package.map_overlay install --target /tmp/hc-placement/mission
 python3 -B -m tools.package.map_overlay rollback --target /tmp/hc-placement/mission
 ```
 
-`expand-plan` validates the combined retained/new layers against stock rows and
-installed prototypes before writing the new layer files. The existing installer
-still backs up and hashes exactly `cfggameplay.json` and `mapgrouppos.xml`, writes
-one object-spawner file per enabled layer, and refuses drift during rollback.
-The scratch rehearsal used a read-only copy of the installed mission and first
-rolled its four existing overlays back to the pinned 11,679-row stock inventory
-(SHA-256 `3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4`).
-No live mission is an installation target for this workflow.
+`refresh-plan` validates all seven layers against stock rows and installed
+prototypes before writing layers or zones. `zones` regenerates only the compact
+zone contract. The overlay installer backs up and hashes `cfggameplay.json` and
+`mapgrouppos.xml`, writes one spawner per layer, and refuses drift during rollback.
+It does not modify the separate authored mission JSON payload. The scratch
+mission was recovered from a read-only installed copy using its overlay receipt:
+11,679 stock rows, SHA-256
+`3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4`.
 
-Rehearsal result (2026-11-20, offline only):
+Rehearsal on the scratch mission (stock row inventory above):
 
 ```text
-Installed addon class-name check: missing=0
-INSTALL spawners=7 objects=2826 CE_rows_added=307 stock_rows=11679 installed_rows=11986
-ROLLBACK cfggameplay.json=byte-exact mapgrouppos.xml=byte-exact managed_directory=removed
-COMPOSE repeat=byte-exact
-DETERMINISM reversed_stock_rows=byte-exact for all three new layers
+INSTALL spawners=7 objects=3559 CE_rows_added=631 stock_rows=11679 installed_rows=12310
+ROLLBACK all_mission_files=byte-exact cfggameplay.json=byte-exact mapgrouppos.xml=byte-exact zones.json=byte-exact
+INSTALL repeat=byte-exact; COMPOSE repeat=byte-exact; ZONES regeneration=byte-exact
+UNCACHED_REGEN all_7_layers=byte-exact zones.json=byte-exact
+ZONE_CONTRACT sample-compatible, 0.1 m coordinates, 7151 bytes, 3..8 slots, radius <= 2000 m
 ```
 
-The 70 existing focused overlay tests pass. Their obsolete sub-400-object
-assertion now checks the configured total cap; no new tests were added.
-Repository integration note: `/docs/*` currently ignores this new document.
-The lead must allowlist `docs/MAP_OVERLAYS.md` for it to enter the release source;
-the placement worker does not own `.gitignore`.
+All 166 v2 composition sites use their requested rich kit. Twelve of 23 v1
+composition sites upgrade; eleven retain their original kit because a compatible
+rich alternative does not fit the combined layout. Standalone tents remain seven.
+The named o04/o06/o07/r02/r05 placements pass the same per-piece height,
+clearance and slope-proxy validation as the complete set.
+
+Focused tooling tests: 69/70 pass, including all 32 composition tests. The sole
+failure is the unchanged r4 allowlist assertion in
+`tests/slow/test_map_overlay.py:397` (`79 < 60`); its owner must adjust the stale
+cap for the 79 reviewed classes. No Enforce files changed and no native compile
+or gameplay acceptance is claimed.
+
+`docs/MAP_OVERLAYS.md` is still ignored by the repository's `/docs/*` rule.
+The lead must allowlist or explicitly include this assigned document; the
+placement worker does not own `.gitignore` or write git metadata.
