@@ -3688,6 +3688,22 @@
       "line": 654,
       "why": "CE type absent from indexed configs; cache absence is not proof of an undefined engine class",
       "reason": "Declared Expansion vehicle dependency; static coverage debt: its config cache is unavailable, so this is not an established undefined class."
+    },
+    {
+      "id": "W004",
+      "subject": "HCGroundCELootChunk",
+      "file": "mods/HollowCountry/scripts/4_World/World/HCGroundCELoot.c",
+      "line": 3,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCWildlifeCarcassLedger",
+      "file": "mods/HollowCountry/scripts/4_World/Ecology/HCWildlifeProviders.c",
+      "line": 88,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     }
   ]
 }
