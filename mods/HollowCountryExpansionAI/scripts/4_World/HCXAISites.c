@@ -755,13 +755,19 @@ class HCXAISiteDirector : Managed
             }
             m_LocalityCursor++;
             if (state.Failed || state.Patrol) { continue; }
-            m_LocalityUnits.HCCharge(63); // same shared path-probe weight
-            HCServer.HCTickWork().HCCharge(63);
             bool createFailed = false;
             if (!state.Bound) { this.Bind(state); }
             else if (!state.Qualified)
             {
+                int pathCallsBefore = state.PathCalls;
                 this.QualifyStep(state);
+                // [HC TickCost] window 12 of 096: the admitted row is 1 of a probe's 64 units.
+                // Local units bound the slice; shared units debit the pool once, only for a real probe.
+                if (state.PathCalls > pathCallsBefore)
+                {
+                    m_LocalityUnits.HCCharge(63);
+                    HCServer.HCTickWork().HCCharge(63);
+                }
                 if (state.Failed || state.Qualified) { this.SaveRoutes(); }
             }
             else

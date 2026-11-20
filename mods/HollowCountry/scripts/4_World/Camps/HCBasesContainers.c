@@ -127,6 +127,8 @@ modded class HCCampModule
         array<ref HCCampRecord> stashCamps = m_Data.Camps;
         foreach (HCCampRecord knownStash : stashCamps)
         {
+            // [HC TickCost] window 12 of 096: include rows before an early return.
+            HCServer.HCTickWork().HCCharge(1);
             if (knownStash.FireRef == stashRef && knownStash.FireClass == stash.GetType())
             {
                 // Moving a native item never moves the stored camp anchor.
@@ -141,6 +143,8 @@ modded class HCCampModule
         string selectedGroup;
         foreach (Man stashPerson : stashPlayers)
         {
+            // [HC TickCost] window 12 of 096: include rows before an early return.
+            HCServer.HCTickWork().HCCharge(1);
             PlayerBase stashPlayer = PlayerBase.Cast(stashPerson);
             if (!HCBuildingClaim.HCActor(stashPlayer)) { continue; }
             if (vector.DistanceSq(stashPlayer.GetPosition(), stashPosition) > HCBuildingClaimConfig.DEFAULT_ACTION_REACH_METERS * HCBuildingClaimConfig.DEFAULT_ACTION_REACH_METERS) { continue; }
@@ -153,6 +157,8 @@ modded class HCCampModule
         if (selectedGroup == "") { return; }
         foreach (HCCampRecord groupStash : stashCamps)
         {
+            // [HC TickCost] window 12 of 096: include rows before an early return.
+            HCServer.HCTickWork().HCCharge(1);
             if (groupStash.GroupId == selectedGroup) { return; } // Existing hearth/stash wins.
         }
         HCCampRecord stashCamp = new HCCampRecord;
@@ -173,11 +179,9 @@ modded class HCCampModule
         if (!m_Running || !m_HCBasesEnabled || !(deltaTime > 0)) { return; }
         int stashCount = HCBasesContainers.HCCount();
         if (stashCount < 1) { return; }
-        // The shared owner charges the full bounded scan before it runs; no
-        // separate scheduler, retry loop or per-container timers. The shared
-        // HC_WORK_BASES consumer preserves progress after budget exhaustion.
-        int stashCost = m_Data.Camps.Count() * 2 + HCWorldMaterializer.MAX_PLAYERS;
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, stashCost)) { return; }
+        // [HC TickCost] window 12 of 096: admit one stash; charge only rows actually inspected.
+        // Keep the existing one-stash cursor and camp/player caps.
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
         m_HCBasesCursor = m_HCBasesCursor % stashCount;
         ItemBase nextStash = HCBasesContainers.HCAt(m_HCBasesCursor);
         m_HCBasesCursor++;

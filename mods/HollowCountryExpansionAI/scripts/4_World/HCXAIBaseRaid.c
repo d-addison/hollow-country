@@ -148,6 +148,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
         array<Object> nearby = new array<Object>;
         array<CargoBase> cargos = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(m_Actor.GetPosition(), m_Config.NoticeRangeMeters, nearby, cargos);
+        // [HC TickCost] window 12 of 096: charge returned objects only when the bounded query ran.
+        HCServer.HCTickWork().HCCharge(Math.Min(nearby.Count(), m_Config.MaxObjects));
         if (nearby.Count() == 0 || nearby.Count() > m_Config.MaxObjects || cargos.Count() > m_Config.MaxObjects) { return; }
         m_ObjectCursor = m_ObjectCursor % nearby.Count();
         Object candidate = nearby[m_ObjectCursor];
@@ -226,7 +228,12 @@ class HCXAIBaseRaid : HCBaseRaidPort
         {
             if (!previous || previous.Count() == 0 || previous.Count() > m_Config.MaxRouteNodes) { return false; }
             array<vector> saved = previous;
-            foreach (vector node : saved) { m_Original.Insert(node); }
+            // [HC TickCost] window 12 of 096: only copied route nodes consume route work.
+            foreach (vector node : saved)
+            {
+                m_Original.Insert(node);
+                HCServer.HCTickWork().HCCharge(1);
+            }
             m_Behaviour = group.GetWaypointBehaviour();
             m_Group = group;
         }
@@ -272,6 +279,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
         array<Object> nearby = new array<Object>;
         array<CargoBase> localCargo = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(m_Actor.GetPosition(), m_Config.SourceRangeMeters, nearby, localCargo);
+        // [HC TickCost] window 12 of 096: charge returned objects only when the bounded query ran.
+        HCServer.HCTickWork().HCCharge(Math.Min(nearby.Count(), m_Config.MaxObjects));
         if (nearby.Count() == 0 || nearby.Count() > m_Config.MaxObjects || localCargo.Count() > m_Config.MaxObjects) { return; }
         m_ObjectCursor = m_ObjectCursor % nearby.Count();
         ItemBase crate = ItemBase.Cast(nearby[m_ObjectCursor]);
@@ -349,8 +358,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
         if (!HCReady() || !HCBaseRaid.HCEnabled() || !HCCampProbes.HCEnabled() || m_Busy) { return; }
         // Lead integration: add HC_WORK_BASE_RAID=12, raise CONSUMERS to 13.
         // This independent bounded loop must retain its own starvation slot.
-        int cost = m_Config.MaxObjects + m_Config.MaxPlayers + m_Config.MaxRouteNodes;
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, cost)) { return; }
+        // [HC TickCost] window 12 of 096: admit this pass once; helpers charge work actually done.
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, 1)) { return; }
         if (!m_Reserved) { HCSense(); return; }
         if (!HCLiveParty() || now < m_Camp.LastProbe || now >= m_Ends || m_Due < 1) { HCCancel(); return; }
         if (now < m_Due) { return; }
@@ -373,7 +382,12 @@ class HCXAIBaseRaid : HCBaseRaidPort
         {
             m_Group.ClearWaypoints();
             array<vector> restore = m_Original;
-            foreach (vector point : restore) { m_Group.AddWaypoint(point); }
+            // [HC TickCost] window 12 of 096: restoration is a separate, bounded route pass.
+            foreach (vector point : restore)
+            {
+                m_Group.AddWaypoint(point);
+                HCServer.HCTickWork().HCCharge(1);
+            }
             m_Group.SetWaypointBehaviour(m_Behaviour);
         }
         m_Group = null;
@@ -452,8 +466,8 @@ class HCAdminVisitorParty : HCXAIBaseRaid
     void HCVisitStep(int now)
     {
         if (!HCReady() || !HCCampProbes.HCVisitorsEnabled() || !HCCampProbes.HCEnabled() || !HCBaseRaid.HCEnabled()) { return; }
-        int cost = m_Config.MaxObjects + m_Config.MaxPlayers + m_Config.MaxRouteNodes;
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, cost)) { return; }
+        // [HC TickCost] window 12 of 096: admit this pass once; helpers charge work actually done.
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, 1)) { return; }
         if (!m_Reserved) { HCSense(); return; }
         if (!HCLiveParty() || now < m_Camp.LastVisit || now >= m_Ends) { HCCancel(); return; }
         if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { HCCancel(); return; }
