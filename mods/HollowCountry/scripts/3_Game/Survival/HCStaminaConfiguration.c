@@ -22,7 +22,16 @@ modded class ITEM_StaminaData
 
 class HCStaminaConfiguration
 {
+    // Narrow request only; the response uses native RPC_CFG_GAMEPLAY_SYNC.
+    // 4854011 is reserved here; clients never submit stamina settings.
+    static const int RPC_REQUEST = 4854011;
+    protected static const int REQUEST_COOLDOWN_MS = 10000;
+    protected static ref map<int, int> s_RequestTimes;
     protected static ref HCStaminaSettings s_Candidate;
+    protected static ref HCStaminaSettings s_Pending;
+    protected static bool s_PendingExperimental;
+    protected static bool s_ReceiptLogged;
+    protected static bool s_Requested;
     protected static bool s_Active;
     protected static bool s_Server;
     protected static bool s_LoadAttempted;
@@ -43,6 +52,11 @@ class HCStaminaConfiguration
     static void Reset(bool active, bool server)
     {
         s_Candidate = null;
+        s_Pending = null;
+        s_PendingExperimental = false;
+        s_ReceiptLogged = false;
+        s_Requested = false;
+        s_RequestTimes = null;
         s_Active = active;
         s_Server = server;
         s_LoadAttempted = false;
@@ -263,9 +277,15 @@ class HCStaminaConfiguration
 
     static bool NativeReceipt(CfgGameplayJson data, CfgGameplayJson previous)
     {
+        // Only called after the authenticated native handler replaces its DTO.
+        // A failed native read must not erase an earlier valid receipt.
+        if (s_Server || !data || data == previous)
+            return false;
         s_Candidate = null;
         s_Experimental = false;
-        if (!s_Active || s_Server || !data || data == previous || !data.PlayerData || !data.PlayerData.StaminaData)
+        s_Pending = null;
+        s_PendingExperimental = false;
+        if (!data.PlayerData || !data.PlayerData.StaminaData)
             return false;
         ITEM_StaminaData item = data.PlayerData.StaminaData;
         HCStaminaSettings settings = new HCStaminaSettings;
@@ -274,15 +294,57 @@ class HCStaminaConfiguration
         settings.ContinuousExertionScale = item.HCContinuousExertionScale;
         settings.RecoveryScale = item.HCRecoveryScale;
         settings.WeightPenaltyScale = item.HCWeightPenaltyScale;
-        bool staged = Stage(settings, item.HCExperimental);
-        string stagedText = "0";
-        if (staged)
-            stagedText = "1";
-        Print("[HollowCountry] Stamina client receipt staged=" + stagedText + " (server profile values; 1 = HC stamina scaling active on this client)");
+        s_Pending = Copy(settings);
+        s_PendingExperimental = item.HCExperimental;
+        if (!s_Active)
+            return false;
+        return StageClientReceipt();
+    }
+
+    protected static bool StageClientReceipt()
+    {
+        bool staged = Stage(s_Pending, s_PendingExperimental);
+        s_Pending = null;
+        s_PendingExperimental = false;
+        if (!s_ReceiptLogged)
+        {
+            s_ReceiptLogged = true;
+            Print("[HollowCountry] Stamina client receipt staged=" + staged + " enabled=" + Enabled() + " runtime=PENDING");
+        }
         return staged;
     }
 
-    static void SessionEvent(EventType eventTypeId, bool server)
+    static void RequestClientReceipt()
+    {
+        if (!ClientActive() || s_Candidate || s_Requested)
+            return;
+        s_Requested = true;
+        ScriptRPC rpc = new ScriptRPC;
+        rpc.Write(1);
+        rpc.Send(null, RPC_REQUEST, true, null);
+        Print("[HollowCountry] Stamina client config requested runtime=PENDING");
+    }
+
+    static void ResendClientReceipt(PlayerIdentity sender)
+    {
+        if (!GetGame().IsServer() || !sender)
+            return;
+        if (!s_RequestTimes)
+            s_RequestTimes = new map<int, int>;
+        // Native session IDs are reused after disconnect; SessionEvent removes
+        // their entries. Keep no persistent account identifiers or request log.
+        int connectionId = sender.GetPlayerId();
+        int now = GetGame().GetTime();
+        int previous;
+        if (s_RequestTimes.Find(connectionId, previous) && now >= previous && now - previous < REQUEST_COOLDOWN_MS)
+            return;
+        // Record before serialization; retries within the cooldown do no work.
+        // A wrapped/reset engine clock starts a fresh cooldown.
+        s_RequestTimes.Set(connectionId, now);
+        CfgGameplayHandler.SyncDataSendEx(sender);
+    }
+
+    static void SessionEvent(EventType eventTypeId, bool server, Param params)
     {
         if (eventTypeId == WorldCleaupEventTypeID)
         {
@@ -290,9 +352,26 @@ class HCStaminaConfiguration
             return;
         }
         if (server)
+        {
+            if (eventTypeId == ClientDisconnectedEventTypeID && s_RequestTimes)
+            {
+                ClientDisconnectedEventParams disconnected = ClientDisconnectedEventParams.Cast(params);
+                if (disconnected && disconnected.param1)
+                    s_RequestTimes.Remove(disconnected.param1.GetPlayerId());
+            }
             return;
+        }
         if (eventTypeId == MPSessionStartEventTypeID)
-            Reset(true, false);
+        {
+            // SyncDataSendEx can precede session start. Preserve only the
+            // validated receipt from this connection, never stale native data.
+            s_Active = true;
+            s_Suspended = false;
+            if (s_Pending)
+                StageClientReceipt();
+            else
+                RequestClientReceipt();
+        }
         if (eventTypeId == MPSessionEndEventTypeID || eventTypeId == MPSessionFailEventTypeID)
             Reset(false, false);
     }
@@ -309,7 +388,7 @@ modded class DayZGame
 
     override void OnEvent(EventType eventTypeId, Param params)
     {
-        HCStaminaConfiguration.SessionEvent(eventTypeId, IsServer());
+        HCStaminaConfiguration.SessionEvent(eventTypeId, IsServer(), params);
         super.OnEvent(eventTypeId, params);
     }
 
@@ -321,17 +400,19 @@ modded class DayZGame
 
     override void OnRPC(PlayerIdentity sender, Object target, int rpc_type, ParamsReadContext ctx)
     {
+        if (rpc_type == HCStaminaConfiguration.RPC_REQUEST)
+        {
+            int version;
+            if (IsServer() && sender && !target && ctx && ctx.Read(version) && version == 1)
+                HCStaminaConfiguration.ResendClientReceipt(sender);
+            return;
+        }
         if (rpc_type != ERPCs.RPC_CFG_GAMEPLAY_SYNC)
         {
             super.OnRPC(sender, target, rpc_type, ctx);
             return;
         }
         if (IsServer() || sender || target || !ctx)
-        {
-            super.OnRPC(sender, target, rpc_type, ctx);
-            return;
-        }
-        if (!HCStaminaConfiguration.ClientActive())
         {
             super.OnRPC(sender, target, rpc_type, ctx);
             return;

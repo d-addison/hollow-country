@@ -11,6 +11,9 @@ class HCStaminaHUD
     protected TextWidget mHCWeightScale;
     protected PlayerBase mHCViewer;
     protected float mHCElapsed = 0.25;
+    // Per mission, not per viewer/reset; reconnect creates a fresh HUD owner.
+    protected bool mHCShownLogged;
+    protected bool mHCLayoutFailureLogged;
 
     static float Percent(float current, float capacity)
     {
@@ -195,6 +198,11 @@ class HCStaminaHUD
         }
         if (!Prepare())
         {
+            if (!mHCLayoutFailureLogged)
+            {
+                mHCLayoutFailureLogged = true;
+                Print("[HollowCountry] Stamina client HUD layout unavailable runtime=PENDING");
+            }
             Reset();
             return;
         }
@@ -230,6 +238,11 @@ class HCStaminaHUD
         mHCPenalty.SetText(string.Format("Weight penalty above %1 kg: %2 units/kg", threshold / 1000, loss));
         mHCBar.SetCurrent(HCStaminaHUD.Percent(current, capacity));
         mHCRoot.Show(true);
+        if (!mHCShownLogged)
+        {
+            mHCShownLogged = true;
+            Print("[HollowCountry] Stamina client HUD shown stamina_bar=1 weight_bar=1 runtime=PENDING");
+        }
     }
 }
 
