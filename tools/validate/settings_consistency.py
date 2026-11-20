@@ -17,6 +17,8 @@ PERF_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCPerfSlices.c'
 PERF_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/HCPerfSettingsRegistry.c'
 HEARTH_NATIVE = ROOT / 'mods/HollowCountry/scripts/4_World/Atmosphere/HCHearthFires.c'
 HEARTH_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/Atmosphere/HCHearthSettingsRegistry.c'
+ZONE_GUARDS_REGISTRY = ROOT / 'mods/HollowCountry/scripts/3_Game/AI/HCZoneGuardsSettingsRegistry.c'
+ZONE_GUARDS_NATIVE = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuardsConfig.c'
 SHIPPED = (ROOT / 'config/hollow-country-settings.json',
            ROOT / 'mission/hollow-country/operator/settings.json')
 
@@ -24,7 +26,33 @@ SHIPPED = (ROOT / 'config/hollow-country-settings.json',
 def load_registry(*, include_scoped=False):
     """Main settings consumers exclude optional profile-file scopes by default."""
     rows = json.loads(REGISTRY.read_text())
-    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.'))]
+    return rows if include_scoped else [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'ActorReach.', 'ActorDefence.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
+
+
+def check_zone_guards(rows):
+    """Separate optional zone profile; registrations belong to base 3_Game."""
+    source = ZONE_GUARDS_NATIVE.read_text()
+    dto = source.split('class HCXZoneGuardsConfig\n', 1)[1].split('    static HCXZoneGuardsConfig Load()', 1)[0]
+    # Enforce's uninitialized bool Disabled is false.
+    fields = {key: (kind, json.loads(value) if value else False)
+              for kind, key, value in re.findall(
+                  r'^    (bool|int) (\w+)(?: = (true|false|\d+))?;', dto, re.M)}
+    rules = {r['key'].removeprefix('HCZoneGuards.'): r for r in rows}
+    errors = []
+    if fields.keys() != rules.keys(): errors.append('HCZoneGuards registry/native key set differs')
+    compiled = re.findall(r'^        HCAdd\([^\n]+;', ZONE_GUARDS_REGISTRY.read_text(), re.M)
+    if compiled != render_native_registry(rows).splitlines():
+        errors.append('HCZoneGuards compiled registry differs (key/type/default/range/owner)')
+    for key, row in rules.items():
+        if row['owner'] != 'HCXZoneGuardsConfig' or fields.get(key) != (row['type'], row['default']):
+            errors.append(f'HCZoneGuards DTO default/type/owner differs for {key}')
+        if row['type'] != 'bool':
+            if f'HCOperatorSettingsRegistry.HCValid("HCZoneGuards.{key}", config.{key})' not in source:
+                errors.append(f'HCZoneGuards validation binding differs for {key}')
+            restore = f'if (!HCJsonFields.Has(raw, "{key}")) {{ config.{key} = {row["default"]}; }}'
+            if restore not in source:
+                errors.append(f'HCZoneGuards missing-field default differs for {key}')
+    return errors
 
 
 def check_performance(rows, source, registry):
@@ -335,7 +363,8 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     errors.extend(check_search_limits([r for r in rows if r['key'].startswith('SearchLimits.')]))
     errors.extend(check_local_policy(rows))
     errors.extend(check_story_index([r for r in rows if r['key'].startswith('StoryIndex.')]))
-    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.'))]
+    errors.extend(check_zone_guards([r for r in rows if r['key'].startswith('HCZoneGuards.')]))
+    rows = [r for r in rows if not r['key'].startswith(('Performance.', 'HearthFires.', 'SeasonLeaves.', 'WorldRuntime.', 'SearchLimits.', 'SignsOfLife.', 'LeatherTailoring.', 'Signals.', 'StoryIndex.', 'Melee.', 'HCZoneGuards.'))]
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]

@@ -124,6 +124,7 @@ class HCW38SituationPolicy
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.MaxIncidentItems", policy.MaxIncidentItems)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.PhysicalScanObjects", policy.PhysicalScanObjects)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.PhysicalScanCargo", policy.PhysicalScanCargo)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("W38Situations.PoliceSlowRetrySeconds", policy.PoliceSlowRetrySeconds)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.MaxRaidMeters", policy.MaxRaidMeters)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("W38Situations.ShelterMeters", policy.ShelterMeters)) { return false; }
         return true;

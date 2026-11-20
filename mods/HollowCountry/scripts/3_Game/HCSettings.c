@@ -257,6 +257,7 @@ class HCOperatorSettingsRegistry
         HCAdd("W38Situations.MaxIncidentItems", "int", 16, 1, 16, "HCW38SituationPolicy");
         HCAdd("W38Situations.PhysicalScanObjects", "int", 64, 1, 128, "HCW38SituationPolicy");
         HCAdd("W38Situations.PhysicalScanCargo", "int", 16, 1, 64, "HCW38SituationPolicy");
+        HCAdd("W38Situations.PoliceSlowRetrySeconds", "int", 300, 60, 3600, "HCW38SituationPolicy");
         HCAdd("W38Situations.MaxRaidMeters", "float", 600, 1, 1000, "HCW38SituationPolicy");
         HCAdd("W38Situations.ShelterMeters", "float", 20, 1, 50, "HCW38SituationPolicy");
         HCAdd("CampTheft.Version", "int", 1, 1, 1, "HCTheftConfig");
