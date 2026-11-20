@@ -113,8 +113,46 @@ class HCProgressionModule : HCModule
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_IdentityRefused;
+    protected static int s_UnavailableCalls;
+    protected int m_SummaryUtc;
+    protected int m_ForageCalls;
+    protected int m_ForageGains;
+    protected int m_Checkpoints;
+    protected int m_PersistedRows;
+    protected ref map<string, int> m_ForageSkips = new map<string, int>;
 
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+
+    // Fixed reason vocabulary, bounded by the guards below, never player keys.
+    // One detail per reason/window plus a ten-minute summary, including idle windows.
+    protected int HCSkipForage(string reason)
+    {
+        int count = 0;
+        m_ForageSkips.Find(reason, count);
+        if (count == 0) { Print("[HC Progression] forage skipped reason=" + reason + " runtime=PENDING"); }
+        m_ForageSkips.Set(reason, count + 1);
+        return 0;
+    }
+
+    protected void HCSummary(int now)
+    {
+        int records = 0;
+        if (m_State && m_State.Players) { records = m_State.Players.Count(); }
+        string skips = "";
+        for (int skipIndex = 0; skipIndex < m_ForageSkips.Count(); skipIndex++)
+        {
+            skips = skips + " skip_" + m_ForageSkips.GetKey(skipIndex) + "=" + m_ForageSkips.GetElement(skipIndex).ToString();
+        }
+        bool registered = HCSaveScheduler.HCRegistered(m_SaveJob);
+        bool queued = m_SaveJob && m_SaveJob.HCDirty;
+        Print("[HC Progression] summary players_tracked=" + records.ToString() + " calls=" + m_ForageCalls.ToString() + " gains=" + m_ForageGains.ToString() + " unavailable=" + s_UnavailableCalls.ToString() + skips + " checkpoints=" + m_Checkpoints.ToString() + " persisted_rows=" + m_PersistedRows.ToString() + " dirty=" + m_Dirty.ToString() + " queued=" + queued.ToString() + " registered=" + registered.ToString() + " shared_saves=" + HCPerfConfig.HCGet().EnableSharedSaves.ToString() + " runtime=PENDING");
+        m_SummaryUtc = now;
+        m_ForageCalls = 0;
+        m_ForageGains = 0;
+        m_Checkpoints = 0;
+        s_UnavailableCalls = 0;
+        m_ForageSkips.Clear();
+    }
 
     protected void HCChanged()
     {
@@ -256,6 +294,7 @@ class HCProgressionModule : HCModule
     protected void HCFail()
     {
         m_Healthy = false;
+        HCSummary(HCGroupClock.Utc());
         m_Status.HCPublish("refused", "clock_schema_store_fault");
         HCReceipt("refused", "clock_schema_store_fault");
         if (s_HCInstance == this) { s_HCInstance = null; }
@@ -310,7 +349,13 @@ class HCProgressionModule : HCModule
 
     override void OnStart(HCSettings settings)
     {
+        m_Healthy = false;
         m_IdentityRefused = false;
+        m_ForageCalls = 0;
+        m_ForageGains = 0;
+        m_Checkpoints = 0;
+        m_PersistedRows = 0;
+        m_ForageSkips.Clear();
         m_RowCap = 128;
         if (settings.MaxFamiliarityRows > 0) { m_RowCap = settings.MaxFamiliarityRows; }
         m_Cursor = 0;
@@ -326,6 +371,7 @@ class HCProgressionModule : HCModule
             return;
         }
         int now = HCGroupClock.Utc();
+        m_SummaryUtc = now;
         if (now < 1 || now > 2146000000) { HCFail(); return; }
         if (!HCV2ThreatStore<HCProgressionState>.CanOpen(PATH)) { HCFail(); return; }
         if (FileExist(PATH))
@@ -347,6 +393,7 @@ class HCProgressionModule : HCModule
             m_Dirty = false;
         }
         m_SaveUtc = now;
+        m_PersistedRows = m_State.Players.Count();
         m_SaveJob = new HCProgressionSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
@@ -365,24 +412,37 @@ class HCProgressionModule : HCModule
         HCChanged();
     }
 
-    // No client input: only a server-observed pickup of an exact forage item
-    // may call this. No rewards for picking up arbitrary CE food or re-dropping.
+    // No client input: Forage reports exact-item collection AND retirement here.
+    // Null-player retirement earns nothing. No rewards for arbitrary CE food
+    // or re-dropping; Forage clears its exact handle before calling this.
     static int HCRecordForage(PlayerBase player)
     {
-        if (!s_HCInstance) { return 0; }
+        if (!s_HCInstance)
+        {
+            if (s_UnavailableCalls == 0) { Print("[HC Progression] forage skipped reason=module_unavailable runtime=PENDING"); }
+            // Saturate while no active module can consume/reset the counter.
+            if (s_UnavailableCalls < 2146000000) { s_UnavailableCalls++; }
+            return 0;
+        }
         return s_HCInstance.HCAwardForage(player);
     }
 
     protected int HCAwardForage(PlayerBase player)
     {
-        if (!m_Healthy || !HCSurvivalRuntime.HCIsServer()) { return 0; }
-        if (!player || !player.IsAlive()) { return 0; }
+        m_ForageCalls++;
+        if (!m_Healthy) { return HCSkipForage("unhealthy"); }
+        if (!HCSurvivalRuntime.HCIsServer()) { return HCSkipForage("not_server"); }
+        // Forage also releases expired/deleted items and non-player custody.
+        // Those releases legitimately have no player and must never earn a row.
+        if (!player) { return HCSkipForage("no_player"); }
+        if (!player.IsAlive()) { return HCSkipForage("not_alive"); }
+        string identityReason;
+        string key = HCSurvivalRuntime.HCIdentityKeyChecked(player, identityReason);
+        if (key == "") { return HCSkipForage(identityReason); }
         string characterKey = HCSurvivalRuntime.HCCharacterKey(player);
-        if (characterKey == "") { HCIdentityRefusal(); return 0; }
-        string key = HCSurvivalRuntime.HCIdentityKey(player);
-        if (key == "") { return 0; }
+        if (characterKey == "") { HCIdentityRefusal(); return HCSkipForage("character_id_unavailable"); }
         int now = HCGroupClock.Utc();
-        if (now < m_SaveUtc || now > 2146000000) { HCFail(); return 0; }
+        if (now < m_SaveUtc || now > 2146000000) { HCSkipForage("clock_fault"); HCFail(); return 0; }
         HCProgressionRow found;
         foreach (HCProgressionRow candidate : m_State.Players)
         {
@@ -409,20 +469,24 @@ class HCProgressionModule : HCModule
         {
             HCResetLife(found, characterKey, false, now);
         }
-        if (found.Dead) { return 0; }
-        if (found.DecayUtc > now || found.GainUtc > now) { HCFail(); return 0; }
+        if (found.Dead) { return HCSkipForage("dead_generation"); }
+        if (found.DecayUtc > now || found.GainUtc > now) { HCSkipForage("row_clock_fault"); HCFail(); return 0; }
         HCDecay(found, now);
-        if (now - found.GainUtc >= HCProgressionConfig.Get().GainPeriodSeconds)
+        if (now - found.GainUtc < HCProgressionConfig.Get().GainPeriodSeconds)
         {
-            if (found.Forage < 100) { found.Forage = found.Forage + 1; }
-            found.GainUtc = now;
-            HCChanged();
-            // Bounded diagnostic, no identities in logs.
-            if (found.Forage == 1 || (found.Forage / 10) * 10 == found.Forage)
-            {
-                Print("[HC Progression] forage familiarity=" + found.Forage.ToString());
-            }
+            HCSkipForage("gain_cooldown");
+            return found.Forage;
         }
+        if (found.Forage < 100)
+        {
+            found.Forage = found.Forage + 1;
+            m_ForageGains++;
+            // One award receipt per window; totals remain visible in the summary.
+            if (m_ForageGains == 1) { Print("[HC Progression] forage familiarity=" + found.Forage.ToString() + " runtime=PENDING"); }
+        }
+        else { HCSkipForage("score_cap"); }
+        found.GainUtc = now;
+        HCChanged();
         return found.Forage;
     }
 
@@ -488,6 +552,8 @@ class HCProgressionModule : HCModule
             return HCSaveJob.STEP_FAILED;
         }
         m_SaveStage = 0;
+        m_Checkpoints++;
+        m_PersistedRows = m_Snapshot.Players.Count();
         m_Snapshot = null;
         if (m_SnapshotRevision != m_Revision) { return HCSaveJob.STEP_MORE; }
         m_Dirty = false;
@@ -507,6 +573,7 @@ class HCProgressionModule : HCModule
         if (!m_Healthy) { return; }
         int now = HCGroupClock.Utc();
         if (now < m_SaveUtc || now > 2146000000) { HCFail(); return; }
+        if (now - m_SummaryUtc >= 600) { HCSummary(now); }
         int count = m_State.Players.Count();
         int work = 4;
         if (count < work) { work = count; }
@@ -528,6 +595,7 @@ class HCProgressionModule : HCModule
     override void OnStop()
     {
         if (m_Healthy) { HCFlush(HCGroupClock.Utc()); }
+        HCSummary(HCGroupClock.Utc());
         m_Healthy = false;
         if (m_SaveJob)
         {

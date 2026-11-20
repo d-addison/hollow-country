@@ -80,11 +80,22 @@ class HCSurvivalRuntime
 
     static string HCIdentityKey(PlayerBase player)
     {
-        if (!HCIsServer() || !player) { return ""; }
+        string reason;
+        return HCIdentityKeyChecked(player, reason);
+    }
+
+    // Reasons are fixed tokens only. Never include identity values in receipts.
+    static string HCIdentityKeyChecked(PlayerBase player, out string reason)
+    {
+        reason = "";
+        if (!HCIsServer()) { reason = "not_server"; return ""; }
+        if (!player) { reason = "no_player"; return ""; }
         PlayerIdentity identity = player.GetIdentity();
-        if (!identity) { return ""; }
+        if (!identity) { reason = "identity_detached"; return ""; }
         string raw = identity.GetId();
+        reason = "identity_length";
         if (raw.Length() < 16 || raw.Length() > 64) { return ""; }
+        reason = "";
         // Lossless hex encoding avoids collisions from removing/replacing unsafe
         // characters. This key is only a JSON field value, never a path or log.
         string digits = "0123456789abcdef";
@@ -92,7 +103,7 @@ class HCSurvivalRuntime
         for (int keyIndex = 0; keyIndex < raw.Length(); keyIndex++)
         {
             int code = raw.Get(keyIndex).ToAscii();
-            if (code < 33 || code > 126) { return ""; }
+            if (code < 33 || code > 126) { reason = "identity_encoding"; return ""; }
             int high = code / 16;
             key = key + digits.Get(high) + digits.Get(code - high * 16);
         }
