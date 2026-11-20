@@ -183,22 +183,22 @@ class HCLeadStore
     {
         if (value.TraceVersion != 1 || value.TraceAfter < 0 || value.TraceAfter > HCWorldClock.UTC()) { return false; }
         if (!value.Traces || value.Traces.Count() > 256) { return false; }
-        array<string> facts = new array<string>();
-        array<string> entities = new array<string>();
+        map<string, bool> facts = new map<string, bool>;
+        map<string, bool> entities = new map<string, bool>;
         foreach (HCTraceReceipt receipt : value.Traces)
         {
             if (!receipt || !HCWorldLimits.Token(receipt.FactId) || !HCWorldLimits.Token(receipt.SceneId)) { return false; }
-            if (facts.Find(receipt.FactId) >= 0 || (receipt.NoteId == "" && receipt.BodyId == "")) { return false; }
-            facts.Insert(receipt.FactId);
+            if (facts.Contains(receipt.FactId) || (receipt.NoteId == "" && receipt.BodyId == "")) { return false; }
+            facts.Insert(receipt.FactId, true);
             if (receipt.NoteId != "")
             {
-                if (!HCWorldLimits.Token(receipt.NoteId) || entities.Find(receipt.NoteId) >= 0) { return false; }
-                entities.Insert(receipt.NoteId);
+                if (!HCWorldLimits.Token(receipt.NoteId) || entities.Contains(receipt.NoteId)) { return false; }
+                entities.Insert(receipt.NoteId, true);
             }
             if (receipt.BodyId != "")
             {
-                if (!HCWorldLimits.Token(receipt.BodyId) || entities.Find(receipt.BodyId) >= 0) { return false; }
-                entities.Insert(receipt.BodyId);
+                if (!HCWorldLimits.Token(receipt.BodyId) || entities.Contains(receipt.BodyId)) { return false; }
+                entities.Insert(receipt.BodyId, true);
             }
         }
         return true;
@@ -210,36 +210,46 @@ class HCLeadStore
         if (!value.Leads || !value.Notes || !value.Bodies || !value.Channels || !HCTraceValid(value)) { return false; }
         if (value.Leads.Count() > 64 || value.Notes.Count() > 10 || value.Bodies.Count() > 3 || (value.Channels.Count() != 0 && value.Channels.Count() != 5)) { return false; }
         if (value.Notes.Count() + value.Bodies.Count() > 10) { return false; }
-        array<string> ids = new array<string>();
+        // Receipt rows are unique per note/body id (HCTraceValid above), so one
+        // lookup replaces the per-row scan of value.Traces.
+        map<string, HCTraceReceipt> noteReceipts = new map<string, HCTraceReceipt>;
+        map<string, HCTraceReceipt> bodyReceipts = new map<string, HCTraceReceipt>;
+        foreach (HCTraceReceipt indexed : value.Traces)
+        {
+            if (indexed.NoteId != "") { noteReceipts.Insert(indexed.NoteId, indexed); }
+            if (indexed.BodyId != "") { bodyReceipts.Insert(indexed.BodyId, indexed); }
+        }
+        map<string, bool> ids = new map<string, bool>;
+        map<string, int> groupCounts = new map<string, int>;
         foreach (HCWorldLead leadRow : value.Leads)
         {
-            if (!HCLeadPolicy.Valid(leadRow) || !HCWorldLimits.Token(leadRow.Id) || !HCWorldLimits.Token(leadRow.Source) || !HCWorldLimits.Token(leadRow.GroupId) || ids.Find(leadRow.Id) >= 0) { return false; }
-            ids.Insert(leadRow.Id);
+            if (!HCLeadPolicy.Valid(leadRow) || !HCWorldLimits.Token(leadRow.Id) || !HCWorldLimits.Token(leadRow.Source) || !HCWorldLimits.Token(leadRow.GroupId) || ids.Contains(leadRow.Id)) { return false; }
+            ids.Insert(leadRow.Id, true);
             int groupCount = 0;
-            foreach (HCWorldLead groupRow : value.Leads)
-            {
-                if (groupRow.GroupId == leadRow.GroupId) { groupCount++; }
-            }
+            if (groupCounts.Contains(leadRow.GroupId)) { groupCount = groupCounts.Get(leadRow.GroupId); }
+            groupCount = groupCount + 1;
             if (groupCount > 5) { return false; }
+            groupCounts.Set(leadRow.GroupId, groupCount);
         }
-        array<string> scenes = new array<string>();
+        map<string, bool> scenes = new map<string, bool>;
         foreach (HCLeadNote noteRow : value.Notes)
         {
             if (!noteRow || !noteRow.Row || !HCLeadPolicy.Valid(noteRow.Lead)) { return false; }
             if (!HCWorldLimits.Token(noteRow.Row.Id) || !HCWorldLimits.Token(noteRow.Row.SceneId) || noteRow.Row.CreatedAt < 1 || noteRow.Expires <= noteRow.Row.CreatedAt || noteRow.Phase < 0 || noteRow.Phase > 1) { return false; }
-            if (scenes.Find(noteRow.Row.SceneId) >= 0 || ids.Find(noteRow.Row.Id) >= 0) { return false; }
+            if (scenes.Contains(noteRow.Row.SceneId) || ids.Contains(noteRow.Row.Id)) { return false; }
             if (noteRow.NativeText != "" && noteRow.NativeText != HCTraceText(noteRow.Lead)) { return false; }
             if (noteRow.NativeText != "")
             {
                 bool boundNote = false;
-                foreach (HCTraceReceipt noteReceipt : value.Traces)
+                HCTraceReceipt noteReceipt;
+                if (noteReceipts.Find(noteRow.Row.Id, noteReceipt))
                 {
-                    if (noteReceipt.NoteId == noteRow.Row.Id && noteReceipt.FactId == noteRow.Lead.Id && noteReceipt.SceneId == noteRow.Row.SceneId) { boundNote = true; }
+                    boundNote = noteReceipt.FactId == noteRow.Lead.Id && noteReceipt.SceneId == noteRow.Row.SceneId;
                 }
                 if (!boundNote) { return false; }
             }
-            scenes.Insert(noteRow.Row.SceneId);
-            ids.Insert(noteRow.Row.Id);
+            scenes.Insert(noteRow.Row.SceneId, true);
+            ids.Insert(noteRow.Row.Id, true);
         }
         foreach (HCBodyStoryRow bodyRow : value.Bodies)
         {
@@ -248,20 +258,21 @@ class HCLeadStore
             if (bodyRow.FactId != "")
             {
                 bool boundBody = false;
-                foreach (HCTraceReceipt bodyReceipt : value.Traces)
+                HCTraceReceipt bodyReceipt;
+                if (bodyReceipts.Find(bodyRow.Id, bodyReceipt))
                 {
-                    if (bodyReceipt.BodyId == bodyRow.Id && bodyReceipt.FactId == bodyRow.FactId && bodyReceipt.SceneId == bodyRow.SceneId) { boundBody = true; }
+                    boundBody = bodyReceipt.FactId == bodyRow.FactId && bodyReceipt.SceneId == bodyRow.SceneId;
                 }
                 if (!boundBody) { return false; }
             }
-            if (bodyRow.CreatedAt < 1 || bodyRow.Expires <= bodyRow.CreatedAt || bodyRow.Phase < 0 || bodyRow.Phase > 2 || ids.Find(bodyRow.Id) >= 0) { return false; }
-            ids.Insert(bodyRow.Id);
+            if (bodyRow.CreatedAt < 1 || bodyRow.Expires <= bodyRow.CreatedAt || bodyRow.Phase < 0 || bodyRow.Phase > 2 || ids.Contains(bodyRow.Id)) { return false; }
+            ids.Insert(bodyRow.Id, true);
         }
-        array<string> factions = new array<string>();
+        map<string, bool> factions = new map<string, bool>;
         foreach (HCRadioChannel channelRow : value.Channels)
         {
-            if (!channelRow || HCRadioChatter.Frequency(channelRow.Faction) != channelRow.Frequency || channelRow.Frequency <= 0 || channelRow.LastSent < 0 || channelRow.LastSent > HCWorldClock.UTC() || channelRow.Sequence < 0 || factions.Find(channelRow.Faction) >= 0) { return false; }
-            factions.Insert(channelRow.Faction);
+            if (!channelRow || HCRadioChatter.Frequency(channelRow.Faction) != channelRow.Frequency || channelRow.Frequency <= 0 || channelRow.LastSent < 0 || channelRow.LastSent > HCWorldClock.UTC() || channelRow.Sequence < 0 || factions.Contains(channelRow.Faction)) { return false; }
+            factions.Insert(channelRow.Faction, true);
         }
         return true;
     }
