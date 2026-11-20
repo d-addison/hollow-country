@@ -22,9 +22,10 @@ modded class ZombieBase
             return;
 
         PlayerBase attacker = HCMeleeTarget.Attacker(source);
-        if (!HCMeleeTarget.Plausible(attacker, this, dmgZone, modelPos))
+        string implausible = HCMeleeTarget.ImplausibleReason(attacker, this, dmgZone, modelPos);
+        if (implausible != "")
         {
-            HCMeleeLog.Event("implausible", "zone=" + dmgZone);
+            HCMeleeLog.Event("implausible", "zone=" + dmgZone + " why=" + implausible);
             return;
         }
         if (!attacker || !source)

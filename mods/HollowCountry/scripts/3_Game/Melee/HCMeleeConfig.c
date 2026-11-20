@@ -21,7 +21,7 @@ class HCMeleeSettings
     bool StaggerImmunity = true;
     float StaggerImmunitySeconds = 1.5;
     float PlausibilityTolerance = 0.5;
-    float ZoneTolerance = 0.45;
+    float ZoneTolerance = 0.9;
     float BlockStaminaCost = 6;
     bool GuardBreak = true;
     float GuardBreakChipFraction = 0.5;
@@ -133,7 +133,7 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Melee.StaggerImmunity", "bool", 1, 0, 1, "HCMeleeConfig");
         HCAdd("Melee.StaggerImmunitySeconds", "float", 1.5, 0, 5, "HCMeleeConfig");
         HCAdd("Melee.PlausibilityTolerance", "float", 0.5, 0, 2, "HCMeleeConfig");
-        HCAdd("Melee.ZoneTolerance", "float", 0.45, 0.1, 1.5, "HCMeleeConfig");
+        HCAdd("Melee.ZoneTolerance", "float", 0.9, 0.1, 1.5, "HCMeleeConfig");
         HCAdd("Melee.BlockStaminaCost", "float", 6, 0, 30, "HCMeleeConfig");
         HCAdd("Melee.GuardBreak", "bool", 1, 0, 1, "HCMeleeConfig");
         HCAdd("Melee.GuardBreakChipFraction", "float", 0.5, 0, 1, "HCMeleeConfig");

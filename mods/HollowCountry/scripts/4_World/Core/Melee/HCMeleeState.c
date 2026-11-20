@@ -156,21 +156,30 @@ class HCMeleeTarget
 
     static bool Plausible(PlayerBase attacker, ZombieBase z, string zone, vector modelPos)
     {
-        if (!attacker || !z || zone == "") { return false; }
+        return HCMeleeTarget.ImplausibleReason(attacker, z, zone, modelPos) == "";
+    }
+
+    // "" when the hit is plausible; otherwise which check failed, with the measured distances.
+    static string ImplausibleReason(PlayerBase attacker, ZombieBase z, string zone, vector modelPos)
+    {
+        if (!attacker || !z || zone == "") { return "missing"; }
         DayZPlayerImplementMeleeCombat combat = attacker.GetMeleeCombat();
-        if (!combat) { return false; }
+        if (!combat) { return "no_combat"; }
         bool sprint = combat.GetHitType() == EMeleeHitType.SPRINT;
         float range = HCMeleeTarget.HCRange(attacker);
-        if (range <= 0) { return false; }
+        if (range <= 0) { return "no_range"; }
         float extender = 0.65;
         if (sprint) { extender = 1.35; }
         HCMeleeSettings settings = HCMeleeConfig.HCGet();
         float limit = range + extender + settings.PlausibilityTolerance;
+        float reachSq = vector.DistanceSq(attacker.GetPosition(), z.GetPosition());
         // Written as <= then negated so invalid/non-finite positions fail closed.
-        if (!(vector.DistanceSq(attacker.GetPosition(), z.GetPosition()) <= limit * limit)) { return false; }
+        if (!(reachSq <= limit * limit)) { return "range d=" + Math.Sqrt(reachSq).ToString() + " limit=" + limit.ToString(); }
         vector hitWorld = z.ModelToWorld(modelPos);
         vector zoneWorld = z.GetDamageZonePos(zone);
-        return vector.DistanceSq(hitWorld, zoneWorld) <= settings.ZoneTolerance * settings.ZoneTolerance;
+        float zoneSq = vector.DistanceSq(hitWorld, zoneWorld);
+        if (!(zoneSq <= settings.ZoneTolerance * settings.ZoneTolerance)) { return "zone d=" + Math.Sqrt(zoneSq).ToString() + " limit=" + settings.ZoneTolerance.ToString(); }
+        return "";
     }
 
     static float HeadArmour(ZombieBase z)
