@@ -43,9 +43,11 @@ class HCXAICaravanRoads
     float m_StartGap;
     float m_EndGap;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
-    // Loading is independent of live route search. Retain the operator's search
-    // quantum, but amortise cheap file/node steps within the same 4 ms deadline.
-    static const int LOAD_SLICE_TICKS = 100000;
+    // Loading retains one line cursor and yields through the shared deadline.
+    protected ref HCXAICaravanRoadNode m_LoadNode;
+    protected int m_LoadField;
+    protected int m_LoadDegree;
+    protected int m_LoadEdge;
     protected int m_LoadFrame = -1;
     protected int m_LoadSlices;
     protected int m_LoadTicks;
@@ -65,6 +67,7 @@ class HCXAICaravanRoads
     }
     static void HCClose()
     {
+        if (s_Instance) { s_Instance.HCStopLoading(); }
         if (s_Instance && s_Instance.m_FileOpen) { CloseFile(s_Instance.m_File); s_Instance.m_FileOpen = false; }
         s_Instance = null;
     }
@@ -78,8 +81,20 @@ class HCXAICaravanRoads
         }
         return line;
     }
+    // Native Game.c:1552 / DayZGame.c:3027: SYSTEM update invokes timeslice
+    // every server frame, independently of the one-second core module cadence.
+    void HCLoadFrame(float timeslice)
+    {
+        if (Phase == "loading") { HCStep(true); }
+    }
+    void HCStopLoading()
+    {
+        if (GetGame()) { GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Remove(HCLoadFrame); }
+    }
     void HCRefuse(string reason)
     {
+        HCStopLoading();
+        m_LoadNode = null;
         Phase = "failed";
         if (m_FileOpen) { CloseFile(m_File); m_FileOpen = false; }
         if (Reason == reason) { return; }
@@ -103,33 +118,51 @@ class HCXAICaravanRoads
         }
         m_LoadStarted = GetGame().GetTickTime();
         Phase = "loading";
+        GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Insert(HCLoadFrame);
     }
     void HCLoadNode()
     {
-        string id = HCLine();
-        string position = HCLine();
-        string flags = HCLine();
-        string degree = HCLine();
-        int neighbours = degree.ToInt();
+        // One file line per unit, including each edge. A high-degree node can
+        // no longer consume an entire slice without a shared deadline check.
+        string value = HCLine();
         if (Phase == "failed") { return; }
-        if (id.ToInt() != Nodes.Count() || neighbours < 0 || neighbours > Config.MaxRoadDegree) { HCRefuse("CARAVAN_ROAD_NODE_INVALID"); return; }
-        HCXAICaravanRoadNode node = new HCXAICaravanRoadNode;
-        node.Position = position.ToVector();
-        if (!HCWorldLimits.Position(node.Position)) { HCRefuse("CARAVAN_ROAD_POSITION_INVALID"); return; }
-        for (int edge = 0; edge < neighbours; edge++)
+        if (m_LoadField == 0)
         {
-            string link = HCLine();
-            int target = link.ToInt();
-            if (Phase == "failed") { return; }
-            if (target < 0 || target >= m_Count) { HCRefuse("CARAVAN_ROAD_LINK_INVALID"); return; }
-            node.Links.Insert(target);
-            node.LinkIds.Set(target, true);
+            if (value.ToInt() != Nodes.Count()) { HCRefuse("CARAVAN_ROAD_NODE_INVALID"); return; }
+            m_LoadNode = new HCXAICaravanRoadNode;
         }
-        Nodes.Insert(node);
-        if (Nodes.Count() == m_Count)
+        else if (m_LoadField == 1)
         {
-            CloseFile(m_File); m_FileOpen = false;
-            Phase = "idle";
+            m_LoadNode.Position = value.ToVector();
+            if (!HCWorldLimits.Position(m_LoadNode.Position)) { HCRefuse("CARAVAN_ROAD_POSITION_INVALID"); return; }
+        }
+        // Field 2 is the provider's flags, as before.
+        else if (m_LoadField == 3)
+        {
+            m_LoadDegree = value.ToInt();
+            m_LoadEdge = 0;
+            if (m_LoadDegree < 0 || m_LoadDegree > Config.MaxRoadDegree) { HCRefuse("CARAVAN_ROAD_NODE_INVALID"); return; }
+        }
+        else if (m_LoadField == 4)
+        {
+            int target = value.ToInt();
+            if (target < 0 || target >= m_Count) { HCRefuse("CARAVAN_ROAD_LINK_INVALID"); return; }
+            m_LoadNode.Links.Insert(target);
+            m_LoadNode.LinkIds.Set(target, true);
+            m_LoadEdge++;
+        }
+        if (m_LoadField < 4) { m_LoadField++; }
+        if (m_LoadField == 4 && m_LoadEdge == m_LoadDegree)
+        {
+            Nodes.Insert(m_LoadNode);
+            m_LoadNode = null;
+            m_LoadField = 0;
+            if (Nodes.Count() == m_Count)
+            {
+                CloseFile(m_File); m_FileOpen = false;
+                HCStopLoading();
+                Phase = "idle";
+            }
         }
     }
     bool HCPlan(vector origin, vector destination)
@@ -176,32 +209,31 @@ class HCXAICaravanRoads
             Frontier.Insert(adjacent);
         }
     }
-    void HCStep()
+    void HCStep(bool loadFrame = false)
     {
         if (Phase == "idle" || Phase == "ready" || Phase == "failed") { return; }
+        if (Phase == "loading" && !loadFrame) { return; }
         if (Phase == "loading" && m_LoadFrame == GetGame().GetTime()) { return; }
-        // One shared admission per tick from the ROADS slot; the local budget bounds the
-        // batch. Taking TRADE per 8 nodes after AITrade held the graph at 8 nodes per tick (099).
+        // One ROADS admission per visit; frame loading uses the shared idle
+        // admission outside core ticks. HCWorkBudget bounds elapsed work. Taking TRADE per 8 nodes after AITrade held the graph at 8 nodes per tick (099).
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
         bool loading = Phase == "loading";
         int limit = Config.RoadWorkPerTick;
         if (loading)
         {
-            // Both the route catalog and caravan may pump this shared reader.
-            // One loading slice per mission tick, even with spare shared units.
+            // Only the native frame callback pumps loading. Catalog/caravan
+            // visits cannot add a second slice or impose their slow cadence.
             m_LoadFrame = GetGame().GetTime();
-            limit = Math.Min(limit * 8, 4096);
+            limit = Math.Min(limit * 64, 32768);
         }
         int began = TickCount(0);
-        m_Work.HCReset(limit);
+        // Reserve headroom below the 8 ms target; native calls are cooperative.
+        if (loading) { m_Work.HCReset(limit, Math.Min(HCPerfConfig.HCGet().SliceMs, 4)); }
+        else { m_Work.HCReset(limit); }
         int unit = 0;
         for (unit = 0; unit < limit; unit++)
         {
             if (!m_Work.HCContinue()) { break; }
-            // HCWorkBudget's clock does not advance within one tick (boot 117:
-            // 2,048-node slices reached 35.7 ms). Bound loading slices on
-            // TickCount, 10,000 ticks per ms as in [HC TickCost].
-            if (loading && unit > 0 && TickCount(began) >= LOAD_SLICE_TICKS) { break; }
             if (Phase == "loading") { HCLoadNode(); }
             else if (Phase == "nearest") { HCNearest(); }
             else if (Phase == "search") { HCSearch(); }
