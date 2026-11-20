@@ -171,10 +171,12 @@ class HCGapcodeRoutesCatalog
     }
     // Script SHA-256 costs about 43 ms per 4 KB page (097 boot: 765 pages, one per
     // tick, 13 minutes of hitches before AIRoles could start). Every page is still
-    // read and length-checked; only the first, the last and HASH_SAMPLES strided
-    // pages per file are hashed. The stride offset rotates per boot, so successive
-    // boots cover different pages. A changed source changes its byte count or
-    // shifts every page after the edit, so the sample still catches drift.
+    // read and length-checked; only the first and last page of each file are hashed,
+    // plus HASH_SAMPLES strided pages of the external road source. The mission files
+    // come from the repo at the build commit, and their pages cost up to 550 ms each
+    // on 097, so their rows are checked by id binding below. The stride offset
+    // rotates per boot, so successive boots cover different road pages. A changed
+    // source changes its byte count or shifts every page after the edit.
     static const int HASH_SAMPLES = 4;
     static const int READS_PER_UNIT = 64;
     bool HCPageSampled(int page, int pages)
@@ -195,6 +197,8 @@ class HCGapcodeRoutesCatalog
             if (m_HashStride < 1) { m_HashStride = 1; }
             m_HashOffset = HCWorldClock.UTC() % m_HashStride;
             if (m_HashOffset < 0) { m_HashOffset = 0; }
+            // Mission files: first and last page only (no stride index can match).
+            if (m_FileIndex > 0) { m_HashStride = pages + 1; m_HashOffset = pages; }
         }
         for (int readCount = 0; readCount < READS_PER_UNIT && m_PageIndex < pages; readCount++)
         {
