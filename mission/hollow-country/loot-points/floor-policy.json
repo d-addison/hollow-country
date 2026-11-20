@@ -2853,5 +2853,28 @@
       "widen": [],
       "floor_exception": null
     }
+  },
+  "collision_support": {
+    "open_structure_prefixes": [
+      "Land_Construction_",
+      "Land_Misc_Scaffolding"
+    ],
+    "open_structure_classes": [
+      "Land_Airfield_Hangar_Green",
+      "Land_Airfield_ServiceHangar_L",
+      "Land_Airfield_ServiceHangar_R",
+      "Land_Airfield_Small_Hangar",
+      "Land_Mil_Fortified_Nest_Watchtower",
+      "Land_Shed_M1",
+      "Land_Shed_M3",
+      "Land_Shed_M4",
+      "Land_Shed_W1",
+      "Land_Shed_W2",
+      "Land_Shed_W3",
+      "Land_Shed_W4",
+      "Land_Shed_W5",
+      "Land_Shed_W6"
+    ],
+    "note": "Open construction/scaffolds and stock-looted open hangars/sheds/watch platforms: roof/wall enclosure exempt; real collision support and a stock loot witness within 3m horizontally and 0.35m vertically remain mandatory. Closed sheds, barns, ruins and courtyards have no blanket exemption. Static evidence only; native CE/support acceptance pending."
   }
 }

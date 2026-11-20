@@ -1108,6 +1108,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog='loot_boost.py', description=__doc__.split('\n')[0])
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('points', help='generate the contextual points overlay from native censuses')
+    p.add_argument('--addons', type=Path, required=True, help='installed vanilla PBOs for mandatory collision support gate')
+    p.add_argument('--reader', type=Path, required=True, help='hash-pinned external ODOL reader directory')
     p.add_argument('--census', nargs='+', required=True, help='geom census.json files')
     p.add_argument('--view-census', nargs='*', default=[], help='--intersect view census.json files (surfaces)')
     p.add_argument('--stock-proto', required=True, help="the operator's stock mapgroupproto.xml (read only)")
@@ -1132,7 +1134,9 @@ def main(argv=None):
                                  {'geom_census_sha256': sorted(geom_sources),
                                   'view_census_sha256': sorted(view_sources), 'sampler_frame': 'rot90'},
                                  skip=ce_coverage.TARGET_GROUPS)
-            overlay = parse_overlay(data)
+            from tools.package.loot_support_audit import Audit as SupportAudit
+            overlay, _ = SupportAudit(args.addons, args.reader, args.stock_proto).filter(parse_overlay(data))
+            data = economy.encode(overlay)
             Path(args.out).write_bytes(data)
             families = {}
             for spec in overlay['groups'].values():

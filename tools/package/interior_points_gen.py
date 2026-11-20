@@ -442,6 +442,11 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         'rejected_groups': dict(sorted(refused.items()))}, 'groups': groups}
     if map_pos is not None:
         doc['sources']['map_pos_sha256'] = sha(Path(map_pos).read_bytes())
+    # Visual meshes only propose candidates. Collision support and building
+    # enclosure are mandatory final admission, including stock proxy furniture.
+    from tools.package.loot_support_audit import Audit as SupportAudit
+    doc, _ = SupportAudit(addons, reader_folder, stock_proto).filter(doc)
+    doc['sources']['method'] += '; final collision-only support/enclosure gate (see collision_support)'
     raw = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
     loot.parse_overlay(raw)
     return raw

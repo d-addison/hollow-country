@@ -24,7 +24,7 @@ MAX_POLICY_BYTES = 256 * 1024
 NAME = re.compile(r'[A-Za-z0-9_]{1,80}')
 KEYS = {'schema', 'kind', 'enabled', 'note', 'floor_categories', 'floor_classes', 'floor_class_patterns',
         'shelf_categories', 'floor_tag', 'shelf_tag', 'floor_container_names', 'floor_container_tags', 'height_checked_container_names', 'extra_floor_container_names',
-        'floor_band_m', 'capacity', 'receivers'}
+        'floor_band_m', 'capacity', 'receivers', 'collision_support'}
 CAPACITY_KEYS = {'enabled', 'max_container_lootmax', 'preserve_tolerance'}
 SHELF_CATEGORY_CHOICES = frozenset({'tools', 'containers', 'food', 'books', 'weapons', 'explosives', 'lootdispatch'})
 FLOOR_BAND_RANGE = (0.1, 3.0)
@@ -47,8 +47,11 @@ def parse_policy(data):
     if (not isinstance(doc, dict) or not set(doc) <= KEYS or doc.get('schema') != 1 or doc.get('kind') != KIND
             or type(doc.get('enabled')) is not bool):
         raise ValueError('not a loot floor policy')
-    if not KEYS - {'note', 'receivers'} <= set(doc):
+    if not KEYS - {'note', 'receivers', 'collision_support'} <= set(doc):
         raise ValueError('floor policy is missing a named field')
+    if 'collision_support' in doc:
+        from tools.package.loot_support_audit import validate_policy
+        validate_policy(doc['collision_support'])
     floor_categories = _names(doc['floor_categories'], 'floor_categories')
     shelf_categories = _names(doc['shelf_categories'], 'shelf_categories')
     if not set(floor_categories) <= {'clothes'} or not set(shelf_categories) <= SHELF_CATEGORY_CHOICES:
