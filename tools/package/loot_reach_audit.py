@@ -12,7 +12,6 @@ import io
 import json
 import math
 from pathlib import Path
-import struct
 import sys
 import xml.etree.ElementTree as ET
 
@@ -328,15 +327,7 @@ class Audit:
         self.scene_stats['memory_selections'] += len(memory.named_selections) if memory else 0
         self.scene_stats['buildings_without_memory'] += memory is None
         seen = set()
-        for match in gen.PROXY.finditer(data):
-            proxy = pbo.normalize_path(match.group()[:-1].decode('ascii'))
-            if not proxy.endswith('.p3d'):
-                proxy += '.p3d'
-            if match.end()+48 > len(data):
-                continue
-            matrix = struct.unpack_from('<12f', data, match.end())
-            if not all(math.isfinite(v) and abs(v) < 1000 for v in matrix):
-                continue
+        for proxy, matrix in gen.stock_proxies(data, model):
             # This parser intentionally matches the generator's upright proxy
             # admission; reject other transforms rather than treating text as one.
             if (max(abs(matrix[3+i]-(1 if i == 1 else 0)) for i in range(3)) > .001

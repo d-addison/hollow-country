@@ -3,10 +3,13 @@
 Run as a module with --addons and --stock-proto. Assets stay external; only
 hashes, transforms and candidate coordinates enter the overlay. This is static
 support evidence, not native collision/clearance or CE acceptance. Optional
-runtime furnishings never count as unconditional support.
+runtime furnishings never count as unconditional support. Use --partition INDEX COUNT
+with a separate --out for bounded scans; --merge-partitions joins a complete set.
+--prior-overlay re-audits and adds compatible points from a previous layout.
 """
 import argparse
 from collections import Counter, deque
+import copy
 import hashlib
 import importlib.util
 import io
@@ -61,7 +64,6 @@ TOPS = {
     'anvil', 'metal_cutting_saw', 'soustruh_proxy', 'basin_a', 'sink', 'lab_sink',
     'tent_table', 'tent_boxwooden', 'tent_stretcher', 'tent_chair',
 }
-PROXY = re.compile(rb'\\dz\\[^\x00\r\n]{1,400}\x00', re.I)
 
 
 def sha(data):
@@ -71,9 +73,17 @@ def sha(data):
 class Assets:
     def __init__(self, folder):
         self.members, self.classes = {}, {}
-        for path in sorted(Path(folder).glob('structures*.pbo')):
+        folder = Path(folder)
+        # Fire extinguishers are baked building blockers in gear_tools, not
+        # furniture candidates. Include their installed model without importing
+        # unrelated item/vehicle assets or changing building config precedence.
+        paths = sorted(folder.glob('structures*.pbo')) + [folder / 'gear_tools.pbo']
+        for path in paths:
+            if not path.is_file():
+                continue
             index = pbo.read_pbo_index(path)
-            self.classes.update(pbo.read_configs(path, ['CfgVehicles'], index)['CfgVehicles'])
+            if path.name.startswith('structures'):
+                self.classes.update(pbo.read_configs(path, ['CfgVehicles'], index)['CfgVehicles'])
             for entry in index['entries']:
                 if entry['name'].lower().endswith('.p3d'):
                     key = pbo.normalize_path(index['prefix'] + '\\' + entry['name'])
@@ -87,6 +97,56 @@ class Assets:
             path, index, member = self.members[model]
             self.cache[model] = pbo.read_member(path, index, member)
         return self.cache[model]
+
+
+def proxy_table(data, model, lod):
+    """Read only the bounded proxy table at this decoded LOD's start address.
+
+    ODOL56: u32 count, NUL path, 12 float matrix, four u32 indices. This
+    independently identifies installed proxies instead of scanning all bytes
+    (which can confuse visual LODs and other strings with collision proxies).
+    """
+    start, end = model.lod_starts[lod.index], model.lod_ends[lod.index]
+    count = struct.unpack_from('<I', data, start)[0]
+    offset = start + 4
+    if count > 10000:
+        raise ValueError('proxy table count outside bound')
+    for _ in range(count):
+        stop = data.find(b'\0', offset, min(end, offset + 1024))
+        if stop < 0 or stop + 65 > end:
+            raise ValueError('truncated proxy table')
+        path = pbo.normalize_path(data[offset:stop].decode('ascii'))
+        if not path.endswith('.p3d'):
+            path += '.p3d'
+        matrix = struct.unpack_from('<12f', data, stop + 1)
+        if not all(math.isfinite(v) and abs(v) < 1000 for v in matrix):
+            raise ValueError('invalid proxy matrix')
+        # Reject scaled/sheared/corrupt transforms, retain actual rigid tilts.
+        axes = (matrix[:3], matrix[3:6], matrix[6:9])
+        if any(abs(sum(x*y for x, y in zip(a, b)) - (i == j)) > .002
+               for i, a in enumerate(axes) for j, b in enumerate(axes)):
+            raise ValueError('non-rigid proxy matrix')
+        yield path, matrix
+        offset = stop + 65
+
+
+def stock_proxies(data, model):
+    """Unique actual proxy-table entries from visual and collision LODs.
+
+    Selection names such as table.001 are not model members. Never guess a
+    suffix alias or parse a matrix after an arbitrary embedded string.
+    """
+    seen = set()
+    for lod in model.lods:
+        if lod.resolution >= 1000 and not any(
+                math.isclose(lod.resolution, resolution, rel_tol=1e-6)
+                for resolution in (1e13, 3e15, 6e15)):
+            continue
+        for path, matrix in proxy_table(data, model, lod):
+            key = (path, matrix)
+            if key not in seen:
+                seen.add(key)
+                yield path, matrix
 
 
 def surface_model(model):
@@ -104,6 +164,20 @@ def surface_model(model):
     # The mesh, collision, enclosure and reach gates decide whether a top is
     # usable; names alone neither grant support nor exclude an evidenced top.
     if '\\furniture\\' in model:
+        return stem, model
+    # Installed composite interiors carry baked counters/tables outside the
+    # furniture directory. Ruined furniture and workshop pallets likewise use
+    # building-specific proxy directories. These are proposals only: all mesh,
+    # collision, enclosure and independent approach gates remain mandatory.
+    if (stem.endswith(('_int', '_interior', '_interier', '_interier_proxy', '_grnd_proxy', '_details_proxy'))
+            or re.fullmatch(r'ruin_house\w+_proxy_0[1-9]', stem)
+            or ('\\ruins\\proxy\\' in model and stem.startswith((
+                'table_', 'shelfs_', 'racks_', 'wardrobe_', 'bed_',
+                'classroom_case_', 'tools_racking')))
+            or stem in {'misc_pallet', 'misc_pallets1', 'misc_pallets2', 'misc_pallets3',
+                        'misc_boxwooden', 'misc_table_large', 'misc_woodtable_indoor',
+                        'chapel_table_proxy', 'chapel_table_proxy2', 'table',
+                        'shelfs_small', 'racks', 'tent_ltable', 'tent_pallets'}):
         return stem, model
     return None
 
@@ -284,7 +358,7 @@ def near(point, others):
                for q in others)
 
 
-def generate(addons, stock_proto, reader_folder, map_pos=None):
+def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None):
     # Reuse the independent audit without relaxing any of its limits. Evaluate
     # before spacing/capping so refused candidates do not crowd out good tops.
     from tools.package.loot_reach_audit import Audit
@@ -310,7 +384,13 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         templates.setdefault(doc['BuildingClass'], {'file': path.relative_to(ROOT).as_posix(),
                              'sha256': sha(path.read_bytes()), 'box': doc['Box']})
     groups, surfaces, rejected, refused = {}, {}, Counter(), {}
-    for group in sorted(stock.findall('group'), key=lambda g: g.get('name', '')):
+    ordered = sorted(stock.findall('group'), key=lambda g: g.get('name', ''))
+    if partition is not None:
+        index, count = partition
+        if not 0 <= index < count <= 32:
+            raise ValueError('partition requires 0 <= index < count <= 32')
+        ordered = ordered[index::count]
+    for group in ordered:
         name = group.get('name', '')
         # Do not inflate building coverage with car wrecks, wells or containers.
         if not name.startswith('Land_') or re.search(r'Wreck|wreck|Container_|Train_|Boat_Small|Misc_Well', name):
@@ -330,21 +410,13 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         existing = [[float(v) for v in p.get('pos').split()] for p in group.iter('point')]
         floor = loot.stock_floor(group)
         candidates, seen = [], set()
-        for match in PROXY.finditer(data):
-            proxy_model = pbo.normalize_path(match.group()[:-1].decode('ascii'))
-            if not proxy_model.endswith('.p3d'):
-                proxy_model += '.p3d'
+        decoded = reader.module.ODOL_File.read(io.BytesIO(data))
+        for proxy_model, transform in stock_proxies(data, decoded):
             kind = surface_model(proxy_model)
             if kind is None or proxy_model not in assets.members:
                 continue
             stem, closed = kind
             if closed not in assets.members:
-                continue
-            end = match.end()
-            if end + 48 > len(data):
-                continue
-            transform = struct.unpack_from('<12f', data, end)
-            if not all(math.isfinite(v) and abs(v) < 1000 for v in transform):
                 continue
             # Unit upright orthogonal proxy basis only; ignore wrecked/tilted furniture.
             x, y, z = transform[:3], transform[3:6], transform[6:9]
@@ -367,20 +439,20 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                                 'model_center': list(mesh.center)}
             for local, support in furniture_tops[mesh_key]:
                 above = [hit[0] for hit in mesh.hits(local[0], local[2]) if hit[0] > local[1] + .025]
-                open_shelf = '_open' in proxy_model or stem in {'shelf', 'shelf_1side', 'shelf_dz', 'library_a', 'case_cans_b', 'bed_stacked', 'bar_shelves_dz', 'rack_dz', 'tools_racking_dz', 'vojenska_palanda'}
-                # Closed cabinets admit only the exposed top. Open shelves may
-                # use a lower tier only with clearance for the loader's .5m box.
-                if above and (not open_shelf or min(above) - local[1] < .55):
+                # Every shelf tier needs actual empty volume and an independent
+                # standing/approach witness. A cabinet name is not evidence that
+                # the mesh is closed (several stock cases have exposed tiers).
+                if above and min(above) - local[1] < .55:
                     continue
                 point = stock_point(transform, local)
                 if floor is None or point[1] < floor + .30 or near(point, existing):
                     continue
                 candidates.append((point, {'model': proxy_model, 'support_model': mesh_key,
-                    'proxy_offset': match.start(), 'surface': role(stem),
+                    'surface': role(stem),
                     'local_point': [round(v, 8) for v in local],
                     'transform': [round(v, 8) for v in transform], **support}))
         try:
-            baked = reader.mesh(data, restore_center=False)
+            baked = Mesh(decoded, restore_center=False)
         except (ValueError, reader.module.ODOL_Error):
             rejected['baked-mesh-unreadable'] += 1
         else:
@@ -419,7 +491,14 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         # Spread admission over furniture roles and heights before filling the cap.
         by_role = {}
         for point, evidence in candidates:
-            by_role.setdefault(evidence['surface'], deque()).append((point, evidence))
+            by_role.setdefault(evidence['surface'], []).append((point, evidence))
+        # Pack from one edge of each support plane instead of privileging face
+        # centroids. A centre-first choice can consume both usable ends of a
+        # table under the unchanged .60m separation rule. Every sampled edge
+        # still has the same visual footprint, collision and reach requirements.
+        by_role = {key: deque(sorted(rows, key=lambda row: (
+                       round(row[0][1], 2), row[0][0], row[0][2], row[0][1])))
+                   for key, rows in by_role.items()}
         chosen, evidence = [], []
         while any(by_role.values()) and len(chosen) < loot.MAX_SURFACE_POINTS:
             for key in sorted(by_role):
@@ -470,7 +549,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         'frame': 'stock-mapgroupproto', 'caps': {'surface_per_group': loot.MAX_SURFACE_POINTS,
         'added_container_lootmax': loot.MAX_ADDED_LOOTMAX, 'total_points': loot.MAX_TOTAL_POINTS},
         'sources': {'stock_proto_sha256': sha(stock_bytes),
-        'method': 'ODOL56 visual horizontal face support with 12cm footprint; proxy marker faces excluded; raw building frame, restored furniture centres; 0.15m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; .60m separation; collision and reach audits before spacing/cap including full optional-prop item/body volumes, swept corridor and eye obstruction; optional props never support',
+        'method': 'ODOL56 visual horizontal face support with 12cm footprint; bounded decoded visual/collision proxy tables, composite interior and exposed cabinet tiers; proxy marker faces excluded; raw building frame, restored furniture centres; 0.15m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; edge-first plane ordering with .60m separation; collision and reach audits before spacing/cap including full optional-prop item/body volumes, swept corridor and eye obstruction; optional props never support',
         'prop_boxes_sha256': sha(auditor.boxes_bytes),
         'reach_generation': {'checked_candidates': audit_checked,
             'refusal_counting': 'collision support/enclosure, then visual/room/clearance/reach; stop on refusal; all checks before spacing/cap; final read-only audit collects all reach reasons',
@@ -488,9 +567,129 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
     # enclosure are mandatory final admission, including stock proxy furniture.
     doc, _ = SupportAudit(addons, reader_folder, stock_proto).filter(doc)
     doc['sources']['method'] += '; final collision-only support/enclosure gate (see collision_support)'
+    if partition is not None:
+        doc['sources']['generation_partition'] = {'index': partition[0], 'count': partition[1]}
     raw = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
     loot.parse_overlay(raw)
     return raw
+
+
+def merge_partitions(paths, addons, stock_proto, reader_folder, prior_overlay=None):
+    """Join a complete disjoint scan and re-audit complementary prior points.
+
+    A larger valid point set gets first choice, followed by compatible points
+    from the other set. Caps and spacing are unchanged. Old coordinates never
+    reserve space before passing the current collision and reach gates.
+    """
+    from tools.package.loot_reach_audit import Audit
+    from tools.package.loot_support_audit import Audit as SupportAudit
+    if not 1 <= len(paths) <= 32:
+        raise ValueError('require 1..32 generation partitions')
+    inputs = [(Path(path).read_bytes(), path) for path in paths]
+    parts = [loot.parse_overlay(raw) for raw, _ in inputs]
+    if not parts:
+        raise ValueError('no generation partitions')
+    partitions = [part['sources'].get('generation_partition', {}) for part in parts]
+    if (any(p.get('count') != len(parts) for p in partitions)
+            or sorted(p.get('index', -1) for p in partitions) != list(range(len(parts)))):
+        raise ValueError('require every disjoint generation partition exactly once')
+    doc = copy.deepcopy(parts[0])
+    sources = doc['sources']
+    sources.pop('generation_partition')
+    sources.pop('collision_support')
+    doc['groups'] = {}
+    sources['model_surfaces'] = {}
+    sources['rejected_groups'] = {}
+    rejected, refusals = Counter(), Counter()
+    for key in ('eligible_stock_groups', 'eligible_placed_groups', 'eligible_map_instances'):
+        sources[key] = sum(part['sources'][key] for part in parts)
+    for part in parts:
+        for key in ('stock_proto_sha256', 'map_pos_sha256', 'prop_boxes_sha256',
+                    'reader_revision', 'reader_sha256', 'method'):
+            if part['sources'].get(key) != sources.get(key):
+                raise ValueError('partition source mismatch: ' + key)
+        if set(doc['groups']) & set(part['groups']):
+            raise ValueError('overlapping generation partitions')
+        doc['groups'].update(part['groups'])
+        sources['model_surfaces'].update(part['sources']['model_surfaces'])
+        sources['rejected_groups'].update(part['sources']['rejected_groups'])
+        rejected.update(part['sources']['rejected_counts'])
+        refusals.update(part['sources']['reach_generation']['refusal_counts'])
+    sources['rejected_counts'] = dict(sorted(rejected.items()))
+    sources['reach_generation']['checked_candidates'] = sum(
+        p['sources']['reach_generation']['checked_candidates'] for p in parts)
+    sources['reach_generation']['refusal_counts'] = dict(sorted(refusals.items()))
+    sources['generation_partitions'] = {'count': len(parts),
+        'method': 'complete disjoint sorted stock-group round robin; full original stock pin in every partition',
+        'input_sha256': [sha(raw) for raw, _ in inputs]}
+    if sources['stock_proto_sha256'] != sha(Path(stock_proto).read_bytes()):
+        raise ValueError('partition stock prototype pin mismatch')
+    if prior_overlay is not None:
+        raw = Path(prior_overlay).read_bytes()
+        prior = loot.parse_overlay(raw)
+        if prior['sources']['stock_proto_sha256'] != sources['stock_proto_sha256']:
+            raise ValueError('prior stock prototype pin mismatch')
+        for model, pin in prior['sources']['model_surfaces'].items():
+            if model in sources['model_surfaces'] and sources['model_surfaces'][model] != pin:
+                raise ValueError('prior model pin mismatch: ' + model)
+            sources['model_surfaces'][model] = pin
+        auditor = Audit(addons, reader_folder, stock_proto, ROOT)
+        collision = SupportAudit(addons, reader_folder, stock_proto)
+        refused = Counter()
+        added = 0
+        for name, old in prior['groups'].items():
+            print('merge ' + name, file=sys.stderr, flush=True)
+            current = doc['groups'].get(name)
+            if current and any(current[key] != old[key] for key in (
+                    'family', 'stock_sha256', 'building_model_sha256')):
+                raise ValueError('prior building pin/family mismatch: ' + name)
+            if current and any(current['containers']['lootHCSurface'][key]
+                               != old['containers']['lootHCSurface'][key]
+                               for key in ('categories', 'tags')):
+                raise ValueError('prior category mismatch: ' + name)
+            context = auditor.scene(name, old)
+            support_context = collision.context(name, old)
+            sets = []
+            for spec in (current, old):
+                valid = []
+                if spec:
+                    for point, evidence in zip(spec['containers']['lootHCSurface']['points'],
+                                               spec['surface_sources']):
+                        reason, _ = collision.check(name, point, support_context)
+                        failures, _ = auditor.check(point, evidence, context,
+                            auditor.templates.get(name, []), stop_on_refusal=True) if not reason else ([], None)
+                        if reason or failures:
+                            refused.update([reason] if reason else failures)
+                        else:
+                            valid.append((point, evidence))
+                sets.append(valid)
+            chosen = []
+            layouts = sorted(sets, key=len, reverse=True)
+            for point, evidence in layouts[0] + layouts[1]:
+                if len(chosen) < loot.MAX_SURFACE_POINTS and not near(point, [p for p, _ in chosen]):
+                    chosen.append((point, evidence))
+            if not chosen:
+                doc['groups'].pop(name, None)
+                continue
+            added += len(chosen) - (len(current['surface_sources']) if current else 0)
+            spec = copy.deepcopy(current or old)
+            spec['containers']['lootHCSurface']['points'] = [p for p, _ in chosen]
+            spec['containers']['lootHCSurface']['lootmax'] = loot.added_lootmax(len(chosen))
+            spec['surface_sources'] = [e for _, e in chosen]
+            spec.pop('collision_support', None)
+            doc['groups'][name] = spec
+        sources['prior_overlay_selection'] = {'sha256': sha(raw), 'net_added_points': added,
+            'method': 're-audit both sets; prefer larger passing layout then append compatible points; same spacing/caps/categories',
+            'refusal_counts': dict(sorted(refused.items()))}
+    for name in doc['groups']:
+        reason = sources['rejected_groups'].pop(name, None)
+        if reason is not None:
+            rejected[reason] -= 1
+    sources['rejected_counts'] = {key: value for key, value in sorted(rejected.items()) if value}
+    doc, _ = SupportAudit(addons, reader_folder, stock_proto).filter(doc)
+    encoded = (json.dumps(doc, sort_keys=True, indent=2) + '\n').encode()
+    loot.parse_overlay(encoded)
+    return encoded
 
 
 def report(raw):
@@ -512,9 +711,20 @@ def main():
     parser.add_argument('--stock-proto', type=Path, required=True)
     parser.add_argument('--reader', type=Path, required=True, help='external pinned ODOL reader directory (see docs/LOOT_POINTS.md)')
     parser.add_argument('--map-pos', type=Path, help='stock mapgrouppos.xml for instance counts')
+    parser.add_argument('--partition', nargs=2, type=int, metavar=('INDEX', 'COUNT'),
+                        help='scan disjoint sorted stock-group partition (0-based index; count <= 32)')
+    parser.add_argument('--merge-partitions', nargs='+', type=Path, help='join every partition from one complete scan')
+    parser.add_argument('--prior-overlay', type=Path, help='re-audit and combine complementary prior points when merging')
     parser.add_argument('--out', type=Path, default=OUTPUT)
     args = parser.parse_args()
-    raw = generate(args.addons, args.stock_proto, args.reader, args.map_pos)
+    if args.partition is not None and args.out.resolve() == OUTPUT.resolve():
+        parser.error('--partition requires a separate --out; never replace the shipped overlay with one partition')
+    if args.merge_partitions and args.partition:
+        parser.error('--merge-partitions and --partition are mutually exclusive')
+    if args.prior_overlay and not args.merge_partitions:
+        parser.error('--prior-overlay requires --merge-partitions')
+    raw = (merge_partitions(args.merge_partitions, args.addons, args.stock_proto, args.reader, args.prior_overlay)
+           if args.merge_partitions else generate(args.addons, args.stock_proto, args.reader, args.map_pos, args.partition))
     args.out.write_bytes(raw)
     report(raw)
 

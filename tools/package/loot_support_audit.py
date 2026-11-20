@@ -12,7 +12,6 @@ import io
 import json
 import math
 from pathlib import Path
-import struct
 import sys
 import xml.etree.ElementTree as ET
 
@@ -23,43 +22,14 @@ from tools.package.loot_reach_audit import (
     Scene, collision_triangles, cross, dot, intersection, lod_for, model_point, subtract,
 )
 
+proxy_table = gen.proxy_table
+
 ROOT = Path(__file__).resolve().parents[2]
 # ODOL resolution identifiers, compared tolerantly because stored as float32.
 COLLISION = (('geometry', 1e13), ('roadway', 3e15), ('view-geometry', 6e15))
 FOOTPRINT = ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12),
              (.085, .085), (.085, -.085), (-.085, .085), (-.085, -.085))
 METHOD = 'collision-support-v1: Geometry/Roadway/View-Geometry only; 0..0.08m below; 12cm footprint and 50cm vertical clearance; building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback'
-
-
-def proxy_table(data, model, lod):
-    """Read only the bounded proxy table at this decoded LOD's start address.
-
-    ODOL56: u32 count, NUL path, 12 float matrix, four u32 indices. This
-    independently identifies installed proxies instead of scanning all bytes
-    (which can confuse visual LODs and other strings with collision proxies).
-    """
-    start, end = model.lod_starts[lod.index], model.lod_ends[lod.index]
-    count = struct.unpack_from('<I', data, start)[0]
-    offset = start + 4
-    if count > 10000:
-        raise ValueError('proxy table count outside bound')
-    for _ in range(count):
-        stop = data.find(b'\0', offset, min(end, offset + 1024))
-        if stop < 0 or stop + 65 > end:
-            raise ValueError('truncated proxy table')
-        path = pbo.normalize_path(data[offset:stop].decode('ascii'))
-        if not path.endswith('.p3d'):
-            path += '.p3d'
-        matrix = struct.unpack_from('<12f', data, stop + 1)
-        if not all(math.isfinite(v) and abs(v) < 1000 for v in matrix):
-            raise ValueError('invalid proxy matrix')
-        # Reject scaled/sheared/corrupt transforms, retain actual rigid tilts.
-        axes = (matrix[:3], matrix[3:6], matrix[6:9])
-        if any(abs(dot(a, b) - (i == j)) > .002
-               for i, a in enumerate(axes) for j, b in enumerate(axes)):
-            raise ValueError('non-rigid proxy matrix')
-        yield path, matrix
-        offset = stop + 65
 
 
 class SupportScene(Scene):
