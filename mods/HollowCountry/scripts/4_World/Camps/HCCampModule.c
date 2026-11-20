@@ -446,11 +446,8 @@ class HCCampModule : HCModule
     // Systems/Inventory/Cargo.c:28 GetItemCount. StorageItem/Read retain their
     // existing native evidence in HCCampScan.c. No inventory is moved or owned.
     // The existing raid source range/object cap bound physical storage evidence.
-    // Admin selection is synchronous: reserve its bounded worst case once,
-    // rather than starving later/nearer candidates after the first scan. Normal
-    // ticks still inspect just one target. 128 is HCCampScan.Read's existing
-    // cap (also StepCamp/admin work); the second scan uses config.MaxObjects.
-    // Charging both prevents a lowered cargo cap undercounting the first scan.
+    // [HC TickCost] window 12 of 096: admit the known candidate count once;
+    // only executed scans/rows are charged below. Existing selection/scan caps stay intact.
     protected bool HCReserveClaimSelection(int count, out string reason)
     {
         reason = "CLAIM_SCAN_CONFIG_UNAVAILABLE";
@@ -458,8 +455,7 @@ class HCCampModule : HCModule
         HCBaseRaidConfig config = HCBaseRaid.HCConfig();
         if (!config) { return false; }
         reason = "CLAIM_SELECTION_WORK_BUDGET";
-        int cost = count * (128 + config.MaxObjects + config.MaxPlayers);
-        return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, cost);
+        return HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, count);
     }
 
     protected HCCampScan HCReadClaimScan(HCCampRecord target, out string reason, bool budgeted = false)
@@ -469,13 +465,18 @@ class HCCampModule : HCModule
         HCBaseRaidConfig config = HCBaseRaid.HCConfig();
         if (!config) { return null; }
         reason = "CLAIM_SCAN_WORK_BUDGET";
-        if (!budgeted && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + config.MaxObjects + config.MaxPlayers)) { return null; }
+        // [HC TickCost] window 12 of 096: selection already admitted budgeted scans.
+        if (!budgeted && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return null; }
         HCCampScan scan = HCCampScan.Read(target.Position, false);
+        // [HC TickCost] window 12 of 096: one executed Read (internally capped at 128), not 128 reserved rows.
+        HCServer.HCTickWork().HCCharge(1);
         reason = "CLAIM_SCAN_UNAVAILABLE";
         if (!scan) { return null; }
         array<Object> objects = new array<Object>;
         array<CargoBase> cargos = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(target.Position, config.SourceRangeMeters, objects, cargos);
+        // [HC TickCost] window 12 of 096: one query, then only the inspected storage rows.
+        HCServer.HCTickWork().HCCharge(1);
         reason = "CLAIM_STORAGE_SCAN_CAP";
         if (objects.Count() > config.MaxObjects || cargos.Count() > config.MaxObjects) { return null; }
         // A container alone is insufficient: require real stored cargo. The
@@ -483,6 +484,7 @@ class HCCampModule : HCModule
         scan.Storage = false;
         for (int objectIndex = 0; objectIndex < objects.Count(); objectIndex++)
         {
+            HCServer.HCTickWork().HCCharge(1);
             ItemBase storage = ItemBase.Cast(objects[objectIndex]);
             if (!storage || storage.IsPendingDeletion() || storage.IsRuined() || !HCCampScan.StorageItem(storage)) { continue; }
             CargoBase cargo = storage.GetInventory().GetCargo();
@@ -527,9 +529,11 @@ class HCCampModule : HCModule
         reason = "camp-clock-unavailable";
         if (now < 1 || now < m_LastUtc) { return false; }
         reason = "camp-admin-shared-work-budget";
-        if (camp.AnchorKind != "claim" && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 128 + HCGCCampGroupConfig.Get().CampPlayers)) { return false; }
+        // [HC TickCost] window 12 of 096: admit one arrival; charge actual players and scan calls below.
+        if (camp.AnchorKind != "claim" && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return false; }
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
+        HCServer.HCTickWork().HCCharge(Math.Min(m_Players.Count(), HCGCCampGroupConfig.Get().CampPlayers));
         reason = "camp-player-cap-exceeded";
         if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); return false; }
         if (camp.AnchorKind == "claim")
@@ -545,6 +549,8 @@ class HCCampModule : HCModule
         FireplaceBase fire = FireFor(camp);
         bool burning = fire && fire.IsBurning();
         HCCampScan scan = HCCampScan.Read(camp.Position, burning);
+        // [HC TickCost] window 12 of 096: one executed bounded scan, including failed scans.
+        HCServer.HCTickWork().HCCharge(1);
         reason = "camp-scan-unavailable";
         if (!scan) { return false; }
         if (raid) { return HCCampProbes.HCRequestRaidParty(this, camp, scan, burning, now, reason); }
