@@ -168,7 +168,7 @@ class HCBuildingClaim
     string HCApply(int groupId, bool manage, string buildingId, vector position, int now, bool release)
     {
         if (!HCReady(now)) { return "Claim service unavailable."; }
-        if (groupId < 1 || !manage) { return "Group access changed."; }
+        if (groupId < 1 || !manage) { return "Only a group owner or officer can claim or release a building."; }
         if (buildingId == "") { return "Claim service unavailable."; }
         int index = 0;
         foreach (HCBuildingClaimRecord row : m_Data.Claims)
@@ -177,7 +177,7 @@ class HCBuildingClaim
             if (row.GroupId == groupId)
             {
                 if (!release) { return "Your group already claims a building."; }
-                if (row.BuildingId != buildingId) { return "Group access changed."; }
+                if (row.BuildingId != buildingId) { return "Your group's claim is on another building."; }
                 m_LastSteps.Remove(row.BuildingId);
                 m_Data.Claims.RemoveOrdered(index);
                 if (!HCCommit(now)) { return "Claim persistence fault."; }
@@ -185,7 +185,7 @@ class HCBuildingClaim
             }
             index++;
         }
-        if (release) { return "Group access changed."; }
+        if (release) { return "Your group holds no building claim."; }
         if (m_Data.Claims.Count() >= HCAILimits.Get().MaxCamps) { return "Claim limit reached."; }
         HCBuildingClaimRecord claim = new HCBuildingClaimRecord;
         claim.GroupId = groupId;
@@ -233,6 +233,8 @@ class HCBuildingClaim
     {
         if (!building || building.IsPendingDeletion() || building.GetType().IndexOf("Land_") != 0 || !HCGroupRules.PositionValid(building.GetPosition())) { return false; }
         if (Bunker.Cast(building) || ContainerLockedBase.Cast(building)) { return false; }
+        // #239: static car and vehicle wrecks and ruins carry lockpick doors but are not buildings to claim.
+        if (building.GetType().IndexOf("Wreck") >= 0 || building.GetType().IndexOf("Ruin") >= 0) { return false; }
         if (door < 0 || door >= building.GetDoorCount() || !building.GetDoorInfo(door)) { return false; }
         return (building.GetLockCompatibilityType(door) & (1 << EBuildingLockType.LOCKPICK)) != 0;
     }
@@ -309,7 +311,15 @@ class HCBuildingClaim
         if (!groups || !groups.HCClaimHealthy()) { return "Claim service unavailable."; }
         // Re-read authenticated live peer and manager role at completion.
         int groupId = groups.HCClaimActorGroup(player, true);
-        return HCApply(groupId, true, HCIdentity(building), building.GetPosition(), HCWorldClock.UTC(), release);
+        string result = HCApply(groupId, true, HCIdentity(building), building.GetPosition(), HCWorldClock.UTC(), release);
+        if (result == "")
+        {
+            // The actor's prompt flips at once; other members follow within one 5 s slice.
+            HCBuildingClaimHint requestHints = HCBuildingClaimHint.Get();
+            requestHints.HCIndex(m_Data.Claims);
+            requestHints.HCSend(player, groups, m_OnlineSeconds, true);
+        }
+        return result;
     }
 
     // Called only by owner tick; one retained claim cursor, bounded snapshots.
@@ -326,7 +336,9 @@ class HCBuildingClaim
         int now = HCWorldClock.UTC();
         if (!HCReady(now)) { return; }
         HCGroupService groups = HCGroupService.Get();
-        if (!groups || !groups.HCClaimHealthy() || m_Data.Claims.Count() == 0) { return; }
+        if (!groups || !groups.HCClaimHealthy()) { return; }
+        HCHintRound(groups);
+        if (m_Data.Claims.Count() == 0) { return; }
         m_Units.HCReset(40);
         m_Work.HCReset(40);
         if (!m_Examining)
@@ -379,6 +391,21 @@ class HCBuildingClaim
             if (!HCCommit(now)) { return; }
         }
         else { m_Cursor++; }
+    }
+
+    // #239: tell each online player's own client whether it may claim and which
+    // building its group holds. Same 5 s slice and 32-player cap as the visit walk.
+    protected void HCHintRound(HCGroupService groups)
+    {
+        array<Man> people = HCPerfPlayers.HCGet();
+        if (!people || people.Count() > 32) { return; }
+        HCBuildingClaimHint hints = HCBuildingClaimHint.Get();
+        hints.HCPrune(people);
+        hints.HCIndex(m_Data.Claims);
+        foreach (Man person : people)
+        {
+            hints.HCSend(PlayerBase.Cast(person), groups, m_OnlineSeconds, false);
+        }
     }
 
     int HCStepCheckpoint()

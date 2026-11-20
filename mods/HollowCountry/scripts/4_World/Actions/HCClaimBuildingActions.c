@@ -40,17 +40,11 @@ class HCClaimBuildingAction : ActionContinuousBase
         if (!HCBuildingClaim.HCActor(player) || !target || target.GetParent() || !IsInReach(player, target, UAMaxDistances.DEFAULT)) { return false; }
         Building building = Building.Cast(target.GetObject());
         if (!building || !HCBuildingClaim.HCDoor(building, building.GetDoorIndex(target.GetComponentIndex()))) { return false; }
-        if (GetGame().IsServer())
-        {
-            HCBuildingClaim claims = HCBuildingClaim.HCGet();
-            if (!claims) { return false; }
-            HCGroupService groups = HCGroupService.Get();
-            if (!groups) { return false; }
-            int groupId = groups.HCClaimActorGroup(player, true);
-            if (groupId < 1) { return false; }
-            if (HCReleaseRequest()) { return claims.HCHoldsClaim(groupId, HCBuildingClaim.HCIdentity(building)); }
-            return true;
-        }
+        // #239: the client shows Claim only to a group owner or officer whose group holds no
+        // claim, and Release only on the held building (server hint, HCBuildingClaimHint).
+        // The server checks geometry only, so a stale hint ends with HCRequest's message at
+        // completion instead of a ring that stops with no reason.
+        if (!GetGame().IsServer()) { return HCBuildingClaimHint.Get().HCAllows(building, HCReleaseRequest()); }
         return true;
     }
     override void OnFinishProgressServer(ActionData action_data)
@@ -62,7 +56,12 @@ class HCClaimBuildingAction : ActionContinuousBase
         string reason = "Claim service unavailable.";
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
         if (claims) { reason = claims.HCRequest(action_data.m_Player, action_data.m_Target, HCReleaseRequest()); }
-        if (reason != "") { action_data.m_Player.MessageStatus(reason); }
+        if (reason == "")
+        {
+            reason = "Building claimed for your group.";
+            if (HCReleaseRequest()) { reason = "Building claim released."; }
+        }
+        action_data.m_Player.MessageStatus(reason);
     }
 }
 
