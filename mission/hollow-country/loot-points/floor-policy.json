@@ -2,7 +2,7 @@
   "schema": 1,
   "kind": "hollow-country-loot-floor-policy",
   "enabled": true,
-  "note": "Owner direction 2026-11-19: only clothing and exactly named garbage (Paper) may use floor coordinates. No bag, barrel, pouch, tool, weapon or vehicle-part patterns count as garbage. Every loaded equipment type loses floor eligibility, including firearms and optional CE layers; supply quantities are retained. Displaced capacity moves only to compatible existing shelves, bounded by their points and max_container_lootmax. Unplaced demand and missing shelf routes are recorded per class in the install receipt; no floor fallback or Search grants. preserve_tolerance is a legacy schema field and does not permit retention. Set enabled=false for operator opt-out. CE matching and geometry runtime=PENDING. Mixed floor/shelves or ground-tagged containers are treated as floors, not shelf receivers.",
+  "note": "Owner 2026-11-20: avoid floors while keeping guns findable. Evidence-indexed receivers relocate exact native raised, shelf, platform, bed and wreck-interior points without duplicating coordinates. Contextual native shelf containers admit equipment including firearms. Bounded explicit Military-only weapon exceptions below preserve at most two slots where no raised receiver is evidenced, pending model survey; they are reported separately as floor equipment, never called shelves. All capacity is CE-owned and point-bounded; no nominal/min edits. Unplaced demand remains traceable. runtime=PENDING.",
   "floor_categories": [
     "clothes"
   ],
@@ -35,11 +35,2823 @@
   "floor_band_m": 0.75,
   "capacity": {
     "enabled": true,
-    "max_container_lootmax": 12,
+    "max_container_lootmax": 40,
     "preserve_tolerance": 0.0
   },
   "floor_container_tags": [
     "floor",
     "ground"
-  ]
+  ],
+  "receivers": {
+    "Land_Village_store": {
+      "evidence": "Installed mapgroupproto.xml Land_Village_store: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.323242 -1.379013 -1.624512",
+          "6.072753 -1.519379 -2.364502",
+          "6.057129 -1.519928 1.418945",
+          "6.348633 -1.759003 -0.726807",
+          "2.564941 -1.334320 -3.411133",
+          "4.608398 -1.378998 -4.480957",
+          "2.593750 -1.684570 -0.877197",
+          "1.109863 -1.727844 -0.757080",
+          "1.085938 -1.727844 -2.420166",
+          "0.017578 -1.727844 0.106445",
+          "1.066895 -1.727844 -3.403564",
+          "-0.751953 -1.727844 0.040527",
+          "0.866211 -1.232330 -0.086426",
+          "-2.940429 -1.684578 -2.386719",
+          "0.464356 -1.334312 1.640869",
+          "3.323730 -1.379013 -3.540039"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Wreck_C130J_Cargo": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_C130J_Cargo: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-10.216827 -4.788198 -0.759033",
+          "-5.972808 -4.556667 0.800903",
+          "-6.367980 -4.553556 -0.754639",
+          "-4.003571 -4.537710 -0.337647",
+          "-0.895264 -4.513454 -0.673584",
+          "2.066528 -4.492989 -0.310181"
+        ],
+        "loot": [
+          "-2.139313 -4.527470 0.572631",
+          "-7.879120 -4.568596 0.246337",
+          "0.352356 -4.509430 0.665771",
+          "5.928223 -4.833448 -0.836671",
+          "5.909514 -4.836582 0.714355",
+          "4.918579 -4.715311 -0.710938",
+          "5.039856 -4.732702 0.205566",
+          "3.935394 -4.605631 0.972046",
+          "3.871979 -4.592604 -0.651612"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks1": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks1: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.032560 -0.354279 -5.900653",
+          "-4.015567 -0.354279 -3.206650",
+          "3.972091 -0.354279 7.140567",
+          "4.064371 -0.354279 2.007885",
+          "-4.068398 -0.354279 -6.366483",
+          "-4.040900 -0.354279 -5.861280",
+          "-3.991739 -0.354279 4.005226",
+          "-3.394898 -1.332550 -6.975286",
+          "-0.070506 -1.021179 7.138686",
+          "1.777034 -0.721527 7.501217",
+          "-2.550512 -1.522308 -4.801324",
+          "2.628867 -1.522308 -2.249102",
+          "3.764592 -1.522308 -4.747601",
+          "3.706186 -1.522308 0.379718",
+          "2.500288 -0.732666 3.043051",
+          "-2.622753 -1.522308 5.505932",
+          "-3.691032 -1.522308 0.332938",
+          "-3.684634 -1.522308 5.557548",
+          "-3.696889 -0.731140 3.048392",
+          "-3.627285 -0.731232 -2.166260",
+          "3.768444 -1.522308 5.454572",
+          "3.794332 -1.522308 3.041410",
+          "-2.589962 -0.732483 0.330047",
+          "-2.626057 -0.732452 -2.183148",
+          "-2.552385 -1.522308 3.036597",
+          "-3.676805 -0.731171 0.358292",
+          "3.800732 -0.731049 5.627145",
+          "-3.757246 -1.522308 2.971598",
+          "-3.712632 -1.522308 -2.238887",
+          "-2.595756 -0.732483 5.522267",
+          "2.658286 -0.732422 5.641670",
+          "2.649521 -1.522308 3.047932",
+          "2.634146 -0.732513 -2.209661",
+          "2.751855 -1.522308 0.405272",
+          "-3.694530 -0.731140 -4.753202",
+          "-2.565761 -0.732513 -4.769644",
+          "3.692113 -0.731201 0.412958",
+          "3.782346 -0.731110 -4.717569",
+          "2.639081 -0.732483 -4.754410",
+          "3.711096 -0.731201 -2.212100"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks2": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-2.142600 -0.088013 -4.251707",
+          "-2.397435 -0.700653 -2.594533",
+          "-2.452426 0.090973 0.560260",
+          "-1.527835 -0.700653 3.729634",
+          "-2.000693 0.090546 -3.007469",
+          "-0.946605 0.089142 3.470104",
+          "-1.047385 0.089264 0.246593",
+          "-2.044808 0.090485 3.543137",
+          "-0.762668 0.089020 6.826906",
+          "-1.864955 0.090363 6.757661",
+          "-0.775024 0.089081 -2.894288",
+          "-0.863166 -0.700653 -3.016141",
+          "-0.901099 -0.700653 6.772164",
+          "-1.005871 -0.700653 0.268993",
+          "-2.140149 -0.700653 0.298818",
+          "-2.126251 -0.700653 3.440543"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks3": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks3: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.545154 -1.488129 8.006820",
+          "-6.160875 -1.491913 6.040619",
+          "-1.684357 -1.112610 7.990099",
+          "-2.328104 -1.491180 7.908285",
+          "4.616979 -1.477051 5.219459",
+          "2.965080 -1.477051 5.205966",
+          "5.689715 -1.572723 1.147010",
+          "4.910933 -1.198181 7.780004",
+          "4.547773 -0.741882 4.277514",
+          "-5.514381 -1.263092 5.328878",
+          "5.588154 -0.741821 -2.390849",
+          "4.502381 -0.740509 -2.416950",
+          "0.210930 -0.741943 -2.400459",
+          "5.561732 -0.740662 4.242535",
+          "0.008276 -0.740417 4.346078",
+          "1.384165 -0.740570 0.825498",
+          "1.216090 -0.741882 4.271126",
+          "4.570772 -0.741913 2.251359",
+          "0.301984 -0.741882 0.736043",
+          "-6.186231 -1.263092 5.375863",
+          "5.784481 -1.531708 2.250964",
+          "4.616177 -1.531708 2.186264",
+          "0.309348 -1.531708 0.849578",
+          "5.625516 -1.531708 4.280410",
+          "0.063615 -1.531708 4.284572",
+          "1.392098 -1.531708 -2.358613",
+          "4.487618 -1.531708 -2.427899",
+          "1.462355 -1.531708 0.869730"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks4": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks4: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks5": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks5: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-7.071167 -4.293365 8.186148",
+          "-3.978395 -0.470978 13.125449",
+          "-4.963774 -4.293365 13.051367",
+          "-4.011137 -4.552124 10.165598",
+          "-4.008941 -0.472229 13.789193",
+          "-4.003232 -4.551819 9.573564",
+          "-2.022142 -4.389771 6.305952",
+          "-7.646714 0.306732 8.524680",
+          "-5.598636 0.305511 9.523154",
+          "-5.235060 -0.484375 12.901927",
+          "-6.255827 0.305542 12.869502",
+          "-7.714742 -0.484375 9.602250",
+          "-5.285401 0.306732 12.872553",
+          "-5.630009 -0.484375 9.597950",
+          "-7.655466 -0.484375 8.526790"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks5_Basement": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks5_Basement: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.710874 -7.409332 7.396822",
+          "-4.848577 1.103210 4.493464",
+          "-4.863351 1.102081 5.426901",
+          "-4.469063 1.103394 8.874453",
+          "-5.404221 0.312256 8.955888",
+          "-6.877185 0.312256 4.295097",
+          "4.087702 -7.409332 7.807311",
+          "-6.856911 0.312256 5.324627",
+          "-6.782982 1.102203 5.336627",
+          "-5.507637 1.102142 8.692666",
+          "-6.830784 1.103302 4.435497",
+          "-4.515993 0.312256 8.777425",
+          "-4.837512 0.312256 5.401491",
+          "-4.814090 0.312256 4.348497"
+        ],
+        "lootmedic": [
+          "2.150299 -7.274200 -0.076138",
+          "2.659601 -7.274200 0.239354",
+          "3.114574 -7.274200 0.522239",
+          "4.450497 -7.092560 1.449160",
+          "4.892554 -7.092560 1.719250",
+          "4.224602 -7.706451 -5.022485",
+          "3.468449 -7.706451 -4.845861",
+          "8.155869 -7.396820 -2.887968",
+          "7.360744 -7.396820 -2.666862",
+          "0.615404 -7.461273 1.361351"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks6": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks6: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.172609 1.003563 7.094237",
+          "4.328613 1.383560 7.088624",
+          "1.538086 0.986885 4.114990",
+          "2.118165 1.744637 3.382812",
+          "2.096435 1.746384 1.935791",
+          "-3.732912 0.974670 10.995605",
+          "-3.642578 1.133072 0.933593",
+          "-3.283448 1.018600 2.358641",
+          "-4.333983 1.133072 6.365480",
+          "3.962404 1.134743 6.366455",
+          "-1.384278 1.018600 6.400146",
+          "1.766358 0.954857 5.892334",
+          "-4.173097 1.232178 11.071532",
+          "1.814941 0.954857 2.079590",
+          "-3.432862 1.134743 -2.191650",
+          "-1.720947 0.954857 -4.658203",
+          "-1.757812 0.954857 -7.558350",
+          "-1.936767 1.745041 -7.451416",
+          "-1.884765 1.746323 -6.086181",
+          "-1.799561 1.744446 -4.535156",
+          "-1.509766 0.954857 -9.299560",
+          "-2.827392 0.954857 -11.841552",
+          "-3.097900 1.746445 -12.123535",
+          "-2.203856 1.745361 -11.560058",
+          "2.949707 0.954857 -12.513184",
+          "3.204834 0.954857 -8.945313",
+          "2.964111 1.744667 -9.401123",
+          "2.308593 1.134743 -11.711669",
+          "2.957030 1.744675 -12.225586",
+          "2.046875 1.745773 -12.845215",
+          "2.064697 0.954857 -2.643066",
+          "3.006836 0.954857 -2.495606",
+          "3.114013 1.744484 -4.777100",
+          "1.560791 0.981339 -7.896241",
+          "1.654786 4.558167 -14.246582",
+          "1.970947 4.303635 -12.733398",
+          "2.163085 4.330612 -11.717529",
+          "3.186523 5.093170 -12.212890",
+          "1.745850 4.303635 -9.104247",
+          "2.452882 5.094055 -9.453858",
+          "2.997314 4.423828 -7.932617",
+          "3.222168 4.322075 -2.062500",
+          "4.349853 4.461479 -5.085205",
+          "2.942383 4.303635 4.167724",
+          "2.027100 4.303635 3.872802",
+          "2.949463 5.093452 2.588623",
+          "3.277345 5.093056 4.434326",
+          "2.414795 5.094101 3.803466",
+          "3.000245 4.303635 6.065430",
+          "3.156005 5.093208 5.770507",
+          "1.920411 4.461479 9.955566",
+          "1.937747 4.303635 12.096924",
+          "2.562744 4.303635 7.617432",
+          "3.419922 5.093140 7.714844",
+          "1.824952 5.095070 7.744384",
+          "4.148685 4.558167 12.434569",
+          "-3.149903 4.461479 -14.348877",
+          "-2.794189 5.094879 -11.790283",
+          "-1.978759 5.093895 -11.493408",
+          "-2.291504 5.094276 -9.955567",
+          "-2.936279 5.095055 -9.522705",
+          "-2.966064 4.303635 -6.895264",
+          "-2.741211 4.303635 -5.015869",
+          "-2.983642 5.095108 -6.835450",
+          "-1.862793 5.093758 -6.847412",
+          "-2.988526 5.095116 -5.331543",
+          "-6.120850 4.627136 4.548827",
+          "-6.122071 4.627136 2.255858",
+          "-5.906006 4.627136 3.032469",
+          "-3.715091 4.332024 7.191404",
+          "-2.322756 5.094315 7.703124",
+          "-1.559330 5.093391 7.847901",
+          "-3.032230 5.095169 7.693358",
+          "-1.471440 4.558167 12.790281",
+          "-3.951657 4.303635 11.983399",
+          "-3.143557 4.331146 13.314695",
+          "-3.875493 5.094147 12.538573",
+          "2.134767 5.095093 10.538573"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks6_Old": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks6_Old: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.172609 1.003563 7.094237",
+          "4.328613 1.383560 7.088624",
+          "1.538086 0.986885 4.114990",
+          "2.118165 1.744637 3.382812",
+          "2.096435 1.746384 1.935791",
+          "-3.732912 0.974670 10.995605",
+          "-3.642578 1.133072 0.933593",
+          "-3.283448 1.018600 2.358641",
+          "-4.333983 1.133072 6.365480",
+          "3.962404 1.134743 6.366455",
+          "-1.384278 1.018600 6.400146",
+          "1.766358 0.954857 5.892334",
+          "-4.173097 1.232178 11.071532",
+          "1.814941 0.954857 2.079590",
+          "-3.432862 1.134743 -2.191650",
+          "-1.720947 0.954857 -4.658203",
+          "-1.757812 0.954857 -7.558350",
+          "-1.936767 1.745041 -7.451416",
+          "-1.884765 1.746323 -6.086181",
+          "-1.799561 1.744446 -4.535156",
+          "-1.509766 0.954857 -9.299560",
+          "-2.827392 0.954857 -11.841552",
+          "-3.097900 1.746445 -12.123535",
+          "-2.203856 1.745361 -11.560058",
+          "2.949707 0.954857 -12.513184",
+          "3.204834 0.954857 -8.945313",
+          "2.964111 1.744667 -9.401123",
+          "2.308593 1.134743 -11.711669",
+          "2.957030 1.744675 -12.225586",
+          "2.046875 1.745773 -12.845215",
+          "2.064697 0.954857 -2.643066",
+          "3.006836 0.954857 -2.495606",
+          "3.114013 1.744484 -4.777100",
+          "1.560791 0.981339 -7.896241",
+          "1.654786 4.558167 -14.246582",
+          "1.970947 4.303635 -12.733398",
+          "2.163085 4.330612 -11.717529",
+          "3.186523 5.093170 -12.212890",
+          "1.745850 4.303635 -9.104247",
+          "2.452882 5.094055 -9.453858",
+          "2.997314 4.423828 -7.932617",
+          "3.222168 4.322075 -2.062500",
+          "4.349853 4.461479 -5.085205",
+          "2.942383 4.303635 4.167724",
+          "2.027100 4.303635 3.872802",
+          "2.949463 5.093452 2.588623",
+          "3.277345 5.093056 4.434326",
+          "2.414795 5.094101 3.803466",
+          "3.000245 4.303635 6.065430",
+          "3.156005 5.093208 5.770507",
+          "1.920411 4.461479 9.955566",
+          "1.937747 4.303635 12.096924",
+          "2.562744 4.303635 7.617432",
+          "3.419922 5.093140 7.714844",
+          "1.824952 5.095070 7.744384",
+          "4.148685 4.558167 12.434569",
+          "-3.149903 4.461479 -14.348877",
+          "-2.794189 5.094879 -11.790283",
+          "-1.978759 5.093895 -11.493408",
+          "-2.291504 5.094276 -9.955567",
+          "-2.936279 5.095055 -9.522705",
+          "-2.966064 4.303635 -6.895264",
+          "-2.741211 4.303635 -5.015869",
+          "-2.983642 5.095108 -6.835450",
+          "-1.862793 5.093758 -6.847412",
+          "-2.988526 5.095116 -5.331543",
+          "-6.120850 4.627136 4.548827",
+          "-6.122071 4.627136 2.255858",
+          "-5.906006 4.627136 3.032469",
+          "-3.715091 4.332024 7.191404",
+          "-2.322756 5.094315 7.703124",
+          "-1.559330 5.093391 7.847901",
+          "-3.032230 5.095169 7.693358",
+          "-1.471440 4.558167 12.790281",
+          "-3.951657 4.303635 11.983399",
+          "-3.143557 4.331146 13.314695",
+          "-3.875493 5.094147 12.538573",
+          "2.134767 5.095093 10.538573"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Barracks_Round": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Barracks_Round: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.590201 -0.270569 2.138198",
+          "1.513111 -0.270569 -0.382258",
+          "-0.398907 -0.018066 -2.134708",
+          "-0.169241 -0.018066 2.096267",
+          "-1.405272 0.514526 -1.813579",
+          "0.585653 0.515991 -0.728401",
+          "0.526483 0.514618 -1.859739",
+          "-1.465367 0.515808 -0.764718",
+          "4.427698 0.514465 -1.836859",
+          "4.332289 0.515869 -0.701990",
+          "4.368593 -0.275391 -0.670679",
+          "2.444968 0.514984 -1.527498",
+          "2.504960 -0.275391 -0.852993",
+          "-1.366150 -0.275391 -1.788796",
+          "-1.459509 -0.275391 -0.749185",
+          "0.542683 -0.275391 -1.829073",
+          "4.400500 -0.275391 -1.775400",
+          "2.423407 -0.275391 -1.940957",
+          "0.632831 -0.275391 -0.837485"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big1_1": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big1_1: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.538054 0.849678 -0.824310",
+          "-2.563359 0.849678 -0.962373",
+          "-3.510837 0.648079 -0.954453",
+          "-3.331521 0.565605 -2.056575",
+          "2.371869 0.648079 -2.461476",
+          "3.136989 0.849678 -0.290779",
+          "2.223811 0.849678 -0.219953",
+          "3.202836 0.849678 0.612437",
+          "3.289150 0.849678 1.486156",
+          "2.999679 0.648079 2.533187",
+          "-2.267916 0.648079 1.645981",
+          "-2.805496 0.648079 1.726367"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big1_2": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big1_2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.690966 0.849678 -0.983731",
+          "-2.788769 0.849678 -0.993647",
+          "-3.453272 0.648079 -1.036066",
+          "-0.839411 0.648079 -0.786127",
+          "0.089052 0.648079 -1.221131",
+          "-0.862569 1.256607 -1.237829",
+          "-0.373650 1.256607 -1.072861",
+          "-3.269820 0.575470 -1.785430",
+          "3.451384 0.648079 -1.310461",
+          "3.158015 0.994698 -0.363739",
+          "3.286016 0.849678 1.895141",
+          "3.237396 0.849678 0.904842",
+          "3.151583 0.648079 0.411994"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big1_3": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big1_3: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.068022 0.648079 -1.073241",
+          "-1.070721 0.648079 0.342378",
+          "-1.202295 1.251846 -0.211798",
+          "-3.371887 0.994698 -1.837181",
+          "-3.549650 0.994698 -1.257314",
+          "-3.061711 0.994698 -0.991502",
+          "-2.929319 0.994698 -2.098544",
+          "1.452623 0.648079 1.990471",
+          "3.223685 0.994698 -0.288441",
+          "3.372681 0.575470 0.451855",
+          "0.722272 0.849678 -0.878348",
+          "0.779473 0.849678 0.014453",
+          "-0.125070 0.849678 -0.031998",
+          "-0.489945 0.849678 -1.005085",
+          "0.072694 0.849678 -0.715090"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big1_4": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big1_4: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "3.212513 0.994698 -0.307621",
+          "3.346671 0.575470 0.564904",
+          "3.347097 0.849678 2.279091",
+          "2.167080 0.849678 2.250680",
+          "1.438281 0.648079 2.123673",
+          "0.833666 0.849678 -2.314303",
+          "0.278501 0.849678 -2.082862",
+          "-0.245623 0.849678 -2.328549",
+          "-1.070986 0.648079 -2.190208",
+          "-3.149318 0.994698 -1.923317",
+          "-2.938436 0.994698 -1.373325",
+          "-3.326527 0.994698 -1.032894"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big1_5": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big1_5: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "3.450302 0.994698 0.449885",
+          "2.962167 0.994698 0.922879",
+          "2.335779 0.648079 -1.874919",
+          "3.144161 0.994698 -1.951326",
+          "0.587256 0.849678 -2.016990",
+          "-0.071452 0.849678 -2.217920",
+          "-0.762367 0.849678 -2.113104",
+          "-1.496300 0.648079 -2.392657",
+          "-1.510103 0.648079 2.021988",
+          "-2.650162 0.849678 2.035430",
+          "-2.067546 0.849678 2.042747"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big2_1": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big2_1: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.993728 -1.012569 4.033960",
+          "0.993660 -1.012569 3.510164",
+          "1.672033 -1.451508 2.903618",
+          "-1.718273 -1.451508 3.989976",
+          "-2.458666 -1.451508 -3.707850",
+          "-2.348090 -1.358505 0.008573",
+          "1.403062 -0.400768 3.694786",
+          "2.244002 -1.358505 1.060744",
+          "-2.434667 -1.156910 0.818709",
+          "1.746494 -0.454075 -3.123448",
+          "2.395815 -1.156910 2.740237",
+          "-2.431325 -1.156910 -2.970122",
+          "-2.487005 -1.156910 -1.859744",
+          "2.385484 -1.156910 -0.641455",
+          "2.392727 -1.156910 0.408325",
+          "2.419964 -1.156910 1.718364",
+          "-2.408262 -1.156910 3.847801",
+          "-2.482114 -1.156910 2.822199",
+          "-2.399277 -1.018703 -0.833896",
+          "2.031686 -0.877754 -1.971091"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big2_2": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big2_2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.829650 -1.521178 1.203671",
+          "-0.892994 -1.524463 -0.773098",
+          "0.841302 -1.530519 0.188531",
+          "0.843392 -1.513772 1.002085",
+          "2.440858 -1.451507 3.182014",
+          "-0.873513 -1.524461 0.267741",
+          "-2.269936 -1.358503 2.081812",
+          "-2.606764 -1.358503 1.332053",
+          "-0.684725 -1.358503 -1.407859",
+          "-0.371641 -1.017168 1.230286",
+          "-2.283540 -1.164813 3.729986",
+          "0.634631 -1.358503 -1.402243",
+          "-0.265609 -1.017106 0.506531",
+          "-2.378923 -1.164813 2.722849",
+          "0.194854 -1.008842 1.111633",
+          "1.299678 -1.164813 3.916792",
+          "2.300283 -1.164813 3.908342",
+          "-0.017827 -1.012572 -2.209069",
+          "-0.021659 -1.014955 -0.447430"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big2_3": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big2_3: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-2.159556 -1.156911 1.756258",
+          "2.180174 -1.156911 1.321683",
+          "2.687556 -1.156911 2.490987",
+          "-2.082983 -1.156911 0.575841",
+          "2.210050 -1.156911 3.419118",
+          "2.168061 -1.156911 -3.016861",
+          "2.181458 -1.156911 -0.599775",
+          "-2.552002 -1.451508 -1.720704",
+          "2.402232 -1.361601 -1.985476",
+          "-1.596585 -1.361597 -3.907093",
+          "2.583593 -1.156911 0.021236",
+          "2.535841 -1.156911 -2.639760",
+          "2.351008 -1.156911 -3.522065",
+          "-2.296060 -1.018742 -3.715137",
+          "2.434115 -1.156911 -1.352452",
+          "-2.427528 -1.156911 -0.926316",
+          "-2.459272 -1.156911 2.433658",
+          "2.492640 -1.156911 1.871809",
+          "2.492784 -1.156911 0.791568",
+          "-2.373047 -1.156911 -0.063568",
+          "-2.407688 -1.156911 1.269647",
+          "2.436593 -1.156911 3.924293",
+          "2.460361 -1.156911 2.940365",
+          "-2.100229 -0.877753 3.535256"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big2_4": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big2_4: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "2.097821 -1.238945 0.946496",
+          "2.182916 -1.156910 1.496002",
+          "2.614023 -1.238018 1.040061",
+          "2.565339 -1.376694 -3.929578",
+          "-1.993960 -0.763817 3.833638",
+          "-2.069327 -1.553410 0.892553",
+          "2.063912 -0.761959 -3.105929",
+          "-2.098824 -0.763302 1.154652",
+          "2.108421 -0.762833 -2.381346",
+          "-2.229268 -0.761974 2.312076",
+          "-2.291415 -1.553410 0.171167",
+          "-2.422328 -1.156910 -1.936299",
+          "2.379605 -1.156910 2.798264",
+          "2.396603 -1.156910 2.061192",
+          "2.209210 -0.763729 -1.638886",
+          "2.409025 -1.156910 0.293983",
+          "-2.258404 -1.553410 1.524889",
+          "2.388350 -1.156910 -0.463825",
+          "-2.470549 -1.156910 -2.897054",
+          "2.164868 -1.553410 -2.940032",
+          "2.396889 -1.553410 -1.765204",
+          "-2.172042 -1.553410 3.719496",
+          "-2.262545 -1.553410 2.552766",
+          "-2.363230 -1.018703 -0.854146",
+          "-2.294817 -0.762295 0.320310",
+          "-2.307561 -0.763031 3.190194"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big2_5": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big2_5: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.973575 -0.497742 -3.842797",
+          "-1.797050 -0.778656 -3.884842",
+          "0.340695 -1.362000 1.586854",
+          "-0.059609 -1.362000 0.746938",
+          "2.089980 -0.763870 1.045519",
+          "1.998323 -0.763046 -1.884754",
+          "-2.467287 -1.553406 1.733483",
+          "-2.472062 -1.553406 3.951080",
+          "1.483752 -0.763092 -3.495305",
+          "2.019134 -0.763809 -1.259116",
+          "2.111773 -0.763107 0.409469",
+          "0.138384 -1.177963 -0.885768",
+          "2.536986 -1.177963 3.476604",
+          "2.285174 -0.762222 -0.326151",
+          "0.894760 -0.763779 -3.719224",
+          "-2.368829 -1.177963 -2.985559",
+          "-2.122561 -1.553406 0.207594",
+          "2.528316 -1.177963 2.449828",
+          "-2.099194 -0.763351 1.338381",
+          "-2.144797 -1.553406 2.660396",
+          "0.094173 -1.177963 0.138130",
+          "-2.344704 -1.177963 -2.015073",
+          "2.095606 -0.762177 -2.617485",
+          "-2.181646 -0.762100 0.298767",
+          "2.182258 -1.553406 -2.523047",
+          "2.316557 -1.553406 0.835604",
+          "-2.221244 -0.762115 2.577299",
+          "2.207516 -1.553406 -1.419696",
+          "2.319625 -1.553406 -0.319640",
+          "-2.217708 -0.763596 3.803632",
+          "1.480632 -1.553406 -3.706275"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big3": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big3: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "2.209146 -0.498138 -3.114650",
+          "-7.111914 -0.223938 -2.715088",
+          "-7.134726 -0.223938 -3.722803",
+          "-0.927002 -0.223938 0.541420",
+          "0.194647 -0.223938 0.533444",
+          "-1.235314 -0.126465 -4.020844",
+          "1.953338 -0.126465 -4.036595",
+          "-2.276854 -0.126465 -4.047707"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Tent_Big4": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Tent_Big4: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "1.250661 -0.563446 -1.937648",
+          "-0.896099 -0.563446 -2.712523",
+          "0.435562 -0.404602 1.430777",
+          "-5.320238 0.050018 -2.133930",
+          "-2.783519 0.066284 -2.751252",
+          "-1.718135 0.067566 -2.736342",
+          "-0.088510 -0.404602 -2.896665",
+          "-1.763272 0.057037 1.248154",
+          "-2.928464 0.058441 1.083490",
+          "-0.509559 -0.404602 1.538959",
+          "-5.415491 0.051331 -1.037396",
+          "0.877986 -0.404602 -2.964914",
+          "-5.300061 -0.739807 -0.997062",
+          "-1.864472 -0.732819 1.140686",
+          "-2.920556 -0.732819 1.233209",
+          "-1.716492 -0.723633 -2.794530",
+          "-2.844976 -0.723633 -2.751898",
+          "-5.429632 -0.739807 -2.114335"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Tisy_HQ": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_HQ: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "1.462782 1.755463 1.211397",
+          "-2.364362 -2.260132 6.572959",
+          "3.861220 -2.260132 -2.049107",
+          "-9.569109 -2.317200 2.820339",
+          "1.413404 1.475471 -4.460069",
+          "-2.495686 -2.197052 -8.726717",
+          "-2.435263 1.818451 -8.713105",
+          "3.911863 1.818451 5.783908",
+          "3.901658 -2.197052 -0.925015",
+          "3.280368 1.818451 -9.708975",
+          "-7.309562 -2.197052 6.427859",
+          "2.086038 1.789528 -4.274648"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Tisy_Garages": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_Garages: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "4.018076 -2.113770 -6.408950",
+          "4.639100 -2.113770 -6.387214",
+          "6.697138 -2.194611 4.513451",
+          "6.621984 -1.814606 3.988668",
+          "6.668740 -2.574585 1.443017",
+          "2.121530 -2.574585 1.308320",
+          "2.064797 -2.194611 2.282700",
+          "2.061965 -1.814606 1.627201",
+          "2.036077 -2.574585 3.289710",
+          "2.149736 -2.574585 4.125134",
+          "2.077346 -2.194611 4.623730",
+          "6.683214 -1.814606 2.231879",
+          "6.637402 -2.574585 3.885123",
+          "6.635968 -1.814606 0.810211",
+          "6.616024 -2.574585 0.460813",
+          "6.651456 -2.194611 3.069893",
+          "2.097693 -1.814606 3.753053",
+          "1.125496 -2.650909 3.379938",
+          "6.296935 -2.650909 -2.491508",
+          "4.316904 -2.230164 -5.992957"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Tisy_Garages2": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_Garages2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "2.612792 -1.432770 5.313478",
+          "2.594239 -1.812775 4.962891",
+          "2.579347 -1.432770 2.875976",
+          "2.569091 -2.192749 3.524415",
+          "2.602052 -1.432770 3.462891",
+          "2.594483 -1.432770 2.124999",
+          "2.570069 -2.192749 1.707031",
+          "2.593505 -1.432770 0.908205",
+          "7.170898 -1.812775 4.852541",
+          "2.676513 -2.192749 5.358399",
+          "7.156493 -2.192749 5.282229",
+          "7.174072 -2.192749 3.253906",
+          "7.124512 -1.812775 4.101563",
+          "7.117918 -1.432770 3.551763",
+          "2.627441 -1.432770 4.146485",
+          "7.192870 -1.812775 2.857424",
+          "2.624755 -2.192749 4.398438",
+          "7.206787 -2.192749 2.525390",
+          "7.146974 -2.192749 1.774412",
+          "7.165772 -1.432770 5.320313",
+          "2.545655 -2.192749 2.591797",
+          "7.097900 -1.432770 1.901367",
+          "1.518556 -2.269073 3.276367",
+          "7.042235 -2.269073 -3.415041",
+          "1.658445 -2.269073 4.267580",
+          "6.915771 -2.269073 -2.583010",
+          "2.609131 -1.812775 1.304688",
+          "2.638428 -2.192749 0.835938",
+          "7.110595 -1.812775 1.020512"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Tisy_RadarB_Base": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_RadarB_Base: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-0.411732 1.363647 -19.539278",
+          "0.042131 1.717987 -19.581078",
+          "2.016666 1.717987 -19.519670",
+          "0.551901 2.042084 -19.534842",
+          "0.490807 1.363647 -19.573858",
+          "3.672715 1.363647 -14.431237",
+          "-11.472289 5.622009 6.687460",
+          "1.220283 2.042084 -19.568136",
+          "3.507774 2.042084 -14.440896",
+          "3.024523 1.717987 -14.456316",
+          "1.618246 1.363647 -19.545126",
+          "-4.094356 5.624237 -0.317813",
+          "-9.083506 5.362579 3.985752",
+          "1.398615 5.466187 15.873579",
+          "2.700719 5.466187 12.774432",
+          "3.305595 5.112915 8.423508",
+          "-1.889050 5.112915 5.171811"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Tisy_RadarPlatform_Top": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_RadarPlatform_Top: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "13.980277 7.291718 -1.204406",
+          "18.164282 7.432190 -0.417392",
+          "18.099844 7.286163 -9.970963",
+          "17.905996 7.434845 2.296874",
+          "7.699156 7.285980 -8.118561",
+          "12.142145 7.286102 -9.534430",
+          "17.350040 7.430908 -5.124812",
+          "5.702627 7.284210 9.708603",
+          "-12.989494 7.284576 5.955647",
+          "15.914895 7.284332 8.643846",
+          "12.642272 7.284912 2.497442",
+          "1.976091 7.285797 -6.420057",
+          "7.629045 7.285400 -2.459974",
+          "-2.951011 7.284332 8.405149"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Tisy_KitchenRoom": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_KitchenRoom: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-6.235460 -4.268127 -6.783954",
+          "-7.509133 -4.268127 -4.513872"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Tisy_Barracks": {
+      "evidence": "Installed mapgroupproto.xml Land_Tisy_Barracks: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.985354 -3.434326 6.267576",
+          "3.062744 -3.255669 6.081787",
+          "-0.193119 -3.255669 10.432129",
+          "-1.397217 -3.255669 6.238281",
+          "-1.179935 -3.434326 10.544922",
+          "-2.590334 -3.405037 14.416017",
+          "-2.132572 -2.613922 11.944092",
+          "0.879883 -3.252922 -4.015869",
+          "-0.526610 -2.817329 -11.963623",
+          "-1.596678 -3.386871 -16.354246",
+          "1.601317 -3.386871 -16.230955",
+          "-2.191894 1.007950 -16.487793",
+          "-3.698974 0.744606 -10.559814",
+          "-2.680666 0.688667 8.501953",
+          "3.965822 0.688667 8.481444",
+          "5.001466 1.479858 8.516112",
+          "1.649659 0.688667 6.375731",
+          "0.846194 1.478661 8.518799",
+          "-2.535403 1.479622 8.341553",
+          "2.651856 1.478477 6.310302",
+          "0.562990 0.688667 9.799072",
+          "-0.465580 1.478569 9.830566",
+          "4.397466 0.688667 12.657470",
+          "4.384768 0.688667 9.822508",
+          "1.327152 0.688667 14.111815",
+          "1.387943 1.478561 14.144530",
+          "4.978522 0.688667 16.339354",
+          "3.873050 1.479759 16.270994",
+          "1.451418 1.478500 16.395994",
+          "-3.339848 0.688667 16.644283"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_GuardTower": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_GuardTower: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-2.877706 3.603546 -0.994332",
+          "-3.154397 3.603546 0.566439",
+          "-4.101233 3.603546 0.962538",
+          "-4.177416 3.603546 -0.542746"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Fortified_Nest_Small": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Fortified_Nest_Small: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-1.253856 0.007118 0.503966",
+          "-1.365118 0.012794 -0.274770"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Mil_Fortified_Nest_Big": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Fortified_Nest_Big: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-4.253854 0.500305 0.515287",
+          "0.283735 0.500305 -4.362337",
+          "2.397760 0.500305 -4.303103",
+          "1.877684 0.500305 4.294263"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Fortified_Nest_Watchtower": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Fortified_Nest_Watchtower: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootweapons",
+        "points": [
+          "-3.527124 1.599274 0.617291",
+          "-1.728747 1.599274 -1.668881"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Mil_GuardShed": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_GuardShed: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "0.172291 -0.644226 0.789042",
+          "1.112051 -0.696014 -0.031234"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Mil_ATC_Small": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_ATC_Small: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.979133 -0.627659 -6.291364",
+          "-1.746800 -0.377224 -4.762883",
+          "2.350665 -0.377224 -7.466063"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_ATC_Big": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_ATC_Big: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-10.900150 -14.017090 7.601802",
+          "-16.205078 0.228737 -12.779784",
+          "-14.888428 -0.362823 -0.696780",
+          "-12.184814 -4.470726 -7.676759",
+          "-11.042236 0.229271 -0.460449",
+          "-7.205322 -0.379425 -5.206786",
+          "-16.172607 -14.454826 -7.717289",
+          "-15.760737 -4.470726 -12.771243",
+          "-15.730470 -5.079422 -8.343748",
+          "-14.178953 -14.150650 10.321287",
+          "-15.714601 -13.954826 -8.683839",
+          "-19.414795 -0.249054 -8.399418",
+          "-10.878177 -14.017151 8.970456",
+          "-16.354250 -9.254829 -7.249757",
+          "-9.490478 -4.564827 -0.499513",
+          "-17.157715 8.704140 -2.823973",
+          "-12.306152 5.292915 -3.793949",
+          "-17.966553 -4.950645 -10.552492",
+          "-9.977782 -4.817085 -12.213136",
+          "-11.179199 -0.117180 -3.997807",
+          "-13.299805 -4.950645 -12.140141",
+          "-10.752195 -4.817184 -11.336915",
+          "-7.437500 -0.250648 -1.281983",
+          "-10.221680 5.292824 -4.005619",
+          "-12.714846 -0.253166 -10.490479",
+          "-10.865478 -4.817085 -9.806152",
+          "-16.367188 5.292915 -10.294680",
+          "-11.416992 5.292915 -10.548832",
+          "-8.219971 -9.517197 -0.871827",
+          "-11.233643 -14.084785 -10.822756"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Airfield_HQ": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Airfield_HQ: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "5.696290 -0.194443 8.835447",
+          "3.197999 0.110558 3.932128",
+          "-0.781982 -0.194443 -6.390625",
+          "3.823975 -0.223381 -1.975586",
+          "3.166260 0.112274 -1.969239",
+          "5.619629 -0.194443 -7.296387",
+          "-8.132079 0.277542 -7.542237",
+          "-5.345216 0.277557 8.874022",
+          "5.889160 -4.239235 0.201904",
+          "-0.723388 -4.209969 -6.400879",
+          "5.684814 -4.209969 1.454834",
+          "-1.009769 -3.905037 8.215087",
+          "-5.506591 -4.209969 8.072755",
+          "-7.775880 -4.330116 5.158689"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Guardhouse1": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Guardhouse1: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-0.355000 -1.089813 -4.285283",
+          "2.335881 -0.314270 -4.500295",
+          "-3.198816 -1.157562 2.533606",
+          "-1.318738 -1.159912 -0.923570",
+          "-3.394551 -1.160187 -4.443808"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Guardhouse2": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Guardhouse2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-2.912842 -0.677559 -3.802734",
+          "-2.376709 -0.781052 -1.875488",
+          "-1.703858 -0.466995 -1.748779",
+          "2.935058 -0.030792 -1.751221",
+          "1.302978 -0.213402 -5.886719",
+          "0.038575 -0.213402 -5.875976",
+          "0.465332 -0.452415 -2.732422"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Village_PoliceStation": {
+      "evidence": "Installed mapgroupproto.xml Land_Village_PoliceStation: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.102075 -1.191040 1.917681",
+          "7.097758 -1.571045 2.506543",
+          "-0.391332 -1.018127 7.278612",
+          "4.115132 -1.191040 2.732110",
+          "-0.381190 -1.497284 7.701377",
+          "0.234484 -0.834015 -3.523016",
+          "-1.653665 -1.500580 -3.436058",
+          "-0.720031 -1.500580 -3.422377",
+          "6.890139 -1.715942 -1.177636",
+          "5.230324 -4.949951 5.605222",
+          "2.397857 -1.725098 -1.002462",
+          "5.441455 -5.347778 4.612350",
+          "2.900524 -4.949951 6.267699",
+          "-3.816086 -1.743958 -2.157302",
+          "2.541537 -1.725098 -2.511955",
+          "6.848509 -1.352997 7.115874",
+          "-2.971127 -5.313690 8.168426",
+          "-3.852770 -1.725098 4.989527",
+          "1.016254 -1.723236 9.447685",
+          "0.421844 -5.323364 9.468169",
+          "-3.570825 -5.173340 0.777298",
+          "4.408614 -5.708862 4.141768"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Airfield_Radar_Tall": {
+      "evidence": "Installed mapgroupproto.xml Land_Airfield_Radar_Tall: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "3.820801 11.421562 -7.819580",
+          "-3.731689 11.407646 0.026366",
+          "-1.861816 11.406090 -6.109619",
+          "2.580078 11.406090 -4.847900",
+          "-1.072021 11.406090 -5.772461",
+          "0.993164 7.127983 -2.673584",
+          "-2.530272 7.127983 -5.419434"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_City_PoliceStation": {
+      "evidence": "Installed mapgroupproto.xml Land_City_PoliceStation: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.013672 -5.529900 4.665038",
+          "2.969239 -5.149902 2.244384",
+          "-5.686523 -2.161636 8.491698",
+          "0.111817 -1.590797 -5.102050",
+          "5.417480 -1.685196 -8.523438",
+          "4.843262 -2.109894 -9.090820",
+          "3.908690 -1.349899 -9.155273",
+          "3.104492 -1.349899 -9.038085",
+          "3.732909 -2.109894 -9.153076",
+          "-3.143554 -5.529900 -4.512695",
+          "5.429198 -1.330070 -8.000976",
+          "2.891601 -1.729897 -3.655761",
+          "3.048828 -5.909897 4.648437",
+          "2.899414 -2.109894 -5.322266",
+          "2.885741 -1.349899 -6.531494",
+          "-2.783203 5.935074 -0.081299",
+          "-2.366699 5.935562 0.319091",
+          "2.597656 5.936432 -0.113526",
+          "2.926757 -1.729897 -6.070557",
+          "-4.484376 1.638359 3.602293",
+          "-5.473632 -2.161636 -4.302003",
+          "2.962891 -1.349899 7.456787",
+          "2.976562 -2.109894 -7.274170",
+          "-0.017091 2.209198 3.507080",
+          "-2.031739 2.117920 -6.898927",
+          "5.458496 -2.035461 -5.831055",
+          "-3.071778 -5.937706 6.627929",
+          "2.973632 -1.349899 -4.715576",
+          "1.210450 2.118408 6.530029",
+          "5.459472 -1.685196 -7.540283",
+          "5.468262 -1.330070 -4.331055",
+          "2.952150 -1.729897 4.216308",
+          "4.878906 -5.909897 2.224609",
+          "0.057617 -1.590797 -4.365234",
+          "5.485839 -2.035461 -4.262940",
+          "0.024903 2.209198 2.752197",
+          "-0.065430 -5.937706 7.210692",
+          "5.469238 -1.330070 -5.652832",
+          "3.779785 -5.783730 0.104736",
+          "2.161134 -2.133133 5.885009",
+          "-0.089355 -1.420799 -5.769288",
+          "-2.107422 -5.931458 -4.334473",
+          "0.800782 1.667694 2.824462",
+          "-0.049316 2.379196 -2.403564",
+          "-0.046877 -1.420799 4.384521",
+          "-3.404297 -1.880219 3.498778",
+          "-0.538574 -5.460602 -6.826904",
+          "-2.031250 1.919777 0.896728",
+          "-0.006837 -1.420799 1.662109",
+          "-2.783203 -5.615486 7.996092",
+          "-5.383789 1.919777 0.361572",
+          "-2.249512 -1.880219 -0.429444",
+          "5.199220 -1.880219 6.496582",
+          "-5.356446 -2.208305 6.758787",
+          "-2.718261 -2.208305 8.694092",
+          "-5.387207 -1.880219 0.390379",
+          "-2.332031 -1.660606 -8.738036"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_City_PoliceStation_Enoch": {
+      "evidence": "Installed mapgroupproto.xml Land_City_PoliceStation_Enoch: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.013672 -5.529900 4.665038",
+          "2.969239 -5.149902 2.244384",
+          "-5.686523 -2.161636 8.491698",
+          "0.111817 -1.590797 -5.102050",
+          "5.417480 -1.685196 -8.523438",
+          "4.843262 -2.109894 -9.090820",
+          "3.908690 -1.349899 -9.155273",
+          "3.104492 -1.349899 -9.038085",
+          "3.732909 -2.109894 -9.153076",
+          "-3.143554 -5.529900 -4.512695",
+          "5.429198 -1.330070 -8.000976",
+          "2.891601 -1.729897 -3.655761",
+          "3.048828 -5.909897 4.648437",
+          "2.899414 -2.109894 -5.322266",
+          "2.885741 -1.349899 -6.531494",
+          "-2.783203 5.935074 -0.081299",
+          "-2.366699 5.935562 0.319091",
+          "2.597656 5.936432 -0.113526",
+          "2.926757 -1.729897 -6.070557",
+          "-4.484376 1.638359 3.602293",
+          "-5.473632 -2.161636 -4.302003",
+          "2.962891 -1.349899 7.456787",
+          "2.976562 -2.109894 -7.274170",
+          "-0.017091 2.209198 3.507080",
+          "-2.031739 2.117920 -6.898927",
+          "5.458496 -2.035461 -5.831055",
+          "-3.071778 -5.937706 6.627929",
+          "2.973632 -1.349899 -4.715576",
+          "1.210450 2.118408 6.530029",
+          "5.459472 -1.685196 -7.540283",
+          "5.468262 -1.330070 -4.331055",
+          "2.952150 -1.729897 4.216308",
+          "4.878906 -5.909897 2.224609",
+          "0.057617 -1.590797 -4.365234",
+          "5.485839 -2.035461 -4.262940",
+          "0.024903 2.209198 2.752197",
+          "-0.065430 -5.937706 7.210692",
+          "5.469238 -1.330070 -5.652832",
+          "3.779785 -5.783730 0.104736",
+          "2.161134 -2.133133 5.885009",
+          "-0.089355 -1.420799 -5.769288",
+          "-2.107422 -5.931458 -4.334473",
+          "0.800782 1.667694 2.824462",
+          "-0.049316 2.379196 -2.403564",
+          "-0.046877 -1.420799 4.384521",
+          "-3.404297 -1.880219 3.498778",
+          "-0.538574 -5.460602 -6.826904",
+          "-2.031250 1.919777 0.896728",
+          "-0.006837 -1.420799 1.662109",
+          "-2.783203 -5.615486 7.996092",
+          "-5.383789 1.919777 0.361572",
+          "-2.249512 -1.880219 -0.429444",
+          "5.199220 -1.880219 6.496582",
+          "-5.356446 -2.208305 6.758787",
+          "-2.718261 -2.208305 8.694092",
+          "-5.387207 -1.880219 0.390379",
+          "-2.332031 -1.660606 -8.738036"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_FireStation": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_FireStation: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "6.915527 0.501587 4.100096",
+          "0.422364 5.457909 3.562256",
+          "2.836425 0.501587 -8.801513",
+          "6.946778 0.501587 -10.463868",
+          "5.340821 0.881584 4.061035",
+          "-2.462889 6.158005 10.446533",
+          "7.178224 0.812859 5.472656",
+          "10.835938 6.186676 5.641843",
+          "2.975097 5.598175 -1.766113",
+          "-2.311036 0.863472 -8.400392",
+          "10.273925 6.484077 9.793213"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Prison_Main": {
+      "evidence": "Installed mapgroupproto.xml Land_Prison_Main: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "5.405765 -9.312485 13.136230",
+          "10.060306 -9.377068 13.119871",
+          "6.944825 -9.377068 13.921876",
+          "6.939212 -9.377068 8.185057",
+          "10.014161 -9.377068 8.622069",
+          "9.976807 -9.757065 10.388914",
+          "6.949217 -9.377068 17.004639",
+          "12.026367 -9.337524 -12.878418",
+          "6.974365 -12.930779 14.418210",
+          "10.076419 -12.930779 11.187251",
+          "10.051758 -12.550781 9.083007",
+          "6.986330 -13.310776 10.908690",
+          "6.953859 -12.930779 8.206542",
+          "12.064940 -12.977364 -6.100099",
+          "3.011230 -12.977364 -3.568359",
+          "3.553713 -13.310776 11.855957",
+          "5.024660 -13.310776 11.092284",
+          "5.875732 -12.930779 12.541991",
+          "-0.419922 -13.100723 12.827392",
+          "-12.210694 -16.563271 -5.070313",
+          "-13.839354 -16.943268 -2.087892",
+          "5.480956 -16.509399 11.634767"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Prison_Side": {
+      "evidence": "Installed mapgroupproto.xml Land_Prison_Side: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.526139 -5.284424 11.719002",
+          "4.697960 -5.026306 7.041348",
+          "5.983870 -5.410522 2.691951",
+          "4.801842 -5.030884 1.150474",
+          "5.972458 -5.413574 -1.315002",
+          "5.018170 -5.037292 -7.038465",
+          "6.040756 -5.417572 -6.477015",
+          "6.050948 -5.415405 -3.620557",
+          "5.033038 -5.414581 -3.488759",
+          "5.947391 -5.417084 -5.909230",
+          "4.992802 -5.030151 2.265758",
+          "6.023114 -5.416260 -4.764979",
+          "6.022138 -5.408325 5.584115",
+          "5.985470 -5.411804 1.012687",
+          "-5.476264 -4.262238 -3.493963",
+          "6.012580 -5.412903 -0.384811",
+          "2.349503 -1.376373 -4.114890",
+          "2.273785 -1.376373 -2.876524",
+          "8.101033 -1.375977 -11.245349",
+          "7.076982 -1.375977 -11.302526",
+          "5.815079 -1.375977 -11.236925",
+          "4.953615 -1.375977 -11.236219",
+          "4.035882 -1.375977 -11.188634",
+          "3.005954 -1.375977 -11.228348",
+          "-4.938090 -1.376740 -8.707142",
+          "-6.749213 -1.755981 -3.467952",
+          "-5.445547 -1.375977 -3.524262",
+          "-6.310843 -0.996002 -3.502076",
+          "-4.236077 -1.320679 5.395325",
+          "7.401779 -1.375977 6.981529",
+          "7.446731 -0.996002 8.082181",
+          "-6.796783 -5.408386 4.563350",
+          "-6.852003 -5.408386 5.539023",
+          "-5.450620 -5.408386 5.792356",
+          "-6.783000 -4.648407 3.312678",
+          "-5.425485 -5.028381 2.280560",
+          "6.071963 -5.028381 3.755886",
+          "6.033523 -4.648407 -1.066879"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Misc_TrailRoof_Big": {
+      "evidence": "Installed mapgroupproto.xml Land_Misc_TrailRoof_Big: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.197510 -1.344200 0.828613",
+          "0.320557 -1.337990 -0.832764",
+          "0.782715 -0.884750 0.013428",
+          "1.380127 -1.344200 0.805420",
+          "1.946045 -0.884750 0.092041"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Misc_TrailRoof_Small": {
+      "evidence": "Installed mapgroupproto.xml Land_Misc_TrailRoof_Small: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.961670 -0.788895 0.821045",
+          "-0.989502 -0.788895 0.832031",
+          "0.422607 -0.329445 0.087891",
+          "-0.654541 -0.329445 0.083252",
+          "0.741455 -0.782684 -0.790283",
+          "-0.452881 -0.782684 -0.812500"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Misc_DeerStand1": {
+      "evidence": "Installed mapgroupproto.xml Land_Misc_DeerStand1: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.009033 0.537132 0.593994",
+          "0.175537 0.537628 -0.332520",
+          "-0.980957 0.537407 0.218506"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Misc_DeerStand2": {
+      "evidence": "Installed mapgroupproto.xml Land_Misc_DeerStand2: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.220947 0.479485 -0.871826",
+          "-0.576416 0.479485 0.866699",
+          "-1.117676 0.479485 -0.919434",
+          "-1.096436 0.479485 -0.019043"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Camp_House_red": {
+      "evidence": "Installed mapgroupproto.xml Land_Camp_House_red: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.299685 -0.500031 1.450163",
+          "-0.377930 -0.501366 -2.915383",
+          "0.463181 -1.346069 2.765716",
+          "3.762673 -1.349884 -2.785804",
+          "0.818383 -1.349243 -2.833144",
+          "3.709741 -1.346848 2.698318"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Camp_House_white": {
+      "evidence": "Installed mapgroupproto.xml Land_Camp_House_white: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.241647 -1.217003 0.052444",
+          "4.092197 -1.301582 2.762790",
+          "3.929907 -0.927948 0.680293",
+          "-0.226722 -1.341988 -2.015856",
+          "3.583814 -1.341988 -2.711381"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Camp_House_brown": {
+      "evidence": "Installed mapgroupproto.xml Land_Camp_House_brown: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.336912 -0.652832 2.784155",
+          "4.175774 -1.302605 2.709080",
+          "0.009574 -1.363464 1.447183",
+          "0.930465 -1.363213 1.634892"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Castle_Bergfrit": {
+      "evidence": "Installed mapgroupproto.xml Land_Castle_Bergfrit: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-3.550727 3.841156 -2.622282",
+          "-3.554847 6.304779 2.403527",
+          "-4.097925 13.473053 2.514238",
+          "4.964728 16.870667 2.849739",
+          "2.463414 8.766266 -0.269886",
+          "-3.953059 16.870667 0.536551",
+          "4.596045 16.870667 -2.054227",
+          "1.619363 16.870667 0.456865",
+          "-2.247963 8.766266 0.298239",
+          "-1.770725 16.870667 -1.630931"
+        ],
+        "lootweapons": [
+          "-4.498966 16.870667 2.985337",
+          "4.458937 16.870667 0.389433",
+          "-4.249912 16.870667 -2.665095",
+          "-0.214438 16.870667 -2.092011"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Castle_Bergfrit2": {
+      "evidence": "Installed mapgroupproto.xml Land_Castle_Bergfrit2: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "4.608276 16.889290 -2.551636",
+          "1.564697 1.824692 -2.549439",
+          "-3.864624 3.840382 -2.827881",
+          "-3.861328 13.468788 2.453856",
+          "-4.156372 16.889297 0.638550",
+          "1.538818 16.889290 -0.095581",
+          "-2.174438 16.889313 -1.077637",
+          "4.774902 16.889286 2.901733",
+          "-3.958740 11.005180 -3.153199",
+          "4.118652 1.824692 -2.866700",
+          "3.966553 -0.639011 2.381958",
+          "2.080078 8.816566 0.341430",
+          "1.750854 8.816563 -2.730469",
+          "-3.904296 6.303986 2.457031"
+        ],
+        "lootweapons": [
+          "-4.196777 16.889297 -3.067017",
+          "-1.266113 8.816559 0.096435",
+          "-0.033203 16.889294 -2.428345",
+          "4.999633 16.889290 0.397461",
+          "1.405762 1.786316 -0.169434",
+          "-4.349121 16.889286 2.920531"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Castle_Stairs_nolc": {
+      "evidence": "Installed mapgroupproto.xml Land_Castle_Stairs_nolc: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.447998 7.037743 -3.364502",
+          "1.939209 7.019859 -3.859619"
+        ],
+        "lootweapons": [
+          "1.965088 7.039185 -3.138916",
+          "0.372070 7.021378 -4.137695"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Container_1Mo": {
+      "evidence": "Installed mapgroupproto.xml Land_Container_1Mo: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-0.416001 -1.088013 -0.023456",
+          "1.865466 -1.088013 0.021198"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Container_1Moh": {
+      "evidence": "Installed mapgroupproto.xml Land_Container_1Moh: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "2.265909 -1.087845 -0.196146",
+          "-1.883994 -1.087845 0.166863"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Ship_Big_FrontA": {
+      "evidence": "Installed mapgroupproto.xml Land_Ship_Big_FrontA: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "2.860595 -2.197670 -25.912596",
+          "-7.767576 -2.128906 -30.850100",
+          "-9.227296 -2.249985 -25.915039",
+          "-7.541012 -2.120819 -31.338619",
+          "-9.391602 -2.251266 -25.410400",
+          "1.213135 -2.082458 -31.385500",
+          "1.397701 -2.080994 -30.874758",
+          "3.066163 -2.196503 -25.446043",
+          "-10.924077 -3.033089 -14.588133",
+          "3.550048 -5.662880 -6.760253",
+          "3.642578 -3.270432 -4.772461",
+          "-3.123783 -2.910545 -20.494629",
+          "-9.547116 -5.662872 -13.672119",
+          "2.108885 -3.139740 -10.196777",
+          "5.281738 -5.671654 2.933348",
+          "-10.151124 -3.274918 -4.584472",
+          "-9.571289 -5.671654 0.082517",
+          "2.579099 -2.946297 -18.223633",
+          "-11.638917 -5.671654 3.239256",
+          "1.364994 -2.794647 -24.196043",
+          "-9.547118 -5.662872 -9.172853",
+          "-7.164063 -5.662872 -5.924560",
+          "1.626954 -2.717445 -27.794680",
+          "-0.282470 -2.603836 -32.698238",
+          "3.280759 -5.662880 -11.974854",
+          "2.837889 -5.662880 -16.870117",
+          "-5.425293 -2.606750 -32.570072",
+          "-6.983640 -10.462875 -12.019044",
+          "-9.760255 -8.969162 -2.999267",
+          "-3.400878 -10.462875 -15.116943",
+          "-8.412109 -10.462875 -7.199221",
+          "-3.506102 -10.462875 -10.031738",
+          "1.779053 -10.462875 -7.411622",
+          "-5.447021 -10.462875 -17.988037",
+          "0.181642 -10.462875 -12.100099",
+          "-6.419189 -17.062881 -2.890381",
+          "-10.488282 -8.969162 2.778072",
+          "3.168945 -8.958107 -2.925781",
+          "4.378663 -8.948456 3.482177",
+          "-1.204590 -10.462875 -18.098875",
+          "-3.120360 -5.662872 -22.259035",
+          "1.226563 -17.055489 3.325195",
+          "-3.029541 -17.075409 0.304444",
+          "5.093259 -3.046303 -14.039063",
+          "-7.846675 -2.714684 -27.914309",
+          "-8.402833 -2.961372 -17.615234",
+          "0.607422 -3.242210 -5.954834",
+          "-8.636228 -3.177734 -8.625491",
+          "3.658447 -5.671654 0.041992",
+          "-1.936279 -5.662872 -5.897949",
+          "-6.910886 -5.662880 -24.297363",
+          "0.120115 -5.662872 -24.338379",
+          "-7.422365 -17.062881 2.751952"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Ship_Big_FrontB": {
+      "evidence": "Installed mapgroupproto.xml Land_Ship_Big_FrontB: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-6.745117 -1.146820 -6.634278",
+          "9.108153 -1.146820 -6.806886",
+          "5.041993 -1.146820 -3.192139",
+          "9.000244 -1.146820 -3.247072",
+          "-9.916749 -7.468216 13.619381",
+          "-9.938965 -7.464897 2.408446",
+          "8.575927 -1.146820 -5.078125",
+          "8.503417 -4.167389 14.244140",
+          "8.506104 -4.167389 7.217772",
+          "-10.238037 -4.167358 2.270994",
+          "-10.260499 -4.193161 12.938962",
+          "-10.268798 -4.167358 5.481201",
+          "-10.277099 -4.167358 9.163330",
+          "8.577393 -4.167389 10.566650",
+          "-7.198977 -4.167374 -13.485108",
+          "8.613524 -4.167389 1.034178",
+          "5.524169 -4.167389 -13.681396",
+          "6.938963 -7.464897 -11.223877",
+          "3.996337 -7.464897 -7.190917",
+          "-5.445311 -7.464897 -7.485597",
+          "-8.495608 -7.464897 -12.972168",
+          "-8.613279 -7.464897 -7.750001",
+          "-3.871092 -15.554062 -2.926759",
+          "-7.565917 -15.554062 -3.071045",
+          "-7.961425 -15.554062 0.554199",
+          "-5.352295 -15.554062 -0.557618",
+          "-2.624756 -15.554062 0.393310",
+          "-4.832035 -15.550316 14.462400",
+          "-7.870358 -15.554062 14.052245",
+          "-6.483398 -7.464897 -3.036133",
+          "-2.397949 -1.146820 -3.645996",
+          "-2.060547 -1.146820 -6.357422",
+          "-9.622558 -4.167351 -13.529054",
+          "7.918213 -4.167389 -9.878419",
+          "1.011230 -1.146820 -4.791992",
+          "-5.969973 -15.554062 11.485106",
+          "-10.208496 -1.146820 -3.540042",
+          "-7.328366 -4.167374 -10.221926",
+          "6.195312 -7.464890 -3.034180",
+          "1.020019 -15.554062 8.783936",
+          "8.479738 -7.464897 15.260987"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Ship_Big_BackA": {
+      "evidence": "Installed mapgroupproto.xml Land_Ship_Big_BackA: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-9.107422 -5.612701 -6.806885",
+          "-8.769529 -8.910210 -4.629397",
+          "9.590332 -5.612701 -2.988526",
+          "-9.031251 -5.612701 1.214111",
+          "-2.705323 -8.910210 -14.357667",
+          "1.808349 -8.910210 -14.361816",
+          "9.562255 -8.910210 -5.815673",
+          "9.753417 -5.612701 -14.306396",
+          "9.799560 -5.612701 -7.915528",
+          "-9.214358 -5.612701 -12.270264",
+          "-9.230713 -5.612701 -4.340820",
+          "9.795410 -5.612701 1.856199",
+          "-5.612305 -8.910210 0.563720",
+          "-1.311035 -17.003929 -1.717529",
+          "-6.891846 -17.003929 -1.521974",
+          "-4.176759 -17.003929 -3.900880",
+          "-1.294191 -17.003929 -10.496095",
+          "-7.496825 -17.003929 -12.462158",
+          "-2.041016 -17.003929 -6.854737",
+          "-7.072265 -17.003929 -8.246338",
+          "-5.496581 -2.596138 -15.438477",
+          "0.458985 -2.596138 -16.962891",
+          "6.937987 -2.596138 -16.020508",
+          "-3.401855 -5.612701 1.038330",
+          "2.824463 -5.612701 0.812988",
+          "-2.671631 -8.910217 -17.678955",
+          "-6.273195 -8.911217 -17.441404"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Ship_Big_BackB": {
+      "evidence": "Installed mapgroupproto.xml Land_Ship_Big_BackB: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "8.316410 -0.799210 18.575926",
+          "-8.709226 -0.792671 18.036379",
+          "-8.754393 -0.798393 18.545168",
+          "4.331551 -1.387939 28.181149",
+          "-5.288336 -1.387939 28.207520",
+          "-0.081791 -1.387939 28.079592",
+          "2.351326 -1.387939 28.066404",
+          "-2.953362 -1.387939 28.055174",
+          "9.094975 -1.387939 16.827879",
+          "8.014406 -1.387939 23.336426",
+          "-7.339844 -1.387939 25.094725",
+          "-7.368405 -1.387939 21.431643",
+          "-7.030031 -1.387939 17.625488",
+          "7.829099 -1.387939 26.640383",
+          "6.193851 -1.387939 18.488279",
+          "-0.145512 1.107010 12.318849",
+          "6.305418 -4.088692 27.368408",
+          "-6.713624 -4.088661 26.956787",
+          "-8.123780 -4.088669 13.812499",
+          "-6.876952 -4.088661 19.833986",
+          "2.284424 -4.088654 13.596435",
+          "7.741943 -4.088669 15.014649",
+          "-4.670908 -7.888664 26.930416",
+          "4.479253 -7.888664 26.186523",
+          "5.640379 -7.888657 17.344482",
+          "1.020757 -7.888657 20.576660",
+          "-6.341553 -7.888657 15.273925"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Ship_Big_Castle": {
+      "evidence": "Installed mapgroupproto.xml Land_Ship_Big_Castle: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "8.127929 -13.021286 17.170654",
+          "9.339598 -13.810997 17.274660",
+          "9.220947 -13.020958 2.503172"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Wreck_UH1Y": {
+      "evidence": "Installed mapgroupproto.xml Wreck_UH1Y: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "1.357636 -1.856922 2.039550",
+          "3.630615 -1.856922 0.478027"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Wreck_Mi8": {
+      "evidence": "Installed mapgroupproto.xml Wreck_Mi8: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-1.927728 -1.697937 -0.790661",
+          "-1.416298 -1.697937 -0.339270"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Wreck_Mi8_Crashed": {
+      "evidence": "Installed mapgroupproto.xml Wreck_Mi8_Crashed: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-6.361786 -1.474339 -0.424318",
+          "-5.188050 -1.487791 -0.553956",
+          "-3.660218 -1.511133 -0.747803",
+          "-3.550293 -1.555975 -2.536621",
+          "-2.769746 -1.517029 -2.799561"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_Volha_Police": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_Volha_Police: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.653404 -0.066956 -0.011987",
+          "-1.465418 0.151215 -0.227352",
+          "-2.125782 0.116974 0.399090"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Guardhouse3": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Guardhouse3: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "2.841309 0.074921 1.186523",
+          "0.373535 -0.346703 0.090088",
+          "-2.270996 -0.675339 1.003417",
+          "-2.376953 -0.025627 1.152587",
+          "1.625488 -0.107681 -2.978515",
+          "-0.362793 -0.107681 -2.984863",
+          "0.120606 0.371498 -2.978516"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Mil_Guardbox_Smooth": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Guardbox_Smooth: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.395141 -0.382004 -0.541992"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Guardbox_Green": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Guardbox_Green: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.389526 -0.382008 -0.502686"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_Guardbox_Brown": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_Guardbox_Brown: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.444458 0.168985 0.527954",
+          "-1.406128 -0.382006 -0.481567"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Mil_ControlTower": {
+      "evidence": "Installed mapgroupproto.xml Land_Mil_ControlTower: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-0.090576 -0.253435 -2.398681",
+          "-2.348022 -0.658806 0.562134",
+          "-0.506714 2.688602 -2.881714",
+          "-2.635254 5.498602 1.085205",
+          "-2.716187 -7.121227 0.198730",
+          "-2.582641 -7.121227 -1.651123",
+          "-2.400879 -6.330633 0.692504",
+          "-2.429810 -6.330849 -2.153564",
+          "-1.456787 -5.953205 -3.150513"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Bunker1_Double": {
+      "evidence": "Installed mapgroupproto.xml Land_Bunker1_Double: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "1.293213 -0.438929 -0.394043",
+          "1.540894 0.061071 -1.048340",
+          "0.334473 -0.610142 -2.158325",
+          "-0.130616 -0.610140 2.487915",
+          "1.324951 -0.291767 0.477173"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Bunker1_Left": {
+      "evidence": "Installed mapgroupproto.xml Land_Bunker1_Left: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "0.570557 -0.537098 1.463623"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Bunker1_Right": {
+      "evidence": "Installed mapgroupproto.xml Land_Bunker1_Right: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "2.498657 -0.418642 1.379638",
+          "1.268066 -0.537098 -1.380859"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Bunker2_Double": {
+      "evidence": "Installed mapgroupproto.xml Land_Bunker2_Double: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "1.470825 -0.438929 -1.002319",
+          "-0.075928 -0.610140 2.463867",
+          "0.392456 -0.610142 -2.199829"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Bunker2_Left": {
+      "evidence": "Installed mapgroupproto.xml Land_Bunker2_Left: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "0.682862 -0.537098 1.468994"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Bunker2_Right": {
+      "evidence": "Installed mapgroupproto.xml Land_Bunker2_Right: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "2.179565 -0.034428 -0.290527",
+          "2.441895 0.081358 0.870117",
+          "1.259521 -0.537098 -1.384521"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Castle_Bastion2": {
+      "evidence": "Installed mapgroupproto.xml Land_Castle_Bastion2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "0.201294 -0.285522 -4.033935"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Ruin_Mil_ControlTower": {
+      "evidence": "Installed mapgroupproto.xml Land_Ruin_Mil_ControlTower: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-1.138061 0.499815 -0.692017",
+          "-0.226196 0.499815 1.621826"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Village_PoliceStation_Enoch": {
+      "evidence": "Installed mapgroupproto.xml Land_Village_PoliceStation_Enoch: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "4.102075 -1.191040 1.917681",
+          "7.097758 -1.571045 2.506543",
+          "-0.391332 -1.018127 7.278612",
+          "4.115132 -1.191040 2.732110",
+          "-0.381190 -1.497284 7.701377",
+          "0.234484 -0.834015 -3.523016",
+          "-1.653665 -1.500580 -3.436058",
+          "-0.720031 -1.500580 -3.422377",
+          "6.890139 -1.715942 -1.177636",
+          "5.230324 -4.949951 5.605222",
+          "2.397857 -1.725098 -1.002462",
+          "5.441455 -5.347778 4.612350",
+          "2.900524 -4.949951 6.267699",
+          "-3.816086 -1.743958 -2.157302",
+          "2.541537 -1.725098 -2.511955",
+          "6.848509 -1.352997 7.115874",
+          "-2.971127 -5.313690 8.168426",
+          "-3.852770 -1.725098 4.989527",
+          "1.016254 -1.723236 9.447685",
+          "0.421844 -5.323364 9.468169",
+          "-3.570825 -5.173340 0.777298",
+          "4.408614 -5.708862 4.141768"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Village_Store_Enoch": {
+      "evidence": "Installed mapgroupproto.xml Land_Village_Store_Enoch: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "3.323242 -1.379013 -1.624512",
+          "6.072753 -1.519379 -2.364502",
+          "6.057129 -1.519928 1.418945",
+          "6.348633 -1.759003 -0.726807",
+          "2.564941 -1.334320 -3.411133",
+          "4.608398 -1.378998 -4.480957",
+          "2.593750 -1.684570 -0.877197",
+          "1.109863 -1.727844 -0.757080",
+          "1.085938 -1.727844 -2.420166",
+          "0.017578 -1.727844 0.106445",
+          "1.066895 -1.727844 -3.403564",
+          "-0.751953 -1.727844 0.040527",
+          "0.866211 -1.232330 -0.086426",
+          "-2.940429 -1.684578 -2.386719",
+          "0.464356 -1.334312 1.640869",
+          "3.323730 -1.379013 -3.540039"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Land_Wreck_hb01_aban1_green": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_hb01_aban1_green: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.044220 -0.389238 0.301758",
+          "-0.073731 -0.337166 -0.571289",
+          "1.544220 -0.431307 -0.387207",
+          "-0.741089 0.031483 -0.782471",
+          "-0.768067 -0.043346 0.660156"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_hb01_aban2_green": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_hb01_aban2_green: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.094360 -0.226664 -0.427002",
+          "-0.179352 -0.160469 0.520508",
+          "-0.812867 0.201370 0.783203",
+          "-0.794555 0.130087 -0.663086"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_sed01_aban1_police": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_sed01_aban1_police: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "0.031705 -0.464386 0.646786",
+          "-1.275356 0.155441 0.962088",
+          "-1.227970 0.297272 -0.657177",
+          "0.096978 -0.365051 -0.491634",
+          "0.574310 -0.147308 -0.446449",
+          "1.993657 -0.160416 -0.292275",
+          "-0.702634 -0.452850 0.740357",
+          "-0.339908 -0.177246 0.446496",
+          "2.051123 -0.200378 0.427373",
+          "-0.314029 -0.112701 -0.347890",
+          "0.554788 -0.233734 0.561149",
+          "-0.781376 -0.341125 -0.493432",
+          "-1.892381 0.141266 0.955100",
+          "-1.809468 0.282761 -0.658990"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_sed01_aban2_police": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_sed01_aban2_police: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.756097 -0.451713 -0.498970",
+          "-1.289279 0.145333 -0.723734",
+          "-1.222338 0.196649 0.878290",
+          "-1.930030 0.092211 -0.740091",
+          "-0.659882 -0.412734 0.620196",
+          "-1.738955 0.160387 0.875367",
+          "0.178399 -0.428228 -0.331929",
+          "0.653234 -0.158788 0.632871",
+          "0.185075 -0.395218 0.659461",
+          "-0.234679 -0.164952 0.480046",
+          "-0.285054 -0.184806 -0.395743",
+          "0.609893 -0.182907 -0.236139",
+          "2.056719 -0.155075 0.458795",
+          "2.068902 -0.180123 -0.301695"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_aban1": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban1: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.303983 -1.279922 -0.610146",
+          "0.665800 -1.186035 -0.555596",
+          "0.555047 -0.987457 0.805647",
+          "-0.174269 -1.116562 0.734719",
+          "1.648551 -0.890152 0.067422",
+          "-1.955514 -0.903815 -0.629182",
+          "-1.501057 -0.717227 0.920875",
+          "-2.040521 -0.863313 0.940076",
+          "-1.285030 -0.790954 -0.774216"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_aban2": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban2: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-1.636780 -0.433453 -0.132813",
+          "0.720245 0.005749 0.418945",
+          "0.610352 -1.053724 0.626709",
+          "0.573029 -0.953724 -0.709473",
+          "-0.220215 -0.938707 -0.745850",
+          "-0.326202 -1.021822 0.652100",
+          "1.541626 -0.975311 0.096680",
+          "-1.554413 -0.488274 0.639648"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Lunapark_Shooting_Gallery": {
+      "evidence": "Installed mapgroupproto.xml Land_Lunapark_Shooting_Gallery: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootweapons": [
+          "-3.275146 0.135792 -0.276489",
+          "-1.335571 0.135792 -0.232910",
+          "1.519165 0.063848 -1.695068",
+          "-0.923950 0.063848 -1.695923",
+          "-0.250976 0.063848 -1.626587"
+        ]
+      },
+      "widen": [
+        "lootshelves"
+      ],
+      "floor_exception": null
+    },
+    "Wreck_SantasSleigh": {
+      "evidence": "Installed mapgroupproto.xml Wreck_SantasSleigh: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.003567 -1.175903 0.976502",
+          "-1.012351 -1.267609 -0.473981",
+          "-1.714593 -0.348419 1.032358",
+          "-2.282524 -0.897964 0.761707",
+          "-2.252261 -0.954269 -0.204986",
+          "-1.537683 -1.150986 -0.255560",
+          "-1.446346 -1.169525 1.257269",
+          "0.446721 -1.300674 0.364553",
+          "-1.717637 -0.429886 -0.415192"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Train_Wagon_Flat_Mil_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Train_Wagon_Flat_Mil_DE: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-1.493165 0.738111 -0.807127",
+          "0.768067 0.736933 0.346679",
+          "3.724854 0.739101 0.000729",
+          "6.185058 0.741623 -0.646003",
+          "7.778564 0.740980 0.073478",
+          "-6.481202 0.734070 -0.032465",
+          "-4.231202 0.736799 -0.835201",
+          "-3.081788 0.737391 -0.843259",
+          "-1.937743 0.734816 0.729250",
+          "-0.871338 0.736065 0.371094",
+          "-3.594726 0.734655 0.395999"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Train_Wagon_Tanker_Mil_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Train_Wagon_Tanker_Mil_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "0.318604 1.616232 0.030029",
+          "-4.747559 -0.771843 0.516357"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "StaticObj_Wreck_Train_742_Blue_Mil_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Train_742_Blue_Mil_DE: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "1.412075 -0.657285 -1.074156",
+          "3.163977 -0.658316 -1.085827",
+          "-1.933851 -0.655311 -1.082629",
+          "-1.478508 -0.655817 1.315494",
+          "1.442949 -0.657540 1.315791",
+          "3.942492 -0.659014 1.316267",
+          "-0.077912 -0.656644 1.319866",
+          "-0.568051 -0.656114 -1.100959"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Train_742_Red_Mil_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Train_742_Red_Mil_DE: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "1.412075 -0.657285 -1.074156",
+          "3.163977 -0.658316 -1.085827",
+          "-1.933851 -0.655311 -1.082629",
+          "-1.478508 -0.655817 1.315494",
+          "1.442949 -0.657540 1.315791",
+          "3.942492 -0.659014 1.316267",
+          "-0.077912 -0.656644 1.319866",
+          "-0.568051 -0.656114 -1.100959"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Train_Wagon_Box_Mil_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Train_Wagon_Box_Mil_DE: native elevated tower/hunting platform, wreck deck/interior or military wagon-bed points; exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-2.085937 -0.538687 0.058838",
+          "1.819336 -0.538054 -0.031006",
+          "4.255127 -0.538246 0.003174",
+          "-4.144531 -0.538265 -0.010254",
+          "3.566894 -0.539516 0.197265",
+          "4.620361 -0.541634 0.524902",
+          "-0.253906 -0.536711 -0.241943"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Container_1Mo_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Container_1Mo_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-2.160580 -1.098483 0.040472",
+          "-0.503185 -1.098483 -0.055332"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Container_1Moh_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Container_1Moh_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "-2.160580 -1.098483 0.040472",
+          "-0.503185 -1.098483 -0.055332"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Wreck_V3S_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_V3S_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "1.604060 -0.483903 0.563805",
+          "0.742664 -0.475484 -0.114332",
+          "2.959975 -0.337308 0.144236"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_BMP1_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_BMP1_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-4.089112 0.221592 0.940429",
+          "1.437012 0.445089 0.324707"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_BMP2_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_BMP2_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-2.391357 0.255235 -0.126465",
+          "1.840576 0.520056 -0.486817",
+          "0.304932 0.795363 0.032227"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_BRDM_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_BRDM_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.840088 0.868790 0.040039",
+          "-2.597900 0.116872 -0.510743"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Ural_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Ural_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "3.258795 1.060783 -0.284232",
+          "1.437005 1.153847 0.324493",
+          "0.605726 1.079987 -0.605059"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_wreck_truck01_aban2_green_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_wreck_truck01_aban2_green_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.605726 1.079987 -0.605059",
+          "3.258795 1.060783 -0.284232",
+          "1.437005 1.153847 0.324493"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_wreck_truck01_aban1_green_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_wreck_truck01_aban1_green_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.605726 1.079987 -0.605059",
+          "3.258795 1.060783 -0.284232",
+          "1.437005 1.153847 0.324493"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_HMMWV_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_HMMWV_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "1.125000 0.677094 -0.023194"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Uaz_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Uaz_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "1.137940 -0.367249 -0.156679",
+          "-1.077829 0.211060 -0.191129"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_T72_Chassis_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_T72_Chassis_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "3.615198 -0.586639 -0.776395",
+          "1.437109 0.641235 0.324490",
+          "2.974211 -0.615997 1.139824",
+          "-2.445777 0.144562 -2.042263"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_BMP1_NoPlacement_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_BMP1_NoPlacement_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.958455 -0.962830 3.507855"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_Ikarus_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_Ikarus_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.958455 -0.962830 3.507855"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_aban1_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban1_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "0.555043 -0.987457 0.805618",
+          "-1.402759 -0.781616 0.520947",
+          "-0.665093 -1.457581 0.900090",
+          "-0.174255 -1.116562 0.734736",
+          "-1.720960 -0.944321 -0.261277",
+          "1.648538 -0.890152 0.067431",
+          "0.665748 -1.186035 -0.555575",
+          "-0.304003 -1.279922 -0.610155"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_aban2_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban2_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-1.636780 -0.433453 -0.132813",
+          "0.720245 0.005749 0.418945",
+          "0.610352 -1.053724 0.626709",
+          "0.573029 -0.953724 -0.709473",
+          "-0.220215 -0.938707 -0.745850",
+          "-0.326202 -1.021822 0.652100",
+          "1.541626 -0.975311 0.096680",
+          "-1.554413 -0.488274 0.639648"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_hb01_aban1_green_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_hb01_aban1_green_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.044220 -0.389238 0.301758",
+          "-0.073731 -0.337166 -0.571289",
+          "1.544220 -0.431307 -0.387207",
+          "-0.741089 0.031483 -0.782471",
+          "-0.768067 -0.043346 0.660156"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_hb01_aban2_green_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_hb01_aban2_green_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.094360 -0.226664 -0.427002",
+          "-0.179352 -0.160469 0.520508",
+          "-0.812867 0.201370 0.783203",
+          "-0.794555 0.130087 -0.663086"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_hb01_aban1_police_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_hb01_aban1_police_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "2.244171 -0.855103 -0.003878",
+          "-0.379375 -0.763641 0.538238",
+          "1.667249 -0.310577 0.402907",
+          "-0.012969 -0.353394 0.290916",
+          "-0.111954 -0.343048 -0.491136",
+          "1.553578 -0.305939 -0.257805"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_hb01_aban2_police_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_hb01_aban2_police_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "1.667220 -0.238739 0.402927",
+          "-0.090111 -0.163162 0.465262",
+          "1.553675 -0.258041 -0.258164",
+          "-0.129650 -0.169647 -0.330082"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_sed01_aban1_police_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_sed01_aban1_police_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "0.031705 -0.464386 0.646786",
+          "-1.275356 0.155441 0.962088",
+          "-1.227970 0.297272 -0.657177",
+          "0.096978 -0.365051 -0.491634",
+          "0.574310 -0.147308 -0.446449",
+          "1.993657 -0.160416 -0.292275",
+          "-0.702634 -0.452850 0.740357",
+          "-0.339908 -0.177246 0.446496",
+          "2.051123 -0.200378 0.427373",
+          "-0.314029 -0.112701 -0.347890",
+          "0.554788 -0.233734 0.561149",
+          "-0.781376 -0.341125 -0.493432",
+          "-1.892381 0.141266 0.955100",
+          "-1.809468 0.282761 -0.658990"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_sed01_aban2_police_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_sed01_aban2_police_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.756097 -0.451713 -0.498970",
+          "-1.289279 0.145333 -0.723734",
+          "-1.222338 0.196649 0.878290",
+          "-1.930030 0.092211 -0.740091",
+          "-0.659882 -0.412734 0.620196",
+          "-1.738955 0.160387 0.875367",
+          "0.178399 -0.428228 -0.331929",
+          "0.653234 -0.158788 0.632871",
+          "0.185075 -0.395218 0.659461",
+          "-0.234679 -0.164952 0.480046",
+          "-0.285054 -0.184806 -0.395743",
+          "0.609893 -0.182907 -0.236139",
+          "2.056719 -0.155075 0.458795",
+          "2.068902 -0.180123 -0.301695"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Misc_SupplyBox1_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Misc_SupplyBox1_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "-0.229351 0.550568 -0.329906",
+          "0.403208 0.561493 -0.224684",
+          "-0.139909 0.552948 0.399432",
+          "0.345056 0.561157 0.339634"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Misc_SupplyBox2_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Misc_SupplyBox2_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "lootFloor": [
+          "0.002854 0.438721 0.542980",
+          "0.010212 0.431763 -0.010903",
+          "-0.190548 0.425385 -0.506625"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_MTVR_Cargo": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_MTVR_Cargo: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "0.528872 1.472548 -0.218964"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Stryker": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Stryker: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "0.393002 0.006653 -2.649083",
+          "-2.174281 -0.035909 -2.175787"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Wreck_offroad02_aban1_TK": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban1_TK: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.303983 -1.279922 -0.610146",
+          "0.665800 -1.186035 -0.555596",
+          "0.555047 -0.987457 0.805647",
+          "-1.955514 -0.903815 -0.629182",
+          "-2.040521 -0.863313 0.940076",
+          "-0.174269 -1.116562 0.734719",
+          "-1.501057 -0.717227 0.920875",
+          "-1.285030 -0.790954 -0.774216",
+          "1.648551 -0.890152 0.067422"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_aban2_TK": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban2_TK: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.220215 -0.938707 -0.745850",
+          "-0.326202 -1.021822 0.652100",
+          "0.610352 -1.053724 0.626709",
+          "0.573029 -0.953724 -0.709473",
+          "1.541626 -0.975311 0.096680",
+          "-1.554413 -0.488274 0.639648",
+          "-1.636780 -0.433453 -0.132813",
+          "0.720245 0.005749 0.418945"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_Medic_TK": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_Medic_TK: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-1.835435 1.001580 0.466278",
+          "-1.869394 0.898381 -0.766322",
+          "-1.245559 1.086118 -0.123878"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_MTVR_Cargo_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_MTVR_Cargo_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "0.528872 1.472548 -0.218964"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "StaticObj_Wreck_Stryker_DE": {
+      "evidence": "Installed mapgroupproto.xml StaticObj_Wreck_Stryker_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {},
+      "widen": [],
+      "floor_exception": {
+        "source": "lootFloor",
+        "points": [
+          "0.393002 0.006653 -2.649083",
+          "-2.174281 -0.035909 -2.175787"
+        ],
+        "max_slots": 2,
+        "reason": "No raised receiver evidenced in the installed native prototype; retain at most two weapon slots at exact native positions. Physical survey required before replacing this exception with model-surface points."
+      }
+    },
+    "Land_Wreck_offroad02_aban1_TK_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban1_TK_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.303983 -1.279922 -0.610146",
+          "0.665800 -1.186035 -0.555596",
+          "0.555047 -0.987457 0.805647",
+          "-1.955514 -0.903815 -0.629182",
+          "-2.040521 -0.863313 0.940076",
+          "-0.174269 -1.116562 0.734719",
+          "-1.501057 -0.717227 0.920875",
+          "-1.285030 -0.790954 -0.774216",
+          "1.648551 -0.890152 0.067422"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_aban2_TK_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_aban2_TK_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-0.220215 -0.938707 -0.745850",
+          "-0.326202 -1.021822 0.652100",
+          "0.610352 -1.053724 0.626709",
+          "0.573029 -0.953724 -0.709473",
+          "1.541626 -0.975311 0.096680",
+          "-1.554413 -0.488274 0.639648",
+          "-1.636780 -0.433453 -0.132813",
+          "0.720245 0.005749 0.418945"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    },
+    "Land_Wreck_offroad02_Medic_TK_DE": {
+      "evidence": "Installed mapgroupproto.xml Land_Wreck_offroad02_Medic_TK_DE: native shelf-tag-only containers and unique native points 0.30\u20131.65 m above the nearest lower explicit floor plane (lowest plane for mixed-tag containers); exact coordinates retained. Sources below identify every relocated point; widening reuses existing shelves. Surface identity/clearance and CE matching require native visual inspection; no invented height offsets.",
+      "sources": {
+        "loot": [
+          "-1.835435 1.001580 0.466278",
+          "-1.869394 0.898381 -0.766322",
+          "-1.245559 1.086118 -0.123878"
+        ]
+      },
+      "widen": [],
+      "floor_exception": null
+    }
+  }
 }

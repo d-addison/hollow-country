@@ -1,11 +1,11 @@
 """Strict clothing/exact-garbage floor admission, applied to operator-owned CE files.
 
-Equipment (including firearms) loses floor eligibility regardless of spare shelf
-capacity. Existing raised shelf containers receive displaced capacity only when
-category, tag and usage agree, within their point count and the configured cap.
-Nominal/min, group maxima and physical coordinates are never invented. Unmatched
-finite demand is recorded in the install receipt rather than restored to floors
-or duplicated into Search. Counts are offline CE estimates, runtime=PENDING.
+Equipment uses evidence-indexed native shelf and raised/platform points. Native
+coordinates are relocated rather than duplicated. Displaced capacity transfers to
+compatible receivers locally, then across native usage-compatible groups. Exact
+Military group exceptions admit at most two weapon slots where no raised route is
+evidenced. Nominal/min, group maxima and coordinates are never invented. Unmatched
+finite demand and exceptions remain explicit in the install receipt. Counts are offline CE estimates, runtime=PENDING.
 The policy is enabled by default with floor-policy.json enabled=false opt-out.
 """
 import json
@@ -20,11 +20,11 @@ from tools.package import economy, loot_boost  # noqa: E402
 
 FLOOR_POLICY = Path('mission/hollow-country/loot-points/floor-policy.json')
 KIND = 'hollow-country-loot-floor-policy'
-MAX_POLICY_BYTES = 64 * 1024
+MAX_POLICY_BYTES = 256 * 1024
 NAME = re.compile(r'[A-Za-z0-9_]{1,80}')
 KEYS = {'schema', 'kind', 'enabled', 'note', 'floor_categories', 'floor_classes', 'floor_class_patterns',
         'shelf_categories', 'floor_tag', 'shelf_tag', 'floor_container_names', 'floor_container_tags', 'height_checked_container_names', 'extra_floor_container_names',
-        'floor_band_m', 'capacity'}
+        'floor_band_m', 'capacity', 'receivers'}
 CAPACITY_KEYS = {'enabled', 'max_container_lootmax', 'preserve_tolerance'}
 SHELF_CATEGORY_CHOICES = frozenset({'tools', 'containers', 'food', 'books', 'weapons', 'explosives', 'lootdispatch'})
 FLOOR_BAND_RANGE = (0.1, 3.0)
@@ -43,11 +43,11 @@ def parse_policy(data):
     """Validated exact-class policy; refuses unknown or unbounded values."""
     if len(data) > MAX_POLICY_BYTES:
         raise ValueError('floor policy exceeds its byte bound')
-    doc = json.loads(data)
+    doc = json.loads(data, object_pairs_hook=loot_boost._unique_object)
     if (not isinstance(doc, dict) or not set(doc) <= KEYS or doc.get('schema') != 1 or doc.get('kind') != KIND
             or type(doc.get('enabled')) is not bool):
         raise ValueError('not a loot floor policy')
-    if not KEYS - {'note'} <= set(doc):
+    if not KEYS - {'note', 'receivers'} <= set(doc):
         raise ValueError('floor policy is missing a named field')
     floor_categories = _names(doc['floor_categories'], 'floor_categories')
     shelf_categories = _names(doc['shelf_categories'], 'shelf_categories')
@@ -84,6 +84,43 @@ def parse_policy(data):
     if (type(top) is not int or not 1 <= top <= MAX_CONTAINER_LOOTMAX or isinstance(tol, bool)
             or not isinstance(tol, (int, float)) or not math.isfinite(tol) or not 0.0 <= tol <= 0.5):
         raise ValueError('floor policy capacity bounds')
+    receivers = doc.setdefault('receivers', {})
+    if not isinstance(receivers, dict) or len(receivers) > 256:
+        raise ValueError('floor policy receivers must be a bounded group map')
+    for group, spec in receivers.items():
+        if (not NAME.fullmatch(group) or not isinstance(spec, dict)
+                or set(spec) != {'evidence', 'sources', 'widen', 'floor_exception'}
+                or not isinstance(spec['evidence'], str) or not 1 <= len(spec['evidence']) <= 1200):
+            raise ValueError('floor policy receiver evidence shape')
+        _names(spec['widen'], 'receiver containers')
+        if not isinstance(spec['sources'], dict) or len(spec['sources']) > 8:
+            raise ValueError('floor policy receiver sources shape')
+        for cname, points in spec['sources'].items():
+            if not NAME.fullmatch(cname) or not isinstance(points, list) or len(points) > 256:
+                raise ValueError('floor policy receiver points bound')
+            if any(not isinstance(point, str) for point in points):
+                raise ValueError('receiver source point must be native xyz text')
+            if len(set(points)) != len(points):
+                raise ValueError('duplicate receiver source point')
+            for point in points:
+                if not isinstance(point, str):
+                    raise ValueError('receiver source point must be native xyz text')
+                loot_boost._point([float(v) for v in point.split()])
+        exception = spec['floor_exception']
+        if exception is not None:
+            if (not isinstance(exception, dict) or set(exception) != {'source', 'points', 'max_slots', 'reason'}
+                    or not NAME.fullmatch(str(exception['source']))
+                    or not isinstance(exception['points'], list)
+                    or type(exception['max_slots']) is not int or not 1 <= exception['max_slots'] <= 2
+                    or len(exception['points']) != exception['max_slots']
+                    or not isinstance(exception['reason'], str) or not 1 <= len(exception['reason']) <= 500):
+                raise ValueError('floor policy military weapon exception bounds')
+            if any(not isinstance(point, str) for point in exception['points']):
+                raise ValueError('exception point must be native xyz text')
+            for point in exception['points']:
+                loot_boost._point([float(v) for v in point.split()])
+            if len(set(exception['points'])) != len(exception['points']):
+                raise ValueError('duplicate exception point')
     doc['_classes'] = {c.lower() for c in doc['floor_classes']}
     return doc
 
@@ -241,7 +278,7 @@ def _scan(text, masked, default_lootmax):
                 except (AttributeError, IndexError, ValueError):
                     continue
             containers.append({
-                'name': loot_boost._attr(tag_open, 'name') or '', 'open': (start, start + len(tag_open)),
+                'group': gname, 'name': loot_boost._attr(tag_open, 'name') or '', 'open': (start, start + len(tag_open)),
                 'body': (start + len(tag_open), end_body), 'tag_open': tag_open,
                 'lootmax': int(lootmax) if lootmax is not None and lootmax.isdigit() else default_lootmax,
                 'usages': {m.group(1) for m in re.finditer(r'<usage\s+name="([^"]*)"', body)} or group_usages,
@@ -253,6 +290,9 @@ def _scan(text, masked, default_lootmax):
 
 
 def _is_floor(container, group_floor, policy):
+    spec = policy.get('receivers', {}).get(container.get('group'), {})
+    if container['name'] in spec.get('sources', {}):
+        return True  # native source remainder; its evidenced raised points are relocated after allocation
     # Mixed floor/shelf tags are not evidence that all points are raised surfaces.
     if (container['name'] in policy['floor_container_names']
             or set(container['tags']) & set(policy['floor_container_tags'])):
@@ -291,6 +331,121 @@ def _floor_tag_edits(masked, container, floor_tag, shelf_tag):
     return edits
 
 
+SURFACE_RECEIVER = 'lootHCReceiver'
+WEAPON_EXCEPTION = 'lootHCWeaponException'
+
+
+def provision_receivers(data, policy):
+    """Stage exact native points for transfer. Sources remain until allocation is verified.
+
+    No invented heights or duplicate final positions: finish_receivers removes each
+    staged point from its original container. Existing pure shelf containers only
+    gain contextual categories. Missing source geometry refuses installation.
+    """
+    import copy
+    import xml.etree.ElementTree as ET
+    root = economy.xml(data, 'prototype')
+    report = {'groups': {}, 'absent': [], 'surface_points': 0, 'exception_points': 0,
+              'runtime_acceptance': 'pending'}
+    groups = {g.get('name'): g for g in root.findall('group')}
+    for name, spec in sorted(policy.get('receivers', {}).items()):
+        group = groups.get(name)
+        if group is None:
+            report['absent'].append(name)
+            continue
+        existing = {c.get('name'): c for c in group.findall('container')}
+        if SURFACE_RECEIVER in existing or WEAPON_EXCEPTION in existing:
+            raise ValueError('receiver already present: ' + name)
+        row = {'surface_points': 0, 'exception_points': 0, 'widened': [], 'relocations': [],
+               'evidence': spec['evidence']}
+        for cname in spec['widen']:
+            c = existing.get(cname)
+            if c is None or {t.get('name') for t in c.findall('tag')} - {policy['shelf_tag']}:
+                raise ValueError('receiver shelf source changed: ' + name + '/' + cname)
+            if not c.findall('tag'):
+                ET.SubElement(c, 'tag', {'name': policy['shelf_tag']})
+            cats = {c.get('name') for c in c.findall('category')}
+            for cat in policy['shelf_categories']:
+                if cat not in cats:
+                    ET.SubElement(c, 'category', {'name': cat})
+            row['widened'].append(cname)
+        selections = [(SURFACE_RECEIVER, spec['sources'], policy['shelf_categories'])]
+        exception = spec['floor_exception']
+        if exception:
+            if 'Military' not in {u.get('name') for u in group.findall('usage')}:
+                raise ValueError('weapon floor exceptions require native Military usage: ' + name)
+            selections.append((WEAPON_EXCEPTION, {exception['source']: exception['points']}, ['weapons']))
+        used = set()
+        for target, sources, categories in selections:
+            receiver = ET.Element('container', {'name': target, 'lootmax': '0'})
+            for cat in categories:
+                ET.SubElement(receiver, 'category', {'name': cat})
+            ET.SubElement(receiver, 'tag', {'name': policy['shelf_tag']})
+            for cname, points in sources.items():
+                source = existing.get(cname)
+                if source is None:
+                    raise ValueError('receiver source missing: ' + name + '/' + cname)
+                for xyz in points:
+                    found = [p for p in source.findall('point') if p.get('pos') == xyz]
+                    if len(found) != 1 or xyz in used:
+                        raise ValueError('receiver geometry changed or duplicated: ' + name + '/' + cname)
+                    used.add(xyz)
+                    receiver.append(copy.deepcopy(found[0]))
+                    row['relocations'].append({'source': cname, 'pos': xyz, 'target': target})
+            count = len(receiver.findall('point'))
+            if count:
+                group.append(receiver)
+                key = 'exception_points' if target == WEAPON_EXCEPTION else 'surface_points'
+                row[key] += count
+                report[key] += count
+        report['groups'][name] = row
+    return ET.tostring(root, encoding='utf-8', xml_declaration=True), report
+
+
+def finish_receivers(data, report, policy, floor_report):
+    """Remove staged source coordinates and verify the final finite geometry."""
+    import xml.etree.ElementTree as ET
+    root = economy.xml(data, 'prototype')
+    groups = {g.get('name'): g for g in root.findall('group')}
+    exception_slots = 0
+    for name, row in report['groups'].items():
+        group = groups[name]
+        containers = {c.get('name'): c for c in group.findall('container')}
+        for move in row['relocations']:
+            source = containers[move['source']]
+            found = [p for p in source.findall('point') if p.get('pos') == move['pos']]
+            if len(found) != 1:
+                raise ValueError('receiver relocation verification failed: ' + name)
+            source.remove(found[0])
+        for cname in (SURFACE_RECEIVER, WEAPON_EXCEPTION):
+            if cname not in containers:
+                continue
+            c = containers[cname]
+            if int(c.get('lootmax')) > len(c.findall('point')):
+                raise ValueError('receiver capacity exceeds its physical points: ' + name)
+            if cname == WEAPON_EXCEPTION:
+                maximum = policy['receivers'][name]['floor_exception']['max_slots']
+                if int(c.get('lootmax')) > maximum:
+                    raise ValueError('military exception exceeds its bound: ' + name)
+                exception_slots += int(c.get('lootmax'))
+            # Every introduced position has exactly one final owner, including stock shelves.
+            for point in c.findall('point'):
+                xyz = tuple(float(v) for v in point.get('pos').split())
+                count = sum(tuple(float(v) for v in p.get('pos').split()) == xyz
+                            for p in group.iter('point'))
+                if count != 1:
+                    raise ValueError('receiver overlaps another native point: ' + name)
+    output = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+    text = output.decode('utf-8')
+    scanned = _scan(text, loot_boost._mask(text), _default(root))
+    floor_report['slots_after'] = sum(min(limit, sum(min(c['lootmax'], len(c['ys'])) for c in cs))
+                                    for _, limit, cs in scanned)
+    floor_report['weapon_exception_slots_after'] = exception_slots
+    floor_report['floor_nonclothing_slots_after'] = round(
+        floor_report['floor_nonclothing_slots_after'] + exception_slots, 2)
+    return output
+
+
 def rebalance_proto(data, rows_by_file, policy):
     """Strict floor tags plus bounded shelf transfers; receipt includes per-class supply gaps.
 
@@ -318,6 +473,7 @@ def rebalance_proto(data, rows_by_file, policy):
                             'transferred_slots': 0, 'unplaced_slots': 0,
                             'groups_without_receiver': []}
     edits = []
+    spare_receivers = []
     for gname, group_max, containers in _scan(text, masked, default_lootmax):
         report['slots_before'] += min(group_max, sum(min(c['lootmax'], len(c['ys'])) for c in containers))
         ys = [y for c in containers for y in c['ys']]
@@ -328,15 +484,19 @@ def rebalance_proto(data, rows_by_file, policy):
                 floors.append(c)
             elif shelf_tag in c['tags']:
                 shelves.append(c)
-        room = [max(0, min(len(c['ys']), cap['max_container_lootmax']) - c['lootmax']) if cap['enabled'] else 0
-                for c in shelves]
+        room = [max(0, min(len(c['ys']),
+                           policy['receivers'][gname]['floor_exception']['max_slots']
+                           if c['name'] == 'lootHCWeaponException' else cap['max_container_lootmax'])
+                    - c['lootmax']) if cap['enabled'] else 0 for c in shelves]
         gained = [0] * len(shelves)
         compatible = {name: [i for i, receiver in enumerate(shelves) if _matches(table[name], receiver, 'after')]
                       for name in supply}
         for name, indexes in compatible.items():
             if group_max > 0:
                 supply[name]['compatible_shelf_points'] += sum(
-                    min(len(shelves[i]['ys']), shelves[i]['lootmax'] + room[i]) for i in indexes)
+                    min(len(shelves[i]['ys']), shelves[i]['lootmax'] + room[i]) for i in indexes
+                    if shelves[i]['name'] != 'lootHCWeaponException')
+        removed_by_container = {}
         for c in floors:
             report['floor_containers'] += 1
             report['converted'] += 1
@@ -380,9 +540,43 @@ def rebalance_proto(data, rows_by_file, policy):
             if need:
                 edits.append((c['open'][0], c['open'][1],
                               loot_boost._with_lootmax(c['tag_open'], c['lootmax'] - need)))
+            removed_by_container[c['name']] = need
             report['displaced'] += need
             report['transferred'] += placed
             report['unplaced'] += need - placed
+        # Preserve remaining demand elsewhere within the same native CE usage.
+        # Shared group headroom prevents counting receiver capacity beyond lootmax.
+        spec = policy.get('receivers', {}).get(gname, {})
+        moved_points = {n: len(ps) for n, ps in spec.get('sources', {}).items()}
+        exception = spec.get('floor_exception')
+        if exception:
+            source = exception['source']
+            moved_points[source] = moved_points.get(source, 0) + len(exception['points'])
+        used = sum(min(c['lootmax'] - removed_by_container.get(c['name'], 0),
+                       len(c['ys']) - moved_points.get(c['name'], 0)) for c in containers) + sum(gained)
+        spare_receivers.append((shelves, room, gained, [max(0, group_max - used)]))
+    report['transferred_between_groups'] = 0
+    # Firearm routes take priority; the remaining nominal/min and category rules stay intact.
+    for name in sorted(supply, key=lambda n: ('weapons' not in table[n][0], n)):
+        record = supply[name]
+        remaining = record['unplaced_slots']
+        for shelves, room, gained, headroom in spare_receivers:
+            if not remaining:
+                break
+            for i, c in enumerate(shelves):
+                if c['name'] == WEAPON_EXCEPTION or not _matches(table[name], c, 'after'):
+                    continue
+                amount = min(remaining, room[i] - gained[i], headroom[0])
+                gained[i] += amount
+                headroom[0] -= amount
+                remaining -= amount
+                record['transferred_slots'] += amount
+                record['unplaced_slots'] -= amount
+                report['transferred'] += amount
+                report['transferred_between_groups'] += amount
+                report['unplaced'] -= amount
+        # Local missing-receiver names remain visible even when another group receives the demand.
+    for shelves, room, gained, headroom in spare_receivers:
         for c, gain in zip(shelves, gained):
             if gain:
                 edits.append((c['open'][0], c['open'][1], loot_boost._with_lootmax(c['tag_open'], c['lootmax'] + gain)))
@@ -460,9 +654,10 @@ def describe(report):
     if not report.get('enabled'):
         return 'floor policy disabled (floor-policy.json enabled=false or file absent): plain loot boost'
     return ('floor policy retagged_types=%d floor_containers=%d converted=%d kept_without_shelf_room=%d '
-            'displaced_slots=%d moved_to_shelves=%d unplaced=%d floor_nonclothing_slots %.1f->%.1f '
+            'displaced_slots=%d transferred_to_receivers=%d unplaced=%d floor_nonclothing_slots %.1f->%.1f '
             '(CE honouring the rewritten tags is unobserved until a native server session)'
             % (report.get('retagged_types', 0), report['floor_containers'], report['converted'],
                report['kept_without_shelf_room'], report['displaced'], report['transferred'], report['unplaced'],
                report['floor_nonclothing_slots_before'], report['floor_nonclothing_slots_after'])
-            + ' supply_gap_classes=%d runtime=PENDING' % len(report.get('supply_gaps', {})))
+            + ' weapon_floor_exception_slots=%d supply_gap_classes=%d runtime=PENDING'
+            % (report.get('weapon_exception_slots_after', 0), len(report.get('supply_gaps', {}))))
