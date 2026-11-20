@@ -57,6 +57,8 @@ class HCInfectedModule : HCModule
     protected int m_AdoptionCursor;
     protected int m_RecoveryCursor;
     protected int m_RetargetCursor;
+    protected int m_HCPackTickCursor;
+    protected ref HCWorkBudget m_HCAdoptWork = new HCWorkBudget;
     protected int m_VoiceAttempts;
     protected int m_RegistrationAttempts;
     protected int m_RegistrationRound;
@@ -183,8 +185,10 @@ class HCInfectedModule : HCModule
             Print("[HC Infected] contact guard pending native wall-hit qualification; native combat retained");
         Print("[HC Infected] enabled-preference template defaults; existing explicit disables preserved");
         Print("[HC Infected] capability admission (requested vs admitted; unqualified paths fail closed, native behavior retained): " + m_Admission.Describe());
-        m_GroupCap = Math.Min(settings.MaxActiveHordes, 2);
-        m_MemberCap = Math.Min(settings.MaxActiveHordeMembers, 24);
+        m_GroupCap = settings.MaxActiveHordes;
+        m_MemberCap = settings.MaxActiveHordeMembers;
+        int trackedCap = Math.Min(m_Config.MaxTracked, m_MemberCap);
+        Print("[HC Infected] limits groups=" + m_GroupCap.ToString() + " members=" + m_MemberCap.ToString() + " tracked=" + trackedCap.ToString() + " per_pack=20 runtime=PENDING");
         m_Hordes = settings.EnableHordes;
         m_Chains = settings.EnableAlertChains;
         m_LastUtc = HCInfectedClock.UtcSeconds();
@@ -730,8 +734,12 @@ class HCInfectedModule : HCModule
         ref array<HCInfectedActor> candidates = new array<HCInfectedActor>;
         vector anchor;
         int scanCount = Math.Min(m_Actors.Count(), m_WorkCap - 6);
+        m_HCAdoptWork.HCReset(scanCount);
+        HCUnitBudget adoptionWork = HCServer.HCTickWork();
+        if (!adoptionWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, scanCount)) { return; }
         for (int scanned = 0; scanned < scanCount; scanned++)
         {
+            if (!m_HCAdoptWork.HCContinue()) { break; }
             m_AdoptionCursor = m_AdoptionCursor % m_Actors.Count();
             HCInfectedActor actor = m_Actors[m_AdoptionCursor];
             m_AdoptionCursor = HCInfectedPolicy.NextAdoptionCursor(m_AdoptionCursor, m_Actors.Count());
@@ -744,14 +752,19 @@ class HCInfectedModule : HCModule
             if (!HCInfectedStore.ValidPosition(position))
                 continue;
             if (candidates.Count() == 0)
+            {
+                // CE activates local population; routes never use a player fix.
+                if (HCHordeMigration.Active() && !HCHordeRoutes.Select(position, null)) { continue; }
                 anchor = position;
-            if (vector.DistanceSq(position, anchor) <= 1600)
+            }
+            if (vector.DistanceSq(position, anchor) <= 10000)
                 candidates.Insert(actor);
-            if (candidates.Count() == 6)
+            if (candidates.Count() >= Math.Min(20, m_MemberCap - m_State.Reserved))
                 break;
         }
         int requested = candidates.Count();
-        if (requested > 3) requested = HCInfectedMemory.CohortSize(anchor, requested);
+        // Old profile heat values may still request 3..6: prefer eight when available.
+        if (requested > 3) requested = Math.Min(requested, Math.Max(8, HCInfectedMemory.CohortSize(anchor, requested)));
         while (candidates.Count() > requested) { candidates.Remove(candidates.Count() - 1); }
         if (requested < 3 || !HCInfectedPolicy.CanReserve(activeGroups, m_GroupCap, m_State.Reserved, m_MemberCap, requested))
             return;
@@ -764,9 +777,12 @@ class HCInfectedModule : HCModule
                 adoptionClue = observedClue;
             }
         }
-        // No invented migration destination: without a genuine cue, leave the
-        // existing CE population in its native group and try a later interval.
-        if (m_Admission.NativePackRoutes && !adoptionClue)
+        // A periodic patrol uses authored points, never invented hearing. Noise
+        // routing still requires its original live receipt when no corridor fits.
+        HCHordeRouteSurvey patrol;
+        if (HCHordeMigration.Active() && m_Admission.HordeStimulusRoutes)
+            patrol = HCHordeRoutes.Select(anchor, null);
+        if (m_Admission.NativePackRoutes && !adoptionClue && !patrol)
             return;
         HCHordeRecord record = new HCHordeRecord;
         HCHordeRecovery.Capture(candidates, record);
@@ -829,8 +845,19 @@ class HCInfectedModule : HCModule
             pack = new HCNativeInfectedPack;
             m_Packs[record.Id - 1] = pack;
             float routeNow = HCInfectedClock.UtcSeconds() - m_StartedUtc;
-            if (adoptionClue.IsLive(routeNow))
+            if (patrol)
+            {
+                // Each join/path is native-checked by Start; <=20 existing CE bodies.
+                vector entry = patrol.Nodes[0];
+                vector last = patrol.Nodes[patrol.Nodes.Count() - 1];
+                if (vector.DistanceSq(anchor, last) < vector.DistanceSq(anchor, entry)) { entry = last; }
+                succeeded = pack.Start(candidates, entry, false, routeNow, routeNow + 600);
+                if (succeeded && !pack.IsReleasing()) { succeeded = pack.HCAdmitPatrol(patrol, record.Id, routeNow); }
+                if (!succeeded) { pack.Release(); }
+            }
+            else if (adoptionClue && adoptionClue.IsLive(routeNow))
                 succeeded = pack.Start(candidates, adoptionClue.Origin, false, routeNow, adoptionClue.Expires);
+            succeeded = succeeded && !pack.IsReleasing();
             releasing = pack.IsReleasing();
         }
         record.AdoptionStage = HCInfectedPolicy.AdoptionOutcome(true, attempted, succeeded, releasing);
@@ -990,10 +1017,20 @@ class HCInfectedModule : HCModule
         HCInfectedRoomCatalog.BeginTick();
         m_ObservationsRemaining = 1;
         m_RoutesRemaining = 1;
+        bool adoptionDue = m_Hordes && m_Now >= m_NextAdopt;
         int maintenance = m_Investigators.Count();
         int packSlots = 0;
         if (m_Admission.CEAdoption || m_Admission.MemberRecovery)
             packSlots = m_Packs.Count();
+        // One physical pack per non-adoption tick, round-robin. Charge its complete <=20
+        // member sweep before starting; the native call is not preemptible.
+        int packTick = -1;
+        if (packSlots > 0)
+        {
+            packTick = m_HCPackTickCursor % packSlots;
+            m_HCPackTickCursor = (packTick + 1) % packSlots;
+        }
+        HCUnitBudget packWork = HCServer.HCTickWork();
         for (int p = 0; p < packSlots; p++)
         {
             HCHordeRecord record = m_State.Groups[p];
@@ -1015,8 +1052,9 @@ class HCInfectedModule : HCModule
                 RefundRetired(record, nowUtc);
                 continue;
             }
-            if (m_Packs[p])
+            if (!adoptionDue && m_Packs[p] && p == packTick && packWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, record.Reserved))
             {
+                maintenance += record.Reserved;
                 bool routeAlive = m_Packs[p].Tick(m_Now);
                 SnapshotRoute(record, m_Packs[p]);
                 if (!routeAlive)
@@ -1041,7 +1079,6 @@ class HCInfectedModule : HCModule
         // sampling cursor, with at most two native packs to inspect. A queued
         // room segment shares the tick's single route token (one FindPath per
         // tick) and waits while adoption, which may start a route, is due.
-        bool adoptionDue = m_Hordes && m_Now >= m_NextAdopt;
         for (int s = m_Investigators.Count() - 1; s >= 0; s--)
         {
             HCInfectedActor investigator = m_Investigators[s];
@@ -1065,11 +1102,11 @@ class HCInfectedModule : HCModule
         }
         else
         {
-            // At most two cohort eligibility scans (six members each), plus
-            // one charged bounded path. Rejections cannot starve another pack.
+            // Actor sampling resumes its cursor after the charged member sweep.
+            // At most one native path token is shared by all route consumers.
             int retargetReserve = 0;
             if (m_Hordes && m_Admission.HordeStimulusRoutes)
-                retargetReserve = 16;
+                retargetReserve = 2;
             int work = m_WorkCap - 2 - maintenance - retargetReserve;
             if (m_Hordes && m_Admission.MemberRecovery && m_Actors.Count() > 0 && work > 1)
             {

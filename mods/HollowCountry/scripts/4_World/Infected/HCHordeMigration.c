@@ -6,12 +6,11 @@
 // 3_Game/Entities/DayZAnimal.c:193 GetAIAgent (DayZCreatureAI).
 // 3_Game/Entities/Object.c:287 GetPosition, :517 IsAlive, :994 GetHealth;
 // 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
-// 3_Game/Global/Game.c:945 GetPlayers via HCObserverTransitionGate.V2Quiet,
-// :1176 SurfaceY; 1_Core/proto/EnConvert.c:153,169,210 vector Normalize,
+// 3_Game/Global/Game.c:1176 SurfaceY; 1_Core/proto/EnConvert.c:153,169,210 vector Normalize,
 // Length, DistanceSq; :30 int.ToString;
 // EnMath.c:553,566 Min/Max; EnScript.c:380,385,407 arrays; EnDebug.c:96 Print.
-// Only existing, admitted v1 packs are moved, by native paths. No creation,
-// deletion, teleport, membership transfer, synthetic sound or CE budget change.
+// Existing CE bodies form admitted native packs and walk native paths.
+// No entity creation/deletion, teleport, synthetic sound or CE budget change.
 // Runtime herd movement, perception, replication and two clients stay pending.
 // HC-46 / #121: finite observed noise, surveyed native points only. HC-11 owns
 // canonical spec/plan/tasks; owner Wave 3 task is the source contract here.
@@ -25,12 +24,12 @@ class HCHordeRouteDefaults
     float VanillaNetworkBubbleMetres = 1000;
     float VanillaRifleHearingMetres = 1000;
     float CueRangeMetres = 480;
-    float SurveyBindMetres = 80;
+    float SurveyBindMetres = 120;
     float CohesionMetres = 100;
     float ArrivalMetres = 8;
     float NativeSegmentMetres = 120;
     float ProgressMetres = 1;
-    int MaxMembers = 6;
+    int MaxMembers = 20;
     int MaxHops = 2;
     float MaxNoiseSeconds = 60;
     float CooldownSeconds = 180;
@@ -79,7 +78,7 @@ class HCHordeRoutes
         if (!(cfg.NativeSegmentMetres > 0 && cfg.NativeSegmentMetres <= ceiling.NativeSegmentMetres)) { return false; }
         if (!(cfg.ArrivalMetres > 0 && cfg.ArrivalMetres <= ceiling.ArrivalMetres)) { return false; }
         if (!(cfg.ProgressMetres > 0 && cfg.ProgressMetres <= cfg.ArrivalMetres)) { return false; }
-        if (cfg.MaxMembers < 1 || cfg.MaxMembers > 6 || cfg.MaxHops < 0 || cfg.MaxHops > 2) { return false; }
+        if (cfg.MaxMembers < 1 || cfg.MaxMembers > 20 || cfg.MaxHops < 0 || cfg.MaxHops > 2) { return false; }
         return cfg.MaxNoiseSeconds > 0 && cfg.MaxNoiseSeconds <= 60 && cfg.CooldownSeconds >= cfg.MaxNoiseSeconds && cfg.CooldownSeconds <= 600 && cfg.StallSeconds > 0 && cfg.StallSeconds <= 90;
     }
 
@@ -120,6 +119,9 @@ class HCHordeRoutes
         s_Reason = "ROUTE_DOCUMENT_INVALID";
         if (!document || document.SchemaVersion != 1 || document.WorldName != world || !ValidDefaults(document.Defaults)) { return false; }
         if (!document.Routes || document.Routes.Count() > 8) { return false; }
+        // The shipped schema-1 pilot had a fixed six-member ceiling. Migrate
+        // that legacy default in memory; smaller explicit route caps survive.
+        if (document.Defaults.MaxMembers == 6) { document.Defaults.MaxMembers = 20; }
         s_Document = document;
         s_Reason = "ROUTE_OPERATOR_OFF";
         if (!document.Enabled) { return false; }
@@ -141,7 +143,7 @@ class HCHordeRoutes
 
     static HCHordeRouteSurvey Select(vector start, HCInfectedClue clue)
     {
-        if (!s_Document || !s_Document.Enabled || !clue) { return null; }
+        if (!s_Document || !s_Document.Enabled) { return null; }
         HCHordeRouteDefaults cfg = s_Document.Defaults;
         float bindSq = cfg.SurveyBindMetres * cfg.SurveyBindMetres;
         array<ref HCHordeRouteSurvey> selectedRoutes = s_Document.Routes;
@@ -150,8 +152,8 @@ class HCHordeRoutes
             if (!ValidSurvey(route, cfg)) { continue; }
             vector first = route.Nodes[0];
             vector last = route.Nodes[route.Nodes.Count() - 1];
-            if (vector.DistanceSq(start, first) <= bindSq && vector.DistanceSq(clue.Origin, last) <= bindSq) { return route; }
-            if (vector.DistanceSq(start, last) <= bindSq && vector.DistanceSq(clue.Origin, first) <= bindSq) { return route; }
+            if (vector.DistanceSq(start, first) <= bindSq) { return route; }
+            if (vector.DistanceSq(start, last) <= bindSq) { return route; }
         }
         return null;
     }
@@ -245,7 +247,7 @@ modded class HCInfectedModule
     protected ref HCUnitBudget m_HCRouteUnits = new HCUnitBudget;
     protected ref HCWorkBudget m_HCRouteWork = new HCWorkBudget;
 
-    // Read-only owner observations, bounded by the existing two-pack ceiling.
+    // Read-only observations bounded by the validated settings ceilings.
     string HCV2MigrationReason()
     {
         if (!m_Healthy) { return "infected_owner_unhealthy"; }
@@ -253,15 +255,14 @@ modded class HCInfectedModule
         if (!m_Config || !m_State || !m_Admission) { return "infected_owner_state_missing"; }
         if (!m_Config.EnableHordeStimulusRoutes) { return "stimulus_routes_operator_off"; }
         if (!m_Admission.HordeStimulusRoutes) { return "stimulus_route_dependency_unavailable"; }
-        if (!HeardAdmitted()) { return "perceived_noise_provider_unavailable"; }
-        if (m_Packs.Count() > 2 || m_Packs.Count() != m_State.Groups.Count() || m_Actors.Count() > 24) { return "cohort_roster_inconsistent"; }
+        if (m_Packs.Count() > m_GroupCap || m_Packs.Count() != m_State.Groups.Count() || m_Actors.Count() > m_MemberCap) { return "cohort_roster_inconsistent"; }
         return "";
     }
 
     int HCV2MigrationDrifting()
     {
         int drifting = 0;
-        for (int packIndex = 0; packIndex < m_Packs.Count() && packIndex < 2; packIndex++)
+        for (int packIndex = 0; packIndex < m_Packs.Count() && packIndex < m_GroupCap; packIndex++)
         {
             HCNativeInfectedPack candidate = m_Packs[packIndex];
             if (candidate && candidate.IsV2Drifting()) { drifting++; }
@@ -274,15 +275,15 @@ modded class HCInfectedModule
         if (!m_Healthy || !m_Hordes || !m_State || !HCHordeMigration.Active()) { return 0; }
         if (!m_Config.EnableHordeStimulusRoutes || !m_Admission.HordeStimulusRoutes || !HeardAdmitted()) { return 0; }
         int count = m_Packs.Count();
-        if (count < 1 || count > 2 || count != m_State.Groups.Count() || m_Actors.Count() > 24) { return 0; }
+        if (count < 1 || count > m_GroupCap || count != m_State.Groups.Count() || m_Actors.Count() > m_MemberCap) { return 0; }
         int index = m_V2DriftCursor % count;
         m_V2DriftCursor = (index + 1) % count;
         HCNativeInfectedPack pack = m_Packs[index];
         HCHordeRecord record = m_State.Groups[index];
         if (!pack || !record || pack.IsReleasing() || record.State == 5 || record.State == 6 || record.RecoveryConflicted) { return 0; }
         HCInfectedClue chosen;
-        m_HCRouteUnits.HCReset(24);
-        m_HCRouteWork.HCReset(24);
+        m_HCRouteUnits.HCReset(m_WorkCap);
+        m_HCRouteWork.HCReset(m_WorkCap);
         int scanned = 0;
         while (scanned < m_Actors.Count())
         {
@@ -315,7 +316,6 @@ modded class HCNativeInfectedPack
     protected bool m_V2Segment;
     protected vector m_V2Destination;
     protected float m_V2Deadline;
-    protected float m_V2ClearSince = -1;
     protected float m_V2LastEvidence = -1;
     protected float m_V2Cooldown;
     protected float m_V2BestDistance = -1;
@@ -357,8 +357,7 @@ modded class HCNativeInfectedPack
         }
         m_HCRoute = route;
         m_HCRouteConfig = cfg;
-        float bindSq = cfg.SurveyBindMetres * cfg.SurveyBindMetres;
-        bool forward = vector.DistanceSq(leader.GetPosition(), route.Nodes[0]) <= bindSq && vector.DistanceSq(clue.Origin, route.Nodes[route.Nodes.Count() - 1]) <= bindSq;
+        bool forward = vector.DistanceSq(leader.GetPosition(), route.Nodes[0]) <= vector.DistanceSq(leader.GetPosition(), route.Nodes[route.Nodes.Count() - 1]);
         m_HCRouteReverse = !forward;
         m_HCRouteNode = 0;
         m_HCRouteStimulus = clue.EventId;
@@ -368,12 +367,46 @@ modded class HCNativeInfectedPack
         m_V2MemberCount = m_Members.Count();
         m_V2LastEvidence = clue.Observed;
         m_V2Deadline = Math.Min(clue.Expires, clue.Observed + cfg.MaxNoiseSeconds);
-        m_V2ClearSince = -1;
         m_V2Progress = now;
         m_V2Segment = false;
         m_V2Drift = true;
         HCVarietyWalkerHerd();
         HCRouteLog("admitted", "on");
+    }
+
+    // Native physical walking uses AIGroupBehaviour.c:27 SetWaypoints and
+    // Object.c:287 GetPosition (scripts-1.30.164289). No observer absence is
+    // needed: membership is already physical and every waypoint is pathed.
+    // This is a finite patrol lifetime, never a fabricated noise receipt.
+    override bool HCAdmitPatrol(HCHordeRouteSurvey route, int id, float now)
+    {
+        HCHordeRouteDefaults cfg = HCHordeRoutes.Defaults();
+        if (!HCHordeMigration.Active() || !cfg || !route || !Group || m_Releasing || m_Search) { return false; }
+        if (!HCHordeRecovery.HCRouteRoster(m_Members.Count(), cfg.MaxMembers, m_Members.Count(), false)) { return false; }
+        ZombieBase leader = m_Members[0];
+        if (!leader) { return false; }
+        m_HCRouteMembers.Clear();
+        array<ZombieBase> patrolMembers = m_Members;
+        foreach (ZombieBase member : patrolMembers)
+        {
+            if (!member) { return false; }
+            m_HCRouteMembers.Insert(member);
+        }
+        m_HCRoute = route;
+        m_HCRouteConfig = cfg;
+        m_HCRouteReverse = vector.DistanceSq(leader.GetPosition(), route.Nodes[0]) > vector.DistanceSq(leader.GetPosition(), route.Nodes[route.Nodes.Count() - 1]);
+        m_HCRouteNode = 0;
+        m_HCRouteStimulus = 0;
+        m_V2Id = id;
+        m_V2Destination = route.Nodes[route.Nodes.Count() - 1];
+        if (m_HCRouteReverse) { m_V2Destination = route.Nodes[0]; }
+        m_V2MemberCount = m_Members.Count();
+        m_V2Deadline = now + 600;
+        m_V2Progress = now;
+        m_V2Segment = false;
+        m_V2Drift = true;
+        HCRouteLog("admitted", "patrol");
+        return true;
     }
 
     // Keep this shared segment port/registration stable. The 4 m waypoint
@@ -451,16 +484,8 @@ modded class HCNativeInfectedPack
         {
             if (vector.DistanceSq(clustered.GetPosition(), centroid) > cfg.CohesionMetres * cfg.CohesionMetres) { return V2End(now, 5); }
         }
-        // Reuse the existing observer gate/HCPerfPlayers snapshot; a centroid
-        // is ONLY the conservative observer envelope, never proof of arrival.
-        bool quiet = HCObserverTransitionGate.V2Quiet(centroid, m_V2Destination, now, 60, m_V2ClearSince);
-        if (!quiet)
-        {
-            // End and release to native ownership; do not issue centroid holds
-            // that could drag the cohort away from its surveyed corridor.
-            HCRouteLog("OBSERVER_QUIET_CONTRACT_REFUSED", "refused");
-            return V2End(now, 5);
-        }
+        // Physical cohorts walk under native AI, including when visible.
+        // Observer-clear grace belongs to LOD/materialization, not locomotion.
         if (m_V2Segment)
         {
             if (worst <= cfg.ArrivalMetres * cfg.ArrivalMetres)

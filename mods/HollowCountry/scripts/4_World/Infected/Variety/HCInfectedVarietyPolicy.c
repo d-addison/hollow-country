@@ -105,7 +105,7 @@ class HCInfectedVarietyPolicy
     static int CohortLimit(int requested, int available, float scale)
     {
         int desired = Math.Max(3, Math.Round(requested * scale));
-        return Math.Min(available, Math.Min(6, desired));
+        return Math.Min(available, Math.Min(20, desired));
     }
 
     static int RunnerLimit(int population, float nightness)

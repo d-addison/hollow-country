@@ -25,6 +25,8 @@ class HCNativeInfectedPack
     // compiled earlier in the chain (HCHordeMigration.c) cannot see methods a
     // later modded class adds (DayZ 021 boot: Undefined function HCVarietyWalkerHerd).
     void HCVarietyWalkerHerd() {}
+    // Physical route hook; the migration extension owns authored corridor state.
+    bool HCAdmitPatrol(HCHordeRouteSurvey route, int id, float now) { return false; }
     protected int m_RetargetAttempts;
     protected vector m_LastPosition;
     protected bool m_Search;
@@ -101,7 +103,7 @@ class HCNativeInfectedPack
 
     static void RetryPendingReleases()
     {
-        // New packs are blocked while any release is pending. At most the two
+        // New packs are blocked while any release is pending. At most twelve
         // horde packs, two investigators and one partial transfer can be owned.
         for (int i = s_PendingRelease.Count() - 1; i >= 0; i--)
             s_PendingRelease[i].Release();
@@ -166,7 +168,7 @@ class HCNativeInfectedPack
         m_HCStartRan = true;
         if (s_PendingRelease.Count() > 0) return HCRefuse("release_pending");
         if (!GetGame().IsServer()) return HCRefuse("not_server");
-        if (!actors || actors.Count() < 1 || actors.Count() > 6) return HCRefuse("roster_bounds");
+        if (!actors || actors.Count() < 1 || actors.Count() > 20) return HCRefuse("roster_bounds");
         if (!GetAIWorld()) return HCRefuse("no_ai_world");
         if (expires <= now) return HCRefuse("clue_expired");
         // The exact template and its type=InfectedPack exist in installed
@@ -298,7 +300,7 @@ class HCNativeInfectedPack
             return 0;
         if (!clue.IsLive(now) || !HCInfectedStore.ValidPosition(clue.Origin))
             return 0;
-        if (m_Members.Count() < 1 || m_Members.Count() > 6 || now >= m_Expires)
+        if (m_Members.Count() < 1 || m_Members.Count() > 20 || now >= m_Expires)
             return 0;
         ZombieBase leader;
         foreach (ZombieBase member : m_Members)

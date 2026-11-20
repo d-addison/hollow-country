@@ -38,7 +38,7 @@ class HCHordeRecovery
     // survey points never authorize a replacement, extra member or reactivation.
     static bool HCRouteRoster(int members, int cap, int expected, bool conflicted)
     {
-        return !conflicted && cap >= 1 && cap <= 6 && members >= 1 && members <= cap && members == expected;
+        return !conflicted && cap >= 1 && cap <= 20 && members >= 1 && members <= cap && members == expected;
     }
 
     // Persist the complete roster or none of it. Partial IDs cannot authorize
@@ -98,7 +98,7 @@ class HCHordeRecovery
         return !previous.RecoveryConflicted || current.RecoveryConflicted;
     }
 
-    // One caller-budgeted actor, at most 2*6 roster entries and 24 registered
+    // One caller-budgeted actor, at most 128 total roster entries and 128 registered
     // entities. Identity is compared only; native persistent-ID lookup is NOT
     // called outside its restricted engine event.
     static bool Reconcile(HCInfectedActor actor, HCInfectedSnapshot snapshot, array<ref HCInfectedActor> actors, bool enabled, int now)

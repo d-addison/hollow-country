@@ -154,8 +154,8 @@ class HCC1Vision
 class HCC1Memory
 {
     float DecaySeconds = 259200.0;
-    int CohortBase = 3;
-    int CohortHeat = 3;
+    int CohortBase = 8;
+    int CohortHeat = 12;
     int ResponseBase = 6;
     int ResponseHeat = 6;
     float CellMetres = 500.0;
@@ -165,8 +165,8 @@ class HCC1Memory
     void Normalize()
     {
         DecaySeconds = HCC1Range.Value(DecaySeconds, 1, 2592000, 259200.0);
-        CohortBase = HCC1Range.Value(CohortBase, 3, 6, 3);
-        CohortHeat = HCC1Range.Value(CohortHeat, 1, 3, 3);
+        CohortBase = HCC1Range.Value(CohortBase, 3, 20, 8);
+        CohortHeat = HCC1Range.Value(CohortHeat, 1, 17, 12);
         ResponseBase = HCC1Range.Value(ResponseBase, 1, 12, 6);
         ResponseHeat = HCC1Range.Value(ResponseHeat, 1, 6, 6);
         CellMetres = HCC1Range.Value(CellMetres, 50, 2000, 500.0);
@@ -182,7 +182,7 @@ class HCC1Chain
     int MaxHops = 2;
     float Attenuation = 0.5;
     float EmissionAge = 2.0;
-    int TrackedCap = 24;
+    int TrackedCap = 128;
     int RootCap = 8;
 
     void Normalize()
@@ -192,7 +192,7 @@ class HCC1Chain
         MaxHops = HCC1Range.Value(MaxHops, 1, 2, 2);
         Attenuation = HCC1Range.Value(Attenuation, 0.001, 1, 0.5);
         EmissionAge = HCC1Range.Value(EmissionAge, 0.1, 10, 2.0);
-        TrackedCap = HCC1Range.Value(TrackedCap, 1, 24, 24);
+        TrackedCap = HCC1Range.Value(TrackedCap, 1, 128, 128);
         RootCap = HCC1Range.Value(RootCap, 1, 8, 8);
     }
 }

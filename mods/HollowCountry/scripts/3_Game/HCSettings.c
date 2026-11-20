@@ -211,8 +211,8 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableTapedPackMounts", "bool", 1, 0, 1, "HCSettings");
         HCAdd("TickIntervalMs", "int", 1000, 500, 10000, "HCSettings");
         HCAdd("MaxTickWorkItems", "int", 32, 1, 256, "HCSettings");
-        HCAdd("MaxActiveHordes", "int", 2, 1, 8, "HCSettings");
-        HCAdd("MaxActiveHordeMembers", "int", 24, 1, 64, "HCSettings");
+        HCAdd("MaxActiveHordes", "int", 6, 1, 12, "HCSettings");
+        HCAdd("MaxActiveHordeMembers", "int", 60, 1, 128, "HCSettings");
         HCAdd("MaxActiveInteriors", "int", 12, 1, 32, "HCSettings");
         HCAdd("MaxPropsPerInterior", "int", 5, 1, 20, "HCSettings");
         HCAdd("MaxFurnishedProps", "int", 1500, 0, 2000, "HCSettings");
@@ -534,8 +534,8 @@ class HCSettings
     int MaxFamiliarityRows = 0;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
-    int MaxActiveHordes = 2;
-    int MaxActiveHordeMembers = 24;
+    int MaxActiveHordes = 6;
+    int MaxActiveHordeMembers = 60;
     int MaxActiveInteriors = 12;
     int MaxPropsPerInterior = 5;
     int MaxFurnishedProps = 1500;
