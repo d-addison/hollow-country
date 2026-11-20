@@ -118,16 +118,6 @@ class HCInfectedModule : HCModule
                 Quarantine("invalid config; preserving files");
                 return;
             }
-            // Profiles written before the 256 default (#246) still hold the old 24 cap,
-            // which starves horde tracking and the variety queue; migrate once.
-            if (m_Config.MaxTracked == 24)
-            {
-                m_Config.MaxTracked = 256;
-                if (JsonFileLoader<HCInfectedConfig>.SaveFile(path, m_Config, error))
-                    Print("[HC Infected] config migrated MaxTracked=24->256 runtime=PENDING");
-                else
-                    Print("[HC Infected] config migration MaxTracked=24->256 in memory only; save failed runtime=PENDING");
-            }
         }
         else if (!JsonFileLoader<HCInfectedConfig>.SaveFile(path, m_Config, error))
         {
