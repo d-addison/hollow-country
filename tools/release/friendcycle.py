@@ -12,7 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from tools.release.release import (ADDONS, TEMPLATES, build, build_number, digest,
+from tools.release.release import (ADDONS, TEMPLATES_REL, build, build_number, digest,
                                    resolve_commit, run, worktree)
 
 
@@ -115,7 +115,7 @@ def main(argv=None):
     parser.add_argument('build', type=build_number)
     parser.add_argument('--commit', default='HEAD')
     parser.add_argument('--allow-unpushed', action='store_true')
-    parser.add_argument('--templates', type=Path, default=TEMPLATES)
+    parser.add_argument('--templates', type=Path, help='override pack (default: the commit\'s ' + TEMPLATES_REL + ')')
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--out', type=Path, help='signed release directory')
     parser.add_argument('--bundle-out', type=Path)
