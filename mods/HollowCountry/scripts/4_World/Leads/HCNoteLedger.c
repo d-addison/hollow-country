@@ -221,7 +221,7 @@ class HCNoteLedger : HCModule
         {
             if (paper) { GetGame().ObjectDelete(paper); }
             m_Store.Data.Notes.RemoveItem(entry);
-            m_Store.Save();
+            m_Store.HCRequestCheckpoint(); // rollback of an unspawned note; the reservation barrier above already held
             RadioFallback(lead);
             return null;
         }
@@ -230,7 +230,7 @@ class HCNoteLedger : HCModule
         {
             GetGame().ObjectDelete(paper);
             m_Store.Data.Notes.RemoveItem(entry);
-            m_Store.Save();
+            m_Store.HCRequestCheckpoint(); // rollback of an unspawned note; the reservation barrier above already held
             RadioFallback(lead);
             return null;
         }
@@ -239,7 +239,7 @@ class HCNoteLedger : HCModule
         // remain reserved until positively identified on a later load.
         paper.SetLifetime(entry.Expires - entry.Row.CreatedAt + 3600);
         entry.Phase = 1;
-        if (!m_Store.Save()) { return paper; }
+        m_Store.HCRequestCheckpoint(); // materialized marker; the reserved row is already durable
         LogCount();
         // A factual note never implies a death or authorizes a corpse/cache.
         m_Store.HCPlan("ready", "note_reserved_once");

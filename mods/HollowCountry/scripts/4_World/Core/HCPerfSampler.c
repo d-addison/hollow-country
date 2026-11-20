@@ -457,9 +457,15 @@ class HCPerfSampler
                 workIndex++;
             }
             m_SortedModuleNames.Clear();
+            // First registered slot per name, built once so the sorted pass below
+            // does not rescan m_ModuleNames per module.
+            map<string, int> slotByName = new map<string, int>;
+            int nameSlot = 0;
             foreach (string registeredName : m_ModuleNames)
             {
                 m_SortedModuleNames.Insert(registeredName);
+                if (!slotByName.Contains(registeredName)) { slotByName.Insert(registeredName, nameSlot); }
+                nameSlot++;
             }
             m_SortedModuleNames.Sort();
             string slowestName = "none";
@@ -469,7 +475,7 @@ class HCPerfSampler
             while (moduleOrder < m_SortedModuleNames.Count())
             {
                 string moduleName = m_SortedModuleNames.Get(moduleOrder);
-                int moduleSlot = m_ModuleNames.Find(moduleName);
+                int moduleSlot = slotByName.Get(moduleName);
                 int moduleTicks = m_ModuleMaxTicks.Get(moduleSlot);
                 if (moduleTicks > slowestTicks)
                 {

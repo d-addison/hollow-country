@@ -17,6 +17,9 @@ class HCLeadPolicy
     // :199 Length, :240 IndexOf. No native identity value is modified.
     static string SoloGroup(string identityId)
     {
+        // "solo:" plus the id must fit the 96-character HCWorldLimits.Token cap;
+        // a longer id could never be stored, so it yields no group.
+        if (identityId.Length() > 91) { return ""; }
         string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.:/";
         string key = "solo:";
         int keyIndex;
@@ -264,6 +267,12 @@ class HCLeadModule : HCModule
         HCWorldModule world = HCWorldModule.Get();
         if (world)
         {
+            // Catalog ids indexed once; the dedupe below no longer rescans m_Catalog per fact.
+            map<string, bool> catalogIds = new map<string, bool>;
+            foreach (HCWorldLead cataloged : m_Catalog)
+            {
+                catalogIds.Set(cataloged.Id, true);
+            }
             world.GetRecentFacts(604800, m_Facts);
             int work = m_Facts.Count();
             if (work > 32) { work = 32; }
@@ -276,12 +285,11 @@ class HCLeadModule : HCModule
                 if (!HCLeadPolicy.Build(fact, candidate, fact.PlaceId, HCLeadPolicy.Kind(fact.Kind), now)) { continue; }
                 candidate.Id = fact.Kind + "-" + fact.PlaceId + "-" + fact.At.ToString();
                 candidate.Source = "world";
-                bool duplicate = false;
-                foreach (HCWorldLead existing : m_Catalog)
+                if (!catalogIds.Contains(candidate.Id) && m_Catalog.Count() < 64)
                 {
-                    if (existing.Id == candidate.Id) { duplicate = true; break; }
+                    m_Catalog.Insert(candidate);
+                    catalogIds.Set(candidate.Id, true);
                 }
-                if (!duplicate && m_Catalog.Count() < 64) { m_Catalog.Insert(candidate); }
             }
         }
         // LC-T306: refresh one shelter lead slot per minute from the lead catalog.
@@ -293,11 +301,12 @@ class HCLeadModule : HCModule
             if (slotLead) { HCShelterCatalog.SetLeadSlot(m_ShelterCursor, HCLeadPolicy.Text(slotLead)); }
             m_ShelterCursor++;
         }
-        if (changed && !m_Store.Save()) { return; }
-        array<string> groups = new array<string>();
+        // Expiry prune is not a durability barrier: the CausalLeads save job stages it.
+        if (changed) { m_Store.HCRequestCheckpoint(); }
+        map<string, bool> groups = new map<string, bool>;
         foreach (HCWorldLead active : m_Store.Data.Leads)
         {
-            if (groups.Find(active.GroupId) < 0) { groups.Insert(active.GroupId); }
+            groups.Set(active.GroupId, true);
         }
         string summary = "[HollowCountry] V2 leads active=" + m_Store.Data.Leads.Count().ToString() + " groups=" + groups.Count().ToString();
         if (summary != m_LastSummary || m_LogElapsed >= 600)

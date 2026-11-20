@@ -52,6 +52,8 @@ class HCProfileDefaults
     // Creates each missing parent directory of a profile-relative file.
     static bool PrepareParents(string relative)
     {
+        // Same bound as Valid (MAX_RELATIVE); every caller already passed Valid.
+        if (relative.Length() > 160) { return false; }
         string root = "$profile:HollowCountry";
         if (!FileExist(root) && !MakeDirectory(root)) { return false; }
         int length = relative.Length();
