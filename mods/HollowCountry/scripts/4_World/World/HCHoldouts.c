@@ -1,5 +1,6 @@
 // W5-PERF-5: catalog <=4 authored rows/tick (4 ms cooperative guard);
-// One row starts per >=10s; native stages/body probes resume on following ticks.
+// One row starts per >=1s; native stages/body probes resume on following ticks.
+// Empty body/stock/content stages fall through: five ticks per unoccupied row.
 // Catalog checkpoints coalesce, creation/spend/raid
 // barriers retain synchronous verified saves. Native scripts-1.30.164289:
 // 3_Game/Global/Game.c:914 GetTickTime; shared guard in HCWorkBudget.c.
@@ -222,6 +223,8 @@ class HCHoldouts : HCModule
     protected bool m_Dirty;
     protected int m_Reports;
     protected float m_SummaryElapsed;
+    protected int m_RowsSteppedWindow;
+    protected int m_RowsCompletedWindow;
     protected int m_FoundedWindow;
     protected int m_RecoveryAttemptsWindow;
     protected int m_StructureBlockedWindow;
@@ -229,7 +232,6 @@ class HCHoldouts : HCModule
     protected int m_ObserverBlockedWindow;
     protected bool m_WaitReported;
     protected bool m_CatalogDirty;
-    protected bool m_PublishCheckpointPending;
     protected ref HCHoldoutSaveJob m_SaveJob;
     protected ref HCWorkBudget m_WorkBudget = new HCPerfSlices("Holdouts");
     // Runtime diagnostics only, bounded by AILimits.MaxHoldouts.
@@ -426,18 +428,10 @@ class HCHoldouts : HCModule
         return true;
     }
 
-    // Publication only records a detached world view and its retry flag. Keep
-    // the following simulation stage behind this durable continuation instead
-    // of draining every 4 KiB image pass in the publication tick (#271).
-    // Creation, stock and reserve/spend barriers still use SaveChanged().
-    protected void HCQueuePublishCheckpoint()
-    {
-        if (!m_Dirty && !m_Store.SaveInFlight()) { return; }
-        m_PublishCheckpointPending = true;
-        m_SaveJob.HCDirty = true;
-        m_SaveJob.HCUrgent = true;
-        m_SaveJob.HCDue = GetGame().GetTickTime();
-    }
+    // #271/#285: Published is a detached world-view retry flag, reset for ALL
+    // rows on every boot. It needs no checkpoint or simulation wait. Actual
+    // cache, stock, founding and reserve/spend transitions retain SaveChanged().
+    // Catalog discovery alone continues to use the shared staged save job.
 
     int HCStepCatalog()
     {
@@ -489,11 +483,9 @@ class HCHoldouts : HCModule
         if (world)
         {
             row.Ledger.CacheRef = row.Cache.EntityRef;
-            bool wasPublished = row.Published;
             row.Published = world.UpsertHoldout(row.Ledger);
             if (row.Published)
             {
-                if (!wasPublished) { m_Dirty = true; }
                 m_PublishRefusals.Set(row.Ledger.Id, "");
                 world.AddHoldoutFact(row.Ledger);
                 HCSyncLights();
@@ -1014,8 +1006,8 @@ class HCHoldouts : HCModule
         Print("[HollowCountry] V2 holdouts template pack changed; ledger re-pinned rows=" + m_State.Rows.Count().ToString() + " uncovered=" + uncovered.ToString());
     }
 
-    // One bounded state census per five minutes, including while publication
-    // checkpoints defer simulation. Counts describe logical state, not live AI.
+    // One bounded state census per five minutes. Counts describe logical
+    // state, not live AI; progress includes rows blocked by house resolution.
     protected void HCReportWindow(float deltaTime, bool firstDecision = false)
     {
         m_SummaryElapsed += deltaTime;
@@ -1052,7 +1044,6 @@ class HCHoldouts : HCModule
         string reason = "row_rotation";
         if (!m_Ready) { reason = m_Operational.HCReason(); }
         else if (!HCWorldModule.Get()) { reason = "world_unavailable"; }
-        else if (m_PublishCheckpointPending) { reason = "publish_checkpoint"; }
         else if (!HCInteriorTemplates.Loaded()) { reason = "templates_loading"; }
         else if (m_CatalogDirty) { reason = "catalog_checkpoint"; }
         else if (catalogPending > 0) { reason = "catalog_discovery"; }
@@ -1063,12 +1054,15 @@ class HCHoldouts : HCModule
         string line = "[HC Holdouts] " + receiptKind + " dormant=" + dormant.ToString() + " occupied=" + occupied.ToString();
         line += " raided=" + raided.ToString() + " abandoned=" + abandoned.ToString() + " founded_window=" + m_FoundedWindow.ToString();
         line += " cache_phase0=" + phase0.ToString() + " cache_phase1=" + phase1.ToString() + " cache_phase2=" + phase2.ToString() + " cache_phase3=" + phase3.ToString();
+        line += " rows_stepped_window=" + m_RowsSteppedWindow.ToString() + " rows_completed_window=" + m_RowsCompletedWindow.ToString();
         line += " recovery_attempts_window=" + m_RecoveryAttemptsWindow.ToString() + " structure_blocked_window=" + m_StructureBlockedWindow.ToString();
         line += " spot_blocked_window=" + m_SpotBlockedWindow.ToString() + " observer_blocked_window=" + m_ObserverBlockedWindow.ToString();
         line += " founded=" + occupied.ToString() + " pending=" + pending.ToString() + " tick_phase=" + m_TickPhase.ToString();
         line += " catalog_pending_rows=" + catalogPending.ToString() + " catalog_cursor=" + m_CatalogCursor.ToString();
         line += " ready=" + m_Ready.ToString() + " reason=" + reason;
         Print(line + " runtime=PENDING");
+        m_RowsSteppedWindow = 0;
+        m_RowsCompletedWindow = 0;
         m_FoundedWindow = 0;
         m_RecoveryAttemptsWindow = 0;
         m_StructureBlockedWindow = 0;
@@ -1082,14 +1076,6 @@ class HCHoldouts : HCModule
         HCReportWindow(deltaTime);
         if (!m_Ready || !HCWorldModule.Get()) return;
         m_Elapsed += deltaTime;
-        if (m_PublishCheckpointPending)
-        {
-            HCSaveScheduler.HCPumpFallback(m_SaveJob);
-            if (!m_Ready || m_SaveJob.HCFaulted || m_SaveJob.HCDirty || m_SaveJob.HCInFlight) { return; }
-            m_PublishCheckpointPending = false;
-            // A completed checkpoint never shares a tick with simulation.
-            return;
-        }
         if (!HCInteriorTemplates.Loaded())
         {
             if (!m_WaitReported) Print("[HollowCountry] V2 holdouts waiting for authored covered template houses");
@@ -1104,7 +1090,7 @@ class HCHoldouts : HCModule
         if (!m_Ready || Count() == 0) { return; }
         if (m_TickPhase == 0)
         {
-            if (m_Elapsed < 10) { return; }
+            if (m_Elapsed < 1) { return; }
             m_Elapsed = 0;
             if (m_Next >= Count()) m_Next = 0;
             m_TickIndex = m_Next;
@@ -1124,10 +1110,10 @@ class HCHoldouts : HCModule
         // cannot currently resolve. Local durable state is authoritative.
         if (m_TickPhase == 1)
         {
+            m_RowsSteppedWindow++;
             if (!row.Published)
             {
                 PublishState(row);
-                HCQueuePublishCheckpoint();
             }
             m_TickPhase = 2;
             return;
@@ -1174,6 +1160,12 @@ class HCHoldouts : HCModule
                     m_Dirty = true;
                 }
             }
+            if (row.Ledger.CacheRef != row.Cache.EntityRef)
+            {
+                row.Ledger.CacheRef = row.Cache.EntityRef;
+                row.Published = false;
+                m_Dirty = true;
+            }
             // Cache creation keeps its original intent/result save barriers.
             if (!SaveChanged()) { return; }
             m_TickPhase = 4;
@@ -1185,6 +1177,12 @@ class HCHoldouts : HCModule
             string cacheRef = row.Cache.EntityRef;
             if (row.Cache.Phase != 0) m_Caches[index].LinkCache(row.Cache);
             if (cachePhase != row.Cache.Phase || cacheRef != row.Cache.EntityRef) m_Dirty = true;
+            if (row.Ledger.CacheRef != row.Cache.EntityRef)
+            {
+                row.Ledger.CacheRef = row.Cache.EntityRef;
+                row.Published = false;
+                m_Dirty = true;
+            }
             if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) HCRaidCamp(index);
             if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) HCRaidCamp(index);
             if (!m_Ready) return;
@@ -1205,7 +1203,9 @@ class HCHoldouts : HCModule
             }
             m_BodyNext = m_Bodies.Count() - 1;
             m_TickPhase = 6;
-            return;
+            // With no bodies or occupied inventory work, finish bookkeeping
+            // here. Never run another row or another native probe in this tick.
+            if (m_BodyNext >= 0 || row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
         }
         if (m_TickPhase == 6)
         {
@@ -1227,7 +1227,6 @@ class HCHoldouts : HCModule
                 return;
             }
             m_TickPhase = 7;
-            return;
         }
         if (m_TickPhase == 7)
         {
@@ -1254,14 +1253,14 @@ class HCHoldouts : HCModule
             }
             if (!SaveChanged()) { return; }
             m_TickPhase = 8;
-            return;
+            if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
         }
         if (m_TickPhase == 8)
         {
             if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") SnapshotContents(index);
             if (!SaveChanged()) { return; }
             m_TickPhase = 9;
-            return;
+            if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") { return; }
         }
         if (row.Ledger.CacheRef != row.Cache.EntityRef)
         {
@@ -1269,13 +1268,13 @@ class HCHoldouts : HCModule
             row.Published = false;
             m_Dirty = true;
         }
+        if (!SaveChanged()) { return; }
         HCWorldModule world = HCWorldModule.Get();
         if (world && !row.Published)
         {
             PublishState(row);
-            if (row.Published) m_Dirty = true;
         }
-        HCQueuePublishCheckpoint();
+        m_RowsCompletedWindow++;
         m_TickPhase = 0;
         m_TickStructure = null;
     }
