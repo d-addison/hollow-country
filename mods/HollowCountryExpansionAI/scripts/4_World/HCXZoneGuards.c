@@ -16,6 +16,7 @@ class HCXZoneGuardsRuntime
     ref HCXAISiteState Site;
     ref HCXZoneGuardsPack Pack = new HCXZoneGuardsPack;
     ref array<ZombieBase> Bodies = new array<ZombieBase>;
+    bool Initialised;
     int Spent;
     float NextAttempt;
 }
@@ -43,13 +44,14 @@ class HCXZoneGuards : HCModule
     protected ref HCXZoneGuardsSave m_Save;
     protected ref array<ref HCXZoneGuardsRuntime> m_Zones = new array<ref HCXZoneGuardsRuntime>;
     protected ref map<string, HCXZoneGuardsRuntime> m_BySite = new map<string, HCXZoneGuardsRuntime>;
-    protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected ref HCPerfSlices m_Work = new HCPerfSlices("ZoneGuards");
     protected ref HCXZoneGuardsDebug m_Debug;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected bool m_Started;
     protected string m_Refusal;
     protected int m_Cursor;
     protected int m_DailyRemaining;
+    protected int m_ActorsSpawned;
     static HCXZoneGuards Active() { return s_Active; }
     array<ref HCXZoneGuardsRuntime> Zones() { return m_Zones; }
     override string GetName() { return "ZoneGuards"; }
@@ -174,14 +176,67 @@ class HCXZoneGuards : HCModule
         return true;
     }
     HCXZoneGuardsRuntime BySite(string id) { return m_BySite.Get(id); }
-    // <=128 catalog rows; no actor/world discovery. Called only at spawn gates.
+    // Ownership is explicit: radius is an audit envelope, not a blanket hold.
+    // A replacement must be operational before the ordinary site yields to it.
+    bool Manages(HCXZoneGuardsRuntime zone)
+    {
+        if (!m_Started || m_Refusal != "" || !zone.Initialised) { return false; }
+        if (zone.Row.State == "held")
+        {
+            return !zone.Row.Wiped && zone.Site && !zone.Site.Failed && zone.Site.Patrol && !zone.Site.Patrol.m_HCFinished && zone.Site.Patrol.m_Group && zone.Site.Patrol.m_Group.Count() > 0;
+        }
+        if (zone.Row.State == "overrun")
+        {
+            foreach (ZombieBase body : zone.Bodies)
+            {
+                if (body && body.IsAlive()) { return true; }
+            }
+        }
+        return false;
+    }
+    // <=128 catalog rows; called only at spawn gates and four audit rows/tick.
     bool OwnsAnchor(vector anchor, string id)
+    {
+        foreach (HCXZoneGuardsRuntime zone : m_Zones)
+        {
+            if (zone.Zone.sites.Find(id) >= 0 && Manages(zone)) { return true; }
+        }
+        return false;
+    }
+    bool AnchorInZone(vector anchor, string id)
     {
         foreach (HCXZoneGuardsRuntime zone : m_Zones)
         {
             if (zone.Zone.sites.Find(id) >= 0 || vector.DistanceSq(anchor, zone.Zone.center) <= zone.Zone.radius_m * zone.Zone.radius_m) { return true; }
         }
         return false;
+    }
+    void ActorSpawned(int count)
+    {
+        if (count > 0 && m_ActorsSpawned <= 2147483647 - count) { m_ActorsSpawned += count; }
+    }
+    // Ownership counts cover one bounded rolling director sweep, not live actors.
+    void Summary(int ownedSites, int held, int released, int sampled)
+    {
+        int initialised;
+        int heldZones;
+        int overrun;
+        int abandoned;
+        int created;
+        foreach (HCXZoneGuardsRuntime zone : m_Zones)
+        {
+            if (zone.Initialised) { initialised++; }
+            if (zone.Row.State == "held") { heldZones++; }
+            if (zone.Row.State == "overrun") { overrun++; }
+            if (zone.Row.State == "abandoned") { abandoned++; }
+            if (zone.Site) { created++; }
+        }
+        string line = "[HC ZoneGuards] summary zones_initialised=" + initialised.ToString() + " zones_total=" + m_Zones.Count().ToString();
+        line += " held=" + heldZones.ToString() + " overrun=" + overrun.ToString() + " abandoned=" + abandoned.ToString();
+        line += " sites_owned=" + ownedSites.ToString() + " sites_held=" + held.ToString() + " sites_released=" + released.ToString();
+        line += " sites_sampled=" + sampled.ToString() + " zg_sites_created=" + created.ToString() + " actors_spawned=" + m_ActorsSpawned.ToString();
+        line += " last_day=" + m_Data.LastDay.ToString() + " runtime=PENDING";
+        Print("" + line);
     }
     bool Held(string id)
     {
@@ -216,6 +271,7 @@ class HCXZoneGuards : HCModule
         zone.Row.State = next;
         zone.Row.ChangedDay = day;
         if (next == "held") { zone.Row.Wiped = false; }
+        zone.Initialised = false;
         zone.Spent = 0;
         zone.Bodies.Clear();
         if (!Checkpoint()) { return false; }
@@ -229,7 +285,8 @@ class HCXZoneGuards : HCModule
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director || director.Phase() != "run") { return; }
         m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
-        if (!m_Work.HCContinue() || !HCServer.HCTickWork().HCTake(1)) { return; }
+        if (!m_Work.HCContinue() || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ZONE_GUARDS, 1)) { return; }
+        director.HCZoneAuditStep(this);
         int day = HCEscalationClock.Day();
         if (day > m_Data.LastDay)
         {
@@ -242,6 +299,7 @@ class HCXZoneGuards : HCModule
         m_Cursor = (m_Cursor + 1) % m_Zones.Count();
         HCXZoneGuardsRuntime zone = m_Zones[index];
         director.HCZoneService(zone);
+        zone.Initialised = true;
         if (zone.Site && zone.Site.Failed) { m_Refusal = "zone_route_refused_" + zone.Zone.id; return; }
         if (zone.Row.State == "overrun") { StepOverrun(zone, director); }
         if (m_DailyRemaining < 1 || m_Data.ChangedToday >= m_Config.MaxChangesPerDay) { return; }
@@ -284,6 +342,7 @@ class HCXZoneGuards : HCModule
         if (!body) { return; }
         zone.Bodies.Insert(body);
         zone.Spent++;
+        ActorSpawned(1);
     }
     override void OnStop()
     {

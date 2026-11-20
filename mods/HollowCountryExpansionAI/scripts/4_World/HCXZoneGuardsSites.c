@@ -35,12 +35,50 @@ modded class HCXAISitePatrol
         HCXZoneGuardsSpawnFormation slots = new HCXZoneGuardsSpawnFormation;
         slots.Slots = zone.Zone.guard_slots;
         m_Formation = slots;
+        int before;
+        if (m_Group) { before = m_Group.Count(); }
         super.SpawnAI_Deferred(i);
         m_Formation = previous;
+        if (m_Group) { owner.ActorSpawned(m_Group.Count() - before); }
     }
 }
 modded class HCXAISiteDirector
 {
+    protected int m_HCZoneAuditCursor;
+    protected int m_HCZoneAuditOwned;
+    protected int m_HCZoneAuditReleased;
+    protected int m_HCZoneAuditSampled;
+    protected float m_HCZoneAuditNext;
+    // At most four catalog rows per admitted zone tick; one summary per sweep
+    // and no more often than 300 seconds. Counts are a rolling observation.
+    void HCZoneAuditStep(HCXZoneGuards owner)
+    {
+        for (int checked = 0; checked < 4 && m_HCZoneAuditCursor < m_States.Count(); checked++)
+        {
+            HCXAISiteState state = m_States[m_HCZoneAuditCursor];
+            m_HCZoneAuditCursor++;
+            if (state && state.Site && !owner.BySite(state.Site.Id) && state.Site.Waypoints.Count() > 0)
+            {
+                vector anchor = state.Site.Waypoints[0];
+                m_HCZoneAuditSampled++;
+                if (owner.OwnsAnchor(anchor, state.Site.Id)) { m_HCZoneAuditOwned++; }
+                else if (owner.AnchorInZone(anchor, state.Site.Id)) { m_HCZoneAuditReleased++; }
+            }
+        }
+        if (m_HCZoneAuditCursor < m_States.Count() || GetGame().GetTickTime() < m_HCZoneAuditNext) { return; }
+        owner.Summary(m_HCZoneAuditOwned, m_HCZoneAuditOwned, m_HCZoneAuditReleased, m_HCZoneAuditSampled);
+        m_HCZoneAuditNext = GetGame().GetTickTime() + 300;
+        m_HCZoneAuditCursor = 0;
+        m_HCZoneAuditOwned = 0;
+        m_HCZoneAuditReleased = 0;
+        m_HCZoneAuditSampled = 0;
+    }
+    override void Spawned(HCXAISitePatrol patrol)
+    {
+        super.Spawned(patrol);
+        HCXZoneGuards owner = HCXZoneGuards.Active();
+        if (owner && owner.BySite(patrol.m_HCSiteId) && patrol.m_Group) { owner.ActorSpawned(patrol.m_Group.Count()); }
+    }
     // Called for one zone/tick by its HCWorkBudget admission. Use the existing
     // bind/qualify/create stages, never a second native patrol constructor.
     void HCZoneService(HCXZoneGuardsRuntime zone)
@@ -79,6 +117,7 @@ modded class HCXAISiteDirector
             return;
         }
         HCXAISiteState state = zone.Site;
+        if (zone.Row.State != "held" || zone.Row.Wiped) { return; }
         if (state.Failed || state.Patrol) { return; }
         if (!state.Bound) { this.Bind(state); return; }
         if (!state.Qualified) { this.QualifyStep(state); return; }

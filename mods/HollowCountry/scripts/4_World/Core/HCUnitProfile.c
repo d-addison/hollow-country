@@ -74,6 +74,7 @@ class HCUnitProfile
         HCRegister("SEARCH_COVERAGE", config.TickWeight_SEARCH_COVERAGE);
         HCRegister("SEARCH_RETIREMENT", config.TickWeight_SEARCH_RETIREMENT);
         HCRegister("WILDLIFE", config.TickWeight_WILDLIFE);
+        HCRegister("ZONE_GUARDS", config.TickWeight_ZONE_GUARDS);
     }
 
     protected void HCRegister(string label, int weight)

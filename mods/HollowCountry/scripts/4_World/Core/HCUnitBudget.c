@@ -89,7 +89,9 @@ class HCUnitBudget
     static const int HC_WORK_SEARCH_COVERAGE = 36;
     static const int HC_WORK_SEARCH_RETIREMENT = 37;
     static const int HC_WORK_WILDLIFE = 38;
-    static const int HC_WORK_CONSUMERS = 39;
+    // Zone state/service must advance even when earlier modules exhaust the pool.
+    static const int HC_WORK_ZONE_GUARDS = 39;
+    static const int HC_WORK_CONSUMERS = 40;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
