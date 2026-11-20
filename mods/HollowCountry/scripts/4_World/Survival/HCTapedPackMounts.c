@@ -323,27 +323,44 @@ class HCTapedPackMounts : HCModule
     // text is followed by a true or false literal. JsonFileLoader may coerce or
     // zero-fill a wrongly typed bool, so the raw text is checked first. A key that
     // is absent passes (optional bools). Escaped quotes inside a Note never match.
+    // First index at or after startAt where needle starts, -1 when absent. Compares
+    // through 1 KB windows: IndexOf/IndexOfFrom are only trusted on 1 KB text.
+    static int ReceiptFind(HCTextWindow text, HCTextWindow needle, int startAt)
+    {
+        int last = text.Length() - needle.Length();
+        int index = startAt;
+        while (index <= last)
+        {
+            int offset = 0;
+            while (offset < needle.Length() && text.At(index + offset) == needle.At(offset)) { offset = offset + 1; }
+            if (offset == needle.Length()) { return index; }
+            index = index + 1;
+        }
+        return -1;
+    }
+
     static bool ReceiptBoolTyped(string text, string key)
     {
-        string needle = "\"" + key + "\"";
-        int total = text.Length();
-        int at = text.IndexOf(needle);
+        HCTextWindow window = new HCTextWindow(text);
+        HCTextWindow needle = new HCTextWindow("\"" + key + "\"");
+        int total = window.Length();
+        int at = ReceiptFind(window, needle, 0);
         while (at >= 0)
         {
             int cursor = at + needle.Length();
-            while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
+            while (cursor < total && (window.At(cursor) == " " || window.At(cursor) == "\n" || window.At(cursor) == "\r" || window.At(cursor) == "\t")) { cursor = cursor + 1; }
             // A string value equal to the key (e.g. "Note": "Checked") is not a key: no colon follows, skip it.
-            if (cursor < total && text.Get(cursor) == ":")
+            if (cursor < total && window.At(cursor) == ":")
             {
                 cursor = cursor + 1;
-                while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
+                while (cursor < total && (window.At(cursor) == " " || window.At(cursor) == "\n" || window.At(cursor) == "\r" || window.At(cursor) == "\t")) { cursor = cursor + 1; }
                 string trueText = "";
-                if (cursor + 4 <= total) { trueText = text.Substring(cursor, 4); }
+                if (cursor + 4 <= total) { trueText = window.Range(cursor, 4); }
                 string falseText = "";
-                if (cursor + 5 <= total) { falseText = text.Substring(cursor, 5); }
+                if (cursor + 5 <= total) { falseText = window.Range(cursor, 5); }
                 if (trueText != "true" && falseText != "false") { return false; }
             }
-            at = text.IndexOfFrom(cursor, needle);
+            at = ReceiptFind(window, needle, cursor);
         }
         return true;
     }
@@ -357,25 +374,26 @@ class HCTapedPackMounts : HCModule
     // bool/presence guards cannot match. Escapes in prose values remain valid.
     static bool ReceiptKeysUnescaped(string text)
     {
-        int total = text.Length();
+        HCTextWindow window = new HCTextWindow(text);
+        int total = window.Length();
         int cursor = 0;
         while (cursor < total)
         {
-            if (text.Get(cursor) != "\"") { cursor = cursor + 1; continue; }
+            if (window.At(cursor) != "\"") { cursor = cursor + 1; continue; }
             cursor = cursor + 1;
             bool unicodeKey = false;
-            while (cursor < total && text.Get(cursor) != "\"")
+            while (cursor < total && window.At(cursor) != "\"")
             {
-                if (text.Get(cursor) == "\\")
+                if (window.At(cursor) == "\\")
                 {
                     cursor = cursor + 1;
-                    if (cursor < total && text.Get(cursor) == "u") { unicodeKey = true; }
+                    if (cursor < total && window.At(cursor) == "u") { unicodeKey = true; }
                 }
                 cursor = cursor + 1;
             }
             cursor = cursor + 1;
-            while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
-            if (unicodeKey && cursor < total && text.Get(cursor) == ":") { return false; }
+            while (cursor < total && (window.At(cursor) == " " || window.At(cursor) == "\n" || window.At(cursor) == "\r" || window.At(cursor) == "\t")) { cursor = cursor + 1; }
+            if (unicodeKey && cursor < total && window.At(cursor) == ":") { return false; }
         }
         return true;
     }

@@ -217,11 +217,17 @@ class HCSignsOfLifeClient
     protected void Reconcile(array<ref HCSignsOfLifeEffect> handles, array<Object> wanted, int kind, int cap)
     {
         // Remove first so day/time/temperature transitions cannot exceed caps.
+        // Index the wanted sources once so each handle is a lookup, not a scan.
+        ref map<Object, int> wantedSet = new map<Object, int>;
+        foreach (Object wantedSource : wanted)
+        {
+            if (wantedSource) { wantedSet.Set(wantedSource, 1); }
+        }
         int oldIndex = handles.Count() - 1;
         while (oldIndex >= 0)
         {
             HCSignsOfLifeEffect previous = handles[oldIndex];
-            if (!previous.Source || wanted.Find(previous.Source) < 0)
+            if (!previous.Source || !wantedSet.Contains(previous.Source))
             {
                 previous.Stop();
                 handles.RemoveOrdered(oldIndex);
