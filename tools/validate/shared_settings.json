@@ -184,6 +184,14 @@
     "owner": "HCSettings"
   },
   {
+    "key": "EnableMelee",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
     "key": "EnableVehicleFlip",
     "type": "bool",
     "default": true,
@@ -2660,5 +2668,261 @@
     "min": 8192,
     "max": 2097152,
     "owner": "HCGapcodeStoryLimits"
+  },
+  {
+    "key": "Melee.HeadExecute",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.HeadExecuteMinHeavyDamage",
+    "type": "float",
+    "default": 22.0,
+    "min": 0.0,
+    "max": 100.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.HeadLightMultiplier",
+    "type": "float",
+    "default": 1.75,
+    "min": 1.0,
+    "max": 4.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.HeadArmoredThreshold",
+    "type": "float",
+    "default": 0.6,
+    "min": 0.0,
+    "max": 1.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.HeadArmoredHeavyMultiplier",
+    "type": "float",
+    "default": 2.0,
+    "min": 1.0,
+    "max": 4.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.LegCripple",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.LegCrippleMinHeavyDamage",
+    "type": "float",
+    "default": 27.0,
+    "min": 0.0,
+    "max": 100.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.ArmWeaken",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.ArmWeakLightHits",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 10,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.ArmWeakCooldownMultiplier",
+    "type": "float",
+    "default": 1.5,
+    "min": 1.0,
+    "max": 3.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.ArmGlanceChance",
+    "type": "float",
+    "default": 0.25,
+    "min": 0.0,
+    "max": 0.5,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.InfectedPoise",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.InfectedPoiseLightStaggers",
+    "type": "int",
+    "default": 2,
+    "min": 1,
+    "max": 10,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.InfectedPoiseWindowSeconds",
+    "type": "float",
+    "default": 3.0,
+    "min": 0.5,
+    "max": 10.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.StaggerImmunity",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.StaggerImmunitySeconds",
+    "type": "float",
+    "default": 1.5,
+    "min": 0.0,
+    "max": 5.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.PlausibilityTolerance",
+    "type": "float",
+    "default": 0.5,
+    "min": 0.0,
+    "max": 2.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.ZoneTolerance",
+    "type": "float",
+    "default": 0.45,
+    "min": 0.1,
+    "max": 1.5,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.BlockStaminaCost",
+    "type": "float",
+    "default": 6.0,
+    "min": 0.0,
+    "max": 30.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.GuardBreak",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.GuardBreakChipFraction",
+    "type": "float",
+    "default": 0.5,
+    "min": 0.0,
+    "max": 1.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.BlockCounter",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.CounterWindowSeconds",
+    "type": "float",
+    "default": 0.9,
+    "min": 0.2,
+    "max": 2.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.LogLimit",
+    "type": "int",
+    "default": 16,
+    "min": 0,
+    "max": 256,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.WeightStamina",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.WeightStaminaBase",
+    "type": "float",
+    "default": 0.6,
+    "min": 0.0,
+    "max": 2.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.WeightStaminaPerKg",
+    "type": "float",
+    "default": 0.25,
+    "min": 0.0,
+    "max": 1.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.WeightStaminaMin",
+    "type": "float",
+    "default": 0.75,
+    "min": 0.25,
+    "max": 1.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.WeightStaminaMax",
+    "type": "float",
+    "default": 1.6,
+    "min": 1.0,
+    "max": 3.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.WeightStaminaFist",
+    "type": "float",
+    "default": 0.75,
+    "min": 0.25,
+    "max": 2.0,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.InPlaceLight",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCMeleeConfig"
+  },
+  {
+    "key": "Melee.InPlaceDistance",
+    "type": "float",
+    "default": 2.0,
+    "min": 1.5,
+    "max": 3.0,
+    "owner": "HCMeleeConfig"
   }
 ]

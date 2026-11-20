@@ -5,7 +5,7 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "DZ_Weapons_Firearms_Scout", "DZ_Pistols_pb6p9", "DZ_Weapons_Lights", "DZ_Characters_Backpacks", "DZ_Characters_Belts", "DZ_Characters_Glasses", "DZ_Characters_Gloves", "DZ_Characters_Headgear", "DZ_Characters_Masks", "DZ_Characters_Shoes", "DZ_Gear_Books", "DZ_Gear_Camping", "DZ_Gear_Consumables", "DZ_Gear_Crafting", "DZ_Gear_Cultivation", "DZ_Gear_Drinks", "DZ_Gear_Food", "DZ_Gear_Medical", "DZ_Gear_Tools", "DZ_Gear_Traps", "DZ_Radio", "DZ_Weapons_Melee_Blade", "DZ_Weapons_Melee_Blunt", "DZ_Weapons_Melee_Powered", "DZ_Gear_Cooking", "DZ_Gear_Navigation", "DZ_Gear_Optics"};
+        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "DZ_Weapons_Firearms_Scout", "DZ_Pistols_pb6p9", "DZ_Weapons_Lights", "DZ_Characters_Backpacks", "DZ_Characters_Belts", "DZ_Characters_Glasses", "DZ_Characters_Gloves", "DZ_Characters_Headgear", "DZ_Characters_Masks", "DZ_Characters_Shoes", "DZ_Gear_Books", "DZ_Gear_Camping", "DZ_Gear_Consumables", "DZ_Gear_Crafting", "DZ_Gear_Cultivation", "DZ_Gear_Drinks", "DZ_Gear_Food", "DZ_Gear_Medical", "DZ_Gear_Tools", "DZ_Gear_Traps", "DZ_Radio", "DZ_Weapons_Melee", "DZ_Weapons_Melee_Blade", "DZ_Weapons_Melee_Blunt", "DZ_Weapons_Melee_Powered", "DZ_Gear_Cooking", "DZ_Gear_Navigation", "DZ_Gear_Optics"};
     };
 };
 class CfgMods
@@ -1259,6 +1259,54 @@ class CfgVehicles
     // END HC inventory sizes
 };
 
+// Melee P6: synthetic ammo used only by the server melee scripts through
+// ProcessDirectDamage (HCMeleeInfectedHit.c, HCMeleePlayerHits.c). Parent
+// MeleeDamage lives in the installed addons/weapons_melee.pbo (CfgPatches
+// DZ_Weapons_Melee, listed in requiredAddons). Damage type stays "Melee" so the
+// armour path matches the native melee hit it extends.
+class CfgAmmo
+{
+    class MeleeDamage;
+    class HCMeleeExecute: MeleeDamage
+    {
+        hitAnimation = 1;
+        class DamageApplied
+        {
+            type = "Melee";
+            bleedThreshold = 1;
+            transferShockToDamage = 0;
+            class Health { damage = 1000; };
+            class Blood { damage = 0; };
+            class Shock { damage = 0; };
+        };
+    };
+    class HCMeleeCripple: MeleeDamage
+    {
+        hitAnimation = 1;
+        class DamageApplied
+        {
+            type = "Melee";
+            bleedThreshold = 1;
+            transferShockToDamage = 0;
+            class Health { damage = 150; };
+            class Blood { damage = 0; };
+            class Shock { damage = 0; };
+        };
+    };
+    class HCMeleeChip: MeleeDamage
+    {
+        hitAnimation = 0;
+        class DamageApplied
+        {
+            type = "Melee";
+            bleedThreshold = 1;
+            transferShockToDamage = 0;
+            class Health { damage = 3.5; };
+            class Blood { damage = 0; };
+            class Shock { damage = 0; };
+        };
+    };
+};
 // #58 item 1: installed 1.30.164289 Scout model already has the native light proxy.
 // Read-only tools.audit.pbo_config evidence, client AND server addons/weapons_firearms.pbo:
 // scout/config.bin: Scout attachments = weaponWrap, weaponOptics, weaponMuzzleM4;

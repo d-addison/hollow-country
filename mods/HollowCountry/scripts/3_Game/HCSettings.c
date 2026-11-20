@@ -203,6 +203,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableAdminMap", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableCampRespawn", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableTeamPing", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("EnableMelee", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableVehicleFlip", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableMealBuffs", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableForage", "bool", 1, 0, 1, "HCSettings");
@@ -522,6 +523,7 @@ class HCSettings
     bool EnableAdminMap = true;
     bool EnableCampRespawn = true;
     bool EnableTeamPing = true;
+    bool EnableMelee = true;
     bool EnableVehicleFlip = true;
     bool EnableMealBuffs = true;
     bool EnableForage = true;
@@ -564,6 +566,7 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableAdminMap")) { settings.EnableAdminMap = defaults.EnableAdminMap; }
         if (!HCJsonFields.Has(content, "EnableCampRespawn")) { settings.EnableCampRespawn = defaults.EnableCampRespawn; }
         if (!HCJsonFields.Has(content, "EnableTeamPing")) { settings.EnableTeamPing = defaults.EnableTeamPing; }
+        if (!HCJsonFields.Has(content, "EnableMelee")) { settings.EnableMelee = defaults.EnableMelee; }
         if (!HCJsonFields.Has(content, "EnableVehicleFlip")) { settings.EnableVehicleFlip = defaults.EnableVehicleFlip; }
         if (!HCJsonFields.Has(content, "EnableMealBuffs")) { settings.EnableMealBuffs = defaults.EnableMealBuffs; }
         if (!HCJsonFields.Has(content, "EnableForage")) { settings.EnableForage = defaults.EnableForage; }
@@ -648,6 +651,7 @@ class HCSettings
         Print("[HC Settings] effective EnableAdminMap=" + EnableAdminMap.ToString());
         Print("[HC Settings] effective EnableCampRespawn=" + EnableCampRespawn.ToString());
         Print("[HC Settings] effective EnableTeamPing=" + EnableTeamPing.ToString());
+        Print("[HC Settings] effective EnableMelee=" + EnableMelee.ToString());
         Print("[HC Settings] effective EnableVehicleFlip=" + EnableVehicleFlip.ToString());
         Print("[HC Settings] effective EnableMealBuffs=" + EnableMealBuffs.ToString());
         Print("[HC Settings] effective EnableForage=" + EnableForage.ToString());

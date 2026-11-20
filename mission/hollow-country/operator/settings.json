@@ -22,6 +22,7 @@
   "EnableAdminMap": true,
   "EnableCampRespawn": true,
   "EnableTeamPing": true,
+  "EnableMelee": true,
   "EnableVehicleFlip": true,
   "EnableMealBuffs": true,
   "EnableForage": true,
