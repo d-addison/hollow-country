@@ -1,16 +1,41 @@
 // Native 1.30.164289: Object.ClippingInfo/GetCollisionBox/ModelToWorld;
-// DayZPhysics.RaycastRVProxy (nearest contact, self ignored); Game.SurfaceRoadY.
+// DayZPhysics.RaycastRVProxy; EnDebug.c: NEARESTCONTACT returns only the nearest
+// contact (not an ordering guarantee for an unsorted multi-hit query). Self ignored.
 class HCGroundSnapStats
 {
     int Snapped;
     int AlreadyOk;
     int NoSupport;
+    int NoHit;
+    int ContactAboveStart;
+    int ContactBelowFinish;
+    int CorrectionOutOfRange;
+    int ReprobeLifted;
     float MaxCorrection;
+    protected static int s_NoSupportSamples;
+
+    void RecordNoSupport(Object placedObject, string reason)
+    {
+        if (reason == "no_hit") { NoHit++; }
+        else if (reason == "contact_above_start") { ContactAboveStart++; }
+        else if (reason == "contact_below_finish") { ContactBelowFinish++; }
+        else { CorrectionOutOfRange++; }
+        NoSupport = NoHit + ContactAboveStart + ContactBelowFinish + CorrectionOutOfRange;
+        // Eight items total across CE, script placements and object-spawner stats.
+        if (s_NoSupportSamples < 8)
+        {
+            s_NoSupportSamples++;
+            Print("[HC Ground] no_support_sample type=" + placedObject.GetType() + " reason=" + reason + " runtime=PENDING");
+        }
+    }
 
     void Summary(string source)
     {
         string line = "[HC Ground] source=" + source + " snapped=" + Snapped.ToString();
         line += " already_ok=" + AlreadyOk.ToString() + " no_support=" + NoSupport.ToString();
+        line += " no_hit=" + NoHit.ToString() + " contact_above_start=" + ContactAboveStart.ToString();
+        line += " contact_below_finish=" + ContactBelowFinish.ToString() + " correction_out_of_range=" + CorrectionOutOfRange.ToString();
+        line += " reprobe_lifted=" + ReprobeLifted.ToString();
         line += " max_correction_m=" + MaxCorrection.ToString();
         Print("" + line);
     }
@@ -22,17 +47,27 @@ class HCGroundSnap
 
     static bool Support(vector bottom, Object ignored, float drop, out vector contact, out bool terrain)
     {
-        vector start = bottom + Vector(0, 0.25, 0);
+        string reason;
+        return Probe(bottom, ignored, drop, 0.25, contact, terrain, reason);
+    }
+
+    static bool Probe(vector bottom, Object ignored, float drop, float rise, out vector contact, out bool terrain, out string reason)
+    {
+        reason = "";
+        terrain = false;
+        vector start = bottom + Vector(0, rise, 0);
         vector finish = bottom - Vector(0, drop, 0);
         RaycastRVParams query = new RaycastRVParams(start, finish, ignored);
         query.type = ObjIntersectGeom;
         query.flags = CollisionFlags.NEARESTCONTACT;
         array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-        if (!DayZPhysics.RaycastRVProxy(query, hits) || hits.Count() == 0) { return false; }
+        if (!DayZPhysics.RaycastRVProxy(query, hits) || hits.Count() == 0) { reason = "no_hit"; return false; }
         RaycastRVResult hit = hits[0];
         contact = hit.pos;
         terrain = !hit.obj && !hit.parent;
-        return contact[1] <= start[1] && contact[1] >= finish[1];
+        if (contact[1] > start[1]) { reason = "contact_above_start"; return false; }
+        if (contact[1] < finish[1]) { reason = "contact_below_finish"; return false; }
+        return true;
     }
 
     // Eight transformed corners account for orientation and scale, including tilted props.
@@ -70,7 +105,42 @@ class HCGroundSnap
         vector bottom = Vector(origin[0], bottomY, origin[2]);
         vector contact;
         bool terrain;
-        if (!Support(bottom, placedObject, drop, contact, terrain)) { stats.NoSupport++; return false; }
+        string reason;
+        bool reprobed;
+        if (!Probe(bottom, placedObject, drop, 0.25, contact, terrain, reason))
+        {
+            if (reason != "no_hit" && reason != "contact_above_start")
+            {
+                stats.RecordNoSupport(placedObject, reason);
+                return false;
+            }
+            // A buried bottom gets exactly one higher start, with the caller's
+            // original finish. Never retry a valid floor hit against lower terrain.
+            vector retryContact;
+            bool retryTerrain;
+            string retryReason;
+            if (!Probe(bottom, placedObject, drop, 1.0, retryContact, retryTerrain, retryReason))
+            {
+                stats.RecordNoSupport(placedObject, retryReason);
+                return false;
+            }
+            // Even an above-start floor contact must not be replaced by terrain.
+            if (reason == "contact_above_start" && !terrain && retryTerrain)
+            {
+                stats.RecordNoSupport(placedObject, reason);
+                return false;
+            }
+            contact = retryContact;
+            terrain = retryTerrain;
+            reprobed = true;
+        }
+        // Check the actual contact before any foundation footprint embedding.
+        // A low model corner must not allow a shelf/roof over 1 m above the origin.
+        if (contact[1] > origin[1] + 1.0)
+        {
+            stats.RecordNoSupport(placedObject, "correction_out_of_range");
+            return false;
+        }
         float targetY = contact[1];
         string kind = placedObject.GetType();
         // Only terrain-supported structures embed foundations. Never replace a floor hit
@@ -89,12 +159,19 @@ class HCGroundSnap
         }
         float correction = targetY - bottomY;
         // Footprint embedding must obey the same bounded correction as the ray.
-        if (correction < -drop || correction > 0.25) { stats.NoSupport++; return false; }
+        float maxRise = 0.25;
+        if (reprobed) { maxRise = 1.0; }
+        if (correction < -drop || correction > maxRise)
+        {
+            stats.RecordNoSupport(placedObject, "correction_out_of_range");
+            return false;
+        }
         if (correction >= 0 && correction <= 0.005) { stats.AlreadyOk++; return true; }
         if (correction <= 0 && -correction <= tolerance) { stats.AlreadyOk++; return true; }
         origin[1] = origin[1] + correction;
         placedObject.SetPosition(origin);
         stats.Snapped++;
+        if (reprobed && correction > 0) { stats.ReprobeLifted++; }
         float distance = Math.AbsFloat(correction);
         if (distance > stats.MaxCorrection) { stats.MaxCorrection = distance; }
         return true;
