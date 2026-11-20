@@ -387,6 +387,9 @@ class HCSceneChainStore
     protected int m_Mutations;
     protected int m_SnapshotMutations;
     protected int m_DurableMutations;
+    // Shared by chain, story and offer writers. Routine heartbeats can stay
+    // dirty/in flight after this mutation is durable without blocking Scenes.
+    protected int m_BarrierMutation;
 
     HCSaveJob HCCheckpointJob(HCSceneChainState state)
     {
@@ -406,12 +409,18 @@ class HCSceneChainStore
         if (m_Fault || job.HCFaulted || m_CheckpointState != state) { return -1; }
         m_Mutations++;
         job.HCDirty = true;
-        if (barrier) { job.HCUrgent = true; job.HCDue = GetGame().GetTickTime(); }
+        if (barrier)
+        {
+            m_BarrierMutation = m_Mutations;
+            job.HCUrgent = true;
+            job.HCDue = GetGame().GetTickTime();
+        }
         return m_Mutations;
     }
 
     bool HCCheckpointPending() { return m_Checkpoint && (m_Checkpoint.HCDirty || m_Checkpoint.HCInFlight); }
     bool HCDurable(int mutation) { return !m_Fault && mutation >= 0 && m_DurableMutations >= mutation; }
+    bool HCBarrierPending() { return !HCDurable(m_BarrierMutation); }
     void HCPumpCheckpoint() { HCSaveScheduler.HCPumpFallback(m_Checkpoint); }
     bool HCFlushCheckpoint() { return HCSaveScheduler.HCFlush(m_Checkpoint); }
     bool HCCheckpointHealthy() { return !m_Fault && (!m_Checkpoint || !m_Checkpoint.HCFaulted); }

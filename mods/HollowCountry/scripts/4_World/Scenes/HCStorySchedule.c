@@ -467,7 +467,7 @@ modded class HCScenesModule
         string reason = m_Fault;
         if (reason == "" && !m_Running) { reason = m_Refusal; }
         if (reason == "" && !m_Running) { reason = "scenes_not_running"; }
-        if (reason == "" && m_Store && m_Store.HCCheckpointPending()) { reason = "checkpoint_pending"; }
+        if (reason == "" && m_Store && m_Store.HCBarrierPending()) { reason = "checkpoint_pending"; }
         if (reason == "")
         {
             foreach (HCSceneLease lease : m_Leases)
