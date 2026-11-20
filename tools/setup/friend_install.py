@@ -87,13 +87,20 @@ class Refused(Exception):
         self.code = code
 
 
+STEAM64_SHOWN = re.compile(r'(?<![0-9])[0-9]{17}(?![0-9])')
+
+
 def shown(value):
-    """Text for the screen with the home folder written as ~."""
+    """Text for the screen with the home folder written as ~ and Steam64 ids redacted.
+
+    Journal rows keep exact paths (COT PermissionsFramework/Players/<id>.json); every
+    screen line, recovery listing and error goes through here, so ids never print.
+    """
     text = str(value)
     home = str(Path.home())
     if home and home not in ('/', '\\'):
         text = text.replace(home, '~')
-    return text
+    return STEAM64_SHOWN.sub('<id>', text)
 
 
 def sha256_bytes(data):
