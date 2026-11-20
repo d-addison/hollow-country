@@ -8,7 +8,7 @@
 // 3_Game/DayZGame.c:991 Event_OnRPC; 3_Game/Global/Game.c:914 GetTickTime
 // 4_World/Static/MiscGameplayFunctions.c:778 GetPlayerHeadPosition.
 // CAP-09 and two-client/normal PBO acceptance remain unobserved. Positive house cache lasts
-// one mission; cabinet positives expire after RETRY_AFTER; empty replies expire so a later server pack load can be discovered.
+// until LRU pressure; cabinet positives expire after RETRY_AFTER; empty replies expire for later server pack loads.
 class HCSearchPreviewSite
 {
     vector Center;
@@ -36,6 +36,7 @@ class HCSearchPreviewSites
     static const float EMPTY_RETRY_AFTER = 60.0;
     protected static ref HCSearchPreviewSites s_Instance;
     protected ref map<string, ref HCSearchPreviewEntry> m_Cache = new map<string, ref HCSearchPreviewEntry>;
+    protected ref array<string> m_Recency = new array<string>;
     protected bool m_Listening;
     protected float m_NextRequest;
 
@@ -120,6 +121,7 @@ class HCSearchPreviewSites
         if (m_Listening) DayZGame.Event_OnRPC.Remove(OnRPC);
         m_Listening = false;
         m_Cache.Clear();
+        m_Recency.Clear();
         m_NextRequest = 0;
     }
 
@@ -137,22 +139,34 @@ class HCSearchPreviewSites
         return null;
     }
 
-    // Bounded pressure sweep: map access/removal in native 1_Core/proto/EnScript.c:887,897,906.
-    // Completed negatives and unsent empty entries can yield to an unseen target.
-    // Pending requests and positive sites retain their identity and reply destination.
-    void ReclaimNegative()
+    // Native array Find/Insert/RemoveOrdered: 1_Core/proto/EnScript.c:394/407/470.
+    // Both recency work and pressure scans are bounded by CACHE_LIMIT (256).
+    void Touch(string key)
     {
-        int index = m_Cache.Count() - 1;
-        while (index >= 0)
+        // Per-frame action conditions repeat the newest key: skip the scan.
+        int last = m_Recency.Count() - 1;
+        if (last >= 0 && m_Recency[last] == key) return;
+        int index = m_Recency.Find(key);
+        if (index >= 0) m_Recency.RemoveOrdered(index);
+        m_Recency.Insert(key);
+    }
+
+    void ReclaimIdle()
+    {
+        PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
+        string activeKey;
+        // Native PlayerBase.c:1887 GetActionManager (4_World/Entities/ManBase).
+        if (viewer && viewer.GetActionManager()) activeKey = viewer.GetActionManager().HCSearchPreviewActiveKey();
+        for (int index = 0; index < m_Recency.Count() && index < CACHE_LIMIT; index++)
         {
-            HCSearchPreviewEntry cached = m_Cache.GetElement(index);
-            if ((!cached.Requested || cached.Ready) && cached.Sites.Count() == 0)
-            {
-                string key = m_Cache.GetKey(index);
-                m_Cache.Remove(key);
-                return;
-            }
-            index = index - 1;
+            string key = m_Recency[index];
+            HCSearchPreviewEntry cached = m_Cache.Get(key);
+            if (key == activeKey || (cached.Requested && !cached.Ready)) continue;
+            // Oldest eligible entry, positive or empty. Never redirect an outstanding
+            // reply or discard the cache entry used by a running search action.
+            m_Cache.Remove(key);
+            m_Recency.RemoveOrdered(index);
+            return;
         }
     }
 
@@ -162,13 +176,14 @@ class HCSearchPreviewSites
         HCSearchPreviewEntry entry = m_Cache.Get(cls);
         if (!entry)
         {
-            if (m_Cache.Count() >= CACHE_LIMIT) ReclaimNegative();
+            if (m_Cache.Count() >= CACHE_LIMIT) ReclaimIdle();
             if (m_Cache.Count() >= CACHE_LIMIT) return null;
             entry = new HCSearchPreviewEntry;
             entry.Cabinet = cabinet;
             m_Cache.Set(cls, entry);
         }
         if (entry.Cabinet != cabinet) return null;
+        Touch(cls);
         float now = GetGame().GetTickTime();
         if (entry.Ready)
         {
@@ -338,5 +353,23 @@ class HCSearchPreviewServer
             rpc.Write(site.Radius);
         }
         rpc.Send(player, HCSearchPreviewSites.RPC_SITES, true, sender);
+    }
+}
+
+// Read only the native action context; no client inventory or server authority.
+// Native 4_World/Classes/UserActionsComponent/ActionManagerBase.c:61,91-96;
+// ActionBase.c:34,39 m_Action/m_Target; ActionTargets.c:143 GetObject.
+modded class ActionManagerBase
+{
+    string HCSearchPreviewActiveKey()
+    {
+        if (!m_CurrentActionData || !HCActionSearchInterior.Cast(m_CurrentActionData.m_Action) || !m_CurrentActionData.m_Target) return "";
+        ActionTarget target = m_CurrentActionData.m_Target;
+        Object object = target.GetObject();
+        string pilot = HCSearchPreviewSites.PilotKey(object);
+        if (pilot != "") return pilot;
+        House house = HCSearchHouses.HouseOf(target);
+        if (house) return house.GetType();
+        return "";
     }
 }
