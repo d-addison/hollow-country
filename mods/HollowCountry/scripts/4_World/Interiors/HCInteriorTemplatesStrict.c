@@ -9,7 +9,7 @@
 //    lenient syntax and any , [ ] { } inside a string value.
 // Native scripts-1.30.164289: 1_Core/proto/EnString.c:199 Length, :212 LengthUtf8,
 // :240 IndexOf, :253 LastIndexOf, :271 IndexOfFrom, :113 Substring, :156 Replace
-// (in place on pieces of at most 4096 characters), :86 ToAscii, :396 Split;
+// (in place on pieces of at most PIECE_CHARS characters), :86 ToAscii, :396 Split;
 // EnConvert.c:44 int.AsciiToString; EnScript.c:380/394/400/407 Count/Find/Get/Insert.
 class HCInteriorKeyCensus
 {
@@ -125,8 +125,12 @@ class HCInteriorHexBatch
 
 class HCInteriorTemplatesStrict
 {
-    static const int PIECE_CHARS = 4096;
-    static const int PIECE_SEARCH = 3584;
+    // Build 100 (native): on a 3585-character piece, multi-character Replace counted the
+    // "ClassFiles": key at 1348 but not "TemplateFiles": at 1558, while single-character
+    // counts matched the whole piece. Pieces stay at 1 KB; the pack's longest run without
+    // a comma is 90 characters, so the 384-character cut window always finds one.
+    static const int PIECE_CHARS = 1024;
+    static const int PIECE_SEARCH = 640;
     // Codes 1..127 outside the pack alphabet: 127 - 75 allowed codes.
     static const int LOW_SAMPLES = 52;
     // Codes 1..127 outside 0-9 a-f.
@@ -452,8 +456,14 @@ class HCInteriorTemplatesStrict
             {
                 return "";
             }
-            if (size > 4096) { size = 4096; }
+            if (size > PIECE_CHARS) { size = PIECE_CHARS; }
             string piece = text.Substring(start, size);
+            // An authored DTO name would alias the renamed key; checked per piece because
+            // multi-character scans are only trusted on 1 KB text.
+            if (piece.IndexOf(nativeKey) >= 0)
+            {
+                return "";
+            }
             piece.Replace(authored, nativeKey);
             result = result + piece;
             start = start + size;
@@ -485,11 +495,6 @@ class HCInteriorTemplatesStrict
         {
             return content;
         }
-        // An authored DTO name would alias the renamed key.
-        if (content.IndexOf(nativeKey) >= 0)
-        {
-            return "";
-        }
         return Rename(content, authored, nativeKey);
     }
 
@@ -502,6 +507,20 @@ class HCInteriorTemplatesStrict
         }
         s_CensusLogged = true;
         Print("[HC Interiors] census refused " + detail);
+    }
+
+    // found/expected for every key, for the one refusal line of a boot.
+    static string CensusCounts(HCInteriorKeyCensus census, array<int> found)
+    {
+        string counts = "";
+        int names = census.Patterns.Count();
+        int at = 0;
+        while (at < names)
+        {
+            counts = counts + census.Patterns.Get(at) + found.Get(at).ToString() + "/" + census.Counts.Get(at).ToString() + " ";
+            at = at + 1;
+        }
+        return counts;
     }
 
     // Exact key, object, array and comma counts of a LoadData text against its DTO census.
@@ -534,7 +553,7 @@ class HCInteriorTemplatesStrict
             {
                 return false;
             }
-            if (size > 4096) { size = 4096; }
+            if (size > PIECE_CHARS) { size = PIECE_CHARS; }
             string piece = text.Substring(start, size);
             string work = piece;
             int at = 0;
@@ -566,7 +585,7 @@ class HCInteriorTemplatesStrict
             int expectedCount = census.Counts.Get(check);
             if (foundCount != expectedCount)
             {
-                CensusRefused("key=" + census.Patterns.Get(check) + " found=" + foundCount.ToString() + " expected=" + expectedCount.ToString());
+                CensusRefused("key=" + census.Patterns.Get(check) + " found=" + foundCount.ToString() + " expected=" + expectedCount.ToString() + " counts=" + CensusCounts(census, found));
                 return false;
             }
             check = check + 1;

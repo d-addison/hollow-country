@@ -3153,9 +3153,63 @@
       "native": false
     },
     {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 460,
+      "symbol": "HCInteriorTemplatesStrict.Rename",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 463,
+      "symbol": "HCInteriorTemplatesStrict.Rename",
+      "key": "piece.IndexOf#1",
+      "message": "piece.IndexOf scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 543,
+      "line": 520,
+      "symbol": "HCInteriorTemplatesStrict.CensusCounts",
+      "key": "census.Counts.Get#1",
+      "message": "O(n*m) scan; build a map/set index outside the loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P004",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 520,
+      "symbol": "HCInteriorTemplatesStrict.CensusCounts",
+      "key": "census.Patterns.Get#1",
+      "message": "O(n*m) scan; build a map/set index outside the loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P004",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 520,
+      "symbol": "HCInteriorTemplatesStrict.CensusCounts",
+      "key": "found.Get#1",
+      "message": "O(n*m) scan; build a map/set index outside the loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P001",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 557,
+      "symbol": "HCInteriorTemplatesStrict.Census",
+      "key": "text.Substring#1",
+      "message": "text.Substring scans a string with no recognized small bound inside a loop",
+      "native": false
+    },
+    {
+      "rule": "HC-P004",
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
+      "line": 562,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "census.Patterns.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3164,7 +3218,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 543,
+      "line": 562,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "found.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3173,7 +3227,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 565,
+      "line": 584,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "found.Get#2",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3182,7 +3236,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 566,
+      "line": 585,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "census.Counts.Get#1",
       "message": "O(n*m) scan; build a map/set index outside the loop",
@@ -3191,7 +3245,7 @@
     {
       "rule": "HC-P004",
       "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "line": 569,
+      "line": 588,
       "symbol": "HCInteriorTemplatesStrict.Census",
       "key": "census.Patterns.Get#2",
       "message": "O(n*m) scan; build a map/set index outside the loop",
