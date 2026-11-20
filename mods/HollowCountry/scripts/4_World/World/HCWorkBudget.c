@@ -464,14 +464,16 @@ class HCStagedSaveImage
             if (source != "")
             {
                 m_Read = OpenFile(source, FileMode.READ);
-                m_ReadOpen = m_Read != null;
+                m_ReadOpen = false;
+                if (m_Read) { m_ReadOpen = true; }
                 if (!m_ReadOpen) { return HCFail(); }
             }
             if (target != "")
             {
                 if (m_Phase != 0 && FileExist(target) && !DeleteFile(target)) { return HCFail(); }
                 m_Write = OpenFile(target, FileMode.WRITE);
-                m_WriteOpen = m_Write != null;
+                m_WriteOpen = false;
+                if (m_Write) { m_WriteOpen = true; }
                 if (!m_WriteOpen) { return HCFail(); }
             }
             m_Opened = true;
