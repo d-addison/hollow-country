@@ -892,7 +892,23 @@ def main(argv=None):
             print(f'{rule} total={per_rule[rule]} new={new_rule[rule]}  {RULES[rule]}')
         print(f"enforce_lint: {'FAIL' if new or stale else 'pass'} findings={len(findings)} new={len(new)} "
               f"stale={len(stale)} native={'yes' if native is not None else 'no'}")
+        # The tick-path cost check is part of the same gate; baselined lines stay quiet.
+        perf_failed = run_perf(args.root)
+        return 1 if new or stale or perf_failed else 0
     return 1 if new or stale else 0
+
+
+def run_perf(root):
+    import contextlib
+    import io
+    from tools.validate import enforce_perf
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        code = enforce_perf.main(['--root', str(root)])
+    for line in captured.getvalue().splitlines():
+        if not line.endswith('[baseline]'):
+            print(line)
+    return code != 0
 
 
 if __name__ == '__main__':
