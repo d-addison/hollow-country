@@ -1,0 +1,5093 @@
+{
+  "schema_version": 1,
+  "rules_sha256": "24c8dd317c166293bbc98ec2edb565d3faeb1a0c43921fe5cb09ddb9143064b7",
+  "generator_sha256": {
+    "inventory_sizes.py": "52335005e9a400ee2723dc9adcaafa4a8d7aeb6ad5fa4974d83a2808b9c4bb45",
+    "inventory_sources.py": "4d24545e4d366484932380c980afc3e208b517268b51a1fc58d21e0d2f9a9df7"
+  },
+  "overrides": [
+    {
+      "name": "GCGN_MP7_40Rnd",
+      "parent": "Magazine_Base",
+      "addon": "GCGN_MP7",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\MP7\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "GCGN_Vityaz_Mag",
+      "parent": "Magazine_Base",
+      "addon": "GCGN_Vityaz",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\VityazSN\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Modified_SA58_30RND_BK",
+      "parent": "Modified_SA58_30RND_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Modified_SA58_30RND_DT",
+      "parent": "Modified_SA58_30RND_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Modified_SA58_30RND_WBK",
+      "parent": "Modified_SA58_30RND_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SA58_30RND_BK",
+      "parent": "SA58_30RND_Base",
+      "addon": "SNSA58_CFG",
+      "pbo": "Guns_01.pbo",
+      "member": "Data\\SA58\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SA58_30RND_DT",
+      "parent": "SA58_30RND_Base",
+      "addon": "SNSA58_CFG",
+      "pbo": "Guns_01.pbo",
+      "member": "Data\\SA58\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SA58_30RND_WBK",
+      "parent": "SA58_30RND_Base",
+      "addon": "SNSA58_CFG",
+      "pbo": "Guns_01.pbo",
+      "member": "Data\\SA58\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_AK103_Mag",
+      "parent": "SNAFU_AK103_Mag_Base",
+      "addon": "SNAFU_AK103A",
+      "pbo": "SNAFU_Guns.pbo",
+      "member": "Data\\AK103\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_AK12_Mag",
+      "parent": "SNAFU_AK12_Mag_Base",
+      "addon": "SNAFU_AK_Attachments",
+      "pbo": "SNAFU_Guns.pbo",
+      "member": "Data\\AK_Attachments\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_Bren_30rdMag",
+      "parent": "Magazine_Base",
+      "addon": "SNAFU_Bren",
+      "pbo": "SNAFU_Guns_05.pbo",
+      "member": "Data\\Bren\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG30300_Black",
+      "parent": "Magazine_Base",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG30300_Tan",
+      "parent": "SNAFU_CMAG30300_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG30556_Black",
+      "parent": "Magazine_Base",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG30556_Tan",
+      "parent": "SNAFU_CMAG30556_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG40300_Black",
+      "parent": "Magazine_Base",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG40300_Tan",
+      "parent": "SNAFU_CMAG40300_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG40556_Black",
+      "parent": "Magazine_Base",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "SNAFU_CMAG40556_Tan",
+      "parent": "SNAFU_CMAG40556_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "SNAFU_KAC_Mag",
+      "parent": "SNAFU_KAC_Mag_Base",
+      "addon": "SNAFU_KAC_CFG",
+      "pbo": "SNAFU_Guns_01.pbo",
+      "member": "Data\\KAC_PDW\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_MP9_30rnd_Mag",
+      "parent": "SNAFU_MP9_Mag_Base",
+      "addon": "SNAFU_MP9",
+      "pbo": "SNAFU_Guns_01.pbo",
+      "member": "Data\\SNAFU_MP9\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_MPX_30rnd_Mag",
+      "parent": "SNAFU_MPX_Mag_Base",
+      "addon": "SNAFU_MPX",
+      "pbo": "SNAFU_Guns_01.pbo",
+      "member": "Data\\SNAFU_MPX\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_PDW_45ACP_Mag",
+      "parent": "SNAFU_PDW_Mag_Base",
+      "addon": "SNAFU_PDW",
+      "pbo": "SNAFU_Guns.pbo",
+      "member": "Data\\PDW\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_PMAG556_Black",
+      "parent": "Magazine_Base",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_PMAG556_Grey",
+      "parent": "SNAFU_PMAG556_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_PMAG556_OD",
+      "parent": "SNAFU_PMAG556_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_PMAG556_Tan",
+      "parent": "SNAFU_PMAG556_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Snafu_ScarH_25RND_Mag_BK",
+      "parent": "Snafu_ScarH_Mag_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Snafu_ScarH_25RND_Mag_DKMC",
+      "parent": "Snafu_ScarH_Mag_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Snafu_ScarH_25RND_Mag_OD",
+      "parent": "Snafu_ScarH_Mag_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Snafu_ScarH_25RND_Mag_Snow",
+      "parent": "Snafu_ScarH_Mag_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Snafu_ScarH_25RND_Mag_Tan",
+      "parent": "Snafu_ScarH_Mag_Base",
+      "addon": "Snafu_ScarH",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_ScarH\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_SKS_30Rnd_Mag",
+      "parent": "SNAFU_SKS_Mag_Base",
+      "addon": "SNAFU_SKS",
+      "pbo": "SNAFU_WW2.pbo",
+      "member": "Data\\DMR\\SKS\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUAlligator_5rdMag",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUAlligator",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\Alligator\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        2,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:0",
+      "reference_class": "Mag_CLIP9x19_10Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUAR15_SPR_30RND_Mag",
+      "parent": "SNAFU_CMAG30300_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUAR15_SPR_40RND_Mag",
+      "parent": "SNAFU_CMAG40300_Black",
+      "addon": "SNAFU_Mags_SG02",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Magazines\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "SNAFUAUG_30rdMag",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUAUG",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\AUG\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUAX50_Mag",
+      "parent": "SNAFUAX50_Mag_Base",
+      "addon": "SNAFUAX50",
+      "pbo": "SNAFU_Guns_01.pbo",
+      "member": "Data\\SNAFUAX50\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        2,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:0",
+      "reference_class": "Mag_CLIP9x19_10Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUHoneyBadger_30rdMag_Black",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUHoneyBadger",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\HoneyBadger\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUHoneyBadger_30rdMag_Tan",
+      "parent": "SNAFUHoneyBadger_30rdMag_Black",
+      "addon": "SNAFUHoneyBadger",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\HoneyBadger\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUKH9_30rdMag",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUKH9",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\KH9\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUKivaari_25rdMag",
+      "parent": "SNAFUKivaari_Mag_Base",
+      "addon": "SNAFUKivaari",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SNAFU_Kivaari\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        3
+      ],
+      "new": [
+        2,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUMDAR_30rndMagB",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUMDAR",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\MDAR\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUMDAR_30rndMagT",
+      "parent": "SNAFUMDAR_30rndMagB",
+      "addon": "SNAFUMDAR",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\MDAR\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUPPSKN_30rdMag",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUPPSKN",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\PPSKN\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUThompsonMk2_30rdMag",
+      "parent": "Magazine_Base",
+      "addon": "SNAFUThompsonMk2",
+      "pbo": "SNAFU_Guns_06.pbo",
+      "member": "Data\\ThompsonMk2\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFUVECTOR_9mm_Mag",
+      "parent": "SNAFUVECTOR_Mag_Base",
+      "addon": "SNAFUVECTOR",
+      "pbo": "SNAFU_Guns_01.pbo",
+      "member": "Data\\SNAFUVECTOR\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "TF_Mag_AK101_Plastic30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_AK",
+      "pbo": "weapon_b.pbo",
+      "member": "magazines\\AK101_6L29_556_30rnd\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AK74_45Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "TF_Mag_AK74_Bakelit30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_AK",
+      "pbo": "weapon_b.pbo",
+      "member": "magazines\\AK74_6L20_545_30rnd\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AK74_Plastic30Rnd",
+      "parent": "TF_Mag_AK74_Plum30Rnd",
+      "addon": "TF_Magazine_AK",
+      "pbo": "weapon_b.pbo",
+      "member": "magazines\\AK74_6L23_545_30rnd\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AK74_Plum30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_AK",
+      "pbo": "weapon_b.pbo",
+      "member": "magazines\\AK74_6L23_545_30rnd\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AKM_30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_AKM",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AK_6L10_762_30rnd\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AKM_Plastic30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_AKM",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AK_103_762_30rnd\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AKM_PMAG30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_AKM",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AK_PMAG_762_30rnd\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_AKM_PMAG30Rnd_Banana",
+      "parent": "TF_Mag_AKM_PMAG30Rnd",
+      "addon": "TF_Magazine_AKM",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AK_PMAG_762_30rnd\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_M4_PMAG30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_AR15_Magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AR15_556x45\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_M4_PMAG30Rnd_FDE",
+      "parent": "TF_Mag_M4_PMAG30Rnd",
+      "addon": "TF_AR15_Magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AR15_556x45\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_M4_PMAG40Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_AR15_Magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AR15_556x45\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "TF_Mag_M4_PMAG40Rnd_FDE",
+      "parent": "TF_Mag_M4_PMAG40Rnd",
+      "addon": "TF_AR15_Magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AR15_556x45\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:2",
+      "reference_class": "Mag_STANAGCoupled_30Rnd",
+      "reference_size": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "TF_Mag_M4_STANAG_30Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_AR15_Magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\AR15_556x45\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_PKM_100Rnd",
+      "parent": "Magazine_Base",
+      "addon": "TF_Magazine_PKM",
+      "pbo": "weapon_b.pbo",
+      "member": "magazines\\PKM_762_100rnd\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        5,
+        3
+      ],
+      "new": [
+        3,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:3",
+      "reference_class": "Mag_AKM_Drum75Rnd_Green",
+      "reference_size": [
+        3,
+        3
+      ]
+    },
+    {
+      "name": "TF_Mag_SCAR_H_25Rnd_Black",
+      "parent": "TF_Mag_SCAR_H_25rnd_base",
+      "addon": "TF_magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_SCAR_H_25Rnd_FDE",
+      "parent": "TF_Mag_SCAR_H_25rnd_black",
+      "addon": "TF_magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_SCAR_H_30Rnd_Black",
+      "parent": "TF_Mag_SCAR_H_30rnd_base",
+      "addon": "TF_magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_SCAR_H_30Rnd_FDE",
+      "parent": "TF_Mag_SCAR_H_30rnd_black",
+      "addon": "TF_magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        4
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "TF_Mag_SCAR_H_PMAG25Rnd_Black",
+      "parent": "TF_PMAG_25RND_308win_base",
+      "addon": "TF_magazines",
+      "pbo": "weapon_a.pbo",
+      "member": "magazines\\config.cpp",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:1",
+      "reference_class": "Mag_Saiga_Drum20Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "VR80_Magazine_10rd",
+      "parent": "VR80_Magazine_Base",
+      "addon": "VR80_Cfg",
+      "pbo": "Guns_01.pbo",
+      "member": "Data\\VR80\\config.bin",
+      "root": "CfgMagazines",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "magazine:0",
+      "reference_class": "Mag_CLIP9x19_10Rnd",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "GCGN_M1Garand_FlashHider",
+      "parent": "ItemSuppressor",
+      "addon": "GCGN_M1Garand",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M1Garand\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "GCGN_M84_Optic",
+      "parent": "ItemOptics",
+      "addon": "GCGN_M1Garand",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M1Garand\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:reflex",
+      "reference_class": "KobraOptic",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SA58_FGrip",
+      "parent": "FGrip_Base",
+      "addon": "SNSA58_CFG",
+      "pbo": "Guns_01.pbo",
+      "member": "Data\\SA58\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SA58_Stock",
+      "parent": "Inventory_Base",
+      "addon": "SNSA58_CFG",
+      "pbo": "Guns_01.pbo",
+      "member": "Data\\SA58\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockfal",
+      "reference_class": "Fal_OeBttstck",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_408_Suppressor_T",
+      "parent": "SNAFU_50bmg_Suppressor_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_50bmg_Suppressor_B",
+      "parent": "SNAFU_50bmg_Suppressor_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_50bmg_Suppressor_M",
+      "parent": "SNAFU_50bmg_Suppressor_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_50bmg_Suppressor_S",
+      "parent": "SNAFU_50bmg_Suppressor_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_50bmg_Suppressor_U",
+      "parent": "SNAFU_50bmg_Suppressor_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_50bmg_Suppressor_W",
+      "parent": "SNAFU_50bmg_Suppressor_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_AK_HG",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_AK_Attachments",
+      "pbo": "SNAFU_Guns.pbo",
+      "member": "Data\\AK_Attachments\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_AKHuntingOptic",
+      "parent": "SNAFU_HuntingOptic",
+      "addon": "SNAFU_HuntingOptic",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Hunting\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_AKKahles",
+      "parent": "SNAFU_Kahles_Base",
+      "addon": "SNAFU_Kahles_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Kahles\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_AKLeupold_Mark8",
+      "parent": "SNAFU_Leupold_Mark8_Base",
+      "addon": "Leupold_Mark8_Weapons_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Leupold_MK8\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_AKNightforce",
+      "parent": "SNAFU_Nightforce_Base",
+      "addon": "SNAFU_Nightforce_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Nightforce\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_DSAHG1",
+      "parent": "Inventory_Base",
+      "addon": "SNAFUDSA_SA58",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\DSA_SA58\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_DSAHG2",
+      "parent": "Inventory_Base",
+      "addon": "SNAFUDSA_SA58",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\DSA_SA58\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_FGCR_Grip",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Foregrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Foregrips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_FGKAC_Grip",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Foregrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Foregrips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_GADAR",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_GIGripColtA2",
+      "parent": "SNAFU_PistolGripColtA2",
+      "addon": "SNAFU_M4_Modular_ReceiverGrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Pistol_Grips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HG625",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HGGS",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HGMlok",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HGMlok_Tan",
+      "parent": "SNAFU_HGMlok",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HHuntingOptic",
+      "parent": "SNAFU_HuntingOptic",
+      "addon": "SNAFU_HuntingOptic",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Hunting\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HKahles",
+      "parent": "SNAFU_Kahles_Base",
+      "addon": "SNAFU_Kahles_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Kahles\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HLeupold_Mark8",
+      "parent": "SNAFU_Leupold_Mark8_Base",
+      "addon": "Leupold_Mark8_Weapons_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Leupold_MK8\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_HNightforce",
+      "parent": "SNAFU_Nightforce_Base",
+      "addon": "SNAFU_Nightforce_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Nightforce\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_LVOAHG",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M14Optic",
+      "parent": "ItemOptics",
+      "addon": "SNAFU_M14Optic",
+      "pbo": "SNAFU_WW2.pbo",
+      "member": "Data\\Attachments\\M14Optic\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:reflex",
+      "reference_class": "KobraOptic",
+      "reference_size": [
+        2,
+        2
+      ]
+    },
+    {
+      "name": "SNAFU_M200B_BK",
+      "parent": "SNAFU_M200Bipod_Base",
+      "addon": "GCGN_M200",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M200\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "SNAFU_M200S_BK",
+      "parent": "SNAFU_M200Stock_Base",
+      "addon": "GCGN_M200",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M200\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M200S_Green",
+      "parent": "SNAFU_M200Stock_Base",
+      "addon": "GCGN_M200",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M200\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M200S_Snow",
+      "parent": "SNAFU_M200Stock_Base",
+      "addon": "GCGN_M200",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M200\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M200S_Tan",
+      "parent": "SNAFU_M200Stock_Base",
+      "addon": "GCGN_M200",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M200\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M249Bipod",
+      "parent": "SNAFU_M249Bipod_Base",
+      "addon": "GCGN_M249",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M249\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        1,
+        2
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "SNAFU_M249Grip",
+      "parent": "SNAFU_M249Grip_Base",
+      "addon": "GCGN_M249",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M249\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M249HG",
+      "parent": "SNAFU_M249HG_Base",
+      "addon": "GCGN_M249",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M249\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M249Stock",
+      "parent": "SNAFU_M249Stock_Base",
+      "addon": "GCGN_M249",
+      "pbo": "GCGN_Guns.pbo",
+      "member": "Data\\M249\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M60_Handguard_E3",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M60",
+      "pbo": "SNAFU_Guns_05.pbo",
+      "member": "Data\\M60\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_M60_Handguard_E4",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M60",
+      "pbo": "SNAFU_Guns_05.pbo",
+      "member": "Data\\M60\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MCMR07",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MCMR08",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MCMR09",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MCMR10",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MCMR13",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MCMR15",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MHuntingOptic",
+      "parent": "SNAFU_HuntingOptic",
+      "addon": "SNAFU_HuntingOptic",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Hunting\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MK10",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MK13",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MK15",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MK47HG",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MK7",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MK9",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Handguards\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MKahles",
+      "parent": "SNAFU_Kahles_Base",
+      "addon": "SNAFU_Kahles_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Kahles\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MLeupold_Mark8",
+      "parent": "SNAFU_Leupold_Mark8_Base",
+      "addon": "Leupold_Mark8_Weapons_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Leupold_MK8\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MNightforce",
+      "parent": "SNAFU_Nightforce_Base",
+      "addon": "SNAFU_Nightforce_Optics",
+      "pbo": "SNAFU_Scopes.pbo",
+      "member": "Data\\SNAFU_Nightforce\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        2
+      ],
+      "new": [
+        4,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "optic:long",
+      "reference_class": "MK4Optic_Tan",
+      "reference_size": [
+        4,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOEFS",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOEFS_Grey",
+      "parent": "SNAFU_MOEFS",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOEFS_OD",
+      "parent": "SNAFU_MOEFS",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOEFS_Tan",
+      "parent": "SNAFU_MOEFS",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOELS",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOELS_Grey",
+      "parent": "SNAFU_MOELS",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOELS_OD",
+      "parent": "SNAFU_MOELS",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_MOELS_Tan",
+      "parent": "SNAFU_MOELS",
+      "addon": "SNAFU_M4_MOE_Handguards",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Handguards\\MOE\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_PistolGripColtA2",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Modular_ReceiverGrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Pistol_Grips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_PRSGen3_Stock",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Stocks",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Stocks\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_SADAR_Stock",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Stocks",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Stocks\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_SCQR_Stock",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_M4_Stocks",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\SNAFU_M4_Modular\\Stocks\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_SR3HG",
+      "parent": "Inventory_Base",
+      "addon": "SNAFU_SR3_Vikhr",
+      "pbo": "SNAFU_Guns_03.pbo",
+      "member": "Data\\SR3_Vikhr\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_TACGripColtA2_BK",
+      "parent": "SNAFU_PistolGripColtA2",
+      "addon": "SNAFU_M4_Modular_ReceiverGrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Pistol_Grips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_TACGripColtA2_Grey",
+      "parent": "SNAFU_TACGripColtA2_BK",
+      "addon": "SNAFU_M4_Modular_ReceiverGrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Pistol_Grips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_TACGripColtA2_OD",
+      "parent": "SNAFU_TACGripColtA2_BK",
+      "addon": "SNAFU_M4_Modular_ReceiverGrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Pistol_Grips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_TACGripColtA2_Tan",
+      "parent": "SNAFU_TACGripColtA2_BK",
+      "addon": "SNAFU_M4_Modular_ReceiverGrips",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Pistol_Grips\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "SNAFU_VSSKbipod",
+      "parent": "SNAFU_VSSKbipod_Base",
+      "addon": "SNAFUVSSK",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\VSK\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "SNAFUDSASA58_Stock",
+      "parent": "Inventory_Base",
+      "addon": "SNAFUDSA_SA58",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\DSA_SA58\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        2,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockfal",
+      "reference_class": "Fal_OeBttstck",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFUKivaari_338_Supp",
+      "parent": "SNAFUKivaari_338_Supp_Base",
+      "addon": "SNAFU_Suppressors",
+      "pbo": "SNAFU_Guns_02.pbo",
+      "member": "Data\\Suppressors\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "SNAFUMPX_Grip",
+      "parent": "SNAFUMPX_Grip_Base",
+      "addon": "SNAFU_MPX",
+      "pbo": "SNAFU_Guns_01.pbo",
+      "member": "Data\\SNAFU_MPX\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackB",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AEK999_Suppressor",
+      "parent": "M4_Suppressor",
+      "addon": "TF_Muzzles",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Muzzle\\AEK999_Suppressor\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        3,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "TF_AK_MagpulZhukovHndgrdU_MLOCK",
+      "parent": "Inventory_Base",
+      "addon": "TF_AK_Hndgrd",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Handguard\\AK_Magpul_Zhukov_U\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardak",
+      "reference_class": "AK_WoodHndgrd_Camo",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AK_ZenitB30B31Hndgrd_RIS",
+      "parent": "Inventory_Base",
+      "addon": "TF_AK_Hndgrd",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\AK_Zenitco_B30_B31\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardak",
+      "reference_class": "AK_WoodHndgrd_Camo",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AKS74U_CAAHndgrd_RIS",
+      "parent": "Inventory_Base",
+      "addon": "TF_AKS74U_CAAHndgrd_RIS",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\AK_XRSU47SU\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AN94_PlasticBttstck",
+      "parent": "TF_AN94_PlasticBttstck_Base",
+      "addon": "TF_AN94_Bttstck",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\AN94_STD\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AR10_CMMG15Hndgrd_MLOCK",
+      "parent": "TF_AR10_CMMG15Hndgrd_MLOCK_Base",
+      "addon": "TF_Handguard_CMMG_15",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\CMMG_MK3_RML15\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AR10_CMMG9Hndgrd_MLOCK",
+      "parent": "TF_AR10_CMMG9Hndgrd_MLOCK_Base",
+      "addon": "TF_Handguard_CMMG_9",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\CMMG_MK3_RML9\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AR10_KACHndgrd_RIS",
+      "parent": "Inventory_Base",
+      "addon": "TF_AR10_KACHndgrd_RIS",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Handguard\\AR10_KAC_Handguard\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AR10_LancerHndgrd_MLOCK",
+      "parent": "Inventory_Base",
+      "addon": "TF_AR10_LancerHndgrd",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Handguard\\AR10_Lancer_Handguard\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AR10_NoveskeHndgrd_Short_RIS",
+      "parent": "Inventory_Base",
+      "addon": "TF_AR10_NoveskeHndgrd",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Handguard\\AR10_Noveske_Handguard\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_AR10_URXHndgrd_MLOCK",
+      "parent": "Inventory_Base",
+      "addon": "TF_AR10_URXHndgrd",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Handguard\\AR10_URX_Handguard\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M16_Bttstck",
+      "parent": "TF_M16_Bttstck_Base",
+      "addon": "TF_Attachments",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\M16_Buttstock\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M16_KACHndgrd_RIS",
+      "parent": "TF_M16_KACHndgrd_RIS_Base",
+      "addon": "TF_Handguard_M16",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Handguard\\M16_KAC_RIS\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M240_Bipod",
+      "parent": "Inventory_Base",
+      "addon": "weapon_b",
+      "pbo": "weapon_b.pbo",
+      "member": "weapons\\M240\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "TF_M249_Bipod",
+      "parent": "Inventory_Base",
+      "addon": "weapon_b",
+      "pbo": "weapon_b.pbo",
+      "member": "weapons\\M249\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "TF_M4_ADARBttstck",
+      "parent": "TF_M4_ADARBttstck_Base",
+      "addon": "TF_Attachments",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\M4_ADAR215\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        2
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_DD12Hndgrd_RIS_FDE",
+      "parent": "TF_Handguard_M4_DD12_Base",
+      "addon": "TF_Handguard_M4",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\M4_DD12\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_DD9Hndgrd_RIS_FDE",
+      "parent": "TF_Handguard_M4_DD9_Base",
+      "addon": "TF_Handguard_M4",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\M4_DD9\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_DDFSPHndgrd_RIS_FDE",
+      "parent": "TF_Handguard_M4_DD_FSP_Base",
+      "addon": "TF_Handguard_M4",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\M4_FSP\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_MagpulPRSGen3Bttstck_Black",
+      "parent": "TF_M4_MagpulPRSGen3Bttstck_Base",
+      "addon": "TF_M4_MagpulPRSGen3Bttstck",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\MAGPUL_PRS_GEN3\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_MagpulPRSGen3Bttstck_Grey",
+      "parent": "TF_M4_MagpulPRSGen3Bttstck_Base",
+      "addon": "TF_M4_MagpulPRSGen3Bttstck",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\MAGPUL_PRS_GEN3\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_SMR13Hndgrd_MLOCK_FDE",
+      "parent": "TF_Handguard_M4_SMR13_Base",
+      "addon": "TF_Handguard_M4",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\M4_SMR13\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        4,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_M4_SMR9Hndgrd_MLOCK_FDE",
+      "parent": "TF_Handguard_M4_SMR9_Base",
+      "addon": "TF_Handguard_M4",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\M4_SMR9\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_MakarovPB_Suppressor",
+      "parent": "ItemSuppressor",
+      "addon": "TF_MakarovPBSuppressor",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\muzzle\\silencer\\MakarovPBSuppressor\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        3
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponmuzzlem4",
+      "reference_class": "M4_Suppressor",
+      "reference_size": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "TF_OTs_14_Groza_Barrel_Grip",
+      "parent": "ItemSuppressor",
+      "addon": "TF_OTs14_Groza_Muzzle",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\muzzle\\silencer\\ots14_barrels\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        1,
+        2
+      ],
+      "new": [
+        1,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm249",
+      "reference_class": "M249_RisHndgrd",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_PKM_Bipod",
+      "parent": "Inventory_Base",
+      "addon": "TF_PKM",
+      "pbo": "weapon_b.pbo",
+      "member": "weapons\\PKM\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "TF_PKM_CNCC39Bttstck",
+      "parent": "Inventory_Base",
+      "addon": "TF_PKM_CNCC39Bttstck",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\PKM_C39_Buttstock\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_PKM_WoodBttstck",
+      "parent": "Inventory_Base",
+      "addon": "TF_PKM_WoodBttstck",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\PKM_Wood_Buttstock\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_PKM_ZenitPT2Bttstck",
+      "parent": "Inventory_Base",
+      "addon": "TF_PKM_ZenitPT2Bttstck",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\PKM_PT2_Buttstock\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_PKP_Bipod",
+      "parent": "Inventory_Base",
+      "addon": "TF_PKP",
+      "pbo": "weapon_b.pbo",
+      "member": "weapons\\PKP\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        3
+      ],
+      "new": [
+        1,
+        3
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbayonet",
+      "reference_class": "M9A1_Bayonet",
+      "reference_size": [
+        1,
+        3
+      ]
+    },
+    {
+      "name": "TF_PKP_PlasticBttstck",
+      "parent": "Inventory_Base",
+      "addon": "TF_PKP_PlasticBttstck",
+      "pbo": "weapon_b.pbo",
+      "member": "attachments\\Buttstock\\PKP_Plastic_Buttstock\\config.bin",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockm4",
+      "reference_class": "M4_OEBttstck_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_ADDHndgrd",
+      "parent": "TF_SCAR_ADDHndgrd_Base",
+      "addon": "TF_ADD_SCAR_Handguard",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\ADD_Handguard\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_Mk20Bttstck_Black",
+      "parent": "TF_SCAR_Mk20Bttstck_Base",
+      "addon": "TF_MK20_Buttstock",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\Mk20Bttstck\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockscar",
+      "reference_class": "SCAR_StockBttstck_Black",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_Mk20Bttstck_FDE",
+      "parent": "TF_SCAR_Mk20Bttstck_Base",
+      "addon": "TF_MK20_Buttstock",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\Mk20Bttstck\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockscar",
+      "reference_class": "SCAR_StockBttstck_Black",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_Mk20Bttstck_Shd",
+      "parent": "TF_SCAR_Mk20Bttstck_Base",
+      "addon": "TF_MK20_Buttstock",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\Mk20Bttstck\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockscar",
+      "reference_class": "SCAR_StockBttstck_Black",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_MREXHndgrd_Black",
+      "parent": "TF_SCAR_MREXHndgrd_Base",
+      "addon": "TF_MREX_Handguard",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\MREX\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_MREXHndgrd_FDE",
+      "parent": "TF_SCAR_MREXHndgrd_Base",
+      "addon": "TF_MREX_Handguard",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\handguards\\MREX\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponhandguardm4",
+      "reference_class": "M4_RISHndgrd_Green",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_StndBttstck_Black",
+      "parent": "TF_SCAR_StndBttstck_FDE",
+      "addon": "TF_Attachments",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\STD_Buttstock\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockscar",
+      "reference_class": "SCAR_StockBttstck_Black",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_StndBttstck_FDE",
+      "parent": "TF_SCAR_StndBttstck_Base",
+      "addon": "TF_Attachments",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\STD_Buttstock\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockscar",
+      "reference_class": "SCAR_StockBttstck_Black",
+      "reference_size": [
+        2,
+        1
+      ]
+    },
+    {
+      "name": "TF_SCAR_VadapterBttstck",
+      "parent": "Inventory_Base",
+      "addon": "TF_VLTOR_Adapter",
+      "pbo": "weapon_a.pbo",
+      "member": "attachments\\buttstocks\\VLTOR_Adapter\\config.cpp",
+      "root": "CfgVehicles",
+      "source": "@WeaponPackA",
+      "property": "itemSize",
+      "vanilla": [
+        3,
+        1
+      ],
+      "new": [
+        2,
+        1
+      ],
+      "category": "attachment_scale",
+      "reference": "slot:weaponbuttstockscar",
+      "reference_class": "SCAR_StockBttstck_Black",
+      "reference_size": [
+        2,
+        1
+      ]
+    }
+  ],
+  "attachment_counts": {
+    "vanilla": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@CF": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@COT": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@DabsFramework": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@Expansion-Core": {
+      "scanned_attachments": 1,
+      "shrunk": 0,
+      "already_within_scale": 1,
+      "missing_reference": 0
+    },
+    "@Expansion-Licensed": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@Expansion-Vehicles": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@Expansion-AI": {
+      "scanned_attachments": 1,
+      "shrunk": 0,
+      "already_within_scale": 1,
+      "missing_reference": 0
+    },
+    "@Expansion-Navigation": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@SurvivorAnimations": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@AmbientAnimals": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@DayZ-Bicycle": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@RaG_Core": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@RaG_Immersive_Vehicles": {
+      "scanned_attachments": 0,
+      "shrunk": 0,
+      "already_within_scale": 0,
+      "missing_reference": 0
+    },
+    "@WeaponPackA": {
+      "scanned_attachments": 156,
+      "shrunk": 60,
+      "already_within_scale": 96,
+      "missing_reference": 0
+    },
+    "@WeaponPackB": {
+      "scanned_attachments": 324,
+      "shrunk": 127,
+      "already_within_scale": 197,
+      "missing_reference": 0
+    }
+  },
+  "references": {
+    "magazine:0": {
+      "class": "Mag_CLIP9x19_10Rnd",
+      "size": [
+        2,
+        2
+      ]
+    },
+    "magazine:1": {
+      "class": "Mag_Saiga_Drum20Rnd",
+      "size": [
+        2,
+        2
+      ]
+    },
+    "magazine:2": {
+      "class": "Mag_STANAGCoupled_30Rnd",
+      "size": [
+        2,
+        3
+      ]
+    },
+    "magazine:3": {
+      "class": "Mag_AKM_Drum75Rnd_Green",
+      "size": [
+        3,
+        3
+      ]
+    },
+    "magazine:4": {
+      "class": "Mag_M249_Box200Rnd",
+      "size": [
+        5,
+        4
+      ]
+    },
+    "optic:compact": {
+      "class": "PSO6Optic",
+      "size": [
+        3,
+        2
+      ]
+    },
+    "optic:long": {
+      "class": "MK4Optic_Tan",
+      "size": [
+        4,
+        1
+      ]
+    },
+    "optic:night": {
+      "class": "StarlightOptic",
+      "size": [
+        4,
+        3
+      ]
+    },
+    "optic:reflex": {
+      "class": "KobraOptic",
+      "size": [
+        2,
+        2
+      ]
+    },
+    "slot:pistolflashlight": {
+      "class": "TLRLight",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:pistolmuzzle": {
+      "class": "PistolSuppressor",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:pistoloptics": {
+      "class": "FNP45_MRDSOptic",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:revolvercylinder": {
+      "class": "Magnum_Cylinder",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:revolverejector": {
+      "class": "Magnum_Ejector",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:scarh_frontsight": {
+      "class": "Scarh_Front_Sight",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:suppressorimpro": {
+      "class": "ImprovisedSuppressor",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponbayonet": {
+      "class": "M9A1_Bayonet",
+      "size": [
+        1,
+        3
+      ]
+    },
+    "slot:weaponbayonetak": {
+      "class": "AK_Bayonet",
+      "size": [
+        1,
+        3
+      ]
+    },
+    "slot:weaponbayonetmosin": {
+      "class": "Mosin_Bayonet",
+      "size": [
+        1,
+        4
+      ]
+    },
+    "slot:weaponbayonetsks": {
+      "class": "SKS_Bayonet",
+      "size": [
+        1,
+        4
+      ]
+    },
+    "slot:weaponbuttstockak": {
+      "class": "GrozaGL_LowerReceiver",
+      "size": [
+        3,
+        2
+      ]
+    },
+    "slot:weaponbuttstockfal": {
+      "class": "Fal_OeBttstck",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponbuttstockm4": {
+      "class": "M4_OEBttstck_Green",
+      "size": [
+        2,
+        1
+      ]
+    },
+    "slot:weaponbuttstockmp5": {
+      "class": "MP5k_StockBttstck",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponbuttstockpp19": {
+      "class": "PP19_Bttstck",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponbuttstockred9": {
+      "class": "Red9Bttstck",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponbuttstocksaiga": {
+      "class": "Saiga_Bttstck",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponbuttstockscar": {
+      "class": "SCAR_StockBttstck_Black",
+      "size": [
+        2,
+        1
+      ]
+    },
+    "slot:weaponflashlight": {
+      "class": "UniversalLight",
+      "size": [
+        2,
+        1
+      ]
+    },
+    "slot:weaponhandguardak": {
+      "class": "AK_WoodHndgrd_Camo",
+      "size": [
+        2,
+        1
+      ]
+    },
+    "slot:weaponhandguardm249": {
+      "class": "M249_RisHndgrd",
+      "size": [
+        2,
+        1
+      ]
+    },
+    "slot:weaponhandguardm4": {
+      "class": "M4_RISHndgrd_Green",
+      "size": [
+        2,
+        1
+      ]
+    },
+    "slot:weaponhandguardmp5": {
+      "class": "MP5_RailHndgrd",
+      "size": [
+        1,
+        2
+      ]
+    },
+    "slot:weaponmuzzleak": {
+      "class": "ImprovisedSuppressor",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponmuzzlem4": {
+      "class": "M4_Suppressor",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponmuzzlemosin": {
+      "class": "Mosin_Compensator",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:weaponmuzzlemp5": {
+      "class": "MP5_Compensator",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:weaponoptics": {
+      "class": "StarlightOptic",
+      "size": [
+        4,
+        3
+      ]
+    },
+    "slot:weaponopticsak": {
+      "class": "KazuarOptic",
+      "size": [
+        3,
+        3
+      ]
+    },
+    "slot:weaponopticsaug": {
+      "class": "SSG82Optic",
+      "size": [
+        1,
+        1
+      ]
+    },
+    "slot:weaponopticscrossbow": {
+      "class": "PistolOptic",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponopticshunting": {
+      "class": "HuntingOptic",
+      "size": [
+        4,
+        1
+      ]
+    },
+    "slot:weaponopticsmosin": {
+      "class": "PUScopeOptic",
+      "size": [
+        3,
+        1
+      ]
+    },
+    "slot:weaponwrap": {
+      "class": "GhillieAtt_Woodland",
+      "size": [
+        4,
+        3
+      ]
+    }
+  }
+}

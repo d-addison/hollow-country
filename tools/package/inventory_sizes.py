@@ -9,6 +9,8 @@ before writing. --review-only --check is an offline source-consistency check;
 it does not verify installed inputs or authorize a write. No extracted config is saved.
 """
 import argparse
+import ast
+import hashlib
 from collections import Counter
 import json
 import math
@@ -33,7 +35,52 @@ AUTHORED_SLOT_ROWS = {
     'TortillaBag': ' attachments[] = {"Chemlight", "WalkieTalkie", "Backpack_1", "NBCBag", "helmetFlashlight"};',
 }
 IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*\Z')
-FIELDS = {'scope', 'itemSize', 'itemsCargoSize', 'inventorySlot', 'weight'}
+FIELDS = {'scope', 'itemSize', 'itemsCargoSize', 'inventorySlot', 'weight', 'attachments', 'count', 'ammoCount', 'opticsZoomMin', 'opticsZoomMax'}
+PACK_TABLE = ROOT / 'tools/package/weapon_pack_sizes.json'
+PACK_BEGIN = '// BEGIN HC attachment scale (package injection)'
+PACK_END = '// END HC attachment scale (package injection)'
+
+
+def identity(row):
+    root = row.get('root', 'CfgVehicles')
+    return (row['name'] if root == 'CfgVehicles' else root + '::' + row['name']).lower()
+
+
+def strings(value):
+    # Some installed addons use inventorySlot="slot" instead of an array.
+    return [value] if isinstance(value, str) else (value or [])
+
+
+def config_number(value):
+    """Read bounded constant config arithmetic, never execute names or functions."""
+    if type(value) in (int, float):
+        return value if math.isfinite(value) else None
+    if not isinstance(value, str) or len(value) > 128:
+        return None
+    try:
+        node = ast.parse(value.strip(), mode='eval')
+        if sum(1 for _ in ast.walk(node)) > 32:
+            return None
+
+        def number(expr):
+            if isinstance(expr, ast.Constant) and type(expr.value) in (int, float):
+                return expr.value
+            if isinstance(expr, ast.BinOp):
+                left, right = number(expr.left), number(expr.right)
+                if isinstance(expr.op, ast.Div):
+                    return left / right
+                if isinstance(expr.op, ast.Mult):
+                    return left * right
+                if isinstance(expr.op, ast.Add):
+                    return left + right
+                if isinstance(expr.op, ast.Sub):
+                    return left - right
+            raise ValueError('nonconstant config number')
+
+        result = number(node.body)
+        return result if math.isfinite(result) else None
+    except (SyntaxError, ValueError, ArithmeticError, TypeError):
+        return None
 
 
 def _config_rows(data):
@@ -49,7 +96,7 @@ def _config_rows(data):
     _, roots = rap.entries(16)
     patches, rows = {}, {}
     for kind, root, offset in roots:
-        if kind != 'class' or root.lower() not in {'cfgpatches', 'cfgvehicles'}:
+        if kind != 'class' or root.lower() not in {'cfgpatches', 'cfgvehicles', 'cfgmagazines', 'cfgweapons'}:
             continue
         _, children = rap.entries(offset)
         for ckind, name, body in children:
@@ -60,8 +107,12 @@ def _config_rows(data):
             for fkind, field, value in entries:
                 if fkind in {'value', 'array'}:
                     fields[field] = value
+                elif fkind == 'class' and field.lower() == 'opticsinfo':
+                    _, optic_fields = rap.entries(value)
+                    fields.update({n: v for k, n, v in optic_fields
+                                   if k == 'value' and n in {'opticsZoomMin', 'opticsZoomMax'}})
                 elif fkind == 'array+' and field in FIELDS | {'requiredAddons', 'units'}:
-                    if field in {'inventorySlot'}:
+                    if field in {'inventorySlot', 'attachments'}:
                         fields['append:' + field] = value
                     elif field in {'requiredAddons', 'units'}:
                         fields[field] = fields.get(field, []) + value
@@ -70,7 +121,9 @@ def _config_rows(data):
             if root.lower() == 'cfgpatches':
                 patches[name] = fields
             else:
-                rows[name] = {'parent': parent, 'fields': {k: v for k, v in fields.items() if k in FIELDS or k.startswith('append:')}}
+                namespace = {'cfgvehicles': 'CfgVehicles', 'cfgmagazines': 'CfgMagazines', 'cfgweapons': 'CfgWeapons'}[root.lower()]
+                key = name if namespace == 'CfgVehicles' else namespace + '::' + name
+                rows[key] = {'name': name, 'root': namespace, 'parent': parent, 'fields': {k: v for k, v in fields.items() if k in FIELDS or k.startswith('append:')}}
     return patches, rows
 
 
@@ -99,19 +152,21 @@ def merge_documents(documents):
             known = {p.lower() for p in all_patches}
             if not ((dependencies & known) - local) <= loaded:
                 continue
-            for name, row in doc['rows'].items():
+            for identity, row in doc['rows'].items():
+                name = row.get('name', identity)
                 if not IDENTIFIER.fullmatch(name) or (row['parent'] and not IDENTIFIER.fullmatch(row['parent'])):
                     raise ValueError('invalid vanilla class/parent name')
-                owners = [p for p, fields in doc['patches'].items()
+                owning_patches = doc['patches'] or doc.get('enclosing_patches', {})
+                owners = [p for p, fields in owning_patches.items()
                           if name.lower() in {u.lower() for u in fields.get('units', [])}]
                 owner = owners[0] if len(owners) == 1 else (
-                    next(iter(doc['patches'])) if len(doc['patches']) == 1 else None)
-                key = name.lower()
+                    next(iter(owning_patches)) if len(owning_patches) == 1 else None)
+                key = identity.lower()
                 previous = definitions.get(key)
                 # Empty class reopenings (e.g. Clothing in gear_medical) are
                 # references, not a new defining addon for the inherited class.
                 if previous and not row['fields']:
-                    if row['parent'] and row['parent'].lower() not in {key, previous['parent'].lower()}:
+                    if row['parent'] and row['parent'].lower() not in {name.lower(), previous['parent'].lower()}:
                         raise ValueError('conflicting vanilla parent: ' + name)
                     continue
                 fields = dict(previous['fields']) if previous else {}
@@ -126,9 +181,9 @@ def merge_documents(documents):
                         fields[field] = value
                         fields.pop('append:' + field, None)
                 parent = row['parent'] or (previous['parent'] if previous else '')
-                if parent.lower() == key and previous:
+                if parent.lower() == name.lower() and previous:
                     parent = previous['parent']
-                definitions[key] = {'name': name, 'parent': parent, 'addon': owner,
+                definitions[key] = {'name': name, 'root': row.get('root', 'CfgVehicles'), 'parent': parent, 'addon': owner,
                     'source': doc.get('source', 'vanilla'),
                     'pbo': doc['pbo'], 'member': doc['member'], 'fields': fields}
             loaded.update(local)
@@ -136,7 +191,7 @@ def merge_documents(documents):
             progressed = True
         if not progressed:
             raise ValueError('cyclic vanilla addon dependencies: ' + ', '.join(d['member'] for d in pending))
-    return {r['name']: r for r in definitions.values()}, all_patches
+    return {(r['name'] if r['root'] == 'CfgVehicles' else r['root'] + '::' + r['name']): r for r in definitions.values()}, all_patches
 
 
 def _resolved(definitions):
@@ -152,7 +207,8 @@ def _resolved(definitions):
         row = lookup[key]
         visiting.add(key)
         parent = row['parent'] or ''
-        base = resolve(parent) if parent.lower() in lookup else {'fields': {}, 'ancestors': []}
+        parent_key = (row.get('root', 'CfgVehicles') + '::' + parent if row.get('root', 'CfgVehicles') != 'CfgVehicles' else parent).lower()
+        base = resolve(parent_key) if parent_key in lookup else {'fields': {}, 'ancestors': []}
         value = {**row, 'fields': {**base['fields'], **row['fields']},
                  'ancestors': ([parent] + base['ancestors']) if parent else []}
         for field, extra in row['fields'].items():
@@ -204,9 +260,11 @@ def select_changes(definitions, rules, audit=None):
         raise ValueError('unsupported square tie policy')
     for key, row in sorted(resolved.items()):
         name, fields, addon = row['name'], row['fields'], row['addon']
+        if row.get('root', 'CfgVehicles') != 'CfgVehicles':
+            continue
         size, cargo = _size(fields.get('itemSize')), _size(fields.get('itemsCargoSize'))
         ancestors = {n.lower() for n in [name, *row['ancestors']]}
-        slots = {s.lower() for s in fields.get('inventorySlot', [])}
+        slots = {s.lower() for s in strings(fields.get('inventorySlot'))}
         prop, category, old, new = 'itemSize', 'general', size, None
         if name in rules['exclude']:
             skip('explicit-exclude', row)
@@ -290,6 +348,176 @@ def select_changes(definitions, rules, audit=None):
     return sorted(changes.values(), key=lambda r: r['name'].lower()), dict(sorted(excluded.items()))
 
 
+def attachment_changes(vanilla, definitions, rules):
+    """Scale only mod attachments, against an independent pre-stack vanilla snapshot.
+
+    Slots come from actual weapon hosts, including mod hosts. Configured aliases
+    map their custom slots to native references; unmatched slots stay visible in
+    the report. Public leaf overrides avoid changing hidden/excluded descendants.
+    """
+    policy = rules['attachment_scale']
+    if policy['statistic'] not in {'largest_area', 'median_area', 'smallest_area'}:
+        raise ValueError('unsupported attachment reference statistic')
+    if policy['oversize'] not in {'area_or_dimension', 'area', 'dimension'}:
+        raise ValueError('unsupported attachment oversize policy')
+    bands = policy['magazine_capacity_bands']
+    limits = [b for b in bands if b is not None]
+    if not bands or bands[-1] is not None or limits != sorted(set(limits)) or any(
+            type(b) is not int or b <= 0 for b in limits) or len(limits) != len(bands) - 1:
+        raise ValueError('capacity bands must be increasing positive integers followed by null')
+    native, merged = _resolved(vanilla), _resolved(definitions)
+    raw = {identity(r): r for r in definitions.values()}
+
+    def host_slots(rows):
+        return {s.lower() for r in rows.values() if r.get('root') == 'CfgWeapons'
+                for s in strings(r['fields'].get('attachments')) if s}
+
+    native_slots, all_slots = host_slots(native), host_slots(merged)
+    magazine_ancestors = {n.lower() for n in policy['magazine_ancestors']}
+    excluded = {n.lower() for n in policy['exclude_ancestors']}
+    optic_ancestors = {n.lower() for n in policy['optic_ancestors']}
+
+    def ancestry(row):
+        return {n.lower() for n in [row['name'], *row['ancestors']]}
+
+    def magazine(row):
+        return bool(ancestry(row) & magazine_ancestors)
+
+    magazine_slots = {s.lower() for r in native.values() if magazine(r)
+                      for s in strings(r['fields'].get('inventorySlot')) if s}
+
+    def optic_kind(row):
+        ancestors = ancestry(row)
+        slots = {s.lower() for s in strings(row['fields'].get('inventorySlot'))}
+        for kind in policy['optic_kinds']:
+            if (ancestors & {n.lower() for n in kind.get('ancestors', [])} or
+                    slots & {n.lower() for n in kind.get('slots', [])} or
+                    any(re.search(kind.get('ancestor_pattern', r'(?!)'), a, re.I) for a in ancestors)):
+                return kind['name']
+        zooms = [config_number(row['fields'].get(f)) for f in ('opticsZoomMin', 'opticsZoomMax')]
+        zooms = [z for z in zooms if z is not None and z > 0]
+        if zooms:
+            zoom = min(zooms)
+            for band in policy['optic_zoom_bands']:
+                if band['max_zoom_min'] is None or zoom <= band['max_zoom_min']:
+                    return band['kind']
+        return policy['unknown_optic_kind']
+
+    def capacity_band(row):
+        for field in policy['magazine_capacity_fields']:
+            count = config_number(row['fields'].get(field))
+            if count is not None and count > 0:
+                return next(i for i, upper in enumerate(bands) if upper is None or count <= upper)
+        return None
+
+    refs = {}
+    reference_exclude = {n.lower() for n in policy['reference_exclude']}
+    for key, row in native.items():
+        size = _size(row['fields'].get('itemSize'))
+        if row['fields'].get('scope') != 2 or not size or ancestry(row) & excluded or row['name'].lower() in reference_exclude:
+            continue
+        if magazine(row):
+            band = capacity_band(row)
+            if band is not None:
+                refs.setdefault('magazine:' + str(band), []).append((row['name'], size))
+            continue
+        slots = {s.lower() for s in strings(row['fields'].get('inventorySlot'))} & native_slots
+        for slot in slots:
+            refs.setdefault('slot:' + slot, []).append((row['name'], size))
+        if slots and ancestry(row) & optic_ancestors:
+            refs.setdefault('optic:' + optic_kind(row), []).append((row['name'], size))
+
+    reference = {}
+    for group, values in sorted(refs.items()):
+        values.sort(key=lambda v: (v[1][0] * v[1][1], v[1][0], v[1][1], v[0].lower()))
+        index = {'largest_area': len(values) - 1, 'smallest_area': 0,
+                 'median_area': (len(values) - 1) // 2}[policy['statistic']]
+        name, size = values[index]
+        reference[group] = {'class': name, 'size': size}
+
+    sources = {s['folder']: s for s in rules['sources']}
+    counts = {s: Counter(scanned_attachments=0, shrunk=0, already_within_scale=0,
+                         missing_reference=0) for s in sources}
+    proposals = {}
+    for key, row in sorted(merged.items()):
+        source, fields = row['source'], row['fields']
+        if key in native or source == 'vanilla' or not sources[source]['enabled'] or row.get('root') == 'CfgWeapons':
+            continue
+        ancestors = ancestry(row)
+        size = _size(fields.get('itemSize'))
+        if fields.get('scope') != 2 or not size or _size(fields.get('itemsCargoSize')) or ancestors & excluded:
+            continue
+        slots = {s.lower() for s in strings(fields.get('inventorySlot'))}
+        is_magazine = magazine(row) or bool(slots & magazine_slots)
+        if not is_magazine and not (slots & all_slots):
+            continue
+        counts[source]['scanned_attachments'] += 1
+        groups = []
+        if is_magazine:
+            band = capacity_band(row)
+            if band is not None:
+                groups = ['magazine:' + str(band)]
+        elif ancestors & optic_ancestors:
+            groups = ['optic:' + optic_kind(row)]
+        else:
+            groups = ['slot:' + s for s in sorted(slots & native_slots)]
+            if not groups:
+                for alias in policy['custom_slot_aliases']:
+                    if (any(re.search(alias['slot_pattern'], s, re.I) for s in slots) or
+                            any(re.search(alias.get('ancestor_pattern', r'(?!)'), a, re.I) for a in ancestors)):
+                        groups = ['slot:' + s.lower() for s in alias['reference_slots']]
+                        break
+        candidates = [(g, reference[g]) for g in groups if g in reference]
+        if not candidates:
+            counts[source]['missing_reference'] += 1
+            counts[source]['missing:' + ','.join(sorted(slots))] += 1
+            continue
+        # Multiple compatible slots use the largest reference, with a stable tie.
+        group, ref = max(candidates, key=lambda v: (math.prod(v[1]['size']), v[1]['size'], v[0]))
+        target = ref['size']
+        by_area = math.prod(size) > math.prod(target)
+        by_dimension = any(a > b for a, b in zip(size, target))
+        oversized = {'area': by_area, 'dimension': by_dimension,
+                     'area_or_dimension': by_area or by_dimension}[policy['oversize']]
+        # Never enlarge either dimension, including differently oriented inputs.
+        new = [min(a, b) for a, b in zip(size, target)] if oversized else size
+        if new == size:
+            counts[source]['already_within_scale'] += 1
+            continue
+        if not row['parent'] or not row['addon']:
+            raise ValueError('ambiguous attachment parent/addon: ' + row['name'])
+        change = {k: row[k] for k in ('name', 'parent', 'addon', 'pbo', 'member', 'root', 'source')}
+        change.update(property='itemSize', vanilla=size, new=new, category='attachment_scale',
+                      reference=group, reference_class=ref['class'], reference_size=target)
+        proposals[key] = change
+
+    # Pin original sizes on excluded/hidden descendants lacking their own itemSize.
+    # This also prevents a smaller child/band from inheriting a larger reference.
+    for key, row in sorted(merged.items()):
+        if key in proposals:
+            continue
+        root = row.get('root', 'CfgVehicles')
+        for ancestor in row['ancestors']:
+            ak = (ancestor if root == 'CfgVehicles' else root + '::' + ancestor).lower()
+            if 'itemSize' in raw[key]['fields']:
+                break
+            if ak in proposals:
+                old = _size(row['fields'].get('itemSize'))
+                if old and old != proposals[ak]['new']:
+                    if not row['addon'] or not row['parent']:
+                        raise ValueError('ambiguous attachment preservation: ' + row['name'])
+                    change = {k: row[k] for k in ('name', 'parent', 'addon', 'pbo', 'member', 'root', 'source')}
+                    change.update(property='itemSize', vanilla=old, new=old, category='preserve-original')
+                    proposals[key] = change
+                break
+            if ak in raw and 'itemSize' in raw[ak]['fields']:
+                break
+    for change in proposals.values():
+        if change['category'] == 'attachment_scale':
+            counts[change['source']]['shrunk'] += 1
+    return sorted(proposals.values(), key=lambda r: (r['root'], r['name'].lower())), counts, reference
+
+
 def verify_review(changes, reviewed):
     if changes != reviewed:
         raise ValueError('vanilla/rules differ from reviewed overrides; inspect then use --refresh-review --write')
@@ -327,7 +555,7 @@ def render_block(changes):
     return '\n'.join(lines) + '\n'
 
 
-def update_config(config, changes, *, stack=False):
+def _update_vehicle_config(config, changes, *, stack=False, dependencies=None):
     """Modify only our marked region and the owning addon requiredAddons line."""
     block = render_block(changes)
     if stack:
@@ -378,7 +606,7 @@ def update_config(config, changes, *, stack=False):
             raise ValueError('malformed inventory dependency markers')
         dependency_text = re.sub(re.escape(dep_begin) + '.*?' + re.escape(dep_end), '', dependency_text, flags=re.S)
     existing = re.findall(r'"([^"\n]+)"', dependency_text)
-    missing = sorted({r['addon'] for r in changes} - set(existing), key=str.lower)
+    missing = sorted({r['addon'] for r in (changes if dependencies is None else dependencies)} - set(existing), key=str.lower)
     value = ', '.join(json.dumps(n) for n in [*existing, *missing])
     if stack:
         value = ', '.join(json.dumps(n) for n in existing)
@@ -387,14 +615,126 @@ def update_config(config, changes, *, stack=False):
     return config[:required.start(2)] + value + config[required.end(2):]
 
 
+MAG_BEGIN = '// BEGIN HC magazine sizes (generated by tools/package/inventory_sizes.py)'
+MAG_END = '// END HC magazine sizes'
+
+
+def update_config(config, changes, *, stack=False):
+    """Keep namespaces separate; the vehicle block and magazine root are owned output."""
+    magazines = [r for r in changes if r.get('root') == 'CfgMagazines']
+    vehicles = [r for r in changes if r.get('root', 'CfgVehicles') == 'CfgVehicles']
+    if config.count(MAG_BEGIN) != config.count(MAG_END) or config.count(MAG_BEGIN) > 1:
+        raise ValueError('stale magazine markers')
+    config = re.sub(r'(?m)^' + re.escape(MAG_BEGIN) + r'.*?^' + re.escape(MAG_END) + r'\n?',
+                    '', config, flags=re.S)
+    config = _update_vehicle_config(config, vehicles, stack=stack, dependencies=changes)
+    if magazines:
+        block = render_block(magazines).replace('    ' + BEGIN + '\n', '').replace('    ' + END + '\n', '')
+        config += MAG_BEGIN + '\nclass CfgMagazines\n{\n' + block + '};\n' + MAG_END + '\n'
+    return config
+
+
 def check_config(config, changes, *, stack=False):
     if update_config(config, changes, stack=stack) != config:
         raise ValueError('stale inventory block or requiredAddons; regenerate with --write')
 
 
-def load_stack(addons, workshop, rules):
+def pack_table(rules_text, changes, counts, references):
+    return json.dumps({'schema_version': 1,
+        'rules_sha256': hashlib.sha256(rules_text.encode()).hexdigest(),
+        'generator_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                             for p in (Path(__file__), Path(inventory_sources.__file__))},
+        'overrides': changes, 'attachment_counts': counts, 'references': references}, indent=2) + '\n'
+
+
+def declared_sources(rules, manifest):
+    """Resolve reviewed aliases by Workshop id against the build's declared stack."""
+    mods = json.loads(Path(manifest).read_text())['mods']
+    ids = {str(m['id']) for m in mods if m.get('id') is not None}
+    folders = {m['folder'] for m in mods}
+    return {s['folder'] for s in rules['sources']
+            if s['folder'] == 'vanilla' or
+            (inventory_sources.WORKSHOP_FOLDERS[s['folder']] in ids
+             if s['folder'] in inventory_sources.WORKSHOP_FOLDERS else s['folder'] in folders)}
+
+
+def validate_declared_overrides(rows, active):
+    absent = sorted({r['source'] for r in rows if r.get('source', 'vanilla') not in active})
+    if absent:
+        raise ValueError('sizing table names sources absent from declared stack: ' + ', '.join(absent)
+                         + '; regenerate with --refresh-review --write')
+
+
+def checked_pack_table(tree):
+    """Offline release admission: rules and both generator sources must match review."""
+    path = tree / 'tools/package/weapon_pack_sizes.json'
+    table = json.loads(path.read_text())
+    rules = (tree / 'config/inventory-sizes.json').read_bytes()
+    if table['schema_version'] != 1 or table['rules_sha256'] != hashlib.sha256(rules).hexdigest():
+        raise ValueError('stale weapon pack sizing table: regenerate against installed sources')
+    for filename in ('inventory_sizes.py', 'inventory_sources.py'):
+        if table['generator_sha256'].get(filename) != hashlib.sha256(
+                (tree / 'tools/package' / filename).read_bytes()).hexdigest():
+            raise ValueError('stale weapon pack sizing generator: regenerate against installed sources')
+    policy = json.loads(rules)
+    active = declared_sources(policy, tree / 'tools/setup/workshop_mods.json')
+    validate_declared_overrides(table['overrides'] + policy.get('reviewed_stack_overrides', []), active)
+    # Rendering validates class identifiers/properties; the byte check also rejects
+    # changes to formatting or header fields outside deliberate regeneration.
+    expected = pack_table(rules.decode(), table['overrides'], table['attachment_counts'], table['references'])
+    if path.read_text() != expected:
+        raise ValueError('stale weapon pack sizing table encoding')
+    return table
+
+
+def inject_pack_sizes(tree):
+    """Inject only generated regions in the disposable release tree."""
+    table = checked_pack_table(tree)
+    path = tree / 'mods/HollowCountryExpansionAI/config.cpp'
+    config = path.read_text()
+    if PACK_BEGIN in config or PACK_END in config:
+        raise ValueError('attachment scale already injected')
+    changes = table['overrides']
+    deps = sorted({r['addon'] for r in changes}, key=str.lower)
+    if any(not IDENTIFIER.fullmatch(n) for n in deps):
+        raise ValueError('invalid attachment addon identifier')
+    payloads = {'CfgPatches': ('    class HollowCountryAttachmentScale\n    {\n'
+        '        units[] = {};\n        weapons[] = {};\n        requiredVersion = 0.1;\n'
+        '        requiredAddons[] = {' + ', '.join(json.dumps(n) for n in deps) + '};\n    };\n')}
+    for root in ('CfgVehicles', 'CfgMagazines'):
+        rows = [r for r in changes if r['root'] == root]
+        if rows:
+            payloads[root] = render_block(rows).replace('    ' + BEGIN + '\n', '').replace('    ' + END + '\n', '')
+    for root, payload in payloads.items():
+        marker = PACK_BEGIN + ' ' + root
+        end_marker = PACK_END + ' ' + root
+        block = '    ' + marker + '\n' + payload + '    ' + end_marker + '\n'
+        match = re.search(r'\bclass\s+' + root + r'\s*\{', config)
+        if not match:
+            config += marker + '\nclass ' + root + '\n{\n' + payload + '};\n' + end_marker + '\n'
+            continue
+        depth = 1
+        for token in re.finditer(r'"(?:[^"]|"")*"|//[^\n]*|/\*.*?\*/|[{}]', config[match.end():], re.S):
+            if token.group() == '{':
+                depth += 1
+            elif token.group() == '}':
+                depth -= 1
+                if depth == 0:
+                    at = match.end() + token.start()
+                    config = config[:at] + block + config[at:]
+                    break
+        else:
+            raise ValueError('unclosed injection root: ' + root)
+    path.write_text(config)
+    return {'sha256': hashlib.sha256(config.encode()).hexdigest(),
+            'table_sha256': hashlib.sha256((tree / 'tools/package/weapon_pack_sizes.json').read_bytes()).hexdigest(),
+            'overrides': len(changes)}
+
+
+def load_stack(addons, workshop, rules, manifest=None):
     """Load all declared sources, including audit-only providers, before HC values."""
     docs, skipped = [], {}
+    active = declared_sources(rules, manifest or ROOT / 'tools/setup/workshop_mods.json')
     sources = rules['sources']
     if len({s['folder'] for s in sources}) != len(sources) or sum(s['folder'] == 'vanilla' for s in sources) != 1:
         raise ValueError('sources must contain unique folders and exactly one vanilla entry')
@@ -406,6 +746,9 @@ def load_stack(addons, workshop, rules):
             raise ValueError('vanilla source is required; tune its size rules instead')
     for source in sources:
         folder = source['folder']
+        skipped[folder] = []
+        if folder not in active:
+            continue
         if folder == 'vanilla':
             path = addons
         else:
@@ -413,6 +756,8 @@ def load_stack(addons, workshop, rules):
             path = workshop / workshop_folder / 'addons'
         rows, opaque = inventory_sources.documents(path, folder, FIELDS, _config_rows,
                                                     vanilla=folder == 'vanilla')
+        if folder in rules['attachment_scale']['package_only_sources'] and not rows:
+            raise ValueError('declared attachment source has no readable configs: ' + folder)
         docs.extend(rows)
         skipped[folder] = opaque
     definitions, patches = merge_documents(docs)
@@ -420,6 +765,7 @@ def load_stack(addons, workshop, rules):
 
 
 def stack_changes(definitions, rules, vanilla):
+    definitions = {n: r for n, r in definitions.items() if r.get('root', 'CfgVehicles') == 'CfgVehicles'}
     audit = {}
     proposed, _ = select_changes(definitions, rules, audit)
     sources = {s['folder']: s for s in rules['sources']}
@@ -433,7 +779,7 @@ def stack_changes(definitions, rules, vanilla):
         counts[lookup[change['name'].lower()]['source']]['qualifying'] += 1
     for change in changes:
         source = lookup[change['name'].lower()]['source']
-        if not sources[source]['enabled']:
+        if not sources[source]['enabled'] or sources[source].get('rules') == ['attachment_scale']:
             counts[source]['disabled-qualifying'] += 1
             continue
         if not inventory_sources.safe_text(render_block([change])):
@@ -448,7 +794,7 @@ def stack_changes(definitions, rules, vanilla):
     emitted.update(selected)
     for key, row in resolved.items():
         source = row['source']
-        if source == 'vanilla' or not sources[source]['enabled']:
+        if source == 'vanilla' or not sources[source]['enabled'] or sources[source].get('rules') == ['attachment_scale']:
             continue
         for prop in ('itemSize', 'itemsCargoSize'):
             if key in selected and selected[key]['property'] == prop:
@@ -491,6 +837,9 @@ def main(argv=None):
     parser.add_argument('--rules', type=Path, default=ROOT / 'config/inventory-sizes.json')
     parser.add_argument('--config', type=Path, default=ROOT / 'mods/HollowCountry/config.cpp')
     parser.add_argument('--stack-config', type=Path, default=ROOT / 'mods/HollowCountryExpansionAI/config.cpp')
+    parser.add_argument('--pack-table', type=Path, default=PACK_TABLE)
+    parser.add_argument('--stack-manifest', type=Path, default=ROOT / 'tools/setup/workshop_mods.json')
+    parser.add_argument('--inject', type=Path, help='inject verified table into a disposable release tree')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--check', action='store_true')
     mode.add_argument('--write', action='store_true')
@@ -498,6 +847,11 @@ def main(argv=None):
     parser.add_argument('--review-only', action='store_true')
     args = parser.parse_args(argv)
     try:
+        if args.inject:
+            if args.check or args.write or args.refresh_review or args.review_only:
+                raise ValueError('--inject cannot be combined with generation modes')
+            print(json.dumps(inject_pack_sizes(args.inject)))
+            return 0
         rules = json.loads(args.rules.read_text())
         report = {}
         if args.review_only:
@@ -505,6 +859,10 @@ def main(argv=None):
                 raise ValueError('--review-only is limited to offline --check')
             changes = rules['reviewed_overrides']
             stack = rules.get('reviewed_stack_overrides', [])
+            table = checked_pack_table(ROOT)
+            packs = table['overrides']
+            validate_declared_overrides(stack + packs, declared_sources(rules, args.stack_manifest))
+            table_text = pack_table(args.rules.read_text(), packs, table['attachment_counts'], table['references'])
         else:
             if args.addons is None:
                 raise ValueError('--addons must name the installed vanilla directory')
@@ -512,15 +870,21 @@ def main(argv=None):
             changes, exclusions = select_changes(vanilla, rules)
             if not {r['addon'] for r in changes} <= patches:
                 raise ValueError('override addon not verified in vanilla CfgPatches')
-            definitions, patches, docs, skipped = load_stack(args.addons, args.workshop, rules)
+            definitions, patches, docs, skipped = load_stack(args.addons, args.workshop, rules, args.stack_manifest)
             stack, counts = stack_changes(definitions, rules, changes)
+            attachments, attachment_counts, references = attachment_changes(vanilla, definitions, rules)
+            pack_sources = set(rules['attachment_scale']['package_only_sources'])
+            packs = [r for r in attachments if r['source'] in pack_sources]
+            stack.extend(r for r in attachments if r['source'] not in pack_sources)
+            stack.sort(key=lambda r: (r.get('root', 'CfgVehicles'), r['name'].lower()))
             for source in rules['sources']:
                 name = source['folder']
                 counts[name]['definitions-read'] = sum(len(d['rows']) for d in docs if d['source'] == name)
                 counts[name]['encrypted-ebo'] = len(skipped[name])
             counts['vanilla']['overridden'] = counts['vanilla'].get('qualifying', 0)
-            report = {'sources': counts, 'opaque': skipped, 'vanilla_base_overrides': len(changes)}
-            if not {r['addon'] for r in stack} <= patches:
+            report = {'sources': counts, 'attachments': attachment_counts, 'references': references,
+                      'opaque': skipped, 'vanilla_base_overrides': len(changes)}
+            if not {r['addon'] for r in stack + packs} <= patches:
                 raise ValueError('unverified stack CfgPatches')
             if args.refresh_review:
                 if not args.write:
@@ -534,6 +898,10 @@ def main(argv=None):
             else:
                 verify_review(changes, rules['reviewed_overrides'])
                 verify_review(stack, rules.get('reviewed_stack_overrides', []))
+            rules_text = json.dumps(rules, indent=2) + '\n' if args.refresh_review else args.rules.read_text()
+            table_text = pack_table(rules_text, packs, attachment_counts, references)
+            if not args.refresh_review and args.pack_table.read_text() != table_text:
+                raise ValueError('stale weapon pack table; inspect then use --refresh-review --write')
         config = args.config.read_text()
         stack_config = args.stack_config.read_text()
         updated = update_config(config, changes)
@@ -543,16 +911,19 @@ def main(argv=None):
         if args.check:
             check_config(config, changes)
             check_config(stack_config, stack, stack=True)
+            if args.pack_table.read_text() != table_text:
+                raise ValueError('stale weapon pack table')
         elif args.write:
             # Complete validation of both outputs before any writes.
             if args.refresh_review:
                 args.rules.write_text(json.dumps(rules, indent=2) + '\n')
             args.config.write_text(updated)
             args.stack_config.write_text(stack_updated)
+            args.pack_table.write_text(table_text)
         else:
             print(render_block(changes), end='')
             print(render_block(stack), end='')
-        report.update(counts=dict(sorted(Counter(r['category'] for r in changes + stack).items())),
+        report.update(counts=dict(sorted(Counter(r['category'] for r in changes + stack + packs).items())),
                       sources_verified=not args.review_only, runtime_acceptance='pending')
         print(json.dumps(report, sort_keys=True), file=sys.stderr)
     except (ValueError, OSError, KeyError) as error:

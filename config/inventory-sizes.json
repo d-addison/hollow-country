@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "request": "Owner global ancestry-based inventory sizing, 2026-11-20",
   "backpack_row_multiplier": 1.5,
   "medical_max_area": 2,
@@ -79,12 +79,12 @@
     "Back slot with positive cargo: preserve shell itemSize; round rows up after scaling.",
     "All other positive cargo, including inherited cargo: never shrink itemSize or change cargo.",
     "General area 3/4: shorten longer dimension by one; square 2x2 becomes 1x2 by shrinking width. Area decreases by two for this square, following the owner's explicit 2x2 example.",
-    "Area 2: medical; consumables (food/drink/material/seed addons or explicit matches/lighter/candle/filter includes); or tools strictly below 500g (tools/navigation/handheld optics/traps addons). Weapon attachment slots always exclude an item.",
+    "Area 2: medical; consumables (food/drink/material/seed addons or explicit matches/lighter/candle/filter includes); or tools strictly below 500g (tools/navigation/handheld optics/traps addons). Weapon attachment slots exclude an item from general small-item sizing; attachment_scale separately uses vanilla references.",
     "Only scope=2 inventory descendants are shrunk. Every backpack definition, including hidden bases and inherited variants, receives its own vanilla-derived cargo override so scaling never compounds.",
     "Unknown ancestry, ambiguous defining addon, and unsupported numeric dimensions fail closed; original addon requiredAddons are preserved.",
     "Public vanilla diagnostic variants follow the same size rules as their family; changing a public parent must not silently resize excluded or hidden descendants.",
     "Ancestry selects medical/consumable/tool groups before addon hints. Inventory slot and original weight constrain eligibility. Source list order breaks ties after CfgPatches dependencies; disabled sources are audited but never emitted.",
-    "Workshop aliases resolve in tools/package/inventory_sources.py. Output is rejected if it contains restricted provider tokens. All size inputs precede HC overrides; scaling never compounds."
+    "Workshop aliases resolve in tools/package/inventory_sources.py. Committed addon/config output is rejected if it contains restricted provider tokens; package-only overrides remain under tools/package until disposable release injection. All size inputs precede HC overrides; scaling never compounds."
   ],
   "exclude_inventory_slot_prefixes": [
     "weapon",
@@ -9917,13 +9917,19 @@
     },
     {
       "folder": "@WeaponPackA",
-      "enabled": false,
-      "target_addon": "HollowCountryExpansionAI"
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI",
+      "rules": [
+        "attachment_scale"
+      ]
     },
     {
       "folder": "@WeaponPackB",
-      "enabled": false,
-      "target_addon": "HollowCountryExpansionAI"
+      "enabled": true,
+      "target_addon": "HollowCountryExpansionAI",
+      "rules": [
+        "attachment_scale"
+      ]
     }
   ],
   "reviewed_stack_overrides": [
@@ -10794,5 +10800,193 @@
       ],
       "category": "general"
     }
-  ]
+  ],
+  "attachment_scale": {
+    "statistic": "largest_area",
+    "oversize": "area_or_dimension",
+    "package_only_sources": [
+      "@WeaponPackA",
+      "@WeaponPackB"
+    ],
+    "magazine_ancestors": [
+      "Magazine_Base"
+    ],
+    "magazine_capacity_fields": [
+      "ammoCount",
+      "count"
+    ],
+    "magazine_capacity_bands": [
+      10,
+      30,
+      60,
+      100,
+      null
+    ],
+    "exclude_ancestors": [
+      "Ammunition_Base",
+      "Weapon_Base",
+      "Rifle_Base",
+      "Pistol_Base",
+      "Archery_Base",
+      "Launcher_Base",
+      "Grenade_Base",
+      "Explosives_Base"
+    ],
+    "reference_exclude": [
+      "Mag_Arrows_Quiver",
+      "Mag_Bolts_Quiver",
+      "Mag_Dartgun_CO2",
+      "Mag_ShockCartridge"
+    ],
+    "optic_ancestors": [
+      "ItemOptics",
+      "ItemOptics_Base"
+    ],
+    "optic_kinds": [
+      {
+        "name": "night",
+        "ancestors": [
+          "KazuarOptic",
+          "StarlightOptic"
+        ]
+      },
+      {
+        "name": "reflex",
+        "ancestors": [
+          "BUISOptic",
+          "M4_CarryHandleOptic",
+          "M68Optic",
+          "M4_T3NRDSOptic",
+          "ReflexOptic",
+          "HoloOptic",
+          "KobraOptic",
+          "FNP45_MRDSOptic",
+          "PistolOptic"
+        ],
+        "ancestor_pattern": "aimpoint|holo|eotech|reflex|kobra|walther|deltapoint"
+      },
+      {
+        "name": "long",
+        "ancestors": [
+          "HuntingOptic",
+          "MK4Optic_ColorBase",
+          "PUScopeOptic"
+        ],
+        "ancestor_pattern": "huntingoptic|mk4optic|leupold|nightforce|kahles|puscope"
+      },
+      {
+        "name": "compact",
+        "ancestors": [
+          "ACOGOptic",
+          "ACOGOptic_6x",
+          "PSO1Optic",
+          "PSO11Optic",
+          "PSO6Optic",
+          "KashtanOptic",
+          "GrozaOptic"
+        ],
+        "ancestor_pattern": "acog|elcan|specter|trijicon|tango6|hamroptic|pso[0-9]|kashtan|grozaoptic"
+      },
+      {
+        "name": "reflex",
+        "slots": [
+          "pistolOptics",
+          "weaponOpticsCrossbow"
+        ]
+      }
+    ],
+    "optic_zoom_bands": [
+      {
+        "max_zoom_min": 0.08,
+        "kind": "long"
+      },
+      {
+        "max_zoom_min": 0.15,
+        "kind": "compact"
+      },
+      {
+        "max_zoom_min": null,
+        "kind": "reflex"
+      }
+    ],
+    "unknown_optic_kind": "compact",
+    "custom_slot_aliases": [
+      {
+        "slot_pattern": "bipod",
+        "ancestor_pattern": "bipod",
+        "reference_slots": [
+          "weaponBayonet"
+        ]
+      },
+      {
+        "slot_pattern": "grip|afg",
+        "ancestor_pattern": "grip|afg",
+        "reference_slots": [
+          "weaponHandguardM249"
+        ]
+      },
+      {
+        "slot_pattern": "handguard|weaponhg|hndgrd",
+        "reference_slots": [
+          "weaponHandguardM4"
+        ],
+        "ancestor_pattern": "handguard|hndgrd|hg"
+      },
+      {
+        "slot_pattern": "buttstock|stock",
+        "reference_slots": [
+          "weaponButtstockM4"
+        ]
+      },
+      {
+        "slot_pattern": "muzzle|muzzel|suppressor|choke",
+        "ancestor_pattern": "muzzle|muzzel|suppressor|choke",
+        "reference_slots": [
+          "weaponMuzzleM4"
+        ]
+      },
+      {
+        "slot_pattern": "bayonet",
+        "reference_slots": [
+          "weaponBayonet"
+        ]
+      },
+      {
+        "slot_pattern": "flashlight|laser",
+        "reference_slots": [
+          "weaponFlashlight"
+        ]
+      },
+      {
+        "slot_pattern": "revolvercylinder",
+        "reference_slots": [
+          "RevolverCylinder"
+        ]
+      },
+      {
+        "slot_pattern": "revolverejector",
+        "reference_slots": [
+          "RevolverEjector"
+        ]
+      },
+      {
+        "slot_pattern": "scopemount|dmradapter|cover",
+        "reference_slots": [
+          "weaponOptics"
+        ]
+      }
+    ],
+    "notes": [
+      "Only public non-cargo mod attachments with slots used by observed weapon hosts, or native magazine slots / Magazine_Base ancestry, qualify. Native classes (including stack reopenings) and ammunition/firearms are untouched.",
+      "Vanilla CfgWeapons attachments arrays derive the native slot set; all installed weapon hosts derive eligibility for custom slots. Custom aliases are ordered configurable mappings to native reference slots, not a guessed eligibility list. Unknown mappings are reported as missing_reference.",
+      "References use public vanilla itemSize values before any HC or Workshop overrides. largest_area (default), median_area (lower median), smallest_area select an actual vanilla w x h pair; area ties sort width, height, then class name. Multiple compatible slots take the largest reference.",
+      "area_or_dimension (default), area, dimension control oversize detection. Each resulting dimension is min(original, reference): never rotate or enlarge an item, even when input orientation differs.",
+      "Magazine capacity fields are tried in order, using the first positive finite value. Bands are inclusive upper bounds followed by null for infinity; defaults <=10, <=30, <=60, <=100 and >100 keep ordinary drums separate from 200-round boxes. Unknown capacity stays unchanged and is reported.",
+      "Quivers, CO2 and shock cartridges do not define bullet-magazine reference sizes. Their own vanilla sizes remain unchanged. These reference exceptions are configurable by class.",
+      "Optic kinds match ordered exact ancestors, configurable ancestor patterns (including self), or slots first, then smallest positive inherited OpticsInfo opticsZoomMin/Max bands (<=0.08 long; <=0.15 compact; otherwise reflex); constant arithmetic expressions are parsed without executing code. Missing zoom falls back to compact. Night optics use their explicit vanilla ancestry group; thresholds and mappings are policy assumptions pending in-game review.",
+      "Both weapon packs are enabled for attachment_scale only. Their reviewed overrides and hashes live under tools/package; release injects them and a separate HollowCountryAttachmentScale patch into the disposable HCX config. Base HCX requiredAddons does not depend on the packs. Generation reads tools/setup/workshop_mods.json by Workshop identity: only declared sources are loaded, and declared packs require installed readable configs for --check. Removing a pack requires --refresh-review --write against that stack to remove its overrides and dependencies; release fails if the committed table or reviewed stack overrides name an absent source.",
+      "Hidden/excluded descendants without an intervening explicit size are pinned to their original dimensions. All generated blocks and the pack table must match regeneration byte-for-byte. Release refuses a table with stale rules or generator hashes.",
+      "Grenades/explosives stay outside attachment sizing even if a mod weapon advertises their carrying slot. Custom slot aliases may also match configured ancestor patterns (self included); broad short patterns are explicit policy and require review when the installed stack changes."
+    ]
+  }
 }

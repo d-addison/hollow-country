@@ -53,6 +53,10 @@ def text_rows(data, fields):
                     raise ValueError('malformed inventory class')
                 children, props = body(depth + 1)
                 reader._expect(tokens, ';')
+                for child_name, (_, _, child_props) in children.items():
+                    if child_name.lower() == 'opticsinfo':
+                        props.update({k: v for k, v in child_props.items()
+                                      if k in {'opticsZoomMin', 'opticsZoomMax'}})
                 classes[cname] = (parent, children, props)
             elif kind == 'id' and tokens.peek() == ('op', '['):
                 tokens.next()
@@ -63,7 +67,7 @@ def text_rows(data, fields):
                 value = reader._text_array(tokens)
                 reader._expect(tokens, ';')
                 if name in fields | {'units', 'requiredAddons'}:
-                    if op == '+=' and name == 'inventorySlot':
+                    if op == '+=' and name in {'inventorySlot', 'attachments'}:
                         values['append:' + name] = values.get('append:' + name, []) + value
                     elif op == '+=' and name in {'units', 'requiredAddons'}:
                         values[name] = values.get(name, []) + value
@@ -87,8 +91,10 @@ def text_rows(data, fields):
     for name, (_, children, _) in roots.items():
         if name.lower() == 'cfgpatches':
             patches.update({n: props for n, (_, _, props) in children.items()})
-        elif name.lower() == 'cfgvehicles':
-            rows.update({n: {'parent': parent, 'fields': props}
+        elif name.lower() in {'cfgvehicles', 'cfgmagazines', 'cfgweapons'}:
+            root = {'cfgvehicles': 'CfgVehicles', 'cfgmagazines': 'CfgMagazines', 'cfgweapons': 'CfgWeapons'}[name.lower()]
+            rows.update({(n if root == 'CfgVehicles' else root + '::' + n):
+                         {'name': n, 'root': root, 'parent': parent, 'fields': props}
                          for n, (parent, _, props) in children.items()})
     return patches, rows
 
@@ -122,4 +128,17 @@ def documents(addons, source, fields, rap_rows, vanilla=False):
             patches, rows = rap_rows(data) if data[:4] == b'\0raP' else text_rows(data, fields)
             docs.append({'source': source, 'pbo': path.name, 'member': entry['name'],
                          'patches': patches, 'rows': rows})
+    # Text fragments without CfgPatches belong to the nearest enclosing config
+    # directory in the same PBO. Never infer ownership from a provider's name.
+    for doc in docs:
+        if doc['patches']:
+            continue
+        member = doc['member'].lower().replace('\\', '/')
+        enclosing = [d for d in docs if d['pbo'] == doc['pbo'] and d['patches'] and
+                     member.startswith(d['member'].lower().replace('\\', '/').rsplit('/', 1)[0] + '/')]
+        roots = [d for d in docs if d['pbo'] == doc['pbo'] and d['patches'] and
+                 '/' not in d['member'].replace('\\', '/')]
+        candidates = sorted(enclosing or roots, key=lambda d: len(d['member']), reverse=True)
+        if candidates:
+            doc['enclosing_patches'] = candidates[0]['patches']
     return docs, skipped
