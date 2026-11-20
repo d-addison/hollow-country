@@ -124,6 +124,7 @@ class HCEncounterCacheIO
         Handle = EntityAI.Cast(GetGame().CreateObjectEx("WoodenCrate", row.Position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS, RF_IGNORE));
         if (!Handle) { row.Phase = 3; return; }
         Handle.SetOrientation(row.Orientation);
+        HCGroundSnap.Snap(Handle);
         Handle.SetLifetimeMax(3888000);
         Handle.SetLifetime(3888000);
         LinkCache(row);

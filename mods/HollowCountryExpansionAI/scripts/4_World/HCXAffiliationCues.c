@@ -132,6 +132,7 @@ class HCXAffiliationCues
             if (placed) { GetGame().ObjectDelete(placed); }
             return;
         }
+        HCGroundSnap.Snap(pole);
         pole.HCAffiliationMarker = true;
         pole.SetAllowDamage(false);
         pole.FullyBuild();

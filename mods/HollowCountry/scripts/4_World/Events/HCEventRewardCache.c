@@ -275,6 +275,7 @@ class HCEventCacheSpawner
         if (!plan) { PoliceRefused("police_cache_reserved_or_spent"); return null; }
         Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
         if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
+        HCGroundSnap.Snap(cache);
         HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
         if (!owner || !owner.RecordCache(mission.SiteId, cache.GetPosition()))
         {

@@ -289,7 +289,10 @@ class HCSceneKits
             if (!GetGame().ConfigIsExisting(configPath)) { return HCSceneRefuse("class-missing " + prop.Type); }
             vector offset = LayoutOffset(prop.Offset, variant);
             vector position = site.Position + offset;
-            position[1] = GetGame().SurfaceY(position[0], position[2]);
+            vector support;
+            bool terrain;
+            if (!HCGroundSnap.Support(position, null, 3, support, terrain)) { return HCSceneRefuse("no-support " + prop.Type); }
+            position[1] = support[1];
             if (!HCEventRuntimePolicy.PositionValid(position) || GetGame().SurfaceIsSea(position[0], position[2])) { return HCSceneRefuse("position-or-sea " + prop.Type); }
             // The world east/west access strip stays clear in every layout: test the turned offset, not the authored one.
             if (InAccessStrip(offset, prop.Radius)) { return HCSceneRefuse("corridor " + prop.Type); }
@@ -319,7 +322,7 @@ class HCSceneKits
             if (riseWest > rise) { rise = riseWest; }
             if (riseNorth > rise) { rise = riseNorth; }
             if (riseSouth > rise) { rise = riseSouth; }
-            if (rise > 0.8) { return HCSceneRefuse("slope " + prop.Type + " rise=" + rise.ToString()); }
+            if (terrain && rise > 0.8) { return HCSceneRefuse("slope " + prop.Type + " rise=" + rise.ToString()); }
             if (!HCObserverTransitionGate.CanTransition(position, 500)) { return HCSceneRefuse("observed-prop " + prop.Type); }
             positions.Insert(position);
         }
@@ -369,12 +372,13 @@ class HCSceneKits
         }
         else
         {
-            int flags = ECE_PLACE_ON_SURFACE | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
+            int flags = ECE_KEEPHEIGHT | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
             object = GetGame().CreateObjectEx(prop.Type, position, flags);
         }
         if (!object) { lease.Closing = true; return false; }
         lease.Objects.Insert(object);
         object.SetOrientation(orientation);
+        HCGroundSnap.Snap(object);
         return true;
     }
 

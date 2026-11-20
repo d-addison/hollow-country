@@ -421,6 +421,7 @@ class HCInteriorsModule : HCModule
         {
             int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
             Object object = reusableProps[propIndex];
+            bool groundNew = !object;
             propIndex++;
             if (!object)
             {
@@ -437,6 +438,7 @@ class HCInteriorsModule : HCModule
             vector orientation = prop.Orientation;
             orientation[0] = orientation[0] + building.GetOrientation()[0];
             object.SetOrientation(orientation);
+            if (groundNew) { HCGroundSnap.Snap(object); }
             if (prop.Searchable)
             {
                 site = new HCInteriorSite;

@@ -428,6 +428,8 @@ class HCShelterModule : HCModule
         }
         point[1] = point[1] - propMin[1];
         prop.SetPosition(point);
+        HCGroundSnap.Snap(prop);
+        point = prop.GetPosition();
         HCInteriorTemplatePropSlot slot = new HCInteriorTemplatePropSlot;
         slot.Room = 1;
         slot.Position = Coordinates(house.WorldToModel(point));

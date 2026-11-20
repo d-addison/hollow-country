@@ -713,6 +713,7 @@ class HCForageModule : HCModule
             Print("[HC Forage] create failed; reserved cooldown retained");
             return;
         }
+        HCGroundSnap.Snap(selected.Item);
         selected.WasLive = true;
         selected.Item.SetLifetime(600);
         Print("[HC Forage] spawned type=" + type + " nodes=" + m_Nodes.Count().ToString());

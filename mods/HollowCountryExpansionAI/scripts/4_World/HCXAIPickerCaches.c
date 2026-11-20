@@ -209,6 +209,7 @@ modded class HCXAISiteDirector
         if (!crate)
         {
             crate = EntityAI.Cast(GetGame().CreateObjectEx(survey.CacheClass, at, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
+            HCGroundSnap.Snap(crate);
         }
         if (!crate || !crate.GetInventory()) { return; }
         row.HCPickerCrateId = HCSearchSupplyRegistry.PersistentId(crate);

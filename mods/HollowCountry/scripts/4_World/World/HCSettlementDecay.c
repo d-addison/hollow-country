@@ -335,6 +335,7 @@ class HCSettlementDecay : HCModule
             HCVisualRefused(index, "bounds");
             return;
         }
+        HCGroundSnap.Snap(prop);
         m_Props.Insert(prop);
     }
 

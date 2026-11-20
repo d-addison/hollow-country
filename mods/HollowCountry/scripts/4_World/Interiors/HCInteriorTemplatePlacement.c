@@ -248,6 +248,7 @@ class HCInteriorTemplatePlacement
         {
             mark = TickCount(0);
             object.SetOrientation(orientation);
+            HCGroundSnap.Snap(object);
             steps.HCAdd(STEP_ORIENT, TickCount(mark));
         }
         return object;

@@ -291,7 +291,7 @@ class HCNoteLedger : HCModule
             // Keep the durable reservation: a changed scene is not spawn permission.
             return;
         }
-        Paper paper = Paper.Cast(GetGame().CreateObjectEx("Paper", position, ECE_PLACE_ON_SURFACE));
+        Paper paper = Paper.Cast(GetGame().CreateObjectEx("Paper", position, ECE_KEEPHEIGHT));
         if (!paper || !paper.GetWrittenNoteData())
         {
             if (paper) { GetGame().ObjectDelete(paper); }
@@ -300,6 +300,7 @@ class HCNoteLedger : HCModule
             RadioFallback(lead);
             return;
         }
+        HCGroundSnap.Snap(paper);
         paper.GetWrittenNoteData().SetNoteText(text);
         if (paper.GetWrittenNoteData().GetNoteText() != text)
         {

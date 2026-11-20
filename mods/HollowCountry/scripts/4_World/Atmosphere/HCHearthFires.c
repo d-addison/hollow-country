@@ -369,6 +369,7 @@ class HCHearthFires
             fire.SetFirePointIndex(1);
             fire.SetSmokePointPosition(house.ModelToWorld(outlet));
             fire.SetOrientation(house.GetOrientation());
+            HCGroundSnap.Snap(fire);
             fire.Synchronize();
         }
         HCHearthFires.s_Spending = stash;

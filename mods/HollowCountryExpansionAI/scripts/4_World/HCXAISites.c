@@ -2427,7 +2427,7 @@ class HCXAISiteDirector : Managed
         if (!crate)
         {
             crate = EntityAI.Cast(GetGame().CreateObjectEx(site.CacheClass, state.CacheWorld, ECE_SETUP | ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME));
-            if (crate) { crate.SetOrientation(state.CacheOrientation); }
+            if (crate) { crate.SetOrientation(state.CacheOrientation); HCGroundSnap.Snap(crate); }
         }
         if (!crate || !crate.GetInventory())
         {
@@ -2674,6 +2674,7 @@ class HCXCheckpointProps
         }
         row.Table = GetGame().CreateObjectEx("Land_Roadblock_Table_DE", at, ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME);
         if (!row.Table) { this.HCRetry(row, "native factory"); return; }
+        HCGroundSnap.Snap(row.Table);
         row.Finished = true;
         Print("[HollowCountry] Checkpoints props present: " + row.Site.Id + "; empty roadside table remains if guards unavailable");
     }
