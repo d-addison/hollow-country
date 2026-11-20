@@ -4,6 +4,7 @@
         <actions>
             <input name="UAHollowCountryGrade" loc="Hollow Country Grade Intensity (+10%)" />
             <input name="UAHCEarplugs" loc="Hollow Country Earplugs: Cycle Sound Level" />
+            <input name="UAHollowCountryLookPing" loc="Hollow Country Group Ping: Looked-at Point" />
             <input name="UAHollowCountryPingOK" loc="Hollow Country Ping: OK" />
             <input name="UAHollowCountryPingHurt" loc="Hollow Country Ping: Hurt" />
             <input name="UAHollowCountryPingHelp" loc="Hollow Country Ping: Need Help" />
@@ -20,6 +21,9 @@
         </input>
         <!-- kNumpad3/5/7/9 are absent from all four vanilla MouseKey presets and from every
              installed Workshop stack PBO (scanned 2026-11-18); players can rebind in Controls. -->
+        <input name="UAHollowCountryLookPing">
+            <btn name="kNumpad5" />
+        </input>
         <input name="UAHollowCountryPingOK">
             <btn name="kNumpad7" />
         </input>

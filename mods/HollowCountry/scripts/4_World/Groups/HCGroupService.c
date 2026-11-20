@@ -455,6 +455,9 @@ class HCGroupService
         return true;
     }
 
+    // Same-module extension hook; base declaration keeps modded-link resolution safe.
+    int HCLookPing(HCGroupPeer peer, HCGroupRequest request) { return HCGroupCode.DISABLED; }
+
     void OnRPC(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
         if (!m_Healthy || !GetGame().IsServer() || rpcType != HCGroupProtocol.RPC_REQUEST || target || !sender) return;
@@ -505,7 +508,8 @@ class HCGroupService
         if (request.Op == HCGroupOp.TEAM_PING)
         {
             int pingResult = HCGroupCode.DISABLED;
-            if (HCTeamPingModule.Get()) { pingResult = HCTeamPingModule.Get().HCReceive(peer, request.Role); }
+            if (request.Role == HCGroupPingWire.LOOK) { pingResult = HCLookPing(peer, request); }
+            else if (HCTeamPingModule.Get()) { pingResult = HCTeamPingModule.Get().HCReceive(peer, request.Role); }
             Reply(peer, request.RequestId, pingResult, true);
             return;
         }
