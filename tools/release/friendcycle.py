@@ -123,7 +123,7 @@ def main(argv=None):
     parser.add_argument('--mission', type=Path, required=True)
     parser.add_argument('--profiles', type=Path, required=True)
     parser.add_argument('--server-cfg', type=Path, required=True)
-    parser.add_argument('--server-root', default=r'D:\HollowCountryLocal\friend-local-1')
+    parser.add_argument('--server-root', default=r'E:\HollowCountryLocal\friend-local-1')
     parser.add_argument('--workshop-content', default=r'G:\SteamLibrary\steamapps\workshop\content\221100')
     parser.add_argument('--build-only', action='store_true')
     args = parser.parse_args(argv)

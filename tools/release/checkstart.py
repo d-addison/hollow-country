@@ -110,8 +110,8 @@ def watch(args, before, old_dumps):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bundle', required=True, help='Windows path to extracted friend bundle')
-    parser.add_argument('--server-root', default=r'D:\HollowCountryLocal\friend-local-1', help='Windows path')
-    parser.add_argument('--profiles', type=Path, default=Path('/mnt/d/HollowCountryLocal/friend-local-1/profiles'))
+    parser.add_argument('--server-root', default=r'E:\HollowCountryLocal\friend-local-1', help='Windows path')
+    parser.add_argument('--profiles', type=Path, default=Path('/mnt/e/HollowCountryLocal/friend-local-1/profiles'))
     parser.add_argument('--rpt', type=Path, help='attach to this existing RPT; incompatible with --start')
     parser.add_argument('--start', action='store_true', help='explicitly authorize start-server.bat')
     parser.add_argument('--image', default='DayZServer_x64.exe')

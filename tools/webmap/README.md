@@ -253,7 +253,7 @@ temporary file. The loopback server validates each read, rejects identity
 markers and serves only the approved feature fields.
 
 Read-only validation on 2026-11-19 selected the **largest** `*.RPT` in
-`/mnt/d/HollowCountryLocal/friend-local-1/profiles/` (2,643,500 bytes at read time).
+`/mnt/d/HollowCountryLocal/friend-local-1/profiles/` (now on E:) (2,643,500 bytes at read time).
 This supersedes the earlier empty-layer probe of the two newest logs.
 
 | Kind | linesByKind | Placed lines | Unplaced lines |
