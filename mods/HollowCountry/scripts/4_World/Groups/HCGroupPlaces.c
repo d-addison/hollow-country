@@ -24,13 +24,13 @@ class HCGroupPlaces
             catalog = NativeNames();
         }
         if (!catalog || catalog.SchemaVersion != 1 || !catalog.Places || catalog.Places.Count() > 256) return null;
-        array<string> ids = new array<string>();
+        map<string, bool> ids = new map<string, bool>();
         float worldSize = GetGame().GetWorld().GetWorldSize();
         foreach (HCGroupPlace place : catalog.Places)
         {
-            if (!HCGroupRules.PlaceValid(place) || ids.Find(place.Id) >= 0) return null;
+            if (!HCGroupRules.PlaceValid(place) || ids.Contains(place.Id)) return null;
             if (place.Position[0] > worldSize || place.Position[2] > worldSize) return null;
-            ids.Insert(place.Id);
+            ids.Set(place.Id, true);
         }
         return catalog;
     }
@@ -82,11 +82,11 @@ modded class HCGroupRules
         foreach (HCGroupRecord pinGroup : state.Groups)
         {
             if (!pinGroup.HCTrailPlaceIds || pinGroup.HCTrailPlaceIds.Count() > 48) { return false; }
-            array<string> pinIds = new array<string>();
+            map<string, bool> pinIds = new map<string, bool>();
             foreach (string pinId : pinGroup.HCTrailPlaceIds)
             {
-                if (pinId.IndexOf("hc-found:") != 0 || !HCGroupRules.TextValid(pinId, 128, false) || pinIds.Find(pinId) >= 0) { return false; }
-                pinIds.Insert(pinId);
+                if (pinId.IndexOf("hc-found:") != 0 || !HCGroupRules.TextValid(pinId, 128, false) || pinIds.Contains(pinId)) { return false; }
+                pinIds.Set(pinId, true);
             }
         }
         return true;

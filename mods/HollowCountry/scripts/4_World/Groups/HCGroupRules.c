@@ -182,8 +182,8 @@ class HCGroupRules
         {
             return false;
         }
-        array<string> seenMembers = new array<string>();
-        array<int> seenIds = new array<int>();
+        map<string, bool> seenMembers = new map<string, bool>();
+        map<int, bool> seenIds = new map<int, bool>();
         foreach (HCGroupRecord group : state.Groups)
         {
             if (!group || !group.Members || !group.Markers || !group.Officers)
@@ -202,29 +202,29 @@ class HCGroupRules
             {
                 return false;
             }
-            if (seenIds.Find(group.Id) >= 0)
+            if (seenIds.Contains(group.Id))
             {
                 return false;
             }
-            seenIds.Insert(group.Id);
+            seenIds.Set(group.Id, true);
             foreach (string uid : group.Members)
             {
                 // Persistent accounts are bounded by MaxGroups * MaxMembers,
                 // not the separately bounded concurrent connection workload.
-                if (!HCGroupRules.TextValid(uid, 128, false) || seenMembers.Find(uid) >= 0)
+                if (!HCGroupRules.TextValid(uid, 128, false) || seenMembers.Contains(uid))
                 {
                     return false;
                 }
-                seenMembers.Insert(uid);
+                seenMembers.Set(uid, true);
             }
-            array<string> seenOfficers = new array<string>();
+            map<string, bool> seenOfficers = new map<string, bool>();
             foreach (string officerId : group.Officers)
             {
-                if (officerId == group.OwnerId || group.Members.Find(officerId) < 0 || seenOfficers.Find(officerId) >= 0)
+                if (officerId == group.OwnerId || group.Members.Find(officerId) < 0 || seenOfficers.Contains(officerId))
                 {
                     return false;
                 }
-                seenOfficers.Insert(officerId);
+                seenOfficers.Set(officerId, true);
             }
             foreach (HCGroupMarker marker : group.Markers)
             {
@@ -244,16 +244,16 @@ class HCGroupRules
                 {
                     return false;
                 }
-                if (seenIds.Find(marker.Id) >= 0)
+                if (seenIds.Contains(marker.Id))
                 {
                     return false;
                 }
-                seenIds.Insert(marker.Id);
+                seenIds.Set(marker.Id, true);
             }
         }
         foreach (HCGroupInvitation invite : state.Invitations)
         {
-            if (!invite || invite.Id < 1 || invite.Id >= state.NextId || seenIds.Find(invite.Id) >= 0)
+            if (!invite || invite.Id < 1 || invite.Id >= state.NextId || seenIds.Contains(invite.Id))
             {
                 return false;
             }
@@ -270,7 +270,7 @@ class HCGroupRules
             {
                 return false;
             }
-            seenIds.Insert(invite.Id);
+            seenIds.Set(invite.Id, true);
         }
         return HCGroupRules.ExplorersValid(state, c);
     }
@@ -624,34 +624,34 @@ class HCGroupRules
         {
             return false;
         }
-        array<string> accounts = new array<string>();
+        map<string, bool> accounts = new map<string, bool>();
         foreach (HCGroupExplorer explorer : state.Explorers)
         {
             if (!explorer || !explorer.Visits || !explorer.PlaceIds || explorer.LastSeenUtc < 0 || !HCGroupRules.TextValid(explorer.Id, 128, false))
             {
                 return false;
             }
-            if (accounts.Find(explorer.Id) >= 0 || explorer.Visits.Count() + explorer.PlaceIds.Count() > c.MaxDiscoveries)
+            if (accounts.Contains(explorer.Id) || explorer.Visits.Count() + explorer.PlaceIds.Count() > c.MaxDiscoveries)
             {
                 return false;
             }
-            accounts.Insert(explorer.Id);
-            array<string> places = new array<string>();
+            accounts.Set(explorer.Id, true);
+            map<string, bool> places = new map<string, bool>();
             foreach (string placeId : explorer.PlaceIds)
             {
-                if (!HCGroupRules.TextValid(placeId, 128, false) || places.Find(placeId) >= 0)
+                if (!HCGroupRules.TextValid(placeId, 128, false) || places.Contains(placeId))
                 {
                     return false;
                 }
-                places.Insert(placeId);
+                places.Set(placeId, true);
             }
             foreach (HCGroupPlace visited : explorer.Visits)
             {
-                if (!HCGroupRules.PlaceValid(visited) || places.Find(visited.Id) >= 0)
+                if (!HCGroupRules.PlaceValid(visited) || places.Contains(visited.Id))
                 {
                     return false;
                 }
-                places.Insert(visited.Id);
+                places.Set(visited.Id, true);
             }
         }
         return true;
@@ -706,27 +706,37 @@ class HCGroupRules
     static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog)
     {
         array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
-        array<string> ids = new array<string>();
+        map<string, bool> ids = new map<string, bool>();
         if (!c.DiscoveryLayer)
         {
             return known;
         }
         HCGroupRecord group = HCGroupRules.FindGroup(state, uid);
+        // One membership index and one per-explorer visit index replace the
+        // catalogue x journal Find scans; iteration order is unchanged.
+        map<string, bool> memberIds = new map<string, bool>();
+        if (c.ShareDiscovery && group)
+        {
+            foreach (string memberId : group.Members) { memberIds.Set(memberId, true); }
+        }
+        map<string, bool> visitedIds;
         foreach (HCGroupExplorer explorer : state.Explorers)
         {
             bool permitted = explorer.Id == uid;
-            if (c.ShareDiscovery && group && group.Members.Find(explorer.Id) >= 0)
+            if (memberIds.Contains(explorer.Id))
             {
                 permitted = true;
             }
             if (permitted)
             {
                 if (!catalog) { continue; }
+                visitedIds = new map<string, bool>();
+                foreach (string visitedId : explorer.PlaceIds) { visitedIds.Set(visitedId, true); }
                 foreach (HCGroupPlace place : catalog.Places)
                 {
-                    if (explorer.PlaceIds.Find(place.Id) >= 0 && ids.Find(place.Id) < 0 && known.Count() < c.MaxDiscoveries)
+                    if (visitedIds.Contains(place.Id) && !ids.Contains(place.Id) && known.Count() < c.MaxDiscoveries)
                     {
-                        ids.Insert(place.Id);
+                        ids.Set(place.Id, true);
                         known.Insert(place);
                     }
                 }

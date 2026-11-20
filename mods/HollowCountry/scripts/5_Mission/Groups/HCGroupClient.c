@@ -336,35 +336,35 @@ class HCGroupClient
         if (!viewer || !viewer.GetIdentity())
             return false;
         string localId = viewer.GetIdentity().GetId();
-        array<string> memberIds = new array<string>();
+        map<string, bool> memberIds = new map<string, bool>();
         foreach (HCGroupMember member : frame.Members)
         {
-            if (!MemberValid(member) || memberIds.Find(member.Id) >= 0)
+            if (!MemberValid(member) || memberIds.Contains(member.Id))
                 return false;
-            memberIds.Insert(member.Id);
+            memberIds.Set(member.Id, true);
         }
         if (frame.GroupId > 0)
         {
-            if (memberIds.Find(localId) < 0 || memberIds.Find(frame.OwnerId) < 0)
+            if (!memberIds.Contains(localId) || !memberIds.Contains(frame.OwnerId))
                 return false;
         }
-        array<string> candidateIds = new array<string>();
+        map<string, bool> candidateIds = new map<string, bool>();
         foreach (HCGroupMember candidate : frame.Candidates)
         {
             if (!MemberValid(candidate) || candidate.HasPosition)
                 return false;
-            if (candidate.Id == localId || candidateIds.Find(candidate.Id) >= 0)
+            if (candidate.Id == localId || candidateIds.Contains(candidate.Id))
                 return false;
-            candidateIds.Insert(candidate.Id);
+            candidateIds.Set(candidate.Id, true);
         }
-        array<int> markerIds = new array<int>();
+        map<int, bool> markerIds = new map<int, bool>();
         foreach (HCGroupMarker marker : frame.Markers)
         {
             if (!marker || marker.Id < 1 || marker.Id > 1000000000)
                 return false;
-            if (markerIds.Find(marker.Id) >= 0)
+            if (markerIds.Contains(marker.Id))
                 return false;
-            markerIds.Insert(marker.Id);
+            markerIds.Set(marker.Id, true);
             if (!HCGroupRules.TextValid(marker.CreatorId, 128, false))
                 return false;
             if (!HCGroupRules.TextValid(marker.Name, 64, false))
@@ -378,14 +378,14 @@ class HCGroupClient
             if (marker.ExpiresUtc < 0 || marker.ExpiresUtc > 2147483647)
                 return false;
         }
-        array<int> inviteIds = new array<int>();
+        map<int, bool> inviteIds = new map<int, bool>();
         foreach (HCGroupInvitation invitation : frame.Invitations)
         {
             if (!invitation || invitation.Id < 1 || invitation.GroupId < 1)
                 return false;
-            if (inviteIds.Find(invitation.Id) >= 0)
+            if (inviteIds.Contains(invitation.Id))
                 return false;
-            inviteIds.Insert(invitation.Id);
+            inviteIds.Set(invitation.Id, true);
             if (invitation.InviteeId != localId)
                 return false;
             if (!HCGroupRules.TextValid(invitation.InviterId, 128, false))
