@@ -177,11 +177,12 @@ class HCAdminLootMap
         if (at < 0) { return -1; }
         int start = at + key.Length();
         string digitSet = "0123456789";
+        HCTextWindow window = new HCTextWindow(notice);
         int value = 0;
         int digits = 0;
-        while (start + digits < notice.Length() && digits < 9)
+        while (start + digits < window.Length() && digits < 9)
         {
-            string one = notice.Get(start + digits);
+            string one = window.At(start + digits);
             int found = digitSet.IndexOf(one);
             if (found < 0) { break; }
             value = value * 10 + found;

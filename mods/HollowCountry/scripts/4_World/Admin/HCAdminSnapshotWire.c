@@ -159,6 +159,7 @@ class HCAdminSnapshotWire
         reply.Snapshot = true;
         array<string> layers = new array<string>;
         array<string> unsent = new array<string>;
+        map<string, bool> unsentSeen = new map<string, bool>;
         array<int> demand = new array<int>;
         array<int> pointDemand = new array<int>;
         array<int> allowance = new array<int>;
@@ -174,7 +175,7 @@ class HCAdminSnapshotWire
             while (pointDemand.Count() < demand.Count()) { pointDemand.Insert(0); }
             if (layerSlot < 0)
             {
-                if (unsent.Find(layer) < 0) { unsent.Insert(layer); }
+                if (!unsentSeen.Contains(layer)) { unsentSeen.Insert(layer, true); unsent.Insert(layer); }
                 continue;
             }
             demand[layerSlot] = demand[layerSlot] + pointCount;
@@ -189,7 +190,7 @@ class HCAdminSnapshotWire
             while (pointDemand.Count() < demand.Count()) { pointDemand.Insert(0); }
             if (routeSlot < 0)
             {
-                if (unsent.Find(counted.layer) < 0) { unsent.Insert(counted.layer); }
+                if (!unsentSeen.Contains(counted.layer)) { unsentSeen.Insert(counted.layer, true); unsent.Insert(counted.layer); }
                 continue;
             }
             demand[routeSlot] = demand[routeSlot] + vertexCount;
@@ -252,14 +253,20 @@ class HCAdminSnapshotWire
         int refused = document.truncated + document.operationalTruncated + rowLoss;
         // Per-layer sent/total: total adds the contributor-side loss from layerStats.
         array<string> statEntries = new array<string>;
+        // One pass over layerStats builds each layer's unshown total; the slot loop reads it.
+        map<string, int> statExtra = new map<string, int>;
+        for (int statIndex = 0; statIndex < document.layerStats.Count(); statIndex++)
+        {
+            HCDebugLayerStat stat = document.layerStats[statIndex];
+            if (stat.total <= stat.shown) { continue; }
+            int priorExtra = 0;
+            if (statExtra.Contains(stat.layer)) { priorExtra = statExtra.Get(stat.layer); }
+            statExtra.Set(stat.layer, priorExtra + stat.total - stat.shown);
+        }
         for (int statSlot = 0; statSlot < layers.Count(); statSlot++)
         {
             int layerTotal = demand[statSlot];
-            for (int statIndex = 0; statIndex < document.layerStats.Count(); statIndex++)
-            {
-                HCDebugLayerStat stat = document.layerStats[statIndex];
-                if (stat.layer == layers[statSlot] && stat.total > stat.shown) { layerTotal += stat.total - stat.shown; }
-            }
+            if (statExtra.Contains(layers[statSlot])) { layerTotal += statExtra.Get(layers[statSlot]); }
             statEntries.Insert(HCDebugSnapshot.HCText(layers[statSlot], 24) + ":" + sentCount[statSlot].ToString() + "/" + layerTotal.ToString());
         }
         array<string> unplacedEntries = new array<string>;
