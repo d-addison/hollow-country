@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- LC-T202/T205; EXP-T1/T4 pending. Authored loot budgets. Installed vehicles_parts config confirms EngineOil and BrakeFluid; CanisterGasoline remains stock (50). Industrial garages and Town/Village fuel-station groups, all tiers. No scripted oil or brake consequence. -->
 <types>
   <type name="EngineOil">
     <nominal>12</nominal>
@@ -105,13 +104,6 @@
     <value name="Tier3" />
     <value name="Tier4" />
   </type>
-  <!-- W6 #129 forage-only persistence registration: Cannabis is scope=2 in
-       installed addons/gear_food.pbo/config.bin/CfgVehicles/Cannabis but absent
-       from stock Chernarus db/types.xml. Budget/flags follow the stock forage
-       BoletusMushroom row (db/types.xml:3823-3832); no CE restock or loot route.
-       This existing file ships through the default-on travel CE installer.
-       If that overlay is disabled, register this zero-nominal row separately
-       before enabling forage; pickup/restart persistence still needs native proof. -->
   <type name="Cannabis">
     <nominal>0</nominal>
     <lifetime>900</lifetime>
@@ -123,14 +115,6 @@
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="1" deloot="0" />
     <category name="food" />
   </type>
-  <!-- #199 curated vanilla-only additions. Source: installed DayZ 1.30
-       Chernarus db/types.xml (nominal=0) or addons config.bin public classes
-       absent from that file. Books: gear_books; clothing: characters_* and gear_containers;
-       pens: gear_tools. Every new row has nominal=1/min=0 and counts stored
-       and carried items. Crafted, seasonal, harvest and dynamic-only items
-       are excluded. Existing datamined supply and firearm-family budgets
-       retain their owners. Default-on travel CE installer; EnableTravel=false
-       opts out at installation. Runtime acceptance pending. -->
   <type name="Ballerinas_Blue">
     <nominal>1</nominal>
     <lifetime>14400</lifetime>
@@ -3495,5 +3479,4305 @@
     <flags count_in_cargo="1" count_in_hoarder="1" count_in_map="1" count_in_player="1" crafted="0" deloot="0" />
     <category name="tools" />
     <usage name="Industrial" />
+  </type>
+  <type name="Mosin9130">
+    <nominal>90</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>45</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mosin9130_Woodland">
+    <nominal>40</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>20</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SKS">
+    <nominal>28</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>14</min>
+    <quantmin>25</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SKS_Woodland">
+    <nominal>18</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>9</min>
+    <quantmin>30</quantmin>
+    <quantmax>60</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Izh18">
+    <nominal>84</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>42</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Izh18Shotgun">
+    <nominal>83</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>42</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Izh43Shotgun">
+    <nominal>48</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>24</min>
+    <quantmin>50</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Repeater">
+    <nominal>48</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>24</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Winchester70">
+    <nominal>18</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>9</min>
+    <quantmin>25</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ527">
+    <nominal>50</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>25</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ527_Woodland">
+    <nominal>50</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>25</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="B95">
+    <nominal>36</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>18</min>
+    <quantmin>0</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="LeeEnfield">
+    <nominal>36</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>18</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MP18">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Police" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Luger">
+    <nominal>18</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>9</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SKS_Black">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>40</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SKS_Desert">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>60</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SKS_Green">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>40</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SKS_Winter">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>60</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mosin9130_Black">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mosin9130_Winter">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SVD_Wooden">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mp133Shotgun">
+    <nominal>24</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>12</min>
+    <quantmin>0</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Magnum">
+    <nominal>38</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>19</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AKM">
+    <nominal>12</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Colt1911">
+    <nominal>39</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>20</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MakarovIJ70">
+    <nominal>105</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>53</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="P1">
+    <nominal>75</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>38</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Glock19">
+    <nominal>60</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>30</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="FNX45">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>11</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ75">
+    <nominal>30</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>15</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ruger1022">
+    <nominal>53</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>27</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M16A2">
+    <nominal>12</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK74">
+    <nominal>18</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>9</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MP5K">
+    <nominal>24</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>12</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Police" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Saiga">
+    <nominal>24</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>12</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SVD">
+    <nominal>12</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CZ527_5rnd">
+    <nominal>64</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>32</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_LeeEnfield_10Rnd">
+    <nominal>32</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>16</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_MP18_Drum32Rnd">
+    <nominal>16</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Luger_8Rnd">
+    <nominal>32</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>16</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_AKM_30Rnd">
+    <nominal>24</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_1911_7Rnd">
+    <nominal>84</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>42</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_IJ70_8Rnd">
+    <nominal>180</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>90</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_P1_8Rnd">
+    <nominal>126</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>63</min>
+    <quantmin>25</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Glock_15Rnd">
+    <nominal>90</nominal>
+    <lifetime>7200</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_FNX45_15Rnd">
+    <nominal>54</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>27</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CZ75_15Rnd">
+    <nominal>66</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>33</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Ruger1022_15Rnd">
+    <nominal>105</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>53</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_STANAG_30Rnd">
+    <nominal>32</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>16</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_AK74_30Rnd">
+    <nominal>75</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_MP5_15Rnd">
+    <nominal>42</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>21</min>
+    <quantmin>10</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_MP5_30Rnd">
+    <nominal>30</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Saiga_8Rnd">
+    <nominal>24</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_SVD_10Rnd">
+    <nominal>24</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>1000</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_762x54">
+    <nominal>180</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>90</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_762x39">
+    <nominal>300</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>150</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_308Win">
+    <nominal>150</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>75</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_22">
+    <nominal>270</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>135</min>
+    <quantmin>10</quantmin>
+    <quantmax>40</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_12gaSlug">
+    <nominal>300</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>150</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_12gaPellets">
+    <nominal>300</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>150</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_45ACP">
+    <nominal>225</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>113</min>
+    <quantmin>10</quantmin>
+    <quantmax>25</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_9x19">
+    <nominal>300</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>150</min>
+    <quantmin>10</quantmin>
+    <quantmax>25</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_357">
+    <nominal>270</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>135</min>
+    <quantmin>10</quantmin>
+    <quantmax>25</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_380">
+    <nominal>300</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>150</min>
+    <quantmin>10</quantmin>
+    <quantmax>40</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_556x45">
+    <nominal>150</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>75</min>
+    <quantmin>10</quantmin>
+    <quantmax>40</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_545x39">
+    <nominal>75</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>10</quantmin>
+    <quantmax>25</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MakarovPB">
+    <nominal>105</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>53</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_MakarovPB_8Rnd">
+    <nominal>180</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>90</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Winchester70_Black">
+    <nominal>14</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>7</min>
+    <quantmin>25</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Winchester70_Green">
+    <nominal>14</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>7</min>
+    <quantmin>25</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="B95_Black">
+    <nominal>36</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>18</min>
+    <quantmin>0</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="B95_Green">
+    <nominal>36</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>18</min>
+    <quantmin>0</quantmin>
+    <quantmax>75</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ527_Camo">
+    <nominal>50</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>25</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ527_Green">
+    <nominal>50</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>25</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ527_Desert">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ527_Winter">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK101">
+    <nominal>8</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AKS74U">
+    <nominal>16</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>8</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="ASVAL">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Aug">
+    <nominal>6</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AugShort">
+    <nominal>8</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ550">
+    <nominal>28</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>14</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="CZ61">
+    <nominal>8</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Police" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Crossbow_Autumn">
+    <nominal>8</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Crossbow_Black">
+    <nominal>8</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Crossbow_Wood">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Deagle">
+    <nominal>38</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>19</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Deagle_Gold">
+    <nominal>8</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="1" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Derringer_Grey">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>15</min>
+    <quantmin>50</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Engraved1911">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="FAL">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="FAMAS">
+    <nominal>16</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>8</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Longhorn">
+    <nominal>38</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>19</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M14">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4A1">
+    <nominal>6</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M79">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MKII">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>23</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Magnum_Gold">
+    <nominal>6</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>20</quantmin>
+    <quantmax>60</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PM73Rak">
+    <nominal>8</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Police" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PP19">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>11</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Police" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="R12">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>10</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SSG82">
+    <nominal>24</nominal>
+    <lifetime>14400</lifetime>
+    <restock>300</restock>
+    <min>12</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SV98">
+    <nominal>6</nominal>
+    <lifetime>7200</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>40</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Scout">
+    <nominal>6</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>3</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Scout_Chernarus">
+    <nominal>10</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>5</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="UMP45">
+    <nominal>18</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>9</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Police" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="VSS">
+    <nominal>12</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Vikhr">
+    <nominal>8</nominal>
+    <lifetime>28800</lifetime>
+    <restock>300</restock>
+    <min>4</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Military" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_00buck_10rnd">
+    <nominal>60</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_12gaRubberSlug_10Rnd">
+    <nominal>48</nominal>
+    <lifetime>7200</lifetime>
+    <restock>180</restock>
+    <min>24</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_12gaSlug_10Rnd">
+    <nominal>60</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_22_50Rnd">
+    <nominal>165</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>83</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_308WinTracer_20Rnd">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_308Win_20Rnd">
+    <nominal>60</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_357_20Rnd">
+    <nominal>90</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_380_35rnd">
+    <nominal>60</nominal>
+    <lifetime>7200</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_45ACP_25rnd">
+    <nominal>60</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_545x39Tracer_20Rnd">
+    <nominal>27</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>14</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_545x39_20Rnd">
+    <nominal>51</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>26</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_556x45Tracer_20Rnd">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_556x45_20Rnd">
+    <nominal>60</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_762x39Tracer_20Rnd">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_762x39_20Rnd">
+    <nominal>54</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>27</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_762x54Tracer_20Rnd">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_762x54_20Rnd">
+    <nominal>45</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_9x19_25rnd">
+    <nominal>90</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_9x39AP_20Rnd">
+    <nominal>15</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AmmoBox_9x39_20Rnd">
+    <nominal>21</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_12gaRubberSlug">
+    <nominal>120</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>60</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_308WinTracer">
+    <nominal>90</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>10</quantmin>
+    <quantmax>25</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_40mm_Chemgas">
+    <nominal>15</nominal>
+    <lifetime>5400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_40mm_Explosive">
+    <nominal>24</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_40mm_Smoke_Black">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_40mm_Smoke_Green">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_40mm_Smoke_Red">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_40mm_Smoke_White">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>100</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_545x39Tracer">
+    <nominal>75</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_556x45Tracer">
+    <nominal>75</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_762x39Tracer">
+    <nominal>135</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>68</min>
+    <quantmin>10</quantmin>
+    <quantmax>25</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_762x54Tracer">
+    <nominal>75</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_9x39">
+    <nominal>66</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>33</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_9x39AP">
+    <nominal>45</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>10</quantmin>
+    <quantmax>30</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Ammo_HuntingBolt">
+    <nominal>75</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>40</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_AK101_30Rnd">
+    <nominal>48</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>24</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_AK74_45Rnd">
+    <nominal>12</nominal>
+    <lifetime>5400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>10</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_AKM_Drum75Rnd">
+    <nominal>12</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>5</quantmin>
+    <quantmax>40</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_AKM_Palm30Rnd">
+    <nominal>12</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Aug_30Rnd">
+    <nominal>18</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>9</min>
+    <quantmin>10</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CMAG_10Rnd">
+    <nominal>36</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>18</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CMAG_20Rnd">
+    <nominal>24</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CMAG_30Rnd">
+    <nominal>18</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>9</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CMAG_40Rnd">
+    <nominal>12</nominal>
+    <lifetime>7200</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CZ550_10Rnd">
+    <nominal>24</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_CZ61_20Rnd">
+    <nominal>42</nominal>
+    <lifetime>7200</lifetime>
+    <restock>180</restock>
+    <min>21</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Deagle_9rnd">
+    <nominal>90</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>15</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_FAL_20Rnd">
+    <nominal>27</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>14</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_FAMAS_25Rnd">
+    <nominal>36</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>18</min>
+    <quantmin>10</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_M14_10Rnd">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>90</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_M14_20Rnd">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>90</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_MKII_10Rnd">
+    <nominal>90</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_PM73_15Rnd">
+    <nominal>36</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>18</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_PM73_25Rnd">
+    <nominal>21</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>30</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_PP19_64Rnd">
+    <nominal>36</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>18</min>
+    <quantmin>10</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Ruger1022_30Rnd">
+    <nominal>90</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>45</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Town" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_SSG82_5rnd">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>0</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_STANAG_60Rnd">
+    <nominal>12</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>5</quantmin>
+    <quantmax>40</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_SV98_10Rnd">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>30</quantmin>
+    <quantmax>70</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Saiga_5Rnd">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Saiga_Drum20Rnd">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>20</quantmin>
+    <quantmax>40</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Scout_5Rnd">
+    <nominal>24</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>12</min>
+    <quantmin>20</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_UMP_25Rnd">
+    <nominal>54</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>27</min>
+    <quantmin>5</quantmin>
+    <quantmax>50</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_VAL_20Rnd">
+    <nominal>12</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_VSS_10Rnd">
+    <nominal>18</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>9</min>
+    <quantmin>10</quantmin>
+    <quantmax>100</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Mag_Vikhr_30Rnd">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>10</quantmin>
+    <quantmax>80</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="ACOGOptic">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="ACOGOptic_6x">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK74_Hndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK74_WoodBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AKS74U_Bttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_FoldingBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_PlasticBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_PlasticHndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_RailHndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_Suppressor">
+    <nominal>12</nominal>
+    <lifetime>9800</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_WoodBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="AK_WoodHndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="BUISOptic">
+    <nominal>30</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="FNP45_MRDSOptic">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Fal_FoldingBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Fal_OeBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="HoloOptic">
+    <nominal>48</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>24</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="HuntingOptic">
+    <nominal>33</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>17</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="KashtanOptic">
+    <nominal>45</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="KazuarOptic">
+    <nominal>12</nominal>
+    <lifetime>5400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="KobraOptic">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_CQBBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_CarryHandleOptic">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_MPBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_MPHndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_OEBttstck">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_PlasticHndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_RISHndgrd">
+    <nominal>15</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_Suppressor">
+    <nominal>12</nominal>
+    <lifetime>7200</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M4_T3NRDSOptic">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="M68Optic">
+    <nominal>45</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>23</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MK4Optic_Black">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MK4Optic_Green">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MK4Optic_Tan">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MP5_PlasticHndgrd">
+    <nominal>21</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MP5_RailHndgrd">
+    <nominal>21</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>11</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="MP5k_StockBttstck">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PP19_Bttstck">
+    <nominal>12</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PSO11Optic">
+    <nominal>30</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PSO1Optic">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PSO6Optic">
+    <nominal>18</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>9</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PUScopeOptic">
+    <nominal>105</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>53</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PistolOptic">
+    <nominal>30</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="PistolSuppressor">
+    <nominal>30</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>15</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="ReflexOptic">
+    <nominal>60</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>30</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="Saiga_Bttstck">
+    <nominal>15</nominal>
+    <lifetime>28800</lifetime>
+    <restock>180</restock>
+    <min>8</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="SportingOptic">
+    <nominal>75</nominal>
+    <lifetime>14400</lifetime>
+    <restock>180</restock>
+    <min>38</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="Farm" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
+  </type>
+  <type name="StarlightOptic">
+    <nominal>12</nominal>
+    <lifetime>5400</lifetime>
+    <restock>180</restock>
+    <min>6</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
+    <category name="weapons" />
+    <tag name="shelves" />
+    <usage name="ContaminatedArea" />
+    <usage name="Hunting" />
+    <usage name="Military" />
+    <usage name="Police" />
+    <usage name="Village" />
+    <value name="Tier1" />
+    <value name="Tier2" />
+    <value name="Tier3" />
+    <value name="Tier4" />
   </type>
 </types>
