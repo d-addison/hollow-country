@@ -100,6 +100,23 @@ class HCWildlifeProviders
     protected int m_LastTick = -1;
     protected int m_LastNow = -1;
     protected int m_Cursor;
+    // Alternate the finite creation item with maintenance on the existing slot.
+    // Neither path can consume the other path's starvation allowance first.
+    protected bool m_CarcassTurn = true;
+    protected int m_LastReport = -1;
+    protected int m_Attempts;
+    protected int m_Spawned;
+    protected int m_RefusedBudget;
+    protected int m_RefusedPlayers;
+    protected int m_RefusedNear;
+    protected int m_RefusedVisible;
+    protected int m_RefusedPosition;
+    protected int m_RefusedSpent;
+    protected int m_RefusedAllocation;
+    protected int m_RefusedEconomy;
+    protected int m_RefusedCreation;
+    protected int m_PairsAdmitted;
+    protected int m_PairsRefused;
 
     static string HCActivity(int slot)
     {
@@ -127,6 +144,7 @@ class HCWildlifeProviders
     static void HCStop()
     {
         if (!s_Owner) { return; }
+        if (s_Owner.m_Running) { s_Owner.HCReport(true); }
         s_Owner.m_Running = false;
         s_Owner.m_Refusal = "";
         s_Owner.m_RuntimeFault = "";
@@ -231,6 +249,11 @@ class HCWildlifeProviders
         if (!HCJsonFields.Every(text, "Position", 3)) { return HCRefuse("provider_site_position_missing"); }
         if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.Version", 1)) { return HCRefuse("provider_settings_registry_missing"); }
         if (!HCValid(m_Config)) { return HCRefuse("provider_config_invalid"); }
+        // Old profiles requested 16 units before doing any maintenance. Keep
+        // those profiles usable, with a hard four-item maintenance slice.
+        m_Config.WorkUnits = Math.Min(m_Config.WorkUnits, 4);
+        m_Config.MaxPairChecksPerTick = Math.Min(m_Config.MaxPairChecksPerTick, m_Config.WorkUnits);
+        m_Config.MaxPlayerChecks = Math.Min(m_Config.MaxPlayerChecks, 16);
         if (m_Config.WorldName != HCEcologyMigrationNative.CurrentWorld()) { return HCRefuse("provider_world_mismatch"); }
         if (!m_Config.Enabled) { HCStop(); return false; }
         if (m_Config.CarcassesEnabled)
@@ -270,6 +293,7 @@ class HCWildlifeProviders
             m_AdmissionPrinted = true;
             Print(HCV2Admission.Line("WildlifeProviders", true, "N9-wildlife", false) + " runtime=PENDING");
             Print("[HC Plan] HC-149 wildlife_provider native_brains=retained carcasses=finite pair_selection=native interaction_observation=bounded combat_cap=unavailable runtime=PENDING");
+            Print("[HC Wildlife] provider_budget creation_units=8 maintenance_items=" + m_Config.WorkUnits.ToString() + " scheduling=alternating target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " pair_mode=damage_contacts_only runtime=PENDING");
         }
         HCObserve();
         return true;
@@ -288,13 +312,13 @@ class HCWildlifeProviders
     bool HCHidden(vector point)
     {
         array<Man> players = HCPerfPlayers.HCGet();
-        if (!players || players.Count() > m_Config.MaxPlayerChecks) { return false; }
+        if (!players || players.Count() > m_Config.MaxPlayerChecks) { m_RefusedPlayers++; return false; }
         foreach (Man candidate : players)
         {
             PlayerBase observer = PlayerBase.Cast(candidate);
-            if (!observer) { return false; }
-            if (vector.DistanceSq(observer.GetPosition(), point) <= m_Config.MinPlayerDistanceM * m_Config.MinPlayerDistanceM) { return false; }
-            if (!HCEcologyMigrationNative.PointHidden(observer, null, point)) { return false; }
+            if (!observer) { m_RefusedPlayers++; return false; }
+            if (vector.DistanceSq(observer.GetPosition(), point) <= m_Config.MinPlayerDistanceM * m_Config.MinPlayerDistanceM) { m_RefusedNear++; return false; }
+            if (!HCEcologyMigrationNative.PointHidden(observer, null, point)) { m_RefusedVisible++; return false; }
         }
         return true;
     }
@@ -302,19 +326,23 @@ class HCWildlifeProviders
     AnimalBase HCCreate(HCWildlifeProviderSite site)
     {
         if (!m_Running || m_Fault || !HCEcologyNative.Authority()) { return null; }
-        if (!HCHidden(site.Position) || !HCClaim(site.Id)) { return null; }
+        if (!HCHidden(site.Position)) { return null; }
+        if (!HCClaim(site.Id)) { m_RefusedAllocation++; HCRefuse("carcass_allocation_claim_failed"); return null; }
         HCEventRewardPlan plan = m_Ledger.Commit(site.Id);
-        if (!plan) { HCRefuse("carcass_economy_claim_not_issued"); return null; }
+        if (!plan) { m_RefusedEconomy++; HCRefuse("carcass_economy_claim_not_issued"); return null; }
         int flags = ECE_PLACE_ON_SURFACE | ECE_NOPERSISTENCY_WORLD | ECE_INITAI;
         Object created = GetGame().CreateObjectEx(plan.Items.Get(0), site.Position, flags);
         AnimalBase body = AnimalBase.Cast(created);
         if (!body)
         {
             if (created) { GetGame().ObjectDelete(created); }
+            m_RefusedCreation++;
             HCRefuse("carcass_creation_failed_allocation_spent");
             return null;
         }
         body.SetHealth("", "Health", 0);
+        m_Spawned++;
+        HCReached.Mark("wildlife.carcass.spawn");
         Print("[HC Plan] HC-149 authored_carcass site=" + site.Id + " allocation=spent creation=issued death=issued runtime=PENDING");
         // Some animal deaths replace the body (native AnimalBase.c:32-40).
         // No retained handle, forced skinning, inventory writes or replay here.
@@ -329,23 +357,52 @@ class HCWildlifeProviders
         m_LastNow = nowMs;
         if (m_LastTick >= 0 && nowMs - m_LastTick < m_Config.TickMs) { return; }
         m_LastTick = nowMs;
-        HCEcosystemStep(nowMs);
-        HCUnitBudget work = HCServer.HCTickWork();
-        if (m_Config.CarcassesEnabled && m_State.SpentSites.Count() < m_Config.MaxCarcasses && work.HCTake(m_Config.WorkUnits))
+        bool pending = m_Config.CarcassesEnabled && m_State && m_State.SpentSites.Count() < m_Config.MaxCarcasses;
+        if (pending && m_CarcassTurn)
         {
-            if (m_Cursor >= m_Config.Sites.Count()) { m_Cursor = 0; }
-            HCWildlifeProviderSite authored = m_Config.Sites.Get(m_Cursor);
-            m_Cursor = m_Cursor + 1;
-            if (m_State.SpentSites.Find(authored.Id) < 0)
+            // One atomic creation attempt, including at most 16 current
+            // observers (six native rays each). Never reuse stale sight checks.
+            // Cost 8 is the shared budget's object-creation convention; use the
+            // named consumer so exhausted earlier modules cannot starve it.
+            HCUnitBudget work = HCServer.HCTickWork();
+            if (work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 8))
             {
-                HCWildlifeProviderSite grounded = new HCWildlifeProviderSite;
-                grounded.Id = authored.Id;
-                grounded.Position = authored.Position;
-                grounded.Position[1] = GetGame().SurfaceY(authored.Position[0], authored.Position[2]);
-                if (HCEcologyRuntimeRules.PositionValid(grounded.Position)) { HCCreate(grounded); }
+                m_CarcassTurn = false;
+                if (m_Cursor >= m_Config.Sites.Count()) { m_Cursor = 0; }
+                HCWildlifeProviderSite authored = m_Config.Sites.Get(m_Cursor);
+                m_Cursor = m_Cursor + 1;
+                if (m_State.SpentSites.Find(authored.Id) >= 0) { m_RefusedSpent++; }
+                else
+                {
+                    m_Attempts++;
+                    HCWildlifeProviderSite grounded = new HCWildlifeProviderSite;
+                    grounded.Id = authored.Id;
+                    grounded.Position = authored.Position;
+                    grounded.Position[1] = GetGame().SurfaceY(authored.Position[0], authored.Position[2]);
+                    if (HCEcologyRuntimeRules.PositionValid(grounded.Position)) { HCCreate(grounded); }
+                    else { m_RefusedPosition++; }
+                }
             }
+            else { m_RefusedBudget++; }
         }
+        else
+        {
+            m_CarcassTurn = true;
+            HCEcosystemStep(nowMs);
+        }
+        HCReport(false);
         HCObserve();
+    }
+
+    // Session counters: first attempted slice, then at most once per ten
+    // minutes, plus stop. Fixed fields distinguish idle, spent and refused.
+    void HCReport(bool force)
+    {
+        if (!force && m_LastReport >= 0 && m_LastNow - m_LastReport < 600000) { return; }
+        m_LastReport = m_LastNow;
+        int spent = 0;
+        if (m_State) { spent = m_State.SpentSites.Count(); }
+        Print("[HC Wildlife] carcasses attempts=" + m_Attempts.ToString() + " spawned=" + m_Spawned.ToString() + " spent=" + spent.ToString() + " cap=" + m_Config.MaxCarcasses.ToString() + " enabled=" + m_Config.CarcassesEnabled.ToString() + " refused_budget=" + m_RefusedBudget.ToString() + " refused_observers=" + m_RefusedPlayers.ToString() + " refused_near=" + m_RefusedNear.ToString() + " refused_visible=" + m_RefusedVisible.ToString() + " refused_position=" + m_RefusedPosition.ToString() + " skipped_spent=" + m_RefusedSpent.ToString() + " refused_allocation=" + m_RefusedAllocation.ToString() + " refused_economy=" + m_RefusedEconomy.ToString() + " refused_creation=" + m_RefusedCreation.ToString() + " pairs_admitted=" + m_PairsAdmitted.ToString() + " pairs_refused=" + m_PairsRefused.ToString() + " target_pairs=" + m_Config.TargetPairsEnabled.ToString() + " runtime=PENDING");
     }
 
     protected ref HCWildlifeInteractions m_Interactions;
@@ -410,8 +467,8 @@ class HCWildlifeProviders
         // Share the existing world-incident consumer: these are incident
         // observations. One finite slice; no fresh consumer id or timer.
         HCUnitBudget work = HCServer.HCTickWork();
-        if (!work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, m_Config.WorkUnits)) { return; }
-        if (m_Config.InteractionObservationEnabled) { m_Interactions.HCSweep(nowMs); }
+        if (!work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { m_RefusedBudget++; return; }
+        if (m_Config.TargetPairsEnabled && m_Config.InteractionObservationEnabled) { m_Interactions.HCSweep(nowMs); }
         if (m_Config.SeasonalRoutesEnabled)
         {
             int phase = HCWildlifeRoutes.HCPhase();
@@ -431,9 +488,11 @@ class HCWildlifeProviders
         // HC-15 snapshots already bound freshness, handles, species and count.
         array<ref HCWildlifeFact> facts = HCWildlifeObservation.HCSnapshot(nowMs);
         int examined = 0;
-        while (examined < facts.Count() && examined < m_Config.MaxPairChecksPerTick)
+        while (examined < facts.Count() && examined < m_Config.WorkUnits)
         {
-            if (!work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { break; }
+            // The first row shares the admitted maintenance item. Additional
+            // rows each need another unit; WorkUnits=1 still advances clues.
+            if (examined > 0 && !work.HCTakeFor(HCUnitBudget.HC_WORK_WILDLIFE, 1)) { m_RefusedBudget++; break; }
             if (m_ClueCursor >= facts.Count()) { m_ClueCursor = 0; }
             HCWildlifeFact fact = facts.Get(m_ClueCursor);
             m_ClueCursor = m_ClueCursor + 1;
@@ -446,7 +505,7 @@ class HCWildlifeProviders
     static void HCRecordDamage(EntityAI victim, EntityAI source, TotalDamageResult damageResult, string zone)
     {
         if (!s_Owner || !s_Owner.m_Running || !s_Owner.m_EcosystemOpen || !HCEcologyNative.Authority()) { return; }
-        if (!s_Owner.m_Config.CluesEnabled && !s_Owner.m_Config.InteractionObservationEnabled) { return; }
+        if (!s_Owner.m_Config.CluesEnabled && !(s_Owner.m_Config.TargetPairsEnabled && s_Owner.m_Config.InteractionObservationEnabled)) { return; }
         if (!victim || victim.IsPendingDeletion() || !damageResult) { return; }
         int nowMs = GetGame().GetTime();
         if (nowMs < s_Owner.m_LastNow || nowMs < 0) { return; }
@@ -458,11 +517,17 @@ class HCWildlifeProviders
             vector point = victim.GetPosition();
             if (HCEcologyRuntimeRules.PositionValid(point)) { HCWorldIncidents.HCPublish("wildlife_blood", point, 0, s_Owner.m_Config.ClueLifetimeSeconds, null); }
         }
-        if (!s_Owner.m_Config.InteractionObservationEnabled || !source) { return; }
+        // This setting controls bounded receipts of actual pairs, never native
+        // targeting or combat admission. Clues remain independent of it.
+        if (!s_Owner.m_Config.TargetPairsEnabled || !s_Owner.m_Config.InteractionObservationEnabled || !source) { return; }
         bool pair = AnimalBase.Cast(victim) && ZombieBase.Cast(source);
         PlayerBase campActor = PlayerBase.Cast(victim);
         if (campActor && !campActor.GetIdentity() && source.IsKindOf("Animal_CanisLupus")) { pair = true; }
-        if (pair) { s_Owner.m_Interactions.HCContact(source, victim, nowMs); }
+        if (pair)
+        {
+            if (s_Owner.m_Interactions.HCContact(source, victim, nowMs)) { s_Owner.m_PairsAdmitted++; }
+            else { s_Owner.m_PairsRefused++; }
+        }
     }
 
 }
