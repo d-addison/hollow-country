@@ -196,38 +196,88 @@ are plotted as separate points, without inventing a traversable route. Counts
 aggregate identical kind/module/reason/position observations across all input
 files; repeated/overlapping logs will count twice. The CLI prints counts of
 classified **lines** per kind, including `unplacedByKind` for diagnostics with
-no valid coordinates; endpoint counts must not be summed as event counts.
+no valid coordinates or resolvable content ID; endpoint counts must not be summed as event counts.
 
 The version-1 `FeatureCollection` uses DayZ **x,z metres**, not geographic
 longitude/latitude. Each point has `kind`, `module`, `reason`, `position: [x,z]`
-and `count` properties. Coordinates come only from the same log line: labelled
+and `count` properties. Explicit coordinates take precedence: labelled
 `pos/position/at/from/to/start/end/anchor/point/center/centre/waypoint` pairs or
 x,y,z vectors, bracketed vectors, or `x=… z=…`. Native route `from=|x,y,z` and
-`to=|x,y,z` are supported. Missing coordinates are reported, never inferred from
-site ids, nearby lines or a catalog. Reasons retain a reason/refusal token or a
-short sanitized diagnostic suffix, never the raw RPT line.
+`to=|x,y,z` are supported.
 
-Before classification, whole lines matching the case-insensitive expression
-`steam ?id|uid|name=|[0-9]{17}|Player "|id=` are dropped, even if `id=` names a
-non-player object. No filenames, timestamps, raw lines or source identities are
-written to the layer. UTF-8 and BOM-marked UTF-16 RPTs stream with a 64 KiB line
-cap; oversized lines are skipped whole. The layer caps at 2,048 distinct points
+When a line has no valid coordinates, content IDs resolve against catalogues
+loaded once from this checkout. Use `--catalog-root /path/to/checkout` to select
+a different repository revision; the option expects a root containing `mission/`
+and `mods/`. No server profile or installed-mod data is loaded. Sources are:
+
+- `mission/hollow-country/ai/sites.json`: site first waypoint, holdout
+  `HousePosition`, HC43 locality/cluster/region anchors (AI camp locations).
+- `mission/hollow-country/ai/localities.json`: locality definitions; rows without
+  coordinates do not invent a location. HC43 supplies authored locality anchors.
+- `mission/hollow-country/events/story-sites.json`: authored event anchors.
+- `mission/hollow-country/travel/auditshelter_scenes.json` and
+  `travel/route-surveys.json`: regional shelter scene positions and region aliases.
+- `mods/*/data/defaults/expansion-ai-sites.json` and
+  `expansion-ai-localities.json`: fallback IDs absent from mission catalogues.
+- `mods/HollowCountry/scripts/4_World/Events/HCEventSites.c`: the two literal
+  source IDs and `Vector` positions. This reads data literals only. Event family
+  suffixes `-1` through `-7` follow `HCEventRoster`'s authored ID construction.
+
+Conflicting anchors for the same ID remain unresolved; a region with several
+positions has no single inferred centre. Runtime-created camps without shipped
+anchors also remain unresolved. ID matching accepts known catalogue tokens,
+content fields such as `id=`, `site_id=`, `locality=`, `camp=` and `region=`,
+`site <id> route/spawn ...`, and the semicolon-delimited event bind format.
+Catalogue points show `catalogue anchor;` in their reason: these are authored
+locations, not observed actor positions or proof of a valid route. Reasons retain
+a reason/refusal token or short sanitized suffix, never the raw RPT line.
+
+The summary includes `linesByKind`, `placedByKind`, `unplacedByKind`,
+`coordinateLines`, `catalogLines`, feature count and catalogue load/conflict
+counts. `unplaced` retains failed content IDs and counts (including a failed ID
+on an otherwise placed line); `<no-id>` means no usable content ID was present.
+This list retains at most 256 distinct kind/ID pairs and reports excess
+occurrences in `unplacedIdsOmitted`. Explicit-coordinate lines need no ID lookup.
+Endpoint/feature counts must not be summed as event counts.
+
+Before classification, whole lines containing a 17-digit number, `Player "`,
+`name=`, `uid`, or `steam id`/`steamid` are still dropped case insensitively.
+The old blanket `id=` ban now exempts only `id`, `site_id`/`siteid`,
+`locality_id`/`localityid`, `camp_id`/`campid`, `region_id`/`regionid` and
+`mission_id`/`missionid` keys; other identity-style ID keys are dropped.
+No filenames, timestamps or raw lines are written to the layer. UTF-8 and
+BOM-marked UTF-16 RPTs stream with a 64 KiB line cap; oversized lines are skipped
+whole. Catalogue files each cap at 10 MiB. The layer caps at 2,048 distinct points
 and 1 MiB, reports omitted positions, and replaces the output via a sibling
-temporary file. The loopback server bounds and validates each read, rejects
-identity markers and serves only the approved feature fields.
+temporary file. The loopback server validates each read, rejects identity
+markers and serves only the approved feature fields.
 
-Read-only validation on 2026-11-19 used the two newest files in
-`/mnt/d/HollowCountryLocal/friend-local-1/profiles/`:
+Read-only validation on 2026-11-19 selected the **largest** `*.RPT` in
+`/mnt/d/HollowCountryLocal/friend-local-1/profiles/` (2,643,500 bytes at read time).
+This supersedes the earlier empty-layer probe of the two newest logs.
 
-| RPT | Route | AI | Event bind | Shelter | Interior | Incident | Privacy-dropped lines |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `DayZServer_x64_2026-11-19_18-27-14.RPT` | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
-| `DayZServer_x64_2026-11-19_18-17-00.RPT` | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Kind | linesByKind | Placed lines | Unplaced lines |
+| --- | ---: | ---: | ---: |
+| route-refusal | 24 | 19 | 5 |
+| ai-refusal | 22 | 0 | 22 |
+| event-bind | 3 | 2 | 1 |
+| shelter-refusal | 2 | 0 | 2 |
+| interior-warning | 0 | 0 | 0 |
+| incident | 0 | 0 | 0 |
 
-Both generated empty layers: no player names or ids were retained, and the
-serialized output had no privacy-pattern matches. This is not positive native
-coverage of diagnostic formats. The existing snapshot passed schema validation
-and had 16 `ai-camps` points and zero routes, with no pending intent at read time.
-That confirms file compatibility only. Real populated refusal logs, live AI
-routes, interactive browser alignment and native server/single-client behavior
-remain unverified. No game process was launched, stopped or signalled.
+Total: **51 classified lines, 21 placed, 30 unplaced, 22 aggregated points**;
+all placed lines used catalogue anchors, with zero explicit-coordinate lines.
+There were 60 privacy-dropped lines, no oversized lines or omitted positions.
+Top unresolved patterns were exclusively `<no-id>`: AI 22, route 5, shelter 2,
+event bind 1. No unresolved named content IDs remained in this log. Eight
+catalogue files loaded, resolving 2,445 IDs; 2,520 conflicting IDs (including
+event-family aliases) were left unresolved rather than choosing an anchor.
+No raw log lines or player identities were printed. Generated output passed the
+same validator used by the viewer. Temporary synthetic checks also exercised
+UTF-16, explicit-coordinate precedence, unknown IDs, shelter region and holdout
+resolution, and every retained privacy ban. No unit tests were added or changed.
+
+This establishes parsing of historical native diagnostics only. Live AI routes,
+interactive browser alignment, operator-edited catalogue agreement and native
+server/single-client behavior remain unverified. No game process was launched,
+stopped or signalled; no multiplayer acceptance is claimed.

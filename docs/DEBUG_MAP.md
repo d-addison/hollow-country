@@ -291,18 +291,38 @@ python3 -B -m tools.webmap.server --snapshot /path/to/profile/HollowCountry/debu
 ```
 
 The viewer adds one toggle per RPT kind and hover details with module, reason
-and aggregated occurrence count. It displays historical coordinate-bearing
-refusals/incidents beside the current contributed AI points/routes. Coordinates
-are x,z metres, never lat/lon; missing positions are counted as unplaced rather
-than guessed. The parser drops whole lines matching
-`steam ?id|uid|name=|[0-9]{17}|Player "|id=` (case insensitive), with bounded
-streaming and sanitized output. Regenerate the layer to include newer log
-entries; polling only rereads the generated file.
+and aggregated occurrence count. Explicit coordinates take precedence. Otherwise,
+the parser loads repository catalogues once and resolves site, locality, camp,
+region and event source IDs to authored x,z anchors. Use
+`--catalog-root /path/to/checkout` to select another checkout containing `mission/`
+and `mods/`. Mission JSON takes precedence over packaged defaults; conflicting
+anchors remain unresolved. Event source literals in `HCEventSites.c` supply the
+coastal/inland sources, including `-1` through `-7` family aliases. AI sites use
+their first waypoint or holdout house position; HC43 supplies locality/region
+anchors, and shelter scene catalogues supply regional positions. These historical
+points say `catalogue anchor;` in the hover reason and do not establish current
+actor positions or route validity. Runtime-created camps without catalogue
+anchors remain unplaced.
+
+The summary reports classified, placed and unplaced lines by kind and lists
+failed content IDs with counts (bounded to 256 kind/ID pairs, with overflow
+reported). `<no-id>` means there was no usable content ID. Identity filtering
+still drops whole lines with a 17-digit number, `Player "`, `name=`, `uid` or
+Steam ID markers; only content-style `id=`/`site_id=` and related catalogue keys
+are exempt from the former blanket ID-key ban. No raw RPT lines are exported.
+Regenerate the layer to include newer entries; polling only rereads the file.
 
 See [webmap usage and validation](../tools/webmap/README.md#rpt-refusals-beside-world-state)
-for format, limits and exact read-only log counts. The two newest RPTs inspected
-on 2026-11-19 yielded zero entries in every kind and no retained player names
-or ids; two lines were privacy-dropped. The existing snapshot validated with
-16 AI camp points and zero routes. Populated native refusal parsing, live AI
-routes, browser alignment and server/single-client acceptance remain pending.
-No multiplayer proof or accepted engine experiment is claimed.
+for exact catalogue sources, privacy rules, limits and read-only counts. The
+largest local RPT on 2026-11-19 (2,643,500 bytes) yielded `linesByKind` of route 24,
+AI 22, event bind 3, shelter 2, interior 0 and incident 0. **21 lines placed into
+22 points; 30 lines remained unplaced**. Placed: route 19 and event bind 2, all
+using catalogue anchors. Top unresolved patterns were `<no-id>` only: AI 22,
+route 5, shelter 2, event bind 1. No named ID remained unresolved in that log;
+60 lines were privacy-dropped. This supersedes the earlier empty-layer check of
+the two newest logs. Synthetic privacy/coordinate-precedence checks and the
+viewer schema validator passed; no unit tests were added or updated.
+
+Live AI routes, browser alignment, operator-edited catalogue agreement and
+server/single-client acceptance remain pending. No game process was launched,
+stopped or signalled. No multiplayer proof or accepted engine experiment is claimed.
