@@ -81,6 +81,11 @@ class HCTapedLightPermit
     }
 }
 
+// EntityAI is declared in 3_Game; a modded class must live in its own script
+// module, so the 4_World hooks go on ItemBase (4_World/Entities/ItemBase.c:23,
+// overrides CanReceiveAttachment at :4178) and Weapon_Base
+// (4_World/Entities/Firearms/Weapon_Base.c:38, EEItemDetached at :1115). Every
+// taped-light host is one of the two; the gate stays identical on both.
 modded class ItemBase
 {
     override bool CanPutAsAttachment(EntityAI parent)
@@ -93,10 +98,6 @@ modded class ItemBase
         // physical EEItemDetached callback retires HC custody without a refund.
         return super.CanDetachAttachment(parent);
     }
-}
-
-modded class EntityAI
-{
     override bool CanReceiveAttachment(EntityAI attachment, int slotId)
     {
         return super.CanReceiveAttachment(attachment, slotId) && HCTapedLightPermit.Receive(this, attachment, slotId);
@@ -107,4 +108,17 @@ modded class EntityAI
         if (!HCTapedLightPermit.Restoring(this, item)) { HCTapedLightRuntime.Detached(this, item, slot_name); }
     }
     // CanLoadAttachment intentionally inherits the native storage callback.
+}
+
+modded class Weapon_Base
+{
+    override bool CanReceiveAttachment(EntityAI attachment, int slotId)
+    {
+        return super.CanReceiveAttachment(attachment, slotId) && HCTapedLightPermit.Receive(this, attachment, slotId);
+    }
+    override void EEItemDetached(EntityAI item, string slot_name)
+    {
+        super.EEItemDetached(item, slot_name);
+        if (!HCTapedLightPermit.Restoring(this, item)) { HCTapedLightRuntime.Detached(this, item, slot_name); }
+    }
 }
