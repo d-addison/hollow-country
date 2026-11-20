@@ -22,6 +22,9 @@ MAX_ENTRIES = 8192
 RESERVED = {'CON', 'PRN', 'AUX', 'NUL'} | {f'{p}{i}' for p in ('COM', 'LPT') for i in range(1, 10)}
 MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json', 'ce/types.xml', 'cfgeconomycore.append.xml',
                  'ce/events.xml', 'ce/travel-spawnabletypes.xml',
+                 # Default-on CE encounter sources; native acceptance remains pending.
+                 'ce/hc-events.xml', 'ce/hc-eventgroups.xml', 'ce/hc-eventspawns.xml',
+                 'ce/hc-event-proto.xml', 'ce/hc-event-sites.json',
                  # HC-23 helmet light review manifest (fail-closed; qualification stays false).
                  'lights/helmet-mounts.json',
                  # HC-30 authored recovery dispositions; native qualification remains pending.
@@ -594,7 +597,7 @@ def handoff(addon, mission, release=False):
             raise ValueError(f'mission handoff file outside allowlist: {name}')
         files['mission/hollow-country/' + name] = path.read_bytes()
     # Only these authored helpers, never arbitrary repository or build outputs.
-    for name in ('travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json', 'README.md'):
+    for name in ('hc_events.py', 'travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json', 'README.md'):
         path = Path(__file__).with_name(name)
         if path.is_file():
             files['tools/package/' + name] = path.read_bytes()
@@ -637,7 +640,7 @@ def verify_handoff(blob):
                 raise ValueError('unsupported handoff manifest')
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
-            helper_names = {'travel.py', 'optional_overlays.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
+            helper_names = {'hc_events.py', 'travel.py', 'optional_overlays.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
                             'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'overlay_remove.py', 'ce_extensions.py', 'xml_text.py', 'rag_optional.py', 'loot_boost.py', 'loot_floor_policy.py',
                             'firearms_roster.json', 'README.md'}
             for name, expected in manifest['files'].items():

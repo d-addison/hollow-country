@@ -46,7 +46,7 @@ from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
-from tools.package import economy, gameplay, loot_boost, map_overlay
+from tools.package import economy, gameplay, loot_boost, map_overlay, hc_events
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
@@ -55,7 +55,7 @@ SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowlist.json',
                 'tactical_flava_allowlist.json', 'firearms.py', 'hash_cache.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
                 'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json',
-                'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py')
+                'hc_events.py', 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'
 
@@ -501,7 +501,7 @@ def fresh_economy(mission, scratch_root=None):
             shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
             # Reverse the local CE stack. Each existing installer validates its
             # receipts/backups; missing or drifted evidence refuses the export.
-            for writer in (map_overlay, loot_boost, overlays, ce_coverage, travel,
+            for writer in (hc_events, map_overlay, loot_boost, overlays, ce_coverage, travel,
                            tactical_flava_optional, snafu_optional, economy, gameplay):
                 if (scratch / writer.MANAGED).exists():
                     writer.rollback(scratch)
@@ -685,6 +685,7 @@ def build(args):
     plan = []  # (destination relative path, source path or bytes)
     try:
         travel.validate(SOURCE)
+        hc_events.validate(SOURCE)
         overlays.read(Path(travel.__file__))
     except (OSError, ValueError) as error:
         raise Refused('travel CE source missing or invalid: %s' % error) from error

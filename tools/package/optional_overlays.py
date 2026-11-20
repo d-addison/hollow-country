@@ -649,12 +649,13 @@ def bundle_apply(bundle, mission, workshop, loaded):
     if (Path(mission) / BUNDLE_MANAGED).exists():
         raise ValueError('bundle install exists; rollback before installing again')
     candidate = bundle_candidate(bundle, mission)
-    from tools.package import loot_boost, travel
+    from tools.package import loot_boost, travel, hc_events
     source = Path(bundle) / 'mission/hollow-country'
     travel.validate(source)
+    hc_events.validate(source)
     if (Path(mission) / loot_boost.MANAGED).exists():
         raise ValueError('loot boost already installed; bundle-rollback before installing again')
-    # The loot boost is generated from the friend's own installed bytes and goes last, on top of every layer.
+    # Loot boost uses the friend's bytes; encounters own the final CE geometry layer.
     multiplier, points = loot_boost.default_multiplier(Path(bundle)), loot_boost.shipped_points(Path(bundle))
     with tempfile.TemporaryDirectory(prefix='hc-bundle-preflight-') as directory:
         scratch = Path(directory) / 'mission'
@@ -668,18 +669,21 @@ def bundle_apply(bundle, mission, workshop, loaded):
             raise ValueError('bundle requires all default optional overlays to be loaded: ' + ', '.join(unloaded))
         install(optional, scratch)
         loot_boost.install(scratch, multiplier, points)
+        hc_events.install(Path(bundle) / 'mission/hollow-country', scratch)
     apply_stack(mission, [
         lambda: install(candidate, mission, managed_name=BUNDLE_MANAGED),
         lambda: travel.install(source, mission),
         lambda: install(plan(workshop, mission, loaded, source / 'optional/overlay-policy.json'), mission),
-        lambda: loot_boost.install(mission, multiplier, points)])
+        lambda: loot_boost.install(mission, multiplier, points),
+        lambda: hc_events.install(Path(bundle) / 'mission/hollow-country', mission)])
 
 
 def _undo_layers(target):
     """Roll back every layer present, newest first; each rollback verifies its own files before restoring."""
-    from tools.package import loot_boost, travel
+    from tools.package import loot_boost, travel, hc_events
+    hc_events.rollback(target)
     if os.path.lexists(target / loot_boost.MANAGED):
-        loot_boost.rollback(target)  # installed last, so it is undone first
+        loot_boost.rollback(target)  # below encounters, above the optional packs
     rollback(target)
     if (target / travel.MANAGED).exists():
         travel.rollback(target)
@@ -698,8 +702,8 @@ def apply_stack(mission, steps):
     except Exception as error:
         try:
             _undo_layers(mission)
-            from tools.package import loot_boost, travel
-            left = [n for n in (loot_boost.MANAGED, MANAGED, travel.MANAGED, BUNDLE_MANAGED)
+            from tools.package import loot_boost, travel, hc_events
+            left = [n for n in (hc_events.MANAGED, loot_boost.MANAGED, MANAGED, travel.MANAGED, BUNDLE_MANAGED)
                     if os.path.lexists(mission / n)]
             if left:
                 raise ValueError('managed folders remain after undo: ' + ', '.join(left))
@@ -728,7 +732,7 @@ def _restore_original_layers(mission, drifted):
     Called on scratch first, so every original and managed directory is checked
     before live writes. The stopped server must have no concurrent file writers.
     """
-    from tools.package import loot_boost, travel
+    from tools.package import loot_boost, travel, hc_events
 
     def restore(name, original, digest, installed):
         if digest != (None if original is None else sha(original)):
@@ -753,6 +757,7 @@ def _restore_original_layers(mission, drifted):
             finally:
                 staging.rmdir()
 
+    hc_events.rollback(mission)
     managed = safe(mission / loot_boost.MANAGED)
     if managed.exists():
         loot_boost._preflight(managed)
@@ -805,7 +810,8 @@ def restore_originals(mission):
         raise ValueError('restore staging already exists; reconcile manually')
     # Later layers patch the same files on top of these receipts; their own
     # receipts would go stale, so they must be rolled back first.
-    for layer, tool in (('hollow-country-infected', 'infected_variety rollback'),
+    for layer, tool in (('hollow-country-events', 'hc_events rollback'),
+                        ('hollow-country-infected', 'infected_variety rollback'),
                         ('hollow-country-overlays', 'map_overlay rollback')):
         if (mission / layer).exists():
             raise ValueError(layer + ' is installed; run tools.package.' + tool + ' first')
