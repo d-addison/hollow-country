@@ -5,14 +5,6 @@ class HCGroupEquipment
     bool HasMap;
     bool HasGPS;
     ref array<float> Frequencies = new array<float>();
-    // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917,926.
-    protected ref map<float, bool> m_FrequencyIndex = new map<float, bool>;
-    void HCIndexFrequencies()
-    {
-        m_FrequencyIndex.Clear();
-        foreach (float frequency : Frequencies) { m_FrequencyIndex.Insert(frequency, true); }
-    }
-    bool HCHasFrequency(float frequency) { return m_FrequencyIndex.Contains(frequency); }
 
     static HCGroupEquipment Read(PlayerBase player)
     {
@@ -73,10 +65,9 @@ class HCGroupVisibility
 
     static bool RadioMatches(HCGroupEquipment source, HCGroupEquipment recipient)
     {
-        recipient.HCIndexFrequencies();
         foreach (float frequency : source.Frequencies)
         {
-            if (recipient.HCHasFrequency(frequency)) return true;
+            if (recipient.Frequencies.Find(frequency) >= 0) return true;
         }
         return false;
     }
