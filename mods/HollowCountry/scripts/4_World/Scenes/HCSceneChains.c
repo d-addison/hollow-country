@@ -187,9 +187,13 @@ class HCSceneChains
         return catalog;
     }
 
-    static bool CatalogValid(HCSceneCatalog catalog, bool allowEmpty = false)
+    static bool CatalogValid(HCSceneCatalog catalog, bool retained = false)
     {
-        if (!catalog || catalog.Version != 1 || !catalog.Chains || (!allowEmpty && catalog.Chains.Count() < 1) || catalog.Chains.Count() > 4) { return false; }
+        // Authored input stays capped at four. Retained state also contains the
+        // bounded arrival window and may be empty after cleanup receipts.
+        int limit = 4;
+        if (retained) { limit = HCStoryPolicy.MAX_RETAINED; }
+        if (!catalog || catalog.Version != 1 || !catalog.Chains || (!retained && catalog.Chains.Count() < 1) || catalog.Chains.Count() > limit) { return false; }
         map<string, bool> ids = new map<string, bool>();
         foreach (HCSceneChainDefinition plan : catalog.Chains)
         {

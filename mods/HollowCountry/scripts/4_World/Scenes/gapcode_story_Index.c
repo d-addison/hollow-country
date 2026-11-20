@@ -394,8 +394,7 @@ modded class HCStorySchedule
             m_Cursor = m_Cursor + 1;
         }
         HCStoryProgress progress = m_State.Stories;
-        if (now < progress.NextArrival || m_State.Chains.Count() >= m_Config.Window) { return false; }
-        if (progress.NextSequence - progress.TerminalThrough > m_Config.Window) { return false; }
+        if (!HCArrivalDue(now)) { return false; }
         if (progress.NextSequence >= 999999999) { return HCRefuse("sequence-exhausted"); }
         m_Units.HCReset(1);
         m_Work.HCReset(1);

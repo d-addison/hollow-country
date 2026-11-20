@@ -26,6 +26,8 @@ class HCStoryProgress
     int Version = 1;
     int NextSequence = 1;
     int LegacyThrough;
+    // V1: contiguous terminal prefix. V2: all issued identities; retained rows
+    // are the live exceptions and absence is the durable retirement receipt.
     int TerminalThrough;
     int NextArrival;
     // Fixed migration set (<=4), not an ever-growing terminal ledger.
@@ -35,9 +37,13 @@ class HCStoryProgress
 
 class HCStoryPolicy
 {
+    static const int MAX_WINDOW = 8;
+    // At most four pinned authored chains, plus the independent arrival window.
+    static const int MAX_RETAINED = 12;
+
     static bool HCConfigValid(HCStorySettings config)
     {
-        return config && config.Version == 1 && config.ArrivalSeconds >= 3600 && config.ArrivalSeconds <= 259200 && config.Window == 4;
+        return config && config.Version == 1 && config.ArrivalSeconds >= 3600 && config.ArrivalSeconds <= 259200 && config.Window >= 1 && config.Window <= MAX_WINDOW;
     }
 
     static HCStorySettings HCLoadConfig()
@@ -52,8 +58,10 @@ class HCStoryPolicy
         return config;
     }
 
-    // Every issued identity is either retained, in bounded terminal exceptions,
-    // or <= TerminalThrough. No hole, duplicate or replay can be admitted.
+    // V1 partitions issued identities into retained rows and terminal history.
+    // V2 uses TerminalThrough as the issued watermark: every issued identity
+    // absent from the pinned rows is retired. No growing exception ledger and
+    // no oldest-row dependency; NextSequence still prevents identity replay.
     static bool HCUnmigrated(HCStoryProgress progress)
     {
         if (!progress) { return true; }
@@ -64,10 +72,10 @@ class HCStoryPolicy
     static bool HCValid(HCSceneChainState state)
     {
         if (!state || !state.Chains) { return false; }
-        if (state.Chains.Count() > 4) { return false; }
+        if (state.Chains.Count() > MAX_RETAINED) { return false; }
         if (HCUnmigrated(state.Stories))
         {
-            if (state.Chains.Count() < 1) { return false; }
+            if (state.Chains.Count() < 1 || state.Chains.Count() > 4) { return false; }
             foreach (HCSceneChain legacy : state.Chains)
             {
                 if (!legacy || legacy.StorySequence != 0) { return false; }
@@ -75,10 +83,12 @@ class HCStoryPolicy
             return true;
         }
         HCStoryProgress progress = state.Stories;
-        if (progress.Version != 1 || progress.LegacyThrough < 1 || progress.LegacyThrough > 4 || progress.TerminalThrough < 0) { return false; }
+        if ((progress.Version != 1 && progress.Version != 2) || progress.LegacyThrough < 1 || progress.LegacyThrough > 4 || progress.TerminalThrough < 0) { return false; }
         if (progress.NextSequence < progress.LegacyThrough + 1 || progress.NextSequence > 999999999 || progress.TerminalThrough >= progress.NextSequence) { return false; }
-        if (progress.NextSequence - progress.TerminalThrough > 5 || progress.NextArrival < 1 || progress.NextArrival > 999300000) { return false; }
-        if (!progress.TerminalExceptions || progress.TerminalExceptions.Count() > 4 || state.Chains.Count() > 4) { return false; }
+        if (progress.NextArrival < 1 || progress.NextArrival > 999300000) { return false; }
+        if (!progress.TerminalExceptions) { return false; }
+        if (progress.Version == 1 && (progress.NextSequence - progress.TerminalThrough > 5 || progress.TerminalExceptions.Count() > 4 || state.Chains.Count() > 4)) { return false; }
+        if (progress.Version == 2 && (progress.TerminalThrough != progress.NextSequence - 1 || progress.TerminalExceptions.Count() != 0)) { return false; }
         if (!progress.LegacyIds || progress.LegacyIds.Count() != progress.LegacyThrough) { return false; }
         map<string, bool> legacyIds = new map<string, bool>();
         foreach (string legacyId : progress.LegacyIds)
@@ -94,7 +104,8 @@ class HCStoryPolicy
         }
         foreach (HCSceneChain chain : state.Chains)
         {
-            if (!chain || chain.StorySequence <= progress.TerminalThrough || chain.StorySequence >= progress.NextSequence || seen.Contains(chain.StorySequence)) { return false; }
+            if (!chain || chain.StorySequence < 1 || chain.StorySequence >= progress.NextSequence || seen.Contains(chain.StorySequence)) { return false; }
+            if (progress.Version == 1 && chain.StorySequence <= progress.TerminalThrough) { return false; }
             if (chain.StorySequence <= progress.LegacyThrough)
             {
                 if (chain.Id != progress.LegacyIds[chain.StorySequence - 1]) { return false; }
@@ -105,7 +116,29 @@ class HCStoryPolicy
             }
             seen.Insert(chain.StorySequence, true);
         }
+        if (progress.Version == 2) { return HCOccupied(state) <= MAX_WINDOW; }
         return seen.Count() == progress.NextSequence - progress.TerminalThrough - 1;
+    }
+
+    // Call only after the v1 partition was validated. Preserve every pinned
+    // row/identity and all additive situation history; only compact metadata.
+    static void HCCompactHistory(HCStoryProgress progress)
+    {
+        progress.Version = 2;
+        progress.TerminalThrough = progress.NextSequence - 1;
+        progress.TerminalExceptions.Clear();
+    }
+
+    static int HCOccupied(HCSceneChainState state)
+    {
+        int occupied = 0;
+        foreach (HCSceneChain chain : state.Chains)
+        {
+            // Terminal rows still own capacity until server cleanup receipts
+            // permit removal. Authored chains have their own fixed four slots.
+            if (chain.StorySequence > state.Stories.LegacyThrough) { occupied = occupied + 1; }
+        }
+        return occupied;
     }
 
     static void HCMigrate(HCSceneChainState state, int now, HCStorySettings config)
@@ -121,11 +154,13 @@ class HCStoryPolicy
         }
         progress.LegacyThrough = state.Chains.Count();
         progress.NextArrival = now + config.ArrivalSeconds;
+        HCCompactHistory(progress);
         state.Stories = progress;
     }
 
     static void HCRetired(HCStoryProgress progress, int sequence)
     {
+        if (progress.Version == 2) { return; }
         progress.TerminalExceptions.Insert(sequence);
         // Native EnScript.c:877/902/906 map.Find/Set/Remove; :463 array.Remove.
         // Mirror unordered Remove's last-element swap, preserving persisted order.
@@ -195,6 +230,7 @@ class HCStorySchedule
     protected int m_Cursor;
     protected bool m_Ready;
     protected string m_Reason;
+    protected int m_ReportedSequence;
 
     // Owner can perform its existing observer-gated cleanup for this exact
     // retained row before supplying the server-only receipt to HCStep.
@@ -208,6 +244,13 @@ class HCStorySchedule
 
     bool HCReady() { return m_Ready; }
     string HCReason() { return m_Reason; }
+
+    // Shared by base and indexed arrival paths; neither authored identities nor
+    // the v1 terminal watermark are measures of current arrival occupancy.
+    bool HCArrivalDue(int now)
+    {
+        return now >= m_State.Stories.NextArrival && HCStoryPolicy.HCOccupied(m_State) < m_Config.Window && m_State.Chains.Count() < HCStoryPolicy.MAX_RETAINED;
+    }
 
     bool HCRefuse(string reason)
     {
@@ -238,15 +281,26 @@ class HCStorySchedule
                 if (!retained.Complete && !retained.Cancelled) { active = active + 1; }
             }
         }
-        Print("[HC Plan] HC-19 story_seq=" + sequence.ToString() + " active=" + active.ToString() + " terminal_replay=0 state=" + effective + " reason=" + m_Reason + " clock=world-utc runtime=PENDING");
+        int occupied = 0;
+        int window = 0;
+        if (m_State && m_State.Stories) { occupied = HCStoryPolicy.HCOccupied(m_State); }
+        if (m_Config) { window = m_Config.Window; }
+        Print("[HC Plan] HC-19 story_seq=" + sequence.ToString() + " active=" + active.ToString() + " occupied=" + occupied.ToString() + " window=" + window.ToString() + " terminal_replay=0 state=" + effective + " reason=" + m_Reason + " clock=world-utc runtime=PENDING");
     }
 
     bool HCCommit(int now)
     {
         m_State.LastNow = now;
+        if (m_State.Stories.Version == 2) { m_State.Stories.TerminalThrough = m_State.Stories.NextSequence - 1; }
         // Shared checkpoint queues this mutation; Scenes defers arrival offers
         // and native work until the store has committed it.
         if (m_Store.HCRequestCheckpoint(m_State) < 0) { return HCRefuse("save-failed"); }
+        int issued = m_State.Stories.NextSequence - 1;
+        if (issued > m_ReportedSequence)
+        {
+            m_ReportedSequence = issued;
+            Print("[HC Plan] HC-19 story_start sequence=" + issued.ToString() + " checkpoint=queued runtime=PENDING");
+        }
         HCReport("ready");
         return true;
     }
@@ -273,12 +327,19 @@ class HCStorySchedule
         m_Templates = HCSceneChains.LoadCatalog();
         if (!m_Templates) { return HCOperatorOff("template-catalog"); }
         m_Cursor = 0;
+        m_ReportedSequence = state.Stories.NextSequence - 1;
         if (HCStoryPolicy.HCUnmigrated(state.Stories))
         {
             HCStoryPolicy.HCMigrate(state, now, config);
+            m_ReportedSequence = state.Stories.NextSequence - 1;
             // Metadata-only migration must retain the last heartbeat: Scenes
             // still needs ResumeAfterGap to pause its old unfinished stages.
             // NextArrival uses world UTC independently and is never shifted.
+            if (!HCCommit(state.LastNow)) { return false; }
+        }
+        else if (state.Stories.Version == 1)
+        {
+            HCStoryPolicy.HCCompactHistory(state.Stories);
             if (!HCCommit(state.LastNow)) { return false; }
         }
         m_Ready = true;
@@ -290,7 +351,8 @@ class HCStorySchedule
 
     // releasedIds: owner-authoritative Cleanup(lease)==true receipts, including
     // no-lease cases. Never accept a client assertion or just a terminal flag.
-    // Returns true only after a mutation is durably saved. <=1 retained row per
+    // Returns true only after a checkpoint is queued; Scenes owns its barrier.
+    // <=1 retained row per
     // call and <=1 arrival; existing owner still enforces TWO active scene leases,
     // observer clearance, site occupancy and finite placement/cargo policies.
     bool HCStep(int now, array<string> releasedIds)
@@ -314,14 +376,15 @@ class HCStorySchedule
                 m_State.Chains.RemoveOrdered(selected);
                 m_State.Catalog.Chains.RemoveOrdered(selected);
                 m_Cursor = selected;
-                return HCCommit(now);
+                if (!HCCommit(now)) { return false; }
+                string outcome = "completed";
+                if (chain.Cancelled) { outcome = "cancelled-or-expired"; }
+                Print("[HC Plan] HC-19 story_end sequence=" + chain.StorySequence.ToString() + " outcome=" + outcome + " cleanup=released checkpoint=queued runtime=PENDING");
+                return true;
             }
         }
         HCStoryProgress progress = m_State.Stories;
-        if (now < progress.NextArrival || m_State.Chains.Count() >= m_Config.Window) { return false; }
-        // Slow/observed oldest story pins the window rather than accumulating
-        // unbounded exceptions. A later owner expiry/cleanup unblocks it.
-        if (progress.NextSequence - progress.TerminalThrough > m_Config.Window) { return false; }
+        if (!HCArrivalDue(now)) { return false; }
         if (progress.NextSequence >= 999999999) { return HCRefuse("sequence-exhausted"); }
         HCSceneChainDefinition plan = HCStoryPolicy.HCPlan(progress.NextSequence, m_Templates, progress.LegacyIds);
         HCSceneChain arrived = new HCSceneChain;
