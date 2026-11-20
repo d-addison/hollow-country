@@ -6,6 +6,7 @@ mission overlays before rollback. The game installation is read-only evidence.
 import argparse
 import base64
 import json
+import math
 import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -21,6 +22,8 @@ PATCHED = ('cfgeconomycore.xml', 'cfgeventspawns.xml', 'cfgeventgroups.xml', 'ma
 GENERATED = MANAGED + '/events.xml'
 TARGETS = {*PATCHED, GENERATED}
 CRATE = 'StaticObj_Misc_SupplyBox2_DE'
+SEEDS = ('StaticHeliCrash', 'StaticPoliceCar', 'StaticMilitaryConvoy',
+         'StaticPoliceSituation', 'StaticBonfire')
 
 
 def _serialized(root):
@@ -43,18 +46,20 @@ def validate(source=SOURCE):
         if len(set(names)) != len(names):
             raise ValueError('case-aliased encounter definitions')
     names = {e.get('name') for e in events}
-    if len(names) < 10 or any(not n.startswith('StaticHC') for n in names):
+    if len(names) < 16 or any(not n.startswith('StaticHC') for n in names):
         raise ValueError('missing encounter events')
     if {e.get('name') for e in positions} != names:
         raise ValueError('encounter position ownership mismatch')
     nominal = sum(int(e.findtext('nominal')) for e in events)
-    if not 15 <= nominal <= 30:
+    if not 45 <= nominal <= 55:
         raise ValueError('encounter nominal outside policy')
     for e in events:
         if (e.findtext('active') != '1' or e.findtext('position') != 'fixed'
                 or e.findtext('limit') != 'child' or len(e.find('children'))
                 or not 1 <= int(e.findtext('nominal')) <= 4
-                or not 1800 <= int(e.findtext('lifetime')) <= 5400):
+                or not 1800 <= int(e.findtext('lifetime')) <= 5400
+                or not 60 <= int(e.findtext('restock')) <= 600
+                or int(e.findtext('distanceradius')) < 300):
             raise ValueError('invalid encounter lifecycle')
     group_names = {g.get('name') for g in groups}
     used = set()
@@ -70,9 +75,11 @@ def validate(source=SOURCE):
             x, z = float(p.get('x')), float(p.get('z'))
             if not (0 < x < 15360 and 0 < z < 15360) or (x, z) in coords:
                 raise ValueError('duplicate or invalid encounter anchor')
+            if any(math.hypot(x - a, z - b) < 340 for a, b in coords):
+                raise ValueError('encounter anchors less than 340 m apart')
             coords.add((x, z))
             count += 1
-    if count < 150 or used != group_names:
+    if count < 208 or used != group_names:
         raise ValueError('incomplete encounter coverage')
     for g in groups:
         if not 6 <= len(g) <= 12 or not any(c.get('type') == CRATE for c in g):
@@ -91,17 +98,27 @@ def validate(source=SOURCE):
             or any(float(p.get('pos').split()[1]) <= 0 for p in crate.findall('container/point'))):
         raise ValueError('invalid elevated weapons crate policy')
     evidence = json.loads(data[DATA[-1]])
-    if evidence.get('schema') != 1 or len(evidence['sites']) != count:
+    if evidence.get('schema') != 2 or len(evidence['sites']) != count:
         raise ValueError('missing anchor provenance')
     source_keys = set()
+    seeds = set()
     authored_keys = {(e.get('name'), float(p.get('x')), float(p.get('z')))
                      for e in positions for p in e.findall('pos')}
     for row in evidence['sites']:
-        if row['source_event'] not in ('StaticHeliCrash', 'StaticPoliceCar'):
+        if row['source_event'] not in SEEDS:
             raise ValueError('unsupported anchor evidence')
-        key = (row['event'], float(row['source_position']['x']), float(row['source_position']['z']))
+        key = (row['event'], float(row['authored_position']['x']), float(row['authored_position']['z']))
+        distance = math.hypot(float(row['authored_position']['x']) - float(row['source_position']['x']),
+                              float(row['authored_position']['z']) - float(row['source_position']['z']))
+        roadside = row['source_event'] in ('StaticPoliceCar', 'StaticMilitaryConvoy', 'StaticPoliceSituation')
+        if (roadside and not 89 <= distance <= 131) or (not roadside and distance > 0.01):
+            raise ValueError('invalid encounter seed offset')
         if key not in authored_keys or key in source_keys:
             raise ValueError('anchor provenance differs from authored positions')
+        seed = (row['source_event'], tuple(sorted(row['source_position'].items())))
+        if seed in seeds:
+            raise ValueError('encounter seed owned twice')
+        seeds.add(seed)
         source_keys.add(key)
     return data, (events, positions, groups, proto), evidence, {
         'event_types': len(events), 'nominal': nominal, 'positions': count,
@@ -141,7 +158,27 @@ def plan(target, source=SOURCE):
         raise ValueError('encounter position collision')
     if {g.get('name', '').casefold() for g in groups} & {g.get('name', '').casefold() for g in target_groups}:
         raise ValueError('encounter group collision')
-    # Transfer anchors from their stock pools. No two events may own one anchor.
+    # Fail closed if the friend's static building evidence differs from our clearance policy.
+    buildings = []
+    for g in economy.xml(economy.read_plain(target, 'mapgrouppos.xml'), 'map'):
+        name = g.get('name', '')
+        if name.startswith('Land_') and not any(v in name for v in ('Wreck', 'Misc', 'Ruins')):
+            x, _, z = map(float, g.get('pos').split())
+            buildings.append((x, z))
+    for row in evidence['sites']:
+        x, z = (float(row['authored_position'][v]) for v in ('x', 'z'))
+        if any(math.hypot(x - a, z - b) < 80 for a, b in buildings):
+            raise ValueError('encounter too close to mapped building origin')
+    areas = json.loads(economy.read_plain(target, 'cfgeffectarea.json'))['Areas']
+    for row in evidence['sites']:
+        x, z = (float(row['authored_position'][v]) for v in ('x', 'z'))
+        for area in areas:
+            area_data = area['Data']
+            a, _, b = area_data['Pos']
+            if math.hypot(x - a, z - b) < float(area_data['Radius']) + 120:
+                raise ValueError('encounter inside contamination exclusion')
+    # Transfer seeds out of their stock pools, including laterally shifted seeds.
+
     for row in evidence['sites']:
         old = spawns.find("event[@name='%s']" % row['source_event'])
         matching = [] if old is None else [p for p in old.findall('pos')
@@ -150,7 +187,7 @@ def plan(target, source=SOURCE):
             raise ValueError('stock anchor missing or ambiguous: ' + row['source_event'])
         old.remove(matching[0])
     # Preserve stock event viability (stock PoliceCar is currently inactive).
-    for name in ('StaticHeliCrash', 'StaticPoliceCar'):
+    for name in {row['source_event'] for row in evidence['sites']}:
         if len(spawns.find("event[@name='%s']" % name).findall('pos')) < 10:
             raise ValueError('stock event pool would become too small')
     spawns.extend(positions)

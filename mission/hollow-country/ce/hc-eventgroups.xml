@@ -1,85 +1,135 @@
 <?xml version='1.0' encoding='utf-8'?>
 <eventgroupdef>
   <group name="HCConvoyAmbush">
-    <child type="StaticObj_Wreck_Ural_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Uaz_DE" x="2" z="11" a="18" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="4" a="30" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="7" a="75" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="6" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="2" z="10" a="35" spawnsecondary="false" />
+    <child type="StaticObj_Wreck_Ural_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Uaz_DE" x="2" z="11" a="18" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="4" a="30" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="7" a="75" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="6" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="2" z="10" a="35" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCArmorRecovery">
-    <child type="StaticObj_Wreck_BMP1_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Ural_DE" x="1" z="12" a="8" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="8" a="40" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="6" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="10" a="0" spawnsecondary="false" />
+    <child type="StaticObj_Wreck_BMP1_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Ural_DE" x="1" z="12" a="8" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="8" a="40" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="6" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="10" a="0" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCSupplyTruck">
-    <child type="StaticObj_Wreck_Ural_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="3" a="15" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="6" a="65" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="8" a="70" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="8" a="0" spawnsecondary="false" />
+    <child type="StaticObj_Wreck_Ural_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="3" a="15" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="6" a="65" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="8" a="70" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="8" a="0" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCPoliceEvidence">
-    <child type="Land_Wreck_sed01_aban1_police_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Uaz_DE" x="1" z="9" a="12" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="5" a="15" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="5" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="8" a="40" spawnsecondary="false" />
+    <child type="Land_Wreck_sed01_aban1_police_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Uaz_DE" x="1" z="9" a="12" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="5" a="15" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="5" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="8" a="40" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCPrisonTransfer">
-    <child type="Land_Wreck_Ikarus_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="Land_Wreck_sed01_aban1_police_DE" x="1" z="13" a="12" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="6" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="-3" z="9" a="55" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="8" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="11" a="0" spawnsecondary="false" />
+    <child type="Land_Wreck_Ikarus_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="Land_Wreck_sed01_aban1_police_DE" x="1" z="13" a="12" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="6" a="20" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="-3" z="9" a="55" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="8" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="11" a="0" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCBanditCache">
-    <child type="StaticObj_Wreck_Uaz_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="5" a="80" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="3" z="2" a="15" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="4" a="0" spawnsecondary="false" />
+    <child type="StaticObj_Wreck_Uaz_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="5" a="80" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="3" z="2" a="15" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="4" a="0" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCSniperExtraction">
-    <child type="StaticObj_Wreck_BRDM_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="4" a="40" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="7" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="4" a="80" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="5" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="8" a="25" spawnsecondary="false" />
+    <child type="StaticObj_Wreck_BRDM_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="4" a="40" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="7" a="20" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="4" a="80" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="5" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="8" a="25" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCFieldHospital">
-    <child type="StaticObj_Wreck_Ural_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Uaz_DE" x="3" z="12" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="-4" z="4" a="10" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="-4" z="7" a="50" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="4" z="4" a="20" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="4" z="7" a="65" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="7" a="0" spawnsecondary="false" />
+    <child type="Land_Wreck_S1023_Medic_Beige_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Uaz_DE" x="3" z="12" a="20" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="-4" z="4" a="10" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="-4" z="7" a="50" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="4" z="4" a="20" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="4" z="7" a="65" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="7" a="0" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCTransportDown">
-    <child type="Wreck_UH1Y" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="10" z="3" a="10" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="10" z="6" a="50" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="-10" z="3" a="65" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="3" z="7" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="6" z="8" a="30" spawnsecondary="false" />
+    <child type="Wreck_UH1Y" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="10" z="3" a="10" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="10" z="6" a="50" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-10" z="3" a="65" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="3" z="7" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="6" z="8" a="30" spawnsecondary="false" deloot="0" />
   </group>
   <group name="HCCargoSpill">
-    <child type="Wreck_Mi8" x="0" z="0" a="0" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="10" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox2_DE" x="10" z="5" a="15" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox1_DE" x="-10" z="2" a="35" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Misc_SupplyBox3_DE" x="-10" z="5" a="60" spawnsecondary="false" deloot="1" lootmin="2" lootmax="3" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="2" z="7" a="0" spawnsecondary="false" />
-    <child type="StaticObj_Wreck_Decal_Small2_DE" x="5" z="8" a="40" spawnsecondary="false" />
+    <child type="Wreck_Mi8" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="10" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="10" z="5" a="15" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-10" z="2" a="35" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="-10" z="5" a="60" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="2" z="7" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="5" z="8" a="40" spawnsecondary="false" deloot="0" />
+  </group>
+  <group name="HCAPCColumn">
+    <child type="StaticObj_Wreck_BMP2_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Stryker_DE" x="1" z="12" a="8" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="8" a="40" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="6" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="10" a="0" spawnsecondary="false" deloot="0" />
+  </group>
+  <group name="HCMedicalEvacuation">
+    <child type="Land_Wreck_S1023_Medic_Beige_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="Land_Wreck_Offroad02_Medic_TK_DE" x="3" z="12" a="20" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="-4" z="4" a="10" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="-4" z="7" a="50" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="4" z="4" a="20" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="4" z="7" a="65" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="7" a="0" spawnsecondary="false" deloot="0" />
+  </group>
+  <group name="HCHuntersLastStand">
+    <child type="Land_Wreck_offroad02_aban1_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="5" a="80" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="3" z="2" a="15" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="4" a="0" spawnsecondary="false" deloot="0" />
+  </group>
+  <group name="HCSmugglerExchange">
+    <child type="Land_Wreck_Trailer_Closed_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="Land_Wreck_hb01_aban2_police_DE" x="1" z="9" a="12" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="2" a="40" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="5" a="15" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="5" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="8" a="40" spawnsecondary="false" deloot="0" />
+  </group>
+  <group name="HCFireResponse">
+    <child type="Land_wreck_truck01_aban1_firetruck_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="Land_Wreck_S1023_Medic_Beige_DE" x="2" z="11" a="18" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="4" a="30" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="-3" z="7" a="75" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="1" z="6" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="2" z="10" a="35" spawnsecondary="false" deloot="0" />
+  </group>
+  <group name="HCSupplyTrailer">
+    <child type="Land_wreck_truck01_aban2_orange_DE" x="0" z="0" a="0" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Wreck_Trailer_Flat_DE" x="2" z="12" a="15" spawnsecondary="false" deloot="0" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="3" a="15" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox2_DE" x="-3" z="6" a="65" spawnsecondary="false" deloot="1" lootmin="3" lootmax="3" />
+    <child type="StaticObj_Misc_SupplyBox1_DE" x="3" z="5" a="20" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Misc_SupplyBox3_DE" x="3" z="8" a="70" spawnsecondary="false" deloot="1" lootmin="0" lootmax="1" />
+    <child type="StaticObj_Wreck_Decal_Small2_DE" x="0" z="8" a="0" spawnsecondary="false" deloot="0" />
   </group>
 </eventgroupdef>
