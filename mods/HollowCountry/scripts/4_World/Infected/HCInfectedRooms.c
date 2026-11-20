@@ -575,14 +575,16 @@ class HCInfectedRoomCatalog
             s_ProductionReason = "rooms_denominator_cap";
             return false;
         }
-        ref array<string> known = new array<string>;
+        // Hash sets: the config walk below tests up to 32768 classes against
+        // up to 2048 declared ones, so linear Find would be a nested scan.
+        ref map<string, bool> known = new map<string, bool>;
         foreach (HCInfectedProductionRoomClass entry : document.Classes)
         {
             if (!entry || !ProductionToken(entry.BuildingClass, 128) || !ProductionDisposition(entry.Disposition))
                 return false;
-            if (known.Find(entry.BuildingClass) >= 0)
+            if (known.Contains(entry.BuildingClass))
                 return false;
-            known.Insert(entry.BuildingClass);
+            known.Insert(entry.BuildingClass, true);
         }
         int houseClasses = 0;
         bool complete = true;
@@ -594,7 +596,7 @@ class HCInfectedRoomCatalog
             if (!GetGame().IsKindOf(className, "House"))
                 continue;
             houseClasses++;
-            if (known.Find(className) < 0)
+            if (!known.Contains(className))
                 complete = false;
         }
         if (houseClasses > MAX_PRODUCTION_CLASSES)
@@ -609,7 +611,7 @@ class HCInfectedRoomCatalog
             return false;
         // Coverage is bidirectional: no omitted class, no excluded house used,
         // and no "covered" class without at least one admitted instance.
-        ref array<string> usedClasses = new array<string>;
+        ref map<string, bool> usedClasses = new map<string, bool>;
         foreach (HCInfectedProductionRoomRecord record : document.Buildings)
         {
             if (!record)
@@ -617,12 +619,12 @@ class HCInfectedRoomCatalog
             int classIndex = ProductionClassIndex(document, record.BuildingClass);
             if (classIndex < 0 || document.Classes[classIndex].Disposition != "covered")
                 return false;
-            if (usedClasses.Find(record.BuildingClass) < 0)
-                usedClasses.Insert(record.BuildingClass);
+            if (!usedClasses.Contains(record.BuildingClass))
+                usedClasses.Insert(record.BuildingClass, true);
         }
         foreach (HCInfectedProductionRoomClass declared : document.Classes)
         {
-            if (declared.Disposition == "covered" && usedClasses.Find(declared.BuildingClass) < 0)
+            if (declared.Disposition == "covered" && !usedClasses.Contains(declared.BuildingClass))
                 return false;
         }
         return true;
@@ -728,6 +730,7 @@ class HCInfectedRoomCatalog
         if (!ValidateProductionCoverage(document))
             return false;
         ref array<ref HCInfectedRoomBinding> staged = new array<ref HCInfectedRoomBinding>;
+        ref map<House, bool> stagedHouses = new map<House, bool>;
         ref array<ref HCInfectedProductionRoomClass> coverage = new array<ref HCInfectedProductionRoomClass>;
         foreach (HCInfectedProductionRoomRecord record : document.Buildings)
         {
@@ -760,17 +763,15 @@ class HCInfectedRoomCatalog
             House building = ResolveBuilding(lookup);
             if (!building)
                 return false;
-            foreach (HCInfectedRoomBinding previous : staged)
-            {
-                if (previous.HouseObject == building)
-                    return false;
-            }
+            if (stagedHouses.Contains(building))
+                return false;
             HCInfectedRoomBinding binding = new HCInfectedRoomBinding;
             binding.HouseObject = building;
             binding.Position = building.GetPosition();
             binding.Orientation = building.GetOrientation();
             binding.Survey = survey;
             staged.Insert(binding);
+            stagedHouses.Insert(building, true);
         }
         foreach (HCInfectedProductionRoomClass entry : document.Classes)
         {

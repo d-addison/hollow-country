@@ -303,7 +303,7 @@ modded class HCInfectedModule
         // place roster if the owner has somehow exceeded that cap.
         if (count < 1 || count > m_Config.MaxTracked) { return null; }
         array<Man> players = HCPerfPlayers.HCGet();
-        array<string> visited = new array<string>;
+        map<string, bool> visited = new map<string, bool>;
         // At most MaxTracked candidates and MaxTracked members per place.
         // Advance before testing so blocked places cannot pin the next scan.
         for (int scan = 0; scan < count; scan++)
@@ -316,8 +316,8 @@ modded class HCInfectedModule
             if (!candidateBody || !candidateBody.IsAlive() || !candidateBody.HCVarietyTriedDormant() || candidateBody.HCVarietyRouteTried()) { continue; }
             if (candidate.GroupId != 0 || candidate.SearchPack || candidate.EverAssigned) { continue; }
             string place = candidateBody.HCVarietyPlace();
-            if (place == "" || visited.Find(place) >= 0) { continue; }
-            visited.Insert(place);
+            if (place == "" || visited.Contains(place)) { continue; }
+            visited.Insert(place, true);
             array<HCInfectedActor> roster = new array<HCInfectedActor>;
             bool blocked = false;
             foreach (HCInfectedActor actor : actors)

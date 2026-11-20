@@ -94,12 +94,12 @@ class HCCampRespawnModule : HCModule
         if (!m_State || m_State.Version != 1 || !m_State.Uses) { return false; }
         if (m_State.WorldName != GetGame().GetWorldName() || m_State.Uses.Count() > 256) { return false; }
         if (m_State.SavedUtc < 1 || m_State.SavedUtc > now) { return false; }
-        array<string> accounts = new array<string>;
+        map<string, bool> accounts = new map<string, bool>;
         foreach (HCCampRespawnUse row : m_State.Uses)
         {
             if (!row || !HCGroupRules.TextValid(row.Account, 128, false)) { return false; }
-            if (row.At < 1 || row.At > now || accounts.Find(row.Account) >= 0) { return false; }
-            accounts.Insert(row.Account);
+            if (row.At < 1 || row.At > now || accounts.Contains(row.Account)) { return false; }
+            accounts.Insert(row.Account, true);
         }
         return true;
     }
