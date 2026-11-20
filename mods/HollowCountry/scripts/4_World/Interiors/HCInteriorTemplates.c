@@ -545,18 +545,18 @@ class HCInteriorTemplates
         {
             return false;
         }
-        array<string> runs = new array<string>();
+        map<string, bool> runs = new map<string, bool>();
         foreach (HCInteriorTemplateEvidence evidence : templateRow.Evidence)
 
         {
             // Sources keys and pins passed the hex batch in IndexValid, so a matching
             // census-<RunId> entry proves RunId and Sha256 are lowercase hex.
-            if (!evidence || evidence.Kind != "native-room-survey-v1" || evidence.RunId.Length() != 32 || evidence.Sha256.Length() != 64 || s_Index.Sources.Get("census-" + evidence.RunId) != evidence.Sha256 || runs.Find(evidence.RunId) >= 0)
+            if (!evidence || evidence.Kind != "native-room-survey-v1" || evidence.RunId.Length() != 32 || evidence.Sha256.Length() != 64 || s_Index.Sources.Get("census-" + evidence.RunId) != evidence.Sha256 || runs.Contains(evidence.RunId))
 
             {
                 return false;
             }
-            runs.Insert(evidence.RunId);
+            runs.Set(evidence.RunId, true);
         }
         // A search-only template (rooms lack path/door proof) carries no rooms: search runs at the class's
         // vanilla CE container points, while infected rooms and furniture need Rooms == "covered".
@@ -566,12 +566,12 @@ class HCInteriorTemplates
         {
             return false;
         }
-        array<int> roomIds = new array<int>();
+        map<int, bool> roomIds = new map<int, bool>();
         array<vector> anchors = new array<vector>();
         foreach (HCInteriorTemplateRoom roomRow : templateRow.Rooms)
 
         {
-            if (!roomRow || roomRow.Id < 1 || roomIds.Find(roomRow.Id) >= 0 || !HCInteriorTemplatesStrict.Text(roomRow.Label, 128) || !BoxValid(roomRow.Min, roomRow.Max) || !Inside(roomRow.Min, templateRow.Box.Min, templateRow.Box.Max) || !Inside(roomRow.Max, templateRow.Box.Min, templateRow.Box.Max) || !VectorValid(roomRow.Anchor, 512) || !Inside(roomRow.Anchor, roomRow.Min, roomRow.Max) || !(roomRow.FloorY >= roomRow.Min[1] && roomRow.FloorY <= roomRow.Max[1]) || roomRow.Cells < 1)
+            if (!roomRow || roomRow.Id < 1 || roomIds.Contains(roomRow.Id) || !HCInteriorTemplatesStrict.Text(roomRow.Label, 128) || !BoxValid(roomRow.Min, roomRow.Max) || !Inside(roomRow.Min, templateRow.Box.Min, templateRow.Box.Max) || !Inside(roomRow.Max, templateRow.Box.Min, templateRow.Box.Max) || !VectorValid(roomRow.Anchor, 512) || !Inside(roomRow.Anchor, roomRow.Min, roomRow.Max) || !(roomRow.FloorY >= roomRow.Min[1] && roomRow.FloorY <= roomRow.Max[1]) || roomRow.Cells < 1)
 
             {
                 return false;
@@ -586,7 +586,7 @@ class HCInteriorTemplates
                     return false;
                 }
             }
-            roomIds.Insert(roomRow.Id);
+            roomIds.Set(roomRow.Id, true);
             anchors.Insert(anchor);
         }
         if (!templateRow.KeepOuts || templateRow.KeepOuts.Count() > 32)
@@ -594,7 +594,7 @@ class HCInteriorTemplates
         {
             return false;
         }
-        array<string> keepKeys = new array<string>();
+        map<string, bool> keepKeys = new map<string, bool>();
         foreach (HCInteriorTemplateKeepOut keepOut : templateRow.KeepOuts)
 
         {
@@ -604,12 +604,12 @@ class HCInteriorTemplates
                 return false;
             }
             string keepKey = keepOut.Kind + "_" + keepOut.Index.ToString();
-            if (keepKeys.Find(keepKey) >= 0)
+            if (keepKeys.Contains(keepKey))
 
             {
                 return false;
             }
-            keepKeys.Insert(keepKey);
+            keepKeys.Set(keepKey, true);
         }
         // Validate the bounded catalog independently of the operator's placement cap.
         // PlaceRow emits only the allowed prefix and logs each capped building class once.
@@ -618,11 +618,11 @@ class HCInteriorTemplates
         {
             return false;
         }
-        array<int> propIds = new array<int>();
+        map<int, bool> propIds = new map<int, bool>();
         foreach (HCInteriorTemplatePropSlot propRow : templateRow.PropSlots)
 
         {
-            if (!propRow || propRow.Id < 1 || propIds.Find(propRow.Id) >= 0 || !HCInteriorTemplatesStrict.Text(propRow.Type, 128) || !PropType(propRow.Type) || !GetGame().ConfigIsExisting("CfgVehicles " + propRow.Type) || !SlotClear(templateRow, propRow) || !Texts(propRow.History, 1, 3))
+            if (!propRow || propRow.Id < 1 || propIds.Contains(propRow.Id) || !HCInteriorTemplatesStrict.Text(propRow.Type, 128) || !PropType(propRow.Type) || !GetGame().ConfigIsExisting("CfgVehicles " + propRow.Type) || !SlotClear(templateRow, propRow) || !Texts(propRow.History, 1, 3))
 
             {
                 return false;
@@ -636,32 +636,32 @@ class HCInteriorTemplates
                     return false;
                 }
             }
-            propIds.Insert(propRow.Id);
+            propIds.Set(propRow.Id, true);
         }
         if (!templateRow.SearchSites || templateRow.SearchSites.Count() > 24 || (classRow.Search == "covered" && templateRow.SearchSites.Count() < 1))
 
         {
             return false;
         }
-        array<int> siteIds = new array<int>();
+        map<int, bool> siteIds = new map<int, bool>();
         foreach (HCInteriorTemplateSearchSite siteRow : templateRow.SearchSites)
 
         {
-            if (!siteRow || siteRow.Id < 1 || siteIds.Find(siteRow.Id) >= 0 || !(Room(templateRow, siteRow.Room) || (siteRow.Room == 0 && templateRow.Rooms.Count() == 0)) || !VectorValid(siteRow.Center, 512) || !Inside(siteRow.Center, templateRow.Box.Min, templateRow.Box.Max) || !(siteRow.Radius >= 0.25 && siteRow.Radius <= 8) || !Container(siteRow.Source) || !Texts(siteRow.Groups, 1, 8) || !siteRow.Points || siteRow.Points.Count() < 1 || siteRow.Points.Count() > 8192)
+            if (!siteRow || siteRow.Id < 1 || siteIds.Contains(siteRow.Id) || !(Room(templateRow, siteRow.Room) || (siteRow.Room == 0 && templateRow.Rooms.Count() == 0)) || !VectorValid(siteRow.Center, 512) || !Inside(siteRow.Center, templateRow.Box.Min, templateRow.Box.Max) || !(siteRow.Radius >= 0.25 && siteRow.Radius <= 8) || !Container(siteRow.Source) || !Texts(siteRow.Groups, 1, 8) || !siteRow.Points || siteRow.Points.Count() < 1 || siteRow.Points.Count() > 8192)
 
             {
                 return false;
             }
-            array<int> pointIds = new array<int>();
+            map<int, bool> pointIds = new map<int, bool>();
             foreach (int pointId : siteRow.Points)
 
             {
-                if (pointId < 0 || pointIds.Find(pointId) >= 0)
+                if (pointId < 0 || pointIds.Contains(pointId))
 
                 {
                     return false;
                 }
-                pointIds.Insert(pointId);
+                pointIds.Set(pointId, true);
             }
             foreach (string groupId : siteRow.Groups)
 
@@ -673,7 +673,7 @@ class HCInteriorTemplates
                     return false;
                 }
             }
-            siteIds.Insert(siteRow.Id);
+            siteIds.Set(siteRow.Id, true);
         }
         return true;
     }
