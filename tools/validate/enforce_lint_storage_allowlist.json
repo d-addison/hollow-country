@@ -1,0 +1,5 @@
+{
+ "schema": 1,
+ "scope": "Exact vanilla storage hook exceptions; each entry requires path, class, method and a non-empty migration_plan note describing existing-save migration and validation.",
+ "entries": []
+}

@@ -31,6 +31,8 @@ from tools.validate import native_symbols
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).with_name('enforce_lint_baseline.json')
+STORAGE_ALLOWLIST = Path(__file__).with_name('enforce_lint_storage_allowlist.json')
+WORKSHOP_ROOT = Path('/mnt/e/HollowCountryLocal/friend-local-1')
 DEFAULT_CACHE = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289')
 # Vanilla 1.30.164289 4_World/Entities/GardenBase/Slot.c declares class Slot(float); an authored
 # method named Slot made an unqualified call resolve to that class (native boot 026, commit acab865).
@@ -51,6 +53,10 @@ RULES = {
     'HC-E011': 'Enforce keyword used as a variable, member or parameter name (native compile: Expected name, not a keyword)',
     'HC-E012': 'method absent from the declared receiver type and its visible ancestors/modded bodies',
     'HC-E013': 'type only defined in a higher script layer than its use',
+    'HC-E014': 'modded class declared outside the script module of its original class',
+    'HC-E015': 'unsupported map key or set element type (use int/string/typename/class types)',
+    'HC-E016': 'FileHandle/FindFileHandle compared with null (use truthiness)',
+    'HC-E017': 'vanilla storage override without an explicit migration-plan allowlist entry',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -111,11 +117,13 @@ class Finding:
 class Project:
     """Cross-file indexes over authored sources (and optional native type names)."""
 
-    def __init__(self, sources, native=None, symbols=None):
+    def __init__(self, sources, native=None, symbols=None, provider_layers=None):
         self.sources = sources
         self.native = native or {}
         self.symbols = (symbols or {}).get('classes', {})
         self._receiver_cache = {}
+        self.provider_layers = provider_layers or {}
+        self.storage_allowlist = load_storage_allowlist()
         self.links, self.types, self.enums, self.typedefs = {}, {}, set(), {}
         for source in sources:
             for definition in source.classes:
@@ -134,6 +142,29 @@ class Project:
             for definition in definitions:
                 for method in definition.methods:
                     self.methods.setdefault(method.name, []).append(method)
+
+    def declaring_layers(self, name, source):
+        """Original bodies only; a modded link never declares a new type.
+
+        Prefer this addon's own declarations, then dependencies. Layers are
+        zero-based es.LAYERS indexes, never inferred from the caller's module.
+        """
+        bodies = [d for d in self.links.get(name, ()) if not d.modded]
+        own = [d for d in bodies if _mod_name(d.source) == _mod_name(source)]
+        if own:
+            return {d.source.layer for d in own} - {None}
+        if bodies:
+            return {d.source.layer for d in bodies} - {None}
+        engine = {d['layer'] for d in self.symbols.get(name, ()) if not d['modded']}
+        if engine:
+            return engine
+        # Name-only indexes and the small pinned census support offline callers.
+        engine = {layer for layer, names in self.native.items() if name in names}
+        if engine:
+            return engine
+        if name in PINNED_LAYERS:
+            return {PINNED_LAYERS[name]}
+        return self.provider_layers.get(name, set())
 
     def base_of(self, name):
         for definition in self.links.get(name, ()):
@@ -266,6 +297,150 @@ _NAME_KEYWORDS = ('owned', 'out', 'inout', 'notnull', 'autoptr', 'reference', 'v
                   'thread', 'sealed', 'local', 'native', 'proto', 'private', 'protected', 'static', 'const',
                   'override', 'modded')
 _NAME_KEYWORD_DECL = re.compile(r'\b([A-Za-z_][A-Za-z0-9_<>]*)\s+(%s)\s*(?==|;|,|\))' % '|'.join(_NAME_KEYWORDS))
+
+
+def _mod_name(source):
+    if source.mod:
+        return source.mod
+    parts = source.path.parts
+    if 'mods' in parts and parts.index('mods') + 1 < len(parts):
+        return parts[parts.index('mods') + 1]
+    return ''
+
+
+def load_storage_allowlist(path=STORAGE_ALLOWLIST):
+    """An exception must name the exact file, vanilla class, hook and migration.
+
+    Invalid entries fail closed, rather than accidentally granting a broad waiver.
+    """
+    data = json.loads(Path(path).read_text(encoding='utf-8'))
+    if data.get('schema') != 1 or not isinstance(data.get('entries'), list):
+        raise ValueError('invalid storage migration allowlist')
+    entries = set()
+    for entry in data['entries']:
+        if (not all(isinstance(entry.get(k), str) and entry[k].strip()
+                    for k in ('path', 'class', 'method', 'migration_plan'))
+                or entry['method'] not in {'OnStoreSave', 'OnStoreLoad'}):
+            raise ValueError('storage exception requires path, class, method and migration_plan')
+        entries.add((entry['path'], entry['class'], entry['method']))
+    return entries
+
+
+def workshop_class_layers(names, root=WORKSHOP_ROOT):
+    """Read available provider .c declarations only, never unpack or copy mods.
+
+    Packed-only/unreadable installs leave unknown bases unresolved. Do not read
+    installed HC copies: authored HC declarations are authoritative for this run.
+    """
+    result = {}
+    if not names:
+        return result
+    layers = {name.lower(): i for i, name in enumerate(es.LAYERS)}
+    for addon in sorted(Path(root).glob('@*')):
+        if addon.name.lower() in {'@hollowcountry', '@hollowcountryexpansionai'}:
+            continue
+        for path in sorted(addon.rglob('*.c')):
+            layer = next((layers[p.lower()] for p in path.parts if p.lower() in layers), None)
+            if layer is None:
+                continue
+            try:
+                code = es.clean(path.read_text(encoding='utf-8', errors='replace'))
+            except OSError:
+                continue
+            for match in re.finditer(r'\b(modded\s+)?(?:sealed\s+)?class\s+([A-Za-z_]\w*)', code):
+                if not match[1] and match[2] in names:
+                    result.setdefault(match[2], set()).add(layer)
+    return result
+
+
+def rule_modded_module(project, source):
+    if source.layer is None:
+        return
+    for definition in source.classes:
+        if not definition.modded:
+            continue
+        layers = project.declaring_layers(definition.name, source)
+        if layers and source.layer not in layers:
+            declared = ', '.join(es.LAYERS[i] for i in sorted(layers))
+            yield _finding('HC-E014', source, definition.offset, definition.name,
+                           f'modded class is in {es.LAYERS[source.layer]}; original class is in {declared}')
+
+
+def rule_collection_keys(project, source):
+    # Match every instantiation, including nested generics and return types.
+    for match in re.finditer(r'\b(map|set)\s*<\s*((?:(?:ref|autoptr)\s+)?[A-Za-z_]\w*)', source.code):
+        kind = re.sub(r'^(?:ref|autoptr)\s+', '', match[2])
+        kind = project.resolve_typedef(kind)
+        if kind in {'int', 'string', 'typename', 'Class', 'class'}:
+            continue
+        # Enums are integer keys. Unknown identifiers may be template type
+        # parameters/provider classes; do not guess they are primitive keys.
+        if project.is_enum(kind):
+            continue
+        if kind in es.PRIMITIVES or kind.startswith(('array<', 'map<', 'set<')) or kind.endswith('[]'):
+            yield _finding('HC-E015', source, match.start(), '<file>',
+                           f'{match[1]}<{match[2]}>: {RULES["HC-E015"]}')
+
+
+_NULL_HANDLE = re.compile(
+    r'(?<![\w.])(?:(?P<left>[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*(?:==|!=)\s*null\b'
+    r'|null\s*(?:==|!=)\s*(?P<right>[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*))')
+
+
+def rule_handle_null(project, source):
+    methods = list(_all_methods(source))
+    # File-scope variables remain visible in functions and member initializers.
+    globals_ = {m[2]: m[1] for m in _LOCAL.finditer(source.code)
+                if not any(d.body_start < m.start() < d.body_end for d in source.classes)
+                and not any(f.offset <= m.start() < f.body_end for f in source.functions)}
+    for match in _NULL_HANDLE.finditer(source.code):
+        offset = match.start()
+        method = next((m for m in methods if m.body_start < offset < m.body_end), None)
+        owner = (method.owner if method else
+                 next((d for d in source.classes if d.body_start < offset < d.body_end), None))
+        fields = project.receiver_members(owner.name, source.layer)[1] if owner else {}
+        parameters = {name: kind for kind, name, _ in method.parameters()} if method else {}
+        declarations = source.local_declarations(method) if method else []
+        parts = re.split(r'\s*\.\s*', match['left'] or match['right'])
+        first = parts.pop(0)
+        bindings = [kind for name, kind, start, end in declarations
+                    if name == first and start <= offset < end]
+        if first == 'this' and owner:
+            kind = owner.name
+        elif bindings:
+            kind = bindings[-1]
+        else:
+            kind = parameters.get(first, fields.get(first, globals_.get(first, '')))
+        for member in parts:
+            kind = project.receiver_members(project.resolve_typedef(kind), source.layer)[1].get(member, '')
+        # Preserve handle names before typedef expansion to int[]. Follow
+        # authored aliases without treating all int arrays as file handles.
+        seen = set()
+        while kind in project.typedefs and kind not in seen and kind not in {'FileHandle', 'FindFileHandle'}:
+            seen.add(kind)
+            kind = project.typedefs[kind].strip()
+        if kind in {'FileHandle', 'FindFileHandle'}:
+            symbol = _symbol(method) if method else (owner.name if owner else '<file>')
+            yield _finding('HC-E016', source, offset, symbol,
+                           f'{match[0].strip()}: {RULES["HC-E016"]}')
+
+
+def rule_vanilla_storage(project, source):
+    for definition in source.classes:
+        if not definition.modded:
+            continue
+        # Authored original classes own their storage layout. Modding a vanilla
+        # subclass is covered because its original is in the native census.
+        if any(not d.modded for d in project.links.get(definition.name, ())):
+            continue
+        if definition.name not in project.native_names | PINNED_TYPES | set(PINNED_LAYERS) | set(project.symbols):
+            continue
+        for method in definition.methods:
+            if method.name not in {'OnStoreSave', 'OnStoreLoad'}:
+                continue
+            if (source.rel, definition.name, method.name) in project.storage_allowlist:
+                continue
+            yield _finding('HC-E017', source, method.offset, _symbol(method), RULES['HC-E017'])
 
 
 def rule_keyword_names(project, source):
@@ -764,14 +939,15 @@ def rule_predicted_actions(project, source):
 
 
 ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
-             rule_receiver_layers, rule_receiver_methods,
+             rule_receiver_layers, rule_receiver_methods, rule_modded_module,
+             rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)
 
 
-def lint(sources, native=None, rules=ALL_RULES, symbols=None):
-    project = Project(sources, native, symbols)
+def lint(sources, native=None, rules=ALL_RULES, symbols=None, provider_layers=None):
+    project = Project(sources, native, symbols, provider_layers)
     findings = []
     for source in sources:
         for rule in rules:
@@ -870,7 +1046,15 @@ def main(argv=None):
             parser.exit(1, 'enforce_lint: cannot read scripts or write the local symbol cache\n')
     native = ({int(layer): set(names) for layer, names in symbols['types'].items()}
               if symbols is not None else None)
-    findings = lint(es.mod_sources(args.root), native, symbols=symbols)
+    mods = tuple(sorted(p.parent.name for p in (args.root / 'mods').glob('*/scripts') if p.is_dir()))
+    sources = es.mod_sources(args.root, mods=mods)
+    provider_layers = {}
+    if not args.no_native:
+        project = Project(sources, native, symbols)
+        unknown = {d.name for source in sources for d in source.classes
+                   if d.modded and not project.declaring_layers(d.name, source)}
+        provider_layers = workshop_class_layers(unknown)
+    findings = lint(sources, native, symbols=symbols, provider_layers=provider_layers)
     if args.write_baseline:
         args.baseline.write_text(json.dumps(baseline_from(findings, args.write_baseline), indent=1) + '\n',
                                  encoding='utf-8')
