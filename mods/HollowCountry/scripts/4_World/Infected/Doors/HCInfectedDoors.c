@@ -73,6 +73,8 @@ class HCInfectedDoorsModule : HCModule
     // #160 HC-S001: cause of the latest refusal; read by the summary line.
     protected string m_LastRefusal;
     protected int m_Full;
+    protected int m_BuildingFilterRejected;
+    protected ref map<string, bool> m_BuildingTypes;
     protected ref array<ref HCInfectedDoorPressure> m_Doors;
     protected ref array<ref HCInfectedDoorScan> m_Scans;
     protected ref array<Object> m_Objects;
@@ -111,6 +113,8 @@ class HCInfectedDoorsModule : HCModule
         m_Proxies = new array<CargoBase>;
         m_Budget = new HCWorkBudget;
         m_IndexBudget = new HCUnitBudget;
+        m_BuildingTypes = new map<string, bool>;
+        m_BuildingFilterRejected = 0;
         m_PlayerCursor = 0;
         m_DoorCursor = 0;
         m_Hits = 0;
@@ -147,7 +151,7 @@ class HCInfectedDoorsModule : HCModule
         {
             m_LogAt = m_Clock + 600;
             int watched = m_Doors.Count();
-            Print("[HC Doors] summary watched=" + watched.ToString() + " hits=" + m_Hits.ToString() + " opened=" + m_Opened.ToString() + " broken=" + m_Broken.ToString() + " refused=" + m_Refused.ToString() + " table_full=" + m_Full.ToString() + " runtime-unverified");
+            Print("[HC Doors] summary watched=" + watched.ToString() + " hits=" + m_Hits.ToString() + " opened=" + m_Opened.ToString() + " broken=" + m_Broken.ToString() + " refused=" + m_Refused.ToString() + " table_full=" + m_Full.ToString() + " building_filter_rejected=" + m_BuildingFilterRejected.ToString() + " runtime=PENDING");
             if (m_Refused > 0)
             {
                 Print("[HC Doors] summary refusal last_refusal=" + m_LastRefusal + " refused=" + m_Refused.ToString() + " runtime-unverified");
@@ -158,6 +162,7 @@ class HCInfectedDoorsModule : HCModule
             m_Refused = 0;
             m_LastRefusal = "none";
             m_Full = 0;
+            m_BuildingFilterRejected = 0;
         }
     }
 
@@ -174,6 +179,7 @@ class HCInfectedDoorsModule : HCModule
         m_Proxies = null;
         m_Budget = null;
         m_IndexBudget = null;
+        m_BuildingTypes = null;
     }
 
     protected void WatchPlayers()
@@ -202,7 +208,44 @@ class HCInfectedDoorsModule : HCModule
         if (!building || building.IsPendingDeletion()) { return false; }
         if (Bunker.Cast(building)) { return false; }
         if (ContainerLockedBase.Cast(building)) { return false; }
-        return true;
+        string className = building.GetType();
+        bool eligible;
+        if (!m_BuildingTypes.Find(className, eligible))
+        {
+            eligible = HCBuildingAncestry(className);
+            // Bound retained config facts; uncached classes still use the same filter.
+            if (m_BuildingTypes.Count() < 256) { m_BuildingTypes.Set(className, eligible); }
+        }
+        if (!eligible) { m_BuildingFilterRejected = m_BuildingFilterRejected + 1; }
+        return eligible;
+    }
+
+    // #300: script Building also covers static vehicle wrecks. The installed
+    // structures_wrecks config has no common wreck-only root: e.g. the wine
+    // sedan -> Land_Wreck_Car_ThreeDoors -> HouseNoDestruct. Inspect every
+    // CfgVehicles ancestor for the wreck family token, including the concrete
+    // class, so renamed descendants are covered without a concrete-class list.
+    // Transport (Car/Boat) and Air are the installed live-vehicle roots.
+    // Native Game.c:602 ConfigGetBaseName; :1437 IsKindOf uses config ancestry
+    // too, rather than the Enforce script inheritance tree.
+    protected bool HCBuildingAncestry(string className)
+    {
+        string currentClass = className;
+        for (int depth = 0; depth < 32; depth++)
+        {
+            string family = currentClass;
+            if (family.Length() > 256) { return false; }
+            family.ToLower();
+            if (family.IndexOf("wreck") >= 0 || family == "transport" || family == "air") { return false; }
+            string path = "CfgVehicles " + currentClass;
+            if (!GetGame().ConfigIsExisting(path)) { return false; }
+            string parentName;
+            if (!GetGame().ConfigGetBaseName(path, parentName) || parentName == "") { return true; }
+            if (parentName == currentClass) { return false; }
+            currentClass = parentName;
+        }
+        // Malformed/cyclic or over-budget ancestry cannot establish a building.
+        return false;
     }
 
     protected void WatchAround(PlayerBase player)
