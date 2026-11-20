@@ -1,4 +1,5 @@
 // #276: give the existing HCXWarningShout a finite lead before engagement.
+// Named to load after HCXWarningShout.c: it reads that modded layer's fields (same-module modded classes chain in file order).
 // Original adapter; installed provider scripts inspected for interfaces only.
 // Expansion ai_scripts.pbo, 4_World/DayZExpansion_AI/Entities/AI/eAIBase.c:
 // eAI_Targeting:6941 updates LOS before eAI_OnUpdate:7036 returns to aiming;
