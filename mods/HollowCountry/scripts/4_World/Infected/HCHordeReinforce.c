@@ -26,6 +26,7 @@
 class HCHordeLimits
 {
     static const int MAX_PACK = 40;
+    static const int MIN_PATROL = 8;
 }
 
 class HCHordeSpawnLease

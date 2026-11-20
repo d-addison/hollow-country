@@ -58,6 +58,38 @@ class HCHordeRoutes
 {
     protected static ref HCHordeRouteDocument s_Document;
     protected static string s_Reason = "ROUTE_SURVEY_NOT_LOADED";
+    protected static ref HCActivityWindow s_Activity;
+
+    static HCActivityWindow HCActivity()
+    {
+        if (!s_Activity) { s_Activity = new HCActivityWindow("[HC HordeRoutes]", "authored_bound local_offer native_admitted native_refused legs_started legs_finished reached expired interrupted stalled invalid"); }
+        return s_Activity;
+    }
+
+    // A local offer is a CE-observed destination, not a surveyed corridor or
+    // perception receipt. Native Start validates its only leg before transfer.
+    // <=MAX_PACK candidates, <=100 m from the fixed offer anchor, no world scan.
+    static HCHordeRouteSurvey HCLocalOffer(vector anchor, array<HCInfectedActor> candidates)
+    {
+        vector destination;
+        float farthest = 16 * 16;
+        foreach (HCInfectedActor actor : candidates)
+        {
+            if (!actor || !actor.InfectedEntity) { continue; }
+            vector point = actor.InfectedEntity.GetPosition();
+            float distance = vector.DistanceSq(anchor, point);
+            if (!HCInfectedStore.ValidPosition(point) || distance <= farthest || distance > 10000) { continue; }
+            farthest = distance;
+            destination = point;
+        }
+        if (farthest <= 16 * 16) { return null; }
+        HCHordeRouteSurvey route = new HCHordeRouteSurvey;
+        route.Id = "local-ce-leg";
+        route.Evidence = "ce_position_native_path_pending";
+        route.Nodes.Insert(destination);
+        HCActivity().Add("local_offer");
+        return route;
+    }
 
     static HCHordeRouteDefaults Defaults()
     {
@@ -120,13 +152,15 @@ class HCHordeRoutes
         if (!document || document.SchemaVersion != 1 || document.WorldName != world || !ValidDefaults(document.Defaults)) { return false; }
         if (!document.Routes || document.Routes.Count() > 8) { return false; }
         // The shipped schema-1 pilot had a fixed six-member ceiling. Migrate
-        // legacy six/twenty defaults in memory; smaller explicit caps refuse 30+ patrols.
+        // legacy six-member defaults in memory; explicit smaller caps remain authoritative.
         if (document.Defaults.MaxMembers == 6) { document.Defaults.MaxMembers = HCHordeLimits.MAX_PACK; }
         s_Document = document;
         s_Reason = "ROUTE_OPERATOR_OFF";
         if (!document.Enabled) { return false; }
         s_Reason = "ROUTE_SURVEY_PENDING";
         bool admitted = false;
+        int admittedRoutes;
+        int admittedNodes;
         array<ref HCHordeRouteSurvey> documentRoutes = document.Routes;
         foreach (HCHordeRouteSurvey route : documentRoutes)
         {
@@ -134,10 +168,15 @@ class HCHordeRoutes
             {
                 if (!ValidSurvey(route, document.Defaults)) { s_Document = null; s_Reason = "ROUTE_SURVEY_INVALID"; return false; }
                 admitted = true;
+                admittedRoutes++;
+                admittedNodes += route.Nodes.Count();
             }
         }
         if (!admitted) { return false; }
         s_Reason = "SURVEY_SOURCE_READY_NATIVE_PENDING";
+        // Complete source validation: <=8 routes x <=8 nodes. This receipt
+        // does not relabel offline-authored points as native-survey evidence.
+        Print("[HC HordeRoutes] source_validated routes=" + admittedRoutes.ToString() + " nodes=" + admittedNodes.ToString() + " native_survey=PENDING runtime=PENDING");
         return true;
     }
 
@@ -152,8 +191,8 @@ class HCHordeRoutes
             if (!ValidSurvey(route, cfg)) { continue; }
             vector first = route.Nodes[0];
             vector last = route.Nodes[route.Nodes.Count() - 1];
-            if (vector.DistanceSq(start, first) <= bindSq) { return route; }
-            if (vector.DistanceSq(start, last) <= bindSq) { return route; }
+            if (vector.DistanceSq(start, first) <= bindSq) { HCActivity().Add("authored_bound"); return route; }
+            if (vector.DistanceSq(start, last) <= bindSq) { HCActivity().Add("authored_bound"); return route; }
         }
         return null;
     }
@@ -229,10 +268,12 @@ class HCHordeMigration : HCModule
             HCReached.Mark("horde_migration.tick");
         }
         HCRefreshStatus(infected);
+        HCHordeRoutes.HCActivity().Report();
     }
     override void OnStop()
     {
         s_Active = false;
+        HCHordeRoutes.HCActivity().Report("stopped", true);
         // Infected owner's retained release ledger owns native cleanup.
         HCHordeRoutes.HCClear();
         m_Status.HCPublish("off", "route_owner_stopped");
@@ -314,9 +355,12 @@ modded class HCNativeInfectedPack
 {
     protected int m_HCReinforceTarget;
     protected int m_HCReinforced;
+    // Admission receipts, not the release ledger's shrinking member count.
+    protected int m_HCReinforceAdmitted;
     protected bool m_HCReinforceLogged;
     protected float m_HCFarSince = -1;
-    override bool HCReinforcePending() { return m_HCReinforceTarget > m_Members.Count() && HCReinforceActive(); }
+    protected float m_HCReinforceUntil;
+    override bool HCReinforcePending() { return !m_HCReinforceLogged && m_HCReinforceTarget > m_Members.Count() && HCReinforceActive(); }
     override bool HCReinforceActive() { return m_V2Drift && !m_Releasing; }
     protected bool m_V2Drift;
     protected bool m_V2Segment;
@@ -391,7 +435,7 @@ modded class HCNativeInfectedPack
     {
         HCHordeRouteDefaults cfg = HCHordeRoutes.Defaults();
         if (!HCHordeMigration.Active() || !cfg || !route || !Group || m_Releasing || m_Search) { return false; }
-        if (target < 30 || target > cfg.MaxMembers || target > HCHordeLimits.MAX_PACK) { return false; }
+        if (target < HCHordeLimits.MIN_PATROL || target > cfg.MaxMembers || target > HCHordeLimits.MAX_PACK) { return false; }
         if (!HCHordeRecovery.HCRouteRoster(m_Members.Count(), cfg.MaxMembers, m_Members.Count(), false)) { return false; }
         ZombieBase leader = m_Members[0];
         if (!leader) { return false; }
@@ -413,12 +457,21 @@ modded class HCNativeInfectedPack
         m_V2MemberCount = m_Members.Count();
         m_HCReinforceTarget = target;
         m_HCReinforced = 0;
+        m_HCReinforceAdmitted = m_Members.Count();
         m_HCReinforceLogged = false;
+        // Visibility may veto every top-up. Never hold the walking CE seed
+        // for its entire 600-second patrol waiting for hidden creation.
+        m_HCReinforceUntil = now + 30;
         m_HCFarSince = -1;
         m_V2Deadline = now + 600;
         m_V2Progress = now;
-        m_V2Segment = false;
+        // Start already sampled, pathed and activated the entry waypoint.
+        // Observe that leg rather than issuing a second path to an endpoint
+        // the members may have reached during the bounded top-up window.
+        m_V2Segment = true;
+        m_V2BestDistance = -1;
         m_V2Drift = true;
+        HCHordeRoutes.HCActivity().Add("legs_started");
         HCRouteLog("admitted", "patrol");
         return true;
     }
@@ -432,7 +485,14 @@ modded class HCNativeInfectedPack
     protected void HCReinforceLog()
     {
         if (m_HCReinforceTarget < 1 || m_HCReinforceLogged) { return; }
+        // Latch before the checkpoint: a failed write quarantines the owner
+        // and re-enters Release. Never retry that boundary recursively.
         m_HCReinforceLogged = true;
+        if (m_HCReinforceAdmitted < m_HCReinforceTarget)
+        {
+            HCInfectedModule owner = HCInfectedModule.Instance;
+            if (owner) { owner.HCReinforceRetire(this, m_V2Id, m_HCReinforceAdmitted, m_HCReinforceTarget); }
+        }
         Print("[HC Plan] HC-46 cohort=" + m_V2Id.ToString() + " reinforced=" + m_HCReinforced.ToString() + " total=" + m_Members.Count().ToString() + " runtime=PENDING");
     }
 
@@ -465,6 +525,7 @@ modded class HCNativeInfectedPack
             m_HCRouteMembers.Insert(body);
             m_V2MemberCount = m_Members.Count();
             m_HCReinforced++;
+            m_HCReinforceAdmitted++;
         }
     }
 
@@ -497,7 +558,16 @@ modded class HCNativeInfectedPack
         if (m_V2Drift)
         {
             string phase = "refused_native_or_expired";
-            if (result == 2) { phase = "reached"; }
+            string outcome = "invalid";
+            if (result == 2) { phase = "reached"; outcome = "reached"; }
+            if (result == 3) { outcome = "stalled"; }
+            if (result == 5)
+            {
+                outcome = "interrupted";
+                if (now >= m_V2Deadline) { outcome = "expired"; }
+            }
+            phase = outcome;
+            HCHordeRoutes.HCActivity().Add(outcome);
             HCRouteLog(phase, "off");
             m_V2Cooldown = now + m_HCRouteConfig.CooldownSeconds;
         }
@@ -544,12 +614,15 @@ modded class HCNativeInfectedPack
         {
             if (vector.DistanceSq(clustered.GetPosition(), centroid) > cfg.CohesionMetres * cfg.CohesionMetres) { return V2End(now, 5); }
         }
-        if (m_HCReinforceTarget > 0 && m_Members.Count() < m_HCReinforceTarget)
+        if (!m_HCReinforceLogged && m_HCReinforceTarget > 0 && m_Members.Count() < m_HCReinforceTarget && now < m_HCReinforceUntil)
         {
             HCReinforceStep(now);
             if (m_Members.Count() < m_HCReinforceTarget) { return true; }
         }
         HCReinforceLog();
+        // A shortfall has a durable terminal record, not a completed roster.
+        // Release before refund; do not continue walking a retired offer.
+        if (m_HCReinforceAdmitted < m_HCReinforceTarget) { return V2End(now, 5); }
         float nearest = HCInfectedLOD.NearestDistance(HCPerfPlayers.HCGet(), centroid);
         // Cohesion bounds every member within 100 m, hence >=600 proves all >=500.
         if (nearest >= 500 + cfg.CohesionMetres)
@@ -564,6 +637,7 @@ modded class HCNativeInfectedPack
         {
             if (worst <= cfg.ArrivalMetres * cfg.ArrivalMetres)
             {
+                HCHordeRoutes.HCActivity().Add("legs_finished");
                 m_HCRouteNode++;
                 m_V2Segment = false;
                 if (m_HCRouteNode >= m_HCRoute.Nodes.Count()) { return V2End(now, 2); }
@@ -590,6 +664,7 @@ modded class HCNativeInfectedPack
         m_V2Segment = true;
         m_V2BestDistance = -1;
         m_V2Progress = now;
+        HCHordeRoutes.HCActivity().Add("legs_started");
         HCRouteLog("native_waypoint_requested", "on");
         return true;
     }

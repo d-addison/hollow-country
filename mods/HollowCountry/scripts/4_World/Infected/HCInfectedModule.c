@@ -55,6 +55,9 @@ class HCInfectedModule : HCModule
     protected ref array<HCInfectedActor> m_PacingHordeCandidates = new array<HCInfectedActor>;
     protected vector m_PacingHordeAnchor;
     protected int m_PacingHordeTarget;
+    protected float m_PacingHordeDeadline;
+    protected ref HCHordeRouteSurvey m_PacingHordePatrol;
+    protected ref HCActivityWindow m_HCHordeActivity = new HCActivityWindow("[HC Hordes]", "offers retries budget_deferred offers_closed no_seed no_route paced_wait started failed reinforcement_retired");
     protected bool m_PacingHordeWaiting;
     protected bool m_Chains;
     protected bool m_Dirty;
@@ -396,6 +399,27 @@ class HCInfectedModule : HCModule
     bool HCReinforceRoom()
     {
         return m_Healthy && m_Actors.Count() < m_Config.MaxTracked && m_RegistrationAttempts < m_WorkCap;
+    }
+
+    // Only the live pack that owns the reserved continuation can retire its
+    // unfilled offer. The journal requires immutable per-record reservations;
+    // partial refunds would fail restart validation. Use its terminal lifecycle
+    // instead, retaining the full charge until native Release completes.
+    bool HCReinforceRetire(HCNativeInfectedPack pack, int groupId, int admitted, int target)
+    {
+        if (!m_Healthy || !m_State || groupId < 1 || groupId > m_State.Groups.Count()) { return false; }
+        if (!pack || m_Packs[groupId - 1] != pack) { return false; }
+        HCHordeRecord record = m_State.Groups[groupId - 1];
+        if (record.AdoptionStage != 2 || record.State == 6 || record.BudgetReleased) { return false; }
+        if (record.Reserved != target || admitted < 3 || admitted >= target) { return false; }
+        record.State = 5;
+        record.HasRoute = false;
+        m_Dirty = true;
+        if (!SaveAdoptionBoundary("reinforcement_retire")) { return false; }
+        m_HCHordeActivity.Add("reinforcement_retired");
+        Print("[HC Hordes] reinforcement_retired cohort=" + groupId.ToString() + " admitted=" + admitted.ToString() + " reserved=" + target.ToString() + " refund=awaiting_native_release runtime=PENDING");
+        // FinishSweep's RefundRetired retries release and refunds exactly once.
+        return true;
     }
 
     int RegistrationRound()
@@ -764,7 +788,8 @@ class HCInfectedModule : HCModule
     protected void TryAdopt(int nowUtc)
     {
         m_PacingHordeWaiting = false;
-        HCTryAdoptPaced(nowUtc);
+        m_HCHordeActivity.Add("offers");
+        if (m_PacingHordeId == "" || m_Now < m_PacingHordeDeadline) { HCTryAdoptPaced(nowUtc); }
         if (!m_PacingHordeWaiting && m_PacingHordeId != "")
         {
             // Includes early eligibility/prepare failures; no native start is
@@ -775,6 +800,9 @@ class HCInfectedModule : HCModule
             m_PacingHordeCandidates.Clear();
             m_PacingHordeAnchor = vector.Zero;
             m_PacingHordeTarget = 0;
+            m_PacingHordePatrol = null;
+            m_PacingHordeDeadline = 0;
+            m_HCHordeActivity.Add("offers_closed");
         }
     }
 
@@ -847,8 +875,8 @@ class HCInfectedModule : HCModule
             // A shared tick-budget deferral is not a changed/refused offer.
             if (retryOffer)
             {
-                m_PacingHordeAttempts++;
-                m_PacingHordeWaiting = m_PacingHordeAttempts < 6;
+                m_PacingHordeWaiting = true;
+                m_HCHordeActivity.Add("budget_deferred");
             }
             return;
         }
@@ -858,8 +886,8 @@ class HCInfectedModule : HCModule
             {
                 if (retryOffer)
                 {
-                    m_PacingHordeAttempts++;
-                    m_PacingHordeWaiting = m_PacingHordeAttempts < 6;
+                    m_PacingHordeWaiting = true;
+                    m_HCHordeActivity.Add("budget_deferred");
                     return;
                 }
                 break;
@@ -895,7 +923,6 @@ class HCInfectedModule : HCModule
             if (!retryOffer && candidates.Count() == 0)
             {
                 // CE activates local population; routes never use a player fix.
-                if (HCHordeMigration.Active() && !HCHordeRoutes.Select(position, null)) { continue; }
                 anchor = position;
             }
             if (vector.DistanceSq(position, anchor) <= 10000)
@@ -908,10 +935,13 @@ class HCInfectedModule : HCModule
         // anchor while waiting for the director's durable reservation barrier.
         if (retryOffer && candidates.Count() != m_PacingHordeCandidates.Count()) { return; }
         int requested = candidates.Count();
-        int target = m_PacingHordeTarget;
-        if (!retryOffer) { target = Math.Clamp(HCInfectedMemory.CohortSize(anchor, HCHordeLimits.MAX_PACK), 30, HCHordeLimits.MAX_PACK); }
         HCHordeRouteDefaults limits = HCHordeRoutes.Defaults();
-        if (!limits || limits.MaxMembers < target) { return; }
+        if (!limits) { return; }
+        int capacity = Math.Min(HCHordeLimits.MAX_PACK, Math.Min(limits.MaxMembers, m_MemberCap - m_State.Reserved));
+        if (capacity < HCHordeLimits.MIN_PATROL || requested < 3) { m_HCHordeActivity.Add("no_seed"); return; }
+        int target = m_PacingHordeTarget;
+        if (!retryOffer) { target = Math.Clamp(HCInfectedMemory.CohortSize(anchor, capacity), HCHordeLimits.MIN_PATROL, capacity); }
+        if (target > capacity) { return; }
         while (candidates.Count() > target) { candidates.Remove(candidates.Count() - 1); }
         requested = candidates.Count();
         if (requested < 1 || !HCInfectedPolicy.CanReserve(activeGroups, m_GroupCap, m_State.Reserved, m_MemberCap, target))
@@ -925,13 +955,21 @@ class HCInfectedModule : HCModule
                 adoptionClue = observedClue;
             }
         }
-        // A periodic patrol uses authored points, never invented hearing. Noise
-        // routing still requires its original live receipt when no corridor fits.
-        HCHordeRouteSurvey patrol;
-        if (HCHordeMigration.Active() && m_Admission.HordeStimulusRoutes)
+        // Patrols use authored corridors or CE-observed local destinations;
+        // neither is a hearing receipt. Keep the chosen route across retries.
+        HCHordeRouteSurvey patrol = m_PacingHordePatrol;
+        if (!retryOffer && HCHordeMigration.Active() && m_Admission.HordeStimulusRoutes)
+        {
             patrol = HCHordeRoutes.Select(anchor, null);
+            // Outside authored corridors, use a real CE member's observed
+            // position. Start must still sample and FindPath before transfer.
+            if (!patrol) { patrol = HCHordeRoutes.HCLocalOffer(anchor, candidates); }
+        }
         if (!m_Admission.NativePackRoutes || !patrol)
+        {
+            m_HCHordeActivity.Add("no_route");
             return;
+        }
         HCHordeRecord record = new HCHordeRecord;
         HCHordeRecovery.Capture(candidates, record);
         if (record.RecoveryConflicted)
@@ -942,13 +980,17 @@ class HCInfectedModule : HCModule
             m_PacingHordeCandidates = candidates;
             m_PacingHordeAnchor = anchor;
             m_PacingHordeTarget = target;
+            m_PacingHordePatrol = patrol;
+            m_PacingHordeDeadline = m_Now + 600;
         }
+        else { m_HCHordeActivity.Add("retries"); }
         m_PacingHordeAttempts++;
         // At most six passes for this fixed offer. Only after it terminates may
         // the next admission resume selection at the already advanced cursor.
         if (!HCEventModule.HCPaceSituation(m_PacingHordeId, anchor, 600))
         {
             m_PacingHordeWaiting = m_PacingHordeAttempts < 6;
+            m_HCHordeActivity.Add("paced_wait");
             return;
         }
         // Never persist a partial roster or identities of supplemental bodies.
@@ -1025,8 +1067,18 @@ class HCInfectedModule : HCModule
             succeeded = succeeded && !pack.IsReleasing();
             releasing = pack.IsReleasing();
         }
-        if (succeeded) { HCEventModule.HCStartedSituation(m_PacingHordeId); }
-        else { HCEventModule.HCCancelSituation(m_PacingHordeId); }
+        if (succeeded) { HCHordeRoutes.HCActivity().Add("native_admitted"); }
+        else { HCHordeRoutes.HCActivity().Add("native_refused"); }
+        if (succeeded)
+        {
+            HCEventModule.HCStartedSituation(m_PacingHordeId);
+            m_HCHordeActivity.Add("started");
+        }
+        else
+        {
+            HCEventModule.HCCancelSituation(m_PacingHordeId);
+            m_HCHordeActivity.Add("failed");
+        }
         record.AdoptionStage = HCInfectedPolicy.AdoptionOutcome(true, attempted, succeeded, releasing);
         if (record.AdoptionStage == 2)
         {
@@ -1181,6 +1233,7 @@ class HCInfectedModule : HCModule
         m_LastUtc = nowUtc;
         m_Now = nowUtc - m_StartedUtc;
         HCHordeReinforce.HCBeginTick();
+        m_HCHordeActivity.Report("tracked=" + m_Actors.Count().ToString() + " reserved=" + m_State.Reserved.ToString());
         m_VoiceAttempts = 0;
         m_RegistrationAttempts = 0;
         HCInfectedRoomCatalog.BeginTick();
@@ -1342,6 +1395,9 @@ class HCInfectedModule : HCModule
         m_PacingHordeCandidates.Clear();
         m_PacingHordeAnchor = vector.Zero;
         m_PacingHordeTarget = 0;
+        m_PacingHordePatrol = null;
+        m_PacingHordeDeadline = 0;
+        m_HCHordeActivity.Report("stopped", true);
         HCInfectedVisionQualification.HCThreatReset(false);
         ReleasePacks();
         if (m_Healthy && m_Hordes && m_Dirty && GetGame().IsServer())
