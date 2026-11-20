@@ -8,7 +8,10 @@ is the integration entry point and accepts enforce_source.Source objects.
 P001 checks lexically enclosing loops, string parameters/fields/locals and
 simple assignments. Unknown strings are unbounded. Literal initializers,
 small length refusal guards (including literal caller bounds) and explicit clamped, strided bulk Substring copies are
-bounded; HCTextWindow receivers are typed objects, never strings. This is not
+bounded, as are constant-length (<=1024) Substring copies, locals only ever set
+from such pieces or one-character Get/At, and >, >= or != length guards against
+a literal, a static const int or an all-literal-callers int parameter.
+HCTextWindow receivers are typed objects, never strings. This is not
 interprocedural string taint analysis: aliases, returned strings and caller
 bounds can cause misses or candidates needing review.
 
@@ -20,17 +23,21 @@ Each reachable I/O site is reported once with its shortest witness. Tick roots
 are OnTick, OnUpdate, HCStep* and *SaveStage* / *StageSave*. Calls into the
 shared HCStagedSaveImage Begin/HCStepImage/HCRefreshIntent are stage boundaries;
 Finish is deliberately traversed because it drains stages synchronously.
+A load-once latch (a bool/ref field tested first and set unconditionally before any
+return/continue/break, with no reset on a tick path) makes the code it guards once-only:
+neither its I/O, calls, Print nor Save sites are reported (see once_spans).
 Single I/O operations are candidates too: the tool cannot infer their latency.
 Baseline entries acknowledge candidates, not native acceptance. P002 is omitted
 because source-only configured-float bounds have too much ambiguity.
 
 P004 finds lexical nested collection loops with equality comparisons and array
 Find/Contains/IndexOf/Get calls inside loops. Literal upper bounds <=16 are
-skipped; Get is deliberately a broad candidate, including indexed access.
+skipped; array.Get/Count/Set are O(1) natives and are not candidates, array.Find is.
 Only declared array/map/set receivers are recognized, not aliases, returned
 collections or interprocedural nesting. Equality need not compare loop items.
 P005 finds Print in lexical loops on the same bounded tick graph as P003;
-it cannot prove logging frequency or recognize latches and summary logging.
+it cannot prove logging frequency or summary logging. A Print under a set-once latch,
+or directly followed by return/break (once per call), is not per-item.
 P006 finds literal HC_WORK_* arguments to HCTakeFor/HCCharge shared across
 owner class names (modded definitions share their class name). It cannot
 resolve computed slots or prove that different classes compete at runtime.
@@ -80,7 +87,9 @@ _ROOT = re.compile(r'^(?:OnTick|OnUpdate|HCStep\w*|\w*SaveStage\w*|\w*StageSave\
 # Exact shared implementation, rather than a blanket class/name suppression.
 _WRITER_PATH = 'mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c'
 _BOUNDARIES = frozenset({'Begin', 'HCStepImage', 'HCRefreshIntent'})
-_ARRAY_SCAN = re.compile(rf'\b({_CHAIN})\s*\.\s*(Find|Contains|IndexOf|Get)\s*\(')
+# array.Get(n)/Count()/Set() are O(1) native index operations (EnScript.c protos), so
+# Get is not a scan candidate; array.Find is a linear first-occurrence search.
+_ARRAY_SCAN = re.compile(rf'\b({_CHAIN})\s*\.\s*(Find|Contains|IndexOf)\s*\(')
 _SLOT_CALL = re.compile(r'\b(HCTakeFor|HCCharge)\s*\(')
 
 
@@ -118,7 +127,20 @@ class Model:
                 self.classes.setdefault(c.name, []).append(c)
         self.descendants = {name: [child for child in self.classes if child != name and name in self.lineage(child)]
                             for name in self.classes}
+        # Named integer constants (static const int NAME = N;); the largest value wins
+        # for a name defined more than once, so a bound is never understated.
+        self.consts = {}
+        for s in sources:
+            for c in re.finditer(r'\bconst\s+int\s+(\w+)\s*=\s*(\d+)\s*;', s.code):
+                self.consts[c.group(1)] = max(self.consts.get(c.group(1), 0), int(c.group(2)))
         self.envs = [self.environment(s, m) for s, m in self.nodes]
+
+    def const_int(self, text):
+        """Literal or named constant integer value of an expression, else None."""
+        text = re.sub(r'\s+', '', text)
+        if text.isdecimal():
+            return int(text)
+        return self.consts.get(text.split('.')[-1]) if re.fullmatch(_CHAIN, text) else None
 
     def lineage(self, name):
         if name in self._lineages:
@@ -145,6 +167,11 @@ class Model:
         env.update((a.group(2), re.sub(r'\s+', '', a.group(1)))
                    for a in _LOCAL.finditer(s.body(m)))
         return env
+
+    def field_of(self, owner, name):
+        """Field definition by name through the class lineage, else None."""
+        return next((f for ancestor in self.lineage(owner) for c in self.classes.get(ancestor, [])
+                     for f in c.fields if f.name == name), None)
 
     def type_of(self, expression, env):
         parts = re.sub(r'\s+', '', expression).split('.')
@@ -208,7 +235,8 @@ def parameter_caps(model):
     """
     candidates = {}
     for i, (s, m) in enumerate(model.nodes):
-        if re.search(r'\.Length\s*\(\s*\)\s*!=\s*[A-Za-z_]', s.body(m)):
+        # >/>= refusal guards bound the length exactly like != does (see bounded_string).
+        if re.search(r'\.Length\s*\(\s*\)\s*(?:!=|>=|>)\s*[A-Za-z_]', s.body(m)):
             candidates[i] = [(pos, name) for pos, (typ, name, _) in enumerate(m.parameters()) if typ == 'int']
     values = {}
     names = {model.nodes[i][1].name for i in candidates}
@@ -221,19 +249,29 @@ def parameter_caps(model):
             for target in model.targets(i, call.group(1)):
                 for pos, name in candidates.get(target, []):
                     arg = args[pos].strip() if pos < len(args) else ''
-                    values.setdefault((target, name), []).append(int(arg) if arg.isdecimal() else 0)
+                    # A named constant argument is as fixed as a literal one.
+                    values.setdefault((target, name), []).append((model.const_int(arg) if arg else 0) or 0)
     return {key: max(items) for key, items in values.items() if all(0 < n <= 1024 for n in items)}
 
 
-def bounded_string(s, m, receiver, offset, caps):
+def bounded_string(s, m, receiver, offset, caps, model=None, index=None):
     """Recognize small literal values and early length guards, not file caps."""
     body = s.code[m.body_start:offset]
     name = re.escape(receiver)
     # A literal assignment is bounded only if it is the sole write to the name.
-    writes = list(re.finditer(rf'(?<![\w.]){name}\s*(?:\+=|=(?!=))\s*([^;]*);', body))
+    writes = list(re.finditer(rf'(?<![\w.]){name}\s*(\+=|=(?!=))\s*([^;]*);', body))
     file_loaded = re.search(rf'\b(?:ReadFile|FGets)\s*\([^;]*\b{name}\b[^;]*\)', body)
-    if (not file_loaded and len(writes) == 1 and len(writes[0].group(1)) <= 1026
-            and re.fullmatch(r'\s*"[^"\n]*"\s*', writes[0].group(1))):
+    if (not file_loaded and len(writes) == 1 and len(writes[0].group(2)) <= 1026
+            and re.fullmatch(r'\s*"[^"\n]*"\s*', writes[0].group(2))):
+        return True
+    # A local whose every write is a short value is bounded: a constant-length
+    # Substring copy (<=1024), a one-character string Get, or an HCTextWindow
+    # At/Range piece. Parameters and fields are excluded because the writes seen
+    # here may be conditional, leaving the incoming unbounded value reachable.
+    if (model is not None and not file_loaded and writes and receiver.isidentifier()
+            and receiver not in {n for _, n, _ in m.parameters()}
+            and not (m.owner and model.field_of(m.owner.name, receiver))
+            and all(w.group(1) == '=' and small_value(model, index, w.group(2)) for w in writes)):
         return True
     # A direct disjunct of a refusal guard suffices; a conjunct does not.
     # Reassignment after a guard invalidates the bound.
@@ -246,12 +284,35 @@ def bounded_string(s, m, receiver, offset, caps):
         if any(w.start() > closing for w in writes):
             continue
         for term in condition.split('||'):
-            bound = re.fullmatch(rf'\s*{name}\.Length\s*\(\s*\)\s*(>|!=)\s*({_IDENT}|\d+)\s*', term)
+            # >= N refuses every length from N up, so it bounds just as > N does.
+            bound = re.fullmatch(rf'\s*{name}\.Length\s*\(\s*\)\s*(>=|>|!=)\s*({_IDENT}|\d+)\s*', term)
             if bound:
-                limit = int(bound.group(2)) if bound.group(2).isdecimal() else caps.get(bound.group(2), 0)
+                if bound.group(2).isdecimal():
+                    limit = int(bound.group(2))
+                else:
+                    # Parameter caps first, then a named constant (static const int).
+                    limit = caps.get(bound.group(2)) or (model.consts.get(bound.group(2), 0) if model else 0)
                 if 0 < limit <= 1024:
                     return True
     return False
+
+
+def small_value(model, i, rhs):
+    """True when an assigned expression is a short string by construction."""
+    call = re.fullmatch(rf'({_CHAIN})\s*\.\s*(Substring|Get|At|Range)\s*\((.*)\)', rhs.strip(), re.S)
+    if not call:
+        return False
+    typ = re.sub(r'\s+', '', model.type_of(re.sub(r'\s+', '', call.group(1)), model.envs[i]))
+    args = es.split_top(call.group(3), ',')
+    if call.group(2) == 'Substring':
+        # Copies exactly the requested constant number of bytes, whatever the receiver.
+        return typ == 'string' and len(args) == 2 and 0 < (model.const_int(args[1]) or 0) <= 1024
+    if call.group(2) == 'Get':
+        return typ == 'string' and len(args) == 1   # one character
+    if typ != 'HCTextWindow':
+        return False
+    # HCTextWindow pieces: At is one character, Range a constant-sized copy.
+    return call.group(2) == 'At' or (len(args) == 2 and 0 < (model.const_int(args[1]) or 0) <= 1024)
 
 
 def bulk_copy(s, start, end, call):
@@ -316,6 +377,106 @@ def nested_scans(model, i, spans):
         counts[key] = counts.get(key, 0) + 1
         yield Finding('HC-P004', s.rel, s.line_of(offset), symbol(m),
                       f'{key}#{counts[key]}', 'O(n*m) scan; build a map/set index outside the loop')
+
+
+_RESET = re.compile(rf'(?<![\w.])({_CHAIN})\s*=(?!=)\s*(?:false|null|NULL|0)\s*;')
+_EXIT = re.compile(r'\b(?:return|continue|break)\b')
+
+
+def _latch_field(model, i, expression):
+    """(defining class, field name, type) of a bool/ref latch field, else None.
+
+    Locals, parameters, ints, floats, strings and vectors are not latches."""
+    s, m = model.nodes[i]
+    parts = re.sub(r'\s+', '', expression).split('.')
+    if parts[0] == 'this':
+        parts = parts[1:]
+    if len(parts) == 2 and parts[0] in model.classes:
+        owner = parts[0]
+    elif len(parts) == 1 and m.owner:
+        owner = m.owner.name
+        if parts[0] in {n for _, n, _ in m.parameters()} or re.search(
+                rf'\b(?!return\b|else\b|new\b)[A-Za-z_]\w*(?:\s*<[^;(){{}}]*>)?\s+{re.escape(parts[0])}\s*[=;]', s.body(m)):
+            return None
+    else:
+        return None
+    field = model.field_of(owner, parts[-1])
+    if not field or field.type in {'int', 'float', 'string', 'vector', 'typename'}:
+        return None
+    defining = next(c.name for ancestor in model.lineage(owner) for c in model.classes.get(ancestor, [])
+                    if any(f is field for f in c.fields))
+    return defining, field.name, field.type
+
+
+def once_spans(model, i):
+    """Code spans of method i that run at most once per latch, as (start, end, latch).
+
+    A load-once latch is a bool/ref field that is tested first and then set by an
+    unconditional statement with no return/continue/break before it, so the guarded
+    code cannot repeat unless something resets the field (the caller checks resets):
+      if (!latch) { ...; latch = true/new/call(); ... }          wrapped block, any depth
+      if (latch [|| more]) { return ...; }  latch = true; ...    early return, method level
+    Anything else, including a conditional set, stays a per-call path."""
+    s, m = model.nodes[i]
+    code = s.code
+    spans = []
+
+    def statement(pos):
+        """Span (start, end) of the block or single statement starting near pos."""
+        while pos < m.body_end and code[pos].isspace():
+            pos += 1
+        if code[pos:pos + 1] == '{':
+            return pos + 1, es.matching_brace(code, pos)
+        return pos, code.find(';', pos) + 1
+
+    def sets_latch(start, end, key):
+        spelled = rf'(?<![\w.])(?:this\s*\.\s*|{re.escape(key[0])}\s*\.\s*)?{re.escape(key[1])}\s*=(?!=)\s*([^;]*);'
+        for assign in re.finditer(spelled, code[start:end]):
+            before = code[start:start + assign.start()]
+            if before.count('{') != before.count('}') or _EXIT.search(before):
+                continue
+            value = assign.group(1).strip()
+            if (value == 'true') if key[2] == 'bool' else (value not in {'null', 'NULL', 'false', '0', ''}):
+                return True
+        return False
+
+    for guard in re.finditer(r'\bif\s*\(', code[m.body_start + 1:m.body_end]):
+        start = m.body_start + 1 + guard.start()
+        opening = code.find('(', start)
+        closing = es.matching_paren(code, opening)
+        condition = code[opening + 1:closing]
+        a, b = statement(closing + 1)
+        wrapped = re.fullmatch(rf'\s*(?:!\s*({_CHAIN})|({_CHAIN})\s*==\s*(?:false|null|NULL))\s*', condition)
+        if wrapped:
+            latch = _latch_field(model, i, wrapped.group(1) or wrapped.group(2))
+            if latch and sets_latch(a, b, latch):
+                spans.append((a, b, latch))
+            continue
+        # Early-return form, only as a top-level statement of the method.
+        before = code[m.body_start + 1:start]
+        if before.count('{') != before.count('}'):
+            continue
+        if not re.fullmatch(r'\s*return\b[^;]*;\s*', code[a:b]):
+            continue
+        after = b + 1 if code[b:b + 1] == '}' else b
+        for term in condition.split('||'):
+            held = re.fullmatch(rf'\s*(?:({_CHAIN})|({_CHAIN})\s*!=\s*(?:null|NULL|false)|({_CHAIN})\s*==\s*true)\s*', term)
+            if not held:
+                continue
+            latch = _latch_field(model, i, next(g for g in held.groups() if g))
+            if latch and sets_latch(after, m.body_end, latch):
+                spans.append((after, m.body_end, latch))
+                break
+    return spans
+
+
+def terminal_print(s, call):
+    """Print statement directly followed by return/break leaves the loop at once.
+
+    It can run at most once per call, so it is not a per-item log line."""
+    opening = s.code.find('(', call.start(), call.end())
+    closing = es.matching_paren(s.code, opening)
+    return re.match(r'\s*;\s*(?:return|break)\b', s.code[closing + 1:]) is not None
 
 
 def slot_registrations(sources, root):
@@ -400,8 +561,14 @@ def check(sources, root=ROOT):
             if not enclosing or model.type_of(receiver, model.envs[i]) != 'string':
                 continue
             if bounded_string(s, m, receiver, call.start(),
-                              {name: cap for (target, name), cap in caps.items() if target == i}):
+                              {name: cap for (target, name), cap in caps.items() if target == i}, model, i):
                 continue
+            # Substring copies only its constant length (<=1024), however long the receiver.
+            if call.group(2) == 'Substring':
+                opening = s.code.find('(', call.start(), call.end())
+                args = es.split_top(s.code[opening + 1:es.matching_paren(s.code, opening)], ',')
+                if len(args) == 2 and 0 < (model.const_int(args[1]) or 0) <= 1024:
+                    continue
             if any(bulk_copy(s, a, b, call) for a, b in enclosing):
                 continue
             key = receiver + '.' + call.group(2)
@@ -421,11 +588,12 @@ def check(sources, root=ROOT):
 
     edges, ios, tick_sites = [], [], []
     for i, (s, m) in enumerate(model.nodes):
-        outgoing, sites, candidates = set(), [], []
+        outgoing, sites, candidates = [], [], []
         for call in _CALL.finditer(s.code, m.body_start, m.body_end):
             expression = re.sub(r'\s+', '', call.group(1))
             name = expression.split('.')[-1]
-            if expression == 'Print' and any(a <= call.start() < b for a, b in loop_spans[i]):
+            if (expression == 'Print' and any(a <= call.start() < b for a, b in loop_spans[i])
+                    and not terminal_print(s, call)):
                 candidates.append((call.start(), 'HC-P005', 'Print', 'per-item Print on a tick path; latch or summarize'))
             if name == 'Save' and '.' in expression and model.type_of(expression.rsplit('.', 1)[0], model.envs[i]).endswith('Store'):
                 candidates.append((call.start(), 'HC-P008', expression,
@@ -435,11 +603,11 @@ def check(sources, root=ROOT):
                 if expression.startswith('JsonFileLoader'):
                     continue
                 sites.append((call.start(), name))
-            outgoing.update(model.targets(i, expression))
+            outgoing.extend((call.start(), target) for target in model.targets(i, expression))
         # JsonFileLoader<T>.LoadFile/SaveFile/legacy JsonLoadFile/JsonSaveFile.
         for call in re.finditer(r'\bJsonFileLoader\s*<[^;{}()]+>\s*[.:]+\s*(LoadFile|SaveFile|JsonLoadFile|JsonSaveFile)\s*\(', s.body(m)):
             sites.append((m.body_start + call.start(), 'JsonFileLoader.' + call.group(1)))
-        edges.append(sorted(outgoing))
+        edges.append(sorted(set(outgoing)))
         ios.append(sorted(set(sites)))
         tick_sites.append(candidates)
 
@@ -450,31 +618,60 @@ def check(sources, root=ROOT):
 
     roots = [i for i, (_, m) in enumerate(model.nodes) if _ROOT.fullmatch(m.name) and not boundary(i)
              and (not m.owner or m.name != m.owner.name)]
-    queue = deque((i, (i,)) for i in roots)
-    reached = set(roots)
-    while queue:
-        i, chain = queue.popleft()
+
+    def walk(skipped):
+        """Breadth-first tick reachability; skipped[i] holds spans whose code is once-only."""
+        queue = deque((i, (i,)) for i in roots)
+        reached = {i: (i,) for i in roots}
+        while queue:
+            i, chain = queue.popleft()
+            s, m = model.nodes[i]
+            if len(chain) - 1 >= MAX_DEPTH:
+                continue
+            for offset, target in edges[i]:
+                if any(a <= offset < b for a, b in skipped.get(i, ())):
+                    continue
+                drains_writer = (m.owner and m.owner.name == 'HCStagedSaveImage' and m.name == 'Finish'
+                                 and s.rel == _WRITER_PATH)
+                if target not in reached and (not boundary(target) or drains_writer):
+                    reached[target] = chain + (target,)
+                    queue.append((target, chain + (target,)))
+        return reached
+
+    # Latch spans count only when nothing on a tick path can reset the latch; the
+    # unpruned reachable set is a superset of the pruned one, so this stays conservative.
+    latched = {i: once_spans(model, i) for i in range(len(model.nodes))}
+    resettable = set()
+    for i in walk({}):
         s, m = model.nodes[i]
+        for reset in _RESET.finditer(s.code, m.body_start, m.body_end):
+            latch = _latch_field(model, i, reset.group(1))
+            if latch:
+                resettable.add(latch[:2])
+    skipped = {i: [(a, b) for a, b, latch in spans if latch[:2] not in resettable]
+               for i, spans in latched.items() if spans}
+
+    for i, chain in walk(skipped).items():
+        s, m = model.nodes[i]
+        # Once-only code (a load-once latch, or a Print/Save inside a set-once guard)
+        # is not per-tick or per-item work.
+        live = lambda offset: not any(a <= offset < b for a, b in skipped.get(i, ()))
         tick_counts = {}
         for offset, rule, operation, message in tick_sites[i]:
+            if not live(offset):
+                continue
             key = (rule, operation)
             tick_counts[key] = tick_counts.get(key, 0) + 1
             findings.append(Finding(rule, s.rel, s.line_of(offset), symbol(m),
                                     f'{operation}#{tick_counts[key]}', message))
         counts = {}
         for offset, operation in ios[i]:
+            if not live(offset):
+                continue
             counts[operation] = counts.get(operation, 0) + 1
             witness = ' -> '.join(symbol(model.nodes[n][1]) for n in chain)
             findings.append(Finding('HC-P003', s.rel, s.line_of(offset), symbol(m),
                                     f'{operation}#{counts[operation]}', f'{operation} reachable via {witness}'))
-        if len(chain) - 1 >= MAX_DEPTH:
-            continue
-        for target in edges[i]:
-            drains_writer = (m.owner and m.owner.name == 'HCStagedSaveImage' and m.name == 'Finish'
-                             and s.rel == _WRITER_PATH)
-            if target not in reached and (not boundary(target) or drains_writer):
-                reached.add(target)
-                queue.append((target, chain + (target,)))
     return sorted(findings, key=lambda f: (f.path, f.line, f.rule, f.key))
 
 
