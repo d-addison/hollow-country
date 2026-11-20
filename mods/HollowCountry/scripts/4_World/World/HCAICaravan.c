@@ -24,6 +24,99 @@
 // Wave 8 #185: fresh idle-stock ceilings, terminal-history retention upgrades
 // and failed-provider-bind cleanup; the same custody/save barriers still apply.
 
+// #256: journey hooks extend the existing world and materializer owners.
+modded class HCWorldModule
+{
+    override protected void StepParty(HCWorldParty party, int now)
+    {
+        if (HCWorldMaterializer.HCJourneyClaimed("party:" + party.Id))
+        {
+            // No virtual movement or elapsed-time catch-up while bodies exist.
+            party.LastMoved = now;
+            return;
+        }
+        super.StepParty(party, now);
+    }
+
+    bool HCJourneyTarget(string partyId, out vector destination)
+    {
+        if (!m_Running || !m_Data) { return false; }
+        foreach (HCWorldParty party : m_Data.Parties)
+        {
+            if ("party:" + party.Id != partyId || !party.Route || party.Route.Count() < 2) { continue; }
+            if (party.Kind == "PICKER" || party.Kind == "RAIDER") { return false; }
+            HCWorldPlace next = m_Data.Place(party.Route[(party.Edge + 1) % party.Route.Count()]);
+            if (!next) { return false; }
+            destination = next.Position;
+            return true;
+        }
+        return false;
+    }
+
+    void HCJourneyFolded(string partyId)
+    {
+        if (!m_Running || !m_Data) { return; }
+        foreach (HCWorldParty party : m_Data.Parties)
+        {
+            if ("party:" + party.Id != partyId) { continue; }
+            party.LastMoved = HCWorldClock.UTC();
+            m_Dirty = true;
+            return;
+        }
+    }
+
+    // Progress comes from an observed body; no time-based actor relocation.
+    void HCJourneyObserved(string partyId, vector position)
+    {
+        if (!m_Running || !m_Data || !HCWorldLimits.Position(position)) { return; }
+        foreach (HCWorldParty party : m_Data.Parties)
+        {
+            if ("party:" + party.Id != partyId || !party.Route || party.Route.Count() < 2) { continue; }
+            HCWorldPlace origin = m_Data.Place(party.Route[party.Edge]);
+            HCWorldPlace next = m_Data.Place(party.Route[(party.Edge + 1) % party.Route.Count()]);
+            if (!origin || !next) { return; }
+            vector leg = next.Position - origin.Position;
+            leg[1] = 0;
+            vector travelled = position - origin.Position;
+            travelled[1] = 0;
+            float lengthSq = vector.Dot(leg, leg);
+            if (lengthSq <= 0) { return; }
+            party.Progress = Math.Clamp(vector.Dot(travelled, leg) / lengthSq, 0, 0.999);
+            if (vector.DistanceSq(position, next.Position) <= 64)
+            {
+                party.Edge = (party.Edge + 1) % party.Route.Count();
+                party.Progress = 0;
+            }
+            party.LastMoved = HCWorldClock.UTC();
+            m_Dirty = true;
+            return;
+        }
+    }
+}
+
+modded class HCWorldMaterializer
+{
+    override protected void Resolve(int leaseIndex, bool materialized, int survivors)
+    {
+        HCWorldProposalLease lease = m_Active[leaseIndex];
+        HCWorldModule world = HCWorldModule.Get();
+        // Resolve follows the provider's body-absence receipt. Reset at this
+        // boundary even if the ledger's slow row cursor has not visited yet.
+        if (world && lease.Claimed) { world.HCJourneyFolded(lease.RowId); }
+        super.Resolve(leaseIndex, materialized, survivors);
+    }
+
+    static bool HCJourneyClaimed(string partyId)
+    {
+        if (!s_Instance || !s_Instance.m_Running) { return false; }
+        foreach (HCWorldProposalLease lease : s_Instance.m_Active)
+        {
+            if (lease.RowId == partyId && lease.Claimed) { return true; }
+        }
+        return false;
+    }
+}
+
 class HCCaravanCorridor
 {
     int Version = 1;

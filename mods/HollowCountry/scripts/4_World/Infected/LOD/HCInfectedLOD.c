@@ -25,7 +25,7 @@
 // by the same bounded multi-point test. Death debits the herd; a horde claim
 // releases the body to the horde system and debits the herd, so no head
 // exists twice.
-// Never moves a body: no teleports, no silent movement fixes.
+// Physical legs use HCNativeInfectedPack: no teleports or silent movement fixes.
 //
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx, :705
 // ObjectDelete, :914 GetTickTime, :945 GetPlayers (via HCPerfPlayers), :1176
@@ -42,6 +42,7 @@
 // <=24 lease polls, then ONE fold or ONE materialize attempt (alternating),
 // three spatial samples x two geometries, capped at MaxObservers(<=8) x
 // RAYS_PER_OBSERVER (6) casts total, so a full party can be proven occluded, one HCClear (128 objects, 64 doors), at most one CreateObjectEx;
+// One leased body also advances its native walking leg (at most one FindPath);
 // regrow <=16 herds per minute; stats once a minute.
 // Off: OnTick returns at the first check, no allocations.
 class HCLODSightBudget
@@ -56,6 +57,27 @@ class HCLODLease
     ZombieBase Body;
     string HerdId;
     float SpawnedAt;
+    ref HCNativeInfectedPack Journey;
+    int JourneyNode;
+    float JourneyRetry;
+}
+
+// A bounded local circuit uses native path checks for every physical leg.
+// No authored point is treated as proof that an infected can traverse it.
+class HCLODJourney
+{
+    vector Anchor;
+    int Node;
+    float Updated;
+
+    vector Point(int node)
+    {
+        vector point = Anchor;
+        if (node == 1 || node == 2) { point[0] = point[0] + 80; }
+        if (node == 2 || node == 3) { point[2] = point[2] + 80; }
+        point[1] = GetGame().SurfaceY(point[0], point[2]);
+        return point;
+    }
 }
 
 // Alive includes leased bodies. Retain their weak native handles across a
@@ -394,6 +416,8 @@ class HCInfectedLODModule : HCModule
     protected ref array<ref HCLODLease> m_Leases;
     protected ref HCInfectedLODExperiment m_Experiment;
     protected ref HCInfectedLODContributor m_Debug;
+    protected ref map<string, ref HCLODJourney> m_Journeys = new map<string, ref HCLODJourney>;
+    protected int m_JourneyCursor;
     protected int m_HerdCursor;
     protected int m_LeaseCursor;
     protected bool m_FoldTurn;
@@ -502,6 +526,7 @@ class HCInfectedLODModule : HCModule
         {
             m_Sight.HCReset(m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER);
             HCLODPollLeases(infected, now);
+            HCLODWalkStep(infected, now);
             if (m_FoldTurn) { HCLODFoldStep(infected, players, now); }
             else { HCLODMaterializeStep(infected, players, now); }
             m_Rays += m_Sight.Used;
@@ -546,6 +571,15 @@ class HCInfectedLODModule : HCModule
 
     protected void RemoveLease(int index)
     {
+        HCLODLease removed = m_Leases[index];
+        HCInfectedLODHerd herd = Herd(removed.HerdId);
+        if (herd)
+        {
+            float now = GetGame().GetTickTime();
+            HCLODJourney journey = HCJourney(herd, now);
+            journey.Updated = now;
+        }
+        if (removed.Journey) { removed.Journey.HCLODRelease(); }
         m_Leases.RemoveOrdered(index);
         if (m_LeaseCursor > index) { m_LeaseCursor--; }
     }
@@ -594,6 +628,14 @@ class HCInfectedLODModule : HCModule
     {
         HCLODLease lease = m_Leases[index];
         ZombieBase body = lease.Body;
+        HCInfectedLODHerd herd = Herd(lease.HerdId);
+        if (herd && body)
+        {
+            vector position = body.GetPosition();
+            herd.X = position[0];
+            herd.Z = position[2];
+            m_Store.MarkDirty();
+        }
         RemoveLease(index);
         if (body) { infected.HCLODRetire(body); GetGame().ObjectDelete(body); }
         m_Folded++;
@@ -634,6 +676,76 @@ class HCInfectedLODModule : HCModule
         if (decision == HCLODPolicy.FOLD_KEEP && far) { m_RefusedSight++; }
     }
 
+    protected HCLODJourney HCJourney(HCInfectedLODHerd herd, float now)
+    {
+        HCLODJourney journey;
+        if (m_Journeys.Find(herd.Id, journey)) { return journey; }
+        journey = new HCLODJourney;
+        journey.Anchor = Vector(herd.X, 0, herd.Z);
+        // Seed is a stable circuit anchor; persisted X/Z is current progress.
+        foreach (HCInfectedLODHerdSeed seed : m_Config.Herds)
+        {
+            if (seed.Id == herd.Id) { journey.Anchor = Vector(seed.X, 0, seed.Z); break; }
+        }
+        journey.Updated = now;
+        m_Journeys.Set(herd.Id, journey);
+        return journey;
+    }
+
+    // One lease and at most one FindPath per admitted tick. Native combat,
+    // injury, stall and membership changes release the route through the
+    // existing pack cleanup ledger; bodies are never repositioned.
+    protected void HCLODWalkStep(HCInfectedModule infected, float now)
+    {
+        if (m_Leases.Count() == 0) { return; }
+        m_JourneyCursor = m_JourneyCursor % m_Leases.Count();
+        HCLODLease lease = m_Leases[m_JourneyCursor];
+        m_JourneyCursor++;
+        HCInfectedLODHerd herd = Herd(lease.HerdId);
+        if (!herd || !lease.Body || !lease.Body.IsAlive()) { return; }
+        HCLODJourney journey = HCJourney(herd, now);
+        if (lease.Journey)
+        {
+            vector observed = lease.Body.GetPosition();
+            herd.X = observed[0];
+            herd.Z = observed[2];
+            m_Store.MarkDirty();
+            if (lease.Journey.Tick(now)) { return; }
+            bool reached = lease.Journey.RouteResult == 2;
+            lease.Journey = null;
+            lease.JourneyRetry = now + 15;
+            if (reached && vector.DistanceSq(lease.Body.GetPosition(), journey.Point(lease.JourneyNode)) <= 64)
+            {
+                lease.JourneyNode = (lease.JourneyNode + 1) % 4;
+                // Share physical progress so fold-back and new leases resume here.
+                journey.Node = lease.JourneyNode;
+            }
+        }
+        if (now < lease.JourneyRetry || lease.Body.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM || infected.HCLODClaimed(lease.Body)) { return; }
+        lease.JourneyRetry = now + 30;
+        vector position = lease.Body.GetPosition();
+        // Observed physical progress becomes the next folded centre.
+        herd.X = position[0];
+        herd.Z = position[2];
+        m_Store.MarkDirty();
+        vector destination = journey.Point(lease.JourneyNode);
+        vector direction = destination - position;
+        float distance = direction.Length();
+        if (distance <= 8) { lease.JourneyNode = (lease.JourneyNode + 1) % 4; journey.Node = lease.JourneyNode; return; }
+        if (distance > 80) { direction.Normalize(); destination = position + direction * 80; }
+        destination[1] = GetGame().SurfaceY(destination[0], destination[2]);
+        HCInfectedActor actor = new HCInfectedActor;
+        actor.InfectedEntity = lease.Body;
+        array<HCInfectedActor> actors = new array<HCInfectedActor>;
+        actors.Insert(actor);
+        HCNativeInfectedPack pack = new HCNativeInfectedPack;
+        if (pack.Start(actors, destination, false, now, now + 600))
+        {
+            lease.Journey = pack;
+            HCReached.Mark("infected_lod.physical_leg");
+        }
+    }
+
     // ONE herd and at most ONE body per call.
     protected void HCLODMaterializeStep(HCInfectedModule infected, array<Man> players, float now)
     {
@@ -642,6 +754,26 @@ class HCInfectedLODModule : HCModule
         if (m_HerdCursor >= state.Herds.Count()) { m_HerdCursor = 0; }
         HCInfectedLODHerd herd = state.Herds[m_HerdCursor];
         m_HerdCursor++;
+        HCLODJourney journey = HCJourney(herd, now);
+        float elapsed = Math.Clamp(now - journey.Updated, 0, 60);
+        journey.Updated = now;
+        // Advance data only while every member is folded. A small capped step
+        // avoids a deferred tick jumping across a player's interest ring.
+        if (LeasedFor(herd.Id) == 0)
+        {
+            vector current = Vector(herd.X, GetGame().SurfaceY(herd.X, herd.Z), herd.Z);
+            vector virtualDirection = journey.Point(journey.Node) - current;
+            float virtualDistance = virtualDirection.Length();
+            if (virtualDistance <= 2) { journey.Node = (journey.Node + 1) % 4; }
+            else
+            {
+                virtualDirection.Normalize();
+                current = current + virtualDirection * Math.Min(virtualDistance, elapsed);
+                herd.X = current[0];
+                herd.Z = current[2];
+                m_Store.MarkDirty();
+            }
+        }
         vector centre = Vector(herd.X, GetGame().SurfaceY(herd.X, herd.Z), herd.Z);
         float nearest = HCInfectedLOD.NearestDistance(players, centre);
         float edge = nearest;
@@ -668,6 +800,7 @@ class HCInfectedLODModule : HCModule
         lease.Body = body;
         lease.HerdId = herd.Id;
         lease.SpawnedAt = now;
+        lease.JourneyNode = journey.Node;
         m_Leases.Insert(lease);
         m_Materialized++;
     }
@@ -747,6 +880,13 @@ class HCInfectedLODModule : HCModule
     // flushing; living leases stay in Alive and reserve bodies on module resume.
     override void OnStop()
     {
+        if (m_Leases)
+        {
+            foreach (HCLODLease stoppedLease : m_Leases)
+            {
+                if (stoppedLease.Journey) { stoppedLease.Journey.HCLODRelease(); stoppedLease.Journey = null; }
+            }
+        }
         if (!m_Running) { return; }
         if (m_Experiment) { m_Experiment.HCRestore(); }
         HCInfectedModule infected = HCInfectedModule.Instance;
@@ -760,6 +900,8 @@ class HCInfectedLODModule : HCModule
         m_Debug = null;
         m_Store = null;
         m_Leases = null;
+        m_Journeys.Clear();
+        m_JourneyCursor = 0;
         m_Sight = null;
         m_Experiment = null;
         m_Herds = false;
@@ -785,5 +927,24 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCInfectedLODModule);
+    }
+}
+
+modded class HCNativeInfectedPack
+{
+    void HCLODRelease()
+    {
+        for (int index = m_Members.Count() - 1; index >= 0; index--)
+        {
+            ZombieBase body = m_Members[index];
+            if (!body) { continue; }
+            AIAgent agent = body.GetAIAgent();
+            if (agent && agent.GetGroup() && agent.GetGroup() != Group)
+            {
+                m_ReleaseFallbacks.Remove(body);
+                m_Members.RemoveOrdered(index);
+            }
+        }
+        Release();
     }
 }

@@ -390,13 +390,14 @@ class HCInfectedLODStore
             {
                 herd = new HCInfectedLODHerd;
                 herd.Id = seed.Id;
+                herd.X = seed.X;
+                herd.Z = seed.Z;
                 herd.Alive = seed.HeadCount;
                 herd.UpdatedUtc = nowUtc;
                 changed = true;
             }
-            if (herd.X != seed.X || herd.Z != seed.Z || herd.Radius != seed.Radius || herd.HeadCount != seed.HeadCount) { changed = true; }
-            herd.X = seed.X;
-            herd.Z = seed.Z;
+            // Preserve journey progress on restart; seeds anchor new herds.
+            if (herd.Radius != seed.Radius || herd.HeadCount != seed.HeadCount) { changed = true; }
             herd.Radius = seed.Radius;
             herd.HeadCount = seed.HeadCount;
             herd.Alive = Math.Min(herd.Alive, herd.HeadCount);

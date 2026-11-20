@@ -285,10 +285,12 @@ class HCXAICaravanAdapter : HCCaravanInventory
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
         if (!HCReady() || !m_Group || m_Group.IsInCombat() || !roads || roads.Phase != "ready") { return false; }
-        // Path is destination -> source. HALT stops at the final waypoint;
-        // no combat/speed override or forced recovery is installed.
+        // Path is destination -> source. Installed Expansion
+        // eAIState_TraversingWaypoints treats HALT as final at the CURRENT
+        // waypoint, so multi-point paths use ONCE, which advances to the last
+        // waypoint and stops there. No combat/speed override or forced recovery.
         m_Group.ClearWaypoints();
-        m_Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
+        m_Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
         if (returning)
         {
             for (int back = 0; back < roads.Path.Count(); back++) { m_Group.AddWaypoint(roads.Path[back]); }
@@ -326,4 +328,114 @@ class HCXAICaravanAdapter : HCCaravanInventory
         return vector.DistanceSq(LeftActor.GetPosition(), destination) <= Corridor.ArrivalRangeMeters * Corridor.ArrivalRangeMeters;
     }
     override bool HCFleeObserved(HCCaravanState row) { return m_Group && m_Group.IsInCombat(); }
+}
+
+// #256: one current physical party per director visit, one bounded native
+// path query. The existing provider retains spawn, caps and despawn ownership.
+modded class HCXAISiteState
+{
+    bool HCJourneyWalking;
+    vector HCJourneyEnd;
+    float HCJourneyRetry;
+    float HCJourneyStarted;
+}
+
+modded class HCXAISiteDirector
+{
+    protected int m_HCJourneyCursor;
+
+    override protected void StepTransients()
+    {
+        super.StepTransients();
+        if (m_States.Count() == 0 || !HCServer.HCTickWork().HCTake(1)) { return; }
+        m_HCJourneyCursor = m_HCJourneyCursor % m_States.Count();
+        HCXAISiteState state = m_States[m_HCJourneyCursor];
+        m_HCJourneyCursor++;
+        if (!state || !state.Transient || !state.Materialized || state.Completed || !state.Patrol || !state.Patrol.m_Group) { return; }
+        HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
+        HCWorldModule world = HCWorldModule.Get();
+        vector destination;
+        if (!identity || !world || !world.HCJourneyTarget(identity.HCPartyId(), destination)) { return; }
+        eAIGroup party = state.Patrol.m_Group;
+        if (party.Count() < 1 || state.Patrol.m_HCPendingMembers > 0) { return; }
+        HCXAIAdapter adapter = HCXAIService.Adapter();
+        if (HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId)) { return; }
+        if (adapter && adapter.HCJourneyBusy(state.ProposalId)) { return; }
+        DayZPlayerImplement leader = party.GetFormationLeader();
+        if (!leader || !leader.IsAlive()) { return; }
+        vector position = leader.GetPosition();
+        world.HCJourneyObserved(identity.HCPartyId(), position);
+        if (party.IsInCombat()) { state.HCJourneyWalking = false; return; }
+        // Installed eAIDynamicPatrol.c:760-765 measures despawn distance
+        // from the formation leader, so visible travelling parties stay live.
+        float now = GetGame().GetTickTime();
+        if (state.HCJourneyWalking && vector.DistanceSq(position, state.HCJourneyEnd) > 64 && now - state.HCJourneyStarted < 90) { return; }
+        if (now < state.HCJourneyRetry) { return; }
+        state.HCJourneyRetry = now + 15;
+        state.HCJourneyWalking = false;
+        if (!world.HCJourneyTarget(identity.HCPartyId(), destination)) { return; }
+        vector direction = destination - position;
+        direction[1] = 0;
+        float distance = direction.Length();
+        if (distance <= 8) { return; }
+        direction.Normalize();
+        vector wanted = position + direction * Math.Min(100, distance);
+        wanted[1] = GetGame().SurfaceY(wanted[0], wanted[2]);
+        vector sampled = this.NavSample(wanted, 12, m_Filter);
+        if (sampled == vector.Zero) { return; }
+        TVectorArray path = new TVectorArray;
+        AIWorld navigation = GetGame().GetWorld().GetAIWorld();
+        if (!navigation || !navigation.FindPath(position, sampled, m_Filter, path)) { return; }
+        if (path.Count() < 2 || path.Count() > 32 || vector.DistanceSq(path[path.Count() - 1], sampled) > 4) { return; }
+        float length = 0;
+        for (int index = 1; index < path.Count(); index++) { length += vector.Distance(path[index - 1], path[index]); }
+        if (length > 240) { return; }
+        party.ClearWaypoints();
+        // ONCE walks the whole navmesh path; HALT would stop at path[0].
+        party.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);
+        foreach (vector point : path) { party.AddWaypoint(point); }
+        state.HCJourneyEnd = sampled;
+        state.HCJourneyWalking = true;
+        state.HCJourneyStarted = now;
+        HCReached.Mark("caravan.physical_leg");
+    }
+}
+
+// HCX loads after the base materializer has added MaterializerRow.
+modded class HCWorldModule
+{
+    override HCWorldProposal MaterializerRow(int rowIndex)
+    {
+        HCWorldProposal proposal = super.MaterializerRow(rowIndex);
+        int index = rowIndex - HCAILimits.Get().MaxHoldouts;
+        if (!proposal || index < 0 || index >= m_Data.Parties.Count()) { return proposal; }
+        HCWorldParty party = m_Data.Parties[index];
+        HCWorldPlace next = m_Data.Place(party.Route[(party.Edge + 1) % party.Route.Count()]);
+        if (!next) { return null; }
+        proposal.Position = proposal.Position + (next.Position - proposal.Position) * party.Progress;
+        vector current = proposal.Position;
+        current[1] = GetGame().SurfaceY(current[0], current[2]);
+        proposal.Position = current;
+        return proposal;
+    }
+
+}
+
+// Higher-priority finite cargo trips retain their existing waypoint ownership.
+modded class HCAITrade
+{
+    static bool HCJourneyBusy(string lease)
+    {
+        HCXAITradeAdapter port = HCXAITradeAdapter.Cast(s_Provider);
+        if (!port || !port.Producer) { return false; }
+        return port.Producer.m_LeftLease == lease || port.Producer.m_RightLease == lease;
+    }
+}
+
+modded class HCXAIAdapter
+{
+    bool HCJourneyBusy(string lease)
+    {
+        return m_Caravan && m_Caravan.HCActive() && m_Caravan.m_State.LeaseId == lease;
+    }
 }
