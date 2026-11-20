@@ -2304,9 +2304,9 @@
   {
     "key": "WorldRuntime.SaveFlushStageLimit",
     "type": "int",
-    "default": 64,
+    "default": 4096,
     "min": 1,
-    "max": 64,
+    "max": 4096,
     "owner": "HCWorldRuntimeConfig"
   },
   {
