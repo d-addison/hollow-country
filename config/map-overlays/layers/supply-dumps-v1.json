@@ -1,15 +1,27 @@
 {
   "basis": {
+    "candidate_evidence_options": 46751,
     "inventory": {
       "groups": 11679,
       "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
     },
-    "rule": "On the flanks of the same bases (90 degrees either side of the approach, then 150 degrees): a supply dump, a field hospital and a tent camp, entrance facing the base, found with the same walk-out search and the same per-piece clearance and flat-support rules. When nothing fits on the preferred flank the search turns the bearing by 45, -45, 90, -90, 135, -135 and 180 degrees in that order and keeps the first fit."
+    "military_search_radius_m": 3000.0,
+    "rule": "Replan every authored composition, preserving site identity and every v2 requested rich kit.\n\n    Candidate order, headings and original planning anchors are stable across input row\n    order and repeated refreshes. V1 upgrades may retain their original kit when\n    no supported local upgrade fits; v2 kits and site counts never silently fall back.\n    Roads, collision bounds and navmesh are not observable from vanilla group origins.\n    ",
+    "site_spacing_m": 55.0,
+    "support_radii_m": [
+      60.0,
+      90.0,
+      120.0
+    ],
+    "terrain": "Vanilla group origins only; terrain, roads and navmesh unverified."
   },
   "id": "supply-dumps-v1",
   "kind": "hollow-country-map-overlay",
   "limits": {
-    "max_objects": 135
+    "max_loot": 600,
+    "max_objects": 3500,
+    "max_support_slope_pct": 3.0,
+    "vanilla_clearance_m": 16.0
   },
   "objects": [],
   "purpose": "Supply dumps, field hospitals and tent camps on the flanks of the vanilla military bases, with vanilla loot groups only.",
@@ -17,110 +29,483 @@
     {
       "area": "base@1677,14260 via guard booth Land_Mil_Guardhouse2",
       "composition": "supply-dump",
-      "heading": 144.675078,
+      "guard_slots": [
+        [
+          1610.0,
+          452.972656,
+          14164.0
+        ],
+        [
+          1610.0,
+          452.972656,
+          14179.0
+        ],
+        [
+          1619.0,
+          452.972656,
+          14158.0
+        ]
+      ],
+      "heading": 0.0,
       "id": "d01",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 452.972656,
+        "height_spread_m": 0.1295,
+        "nearest_group_m": 37.1113,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 0.4057,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         1556.840732,
         455.140076,
         14370.591021
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.4 m"
+      "pos": [
+        1610.0,
+        452.972656,
+        14170.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m",
+      "zone_id": "tisy",
+      "zone_role": "outpost"
     },
     {
       "area": "base@2497,5109 via guard booth Land_Mil_Guardhouse2",
       "composition": "supply-dump",
-      "heading": 107.251976,
+      "guard_slots": [
+        [
+          2374.242641,
+          192.088562,
+          5075.757359
+        ],
+        [
+          2363.636039,
+          192.088562,
+          5086.363961
+        ]
+      ],
+      "heading": 315.0,
       "id": "d02",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 192.088562,
+        "height_spread_m": 1.0555,
+        "nearest_group_m": 30.5592,
+        "prop_bounds_measured": false,
+        "radius_m": 90.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.668,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2401.778986,
         191.744919,
         5192.385429
       ],
-      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.1 m"
+      "pos": [
+        2370.0,
+        192.088562,
+        5080.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 90.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 4 vanilla rows within 90 m, spread 1.1 m",
+      "zone_id": "zelenogorsk",
+      "zone_role": "outpost"
     },
     {
       "area": "base@4567,10700 via guard booth Land_Guardhouse",
       "composition": "supply-dump",
-      "heading": 326.69278,
+      "guard_slots": [
+        [
+          4758.447086,
+          340.7052,
+          10544.204445
+        ],
+        [
+          4762.329371,
+          340.7052,
+          10558.693332
+        ]
+      ],
+      "heading": 15.0,
       "id": "d03",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 340.7052,
+        "height_spread_m": 1.4328,
+        "nearest_group_m": 30.3491,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 6,
+        "support_slope_pct": 0.4381,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4705.766271,
         340.478149,
         10563.059677
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.4 m"
+      "pos": [
+        4760.0,
+        340.7052,
+        10550.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 1.4 m",
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     },
     {
       "area": "base@4501,9555 via guard booth Land_Guardhouse",
       "composition": "supply-dump",
-      "heading": 357.236852,
+      "guard_slots": [
+        [
+          4647.0,
+          339.753326,
+          9509.803848
+        ],
+        [
+          4654.5,
+          339.753326,
+          9522.794229
+        ],
+        [
+          4651.794229,
+          339.753326,
+          9500.107695
+        ]
+      ],
+      "heading": 30.0,
       "id": "d04",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 339.753326,
+        "height_spread_m": 0.2719,
+        "nearest_group_m": 36.095,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 7,
+        "support_slope_pct": 0.506,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4476.426131,
         340.724792,
         9401.109669
       ],
-      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+      "pos": [
+        4650.0,
+        339.753326,
+        9515.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 7 vanilla rows within 60 m, spread 0.3 m",
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     },
     {
       "area": "base@2589,1288 via guard booth Land_Guardhouse",
       "composition": "supply-dump",
-      "heading": 106.889814,
+      "guard_slots": [
+        [
+          1652.0,
+          8.742245,
+          2229.803848
+        ],
+        [
+          1659.5,
+          8.742245,
+          2242.794229
+        ]
+      ],
+      "heading": 30.0,
       "id": "d05",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 8.742245,
+        "height_spread_m": 1.2179,
+        "nearest_group_m": 28.704,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 1.9007,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         2456.938505,
         5.233922,
         1328.490641
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.5 m"
+      "pos": [
+        1655.0,
+        8.742245,
+        2235.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.2 m",
+      "zone_id": "pavlovo",
+      "zone_role": "outpost"
     },
     {
       "area": "base@4409,10938 via nearest settlement",
       "composition": "supply-dump",
-      "heading": 274.862372,
+      "guard_slots": [
+        [
+          4479.242641,
+          340.428497,
+          10804.242641
+        ],
+        [
+          4468.636039,
+          340.428497,
+          10793.636039
+        ],
+        [
+          4477.12132,
+          340.428497,
+          10814.849242
+        ]
+      ],
+      "heading": 225.0,
       "id": "d06",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 340.428497,
+        "height_spread_m": 0.6468,
+        "nearest_group_m": 30.2953,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.3169,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4617.391012,
         325.640839,
         11010.036263
       ],
-      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.2 m"
+      "pos": [
+        4475.0,
+        340.428497,
+        10800.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.6 m",
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     },
     {
       "area": "base@5339,9845 via nearest settlement",
       "composition": "supply-dump",
-      "heading": 207.697365,
+      "guard_slots": [
+        [
+          5298.0,
+          338.093597,
+          9880.196152
+        ],
+        [
+          5290.5,
+          338.093597,
+          9867.205771
+        ],
+        [
+          5293.205771,
+          338.093597,
+          9889.892305
+        ]
+      ],
+      "heading": 210.0,
       "id": "d07",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 338.093597,
+        "height_spread_m": 0.4807,
+        "nearest_group_m": 30.3621,
+        "prop_bounds_measured": false,
+        "radius_m": 60.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 2.6677,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         5383.8493,
         319.739227,
         10004.829011
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+      "pos": [
+        5295.0,
+        338.093597,
+        9875.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 60.0,
+      "upgrade_deferred": "Original kit retained to satisfy combined military clearance.",
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.5 m",
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     },
     {
       "area": "base@10946,13397 via nearest settlement",
-      "composition": "supply-dump",
-      "heading": 187.235059,
+      "composition": "ammo-dump",
+      "guard_slots": [
+        [
+          13838.0,
+          5.043074,
+          13627.0
+        ],
+        [
+          13838.0,
+          5.043074,
+          13633.0
+        ],
+        [
+          13838.0,
+          5.043074,
+          13639.0
+        ],
+        [
+          13838.0,
+          5.043074,
+          13645.0
+        ],
+        [
+          13841.0,
+          5.043074,
+          13651.0
+        ],
+        [
+          13841.0,
+          5.043074,
+          13657.0
+        ]
+      ],
+      "heading": 0.0,
       "id": "d08",
-      "pos": [
+      "original_composition": "supply-dump",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 5.043074,
+        "height_spread_m": 0.0222,
+        "nearest_group_m": 63.3535,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 4,
+        "support_slope_pct": 0.2409,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         10959.686497,
         221.812576,
         13435.012105
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+      "pos": [
+        13845.0,
+        5.043074,
+        13640.0
+      ],
+      "requested_composition": "ammo-dump",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 4 vanilla rows within 120 m, spread 0.0 m",
+      "zone_id": "neaf",
+      "zone_role": "depot"
     },
     {
       "area": "base@4008,11808 via guard booth Land_Mil_Guardhouse1",
-      "composition": "field-hospital",
-      "heading": 186.200075,
+      "composition": "medevac-station",
+      "guard_slots": [
+        [
+          4066.856406,
+          376.857758,
+          11924.875644
+        ],
+        [
+          4063.160254,
+          376.857758,
+          11930.473721
+        ],
+        [
+          4066.562178,
+          376.857758,
+          11942.366025
+        ],
+        [
+          4072.964102,
+          376.857758,
+          11959.454483
+        ],
+        [
+          4069.964102,
+          376.857758,
+          11954.25833
+        ],
+        [
+          4066.964102,
+          376.857758,
+          11949.062178
+        ]
+      ],
+      "heading": 210.0,
       "id": "d09",
-      "pos": [
+      "original_composition": "field-hospital",
+      "placement_evidence": {
+        "guard_navmesh_verified": false,
+        "height_median_m": 376.857758,
+        "height_spread_m": 0.0562,
+        "nearest_group_m": 87.036,
+        "prop_bounds_measured": false,
+        "radius_m": 120.0,
+        "roads_surveyed": false,
+        "rows": 3,
+        "support_slope_pct": 1.0645,
+        "terrain_measured": false
+      },
+      "planning_origin": [
         4037.650897,
         376.857758,
         11897.962708
       ],
-      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+      "pos": [
+        4060.0,
+        376.857758,
+        11945.0
+      ],
+      "requested_composition": "medevac-station",
+      "support_radius_m": 120.0,
+      "y_basis": "median of 3 vanilla rows within 120 m, spread 0.1 m",
+      "zone_id": "nwaf",
+      "zone_role": "outpost"
     }
   ],
   "status": "runtime-unverified",

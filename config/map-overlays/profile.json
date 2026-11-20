@@ -19,7 +19,7 @@
     "vanilla_clearance_m": 8.0,
     "piece_spacing_m": 1.0,
     "piece_vanilla_clearance_m": 10.0,
-    "flat_radius_m": 60.0,
+    "flat_radius_m": 120.0,
     "flat_spread_m": 1.5,
     "flat_min_rows": 3,
     "flat_site_tolerance_m": 0.8
