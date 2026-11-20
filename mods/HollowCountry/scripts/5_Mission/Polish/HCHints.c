@@ -164,9 +164,9 @@ class HCHints
         if (hunger == EStatLevels.CRITICAL && Offer(10, "You are starving. Eat safely prepared food soon; an empty stomach can cost health.")) return;
         if (m_State.PlayedSeconds >= 3600) return;
         if (Offer(0, "Search eligible cupboards and containers as well as loose loot. Searches draw from the finite search economy; an empty result is possible.")) return;
-        if (Offer(1, "Open Hollow Country Events with O by default. Rebind Hollow Country Events in Controls if needed.")) return;
-        if (Offer(2, "Carry a map and use your map key to open the group map. Share places and information with your group.")) return;
-        if (Offer(3, "Fuel can be siphoned from eligible vehicles with the right hose and container. The vehicle must still have fuel.")) return;
+        if (Offer(1, "Use your map key to open the group roster. Create a group, invite nearby players or accept an invitation there.")) return;
+        if (Offer(2, "Carry a map to see group map layers and shared markers. The group roster opens without one.")) return;
+        if (Offer(3, "Select a player in the group roster before inviting them. Select an invitation before accepting or declining it.")) return;
         if (Offer(4, "Hold a compatible weapon and carry duct tape and a Universal Light or pistol light. Tape the light to the weapon; removing it by hand does not return the tape.")) { return; }
         if (Offer(5, "Searches, gunshots and other noise can draw infected. Break sight and move carefully; noise can bring more than one.")) return;
         if (Offer(6, "Firearms are scarce. Search likely locations, conserve ammunition and keep useful tools while you work toward a weapon.")) { return; }

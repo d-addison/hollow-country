@@ -8,41 +8,116 @@ FrameWidgetClass HCGroupMapRoot {
  clipchildren 1
  priority 140
  {
-  MapWidgetClass HCMap {
-   position 0 0
-   size 0.72 1
-   hexactpos 0
-   vexactpos 0
-   hexactsize 0
-   vexactsize 0
-   clipchildren 1
-  }
-  FrameWidgetClass HCMapOverlay {
-   position 0 0 size 0.72 1
+  FrameWidgetClass HCMapArea {
+   position 0 0 size 1 1
    hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   ignorepointer 1 clipchildren 1
+   visible 0 ignorepointer 1
    {
-    CanvasWidgetClass HCGrid {
-     position 0 0 size 1 1
+    MapWidgetClass HCMap {
+     position 0 0
+     size 0.72 1
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     clipchildren 1
+    }
+    FrameWidgetClass HCMapOverlay {
+     position 0 0 size 0.72 1
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     ignorepointer 1
+     ignorepointer 1 clipchildren 1
+     {
+      CanvasWidgetClass HCGrid {
+       position 0 0 size 1 1
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       ignorepointer 1
+      }
+     }
+    }
+    ImageWidgetClass HCLayerReadouts {
+     position 0.01 0.79 size 0.69 0.20
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.02 0.02 0.02 0.92
+     {
+      TextWidgetClass HCNavigation {
+       position 0.01 0.01 size 0.98 0.20
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
+       "text color" 1 1 1 1
+      }
+      TextListboxWidgetClass HCKnownEvents {
+       position 0.01 0.23 size 0.98 0.76
+       hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+       font "gui/fonts/sdf_MetronBook24"
+      }
+     }
     }
    }
   }
-  ImageWidgetClass HCLayerReadouts {
-   position 0.01 0.79 size 0.69 0.20
+  ImageWidgetClass HCMarkerPanel {
+   position 0.01 0.46 size 0.34 0.32
    hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.02 0.02 0.02 0.92
+   visible 0
+   image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.05 0.05 0.05 0.95
    {
-    TextWidgetClass HCNavigation {
-     position 0.01 0.01 size 0.98 0.20
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
-     "text color" 1 1 1 1
+    TextListboxWidgetClass HCMarkers {
+     position 0.02 0.02
+     size 0.96 0.30
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
     }
-    TextListboxWidgetClass HCKnownEvents {
-     position 0.01 0.23 size 0.98 0.76
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+    EditBoxWidgetClass HCMarkerName {
+     position 0.02 0.34
+     size 0.96 0.12
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    EditBoxWidgetClass HCMarkerNote {
+     position 0.02 0.48
+     size 0.96 0.20
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCNew {
+     position 0.02 0.72
+     size 0.46 0.12
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "New marker"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCSave {
+     position 0.52 0.72
+     size 0.46 0.12
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Save marker"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCDelete {
+     position 0.02 0.86
+     size 0.96 0.12
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Delete marker"
      font "gui/fonts/sdf_MetronBook24"
     }
    }
@@ -100,37 +175,7 @@ FrameWidgetClass HCGroupMapRoot {
     }
     TextListboxWidgetClass HCMembers {
      position 0.02 0.40
-     size 0.96 0.06
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    TextListboxWidgetClass HCMarkers {
-     position 0.02 0.59
-     size 0.96 0.10
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    EditBoxWidgetClass HCMarkerName {
-     position 0.02 0.70
-     size 0.96 0.035
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    EditBoxWidgetClass HCMarkerNote {
-     position 0.02 0.74
-     size 0.96 0.06
+     size 0.96 0.32
      hexactpos 0
      vexactpos 0
      hexactsize 0
@@ -189,17 +234,17 @@ FrameWidgetClass HCGroupMapRoot {
      font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCOfficer {
-     position 0.02 0.465 size 0.46 0.035
+     position 0.02 0.725 size 0.46 0.035
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "Make officer" font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCMember {
-     position 0.52 0.465 size 0.46 0.035
+     position 0.52 0.725 size 0.46 0.035
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "Make member" font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCKick {
-     position 0.02 0.505
+     position 0.02 0.765
      size 0.46 0.035
      hexactpos 0
      vexactpos 0
@@ -209,7 +254,7 @@ FrameWidgetClass HCGroupMapRoot {
      font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCTransfer {
-     position 0.52 0.505
+     position 0.52 0.765
      size 0.46 0.035
      hexactpos 0
      vexactpos 0
@@ -219,7 +264,7 @@ FrameWidgetClass HCGroupMapRoot {
      font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCLeave {
-     position 0.02 0.545
+     position 0.02 0.805
      size 0.46 0.035
      hexactpos 0
      vexactpos 0
@@ -229,43 +274,13 @@ FrameWidgetClass HCGroupMapRoot {
      font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCDisband {
-     position 0.52 0.545
+     position 0.52 0.805
      size 0.46 0.035
      hexactpos 0
      vexactpos 0
      hexactsize 0
      vexactsize 0
      text "Disband"
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    ButtonWidgetClass HCNew {
-     position 0.02 0.81
-     size 0.46 0.035
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     text "New marker"
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    ButtonWidgetClass HCSave {
-     position 0.52 0.81
-     size 0.46 0.035
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     text "Save marker"
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    ButtonWidgetClass HCDelete {
-     position 0.02 0.85
-     size 0.46 0.035
-     hexactpos 0
-     vexactpos 0
-     hexactsize 0
-     vexactsize 0
-     text "Delete marker"
      font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCClose {
@@ -288,7 +303,7 @@ FrameWidgetClass HCGroupMapRoot {
      ignorepointer 1
      font "gui/fonts/sdf_MetronBook24"
      "exact text" 1 "exact text size" 16 wrap 1
-     text "Drag / wheel: pan / zoom. Double-click: marker. Rebind M in Controls > Map. Owner assigns roles; officers manage ordinary members and shared markers. Blue Team / orange Marker / yellow Visited; text labels identify each."
+     text "Map key: roster. Carry a map for positions and markers. Drag / wheel: pan / zoom. Double-click map: marker."
     }
    }
   }

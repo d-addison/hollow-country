@@ -1,6 +1,9 @@
 class HCGroupMapMenu extends UIScriptedMenu
 {
     protected MapWidget mHCMap;
+    protected Widget mHCMapArea;
+    protected Widget mHCMarkerPanel;
+    protected bool mHCHasMap;
     protected EditBoxWidget mHCName;
     protected EditBoxWidget mHCNote;
     protected EditBoxWidget mHCGroupName;
@@ -41,11 +44,13 @@ class HCGroupMapMenu extends UIScriptedMenu
         mHCMembers = TextListboxWidget.Cast(layoutRoot.FindAnyWidget("HCMembers"));
         mHCCandidates = TextListboxWidget.Cast(layoutRoot.FindAnyWidget("HCCandidates"));
         mHCInvites = TextListboxWidget.Cast(layoutRoot.FindAnyWidget("HCInvites"));
+        mHCMapArea = layoutRoot.FindAnyWidget("HCMapArea");
+        mHCMarkerPanel = layoutRoot.FindAnyWidget("HCMarkerPanel");
         CenterMap();
         mHCLayers = new HCGroupMapLayers;
         mHCLayers.Init(layoutRoot);
         mHCInfo = new HCInfoLayerControls;
-        mHCInfo.Init(layoutRoot);
+        mHCInfo.Init(mHCMapArea);
         return layoutRoot;
     }
 
@@ -109,6 +114,7 @@ class HCGroupMapMenu extends UIScriptedMenu
 
     override bool OnDoubleClick(Widget w, int x, int y, int button)
     {
+        if (!mHCHasMap) return super.OnDoubleClick(w, x, y, button);
         if (w == mHCMarkers)
         {
             if (mHCRefreshing) return true;
@@ -145,25 +151,37 @@ class HCGroupMapMenu extends UIScriptedMenu
         HCGroupClient client = HCGroupClient.Get();
         HCGroupSnapshot frame;
         if (client) frame = client.GetSnapshot();
-        if (!frame || !frame.Enabled || !mHCMap)
+        if (!frame || !frame.Enabled || !mHCMap || !mHCMapArea || !mHCMarkerPanel)
         {
             Close();
             return;
         }
-        if (frame != mHCBound)
+        mHCRenderTime += timeslice;
+        bool accessChanged;
+        if (!mHCBound || mHCRenderTime >= 0.25)
+        {
+            bool hasMap = HCGroupEquipment.Read(viewer).HasMap;
+            accessChanged = hasMap != mHCHasMap;
+            mHCHasMap = hasMap;
+            // Native 1.30.164289: 1_Core/proto/EnWidgets.c:125 Show.
+            if (mHCMapArea) mHCMapArea.Show(hasMap);
+            if (mHCMarkerPanel) mHCMarkerPanel.Show(hasMap);
+            if (accessChanged && !hasMap)
+            {
+                if (mHCLayers) mHCLayers.Clear();
+                // Native 1.30.164289: 3_Game/gameplay.c:324 ClearUserMarks.
+                mHCMap.ClearUserMarks();
+                ResetEditor();
+            }
+        }
+        if (frame != mHCBound || accessChanged)
         {
             RebuildLists(frame);
             mHCBound = frame;
         }
-        mHCRenderTime += timeslice;
         if (mHCRenderTime >= 0.25)
         {
-            if (!HCGroupEquipment.Read(viewer).HasMap)
-            {
-                Close();
-                return;
-            }
-            if (mHCLayers) mHCLayers.Draw(mHCMap, frame, viewer);
+            if (mHCHasMap && mHCLayers) mHCLayers.Draw(mHCMap, frame, viewer);
             // Native 1.30.164289: 1_Core/proto/EnWidgets.c:443 SetItem.
             // Position frames update Members in place; refresh status at existing UI cadence.
             if (mHCMembers)
@@ -189,7 +207,9 @@ class HCGroupMapMenu extends UIScriptedMenu
             }
             else
             {
-                mHCStatus.SetText(client.GetNotice());
+                string notice = client.GetNotice();
+                if (notice == "" && !mHCHasMap) notice = "Roster only. Carry a map to see positions and markers.";
+                mHCStatus.SetText(notice);
             }
         }
         if (mHCOpening) { mHCOpening = false; return; }
@@ -246,6 +266,7 @@ class HCGroupMapMenu extends UIScriptedMenu
         ClearLists();
         foreach (HCGroupMarker marker : frame.Markers)
         {
+            if (!mHCHasMap) break;
             mHCMarkerRows.Insert(marker);
             if (mHCMarkers)
             {
@@ -294,7 +315,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     {
         if (w == mHCMarkers)
         {
-            if (mHCRefreshing) return true;
+            if (!mHCHasMap || mHCRefreshing) return true;
             if (row >= 0 && row < mHCMarkerRows.Count())
             {
                 if (mHCHasPoint && mHCMarkerRows.Get(row).Id == mHCMarkerId)
@@ -309,9 +330,13 @@ class HCGroupMapMenu extends UIScriptedMenu
     override bool OnClick(Widget w, int x, int y, int button)
     {
         if (!w) return false;
-        if (mHCInfo && mHCInfo.OnClick(w)) return true;
+        if (mHCHasMap && mHCInfo && mHCInfo.OnClick(w)) return true;
         string action = w.GetName();
         if (action == "HCClose") { Close(); return true; }
+        if (action == "HCNew" || action == "HCSave" || action == "HCDelete")
+        {
+            if (!mHCHasMap) return true;
+        }
         if (action == "HCNew") { NewMarker(); return true; }
         HCGroupClient client = HCGroupClient.Get();
         if (!client || !mHCBound) return false;
@@ -376,7 +401,7 @@ class HCGroupMapMenu extends UIScriptedMenu
 
     bool SaveMarker(HCGroupClient client)
     {
-        if (mHCConflict)
+        if (!mHCHasMap || mHCConflict)
             return true;
         if (!mHCHasPoint || !mHCName || !mHCNote)
             return true;
@@ -463,6 +488,9 @@ class HCGroupMapMenu extends UIScriptedMenu
         if (mHCStatus)
             mHCStatus.SetText("");
         mHCBound = null;
+        mHCHasMap = false;
+        if (mHCMapArea) mHCMapArea.Show(false);
+        if (mHCMarkerPanel) mHCMarkerPanel.Show(false);
         mHCOpening = true;
         mHCHintDismissed = false;
         // Inherited OnShow owns LockControls; release it exactly once here.

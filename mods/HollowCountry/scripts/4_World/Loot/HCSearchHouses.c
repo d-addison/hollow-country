@@ -848,7 +848,7 @@ class HCSearchHouses
         }
         HCCommitReservation(session);
         int phase = site.Phase;
-        if (phase == 2) Tell(data.m_Player, "Search complete.");
+        if (phase == 2) Tell(data.m_Player, "Found an item. Moved it to your inventory.");
         else HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
     }
 
