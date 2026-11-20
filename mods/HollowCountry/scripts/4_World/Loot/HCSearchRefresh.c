@@ -513,6 +513,21 @@ class HCSearchRefreshStore
 
 class HCSearchRefreshModule : HCModule
 {
+    protected ref HCActivityWindow m_Activity = new HCActivityWindow("[HC Search Refresh]", "attempts timer_writes checked waiting refreshed bind_attempts bound bind_refused");
+
+    static void HCRecordAttempt()
+    {
+        if (s_Instance && s_Instance.Active()) s_Instance.m_Activity.Add("attempts");
+    }
+
+    static void HCRecordBinding(bool bound)
+    {
+        if (!s_Instance || !s_Instance.Active()) return;
+        s_Instance.m_Activity.Add("bind_attempts");
+        if (bound) s_Instance.m_Activity.Add("bound");
+        else s_Instance.m_Activity.Add("bind_refused");
+    }
+
     static const int RECORDS_PER_MINUTE = 32;
     static const int MAX_RECORDS = 4096;
     protected static HCSearchRefreshModule s_Instance;
@@ -565,12 +580,11 @@ class HCSearchRefreshModule : HCModule
     protected ref HCSearchRefreshPilotHouses m_Pilot;
     protected int m_Next;
     protected int m_Pending;
-    protected int m_Refreshed;
+    protected int m_LastWaitSeconds;
     protected float m_Minute;
     // Rows still owed to the current minute's batch (shared-budget resume) and whether it changed any.
     protected int m_BatchLeft;
     protected bool m_BatchChanged;
-    protected float m_Hour;
     protected bool m_CompactPilot;
     protected string m_Refusal;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -594,7 +608,7 @@ class HCSearchRefreshModule : HCModule
 
     bool Active()
     {
-        return IsEnabled(m_Settings) && m_State && m_Store && m_Store.Healthy();
+        return IsEnabled(m_Settings) && m_State && m_State.Rows && m_Store && m_Store.Healthy();
     }
 
     HCSearchRefreshRow FindRow(string scope, string siteId)
@@ -682,6 +696,7 @@ class HCSearchRefreshModule : HCModule
             m_Pending++;
         }
         else if (row.Ready) m_Pending++;
+        m_Activity.Add("timer_writes");
         row.SearchedUtc = now;
         row.IntervalSeconds = HCSearchRefreshPolicy.Interval(siteId);
         row.Ready = false;
@@ -757,13 +772,24 @@ class HCSearchRefreshModule : HCModule
         return s_Instance.m_Pilot;
     }
 
+    protected void HCReportActivity(bool force = false)
+    {
+        int timers = -1;
+        string stateFault = m_Refusal;
+        if (stateFault == "") stateFault = "none";
+        if (!m_State) stateFault = "refresh_state_missing";
+        else if (!m_State.Rows) stateFault = "refresh_rows_missing";
+        else timers = m_State.Rows.Count();
+        m_Activity.Report("pending=" + m_Pending.ToString() + " timers=" + timers.ToString() + " last_wait_s=" + m_LastWaitSeconds.ToString() + " checkpoint_pending=" + HCCheckpointPending().ToString() + " healthy=" + Active().ToString() + " state_fault=" + stateFault, force);
+    }
+
     override void OnTick(float deltaTime)
     {
+        HCReportActivity();
         if (!Active() || !(deltaTime > 0.0)) return;
         HCSaveScheduler.HCPumpFallback(m_SaveJob);
         m_Minute += deltaTime;
         HCReached.Mark("search_refresh.tick");
-        m_Hour += deltaTime;
         if (m_Minute >= 60.0 && m_BatchLeft < 1)
         {
             // Discard excess dt rather than doing catch-up bursts. Cursor survives
@@ -798,12 +824,19 @@ class HCSearchRefreshModule : HCModule
                 if (m_Next >= m_State.Rows.Count()) m_Next = 0;
                 if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_REFRESH, 1)) break;
                 HCSearchRefreshRow row = m_State.Rows[m_Next];
+                m_Activity.Add("checked");
+                if (!row.Ready && !HCSearchRefreshPolicy.Due(row.SearchedUtc, now, row.IntervalSeconds))
+                {
+                    m_Activity.Add("waiting");
+                    m_LastWaitSeconds = row.IntervalSeconds - (now - row.SearchedUtc);
+                }
                 if (!row.Ready && HCSearchRefreshPolicy.Due(row.SearchedUtc, now, row.IntervalSeconds))
                 {
                     row.Ready = true;
                     row.Revisited = true;
                     m_Pending--;
-                    m_Refreshed++;
+                    if (m_Pending == 0) m_LastWaitSeconds = 0;
+                    m_Activity.Add("refreshed");
                     m_BatchChanged = true;
                 }
                 m_Next++;
@@ -816,16 +849,11 @@ class HCSearchRefreshModule : HCModule
                 if (!HCRequestCheckpoint()) return;
             }
         }
-        if (m_Hour >= 3600.0)
-        {
-            m_Hour = 0.0;
-            Print("[HollowCountry] V2 loot refresh refreshed=" + m_Refreshed.ToString() + " pending=" + m_Pending.ToString());
-            m_Refreshed = 0;
-        }
     }
 
     override void OnStop()
     {
+        HCReportActivity(true);
         if (m_SaveJob)
         {
             HCSaveScheduler.HCFlush(m_SaveJob);
@@ -962,7 +990,9 @@ modded class HCSearchHouses
                 // Append only real newly observed supplies; leave all old rows intact.
                 int listed = slot.Sites.Find(hit.SiteId);
                 if (listed >= 0) slot.Sites.Remove(listed);
-                if (Bind(slot, hit))
+                bool rebound = Bind(slot, hit);
+                HCSearchRefreshModule.HCRecordBinding(rebound);
+                if (rebound)
                 {
                     HCSearchRefreshModule.Mark(scope, hit.SiteId);
                     return OpenRow(hit.SiteId, player);

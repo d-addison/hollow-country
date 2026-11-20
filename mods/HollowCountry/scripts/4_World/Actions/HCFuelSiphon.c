@@ -56,6 +56,22 @@ class HCFuelSiphonQualification
 
 class HCFuelSiphon
 {
+    protected static ref HCActivityWindow s_Activity;
+    static HCActivityWindow HCActivity()
+    {
+        if (!s_Activity) s_Activity = new HCActivityWindow("[HollowCountry] Fuel siphon", "attempts started completed refused steps");
+        return s_Activity;
+    }
+
+    static void HCRecordRefusal(ActionData action_data)
+    {
+        if (!GetGame().IsServer()) return;
+        HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
+        if (!data || data.HCRefusalCounted) return;
+        data.HCRefusalCounted = true;
+        HCActivity().Add("refused");
+    }
+
     static float TankLiters(CarScript car)
     {
         if (!car)
@@ -250,6 +266,7 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
 
     void HCRefuse(ActionData action_data, HCRefusalResult refusal = null)
     {
+        HCFuelSiphon.HCRecordRefusal(action_data);
         // Parameters are weak refs (boot 047 native compile error); a strong
         // local owns the fallback result for the whole call.
         HCRefusalResult ownedRefusal = null;
@@ -383,10 +400,12 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         if (car.GetFluidCapacity(CarFluid.FUEL) != capacity || HCFuelSiphon.TankLiters(car) != afterLiters || vessel.GetLiquidType() != LIQUID_GASOLINE || !HCFuelTransferPolicy.SiphonReceiptOk(creditMl, vesselBeforeMl, vessel.GetQuantity()))
         {
             // Ambiguous native receipt: no retry or refund.
+            HCFuelSiphon.HCRecordRefusal(action_data);
             HCStop(action_data);
             HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_RECEIPT, "Fuel siphon receipt mismatch; stopped without retry or refund.");
             return;
         }
+        HCFuelSiphon.HCActivity().Add("steps");
         m_MovedMl += creditMl;
         m_Stopped = false;
         HCFinishIfExhausted(action_data);
@@ -445,12 +464,14 @@ class HCActionSiphonFuelFromCar extends ActionContinuousBase
 
     override void OnStartServer(ActionData action_data)
     {
+        HCFuelSiphon.HCActivity().Add("attempts");
         super.OnStartServer(action_data);
         if (!action_data) return;
         HCRefusalResult refusal = new HCRefusalResult;
         refusal.Refuse(HCRefusal.SIPHON);
         if (!HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, action_data.m_MainItem, refusal) || !HCFuelSiphon.ServerEnabled())
         {
+            HCFuelSiphon.HCRecordRefusal(action_data);
             if (refusal.Reason == "")
                 refusal.Refuse(HCRefusal.SIPHON_OFF);
             HCRefusalReport.ActionRefusalMessage(action_data, refusal.Reason, HCRefusal.SiphonMessage(refusal.Reason));

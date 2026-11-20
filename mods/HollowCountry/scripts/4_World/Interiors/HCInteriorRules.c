@@ -3,6 +3,13 @@
 class HCInteriorRules
 {
     static const float MAX_HOUSE_TILT_DEGREES = 0.5;
+    protected static ref HCActivityWindow s_Activity;
+
+    static HCActivityWindow HCActivity()
+    {
+        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Interiors] rules", "checks admitted refused");
+        return s_Activity;
+    }
 
     static bool TiltAcceptable(vector orientation, float maxDegrees)
     {
@@ -99,7 +106,14 @@ class HCInteriorRules
 
     static bool MaySearch(bool server, bool interiors, bool search, bool proof, bool ready, bool livePlayer, bool available)
     {
-        return server && interiors && search && proof && ready && livePlayer && available;
+        bool allowed = server && interiors && search && proof && ready && livePlayer && available;
+        if (GetGame() && GetGame().IsServer())
+        {
+            HCActivity().Add("checks");
+            if (allowed) HCActivity().Add("admitted");
+            else HCActivity().Add("refused");
+        }
+        return allowed;
     }
 
     protected static bool s_PlacementChecked;
@@ -118,14 +132,9 @@ class HCInteriorRules
         return false;
     }
 
-    // Owner decision 2026-11-18: placement and search are on by default. Each
-    // acceptance/<gate>.disable opt-out is probed once per process, server-only,
-    // and one HCV1Admission line ("admitted unverified" or "off") is logged. interior_search is only
-    // meaningful with interior_placement: MaySearch also needs a started, healthy
-    // layout (m_Ready), a bound search economy (BindSearchEconomy, which has no
-    // caller on this build) and EnableInteriors/EnableSearch. Placement needs the
-    // operator interiors.json and the measured catalog; without them the module logs
-    // "missing/invalid manifest configuration; disabled" and places nothing.
+    // Placement and search ship default-on. BindSearchEconomy is called by
+    // HCSearchBinding; missing optional legacy pilot data does not disable the
+    // template house path. Native placement/transfer acceptance remains pending.
     static bool PlacementOptIn()
     {
         return !FileExist("$profile:HollowCountry/acceptance/interior_placement.disable");
@@ -181,5 +190,84 @@ class HCInteriorRules
     {
         // Explicit comparisons also reject NaN and infinities.
         return value[0] >= -limit && value[0] <= limit && value[1] >= -limit && value[1] <= limit && value[2] >= -limit && value[2] <= limit;
+    }
+}
+
+// Fixed metric schemas only: no entity/player keys, queues, scans or timers.
+// Native snapshot: EnString.c Split; EnScript.c array Count/Insert; Game.c GetTickTime.
+// Every total is process-local and saturates; window counts reset only after print.
+class HCActivityWindow
+{
+    protected string m_Tag;
+    protected ref array<string> m_Keys = new array<string>;
+    protected ref array<int> m_Window = new array<int>;
+    protected ref array<int> m_Total = new array<int>;
+    protected float m_Since;
+
+    void HCActivityWindow(string tag, string keys)
+    {
+        m_Tag = tag;
+        keys.Split(" ", m_Keys);
+        for (int i = 0; i < m_Keys.Count() && i < 32; i++)
+        {
+            m_Window.Insert(0);
+            m_Total.Insert(0);
+        }
+        m_Since = GetGame().GetTickTime();
+    }
+
+    void Add(string key)
+    {
+        int index = m_Keys.Find(key);
+        if (index < 0 || index >= m_Total.Count()) return;
+        if (m_Window[index] < 2147483647) m_Window[index] = m_Window[index] + 1;
+        if (m_Total[index] < 2147483647) m_Total[index] = m_Total[index] + 1;
+    }
+
+    void Report(string state = "", bool force = false)
+    {
+        if (!GetGame() || !GetGame().IsServer()) return;
+        float now = GetGame().GetTickTime();
+        if (!force && now - m_Since < 600) return;
+        string line = m_Tag + " summary window_s=" + (now - m_Since).ToString();
+        for (int i = 0; i < m_Total.Count(); i++)
+        {
+            line = line + " " + m_Keys[i] + "=" + m_Window[i].ToString() + " " + m_Keys[i] + "_total=" + m_Total[i].ToString();
+            m_Window[i] = 0;
+        }
+        if (state != "") line = line + " " + state;
+        Print(line + " runtime=PENDING");
+        m_Since = now;
+    }
+}
+
+modded class HCInteriorsModule
+{
+    bool HCActivityCabinetEmpty(ActionData data)
+    {
+        if (!data || !data.m_Target) return false;
+        HCInteriorSite site = FindSite(data.m_Target.GetObject());
+        return site && site.Phase == 2;
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        HCInteriorRules.HCActivity();
+        HCSearchHouses.HCActivity();
+        super.OnStart(settings);
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        super.OnTick(deltaTime);
+        HCInteriorRules.HCActivity().Report();
+        HCSearchHouses.HCActivity().Report();
+    }
+
+    override void OnStop()
+    {
+        HCInteriorRules.HCActivity().Report("", true);
+        HCSearchHouses.HCActivity().Report("", true);
+        super.OnStop();
     }
 }

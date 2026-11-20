@@ -45,7 +45,7 @@ class HCInfectedMemory
     protected bool m_Healthy;
     protected bool m_Dirty;
     protected int m_LastUtc;
-    protected int m_LogUtc;
+    protected ref HCActivityWindow m_Activity = new HCActivityWindow("[HC InfectedMemory]", "reads heat_writes capped saves investigations_started investigations_refused");
     protected int m_RecordUtc;
     protected int m_RecordCount;
     static const int MAX_CLOCK_SKEW_SECONDS = 300;
@@ -67,6 +67,13 @@ class HCInfectedMemory
     static int ResponseLimitAtHeat(float heat)
     {
         return HCInfectedTuning.Get().Memory.ResponseBase + Math.Round(HCInfectedTuning.Get().Memory.ResponseHeat * Math.Clamp(heat, 0, 1));
+    }
+
+    static void HCRecordInvestigation(bool started)
+    {
+        if (!s_Instance) return;
+        if (started) s_Instance.m_Activity.Add("investigations_started");
+        else s_Instance.m_Activity.Add("investigations_refused");
     }
 
     static bool Active()
@@ -223,6 +230,7 @@ class HCInfectedMemory
     {
         if (!GetGame().IsServer() || !s_Instance || !s_Instance.m_Healthy) return 0;
         if (!HCInfectedStore.ValidPosition(pos)) return 0;
+        s_Instance.m_Activity.Add("reads");
         int nowUtc = s_Instance.Now(false);
         if (nowUtc < 1) return 0;
         int x = Math.Floor(pos[0] / s_Instance.m_State.CellMetres);
@@ -246,7 +254,7 @@ class HCInfectedMemory
         // At most 32 admitted records per wall-clock second. No queue, world
         // scan or disk write in a shot callback; every array is capped at 64.
         if (m_RecordUtc != nowUtc) { m_RecordUtc = nowUtc; m_RecordCount = 0; }
-        if (m_RecordCount >= 32) return;
+        if (m_RecordCount >= 32) { m_Activity.Add("capped"); return; }
         m_RecordCount++;
         int x = Math.Floor(pos[0] / m_State.CellMetres);
         int z = Math.Floor(pos[2] / m_State.CellMetres);
@@ -275,6 +283,7 @@ class HCInfectedMemory
         }
         cell.Value = Math.Clamp(Decayed(cell.Value, nowUtc - cell.UpdatedUtc) + HCInfectedTuning.Get().Memory.LoudnessGain * loudness, 0, 1);
         cell.UpdatedUtc = nowUtc;
+        m_Activity.Add("heat_writes");
         m_Dirty = true;
     }
 
@@ -283,13 +292,14 @@ class HCInfectedMemory
         if (!m_Dirty) return true;
         m_State.SavedUtc = nowUtc;
         if (!HCV2ThreatStore<HCInfectedMemoryState>.Save(PATH, m_State, 16384)) { Fail(); return false; }
+        m_Activity.Add("saves");
         m_Dirty = false;
         return true;
     }
 
     void Tick()
     {
-        if (!m_Healthy) return;
+        if (!m_Healthy) { m_Activity.Report("healthy=false"); return; }
         int nowUtc = Now(true);
         if (nowUtc < 1) return;
         float hottest = 0;
@@ -305,13 +315,8 @@ class HCInfectedMemory
             m_State.CellMetres = HCInfectedTuning.Get().Memory.CellMetres;
             m_Dirty = true;
         }
-        if (!Save(nowUtc)) return;
-        if (m_LogUtc == 0 || nowUtc - m_LogUtc >= 600)
-        {
-            m_LogUtc = nowUtc;
-            int count = m_State.Cells.Count();
-            Print("[HollowCountry] V2 infected memory cells=" + count.ToString() + " hottest=" + hottest.ToString());
-        }
+        Save(nowUtc);
+        m_Activity.Report("cells=" + m_State.Cells.Count().ToString() + " hottest=" + hottest.ToString() + " healthy=" + m_Healthy.ToString());
     }
 
     void Stop()
@@ -321,6 +326,7 @@ class HCInfectedMemory
             int nowUtc = Now(true);
             if (nowUtc > 0) Save(nowUtc);
         }
+        m_Activity.Report("healthy=" + m_Healthy.ToString(), true);
         m_Healthy = false;
         if (s_Instance == this) s_Instance = null;
     }
@@ -395,6 +401,7 @@ modded class HCAlertChain
             int limit = HCInfectedMemory.ResponseLimit(emission.Clue.Origin);
             if (emission.Root.Recipients.Count() >= limit)
             {
+                HCActivity.Add("capped");
                 m_Queue.Remove(0);
                 spent++;
                 continue;
@@ -438,5 +445,17 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCInfectedMemoryModule);
+    }
+}
+
+// Route attempts only: idle/no-clue/policy/cooldown checks are not investigations.
+modded class HCInfectedModule
+{
+    override protected void TryInvestigate(HCInfectedActor actor)
+    {
+        int attempts = actor.SearchAttempts;
+        super.TryInvestigate(actor);
+        if (actor.SearchAttempts > attempts)
+            HCInfectedMemory.HCRecordInvestigation(actor.SearchPack != null);
     }
 }

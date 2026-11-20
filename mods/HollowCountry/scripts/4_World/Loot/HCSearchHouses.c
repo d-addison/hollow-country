@@ -51,6 +51,13 @@ class HCSearchHouseSession
 
 class HCSearchHouses
 {
+    protected static ref HCActivityWindow s_Activity;
+    static HCActivityWindow HCActivity()
+    {
+        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Search Houses]", "house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted cabinet_attempts cabinet_started cabinet_completed cabinet_empty cabinet_refused_begin cabinet_refused_commit cabinet_interrupted");
+        return s_Activity;
+    }
+
     static const float BIND_RADIUS_SQ = 6.25;
     static const float COMMIT_AFTER = 5.5;
     static const float DEADLINE = 15.0;
@@ -754,6 +761,10 @@ class HCSearchHouses
         }
         if (row < 0)
         {
+            // Count the action's empty outcome, not background binding probes.
+            string kind = "house";
+            if (!IsHouseTarget(data.m_Target)) kind = "cabinet";
+            HCActivity().Add(kind + "_empty");
             HCRefusalReport.ActionRefusalMessage(data, HCRefusal.NOTHING, "Nothing here to search.");
             return;
         }
@@ -923,5 +934,68 @@ class HCSearchHouses
             index = index - 1;
         }
         if (action) action.Site = null;
+    }
+}
+
+// Action boundary wraps all existing house, cabinet and refresh dispatch hooks.
+// Never count ActionCondition polling as a player attempt. Completion requires a
+// phase transition in this callback; repeated finish callbacks cannot count twice.
+modded class HCInteriorActionData
+{
+    string HCActivityKind;
+    bool HCActivityStarted;
+    bool HCActivityCompleted;
+}
+
+modded class HCActionSearchInterior
+{
+    override void OnStartServer(ActionData action_data)
+    {
+        HCInteriorActionData action = HCInteriorActionData.Cast(action_data);
+        if (!action) { super.OnStartServer(action_data); return; }
+        action.HCActivityStarted = false;
+        action.HCActivityCompleted = false;
+        action.HCActivityKind = "cabinet";
+        if (HCSearchHouses.IsHouseTarget(action_data.m_Target)) action.HCActivityKind = "house";
+        HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_attempts");
+        HCSearchRefreshModule.HCRecordAttempt();
+        HCInteriorsModule module = HCInteriorsModule.Get();
+        bool depletedCabinet = module && action.HCActivityKind == "cabinet" && module.HCActivityCabinetEmpty(action_data);
+        super.OnStartServer(action_data);
+        action.HCActivityStarted = action.Site && action.Site.Owner == action_data;
+        if (action.HCActivityStarted) HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_started");
+        else
+        {
+            HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_refused_begin");
+            if (depletedCabinet) HCSearchHouses.HCActivity().Add("cabinet_empty");
+        }
+    }
+
+    override void OnFinishProgressServer(ActionData action_data)
+    {
+        int before = HCSearchNoise.PhaseOf(action_data);
+        HCInteriorActionData action = HCInteriorActionData.Cast(action_data);
+        // Hold the site across native/noise callbacks that may end the action.
+        HCInteriorSite site;
+        if (action) site = action.Site;
+        super.OnFinishProgressServer(action_data);
+        if (action && !action.HCActivityCompleted)
+        {
+            if (before == 0 && site && site.Phase == 2)
+            {
+                action.HCActivityCompleted = true;
+                HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_completed");
+            }
+            else HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_refused_commit");
+        }
+    }
+
+    override void OnEndServer(ActionData action_data)
+    {
+        HCInteriorActionData action = HCInteriorActionData.Cast(action_data);
+        if (action && action.HCActivityStarted && !action.HCActivityCompleted)
+            HCSearchHouses.HCActivity().Add(action.HCActivityKind + "_interrupted");
+        if (action) action.HCActivityStarted = false;
+        super.OnEndServer(action_data);
     }
 }

@@ -35,6 +35,7 @@ class HCSiphonDiagnosticData : ActionData
     bool TrustedDiagnosticActor;
     int StartedMs;
     PlayerBase LeasePlayer;
+    bool HCRefusalCounted;
     bool ProductionStarted;
     bool ProductionClosed;
     bool ProductionFinished;
@@ -146,7 +147,7 @@ class HCActionSiphonFuel : ActionContinuousBase
     protected static ref HCSiphonDiagnosticLocks s_Locks = new HCSiphonDiagnosticLocks;
 
     // Crafting lifecycle calls after validation and clears leases again on stop.
-    // supported=0 means no native-qualified family/vessel pair yet, not a census.
+    // Report the configured lease cap and actual admission, not a literal zero.
     static void ProductionStart(bool preference)
     {
         if (!GetGame() || !GetGame().IsServer())
@@ -154,7 +155,7 @@ class HCActionSiphonFuel : ActionContinuousBase
         s_Locks.Clear();
         bool admitted = preference && HCFuelSiphonQualification.Admitted();
         Print(HCV2Admission.Line("FuelSiphon", HCV2Admission.Admitted(admitted), "fuel_siphon", false));
-        PrintFormat("[HC Plan] HC-3 siphon supported=0 leases=%1 qualified=false state=%2 runtime=PENDING scope=live_CarScript boats/wrecks=unsupported", s_Locks.ActiveCount(GetGame().GetTime()), HCV2Admission.OnOff(admitted));
+        PrintFormat("[HC Plan] HC-3 siphon supported=live_CarScript leases=%1 state=%2 max_sessions=%3 qualified=%4 runtime=PENDING", s_Locks.ActiveCount(GetGame().GetTime()), HCV2Admission.OnOff(admitted), HCFuelSiphonConfig.Get().MaxSessions, HCFuelSiphonQualification.Qualified());
     }
 
     static void ProductionStop()
@@ -174,7 +175,10 @@ class HCActionSiphonFuel : ActionContinuousBase
         data.Donor = CarScript.Cast(data.m_Target.GetObject());
         data.Vessel = data.m_MainItem;
         data.LeasePlayer = data.m_Player;
-        return s_Locks.Acquire(data, GetGame().GetTime());
+        bool acquired = s_Locks.Acquire(data, GetGame().GetTime());
+        if (acquired) HCFuelSiphon.HCActivity().Add("started");
+        else HCFuelSiphon.HCRecordRefusal(action_data);
+        return acquired;
     }
 
     static bool ProductionOwns(ActionData action_data)
@@ -207,7 +211,7 @@ class HCActionSiphonFuel : ActionContinuousBase
             return;
         data.ProductionFinished = true;
         ProductionEnd(action_data);
-        Print("[HollowCountry] Fuel siphon completed; runtime=PENDING");
+        HCFuelSiphon.HCActivity().Add("completed");
     }
 
     // Also used AFTER debit: an emptied donor may still credit its observed loss.

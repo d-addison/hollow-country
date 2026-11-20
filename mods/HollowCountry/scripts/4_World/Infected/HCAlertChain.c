@@ -20,8 +20,9 @@ class HCAlertRoot
     int RootId;
     float RootObserved;
     float RootExpires;
-    // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:917/:926 map Contains/Insert.
-    ref map<ZombieBase, bool> Recipients = new map<ZombieBase, bool>;
+    // At most twelve recipients including the seed. Native map keys must be
+    // int/string; bounded array membership also keeps entity handles local.
+    ref array<ZombieBase> Recipients = new array<ZombieBase>;
     ref array<ZombieBase> Emitters = new array<ZombieBase>;
 }
 
@@ -38,6 +39,7 @@ class HCAlertChain
 {
     protected ref array<ref HCAlertRoot> m_Roots = new array<ref HCAlertRoot>;
     protected ref array<ref HCAlertEmission> m_Queue = new array<ref HCAlertEmission>;
+    ref HCActivityWindow HCActivity = new HCActivityWindow("[HC Infected] alerts", "raised propagated capped");
     protected int m_NextRootId = 1;
     protected int m_RecipientCursor;
 
@@ -72,8 +74,12 @@ class HCAlertChain
             return;
         Expire(now);
         queueCap = Math.Min(queueCap, 16);
-        if (queueCap < 1 || m_Queue.Count() >= queueCap || trackedCount < 1 || trackedCount > HCInfectedTuning.Get().Chain.TrackedCap)
+        if (queueCap < 1 || m_Queue.Count() >= queueCap || trackedCount > HCInfectedTuning.Get().Chain.TrackedCap)
+        {
+            HCActivity.Add("capped");
             return;
+        }
+        if (trackedCount < 1) return;
         HCAlertRoot root;
         int hops = 0;
         float strength = 1;
@@ -85,7 +91,10 @@ class HCAlertChain
             if (!root || root.Emitters.Find(actor.InfectedEntity) >= 0)
                 return;
             if (!HCInfectedPolicy.MayRelay(now, root.RootObserved, root.RootExpires, actor.Heard.Hops, actor.Heard.Strength, true, true))
+            {
+                HCActivity.Add("capped");
                 return;
+            }
             hops = actor.Heard.Hops;
             strength = actor.Heard.Strength;
         }
@@ -96,13 +105,17 @@ class HCAlertChain
             if (actor.InfectedEntity.GetMindStateSynced() == DayZInfectedConstants.MINDSTATE_CALM)
                 return;
             if (m_Roots.Count() >= HCInfectedTuning.Get().Chain.RootCap || m_NextRootId >= 2000000000)
+            {
+                HCActivity.Add("capped");
                 return;
+            }
             root = new HCAlertRoot;
             root.RootId = m_NextRootId++;
             root.RootObserved = now;
             root.RootExpires = now + Math.Min(actor.ClueLifetime, HCInfectedTuning.Get().Chain.ClueTTL);
-            root.Recipients.Insert(actor.InfectedEntity, true);
+            root.Recipients.Insert(actor.InfectedEntity);
             m_Roots.Insert(root);
+            HCActivity.Add("raised");
             // The seed cannot hear itself or relay its own root again.
             actor.Heard = new HCInfectedClue;
             actor.Heard.Provenance = 1;
@@ -114,7 +127,10 @@ class HCAlertChain
             actor.HeardExternally = false;
         }
         if (!HCInfectedPolicy.MayRelay(now, root.RootObserved, root.RootExpires, hops, strength, true, true))
+        {
+            HCActivity.Add("capped");
             return;
+        }
         HCAlertEmission emission = new HCAlertEmission;
         emission.Emitter = actor.InfectedEntity;
         emission.StartCursor = m_RecipientCursor % trackedCount;
@@ -162,6 +178,7 @@ class HCAlertChain
             HCAlertEmission emission = m_Queue[0];
             if (!emission.Emitter || !emission.Emitter.IsAlive() || emission.Scanned >= actors.Count() || emission.Root.Recipients.Count() >= 12)
             {
+                if (emission.Root.Recipients.Count() >= 12) HCActivity.Add("capped");
                 m_Queue.Remove(0);
                 continue;
             }
@@ -176,13 +193,14 @@ class HCAlertChain
             // Conservative pilot radius; never an assertion about sound range.
             float radius = 15 * emission.Clue.Strength;
             radius = HCAtmosphereRelay.RangeAtSource(radius, emission.Clue.Origin);
-            bool duplicate = emission.Root.Recipients.Contains(actor.InfectedEntity);
+            bool duplicate = emission.Root.Recipients.Find(actor.InfectedEntity) >= 0;
             if (duplicate || distanceSq > radius * radius || now < actor.NextHearing)
                 continue;
             bool geometry = ClearGeometry(emission.Clue.Origin, emission.Emitter, actor.InfectedEntity);
             if (!HCInfectedPolicy.MayHearRelay(now, emission.Root.RootExpires, emission.Clue.Hops, emission.Clue.Strength, distanceSq, emission.Root.Recipients.Count(), 12, duplicate, true, geometry, actor.NextHearing))
                 continue;
-            emission.Root.Recipients.Insert(actor.InfectedEntity, true);
+            emission.Root.Recipients.Insert(actor.InfectedEntity);
+            HCActivity.Add("propagated");
             actor.Heard = emission.Clue;
             actor.HeardRootId = emission.Root.RootId;
             actor.HeardExternally = true;
@@ -191,5 +209,21 @@ class HCAlertChain
             actor.NextHearing = now + 10;
         }
         return spent;
+    }
+}
+
+// Report on the owning module tick even when no actors/work reach ProcessPending.
+modded class HCInfectedModule
+{
+    override void OnTick(float deltaTime)
+    {
+        super.OnTick(deltaTime);
+        if (m_Chains) m_AlertChain.HCActivity.Report();
+    }
+
+    override void OnStop()
+    {
+        if (m_Chains) m_AlertChain.HCActivity.Report("", true);
+        super.OnStop();
     }
 }
