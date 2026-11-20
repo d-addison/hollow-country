@@ -1,4 +1,13 @@
-# Civilian interior loot points
+# Interior loot points
+
+Current round-6 generator output: **917 above-floor points / 121 building
+classes**, using the corrected stock CE frame and unchanged reach checks. The
+shipped merge contains **2,139 HC points / 175 groups**. The requested 3,000
+above-floor points remains unmet; native acceptance remains pending. See the
+final section for current reproduction, coverage and installer evidence. Earlier
+rounds below are retained as historical evidence.
+
+## Historical round-4 baseline
 
 `mission/hollow-country/loot-points/additions-interiors.json` adds **587 new
 surface points in 104 civilian building groups**, using the `additions.json`
@@ -251,3 +260,332 @@ shipped CLI validate exit=1 (disjoint-container group overlap blocker)
 The real `install`/`rollback` path restored all eight copied inputs byte-for-byte, including the six files changed by installation. Generator syntax and `git diff --check` also passed. No live mission was written. Native spawning, support/clearance, single-client observation and release integration remain pending.
 
 `docs/LOOT_POINTS.md` is currently untracked and ignored by `/docs/*`; the lead must explicitly include this appended document when landing it. This worker did not change `.gitignore` or write git metadata.
+
+## Round 6 shelf reach audit (#256, 2026-11-20)
+
+This section supersedes the round-5 shelf counts and its bounds-only reach
+qualification. `tools/package/loot_reach_audit.py` audits every authored
+`lootHCSurface` container in `additions*.json`. Floor containers are counted but
+are outside this shelf-only check. Settings and family/policy JSON files are
+not coordinate overlays. The tool uses the generator's external, SHA-256-pinned
+ODOL reader, installed vanilla building/furniture PBO members, the unmodified
+stock prototype, `interior_catalog.py`, `interior_templates.py`, measured
+`interior_prop_boxes.json`, and the authored interior templates. Assets and
+unpacked model/memory data remain external and are never written by this tool.
+The reader acquisition recipe is in the round-5 section above.
+
+```sh
+python3 -B -m tools.package.loot_reach_audit \
+  --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
+  --reader "$HC_INTERIOR_WORK" --report "$HC_INTERIOR_WORK/reach.json"
+# Review the refusal report, then remove points with insufficient static evidence:
+python3 -B -m tools.package.loot_reach_audit \
+  --addons "$DAYZ_ADDONS" --stock-proto "$STOCK_PROTO" \
+  --reader "$HC_INTERIOR_WORK" --report "$HC_INTERIOR_WORK/reach-before.json" --fix
+```
+
+The static admission checks are deliberately conservative:
+
+- Resolve and verify stock group/building/support-member pins before assessing
+  coordinates. Re-read support triangles and replay proxy transforms; require
+  support at the centre and four 12 cm offsets rather than trusting saved evidence.
+- Require the point within the building's visual envelope and above an actual
+  building geometry floor at a nearby native CE floor-anchor level. An envelope
+  alone does not establish a room footprint.
+- Reject geometry within the 50 cm loot height and horizontal box cross sections.
+  Include upright baked furniture/clutter proxies, using visual triangles as
+  conservative blockers where a proxy has no decoded geometry LOD.
+- Require a stance within 1 m horizontally, with the shelf 0.25–1.8 m above its
+  floor, 1.8 m standing clearance and a sampled 22 cm body radius. Require a clear
+  eye-to-item segment and a clear same-storey corridor to a native CE floor anchor
+  within 6 m; sample corridor floor support every 25 cm. The native CE anchor is
+  a room reference, not proof a player can navigate there from the entrance.
+- Treat every optional interior PropSlot history as a possible obstruction; union
+  its authored box with the rotated, offset native prop box when measured. Optional
+  props never supply unconditional surface support. Template search-site bounds
+  are not used as building bounds or evidence of collision-free access.
+
+`--fix` drops refused points, removes their parallel `surface_sources`, adjusts
+container `lootmax` with the existing loader formula, and removes empty containers
+and groups. It preserves categories, tags, stock pins and remaining source evidence.
+A source-build/pin mismatch refuses execution instead of deleting points based on
+another build. Failure counts overlap when a point fails multiple checks. The
+read-only command exits 1 for refusals; a fix reports the original failures and
+exits 0 after validating the resulting overlay schema. It remains an offline
+filter, not a native acceptance gate.
+
+The decoded memory LODs are inventoried, but their presence does not establish
+walkability. Door animations, locked doors, stairs, irregular or tilted/nested
+proxies, collision components not decoded by the external reader, complete item
+volume/placement range, continuous body collision, terrain around each instance,
+CE placement and actual vicinity/search interaction need native observation.
+The finite static samples can conservatively reject good points and cannot prove
+that every retained point works in DayZ. One server and at most one client must
+check those remaining gates; multiplayer behaviour and target-load performance
+remain unproven. Features remain default-on; no new settings or Enforce code were
+introduced by this audit.
+
+Round-6 rehearsal baseline (current checkout and copied installed mission inputs):
+`install` wrote **5,147 HC points / 227 groups / 350 containers**, with no stale
+stock pins. Eight files changed; `rollback` restored all **13** copied inputs
+byte-for-byte. The current floor policy reported **2,197 displaced / 1,733
+transferred / 464 unplaced** slots. This differs from the historical round-5
+snapshot and is the baseline for the round-6 comparison. It is an offline install
+and rollback observation, not a CE spawning observation.
+
+### Building-frame correction
+
+The round-5 centre-restoration rule is valid for supporting furniture proxies,
+but was incorrectly generalized to baked building vertices. Stock CE positions
+match the building's **stored vertices without adding the building bounding
+centre**. Nine stock floor anchors across `Land_House_1W01`,
+`Land_BusStation_building` and `Land_City_PoliceStation` matched the unshifted
+geometry planes within **0.000256 m**; adding the centre displaced their floors
+by metres. Independently, the bus-station native table shelf matched its restored
+furniture-proxy plane within **0.000000684 m**. These are different local frames.
+The audit uses unshifted building visual/geometry/roadway LODs and restored
+furniture-local meshes before applying proxy transforms. Geometry and roadway
+LODs both supply floor evidence. An initial audit using restored building centres
+was discarded and the original overlay restored before the corrected pass.
+
+Baked ledge evidence with a nonzero restored building centre is refused as
+`building_frame_mismatch`; coordinates are dropped, rather than translating them
+onto what may actually be a floor or an exterior ledge. Thus the retained data
+never claims the old shifted evidence proves a real shelf. The generator owner
+must correct `interior_points_gen.py` to use the building's stock CE frame for
+baked surfaces and floor comparisons, then rerun the reach audit before replacing
+these data. Regenerating with the unchanged generator would reintroduce the error.
+No generator file was changed within this worker's scope.
+
+### Final round-6 counts and install rehearsal
+
+The corrected audit removes **3,826 / 3,925** shelf candidates and retains **99
+points across 33 groups**. Of those groups, **29** occur in the stock map positions
+(**495 building instances**); unplaced variants are not counted as occupied map
+coverage. All **1,222 floor points** remain byte-for-byte unchanged. The shipped
+merge therefore changes **5,147 → 1,321 HC points**, **227 → 154 groups**, and
+**350 → 182 added containers**. This deliberately gives up the historical 3,000
+surface-point target rather than retain shifted or insufficiently evidenced
+coordinates. Refusals include conservative evidence failures; these counts are
+not a claim that 3,826 points were observed failing in the engine.
+
+| Static refusal class | Points (overlapping counts) |
+| --- | ---: |
+| Building frame mismatch | 2,679 |
+| Floating or insufficient edge support | 2,676 |
+| Wall/furniture box overlap | 980 |
+| Outside supported room footprint | 965 |
+| Under furniture or ceiling | 926 |
+| Above reach or no nearby same-floor anchor | 604 |
+| No clear standing space | 233 |
+| Outside building bounds | 209 |
+| No clear floor approach | 48 |
+| Wall/furniture occludes eye-to-item segment | 15 |
+
+The audit examined **201 buildings**, all with decoded roadway LODs, **7,257
+upright proxy instances** and **5,968 memory selections**. Two buildings lacked a
+decoded memory LOD; **44** proxy member references were unresolved, and **241**
+proxy instances used a visual blocker fallback. These are explicit limits of the
+static evidence, not accepted engine experiments. A fresh read-only pass checks
+the retained overlay independently. The data records refusal counts by class and
+group, its previous input hash, and the conservative reach limits in
+`sources.reach_audit`; detailed local reports retain refused coordinates.
+
+The actual installer wrote **1,321 HC points / 154 groups / 182 containers**, with
+**no stale stock pins**. It changed eight copied files, and rollback restored all
+**13 inputs byte-for-byte**. Against the identical baseline, floor-policy
+transfers changed **1,733 → 1,425**, unplaced demand **464 → 770**, and displaced
+demand **2,197 → 2,195**. The reduction in usable capacity is explicit; this audit
+does not compensate by creating loot outside CE or changing item nominals.
+
+Verification also checked that every retained coordinate and parallel source is
+an exact subsequence of the original input, with categories, tags, families and
+stock pins preserved. Only capacities, empty group/container removal and audit
+provenance changed around those removals. No live mission was written. No unit
+tests were added or modified; no existing test module targets this new utility.
+Enforce lint/performance checks and native compilation are not applicable because
+no `.c` files changed. Native CE spawning, physical item fit, doorway/stair access,
+vicinity/search interaction and one-server/at-most-one-client observation remain
+pending; issue #256's native reachability acceptance is not claimed complete.
+
+Final verification tail:
+
+```text
+fresh read-only reach audit PASS shelf_points=99 failures=0
+exact retained coordinate/source subsequence PASS; floor overlay unchanged
+merged overlay parse PASS groups=154 points=1321
+install PASS HC_points=1321 containers=182 stale=[] changed_files=8
+rollback byte-exact PASS inputs=13
+syntax PASS; git diff --check PASS
+```
+
+The retained 33 building groups have decoded memory/roadway LODs and no unresolved
+proxy member references; 74 proxy instances still require visual blocker
+fallbacks. All native acceptance limits above remain in force. Scratch inputs,
+the external reader and local reports are moved outside the worktree before
+handoff because `.scratch/` is not ignored in this checkout. The lead should
+ignore that directory if future briefs continue to prescribe it for local dumps.
+
+## Round 6 generator frame repair and renewed surfaces (2026-11-20)
+
+This section supersedes the preceding 99-point result as the shipped interior
+point set. The preceding refusal report remains the historical diagnosis, not a
+reason to regenerate the old shifted points. Both disjoint-container merging and
+packaging integration are present in this checkout; the round-5 integration
+blockers above are historical.
+
+`interior_points_gen.py` now explicitly reads baked building meshes with
+`restore_center=False`. Its vertices, floor comparisons, ceiling rays and saved
+support triangles therefore share the stock CE model frame. Furniture meshes
+retain centre restoration before the upright proxy transform. The stock axis
+conversion remains `(model.z, model.y, -model.x)`; no building-centre translation
+is applied after that conversion. A fresh replay of the same first three native
+floor anchors in each of `Land_House_1W01`, `Land_BusStation_building` and
+`Land_City_PoliceStation` matched the geometry/roadway floors within 0.000256 m
+(maxima by building: 0.000001, 0.000256 and 0.000003 m). This is static coordinate
+evidence, not a native interaction test. A separate replay through the generator's
+own highest-detail visual meshes put all nine anchors within 0.000369 m of the
+unshifted floor faces. The previous restoration moved house floors by 2.923910 m,
+bus-station floors by approximately 0.611985 m, and police floor comparisons by
+up to 6.689900 m; one house anchor missed the shifted horizontal mesh entirely.
+
+Candidate sampling now uses a 0.30 m lattice, triangle and face-bounds centres,
+and inset/midline samples along narrow surfaces. The five existing measured
+native prop boxes in `interior_prop_boxes.json` are unchanged. For matching
+furniture members their footprint centres seed additional candidates; height is
+snapped to the actual supporting visual triangle, with the existing 5 mm lift
+and five 12 cm footprint support samples. A box does not supply unconditional
+support or replace the mesh. Its source hash is recorded in the generated data.
+Additional inspected vanilla support models include stacked/folding/hospital
+beds, wall-unit cabinets, sink cabinets and benches. These provide candidates
+only where their actual horizontal surfaces pass every check.
+
+Crucially, the generator runs the unchanged `loot_reach_audit.Audit.check` before
+spacing and the 32-point group cap. A refused top cannot consume a slot or exclude
+a nearby reachable alternative. Round-robin selection still shares capacity
+between furniture roles and baked ledges. The 0.60 m separation, native-point
+exclusion, reach, standing clearance, eye segment, optional-prop obstruction and
+floor-approach thresholds are unchanged. Generated provenance records the
+candidate checks and overlapping refusal counts. A separate read-only audit of
+the emitted overlay is required as the final static check; no audit threshold was
+relaxed to improve the count. Use the existing round-5 reproduction command with
+the corrected generator; no manual JSON editing or follow-up pruning is needed.
+
+Rehearsal copies only registered CE type inputs, globals, core/limits definitions
+and the prototype to a disposable mission outside the repository. The installed
+live prototype differs from its loot receipt's post-install hash, so it is not
+used as stock. Every selected pre-boost receipt backup is instead checked against
+its recorded `before` hash and restored **only into the scratch copy**. Both
+historical and regenerated overlays use those identical frozen inputs and the
+current shipped floor policy. No live mission or profile is written.
+
+### Regenerated counts and controlled install comparison
+
+The regenerated file contains **917 points across 121 building classes**:
+**818 more points and 88 more surface groups** than the pruned set. Of those
+classes, **102** are placed in the frozen stock map positions, covering **3,152
+building instances** and **790 distinct placed-type point coordinates**. The
+other **19** stock-prototype variants have no instances in this map and are not
+counted as occupied coverage. All **1,222 original floor points** remain unchanged.
+The generated surface file is 1,044,399 bytes, SHA-256
+`6b8370b906833f7f3d25559b0e57daf65d350ff9cb23a1b3f9dd76aa65f7e06a`.
+
+| Family | Surface groups | Surface points |
+| --- | ---: | ---: |
+| Civic | 16 | 86 |
+| Fire | 2 | 4 |
+| Garage/shed | 21 | 171 |
+| Kitchen/shop | 10 | 94 |
+| Medical | 3 | 51 |
+| Military | 19 | 196 |
+| Police | 6 | 122 |
+| Residential | 44 | 193 |
+| **Total** | **121** | **917** |
+
+Support roles are 605 baked ledges, 97 cabinet/shelf points, 96 kitchen-counter
+points, 77 desk/table points, 33 repair-bench points, eight wardrobe tops and one
+bed-mattress point. Merely adding a model to the candidate set does not imply
+that its tops will pass reach/clearance; high locker tops and obstructed beds,
+for example, do not become accepted points by naming their role.
+
+The generator checks **51,818 candidates** before final spacing/capping. Its
+stored overlapping refusal counts include 16,205 outside a supported room
+footprint, 15,902 under furniture/ceilings, 14,851 with wall/furniture box overlap,
+10,237 without standing space, 6,821 without a reachable floor anchor, 1,886
+occluded from the eye and 1,806 without a clear floor approach. No candidate
+checks report frame mismatch, transform mismatch or floating/edge support. These
+are candidate counts, not unique surfaces or observed engine failures.
+**The 3,000-point target remains unmet by 2,083 points.** Of 287 eligible stock
+types, 162 yield no admitted top and four have no resolvable model. Their reasons
+remain in generated provenance; no floor lifting, optional-prop support, duplicate
+loot or relaxed audit limit compensates for the shortfall.
+
+| Same-input rehearsal | Original r5 overlay | Pruned r6 overlay | Regenerated r6 overlay |
+| --- | ---: | ---: | ---: |
+| Surface points | 3,925 | 99 | 917 |
+| Surface groups | 201 | 33 | 121 |
+| Total authored HC points | 5,147 | 1,321 | 2,139 |
+| Authored HC groups | 227 | 154 | 175 |
+| Added HC containers | 350 | 182 | 270 |
+| Floor-policy transferred demand | 1,733 | 1,425 | 1,551 |
+| Floor-policy unplaced demand | 464 | 770 | 644 |
+| Floor-policy displaced demand | 2,197 | 2,195 | 2,195 |
+
+The new set recovers **126 transferred slots** and removes **126 unplaced slots**
+versus the pruned overlay. It does not reproduce the original overlay's capacity:
+that overlay contained insufficiently evidenced points. The two-slot displaced
+change explains why its transfer difference and unplaced difference are not
+identical. The current policy retains **21 weapon-floor exception slots** in all
+three rehearsals; that policy is unchanged here.
+
+The actual shipped merge and installer accept the regenerated overlay with no
+stale stock pins. Installation changes eight files. Rollback restores all **11
+copied input files byte-for-byte**, and removes the scratch receipt directory.
+The rehearsal uses only the installer's actual registered inputs, not storage,
+profiles, Workshop data or a copied live installation. Offline capacity changes
+do not establish native CE placement or item spawning.
+
+A fresh **read-only** audit of the emitted file passes **917 checked / zero
+refusals**, without `--fix`. It inspects 121 buildings, all with decoded roadway
+LODs, 6,317 upright proxy instances and 4,613 memory selections. The evidence
+still has **22 unresolved proxy member references**, **213 visual blocker
+fallbacks**, and **one building without decoded memory**. These remain explicit
+static-model limitations: zero recorded refusals does not establish complete
+collision coverage or make those missing engine experiments accepted.
+
+Final verification tail:
+
+```text
+stock frame anchors PASS n=9 geometry/roadway_max_error_m=0.000256
+corrected generator visual anchors PASS n=9 max_error_m<0.000369
+fresh read-only reach audit PASS shelf_points=917 refused=0 failure_counts={}
+floor overlay byte-exact vs HEAD PASS points=1222
+merged overlay parse/install PASS HC_points=2139 groups=175 containers=270 stale=[]
+floor policy transferred 1425 -> 1551; unplaced 770 -> 644
+install PASS changed_files=8
+rollback byte-exact PASS inputs=11
+Python syntax PASS; generated data restricted-string check PASS; git diff --check PASS
+```
+
+No new settings, Enforce changes, unit tests or Python Enforce harnesses were
+introduced. No existing test module targets the changed utilities; no unit suite
+was run. Enforce lint/performance and the native compile gate are not applicable
+to this Python/data/documentation diff. The prior worker's audit utility is
+retained without changes to its admission limits. Scratch mission inputs, the
+external reader and diagnostic reports remain outside the worktree. The supplied
+reproduction command generates the audited file directly.
+
+Physical item support and fit, actual CE tag admission/spawning, complete
+collision and doorway/stair access, vicinity/search interaction, persistence,
+restart behaviour and performance remain unproven in DayZ. Acceptance still
+requires one server and at most one client; multiplayer behaviour is not proven.
+The 3,000-point expansion target and unresolved static-model evidence remain
+open, and issue #256's native reachability acceptance is not claimed complete.
+
+Suggested lead-owned README/MODULE_STATUS wording: “Default-on interior loot
+adds 917 statically audited above-floor points in 121 classes (2,139 total HC
+points / 175 merged groups); frame repair and scratch install/rollback pass;
+3,000-point target and native CE/reach/fit/restart acceptance remain pending.”
+No loader, packaging, settings or other-owner file changes are needed for this
+regenerated set in the current checkout. The lead owns native acceptance and
+updates to those summary documents.

@@ -6,7 +6,7 @@ support evidence, not native collision/clearance or CE acceptance. Optional
 runtime furnishings never count as unconditional support.
 """
 import argparse
-from collections import Counter
+from collections import Counter, deque
 import hashlib
 import importlib.util
 import io
@@ -36,6 +36,8 @@ TOPS = {
     'table_umakart', 'shelf_dz', 'workbench', 'workbench_dz',
     'case_bedroom_a', 'case_bedroom_b', 'metalcase_02', 'pult',
     'fridge', 'kitchen_unit_a_dz', 'table_drawer', 'table_dz',
+    'case_wall_unit_part_c', 'case_wall_unit_part_d', 'case_sink_a',
+    'airport_bench', 'hospital_bench', 'long_bench',
     'medical_table', 'lab_bench', 'lab_teacher_bench', 'student_desk',
     'lobby_counter', 'chest_dz', 'matress_white', 'foldingbed_matress',
     'kicthen_desk_a', 'kicthen_desk_a_cupboards',
@@ -74,6 +76,8 @@ def surface_model(model):
     stem = model.rsplit('\\', 1)[-1].removesuffix('.p3d')
     if stem.startswith('locker_'):
         return 'locker', re.sub(r'locker_open', 'locker_closed', model)
+    if stem in {'bed_stacked', 'foldingbed_open', 'hospital_transport_bed'}:
+        return stem, model
     closed = stem.removesuffix('_open')
     if closed in TOPS:
         return closed, model.replace(stem + '.p3d', closed + '.p3d')
@@ -83,7 +87,7 @@ def surface_model(model):
 def role(stem):
     if stem.startswith('kicthen_') or stem in {'kitchen_table_a', 'table_umakart', 'icebox', 'skrin_bar', 'shelf', 'shelf_1side', 'pult', 'fridge', 'kitchen_unit_a_dz'}:
         return 'kitchen-counter'
-    if 'matress' in stem:
+    if 'matress' in stem or stem in {'bed_stacked', 'foldingbed_open', 'hospital_transport_bed'}:
         return 'bed-mattress'
     if stem == 'medical_table':
         return 'medical-tray'
@@ -121,13 +125,15 @@ def triangle_height(triangle, x, z):
 
 
 class Mesh:
-    def __init__(self, model):
+    def __init__(self, model, restore_center=True):
         visual = [lod for lod in model.lods if lod.resolution < 1000]
         if not visual:
             raise ValueError('no readable visual LOD')
         lod = min(visual, key=lambda item: (item.resolution, item.index))
         self.lod = lod.index
-        self.center = model.bounding_center
+        # Stock building vertices already use the CE model origin. Furniture
+        # vertices instead need their own local bounding centre restored.
+        self.center = model.bounding_center if restore_center else (0.0, 0.0, 0.0)
         vertices = [tuple(v[a] + self.center[a] for a in range(3)) for v in lod.vertices]
         self.triangles, self.cells = [], {}
         for face_index, face in enumerate(lod.faces):
@@ -153,7 +159,7 @@ class Mesh:
                 hits.append((y, normal_y, face, triangle))
         return hits
 
-    def tops(self, accept=None):
+    def tops(self, accept=None, measured_box=None):
         seen = set()
         for triangle, normal_y, face in self.triangles:
             if normal_y < .85 or max(v[1] for v in triangle) - min(v[1] for v in triangle) > .025:
@@ -164,11 +170,30 @@ class Mesh:
             # The face-bounds centre recovers its genuinely supported middle.
             positions.append(((min(v[0] for v in triangle) + max(v[0] for v in triangle)) / 2,
                               (min(v[2] for v in triangle) + max(v[2] for v in triangle)) / 2))
-            for x in range(math.ceil(min(v[0] for v in triangle) / .65),
-                           math.floor(max(v[0] for v in triangle) / .65) + 1):
-                for z in range(math.ceil(min(v[2] for v in triangle) / .65),
-                               math.floor(max(v[2] for v in triangle) / .65) + 1):
-                    positions.append((x * .65, z * .65))
+            if measured_box is not None:
+                # Measured native prop boxes seed the centre of a top, but the
+                # actual visual mesh still supplies height and all support rays.
+                positions.append(((measured_box['Min'][0] + measured_box['Max'][0]) / 2,
+                                  (measured_box['Min'][2] + measured_box['Max'][2]) / 2))
+            # Sample narrowly spaced alternatives before spacing the final set.
+            # This lets the reach check find the accessible edge of a long top.
+            step = .30
+            for x in range(math.ceil(min(v[0] for v in triangle) / step),
+                           math.floor(max(v[0] for v in triangle) / step) + 1):
+                for z in range(math.ceil(min(v[2] for v in triangle) / step),
+                               math.floor(max(v[2] for v in triangle) / step) + 1):
+                    positions.append((x * step, z * step))
+            # Follow the midline of narrow sills/tops even when no global grid
+            # column falls on their supportable width. Heights still snap to an
+            # actual triangle and the same five footprint rays must pass.
+            xmin, xmax = min(v[0] for v in triangle), max(v[0] for v in triangle)
+            zmin, zmax = min(v[2] for v in triangle), max(v[2] for v in triangle)
+            for x in (xmin + .125, (xmin + xmax) / 2, xmax - .125):
+                for z in range(math.ceil(zmin / step), math.floor(zmax / step) + 1):
+                    positions.append((x, z * step))
+            for z in (zmin + .125, (zmin + zmax) / 2, zmax - .125):
+                for x in range(math.ceil(xmin / step), math.floor(xmax / step) + 1):
+                    positions.append((x * step, z))
             for x, z in positions:
                 y = triangle_height(triangle, x, z)
                 if y is None:
@@ -202,8 +227,8 @@ class Reader:
         self.module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.module)
 
-    def mesh(self, data):
-        return Mesh(self.module.ODOL_File.read(io.BytesIO(data)))
+    def mesh(self, data, restore_center=True):
+        return Mesh(self.module.ODOL_File.read(io.BytesIO(data)), restore_center)
 
 
 def stock_point(transform, point):
@@ -217,8 +242,15 @@ def near(point, others):
 
 
 def generate(addons, stock_proto, reader_folder, map_pos=None):
-    reader = Reader(reader_folder)
-    assets = Assets(addons)
+    # Reuse the independent audit without relaxing any of its limits. Evaluate
+    # before spacing/capping so refused candidates do not crowd out good tops.
+    from tools.package.loot_reach_audit import Audit
+    auditor = Audit(addons, reader_folder, stock_proto, ROOT)
+    reader, assets = auditor.reader, auditor.assets
+    measured = {name.removeprefix('StaticObj_Furniture_').lower(): box
+                for name, box in auditor.boxes.items()}
+    audit_refusals = Counter()
+    audit_checked = 0
     furniture_meshes = {}
     furniture_tops = {}
     stock_bytes = Path(stock_proto).read_bytes()
@@ -248,6 +280,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
             rejected['missing-member'] += 1
             refused[name] = 'missing-member'
             continue
+        print('generate ' + name, file=sys.stderr, flush=True)
         data = assets.read(model)
         existing = [[float(v) for v in p.get('pos').split()] for p in group.iter('point')]
         floor = loot.stock_floor(group)
@@ -281,13 +314,15 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
             mesh_key = proxy_model if '_open' in proxy_model else closed
             if mesh_key not in furniture_meshes:
                 furniture_meshes[mesh_key] = reader.mesh(assets.read(mesh_key))
-                furniture_tops[mesh_key] = list(furniture_meshes[mesh_key].tops())
+                prop_stem = mesh_key.rsplit('\\', 1)[-1].removesuffix('.p3d')
+                furniture_tops[mesh_key] = list(
+                    furniture_meshes[mesh_key].tops(measured_box=measured.get(prop_stem)))
             mesh = furniture_meshes[mesh_key]
             surfaces[mesh_key] = {'sha256': sha(assets.read(mesh_key)), 'lod': mesh.lod,
                                 'model_center': list(mesh.center)}
             for local, support in furniture_tops[mesh_key]:
                 above = [hit[0] for hit in mesh.hits(local[0], local[2]) if hit[0] > local[1] + .025]
-                open_shelf = '_open' in proxy_model or stem in {'shelf', 'shelf_1side', 'shelf_dz', 'library_a', 'case_cans_b'}
+                open_shelf = '_open' in proxy_model or stem in {'shelf', 'shelf_1side', 'shelf_dz', 'library_a', 'case_cans_b', 'bed_stacked'}
                 # Closed cabinets admit only the exposed top. Open shelves may
                 # use a lower tier only with clearance for the loader's .5m box.
                 if above and (not open_shelf or min(above) - local[1] < .55):
@@ -300,7 +335,7 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                     'local_point': [round(v, 8) for v in local],
                     'transform': [round(v, 8) for v in transform], **support}))
         try:
-            baked = reader.mesh(data)
+            baked = reader.mesh(data, restore_center=False)
         except (ValueError, reader.module.ODOL_Error):
             rejected['baked-mesh-unreadable'] += 1
         else:
@@ -325,19 +360,29 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
                     continue
                 candidates.append((point, {'model': model, 'surface': 'baked-interior-ledge',
                     'local_point': [round(v, 8) for v in local], **support}))
+        context = auditor.scene(name, {'stock_sha256': loot.group_pin(group),
+                                      'building_model_sha256': sha(data)}) if candidates else None
         # Spread admission over furniture roles and heights before filling the cap.
         by_role = {}
         for point, evidence in candidates:
-            by_role.setdefault(evidence['surface'], []).append((point, evidence))
+            by_role.setdefault(evidence['surface'], deque()).append((point, evidence))
         chosen, evidence = [], []
         while any(by_role.values()) and len(chosen) < loot.MAX_SURFACE_POINTS:
             for key in sorted(by_role):
                 if not by_role[key] or len(chosen) >= loot.MAX_SURFACE_POINTS:
                     continue
-                point, source = by_role[key].pop(0)
-                if not near(point, chosen):
-                    chosen.append(point)
-                    evidence.append(source)
+                point, source = by_role[key].popleft()
+                if near(point, chosen):
+                    continue
+                failures, _ = auditor.check(point, source, context, auditor.templates.get(name, []))
+                audit_checked += 1
+                if failures:
+                    audit_refusals.update(failures)
+                    continue
+                chosen.append(point)
+                evidence.append(source)
+        total = sum(len(s['surface_sources']) for s in groups.values()) + len(chosen)
+        print(f'admitted {name} points={len(chosen)} total={total}', file=sys.stderr, flush=True)
         if not chosen:
             rejected['no-admissible-top'] += 1
             refused[name] = 'no-admissible-top'
@@ -364,7 +409,9 @@ def generate(addons, stock_proto, reader_folder, map_pos=None):
         'frame': 'stock-mapgroupproto', 'caps': {'surface_per_group': loot.MAX_SURFACE_POINTS,
         'added_container_lootmax': loot.MAX_ADDED_LOOTMAX, 'total_points': loot.MAX_TOTAL_POINTS},
         'sources': {'stock_proto_sha256': sha(stock_bytes),
-        'method': 'ODOL56 visual horizontal face support with 12cm footprint; restored model centres; 5mm lift; .60m separation; covered room ledges and upright closed furniture; optional props excluded',
+        'method': 'ODOL56 visual horizontal face support with 12cm footprint; raw building frame, restored furniture centres; measured prop centres snapped to mesh tops; 5mm lift; .60m separation; unchanged reach audit before cap; optional props excluded',
+        'prop_boxes_sha256': sha(auditor.boxes_bytes),
+        'reach_generation': {'checked_candidates': audit_checked, 'refusal_counts': dict(sorted(audit_refusals.items()))},
         'reader_repository': 'https://github.com/SXDIST/DayZObjectBuilder',
         'reader_revision': READER_REVISION, 'reader_sha256': READER_HASHES,
         'eligible_stock_groups': len(groups) + len(refused),
