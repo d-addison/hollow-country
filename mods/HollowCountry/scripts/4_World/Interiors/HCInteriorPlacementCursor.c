@@ -24,6 +24,7 @@ class HCInteriorPlacementCursor
     protected ref array<ref HCInteriorFurnishRow> m_Deferred = new array<ref HCInteriorFurnishRow>;
     protected HCInteriorFurnishRow m_Current;
     protected bool m_Complete;
+    protected ref HCInteriorResolveCursor m_Resolve;
     protected ref HCWorkBudget m_Budget = new HCPerfSlices("Interiors");
 
     // One deadline/count for the outer furnishing loop, never one per slot.
@@ -62,6 +63,7 @@ class HCInteriorPlacementCursor
                     if (!m_Current) { return; }
                 }
             }
+            m_Resolve = null;
             m_Slot = 0;
             m_HousePlaced = 0;
         }
@@ -75,6 +77,10 @@ class HCInteriorPlacementCursor
         // see a subsequent furnishing appear in the same house.
         if (HCInteriorTemplatePlacement.PlayersNearRow(m_Current, HCPerfPlayers.HCGet()))
         {
+            // A player can hold a partially filtered row for many ticks.
+            // Restart live candidate checks after that hold; keep the same
+            // cached native snapshot, as before the staged resolver.
+            m_Resolve = null;
             if (m_Slot == 0)
             {
                 if (!m_FromDeferred)
@@ -96,13 +102,16 @@ class HCInteriorPlacementCursor
         if (HCInteriorRules.PlacementAdmitted())
         {
             m_LastCost = SLOT_UNITS;
-            if (!HCInteriorTemplatePlacement.HCPrepareResolve(m_Current))
+            // The outer shared HCWorkBudget admits ONE resolve chunk; keep
+            // the candidate index across uninterrupted module ticks.
+            if (!m_Resolve) { m_Resolve = new HCInteriorResolveCursor; }
+            if (!m_Resolve.HCStep(m_Current))
             {
                 m_Yield = true;
                 return;
             }
             int beforeCount = placed.Count();
-            if (!HCInteriorTemplatePlacement.HCPlaceRowSlice(module, m_Current, settings, placed, m_Slot, 1, m_Slot, m_HousePlaced))
+            if (!HCInteriorTemplatePlacement.HCPlaceRowSlice(module, m_Current, settings, placed, m_Slot, 1, m_Slot, m_HousePlaced, m_Resolve))
             {
                 m_Current = null;
                 return;
@@ -115,8 +124,84 @@ class HCInteriorPlacementCursor
             m_Current = null;
             return;
         }
+        m_Resolve = null;
         m_Slot = m_Slot + 1;
         if (m_Slot >= m_Current.Props.Count()) { m_Current = null; }
         m_Budget.HCDeferred("Interiors", rows.Count() - m_Next + m_DeferredRemaining);
+    }
+}
+
+// One resolve chunk per admitted HCWorkBudget visit. A cache miss runs only
+// the object query and always yields; cache hits avoid that extra tick. The
+// original <=256-object snapshot is filtered in <=8-candidate chunks instead
+// of an indivisible foreach. No house is claimed until resolution completes.
+class HCInteriorResolveCursor
+{
+    static const int CANDIDATES_PER_STEP = 8;
+    protected ref HCInteriorResolveEntry m_Entry;
+    protected int m_Next;
+    protected Object m_Found;
+    protected string m_Reason = "unresolved";
+    protected bool m_Complete;
+
+    Object HCHouse() { return m_Found; }
+    string HCReason() { return m_Reason; }
+    int HCQuerySize() { return m_Entry.QuerySize; }
+
+    bool HCStep(HCInteriorFurnishRow row)
+    {
+        if (m_Complete) { return true; }
+        int mark = TickCount(0);
+        vector position = HCInteriorTemplates.AsVector(row.Position);
+        if (!m_Entry)
+        {
+            m_Entry = HCInteriorTemplatePlacement.HCFindResolveObjects(position);
+            if (!m_Entry)
+            {
+                m_Entry = HCInteriorTemplatePlacement.HCResolveObjects(position);
+                HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "query", TickCount(mark));
+                return false;
+            }
+        }
+        bool done = HCFilter(position, row.BuildingClass);
+        HCInteriorTemplatePlacement.HCRecordResolve(row, m_Entry.QuerySize, "filter", TickCount(mark));
+        return done;
+    }
+
+    protected bool HCFilter(vector position, string buildingClass)
+    {
+        if (m_Entry.QuerySize > 256)
+        {
+            m_Reason = "query_cap";
+            m_Complete = true;
+            return true;
+        }
+        int stop = Math.Min(m_Next + CANDIDATES_PER_STEP, m_Entry.Objects.Count());
+        while (m_Next < stop)
+        {
+            Object candidate = m_Entry.Objects[m_Next];
+            m_Next = m_Next + 1;
+            if (!candidate || candidate.GetType() != buildingClass || vector.DistanceSq(position, candidate.GetPosition()) > 0.5625) { continue; }
+            if (m_Found)
+            {
+                m_Found = null;
+                m_Reason = "ambiguous";
+                m_Complete = true;
+                return true;
+            }
+            m_Found = candidate;
+        }
+        if (m_Next < m_Entry.Objects.Count()) { return false; }
+        m_Complete = true;
+        if (!m_Found) { return true; }
+        vector orientation = m_Found.GetOrientation();
+        if (!HCInteriorRules.SaneVector(orientation, 360) || !HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES))
+        {
+            m_Found = null;
+            m_Reason = "tilted";
+            return true;
+        }
+        m_Reason = "";
+        return true;
     }
 }

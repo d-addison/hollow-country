@@ -10,7 +10,7 @@
 // One deterministic startup pass, advanced in bounded batches by module ticks.
 // Issue #138 round 2: every native step of a creation attempt is sub-timed with EnSystem.c:106
 // TickCount into the shared Core/HCStepTimer (owner=Interiors, one '[HC Step]' line per window).
-// Placement decisions, flags, order and results are unchanged; only measurements are added.
+// Resolve work is staged; placement predicates, flags and order remain unchanged.
 class HCInteriorTemplatePlacement
 {
     static const int STEP_RESOLVE = 0;   // Resolve: Game.c:930 GetObjectsAtPosition3D at the house
@@ -25,6 +25,8 @@ class HCInteriorTemplatePlacement
     protected static string s_LastType;
     // Objects the last house resolve query returned; the step line shows it as heaviest=<type>#q<n>.
     protected static int s_LastQuery;
+    // ":query"/":filter" from the cursor's last resolve visit; empty for direct resolves.
+    protected static string s_LastPhase;
     protected static bool s_Started;
     protected static int s_Placed;
     protected static int s_Capped;
@@ -53,6 +55,7 @@ class HCInteriorTemplatePlacement
         s_BoxLogged.Clear();
         s_LastType = "";
         s_LastQuery = 0;
+        s_LastPhase = "";
         s_ResolveCache.Clear();
         s_ResolveNext = 0;
     }
@@ -122,7 +125,7 @@ class HCInteriorTemplatePlacement
     // Native 1_Core/proto/EnScript.c:380/385/389/407 Count/Clear/Set/Insert.
     // Reuse the unmodified 0.75 m native query for all slices/templates at this building centre.
     // Filtering still runs on live object state in Resolve; cached failure snapshots retain #q.
-    static HCInteriorResolveEntry HCResolveObjects(vector position)
+    static HCInteriorResolveEntry HCFindResolveObjects(vector position)
     {
         foreach (HCInteriorResolveEntry cached : s_ResolveCache)
         {
@@ -131,10 +134,21 @@ class HCInteriorTemplatePlacement
                 return cached;
             }
         }
+        return null;
+    }
+
+    static HCInteriorResolveEntry HCResolveObjects(vector position)
+    {
+        HCInteriorResolveEntry cached = HCFindResolveObjects(position);
+        if (cached) { return cached; }
         HCInteriorResolveEntry entry = new HCInteriorResolveEntry;
         entry.Position = position;
-        array<CargoBase> cargos = new array<CargoBase>();
-        GetGame().GetObjectsAtPosition3D(position, 0.75, entry.Objects, cargos);
+        // #275: resolve consumes objects only. Do not request proxy-cargo
+        // enumeration on large buildings. Installed Game.c:930 has no notnull
+        // output requirement; native callers of its circle counterpart pass
+        // null for unused cargos (GeyserArea.c:210). The sphere/centre/radius
+        // and object cap are unchanged. Native timing/equivalence pending.
+        GetGame().GetObjectsAtPosition3D(position, 0.75, entry.Objects, null);
         entry.QuerySize = entry.Objects.Count();
         if (entry.QuerySize > 256)
         {
@@ -152,23 +166,15 @@ class HCInteriorTemplatePlacement
         return entry;
     }
 
-    // A cache miss owns a separate cursor slice. The native query itself
-    // cannot be preempted (boot 114: 76.6 ms resolve, only two results); do not
-    // add inspection/creation to that same slice. Exact centres/refusals and
-    // the subsequent live object filtering stay unchanged.
-    static bool HCPrepareResolve(HCInteriorFurnishRow row)
+    // Keep query/filter attribution within the existing resolve stage and
+    // eight-step timer. The heaviest suffix distinguishes an indivisible
+    // native query from a bounded script filter on the next native boot.
+    static void HCRecordResolve(HCInteriorFurnishRow row, int querySize, string phase, int ticks)
     {
-        vector position = HCInteriorTemplates.AsVector(row.Position);
-        foreach (HCInteriorResolveEntry cached : s_ResolveCache)
-        {
-            if (cached.Position == position) { return true; }
-        }
-        int mark = TickCount(0);
-        HCInteriorResolveEntry entry = HCResolveObjects(position);
-        HCSteps().HCAdd(STEP_RESOLVE, TickCount(mark));
-        s_LastQuery = entry.QuerySize;
-        s_LastType = row.BuildingClass + "#q" + s_LastQuery.ToString();
-        return false;
+        HCSteps().HCAdd(STEP_RESOLVE, ticks);
+        s_LastQuery = querySize;
+        s_LastPhase = ":" + phase;
+        s_LastType = row.BuildingClass + "#q" + querySize.ToString() + s_LastPhase;
     }
 
     static Object Resolve(HCInteriorFurnishRow row)
@@ -272,7 +278,7 @@ class HCInteriorTemplatePlacement
         HCPlaceRowSlice(module, row, settings, placed, 0, 5, 0, 0);
     }
 
-    static bool HCPlaceRowSlice(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed, int firstSlot, int slotCount, int resume, int placedBefore)
+    static bool HCPlaceRowSlice(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed, int firstSlot, int slotCount, int resume, int placedBefore, HCInteriorResolveCursor resolved = null)
 
     {
         int limit = Math.Min(settings.HCSearchCap("MaxFurnishedProps", settings.MaxFurnishedProps), 1500);
@@ -286,9 +292,16 @@ class HCInteriorTemplatePlacement
         }
         HCStepTimer steps = HCSteps();
         int mark = TickCount(0);
-        Object house = Resolve(row);
+        Object house;
+        if (resolved)
+        {
+            house = resolved.HCHouse();
+            s_ResolveReason = resolved.HCReason();
+            s_LastQuery = resolved.HCQuerySize();
+        }
+        else { s_LastPhase = ""; house = Resolve(row); }
         steps.HCAdd(STEP_RESOLVE, TickCount(mark));
-        s_LastType = row.BuildingClass + "#q" + s_LastQuery.ToString();
+        s_LastType = row.BuildingClass + "#q" + s_LastQuery.ToString() + s_LastPhase;
         if (!house)
 
         {
@@ -347,7 +360,7 @@ class HCInteriorTemplatePlacement
             vector position = house.ModelToWorld(HCInteriorTemplates.AsVector(slot.Position));
             vector orientation = HCInteriorTemplates.AsVector(slot.Orientation);
             orientation[0] = orientation[0] + house.GetOrientation()[0];
-            s_LastType = row.BuildingClass + ":" + slot.Type + "#q" + s_LastQuery.ToString();
+            s_LastType = row.BuildingClass + ":" + slot.Type + "#q" + s_LastQuery.ToString() + s_LastPhase;
             steps.HCAdd(STEP_LOOKUP, TickCount(mark));
             mark = TickCount(0);
             bool available = Available(module, position, orientation, slot.Type);
