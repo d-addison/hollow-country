@@ -382,26 +382,124 @@ def rule_collection_keys(project, source):
                            f'{match[1]}<{match[2]}>: {RULES["HC-E015"]}')
 
 
-_NULL_HANDLE = re.compile(
-    r'(?<![\w.])(?:(?P<left>[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*(?:==|!=)\s*null\b'
-    r'|null\s*(?:==|!=)\s*(?P<right>[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*))')
+def _null_handle_comparisons(code):
+    """Read simple member operands, allowing balanced parentheses on either side.
+
+    Calls and compound expressions are not handle variables. Keep token offsets
+    so scope lookup and diagnostic lines still refer to the original source.
+    """
+    tokens = list(re.finditer(r'[A-Za-z_]\w*|==|!=|[^\s]', code))
+
+    def operand(index, step):
+        if not 0 <= index < len(tokens):
+            return None
+        token = tokens[index][0]
+        opening, closing = ('(', ')') if step == 1 else (')', '(')
+        if token == opening:
+            inner = operand(index + step, step)
+            if inner is None:
+                return None
+            parts, index = inner
+            if not 0 <= index < len(tokens) or tokens[index][0] != closing:
+                return None
+            index += step
+        elif re.fullmatch(r'[A-Za-z_]\w*', token):
+            parts, index = [token], index + step
+        else:
+            return None
+        while 0 <= index < len(tokens) and tokens[index][0] == '.':
+            index += step
+            if not 0 <= index < len(tokens) or not re.fullmatch(r'[A-Za-z_]\w*', tokens[index][0]):
+                return None
+            parts.append(tokens[index][0])
+            index += step
+        return parts, index
+
+    for index, token in enumerate(tokens):
+        if token[0] not in {'==', '!='}:
+            continue
+        left, right = operand(index - 1, -1), operand(index + 1, 1)
+        if left is None or right is None:
+            continue
+        left_parts, before = left
+        right_parts, after = right
+        # A closing call/index expression must not become a parenthesised
+        # variable; likewise do not accept a prefix of a right-hand call.
+        if (before >= 0 and (re.fullmatch(r'[A-Za-z_]\w*', tokens[before][0])
+                             and tokens[before][0] not in {'return', 'case'}
+                             or tokens[before][0] in {']', ')'})):
+            continue
+        if after < len(tokens) and tokens[after][0] in {'(', '['}:
+            continue
+        if left_parts == ['null']:
+            parts = right_parts
+        elif right_parts == ['null']:
+            parts = list(reversed(left_parts))
+        else:
+            continue
+        start, end = tokens[before + 1].start(), tokens[after - 1].end()
+        yield start, code[start:end], parts
+
+
+def _handle_nonlocals(source, owner=None):
+    """Supplement HC-E016's field/global bindings with grouped declarations."""
+    start, end = (owner.body_start + 1, owner.body_end) if owner else (0, len(source.code))
+    excluded = [(m.offset, m.body_end) for m in source.methods]
+    excluded += [(s.offset, s.end) for s in source.signatures]
+    if owner is None:
+        excluded += [(d.body_start, d.body_end) for d in source.classes]
+    bindings = {}
+    for match in _LOCAL.finditer(source.code, start, end):
+        if any(begin <= match.start() < stop for begin, stop in excluded):
+            continue
+        kind = match[1]
+        if kind in es.MODIFIERS or kind in {'return', 'new', 'delete', 'else', 'case', 'throw'}:
+            continue
+        bindings[match[2]] = kind
+        position = match.end()
+        while True:
+            following = re.match(r',\s*([A-Za-z_]\w*)\s*(?=[,;=])', source.code[position:end])
+            if not following:
+                break
+            bindings[following[1]] = kind
+            position += following.end()
+    return bindings
 
 
 def rule_handle_null(project, source):
     methods = list(_all_methods(source))
     # File-scope variables remain visible in functions and member initializers.
-    globals_ = {m[2]: m[1] for m in _LOCAL.finditer(source.code)
-                if not any(d.body_start < m.start() < d.body_end for d in source.classes)
-                and not any(f.offset <= m.start() < f.body_end for f in source.functions)}
-    for match in _NULL_HANDLE.finditer(source.code):
-        offset = match.start()
+    globals_ = _handle_nonlocals(source)
+    field_cache = {}
+
+    def fields_for(kind):
+        if kind not in field_cache:
+            fields = {}
+            field_cache[kind] = fields  # Break malformed inheritance cycles.
+            bodies = [d for d in project.links.get(kind, ())
+                      if source.layer is None or d.source.layer is None or d.source.layer <= source.layer]
+            engine = [d for d in project.symbols.get(kind, ())
+                      if source.layer is None or d['layer'] <= source.layer]
+            # Match receiver_members' inheritance/modded-body order, adding
+            # grouped fields at the declaring class so shadowing is preserved.
+            parents = [d.base for d in bodies if d.base]
+            parents += [d['parent'] for d in engine if d['parent']]
+            for parent in parents:
+                fields.update(fields_for(parent))
+            for definition in engine:
+                fields.update(definition['fields'])
+            for definition in bodies:
+                fields.update({f.name: f.type for f in definition.fields})
+                fields.update(_handle_nonlocals(definition.source, definition))
+        return field_cache[kind]
+
+    for offset, comparison, parts in _null_handle_comparisons(source.code):
         method = next((m for m in methods if m.body_start < offset < m.body_end), None)
         owner = (method.owner if method else
                  next((d for d in source.classes if d.body_start < offset < d.body_end), None))
-        fields = project.receiver_members(owner.name, source.layer)[1] if owner else {}
+        fields = fields_for(owner.name) if owner else {}
         parameters = {name: kind for kind, name, _ in method.parameters()} if method else {}
         declarations = source.local_declarations(method) if method else []
-        parts = re.split(r'\s*\.\s*', match['left'] or match['right'])
         first = parts.pop(0)
         bindings = [kind for name, kind, start, end in declarations
                     if name == first and start <= offset < end]
@@ -412,7 +510,7 @@ def rule_handle_null(project, source):
         else:
             kind = parameters.get(first, fields.get(first, globals_.get(first, '')))
         for member in parts:
-            kind = project.receiver_members(project.resolve_typedef(kind), source.layer)[1].get(member, '')
+            kind = fields_for(project.resolve_typedef(kind)).get(member, '')
         # Preserve handle names before typedef expansion to int[]. Follow
         # authored aliases without treating all int arrays as file handles.
         seen = set()
@@ -422,7 +520,7 @@ def rule_handle_null(project, source):
         if kind in {'FileHandle', 'FindFileHandle'}:
             symbol = _symbol(method) if method else (owner.name if owner else '<file>')
             yield _finding('HC-E016', source, offset, symbol,
-                           f'{match[0].strip()}: {RULES["HC-E016"]}')
+                           f'{comparison.strip()}: {RULES["HC-E016"]}')
 
 
 def rule_vanilla_storage(project, source):
