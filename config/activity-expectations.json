@@ -1,0 +1,918 @@
+{
+  "schema_version": 1,
+  "features": [
+    {
+      "module": "AIIncidents",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c",
+      "suggested_counter_location": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "AIRoles",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "suggested_counter_location": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "AISelfDefence",
+      "feature": "threats-applied",
+      "signal": {
+        "tag": "[HCX Defence]",
+        "regex": "\\bapplied=(?P<applied>\\d+)",
+        "fields": [
+          "applied"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c"
+    },
+    {
+      "module": "AITactics",
+      "feature": "fire-events",
+      "signal": {
+        "tag": "[HCX Tactics]",
+        "regex": "groups=\\d+/\\d+ fire_events=(?P<events>\\d+)",
+        "fields": [
+          "events"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c"
+    },
+    {
+      "module": "AITrade",
+      "feature": "trade-completed",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-35 trade=\\S+ .*observed_complete=(?P<complete>\\d+)",
+        "fields": [
+          "complete"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 120,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c"
+    },
+    {
+      "module": "AdminMap",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "BodyStories",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "CampRespawn",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Camps",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "CellarSampler",
+      "feature": "cellars-measured",
+      "signal": {
+        "tag": "[HC Cellars]",
+        "regex": "HC-31 sampler cellar_measured=(?P<measured>\\d+)",
+        "fields": [
+          "measured"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c"
+    },
+    {
+      "module": "Cellars",
+      "feature": "cellars-measured",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-31 .*cellar_measured=(?P<measured>\\d+)",
+        "fields": [
+          "measured"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Atmosphere/HCCellarsModule.c"
+    },
+    {
+      "module": "Crafting",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "DeadDrops",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "DebugSnapshot",
+      "feature": "snapshot-points",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "debug snapshot points=(?P<points>\\d+)",
+        "fields": [
+          "points"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 15,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Debug/HCDebugSnapshotModule.c"
+    },
+    {
+      "module": "Ecology",
+      "feature": "cohort-visited",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-29 visited=(?P<visited>\\d+)",
+        "fields": [
+          "visited"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 15,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeModule.c"
+    },
+    {
+      "module": "Escalation",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCEscalationClock.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/World/HCEscalationClock.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Events",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "FactionConflict",
+      "feature": "encounters-observed",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-37 encounter=\\S+ observed=(?P<observed>\\d+)",
+        "fields": [
+          "observed"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 120,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c"
+    },
+    {
+      "module": "Forage",
+      "feature": "forage-spawned",
+      "signal": {
+        "tag": "[HC Forage]",
+        "regex": "spawned type=\\S+ nodes=(?P<nodes>\\d+)",
+        "fields": [
+          "nodes"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c"
+    },
+    {
+      "module": "Grade",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Atmosphere/HCGradeModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Atmosphere/HCGradeModule.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Groups",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Groups/HCGroupModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Holdouts",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "HordeMigration",
+      "feature": "drifting-cohorts",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-46 .*drifting_cohorts=(?P<cohorts>\\d+)",
+        "fields": [
+          "cohorts"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c"
+    },
+    {
+      "module": "Infected",
+      "feature": "actor-sampled",
+      "signal": {
+        "tag": "[HC Reached]",
+        "regex": "feature=infected\\.actor_sample first_s=(?P<first_s>\\d+(?:\\.\\d+)?)",
+        "fields": [
+          "first_s"
+        ]
+      },
+      "comparison": "present",
+      "floor": 1,
+      "window_minutes": 15,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c"
+    },
+    {
+      "module": "InfectedDoors",
+      "feature": "door-pressure",
+      "signal": {
+        "tag": "[HC Doors]",
+        "regex": "summary watched=\\d+ hits=(?P<hits>\\d+) opened=(?P<opened>\\d+) broken=(?P<broken>\\d+)",
+        "fields": [
+          "hits",
+          "opened",
+          "broken"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c"
+    },
+    {
+      "module": "InfectedLOD",
+      "feature": "tracked-infected",
+      "signal": {
+        "tag": "[HC InfectedLOD]",
+        "regex": "stats tracked=(?P<tracked>\\d+)",
+        "fields": [
+          "tracked"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 15,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c"
+    },
+    {
+      "module": "InfectedMemory",
+      "feature": "memory-cells",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "V2 infected memory cells=(?P<cells>\\d+)",
+        "fields": [
+          "cells"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c"
+    },
+    {
+      "module": "InfectedReach",
+      "feature": "reach-actions",
+      "signal": {
+        "tag": "[HC Reach]",
+        "regex": "summary active=\\d+ admitted=\\d+ refused=\\d+ strikes=(?P<strikes>\\d+) blocked=\\d+ batters=(?P<batters>\\d+) backoffs=(?P<backoffs>\\d+) vaults=(?P<vaults>\\d+)",
+        "fields": [
+          "strikes",
+          "batters",
+          "backoffs",
+          "vaults"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c"
+    },
+    {
+      "module": "InfectedVariety",
+      "feature": "variety-activity",
+      "signal": {
+        "tag": "[HC Infected]",
+        "regex": "variety dormant=(?P<dormant>\\d+) woken=(?P<woken>\\d+) runners=(?P<runners>\\d+)",
+        "fields": [
+          "dormant",
+          "woken",
+          "runners"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c"
+    },
+    {
+      "module": "Interiors",
+      "feature": "props-placed",
+      "signal": {
+        "tag": "[HC Interiors]",
+        "regex": "templates placement (?:placed=|complete props=)(?P<placed>\\d+)",
+        "fields": [
+          "placed"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+      "note": "Build 117 newest RPT finishes 1500 template props about 43 minutes after first readiness; allow 60 minutes for bounded incremental placement. This is audit policy, not performance acceptance."
+    },
+    {
+      "module": "Leads",
+      "feature": "active-leads",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "V2 leads active=(?P<active>\\d+)",
+        "fields": [
+          "active"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c"
+    },
+    {
+      "module": "Lighting",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Atmosphere/HCLightingModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Atmosphere/HCLightingModule.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "loot-refreshed",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "V2 loot refresh refreshed=(?P<refreshed>\\d+)",
+        "fields": [
+          "refreshed"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 120,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c"
+    },
+    {
+      "module": "MapPins",
+      "feature": "pins-sampled",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "V2 map pins groups=(?P<groups>\\d+) sampled=(?P<sampled>\\d+)",
+        "fields": [
+          "sampled"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c"
+    },
+    {
+      "module": "Materializer",
+      "feature": "actor-leases",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-10 actor_cap=\\d+ leases=(?P<leases>\\d+)",
+        "fields": [
+          "leases"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c"
+    },
+    {
+      "module": "MaterializerBridge",
+      "feature": "actors-spawned",
+      "signal": {
+        "tag": "[HC Expansion AI]",
+        "regex": "materializer bridge spawned=(?P<spawned>\\d+)",
+        "fields": [
+          "spawned"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXMaterializerBridge.c"
+    },
+    {
+      "module": "Melee",
+      "feature": "zombie-hit-bonuses",
+      "signal": {
+        "tag": "[HC Melee]",
+        "regex": "\\[HC Melee\\] (?:head_execute|head_armored|head_light|cripple) count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Melee/HCMeleeModule.c"
+    },
+    {
+      "module": "Morse",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCMorseClues.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c:OnTick",
+      "note": "Unregistered compatibility shell, folded into Radio; if enabled again, declare its own numeric activity signal."
+    },
+    {
+      "module": "Notes",
+      "feature": "world-notes",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "V2 notes world=(?P<notes>\\d+)",
+        "fields": [
+          "notes"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c"
+    },
+    {
+      "module": "OptionalPacks",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Atmosphere/HCOptionalPacksModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Atmosphere/HCOptionalPacksModule.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Pickers",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/World/HCPickers.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Polish",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Polish/HCPolishModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Polish/HCPolishModule.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "Progression",
+      "feature": "forage-familiarity",
+      "signal": {
+        "tag": "[HC Progression]",
+        "regex": "forage familiarity=(?P<familiarity>\\d+(?:\\.\\d+)?)",
+        "fields": [
+          "familiarity"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c"
+    },
+    {
+      "module": "Radio",
+      "feature": "reports-received",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-20 radio=environmental morse=folded reports=(?P<reports>\\d+) state=ready recipients=(?P<recipients>\\d+)",
+        "fields": [
+          "recipients"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c"
+    },
+    {
+      "module": "Scenes",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "SearchBinding",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c:Attempt",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "SettlementDecay",
+      "feature": "towns-changed",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "V2 settlement decay towns=\\d+ changed=(?P<changed>\\d+)",
+        "fields": [
+          "changed"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 1440,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c"
+    },
+    {
+      "module": "Shelters",
+      "feature": "regional-props-placed",
+      "signal": {
+        "tag": "[HC Shelters]",
+        "regex": "regional_placed=\\S+ props=(?P<props>\\d+)",
+        "fields": [
+          "props"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 20,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c"
+    },
+    {
+      "module": "SignsOfLife",
+      "feature": "area-sampled",
+      "signal": {
+        "tag": "[HC Reached]",
+        "regex": "feature=signs_of_life\\.area_sample first_s=(?P<first_s>\\d+(?:\\.\\d+)?)",
+        "fields": [
+          "first_s"
+        ]
+      },
+      "comparison": "present",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Atmosphere/HCSignsOfLife.c",
+      "note": "Proves a bounded server area sample only; client light/smoke/fly rendering remains unproven."
+    },
+    {
+      "module": "SurvivalAlignment",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCMealBuffs.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Survival/HCMealBuffs.c:OnStart",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "TapedHelmetMounts",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c:OnStart",
+      "note": "Existing qualified/client_accepted receipts are constants or booleans, not numeric runtime counters. Add a bounded periodic count of successful mount/light operations."
+    },
+    {
+      "module": "TapedLight",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c:OnStart",
+      "note": "Existing qualified/client_accepted receipts are constants or booleans, not numeric runtime counters. Add a bounded periodic count of successful mount/light operations."
+    },
+    {
+      "module": "TapedPackMounts",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c:OnStart",
+      "note": "Existing qualification counters describe startup receipts; they do not count successful runtime mount operations. Add a bounded periodic successful-operation counter to the lifecycle owner."
+    },
+    {
+      "module": "TeamPing",
+      "feature": "ping-recipients",
+      "signal": {
+        "tag": "[HC Plan]",
+        "regex": "HC-26 group_recipients=(?P<recipients>\\d+)\\b(?!.*component=death_pins)",
+        "fields": [
+          "recipients"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c"
+    },
+    {
+      "module": "VehicleFlip",
+      "feature": "flip-pulses",
+      "signal": {
+        "tag": "[HollowCountry]",
+        "regex": "W5 vehicle-flip impulse pulse=(?P<pulse>\\d+)",
+        "fields": [
+          "pulse"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleFlip.c"
+    },
+    {
+      "module": "WeatherDays",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "World",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldModule.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/World/HCWorldModule.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "WorldIncidents",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "WorldSaves",
+      "feature": "save-stages",
+      "signal": {
+        "tag": "[HC Save]",
+        "regex": "job=\\S+ stages=(?P<stages>\\d+)",
+        "fields": [
+          "stages"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 15,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c"
+    },
+    {
+      "module": "WreckSalvage",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+      "suggested_counter_location": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "ZoneGuards",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c",
+      "suggested_counter_location": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    },
+    {
+      "module": "hcxai-live-map",
+      "feature": "live-ai-units",
+      "signal": {
+        "tag": "[HC XAI]",
+        "regex": "live groups=\\d+ units=(?P<units>\\d+)",
+        "fields": [
+          "units"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAILiveMap.c"
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "site-actors",
+      "signal": {
+        "tag": "[HC Expansion AI]",
+        "regex": "sites summary: .*active_sites=\\d+ actors=(?P<actors>\\d+)",
+        "fields": [
+          "actors"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c"
+    },
+    {
+      "module": "v2-expansion-living-world",
+      "feature": "runtime-activity",
+      "signal": null,
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c",
+      "suggested_counter_location": "mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c:OnTick",
+      "note": "Add a bounded periodic count of successful runtime operations; startup/configuration/admission counts do not prove feature activity."
+    }
+  ]
+}

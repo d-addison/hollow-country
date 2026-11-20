@@ -179,10 +179,12 @@ def main(argv=None):
                 print('start failed')
                 return 9
         outcome, rpt = watch(args, before, old_dumps)
+        activity_result = None
         if rpt is not None:
             summary = Summary(rpt)
             try:
                 summary.scan().print()
+                activity_result = summary.activity
                 if summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted'):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
@@ -192,6 +194,9 @@ def main(argv=None):
         if rpt is not None:
             from tools.validate.tick_cost_report import print_rules
             print_rules(rpt)
+        if activity_result is not None:
+            from tools.release.activity_check import summary_line
+            print(summary_line(activity_result))
         return CODES.get(outcome, 9)
     except winproc.InteropError:
         print('boot_verdict=interop_unknown')

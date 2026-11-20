@@ -113,6 +113,14 @@ class Summary:
         self.readiness_count = 0
         self.tick_rows = {}
         self.tick_rejected = 0
+        # Lazy import avoids a cycle: activity_check reuses this module's privacy
+        # filter and bounded line reader. Activity findings never alter outcome.
+        from tools.release.activity_check import Activity
+        try:
+            self.activity_checker = Activity()
+        except (OSError, ValueError, TypeError, KeyError, re.error):
+            self.activity_checker = None
+        self.activity_error = self.activity_checker is None
 
     def close(self):
         self.db.close()
@@ -120,6 +128,11 @@ class Summary:
 
     def scan(self):
         for raw in lines(self.path):
+            if self.activity_checker is not None and not self.activity_error:
+                try:
+                    self.activity_checker.observe(raw)
+                except (ValueError, TypeError):
+                    self.activity_error = True
             verdict = failure(raw)
             corrupted = CORRUPTED.search(raw)
             if corrupted:
@@ -194,8 +207,14 @@ class Summary:
     def diagnostics(self):
         return self.db.execute('SELECT module,line,n FROM diagnostics ORDER BY module,line')
 
+    @property
+    def activity(self):
+        if self.activity_error or not self.activity_checker.modules:
+            return dict(activity='unavailable', count=0, error='activity expectations or readiness unavailable or invalid')
+        return self.activity_checker.result()
+
     def header(self):
-        return dict(outcome=self.outcome, connected=self.connected,
+        return dict(outcome=self.outcome, connected=self.connected, activity=self.activity,
                     compile_result='compile_failed' if 'compile_failed' in self.failures else 'no_compile_error_observed',
                     # Root errors precede cascades and the generic module failure.
                     compile_errors=self.errors + self.compile_markers + self.cascades,
@@ -240,6 +259,12 @@ class Summary:
         if not self.tick_rows:
             print('no_data')
         print(f'readiness_lines={self.readiness_count}; absent readiness markers do not establish readiness')
+        print('[HC Activity] runtime signals (separate from boot verdict):')
+        if 'error' in self.activity:
+            print('activity=unavailable count=0')
+        else:
+            from tools.release.activity_check import print_result
+            print_result(self.activity)
 
 
 def main(argv=None):
