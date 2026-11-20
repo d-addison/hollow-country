@@ -94,13 +94,20 @@ class HCGapcodeRoutesCatalog
     protected string m_Reason;
     protected string m_Phase = "off";
 
-    void HCRefuse(string reason)
+    void HCRefuse(string reason, string sourcePath = "", int pageIndex = -1)
     {
         this.HCClose();
         m_Phase = "failed";
         if (m_Reason == reason) { return; }
         m_Reason = reason;
-        Print("[HC Routes] catalog=degraded reason=" + reason + " runtime=PENDING");
+        string sourceContext;
+        if (sourcePath != "")
+        {
+            // Only HCSourcePath-validated virtual paths reach this diagnostic.
+            // Zero-based page index identifies the exact pin to regenerate/check.
+            sourceContext = " file=" + sourcePath + " page_index=" + pageIndex.ToString();
+        }
+        Print("[HC Routes] catalog=degraded reason=" + reason + sourceContext + " runtime=PENDING");
     }
     void HCClose()
     {
@@ -185,6 +192,10 @@ class HCGapcodeRoutesCatalog
         if (page == 0 || page == pages - 1) { return true; }
         return page % m_HashStride == m_HashOffset;
     }
+    // These four sources jointly bind every regional candidate: page offsets
+    // do not identify JSON rows. Refuse this catalog on drift rather than admit
+    // routes against a partially trusted site/locality/road binding. Independent
+    // site qualification remains owned by the site provider.
     void HCPinStep()
     {
         HCGapcodeRoutesSourceFile sourceFile = m_Pins.Files[m_FileIndex];
@@ -192,7 +203,7 @@ class HCGapcodeRoutesCatalog
         if (!m_PinOpen)
         {
             m_PinFile = OpenFile(sourceFile.Path, FileMode.READ);
-            if (!m_PinFile) { this.HCRefuse("ROUTE_SOURCE_FILE_MISSING"); return; }
+            if (!m_PinFile) { this.HCRefuse("ROUTE_SOURCE_FILE_MISSING", sourceFile.Path, m_PageIndex); return; }
             m_PinOpen = true;
             m_HashStride = (pages + HASH_SAMPLES - 1) / HASH_SAMPLES;
             if (m_HashStride < 1) { m_HashStride = 1; }
@@ -207,7 +218,7 @@ class HCGapcodeRoutesCatalog
             int count = ReadFile(m_PinFile, page, m_Pins.ChunkBytes);
             int expected = m_Pins.ChunkBytes;
             if (expected > sourceFile.Bytes - m_ReadBytes) { expected = sourceFile.Bytes - m_ReadBytes; }
-            if (count != expected || page.Length() != expected) { this.HCRefuse("ROUTE_SOURCE_SIZE_MISMATCH"); return; }
+            if (count != expected || page.Length() != expected) { this.HCRefuse("ROUTE_SOURCE_SIZE_MISMATCH", sourceFile.Path, m_PageIndex); return; }
             m_ReadBytes += count;
             bool sampled = this.HCPageSampled(m_PageIndex, pages);
             if (sampled)
@@ -216,7 +227,7 @@ class HCGapcodeRoutesCatalog
                 string digest = ExpansionSHA256.HexDigest();
                 ExpansionSHA256.Reset();
                 digest.ToLower();
-                if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH"); return; }
+                if (digest != sourceFile.Pages[m_PageIndex]) { this.HCRefuse("ROUTE_SOURCE_PAGE_MISMATCH", sourceFile.Path, m_PageIndex); return; }
                 m_Hashed++;
             }
             m_PageIndex++;
@@ -225,7 +236,7 @@ class HCGapcodeRoutesCatalog
         }
         if (m_PageIndex < pages) { return; }
         string trailing;
-        if (ReadFile(m_PinFile, trailing, 1) > 0) { this.HCRefuse("ROUTE_SOURCE_TRAILING_BYTES"); return; }
+        if (ReadFile(m_PinFile, trailing, 1) > 0) { this.HCRefuse("ROUTE_SOURCE_TRAILING_BYTES", sourceFile.Path, m_PageIndex); return; }
         this.HCClose();
         m_PagesRead += pages;
         m_ReadBytes = 0;
