@@ -2,7 +2,7 @@
 
 python3 -B -m tools.release.rpt_summary server.RPT [--json]
 Exit: 0 connect-enabled/no observed failure, 2 compile, 3 crash, 4 not-ready,
-5 incomplete, 6 input error. Historical evidence is not runtime acceptance.
+5 incomplete, 6 input error, 7 persistence corruption. Historical evidence is not runtime acceptance.
 """
 import argparse
 import json
@@ -17,6 +17,8 @@ from tools.validate.tick_cost_report import aggregate
 DROP = re.compile(r'steam ?id|uid|name=|[0-9]{17}|Player "|id=|password|admin.?id', re.I)
 HOME = re.compile(r'(?:/home/[^/\s"\'<>]+|/Users/[^/\s"\'<>]+|/root(?=/|\s|$)|[A-Z]:[\\/]+Users[\\/]+[^\\/\s"\'<>]+|/mnt/[a-z]/Users/[^/\s"\'<>]+)', re.I)
 SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
+COMPILE_MARKER = re.compile(r"Can't compile|Cannot compile", re.I)
+CORRUPTED = re.compile(r'Scripted variables corrupted upon\s+"([^"\r\n]+)"', re.I)
 CASCADE = re.compile(r"Bad type|Can.t find (?:class|variable)|Unknown type|Wrong number of template|Error in parameters|Failed to load .*script", re.I)
 CRASH = re.compile(r'NULL pointer|Unhandled exception|Access[_ ]violation|Exception code:|\bcrash(?:ed)?\b|\.mdmp\b|\.dmp\b|minidump|stack overflow', re.I)
 HC = re.compile(r'\[HC(?:\s+([^\]]+))?\]')
@@ -67,7 +69,11 @@ def module_line(line):
 def failure(line):
     """Inspect raw text so privacy filtering cannot hide a failing verdict."""
     lowered = line.lower()
-    if "can't compile" in lowered or ('script' in lowered and SCRIPT_ERROR.search(line)):
+    if COMPILE_MARKER.search(line):
+        return 'compile_failed'
+    if CORRUPTED.search(line):
+        return 'persistence_corrupted'
+    if SCRIPT_ERROR.search(line):
         return 'compile_failed'
     if any(token in lowered for token in ('null pointer', 'unhandled exception', 'access violation',
                                           'access_violation', 'exception code:', 'crash', '.mdmp',
@@ -96,6 +102,7 @@ class Summary:
         self.cascades = []
         self.compile_markers = []
         self.crashes = []
+        self.db.execute('CREATE TABLE corruptions(type TEXT PRIMARY KEY, n INTEGER)')
         self.connected = False
         self.failures = set()
         # Last [HC Ready] verdict per enabled module: a boot-time loading state that
@@ -114,6 +121,13 @@ class Summary:
     def scan(self):
         for raw in lines(self.path):
             verdict = failure(raw)
+            corrupted = CORRUPTED.search(raw)
+            if corrupted:
+                # Retain only a filtered type, never an entity/player identifier.
+                entity_type = filtered(corrupted.group(1))
+                if entity_type:
+                    self.db.execute('INSERT INTO corruptions VALUES(?,1) ON CONFLICT(type) DO UPDATE SET n=n+1',
+                                    (entity_type,))
             if verdict == 'not_ready' or ('[HC Ready]' in raw and READY.search(raw)):
                 field = re.search(r'\bmodule=([^\s;]+)', raw)
                 if field and (field.group(1) in self.ready_last or len(self.ready_last) < 256):
@@ -127,17 +141,17 @@ class Summary:
             needs_error = False
             if verdict == 'compile_failed' and SCRIPT_ERROR.search(raw):
                 needs_error = len(self.cascades if CASCADE.search(raw) else self.errors) < 8
-            needs_marker = "can't compile" in raw.lower() and len(self.compile_markers) < 8
+            needs_marker = COMPILE_MARKER.search(raw) and len(self.compile_markers) < 8
             needs_crash = len(self.crashes) < 8 and verdict in ('compile_failed', 'crashed') and CRASH.search(raw)
             if not ('[HC' in raw or needs_error or needs_marker or needs_crash):
                 continue
             line = filtered(raw)
             if not line:
                 continue
-            if "can't compile" in line.lower():
+            if COMPILE_MARKER.search(line):
                 if len(self.compile_markers) < 8:
                     self.compile_markers.append(line)
-            elif SCRIPT_ERROR.search(line):
+            elif verdict == 'compile_failed' and SCRIPT_ERROR.search(line):
                 target = self.cascades if CASCADE.search(line) else self.errors
                 if len(target) < 8:
                     target.append(line)
@@ -170,7 +184,7 @@ class Summary:
 
     @property
     def outcome(self):
-        for value in ('compile_failed', 'crashed'):
+        for value in ('compile_failed', 'crashed', 'persistence_corrupted'):
             if value in self.failures:
                 return value
         if not all(self.ready_last.values()):
@@ -186,6 +200,7 @@ class Summary:
                     # Root errors precede cascades and the generic module failure.
                     compile_errors=self.errors + self.compile_markers + self.cascades,
                     crash_indicators=self.crashes, readiness_lines=self.readiness_count,
+                    persistence_corruption_counts=dict(self.db.execute('SELECT type,n FROM corruptions ORDER BY type')),
                     worst_ticks=self.worst, save_peaks=self.saves,
                     tick_cost={k: {a: sorted(b) if isinstance(b, set) else b for a, b in v.items()}
                                for k, v in self.tick_rows.items()},
@@ -203,6 +218,8 @@ class Summary:
             print(']}')
             return
         print('outcome=' + self.outcome)
+        for entity_type, count in self.db.execute('SELECT type,n FROM corruptions ORDER BY type'):
+            print(f'persistence_corrupted type={entity_type} count={count}')
         for line in self.errors + self.compile_markers + self.cascades:
             print(line)
         for line in self.crashes:
@@ -233,7 +250,8 @@ def main(argv=None):
     summary = Summary(args.rpt)
     try:
         summary.scan().print(args.json)
-        return dict(connect_enabled=0, compile_failed=2, crashed=3, not_ready=4, incomplete=5)[summary.outcome]
+        return dict(connect_enabled=0, compile_failed=2, crashed=3, not_ready=4,
+                    incomplete=5, persistence_corrupted=7)[summary.outcome]
     except (OSError, sqlite3.Error):
         print('RPT summary input/storage unavailable')
         return 6

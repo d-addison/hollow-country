@@ -18,6 +18,7 @@ import sys
 import tempfile
 
 from tools.package.sign_wine import CACHE, sign
+from tools.release import compile_gate
 
 ROOT = Path(__file__).resolve().parents[2]
 # Default PBO template pack: the committed mission pack at the pinned commit, so the
@@ -133,6 +134,25 @@ def copy_templates(source, dest):
     return rows
 
 
+def native_compile_gate(tree, sha):
+    server_root, prefix, reason = compile_gate.prerequisites()
+    if reason:
+        print('compile gate not run: ' + reason, flush=True)
+        return {'ran': False, 'passed': None, 'status': 'not_run', 'reason': reason,
+                'commit': sha}
+    print('Native compile gate for pinned commit ' + sha, flush=True)
+    result = subprocess.run(
+        [sys.executable, '-B', str(ROOT / 'tools/release/compile_gate.py'),
+         '--tree', str(tree), '--commit', sha, '--server-root', str(server_root),
+         '--prefix', str(prefix)], cwd=tree, capture_output=True, text=True,
+        env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0'), timeout=1800)
+    for line in (result.stdout + '\n' + result.stderr).splitlines():
+        print(compile_gate.private(line), flush=True)
+    if result.returncode:
+        raise ValueError('Native compile gate failed for pinned commit')
+    return {'ran': True, 'passed': True, 'status': 'passed', 'commit': sha}
+
+
 def build(args):
     sha = resolve_commit(args.commit, args.allow_unpushed)
     out = (args.out or Path('/mnt/d/HollowCountryLocal/signed-v1-' + args.build)).absolute()
@@ -161,6 +181,7 @@ def build(args):
                 lint += ['--native-scripts', NATIVE_SCRIPTS]
             print('Linting pinned commit ' + sha, flush=True)
             run(lint, cwd=tree)
+            gate_result = native_compile_gate(tree, sha)
             print('Packing pinned commit ' + sha, flush=True)
             for mod, name, prefix in (
                     ('HollowCountry', 'hollowcountry', 'HollowCountry'),
@@ -209,7 +230,7 @@ def build(args):
                                       'tools/package/pbo.py', 'tools/anim/build_infected_clips.py',
                                       'tools/anim/build_anims_addon.py')},
                                   'driver_tools': {p: digest(ROOT / p) for p in (
-                                      'tools/release/release.py', 'tools/package/sign.py',
+                                      'tools/release/release.py', 'tools/release/compile_gate.py', 'tools/package/sign.py',
                                       'tools/package/sign_wine.py')}},
                 'files': {p.relative_to(stage).as_posix(): digest(p)
                           for p in sorted(stage.rglob('*')) if p.is_file()},
@@ -217,7 +238,7 @@ def build(args):
                 'pbos': {p.relative_to(stage).as_posix(): digest(p)
                          for p in sorted(stage.rglob('*.pbo')) if p.is_file()},
                 'templates': templates, 'source_json': sources,
-                'signatures_verified': True, 'runtime_acceptance': 'pending'}
+                'signatures_verified': True, 'compile_gate': gate_result, 'runtime_acceptance': 'pending'}
             (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(stage, out)

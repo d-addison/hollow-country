@@ -5,7 +5,7 @@ Without --start, attach to the newest RPT (or --rpt); never launch a process.
 With --start, require no server running, invoke start-server.bat, follow a NEW RPT.
 Exit codes: 0 connect-enabled after settle; 2 install check failed; 3 compile;
 4 crash/dump; 5 process gone; 6 stall; 7 ready=false; 8 interop unknown;
-9 input/start/timeout error; 130 interrupted. No exit path stops the server.
+9 input/start/timeout error; 10 persistence corruption; 130 interrupted. No exit path stops the server.
 """
 import argparse
 import math
@@ -17,7 +17,7 @@ from tools.release.rpt_summary import Summary, failure, filtered
 
 CODES = {'compile_failed': 3, 'crashed': 4, 'process_gone': 5,
          'stalled': 6, 'not_ready': 7, 'interop_unknown': 8,
-         'input_error': 9, 'timed_out': 9, 'connect_enabled': 0}
+         'input_error': 9, 'timed_out': 9, 'persistence_corrupted': 10, 'connect_enabled': 0}
 
 
 def psquote(value):
@@ -183,7 +183,7 @@ def main(argv=None):
             summary = Summary(rpt)
             try:
                 summary.scan().print()
-                if summary.outcome in ('compile_failed', 'crashed', 'not_ready'):
+                if summary.outcome in ('compile_failed', 'crashed', 'not_ready', 'persistence_corrupted'):
                     # The full summary can see a failure beyond the tail chunk.
                     outcome = summary.outcome
             finally:

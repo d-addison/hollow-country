@@ -10,6 +10,7 @@ import io
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -20,6 +21,79 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 from tools.package import pbo
 from tools.setup import wine_compile_probe as probe
+
+SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
+COMPILE_FAILURE = re.compile(
+    r"Can't compile|Cannot compile|Failed to load .*script|script.*module.*(?:failed|failure)|"
+    r'(?:failed|unable|cannot) to load.*(?:script|module)', re.I)
+MODULE_LOADED = re.compile(r'\bModule:\s*([A-Za-z0-9_]+);\s*loaded\s+\d+x?\s+files', re.I)
+
+
+def prerequisites(server_root=None, prefix=None):
+    """Discover only isolated cached installs; never select a live Windows server.
+
+    Explicit CLI/environment inputs take precedence. Missing prerequisites are a
+    documented release skip; a discovered gate that fails is never a skip.
+    """
+    cache = Path.home() / '.cache/hollow-country'
+    server_root = server_root or os.environ.get('HC_SERVER_ROOT')
+    prefix = prefix or os.environ.get('HC_WINE_PREFIX')
+    if server_root is None:
+        server_root = next((p for p in sorted(cache.glob('wine-server-*'), reverse=True)
+                            if (p / 'DayZServer_x64.exe').is_file()), None)
+    if prefix is None:
+        prefix = next((p for p in sorted(cache.glob('wine-server-prefix-*'), reverse=True)
+                       if (p / 'system.reg').is_file() and (p / 'drive_c').is_dir()), None)
+    if server_root is None:
+        return None, None, 'isolated server root absent (HC_SERVER_ROOT or cached wine-server-*)'
+    if prefix is None:
+        return None, None, 'isolated Wine prefix absent (HC_WINE_PREFIX or cached wine-server-prefix-*)'
+    server_root, prefix = [Path(p).expanduser().absolute() for p in (server_root, prefix)]
+    try:
+        for path in (server_root, prefix):
+            probe.safe(path)
+    except ValueError:
+        return None, None, 'isolated server root or Wine prefix has an unsafe location'
+    if str(server_root).startswith('/mnt/'):
+        return None, None, 'isolated server root must be on the Linux filesystem'
+    if not all((server_root / name).is_file() for name in (
+            'DayZServer_x64.exe', 'mpmissions/dayzOffline.chernarusplus/init.c',
+            'battleye/BEServer_x64.dll')):
+        return None, None, 'complete isolated server root absent'
+    if not (prefix / 'system.reg').is_file() or not (prefix / 'drive_c').is_dir():
+        return None, None, 'initialized isolated Wine prefix absent'
+    if not Path('/usr/lib/wine/wine64').is_file() or not shutil.which('xvfb-run'):
+        return None, None, 'Wine64 or xvfb-run absent'
+    return server_root, prefix, None
+
+
+def script_summary(experiment):
+    # collect_logs applies the probe's byte/count limits and refuses symlinks.
+    _, hashes, skipped = probe.collect_logs(experiment / 'profiles')
+    # Only profiles/script_*.log establishes script-module loading. RPT and
+    # launcher logs can repeat errors and must not inflate the script count.
+    texts = []
+    for name in sorted(hashes):
+        path = Path(name)
+        if len(path.parts) == 1 and path.match('script_*.log'):
+            source = experiment / 'profiles' / path
+            if source.is_symlink() or not source.is_file():
+                skipped[name] = 'script log is no longer a regular file'
+                continue
+            with source.open('rb') as stream:
+                data = stream.read(probe.MAX_LOG_FILE + 1)
+            if hashlib.sha256(data).hexdigest() != hashes[name]:
+                skipped[name] = 'script log changed after bounded snapshot'
+                continue
+            texts.append(data.decode(errors='replace'))
+    script = '\n'.join(texts)
+    modules = list(dict.fromkeys(MODULE_LOADED.findall(script)))
+    errors = [line for line in script.splitlines() if SCRIPT_ERROR.search(line)]
+    print('compile_gate: modules_loaded=' + (','.join(modules) or 'none')
+          + ' SCRIPT (E)=' + str(len(errors)))
+    for line in errors[:5]:
+        print('compile_gate: script_error: ' + private(line)[:1200])
+    return modules, errors, skipped
 
 
 def private(text):
@@ -81,8 +155,10 @@ def main():
     parser.add_argument('--seconds', type=int, default=300, help='Wine probe budget, 15..900 seconds (default 300; use 900 on a busy host)')
     parser.add_argument('--prepare-only', action='store_true', help='package inputs only; NEVER establishes compiler acceptance')
     args = parser.parse_args()
-    if not args.prepare_only and (args.server_root is None or args.prefix is None):
-        parser.error('--server-root and --prefix are required unless --prepare-only')
+    if not args.prepare_only:
+        args.server_root, args.prefix, reason = prerequisites(args.server_root, args.prefix)
+        if reason:
+            parser.error(reason)
     if not 15 <= args.seconds <= 900:
         parser.error('--seconds must be 15..900')
     started = time.monotonic()
@@ -115,13 +191,20 @@ def main():
             report = probe.run(args.server_root.expanduser().resolve(), package, experiment,
                                args.prefix.expanduser().resolve(), seconds=args.seconds)
             text, _, skipped = probe.collect_logs(experiment)
+            modules, script_errors, script_skipped = script_summary(experiment)
             errors = [line for line in text.splitlines()
-                      if re.search(r"Can't compile|Cannot compile|SCRIPT\s*\(E\)", line, re.I)]
-            for line in errors[:12]:
+                      if COMPILE_FAILURE.search(line) or SCRIPT_ERROR.search(line)]
+            for line in [line for line in errors if not SCRIPT_ERROR.search(line)][:5]:
                 print('compile_gate: ' + private(line)[:1200])
             # Conservatively reject cascade errors too, rather than risk hiding
             # a primary error with an overly broad cascade exemption.
-            passed = report['status'] == 'initialized' and not errors and not skipped
+            # Wine can stop progressing before Mission initialization. World
+            # loaded without script errors is compiler evidence, not boot acceptance.
+            passed = ('World' in modules and not script_errors and not errors
+                      and not skipped and not script_skipped
+                      and report['status'] in {'initialized', 'timeout'})
+            if passed:
+                print('compile_gate: World loaded with zero SCRIPT (E); runtime acceptance pending')
             print('compile_gate: ' + ('PASS' if passed else 'FAIL') + ' status=' + report['status'])
             print('compile_gate: logs=' + private(experiment))
             return 0 if passed else 1
