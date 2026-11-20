@@ -11,7 +11,19 @@ Use the server's actual `-profiles` directory. COT stores settings beneath
 that upstream build enables them) in `PermissionsFramework/Permissions/*.txt`.
 These are local server state, outside this repository and its bundle allowlist.
 
-After the owner's first authenticated join, disconnect and stop the server.
+The friend installer does this for you. Its Profiles step reads the server's own
+`profiles/HollowCountry/admins.json` (`PlainIds`) and, for each valid 17-digit id,
+makes sure `PermissionsFramework/Players/<id>.json` exists with `"admin"` in
+`Roles`. An existing record keeps all its other fields and roles and only gains
+`admin` if missing; a new one copies the schema of COT's
+`Your_Steam64_ID.json` example when present, else is just `{"Roles": ["admin"]}`.
+It is planned in the dry run, backed up and undone like every other write, and
+prints only counts, never ids. A missing or invalid `admins.json`, non-17-digit
+entries, and unreadable existing records are skipped. Run it with the server
+stopped; ids not yet in `admins.json` are not invented.
+
+Manual fallback (no `admins.json`, or a different layout): after the owner's first
+authenticated join, disconnect and stop the server.
 Back up the profile. Check the installed COT-generated
 `PermissionsFramework/Players/Your_Steam64_ID.json` example and the matching player
 record. Create a private `<owner Steam64>.json` alongside the example, using the

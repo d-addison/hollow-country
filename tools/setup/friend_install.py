@@ -507,6 +507,7 @@ class Analysis:
         self.profiles = []
         self.holdouts_state = None
         self.holdouts_moves = []
+        self.cot = ([], 0)       # (COT admin record rows, count kept untouched); see cot_admin_records
         self.launcher = None
         self.cfg = None          # dict(path, raw, new, changes)
         self.third = []          # dict(item, folder_exists, ours)
@@ -554,6 +555,7 @@ def analyze(ctx):
             action, sha = classify_profile(ctx, rel, source, adopt=rel in args.adopt_profile)
             a.profiles.append((rel, source, action, sha))
         a.holdouts_state, a.holdouts_moves = inspect_holdouts(ctx)
+        a.cot = cot_admin_records(ctx)
     if 'launcher' not in ctx.skip:
         source = ctx.bundle / 'start-server.bat'
         action, sha = classify_file(ctx, 'start-server.bat', source)
@@ -1325,6 +1327,94 @@ def inspect_holdouts(ctx):
     return state, moves
 
 
+HC_ADMINS_PATH = 'profiles/HollowCountry/admins.json'
+COT_PLAYERS_DIR = 'profiles/PermissionsFramework/Players'
+COT_EXAMPLE = COT_PLAYERS_DIR + '/Your_Steam64_ID.json'
+STEAM64 = re.compile(r'[0-9]{17}')
+
+
+def _read_json_object(ctx, rel):
+    """The parsed JSON object at a server-relative path, None when absent, False when unreadable or not an object."""
+    ws.check_no_symlink_below(ctx.server, rel)
+    path = ctx.server / rel
+    if not path.is_file():
+        return None if not path.exists() else False
+    try:
+        data = json.loads(path.read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        return False
+    return data if isinstance(data, dict) else False
+
+
+def cot_admin_records(ctx):
+    """(rows, kept): one (rel, bytes or None, action) per valid HC admin id, plus the count left untouched.
+
+    The ids come only from the server's live admins.json and are never shown. An existing COT player file keeps
+    every other field and role; a new one follows COT's own Your_Steam64_ID.json example when it is there.
+    """
+    try:
+        admins = _read_json_object(ctx, HC_ADMINS_PATH)
+        ids = admins.get('PlainIds') if admins else None
+        if not isinstance(ids, list):
+            return [], 0
+        example = _read_json_object(ctx, COT_EXAMPLE)
+    except (Refused, ws.SyncError, OSError):
+        return [], 0
+    wanted = []
+    for value in ids:
+        if isinstance(value, str) and STEAM64.fullmatch(value.strip()) and value.strip() not in wanted:
+            wanted.append(value.strip())
+    rows, kept = [], 0
+    for steam in wanted:
+        rel = '%s/%s.json' % (COT_PLAYERS_DIR, steam)
+        try:
+            record = _read_json_object(ctx, rel)
+        except (Refused, ws.SyncError, OSError):
+            kept += 1
+            continue
+        if record is False or (record is not None and not isinstance(record.get('Roles', []), list)):
+            kept += 1  # unreadable or unexpected shape: never overwrite it
+            continue
+        if record is None:
+            record = dict(example) if example else {}
+            record['Roles'] = ['admin']
+            action = 'created'
+        elif 'admin' in record.get('Roles', []):
+            rows.append((rel, None, 'same'))
+            continue
+        else:
+            record['Roles'] = list(record.get('Roles', [])) + ['admin']
+            action = 'updated'
+        rows.append((rel, (json.dumps(record, indent=4) + '\n').encode('utf-8'), action))
+    return rows, kept
+
+
+def cot_lines(a):
+    rows, kept = a.cot
+    if not rows and not kept:
+        return []
+    counts = {}
+    for _rel, _data, action in rows:
+        counts[action] = counts.get(action, 0) + 1
+    parts = ['%d %s' % (counts[k], k) for k in ('created', 'updated', 'same') if k in counts]
+    if kept:
+        parts.append('%d kept (unreadable or unexpected COT record; not overwritten)' % kept)
+    total = len(rows) + kept
+    return ['COT admin record for %d HC admin%s (%s)' % (total, '' if total == 1 else 's',
+                                                       ', '.join(p.replace(' same', ' already admin') for p in parts))]
+
+
+def do_cot_admins(ctx):
+    # Recompute so a confirmation prompt that waited never writes over an edit made meanwhile.
+    for rel, data, _action in cot_admin_records(ctx)[0]:
+        if data is None:
+            continue
+        target = ctx.server / rel
+        record_written(ctx, rel, sha256_bytes(data))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        ws.write_bytes_atomic(target, data)
+
+
 def plan_profiles(ctx, a):
     if 'profiles' in ctx.skip:
         return 'skipped', ['you asked to skip this step'], None
@@ -1345,8 +1435,9 @@ def plan_profiles(ctx, a):
         elif action == 'new' and rel in MERGE_PROFILES:
             lines.append('WARN  profile_defaults  %s is partial; start the server once so Expansion writes the full '
                          'file, stop it, then run --apply again to merge the keys' % rel)
+    lines += cot_lines(a)
     todo = [r for r in a.profiles if r[2] in ('new', 'upgrade', 'confirm', 'merge')]
-    if not todo and not a.holdouts_moves:
+    if not todo and not a.holdouts_moves and not any(r[1] is not None for r in a.cot[0]):
         return 'already-done', lines, None
     return 'planned', lines, lambda: do_profiles(ctx, a)
 
@@ -1363,6 +1454,7 @@ def do_profiles(ctx, a):
         if rel not in moved:
             moved.append(rel)
         ctx.receipt['files'].pop(rel, None)
+    do_cot_admins(ctx)
     return do_files(ctx, a.profiles)
 
 
