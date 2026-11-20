@@ -200,14 +200,6 @@
     "owner": "HCSettings"
   },
   {
-    "key": "EnableMealBuffs",
-    "type": "bool",
-    "default": true,
-    "min": 0,
-    "max": 1,
-    "owner": "HCSettings"
-  },
-  {
     "key": "EnableForage",
     "type": "bool",
     "default": true,
@@ -665,14 +657,6 @@
     "owner": "HCW38SituationPolicy"
   },
   {
-    "key": "Performance.TickWeight_ZONE_GUARDS",
-    "type": "int",
-    "default": 1,
-    "min": 1,
-    "max": 64,
-    "owner": "HCPerfConfig"
-  },
-  {
     "key": "Performance.TickWeight_INFECTED",
     "type": "int",
     "default": 1,
@@ -985,6 +969,14 @@
     "owner": "HCPerfConfig"
   },
   {
+    "key": "Performance.TickWeight_ZONE_GUARDS",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 64,
+    "owner": "HCPerfConfig"
+  },
+  {
     "key": "Performance.EnableSharedSaves",
     "type": "bool",
     "default": true,
@@ -1219,7 +1211,7 @@
   {
     "key": "WildlifeProviders.WorkUnits",
     "type": "int",
-    "default": 16,
+    "default": 4,
     "min": 1,
     "max": 64,
     "owner": "HCWildlifeProviderConfig"
@@ -1243,7 +1235,7 @@
   {
     "key": "WildlifeProviders.MaxPairChecksPerTick",
     "type": "int",
-    "default": 32,
+    "default": 4,
     "min": 1,
     "max": 64,
     "owner": "HCWildlifeProviderConfig"

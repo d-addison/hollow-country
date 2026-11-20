@@ -1,7 +1,7 @@
 # Gameplay implementation and remaining work
 
 This file distinguishes authored functionality from missing implementation and
-unperformed validation. The private development package is not the completed
+unperformed validation. The current test package is not the completed
 overhaul. Outstanding work is tracked in
 [issues](https://github.com/d-addison/hollow-country/issues).
 Source implementation does not waive runtime evidence or make gated features
@@ -11,6 +11,68 @@ All feature preferences now default enabled. Explicit operator disables are
 preserved. Missing measured content, dependencies, providers or trusted receipts
 still prevent admission and must be reported. An enabled preference alone is
 not proof that its gameplay is operational.
+
+## Current source changes — rounds r8–r11, 2026-11-20
+
+This record supersedes older implementation snapshots below. All features ship with enabled
+preferences. Every change here has **native status PENDING**: final-source compile, boot with
+no enabled module reporting `ready=false`, and the relevant gameplay exercise on one server
+with at most one client remain unverified. Counters, source checks and historical boots do
+not accept a feature. Capacity at 3–6 players remains provisional.
+
+| Change / source | Current implementation | Unverified gates / follow-up |
+| --- | --- | --- |
+| Ground support (`ffc24c7b`, #279) | Transformed bounding-box bottom plus support rays; props capped at 3 m, spawner structures 25 m, CE items 2.5 m. HC placements and HCX props share the service; CE queue cap 16,384, four per shared-budget slice. `[HC Ground]` reports per-source results | Native contact, collision and placement appearance; food/firework classes omitting `super.EEOnCECreate` remain uncovered |
+| No-jam rule (`f54f0b5f`) | Pristine/worn skip `Weapon_Base.JamCheck`; `noJamMaxHealthLevel=1`, -1 restores native rolls | Native firing, damage thresholds and pack compatibility |
+| Inventory sizing (`5c5454c7`, `cc387582`, #280) | Ancestry/dependency-based stack rules retain 570 vanilla overrides and add 51 stack overrides; 187 declared-pack attachment/magazine overrides cap dimensions at vanilla scale. Stale size tables refuse release; rollback covers both outputs | Signed addon loading, inventory fit, attachment/cargo interactions and rollback |
+| Native infected climb (`119ece77`, #281) | Default-on `InfectedClimb.*` scoped registry; unreachable target 0.5–2.2 m up, within 2.5 m, two bounded obstacle rays, native vault/landing. Four concurrent attempts, 6 s cooldown; retires after 12 attempts without reaching the top | Native vault landing, shared-budget/concurrency behaviour, outcome counters; ladders remain shadow diagnostics because no native infected ladder command is available |
+| Supported loot points (`ab26a56a`, following `c21706fb`, #274/#279) | Support/enclosure/clearance checks reduce floor additions 1,222→250 and interior surfaces 1,247→584, removing 1,635 candidates without moving coordinates. Current files contain 58 floor groups and 104 surface groups (125 distinct building groups across both); 834 points total | Native item support and access, construction exemptions, fresh CE spawn and the 3,000 surface-point target |
+| Military CE budget (`7aa4c46b`) | Military-only primaries share a map budget around four Tisy kits. Every class keeps nominal/min >=1; missing/zeroed rows refuse generation. Scout, Scout_Chernarus and R12 retain Prison/Police routes; modded magazines 10–100% full | Observed CE mix and per-class availability; budget balance |
+| Activity check (`214f384f`) | Declared signals classify ACTIVE / INERT / SILENT / NO_SIGNAL / WAITING. `rpt_summary` and `checkstart` include the report without changing their exit codes. Build 117 report: 13 / 12 / 1 / 29 / 8 respectively | Declared counters and active gameplay evidence for every enabled owner; ACTIVITY is distinct from readiness and acceptance |
+| Static wiring and bundle (`74782d19`, `fae2405c`, `17514ec3`) | Audit covers spawn routes, unread settings, unreferenced classes, CE index gaps, zeroed spawnable rows (W009) and installer import closure (W010). Bundle adds imported audit/interior/probe modules and military-loot/disposition inputs, including floor-policy collision validator | New release install/upgrade and live spawn routes; static presence is not gameplay evidence |
+| CE infected variety (`44fa9fc2`, `ec6b12d1`) | Five public HC posed/crawler classes enter seven vanilla CE events at 2–6% weight, unchanged sums and donor loot. All 57 substitutions retain positive stock donor weights; city HC share 5/106. Owner/pose opt-outs preserve standing bodies and allow wake/release | Native CE spawn, graph load, non-hermit skinning, pose/get-up and crawler transition; CE bodies retain vanilla speeds |
+| Infected capacity (`26fc6ac8`, following migration revert `5f143709`) | Exact legacy `MaxTracked=24` becomes 256 in memory with one migration line; other values honoured and profile untouched. `MaxPosed=24` | Native roster headroom, persistence and held-pose cost; no multiplayer or target-load verdict |
+| Listed zone holds (#284, `2d9cd91b`) | Holds only explicitly listed sites after zone init while guards or live replacement infected are operational. Dedicated work slot 39, `Performance.TickWeight_ZONE_GUARDS=1` (1–64) | Native mixed/dynamic zone states, site release/reacquisition, moderate guard difficulty and tick cost |
+| Holdout recovery (#285, `cfbfb6e4`) | Phase 3 retries founding after losing a cache; `recovery_attempts_window` reports attempts | Native cache loss, refounding and finite inventory conservation |
+| Infected tracking (#286, `fbc8685a`) | At most one far idle record beyond max(1000 m, IdleRange) released per bounded scan; routes, offers, clues and recent hits protected. Separate herd lease capacity; no deletion or repositioning | Native recycling, fresh variety admission, horde/lease continuity and cost |
+| Season clock (#287, `649447a2`) | Clock resumes after checkpoint lag; valid seasonal consumers stay available. Shipped `MaxUncheckpointedSeconds` now 300 s (was 120) | Native checkpoint delay/recovery, persistence and seasonal consumer continuity |
+| Stamina resync (#288, `0c8cef3d`) | Client asks again when active; server replies at most once per connection per 10 s | Native join/reconnect ordering, prediction and UI |
+| COT permission (#289, `783ebe18`) | HCX requires `JM_COT_Scripts` and binds `HollowCountry.Admin` unconditionally | Native load order, authorised access and revocation |
+| Moving wind (#290, `9d9fe091`) | Native forest-wind sound attaches to local player, replacing null environment sound | One-client audibility while moving, cleanup and indoor transitions |
+| Story windows (#291, `d51c2d36`) | Both schedulers admit arrivals below occupied window capacity; retained catalogs may hold 12 rows, authored catalogs stay capped at 4 | Story 6 admission, retained save migration, arrival timing and restart |
+| Taped weapon lights (#292, `c3b37bc1`) | Detach no longer needs pre-existing build marker; bounded attach/detach/failure summaries | Native attachment, same light/battery conservation and legacy-marker detach |
+| Floor containers (#293, `de5da9ab`) | Receiving containers retain native-derived lootmax; generator refuses zero-capacity HC point containers. 28 containers / 239 stranded points before, zero after | Native CE receiving-container spawns, capacity, loot accessibility and rollback |
+| Familiarity counters (#294, `70de14d1`) | Bounded awards, skips and persistence summaries explain zero-record sessions | Native award/skip paths, save/reload and life reset |
+| Carcass fairness (#295, `df4a4d60`) | Creation alternates with maintenance capped at four cost-one items; registered WorkUnits 16→4, MaxPairChecksPerTick 32→4 (legacy ranges remain 1–64). Runtime clamps legacy values; TargetPairsEnabled gates contact recording; spawn/refusal summaries | Native out-of-sight CE-funded carcass creation, fairness, permanent allocation and persistence |
+| Scene cache missions (#296, `a33269c5`) | Kamenka/Staroye/Kumyrna cache events merge through normal collision checks/rollback; CE creates SmallProtectorCase. Closed missions may reoffer after existing two-hour cooldown | Native CE cache bind, mission close/reoffer, finite custody and rollback |
+| Roadside groups (#297, `791d6694`) | 16 types target 48 active across 202 distinct groups instead of shared groups | CE active counts (40+ goal), spatial spread and encounter contents |
+| Infected/loot/craft counters (#298, `b7495fda`) | Bounded alert-chain (including memory cap), refresh, house-search, interiors, siphon and crafting counters; missing refresh state reports state_fault | Native action attempts/successes, counter interpretation and activity coverage |
+| World/event/radio counters (#299, `4101ca3a`) | Scene completions count observations; situation heartbeat names missing source/store; bounded radio, flip, salvage, decay and materializer counters | Native completions, source/store recovery and activity coverage |
+| Door census (#300, `1f1ab722`) | Door census and pressure skip wreck/vehicle config ancestry | Native wreck exclusion while real building doors remain usable |
+| Shelter support (#301, `c83c6dba`) | Bounded nearby grounded layout retries and regional placed/refused summaries; all 74 scenes enabled | Native terrain support, doors/access, rain cover and discovery |
+| Weapon-pack sway (#302, `e92c0d15`) | Separate generated compatibility PBO guards empty/non-weapon hands with native 1.30 weighting | Release PBO integration remains assigned to packguard; native load/sway and no null exception |
+| Client presentation (#303, `6c0f76bb`) | Server grade/presentation defaults reach clients; saved client preference wins; zero server grade stops active effect | Native delivery, saved preference priority, zero-effect cleanup and reconnect |
+| Construction (#304, `c8d7b7aa`) | Fence/watchtower/flag/shelter/light kits restored; claim-aware building fortification; AI anchor fortifying uses durable slot reservations and requeues after ownership returns. r11 removes four stale kit UnregisterRecipe calls | Native recipe ordering and kit craft/place, claim checks, ownership changes, AI reservations and restart |
+
+The r11 carcass defaults and JSON ZoneGuards performance row now match their compiled
+declarations. The unused meal-buff preference has been retired from the shared registry,
+settings DTO and config defaults; SurvivalAlignment remains always enabled. The full
+settings consistency check currently requires the lead to remove the retired field from
+`mission/hollow-country/operator/settings.json`. Admission logging also needs the coordinated
+auditroutes change before native compilation. Existing profile loads use the native JSON
+deserializer without an HC unknown-key rejection; old-profile loading remains a native gate. The
+checker does not require InfectedClimb rows in the main JSON mirror; those ten keys already
+live in the separate 3_Game registry. Extending automatic scoped-profile checking needs a
+coordinated change in `tools/validate/settings_consistency.py`; no duplicate registration
+was introduced here.
+
+## Earlier implementation snapshots
+
+Older tables and round notes preserve evidence for their stated source versions. Their old
+caps, disabled defaults and integration gaps are superseded by the current record above
+and the README. They are not current feature-disable instructions. Teleport recovery is
+not permitted; native navigation owns movement. Historical compile successes do not
+accept the final source or any missing native experiment.
 
 | Area | Authored now | Still missing or gated |
 | --- | --- | --- |
@@ -27,7 +89,7 @@ not proof that its gameplay is operational.
 | Groups and navigation | Enabled server preference, authenticated routing, permissions, invitations, markers/notes, immutable journals and ordered counters. Full positive signed epoch range through January 2038, checked expiry addition, durable clock watermark, rollback refusal and failed-commit handling now pass 99 focused checks with synthetic collaborators. Earlier run 038 compiled client recovery/map/menu/icons; its 41 synthetic native policy steps completed | Final-source compilation, native persistence/restart/RPC trials, additional map layers/roles, rendered controls, single-client privacy/reconnect and cost observations. LOS/radio requirements remain unsupported and rejected; synthetic fixtures do not establish enabled group gameplay |
 | Weather and atmosphere | Native XML candidate generator with pinned source, explicit operator profiles and preserved unspecified settings; 16 synthetic regressions including early rejection of unrelated directory entries. No-op generation preserved the four inspected official mission templates byte-for-byte | Native XML/storage/map-script interaction, profile balance, visibility, accessibility, performance and rollback. Lighting and volumetric fog remain separate feasibility work; no weather profile is automatically installed |
 | Optional events | Bounded unhooked event definitions, opt-in participants, ordered server observations, revision/replay protection, expiry/cancellation and frozen definitions; 18 focused checks. Native run 042 compiled the director | Native observation/objective adapters, mission roster, AI integration, durable economy-backed rewards, persistence and client presentation. Nonzero rewards remain blocked |
-| PvE AI groups | Bounded declaration audit for a source-pinned optional provider: dependency subset, finite-ammunition/damage settings and observer retirement context; 31 focused checks. User-approved policy permits reviewed built-in human-AI stuck recovery, including visible repositioning | No provider is installed or qualified. The recovery exception does not waive exact artifact admission, permissions, finite ammunition, ordinary damage or cleanup fairness. Native-first provider implementation, combat/navigation, encounter integration and measured capacity remain outstanding |
+| PvE AI groups | Bounded declaration audit for a source-pinned optional provider: dependency subset, finite-ammunition/damage settings and observer retirement context; 31 focused checks. Native navigation owns AI movement; teleport recovery is forbidden | No provider is installed or qualified. Exact artifact admission, permissions, finite ammunition, ordinary damage and cleanup fairness remain required. Native-first provider implementation, combat/navigation, encounter integration and measured capacity remain outstanding |
 | Ecology and migration | Unhooked resource-attraction scheduler separates animals/infected, accepts fresh resource/path capabilities, bounds work and rejects replay/overflow/null input. Thirty-three policy checks cover session-bound receipts, partial acceptance, capacity and explicit retirement; independent boundary review passed. Native run 054 compiled and initialized the integrated policy under Wine | Native resource observation, movement provider, population capacity, route surveys, persistence and combined performance qualification. No feeding/drinking or migration is activated |
 | Firearms roster, datamine census and optional SNAFU subset (#30) | Offline tools and data: `tools/package/firearms.py`, `firearms_roster.json`, `snafu_optional.py`, `snafu_allowlist.json`, `tools/audit/firearm_census.py`. Owner decisions of 2026-11-17 are applied: 2x scarcity (vanilla weapon nominal 342, max 28 per gun); datamined rows spawn at rare counts, marked `acceptance: pending-local`, with one switch (`--no-datamined`); SNAFU conservative 7 plus WW2 SMGs plus 5 modern military-tier arms. Install and rollback are hard-link and outside-path safe | Not observed in DayZ: spawns, firing, ammo, CE totals, the SNAFU load and signed packaging are all pending local acceptance. The Tactical Flava optics subset is pending. Nine stock-absent variants are deferred. Not production-enabled |
 | Melee (2026-11-20) | Default-on `EnableMelee` and 32 scoped `Melee.*` settings. Infected head executes and leg cripples through `HCMeleeExecute`/`HCMeleeCripple` CfgAmmo (zombies only; PvP unchanged), weak-arm transitions, light-stagger poise with forced heavy counters, player stagger immunity and block-to-counter, weight-scaled stamina, LIGHT in-place distance with connect-time client sync (RPC 4854010), turn while swinging (200/120 deg/s) and a guard shove on the vanilla kick/push path. Wine compile gate: World module compiles with zero script errors | Unverified gates: Windows boot ready line; MEL-05 PvP unchanged; MEL-10/MEL-11; nested ProcessDirectDamage to EEHitBy re-entry; GetDamageZonePos frame; client sync delivery; turn/lunge jitter and correction snaps; shove stagger on infected; `HCMeleeShove` ammo row not yet added (falls back to Dummy_Heavy) |

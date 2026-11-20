@@ -205,7 +205,6 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableTeamPing", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableMelee", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableVehicleFlip", "bool", 1, 0, 1, "HCSettings");
-        HCAdd("EnableMealBuffs", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableForage", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableProgression", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableGroupScaling", "bool", 1, 0, 1, "HCSettings");
@@ -279,10 +278,10 @@ class HCOperatorSettingsRegistry
         HCAdd("BaseRaid.MaxCargoScan", "int", 32, 1, 32, "HCBaseRaidConfig");
         HCAdd("WildlifeProviders.Version", "int", 1, 1, 1, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.TickMs", "int", 5000, 1, 60000, "HCWildlifeProviderConfig");
-        HCAdd("WildlifeProviders.WorkUnits", "int", 16, 1, 64, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.WorkUnits", "int", 4, 1, 64, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.MaxCarcasses", "int", 2, 1, 8, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.MaxPairs", "int", 8, 1, 16, "HCWildlifeProviderConfig");
-        HCAdd("WildlifeProviders.MaxPairChecksPerTick", "int", 32, 1, 64, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.MaxPairChecksPerTick", "int", 4, 1, 64, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.PairLifetimeMs", "int", 10000, 1, 60000, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.PairCooldownMs", "int", 30000, 1, 60000, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.MaxPlayerChecks", "int", 16, 1, 64, "HCWildlifeProviderConfig");
@@ -526,7 +525,6 @@ class HCSettings
     bool EnableTeamPing = true;
     bool EnableMelee = true;
     bool EnableVehicleFlip = true;
-    bool EnableMealBuffs = true;
     bool EnableForage = true;
     bool EnableProgression = true;
     bool EnableGroupScaling = true;
@@ -569,7 +567,6 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableTeamPing")) { settings.EnableTeamPing = defaults.EnableTeamPing; }
         if (!HCJsonFields.Has(content, "EnableMelee")) { settings.EnableMelee = defaults.EnableMelee; }
         if (!HCJsonFields.Has(content, "EnableVehicleFlip")) { settings.EnableVehicleFlip = defaults.EnableVehicleFlip; }
-        if (!HCJsonFields.Has(content, "EnableMealBuffs")) { settings.EnableMealBuffs = defaults.EnableMealBuffs; }
         if (!HCJsonFields.Has(content, "EnableForage")) { settings.EnableForage = defaults.EnableForage; }
         if (!HCJsonFields.Has(content, "EnableProgression")) { settings.EnableProgression = defaults.EnableProgression; }
         if (!HCJsonFields.Has(content, "EnableGroupScaling")) { settings.EnableGroupScaling = defaults.EnableGroupScaling; }
@@ -654,7 +651,6 @@ class HCSettings
         Print("[HC Settings] effective EnableTeamPing=" + EnableTeamPing.ToString());
         Print("[HC Settings] effective EnableMelee=" + EnableMelee.ToString());
         Print("[HC Settings] effective EnableVehicleFlip=" + EnableVehicleFlip.ToString());
-        Print("[HC Settings] effective EnableMealBuffs=" + EnableMealBuffs.ToString());
         Print("[HC Settings] effective EnableForage=" + EnableForage.ToString());
         Print("[HC Settings] effective EnableProgression=" + EnableProgression.ToString());
         Print("[HC Settings] effective EnableGroupScaling=" + EnableGroupScaling.ToString());

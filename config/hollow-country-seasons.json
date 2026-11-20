@@ -3,6 +3,6 @@
   "EnableVisualSeasons": true,
   "PhaseSeconds": 604800,
   "CheckpointSeconds": 60,
-  "MaxUncheckpointedSeconds": 120,
+  "MaxUncheckpointedSeconds": 300,
   "MaxClockDeltaSeconds": 10
 }

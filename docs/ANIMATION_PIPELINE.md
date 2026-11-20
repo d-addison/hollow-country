@@ -2,8 +2,8 @@
 
 Status: source authored; native playback, skinning and single-client acceptance **PENDING**.
 The owner requests source/package implementation before connecting a client. Missing native
-verdicts are admitted unverified, never evidence of observed DayZ behaviour. The shared admission
-edit below is required before poses 2–4 are selected; this worker does not own that file.
+verdicts are admitted unverified, never evidence of observed DayZ behaviour. Shared admission
+for poses 1–4 is integrated; missing native experiments remain pending.
 
 ## Build route
 
@@ -96,9 +96,9 @@ The PBO contains config, script, our AGF, generated AGR/ASI and ten generated `.
 Stage/sign it beside HollowCountry.pbo inside `@HollowCountry/addons` with the same development key.
 The server and the connected client must load identical files. No new mission data or module slot is needed.
 
-## Runtime integration and exact lead edit (#225)
+## Runtime integration
 
-The configurable cap already exists: `HCInfectedVarietyConfig.MaxPosed=12`, bounds 0–64,
+The configurable cap already exists: `HCInfectedVarietyConfig.MaxPosed=24`, bounds 0–64,
 missing-field restoration, mission JSON and startup line. `MaxPosed=0` opts out. There is no
 `MAX_POSED` constant to replace. The dormant/LOD budgets and server-wide held-slot accounting,
 including a rising body, remain authoritative. No new settings or numerical gameplay limits
@@ -118,6 +118,22 @@ durations for poses 2–4 remain 2.6, 2.8 and 2.0 seconds. Readiness still deriv
 through `HCGetOperationalStatus` / `HCOperationalStatus.HCPublish`; admission
 supplies no native playback verdict. No additional shared edit is required.
 
+The CE route (`44fa9fc2`, `ec6b12d1`) exposes all five HC variant classes through seven
+vanilla events at 2–6% weight. All 57 substitutions preserve positive stock donor weights
+and event sums; the city HC share is 5/106. This route is independent of fresh-body
+materialization. `EnableInfectedVariety=false`, `infected_variety.disable` or
+`infected_poses.disable` leaves CE variants standing and counts `refused_optout`;
+wake/release stays available. Crawlers retain the vanilla graph and native crawl request.
+
+`26fc6ac8` raises exact legacy `MaxTracked=24` to 256 in memory, logging one
+`[HC Infected] config_migration MaxTracked legacy=24 now=256` line without rewriting
+the profile; other operator values are honoured. `fbc8685a` recycles at most one eligible
+far idle tracking record per bounded scan and separates herd lease capacity; it never
+deletes or moves an infected. Native roster admission, CE playback, wake, crawler fall,
+replication and the cost of 24 simultaneous holds remain **PENDING**. Inspect
+`ce_variant_classes` (expected public=5/5) and `ce_variants` (first at 120 s, then every
+300 s) for spawned/posed/playing/crawling/refused/woken/risen/interrupted counts.
+
 ## Lead native acceptance
 
 Build externally, inspect previews/contact, then DayZDiag and a normal signed PBO/server with at most one
@@ -129,7 +145,7 @@ remains hidden from the connected client. Never use a teleport to fix a visible 
 
 Grep boot RPT:
 
-- `[HC Variety] max_posed=12 bounds=0..64 opt_out=MaxPosed=0 runtime=PENDING`
+- `[HC Variety] max_posed=24 bounds=0..64 opt_out=MaxPosed=0 runtime=PENDING`
 - `[HC Variety] anim_poses=source_authored prone_sleep=admitted_unverified riser=admitted_unverified feed_kneel=admitted_unverified`; inspect the accompanying `runtime=PENDING` diagnostic
 - `[HC Variety] tier_c=custom_graph`
 - `[HC Variety] posed_fresh_every=`

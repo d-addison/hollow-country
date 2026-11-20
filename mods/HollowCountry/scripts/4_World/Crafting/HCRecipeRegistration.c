@@ -5,11 +5,6 @@ modded class PluginRecipesManager
     override void RegisterRecipies()
     {
         super.RegisterRecipies();
-        // Native PluginRecipesManagerBase.c:11,131-141 (1.30.164289).
-        UnregisterRecipe("CraftFenceKit");
-        UnregisterRecipe("CraftWatchtowerKit");
-        UnregisterRecipe("CraftTerritoryFlagKit");
-        UnregisterRecipe("CraftShelterKit");
         RegisterRecipe(new HCSalvageCamoNet);
         RegisterRecipe(new HCSalvageCableReel);
         RegisterRecipe(new HCRecoverLargeLeather);
