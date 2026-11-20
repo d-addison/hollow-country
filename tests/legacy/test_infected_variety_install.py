@@ -27,7 +27,9 @@ class InfectedVarietyInstallTests(unittest.TestCase):
         rows = []
         for name in dict.fromkeys(s['event'] for s in self.policy['substitutions']):
             donors = dict.fromkeys(s['from'] for s in self.policy['substitutions'] if s['event'] == name)
-            children = ''.join(f'\n      <child min="8" max="0" lootmin="0" lootmax="5" type="{d}" />' for d in donors)
+            # A donor may feed several rows; it keeps min 8 after giving all its shares.
+            given = {d: sum(s['share'] for s in self.policy['substitutions'] if s['event'] == name and s['from'] == d) for d in donors}
+            children = ''.join(f'\n      <child min="{8 + given[d]}" max="0" lootmin="0" lootmax="5" type="{d}" />' for d in donors)
             rows.append(f'  <event name="{name}"><nominal>42</nominal><active>1</active><children>{children}\n    </children></event>')
         self.original = ('<?xml version="1.0" encoding="UTF-8"?>\r\n<!-- synthetic comment retained -->\r\n<events>\r\n' + '\r\n'.join(rows) + '\r\n  <event name="Unrelated"><active>0</active></event>\r\n</events>\r\n').encode()
         self.events.write_bytes(self.original)
@@ -57,12 +59,12 @@ class InfectedVarietyInstallTests(unittest.TestCase):
         for row in self.policy['substitutions']:
             event = next(e for e in after if e.get('name') == row['event'])
             self.assertEqual(str(row['share']), event.find(f'./children/child[@type="{row["to"]}"]').get('min'))
-            self.assertEqual(str(8 - row['share']), event.find(f'./children/child[@type="{row["from"]}"]').get('min'))
+            self.assertEqual('8', event.find(f'./children/child[@type="{row["from"]}"]').get('min'))
         self.assertIn(b'<!-- synthetic comment retained -->', self.events.read_bytes())
         self.assertFalse((ROOT / 'mission/hollow-country/infected/events.append.xml').exists())
 
     def test_non_stock_event_refuses_before_receipt_or_mutation(self):
-        for old, new in ((b'<nominal>42', b'<nominal>43'), (b'min="8"', b'min="9"'),
+        for old, new in ((b'<nominal>42', b'<nominal>43'), (b'min="', b'min="1'),
                          (b'name="InfectedCity"', b'name="MissingCity"')):
             with self.subTest(change=new):
                 data = self.original.replace(old, new, 1)

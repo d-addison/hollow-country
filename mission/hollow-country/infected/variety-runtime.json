@@ -4,7 +4,7 @@
   "MaxSites": 64,
   "MaxFreshBodies": 3,
   "PosedFreshEvery": 3,
-  "MaxPosed": 12,
+  "MaxPosed": 24,
   "GroupMembers": 3,
   "ContextRange": 40,
   "InterestRange": 1000,

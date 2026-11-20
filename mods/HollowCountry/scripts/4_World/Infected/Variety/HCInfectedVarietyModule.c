@@ -40,6 +40,9 @@ class HCInfectedVarietyModule : HCModule
     protected vector m_ShotOrigin;
     protected float m_ShotAt;
     protected int m_Woken;
+    // #279 CE-owned variant summary: first line early for boot proof, then every 300 s.
+    protected float m_CEVariantsAt = 120;
+    protected float m_CEVariantsFrom;
 
     override string GetName() { return "InfectedVariety"; }
     override bool IsEnabled(HCSettings settings)
@@ -68,6 +71,7 @@ class HCInfectedVarietyModule : HCModule
             HCDebugSnapshot.HCRegister(m_Debug);
         }
         Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; native crawlers at corpses/catalog rooms and authored CE places; bounded fresh queue; runtime acceptance pending");
+        HCPrintCEVariantClasses();
     }
 
     // Base-class seam: never call a method introduced only on a later modded
@@ -141,6 +145,29 @@ class HCInfectedVarietyModule : HCModule
             Print("[HC Infected] variety dormant=" + dormant.ToString() + " woken=" + m_Woken.ToString() + " runners=" + runners.ToString() + " scale=" + m_Scale.ToString() + " runtime-unverified");
             m_Woken = 0;
         }
+        if (m_Clock >= m_CEVariantsAt)
+        {
+            int window = Math.Round(m_Clock - m_CEVariantsFrom);
+            m_CEVariantsFrom = m_Clock;
+            m_CEVariantsAt = m_Clock + 300;
+            Print(HCVarietyCounters.HCSummary(window));
+        }
+    }
+
+    // #279: which CE variant classes the loaded addons define as public (scope 2).
+    // Five config reads once at start; the CE events themselves are mission data.
+    protected void HCPrintCEVariantClasses()
+    {
+        array<string> names = {"HC_ZmbM_Sitter", "HC_ZmbM_Sleeper", "HC_ZmbM_Riser", "HC_ZmbM_Feeder", "HC_ZmbM_Crawler"};
+        int present = 0;
+        string missing = "";
+        foreach (string name : names)
+        {
+            if (GetGame().ConfigGetInt("CfgVehicles " + name + " scope") == 2) { present++; }
+            else { missing = missing + " " + name; }
+        }
+        if (missing == "") { missing = " none"; }
+        Print("[HC Variety] ce_variant_classes public=" + present.ToString() + "/5 missing=" + missing.Trim() + " max_posed=" + HCInfectedVariety.HCMaxPosed().ToString() + " runtime=PENDING");
     }
 
     override void OnStop()
