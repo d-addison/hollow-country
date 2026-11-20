@@ -23,8 +23,28 @@ Finish is deliberately traversed because it drains stages synchronously.
 Single I/O operations are candidates too: the tool cannot infer their latency.
 Baseline entries acknowledge candidates, not native acceptance. P002 is omitted
 because source-only configured-float bounds have too much ambiguity.
+
+P004 finds lexical nested collection loops with equality comparisons and array
+Find/Contains/IndexOf/Get calls inside loops. Literal upper bounds <=16 are
+skipped; Get is deliberately a broad candidate, including indexed access.
+Only declared array/map/set receivers are recognized, not aliases, returned
+collections or interprocedural nesting. Equality need not compare loop items.
+P005 finds Print in lexical loops on the same bounded tick graph as P003;
+it cannot prove logging frequency or recognize latches and summary logging.
+P006 finds literal HC_WORK_* arguments to HCTakeFor/HCCharge shared across
+owner class names (modded definitions share their class name). It cannot
+resolve computed slots or prove that different classes compete at runtime.
+P007 checks consumer declarations against profile registration, weight fields
+and decoded assignments, settings registration and the report CONSUMERS list.
+HC_WORK_CONSUMERS is a count; HC_WORK_UNBOUNDED is an arithmetic sentinel,
+not a slot. This is structural completeness, not runtime settings validation.
+P008 finds Save calls on declared types ending in Store on P003's tick graph;
+it cannot resolve returned stores, infer synchronous implementation details or
+distinguish required durability barriers. All rules report review candidates,
+never measured complexity, timing or native acceptance.
 """
 import argparse
+import ast
 from collections import deque
 from dataclasses import asdict, dataclass
 import json
@@ -43,6 +63,11 @@ BASELINE = Path(__file__).with_name('enforce_perf_baseline.json')
 RULES = {
     'HC-P001': 'unbounded string scan inside a loop without HCTextWindow',
     'HC-P003': 'file I/O reachable in one tick/save step outside the staged writer',
+    'HC-P004': 'nested linear collection scan',
+    'HC-P005': 'per-item Print reachable on a tick path',
+    'HC-P006': 'work slot shared by different owner classes',
+    'HC-P007': 'incomplete work slot registration',
+    'HC-P008': 'synchronous store Save reachable on a tick path',
 }
 MAX_DEPTH = 24
 _IDENT = r'[A-Za-z_]\w*'
@@ -55,6 +80,8 @@ _ROOT = re.compile(r'^(?:OnTick|OnUpdate|HCStep\w*|\w*SaveStage\w*|\w*StageSave\
 # Exact shared implementation, rather than a blanket class/name suppression.
 _WRITER_PATH = 'mods/HollowCountry/scripts/4_World/World/HCWorkBudget.c'
 _BOUNDARIES = frozenset({'Begin', 'HCStepImage', 'HCRefreshIntent'})
+_ARRAY_SCAN = re.compile(rf'\b({_CHAIN})\s*\.\s*(Find|Contains|IndexOf|Get)\s*\(')
+_SLOT_CALL = re.compile(r'\b(HCTakeFor|HCCharge)\s*\(')
 
 
 @dataclass(frozen=True)
@@ -246,13 +273,126 @@ def bulk_copy(s, start, end, call):
                 and re.search(rf'\b{stride.group(1)}\b', args[0]))
 
 
-def check(sources):
+def small_loop(s, start):
+    """Recognize direct literal upper conditions, not configured/caller bounds."""
+    match = re.match(r'(for|while)\s*\(', s.code[start:])
+    if not match:
+        return False
+    opening = start + match.end() - 1
+    header = s.code[opening + 1:es.matching_paren(s.code, opening)]
+    if match.group(1) == 'for':
+        parts = header.split(';')
+        if len(parts) != 3:
+            return False
+        header = parts[1]
+    return bool('||' not in header and re.search(
+        rf'\b{_IDENT}\s*<=?\s*(?:[0-9]|1[0-6])\b(?!\s*[\w.+*/-])', header))
+
+
+def nested_scans(model, i, spans):
+    s, m = model.nodes[i]
+    active = [(a, b) for a, b in spans if not small_loop(s, a)]
+    sites = []
+    for start, end in active:
+        if not any(a < start < b for a, b in active):
+            continue
+        opening = s.code.find('(', start, end)
+        closing = es.matching_paren(s.code, opening)
+        header = s.code[opening + 1:closing]
+        # foreach's receiver or a for/while collection Count/Get header.
+        receivers = re.findall(rf':\s*({_CHAIN})\s*$', header)
+        receivers.extend(re.findall(rf'\b({_CHAIN})\s*\.\s*(?:Count|Get|GetKey|GetElement)\s*\(', header))
+        for receiver in dict.fromkeys(re.sub(r'\s+', '', r) for r in receivers):
+            typ = re.sub(r'\s+', '', model.type_of(receiver, model.envs[i]))
+            if (typ.startswith(('array<', 'map<', 'set<')) or typ == 'set') and '==' in s.code[closing + 1:end]:
+                sites.append((start, receiver + '.loop'))
+    for call in _ARRAY_SCAN.finditer(s.code, m.body_start, m.body_end):
+        receiver = re.sub(r'\s+', '', call.group(1))
+        typ = re.sub(r'\s+', '', model.type_of(receiver, model.envs[i]))
+        if typ.startswith('array<') and any(a <= call.start() < b for a, b in active):
+            sites.append((call.start(), receiver + '.' + call.group(2)))
+    counts = {}
+    for offset, key in sorted(sites):
+        counts[key] = counts.get(key, 0) + 1
+        yield Finding('HC-P004', s.rel, s.line_of(offset), symbol(m),
+                      f'{key}#{counts[key]}', 'O(n*m) scan; build a map/set index outside the loop')
+
+
+def slot_registrations(sources, root):
+    """Cross-file checks on authored sources; no execution of report Python."""
+    by_name = {}
+    for s in sources:
+        if s.rel.startswith('mods/HollowCountry/scripts/'):
+            by_name.setdefault(s.path.name, []).append(s)
+
+    def named(filename):
+        return by_name.get(filename, [])
+
+    def has_call(filename, name, argument):
+        for s in named(filename):
+            for call in re.finditer(rf'\b{name}\s*\(\s*("[^"\n]*")', s.code):
+                # Quotes survive masking; recover only the matching literal.
+                if s.text[call.start(1):call.end(1)] == json.dumps(argument):
+                    return True
+        return False
+
+    consumers = set()
+    report = root / 'tools/validate/tick_cost_report.py'
+    if report.is_file():
+        tree = ast.parse(report.read_text(encoding='utf-8'))
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'CONSUMERS' for t in node.targets):
+                value = node.value
+                if (isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
+                        and value.func.attr == 'split' and not value.args and not value.keywords):
+                    literal = ast.literal_eval(value.func.value)
+                    if isinstance(literal, str):
+                        consumers.update(literal.split())
+                elif isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+                    consumers.update(ast.literal_eval(value))
+    for s in named('HCUnitBudget.c'):
+        declarations = list(re.finditer(r'\bstatic\s+const\s+int\s+HC_WORK_(\w+)\s*=\s*(\d+)\s*;', s.code))
+        slots = [d for d in declarations if d[1] not in {'CONSUMERS', 'UNBOUNDED'}]
+        count = next((d for d in declarations if d[1] == 'CONSUMERS'), None)
+        for slot in slots:
+            name = slot[1]
+            field = 'TickWeight_' + name
+            pieces = {
+                'profile': has_call('HCUnitProfile.c', 'HCRegister', name),
+                'field': any(f.name == field for source in named('HCPerfSlices.c') for c in source.classes for f in c.fields),
+                'load': any(re.search(rf'\b{field}\s*=\s*decoded\s*\.\s*{field}\s*;', source.code)
+                            for source in named('HCPerfSlices.c')),
+                'settings': has_call('HCPerfSettingsRegistry.c', 'HCAdd', 'Performance.' + field),
+                'report': name in consumers,
+            }
+            for piece, present in pieces.items():
+                if not present:
+                    yield Finding('HC-P007', s.rel, s.line_of(slot.start()), 'HCUnitBudget',
+                                  f'HC_WORK_{name}:{piece}', f'HC_WORK_{name} missing {piece} registration (see PERFORMANCE_PRACTICES)')
+        if slots and (count is None or int(count[2]) <= max(int(d[2]) for d in slots)):
+            yield Finding('HC-P007', s.rel, s.line_of(count.start() if count else slots[0].start()),
+                          'HCUnitBudget', 'HC_WORK_CONSUMERS:capacity',
+                          'HC_WORK_CONSUMERS must exceed the largest consumer slot value')
+
+
+def check(sources, root=ROOT):
     """Return deterministic Finding objects; does not load/write a baseline."""
     model = Model(sources)
     findings = []
+    loop_spans = []
+    slot_uses = []
     caps = parameter_caps(model)
     for i, (s, m) in enumerate(model.nodes):
         spans = list(loops(s, m))
+        loop_spans.append(spans)
+        findings.extend(nested_scans(model, i, spans))
+        slot_counts = {}
+        for call in _SLOT_CALL.finditer(s.code, m.body_start, m.body_end):
+            opening = s.code.find('(', call.start(), call.end())
+            arguments = s.code[opening + 1:es.matching_paren(s.code, opening)]
+            for slot in dict.fromkeys(re.findall(r'\bHC_WORK_[A-Z0-9_]+\b', arguments)):
+                slot_counts[slot] = slot_counts.get(slot, 0) + 1
+                slot_uses.append((s.rel, call.start(), i, slot, slot_counts[slot]))
         counts = {}
         for call in _SCAN.finditer(s.code, m.body_start, m.body_end):
             receiver = re.sub(r'\s+', '', call.group(1))
@@ -269,12 +409,27 @@ def check(sources):
             findings.append(Finding('HC-P001', s.rel, s.line_of(call.start()), symbol(m),
                                     f'{key}#{counts[key]}', f'{key} scans a string with no recognized small bound inside a loop'))
 
-    edges, ios = [], []
+    first_owners = {}
+    for _, offset, i, slot, occurrence in sorted(slot_uses):
+        s, m = model.nodes[i]
+        owner = m.owner.name if m.owner else '<global>'
+        first = first_owners.setdefault(slot, owner)
+        if owner != first:
+            findings.append(Finding('HC-P006', s.rel, s.line_of(offset), symbol(m),
+                                    f'{slot}#{occurrence}', f'slot {slot} shared by {first} and {owner}; give each consumer its own slot (see PERFORMANCE_PRACTICES)'))
+    findings.extend(slot_registrations(sources, root))
+
+    edges, ios, tick_sites = [], [], []
     for i, (s, m) in enumerate(model.nodes):
-        outgoing, sites = set(), []
+        outgoing, sites, candidates = set(), [], []
         for call in _CALL.finditer(s.code, m.body_start, m.body_end):
             expression = re.sub(r'\s+', '', call.group(1))
             name = expression.split('.')[-1]
+            if expression == 'Print' and any(a <= call.start() < b for a, b in loop_spans[i]):
+                candidates.append((call.start(), 'HC-P005', 'Print', 'per-item Print on a tick path; latch or summarize'))
+            if name == 'Save' and '.' in expression and model.type_of(expression.rsplit('.', 1)[0], model.envs[i]).endswith('Store'):
+                candidates.append((call.start(), 'HC-P008', expression,
+                                   'synchronous store Save on a tick path; mark dirty and let the HCSaveScheduler job stage it unless this is a durability barrier'))
             if (name in _IO and '.' not in expression) or expression.split('.')[0] == 'JsonFileLoader':
                 # LoadData/MakeData serialize memory, not files.
                 if expression.startswith('JsonFileLoader'):
@@ -286,6 +441,7 @@ def check(sources):
             sites.append((m.body_start + call.start(), 'JsonFileLoader.' + call.group(1)))
         edges.append(sorted(outgoing))
         ios.append(sorted(set(sites)))
+        tick_sites.append(candidates)
 
     def boundary(i):
         s, m = model.nodes[i]
@@ -299,6 +455,12 @@ def check(sources):
     while queue:
         i, chain = queue.popleft()
         s, m = model.nodes[i]
+        tick_counts = {}
+        for offset, rule, operation, message in tick_sites[i]:
+            key = (rule, operation)
+            tick_counts[key] = tick_counts.get(key, 0) + 1
+            findings.append(Finding(rule, s.rel, s.line_of(offset), symbol(m),
+                                    f'{operation}#{tick_counts[key]}', message))
         counts = {}
         for offset, operation in ios[i]:
             counts[operation] = counts.get(operation, 0) + 1
@@ -346,7 +508,7 @@ def main(argv=None):
         known = {s.rel for s in sources}
         if selected - known:
             parser.error('selected paths must be authored sources under mods/*/scripts or mission/')
-        findings = [f for f in check(sources) if not selected or f.path in selected]
+        findings = [f for f in check(sources, root) if not selected or f.path in selected]
         if args.write_baseline:
             if selected or args.stdin:
                 parser.error('--write-baseline requires the full current project')
