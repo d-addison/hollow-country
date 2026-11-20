@@ -139,6 +139,7 @@ class HCRadioDefaults
 
 class HCRadioChatter : HCModule
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("channels built listeners reports delivered refused budget cooldown listener_cap no_fact not_tuned out_of_range expired identity rate receipt store channel_roster_invalid fact_place_unavailable revalidation");
     protected static HCRadioChatter s_Instance;
     protected ref HCLeadStore m_Store;
     protected ref HCMorseRateStore m_LegacyRates;
@@ -195,6 +196,7 @@ class HCRadioChatter : HCModule
     string Refusal() { return m_Refusal; }
     bool HCRefuseAs(string state, string reason)
     {
+        m_Activity.HCRefuse(reason);
         m_Status.HCPublish(state, reason);
         if (m_Refusal != reason)
         {
@@ -221,6 +223,7 @@ class HCRadioChatter : HCModule
         m_Store = HCLeadStore.Get();
         if (!m_Store || !m_Store.Healthy())
         {
+            m_Activity.HCRefuse("store", "lead_store_unavailable");
             Print("[HC Plan] HC-20 radio=refused morse=folded reports=0 reason=lead_store_unavailable runtime=PENDING");
             return;
         }
@@ -299,7 +302,10 @@ class HCRadioChatter : HCModule
         foreach (Man candidateListener : m_Listeners)
         {
             PlayerBase player = PlayerBase.Cast(candidateListener);
-            if (Receiving(player, HCRadioDefaults.Tuned(m_Channel.Frequency)) && InReportRange(player, report)) { return true; }
+            m_Activity.HCHit("listeners");
+            if (!Receiving(player, HCRadioDefaults.Tuned(m_Channel.Frequency))) { m_Activity.HCRefuse("not_tuned"); continue; }
+            if (!InReportRange(player, report)) { m_Activity.HCRefuse("out_of_range"); continue; }
+            return true;
         }
         return false;
     }
@@ -328,6 +334,7 @@ class HCRadioChatter : HCModule
 
     void BeginChannel()
     {
+        m_Activity.HCHit("channels");
         if (m_Store.Data.Channels.Count() != 5)
         {
             HCRefuseAs("degraded", "channel_roster_invalid");
@@ -338,6 +345,7 @@ class HCRadioChatter : HCModule
         int now = HCWorldClock.UTC();
         if (now < 1 || m_Channel.LastSent > now || now - m_Channel.LastSent < HCRadioDefaults.Get().BroadcastGapSeconds || m_Channel.Sequence >= 2147483647)
         {
+            m_Activity.HCRefuse("cooldown");
             m_Status.HCPublish("ready", "channel_cooldown_or_clock");
             m_Channel = null;
             return;
@@ -348,6 +356,7 @@ class HCRadioChatter : HCModule
         m_Listeners.Clear();
         if (roster.Count() > m_Defaults.MaxListeners)
         {
+            m_Activity.HCRefuse("listener_cap");
             Print("[HC Plan] HC-20 radio=refused morse=folded reports=" + m_Reports.ToString() + " recipients=0 reason=listener_cap runtime=PENDING");
             m_Channel = null;
             return;
@@ -373,10 +382,12 @@ class HCRadioChatter : HCModule
         // No canned NPC advice, briefing or notification when no fact exists.
         if (!m_Report || !HCLeadPolicy.Valid(m_Report) || m_Report.Source != "world" || m_Report.Expires <= now)
         {
+            m_Activity.HCRefuse("no_fact");
             m_Status.HCPublish("ready", "no_in_range_fact");
             m_Channel = null;
             return;
         }
+        m_Activity.HCHit("built");
         HCClueLead clue = HCLeadPolicy.Copy(m_Report);
         HCClueLocation.HCResolve(clue, "0 0 0", false);
         m_Report = clue;
@@ -384,7 +395,7 @@ class HCRadioChatter : HCModule
         if (m_Report.TextId == "morse_lead")
         {
             HCWorldPlace place = HCLeadPolicy.Place(m_Report.TargetPlaceId);
-            if (!place) { m_Status.HCPublish("ready", "fact_place_unavailable"); m_Channel = null; return; }
+            if (!place) { m_Activity.HCRefuse("fact_place_unavailable"); m_Status.HCPublish("ready", "fact_place_unavailable"); m_Channel = null; return; }
             m_Text = HCLeadPolicy.HCWithLocation(m_Report, "An earlier event was reported near " + place.Name + ". This is old news; things may have changed.");
         }
         m_ListenerCursor = 0;
@@ -410,6 +421,7 @@ class HCRadioChatter : HCModule
 
     void HCRefuse(string reason)
     {
+        m_Activity.HCRefuse("store", reason);
         m_Ready = false;
         s_Instance = null;
         m_Channel = null;
@@ -424,11 +436,12 @@ class HCRadioChatter : HCModule
 
     override void OnTick(float deltaTime)
     {
+        if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HC Radio]", " state=" + m_Status.HCState()); }
         if (!m_Ready || !(deltaTime > 0) || !GetGame().IsServer()) { return; }
         if (!m_Store || !m_Store.Healthy()) { HCRefuse("lead_store_fault"); return; }
         m_UnitBudget.HCReset(1);
         m_WorkBudget.HCReset(1);
-        if (!m_UnitBudget.HCTake(1) || !m_WorkBudget.HCContinue()) { return; }
+        if (!m_UnitBudget.HCTake(1) || !m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); return; }
         if (!m_Channel)
         {
             m_Elapsed += deltaTime;
@@ -449,12 +462,14 @@ class HCRadioChatter : HCModule
         // Retained finite roster: late join never joins an in-flight report.
         PlayerBase listener = PlayerBase.Cast(m_Listeners[m_ListenerCursor]);
         m_ListenerCursor = m_ListenerCursor + 1;
-        if (!Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report)) { return; }
+        m_Activity.HCHit("listeners");
+        if (!Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency))) { m_Activity.HCRefuse("not_tuned"); return; }
+        if (!InReportRange(listener, m_Report)) { m_Activity.HCRefuse("out_of_range"); return; }
         int now = HCWorldClock.UTC();
-        if (now < 1 || m_Report.Expires <= now) { return; }
+        if (now < 1 || m_Report.Expires <= now) { m_Activity.HCRefuse("expired"); return; }
         PlayerIdentity identity = listener.GetIdentity();
-        if (!identity || identity.GetId().Length() < 1 || identity.GetId().Length() > 96) { return; }
-        if (!m_LegacyRates.Allowed(identity.GetId().Hash(), now)) { return; }
+        if (!identity || identity.GetId().Length() < 1 || identity.GetId().Length() > 96) { m_Activity.HCRefuse("identity"); return; }
+        if (!m_LegacyRates.Allowed(identity.GetId().Hash(), now)) { m_Activity.HCRefuse("rate"); return; }
         if (!m_Committed)
         {
             // Keep this roster cursor until the channel receipt has committed.
@@ -466,22 +481,25 @@ class HCRadioChatter : HCModule
                 m_ChannelReceipt = m_Store.HCRequestBarrier();
                 if (m_ChannelReceipt < 0) { HCRefuse("channel_receipt_fault"); return; }
             }
-            if (!m_Store.HCDurable(m_ChannelReceipt)) { m_ListenerCursor--; return; }
+            if (!m_Store.HCDurable(m_ChannelReceipt)) { m_Activity.HCRefuse("receipt"); m_ListenerCursor--; return; }
             m_Committed = true;
+            m_Activity.HCHit("reports");
             if (m_Reports < 2147483647) { m_Reports = m_Reports + 1; }
         }
         m_ReceiptPending = false;
         if (!RetainReport(m_Report, listener))
         {
+            m_Activity.HCRefuse("receipt");
             if (m_ReceiptPending) { m_ListenerCursor--; }
             if (!m_Store.Healthy()) { HCRefuse("lead_receipt_fault"); }
             return;
         }
         // Revalidate after both durable receipts. Never pass a null identity
         // to native notification: null there means ALL players, not a refusal.
-        if (listener.GetIdentity() != identity || !Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { return; }
+        if (listener.GetIdentity() != identity || !Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { m_Activity.HCRefuse("revalidation"); return; }
         float receiveFrequency = HCRadioDefaults.Tuned(m_Channel.Frequency);
         NotificationSystem.SendNotificationToPlayerIdentityExtended(identity, 12, "Radio " + receiveFrequency.ToString() + " MHz", m_Text);
+        m_Activity.HCHit("delivered");
         m_Recipients = m_Recipients + 1;
         Print("[HC Plan] HC-20 radio=environmental morse=folded reports=" + m_Reports.ToString() + " state=ready recipients=" + m_Recipients.ToString() + " runtime=PENDING");
     }

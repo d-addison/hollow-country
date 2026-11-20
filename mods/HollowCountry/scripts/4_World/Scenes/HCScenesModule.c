@@ -34,6 +34,7 @@ class HCDebugSceneLeaseRow
 
 class HCScenesModule : HCModule
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("work placed completed notes refused checkpoint budget not_due pacing preflight advertise failed");
     protected static ref HCScenesModule s_CleanupOwner;
     // Weak pointer to the running instance for read-only debug getters; cleared in OnStop.
     protected static HCScenesModule s_DebugOwner;
@@ -55,7 +56,6 @@ class HCScenesModule : HCModule
     protected ref array<string> m_AdvertiseRefusals = new array<string>();
     protected int m_LastNow;
     protected float m_WorkElapsed;
-    protected float m_LogElapsed;
     protected bool m_Running;
     protected bool m_Stopping;
     protected bool m_AdmissionPrinted;
@@ -322,6 +322,7 @@ class HCScenesModule : HCModule
 
     void AdvertiseRefused(HCSceneLease lease, string reason)
     {
+        m_Activity.HCRefuse("advertise", reason);
         string key = lease.ChainId + ":" + lease.Stage.ToString();
         if (m_AdvertiseRefusals.Find(key) >= 0 || m_AdvertiseRefusals.Count() >= 12) { return; }
         m_AdvertiseRefusals.Insert(key);
@@ -392,6 +393,7 @@ class HCScenesModule : HCModule
         vector notePosition = notePositions[0];
         if (SceneNote(notes, lead, chain.Id, placeId, notePosition, HCWorldClock.UTC()))
         {
+            m_Activity.HCHit("notes");
             Print("[HollowCountry] V2 scene note created id=" + chain.Id + " place=" + placeId + " source=" + lead.Source);
         }
     }
@@ -423,6 +425,7 @@ class HCScenesModule : HCModule
     // One line whenever a chain's refusal reason changes, never once per retry.
     void PreflightRefused(string chainId, string reason)
     {
+        m_Activity.HCRefuse("preflight", reason);
         string previous;
         if (m_PreflightReasons.Find(chainId, previous) && previous == reason) { return; }
         if (m_PreflightReasons.Count() >= 16 && !m_PreflightReasons.Contains(chainId)) { return; }
@@ -437,6 +440,7 @@ class HCScenesModule : HCModule
 
     void Fail(HCSceneChain chain, int now, string reason)
     {
+        m_Activity.HCRefuse("failed", reason);
         HCEventModule.HCCancelSituation(HCPacingIdentity(chain));
         HCEventModule.HCEndedSituation(HCPacingIdentity(chain));
         HCSceneChains.Cancel(chain, now);
@@ -447,6 +451,7 @@ class HCScenesModule : HCModule
 
     void Work(int now)
     {
+        m_Activity.HCHit("work");
         int paused = HCSceneChains.ResumeAfterGap(m_State, now);
         if (paused < 0) { Print("[HollowCountry] V2 scenes stopped; downtime exceeds clock bounds"); OnStop(); return; }
         if (paused > 0)
@@ -485,6 +490,10 @@ class HCScenesModule : HCModule
         if (status == HCEventStatus.COMPLETED)
         {
             if (!Cleanup(lease)) { return; }
+            // Work runs only after the checkpoint settles. Count the observed
+            // completed stage once, before its identity advances or closes.
+            m_Activity.HCHit("completed");
+            Print("[HollowCountry] V2 scene stage complete id=" + chain.Id + " stage=" + chain.Stage.ToString());
             // End this stage's active pacing before the identity moves on.
             HCEventModule.HCEndedSituation(HCPacingIdentity(chain));
             if (chain.Stage + 1 >= plan.Stages.Count())
@@ -499,7 +508,7 @@ class HCScenesModule : HCModule
             Commit(now);
             return;
         }
-        if (now < chain.DueAt) { return; }
+        if (now < chain.DueAt) { m_Activity.HCHit("not_due"); return; }
         if (!lease)
         {
             if (m_Leases.Count() >= 2) { HCEventModule.HCCancelSituation(HCPacingIdentity(chain)); m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "lease-cap"); return; }
@@ -521,7 +530,7 @@ class HCScenesModule : HCModule
             // Pacing precedes the existing durable Begin intent and native
             // placement. Blocked stages retain their original expiry and skip
             // through CancelExpired; disabled Events uses the owner rules.
-            if (!HCEventModule.HCPaceSituation(HCPacingIdentity(chain), site.Position, chain.ExpiresAt - now)) { return; }
+            if (!HCEventModule.HCPaceSituation(HCPacingIdentity(chain), site.Position, chain.ExpiresAt - now)) { m_Activity.HCRefuse("pacing"); return; }
             if (chain.EventId == 0)
             {
                 if (!HCSceneChains.Begin(chain, stage, now)) { Fail(chain, now, "director-refused"); return; }
@@ -546,6 +555,7 @@ class HCScenesModule : HCModule
             HCEventModule.HCStartedSituation(HCPacingIdentity(chain));
             lease.StoryPublished = true;
             m_Placed = m_Placed + lease.Objects.Count();
+            m_Activity.HCHit("placed");
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
             PublishSceneStory(chain, HCSceneChains.HCPlanSite(plan));
             if (chain.Stage == 0 && (!m_Stories || !m_Stories.HCReady()))
@@ -559,17 +569,29 @@ class HCScenesModule : HCModule
             int result = HCEventDirector.SceneElapsed(chain.Director, HCSceneChains.Context(chain, now), chain.EventId, chain.BeganAt, stage.HoldSeconds);
             if (result != HCEventCode.OK) { Fail(chain, now, "director-stage-failed"); return; }
             if (!Commit(now)) { return; }
-            Print("[HollowCountry] V2 scene stage complete id=" + chain.Id + " stage=" + chain.Stage.ToString());
         }
     }
 
     override void OnTick(float deltaTime)
     {
-        if (!m_Running || !GetGame() || !GetGame().IsServer()) { return; }
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (m_Activity.HCDue(deltaTime))
+        {
+            int activeScenes;
+            foreach (HCSceneLease activityLease : m_Leases)
+            {
+                if (!activityLease.Closing) { activeScenes++; }
+            }
+            int activityChains;
+            if (m_State && m_State.Chains) { activityChains = m_State.Chains.Count(); }
+            m_Activity.HCLog("[HollowCountry] V2 scenes", " active=" + activeScenes.ToString() + " chains=" + activityChains.ToString() + " running=" + m_Running.ToString());
+        }
+        if (!m_Running) { return; }
         m_Store.HCPumpCheckpoint();
         if (!m_Store.HCCheckpointHealthy()) { m_Fault = "scene_save_failed"; OnStop(); return; }
         if (m_Store.HCCheckpointPending())
         {
+            m_Activity.HCRefuse("checkpoint");
             // Dirty includes routine checkpoints waiting for the shared save
             // scheduler. Advance one budgeted HC-42 parsing batch OR candidate
             // preflight: it only changes temporary selection/diagnostic caches.
@@ -592,7 +614,6 @@ class HCScenesModule : HCModule
             if (m_Store.HCCheckpointPending()) { return; }
         }
         m_WorkElapsed = m_WorkElapsed + deltaTime;
-        m_LogElapsed = m_LogElapsed + deltaTime;
         m_WorkBudget.HCReset(1);
         foreach (HCSceneLease buildingLease : m_Leases)
         {
@@ -600,7 +621,7 @@ class HCScenesModule : HCModule
             HCReached.Mark("scenes.placement_lease");
             // Review hardening: a lease whose kit failed to place waits for its Fail pass; never dereference it.
             if (!buildingLease.PlacementKit) { continue; }
-            if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+            if (!m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), 1); return; }
             HCSceneKits.HCPlaceOne(buildingLease);
             int pendingProps = buildingLease.PlacementKit.Props.Count() - buildingLease.Objects.Count();
             m_WorkBudget.HCDeferred(GetName(), pendingProps);
@@ -629,11 +650,6 @@ class HCScenesModule : HCModule
             // Persist a heartbeat even while every chain is waiting; otherwise
             // an ordinary long stage would be mistaken for server downtime.
             if (m_Running && now - m_State.LastNow >= 60) { m_State.LastNow = now; m_Store.HCRequestCheckpoint(m_State, false); }
-        }
-        if (m_LogElapsed >= 600)
-        {
-            m_LogElapsed = 0;
-            Summary();
         }
     }
 

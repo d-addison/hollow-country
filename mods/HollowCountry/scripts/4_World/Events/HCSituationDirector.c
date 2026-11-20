@@ -138,12 +138,14 @@ class HCSituationProfileRow
 
 class HCSituationDirector
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("steps rows due active started closed unknown refused checkpoint budget clock provider lease pacing begin identity source store");
     protected ref HCSceneChainState m_State;
     protected ref HCSceneChainStore m_Store;
     protected ref array<ref HCSituationProfileRow> m_Rows = new array<ref HCSituationProfileRow>;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected float m_ActivityLastTick = -1;
     protected int m_Cursor;
     protected bool m_Enabled;
     protected bool m_Fault;
@@ -555,6 +557,7 @@ class HCSituationDirector
             slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
             if (!slot.Actors.HCReady())
             {
+                m_Activity.HCRefuse("provider");
                 if (slot.Profile == "survivor" && (m_Effective != "refused" || m_Reason != slot.Actors.HCRefusal()))
                 {
                     m_Effective = "refused";
@@ -595,6 +598,8 @@ class HCSituationDirector
         slot.Opportunity.Phase = "closed";
         slot.Opportunity.Outcome = outcome;
         if (!HCCommit()) { return false; }
+        m_Activity.HCHit("closed");
+        if (outcome == "unknown") { m_Activity.HCHit("unknown"); }
         slot.EndPending = true;
         return true;
     }
@@ -603,6 +608,9 @@ class HCSituationDirector
     {
         HCSituationState row = slot.Opportunity;
         if (!row || row.Phase == "closed") { return; }
+        m_Activity.HCHit("rows");
+        if (now >= row.DueAt) { m_Activity.HCHit("due"); }
+        if (row.Phase == "active") { m_Activity.HCHit("active"); }
         if (now >= row.EndsAt) { HCFinish(slot, "unknown"); return; }
         if (!slot.Enabled || now < row.DueAt) { return; }
         if (row.Phase == "pending")
@@ -611,6 +619,7 @@ class HCSituationDirector
             slot.Actors = HCSituationActors.HCForProfile(slot.Profile);
             if (!slot.Actors.HCReady())
             {
+                m_Activity.HCRefuse("provider");
                 if (slot.Profile == "survivor")
                 {
                     m_Effective = "refused";
@@ -622,6 +631,7 @@ class HCSituationDirector
             string lease = slot.Actors.HCSelect(row);
             if (lease == "" || !HCWorldMaterializer.HCIdentity(lease))
             {
+                m_Activity.HCRefuse("lease");
                 if (slot.Profile == "survivor")
                 {
                     m_Effective = "refused";
@@ -631,8 +641,8 @@ class HCSituationDirector
                 return;
             }
             vector anchor;
-            if (!slot.Actors.HCAnchor(lease, anchor) || !HCPacingAllows(anchor, now, row.DueAt)) { return; }
-            if (!HCPacingReserve(row.Id, anchor, now, row.EndsAt)) { return; }
+            if (!slot.Actors.HCAnchor(lease, anchor) || !HCPacingAllows(anchor, now, row.DueAt)) { m_Activity.HCRefuse("pacing"); return; }
+            if (!HCPacingReserve(row.Id, anchor, now, row.EndsAt)) { m_Activity.HCRefuse("pacing"); return; }
             slot.Attempted = true;
             row.Lease = lease;
             row.Phase = "intent";
@@ -645,30 +655,57 @@ class HCSituationDirector
         {
             HCSituationPacingReceipt reserved = HCPacingFind(row.Id);
             vector liveAnchor;
-            if (!reserved || !slot.Actors || !slot.Actors.HCAnchor(row.Lease, liveAnchor)) { return; }
-            if (!HCPacingAllows(liveAnchor, now, 0, row.Id)) { return; }
+            if (!reserved || !slot.Actors || !slot.Actors.HCAnchor(row.Lease, liveAnchor)) { m_Activity.HCRefuse("pacing"); return; }
+            if (!HCPacingAllows(liveAnchor, now, 0, row.Id)) { m_Activity.HCRefuse("pacing"); return; }
             reserved.Anchor = liveAnchor;
             // HCBegin re-resolves this exact lease and checks current native
             // ownership, exclusions and living roster; selection is never replayed.
-            if (!slot.Actors || !slot.Actors.HCReady() || !slot.Actors.HCBegin(row)) { HCFinish(slot, "unknown"); return; }
+            if (!slot.Actors || !slot.Actors.HCReady() || !slot.Actors.HCBegin(row)) { m_Activity.HCRefuse("begin"); HCFinish(slot, "unknown"); return; }
             HCSituationPacingReceipt started = HCPacingFind(row.Id);
             if (started) { started.StartedAt = now; }
+            m_Activity.HCHit("started");
             row.Phase = "active";
             HCCommit();
             return;
         }
         if (row.Phase != "active") { return; }
-        if (!HCWorldMaterializer.HCIdentity(row.Lease)) { HCFinish(slot, "unknown"); return; }
+        if (!HCWorldMaterializer.HCIdentity(row.Lease)) { m_Activity.HCRefuse("identity"); HCFinish(slot, "unknown"); return; }
         string outcome = slot.Actors.HCObserve(row);
         if (outcome == "dead" || outcome == "departed") { HCFinish(slot, outcome); }
     }
 
+    void HCActivityStep(int now, string prerequisite = "")
+    {
+        // Also called by the event owner when scene prerequisites refuse work.
+        // Native Game.c:914 GetTickTime; only a due summary scans the five rows.
+        if (prerequisite != "") { m_Activity.HCRefuse(prerequisite); }
+        if (GetGame() && GetGame().IsServer())
+        {
+            float activityNow = GetGame().GetTickTime();
+            if (m_ActivityLastTick >= 0 && m_Activity.HCDue(activityNow - m_ActivityLastTick))
+            {
+                int dueRows;
+                int activeRows;
+                foreach (HCSituationProfileRow activitySlot : m_Rows)
+                {
+                    if (!activitySlot.Opportunity || activitySlot.Opportunity.Phase == "closed") { continue; }
+                    if (now >= activitySlot.Opportunity.DueAt) { dueRows++; }
+                    if (activitySlot.Opportunity.Phase == "active") { activeRows++; }
+                }
+                m_Activity.HCLog("[HC Situations]", " due=" + dueRows.ToString() + " active=" + activeRows.ToString() + " state=" + m_Effective);
+            }
+            m_ActivityLastTick = activityNow;
+        }
+    }
+
     void HCStep(int now)
     {
+        HCActivityStep(now);
         if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return; }
+        m_Activity.HCHit("steps");
         m_Store.HCPumpCheckpoint();
         if (!m_Store.HCCheckpointHealthy()) { m_Fault = true; m_Enabled = false; m_Reason = "SITUATION_STORE_UNCERTAIN"; HCReport(); return; }
-        if (m_Store.HCCheckpointPending()) { return; }
+        if (m_Store.HCCheckpointPending()) { m_Activity.HCRefuse("checkpoint"); return; }
         foreach (HCSituationProfileRow ended : m_Rows)
         {
             if (!ended.EndPending) { continue; }
@@ -676,7 +713,7 @@ class HCSituationDirector
             if (ended.Actors) { ended.Actors.HCEnd(ended.Opportunity); }
             return;
         }
-        if (now < m_State.LastNow || now > 999000000) { return; }
+        if (now < m_State.LastNow || now > 999000000) { m_Activity.HCRefuse("clock"); return; }
         m_Units.HCReset(1);
         m_Work.HCReset(1);
         // A live provider may settle after HC-19's one startup offer. Revisit
@@ -701,7 +738,7 @@ class HCSituationDirector
             HCSituationProfileRow slot = m_Rows[m_Cursor];
             m_Cursor++;
             if (!slot.Opportunity || slot.Opportunity.Phase == "closed") { continue; }
-            if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
+            if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { m_Activity.HCRefuse("budget"); return; }
             HCStepRow(slot, now);
             return;
         }

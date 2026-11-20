@@ -157,9 +157,16 @@ class HCEventModule : HCModule
                 foreach (HCSceneChain retained : source.Chains) { m_Situations.HCOffer(retained); }
             }
         }
-        if (!source || !store) { HCPublishSituations(); return; }
+        if (!source || !store)
+        {
+            string prerequisite = "source";
+            if (source && !store) { prerequisite = "store"; }
+            m_Situations.HCActivityStep(-1, prerequisite);
+            HCPublishSituations();
+            return;
+        }
         int utc = HCGroupClock.Utc();
-        if (utc < 1577836801) { return; }
+        if (utc < 1577836801) { m_Situations.HCActivityStep(-1, "clock"); return; }
         int now = utc - 1577836800;
         m_Situations.HCStep(now);
         HCPublishSituations();

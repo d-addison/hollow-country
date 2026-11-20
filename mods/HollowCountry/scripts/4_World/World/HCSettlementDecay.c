@@ -1,3 +1,64 @@
+// #299: fixed-schema, process-lifetime telemetry shared by these World owners.
+// No gameplay state, persistence, roster or budget reads. At most 32 keys per
+// owner; saturating totals, resettable windows, one summary per 600 tick seconds.
+// Native APIs: EnString.c:396 Split; EnScript.c array Find/Count/Insert;
+// EnDebug.c:96 Print. Caller-supplied refusal tokens pass HCReached.Token.
+class HCWorldActivityCounters
+{
+    protected ref array<string> m_Keys = new array<string>;
+    protected ref array<int> m_Window = new array<int>;
+    protected ref array<int> m_Total = new array<int>;
+    protected float m_Seconds;
+    protected string m_LastReason = "none";
+
+    void HCWorldActivityCounters(string keys)
+    {
+        keys.Split(" ", m_Keys);
+        for (int index = 0; index < m_Keys.Count(); index++)
+        {
+            m_Window.Insert(0);
+            m_Total.Insert(0);
+        }
+    }
+
+    void HCHit(string key)
+    {
+        int index = m_Keys.Find(key);
+        if (index < 0) { return; }
+        if (m_Window[index] < 2147483647) { m_Window[index] = m_Window[index] + 1; }
+        if (m_Total[index] < 2147483647) { m_Total[index] = m_Total[index] + 1; }
+    }
+
+    void HCRefuse(string reason, string detail = "")
+    {
+        HCHit("refused");
+        HCHit(reason);
+        m_LastReason = reason;
+        if (detail != "") { m_LastReason = detail; }
+    }
+
+    bool HCDue(float deltaTime)
+    {
+        if (!(deltaTime > 0) || deltaTime > 3600) { return false; }
+        m_Seconds += deltaTime;
+        return m_Seconds >= 600;
+    }
+
+    void HCLog(string prefix, string gauges)
+    {
+        string line = prefix + " activity window_s=" + m_Seconds.ToString() + gauges;
+        for (int index = 0; index < m_Keys.Count(); index++)
+        {
+            line += " " + m_Keys[index] + "_w=" + m_Window[index].ToString();
+            line += " " + m_Keys[index] + "_total=" + m_Total[index].ToString();
+            m_Window[index] = 0;
+        }
+        Print(line + " last_reason=" + HCReached.Token(m_LastReason) + " runtime=PENDING");
+        m_Seconds = 0;
+        m_LastReason = "none";
+    }
+}
+
 // W5-PERF: <=32 fact references/tick, <=1 town/10s after its history
 // cursor completes, <=1 visual query/create, routine dirty save/60s.
 // Native timing/proximity cache evidence: World/HCWorkBudget.c header.
@@ -97,6 +158,7 @@ modded class HCObserverTransitionGate
 
 class HCSettlementDecay : HCModule
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rows changed props refused fault world_unavailable budget history_pending visual_cap no_visual quiet_300m_60s position_or_water surface slope occupied_15m class_missing create_failed bounds");
     protected ref HCSettlementState m_State;
     protected ref HCSettlementDecayStore m_Store;
     protected ref HCWorldData m_Catalog;
@@ -153,6 +215,7 @@ class HCSettlementDecay : HCModule
 
     protected void Fail()
     {
+        m_Activity.HCRefuse("fault");
         m_Fault = true;
         Print("[HollowCountry] V2 settlement decay disabled: persistence/clock/schema fault; preserve settlement-decay.json, .tmp and .bak");
     }
@@ -271,6 +334,7 @@ class HCSettlementDecay : HCModule
     // At most one line per reason, at most sixteen reasons per boot.
     protected void HCVisualRefused(int index, string reason)
     {
+        m_Activity.HCRefuse(reason);
         if (m_RefusalReasons.Count() >= 16 || m_RefusalReasons.Find(reason) >= 0) { return; }
         m_RefusalReasons.Insert(reason);
         Print("[HollowCountry] V2 settlement visual refused town=" + m_State.Towns[index].Id + " reason=" + reason);
@@ -278,13 +342,13 @@ class HCSettlementDecay : HCModule
 
     protected void Visual(int index, int now)
     {
-        if (m_Props.Count() >= 24 || m_PropSlots[index] >= 4) { return; }
+        if (m_Props.Count() >= 24 || m_PropSlots[index] >= 4) { m_Activity.HCRefuse("visual_cap"); return; }
         HCSettlementTown town = m_State.Towns[index];
-        if (town.Ransack < 1) { return; }
+        if (town.Ransack < 1) { m_Activity.HCHit("no_visual"); return; }
         int slot = m_PropSlots[index];
-        if (slot == 1 && town.Remains == 0) { return; }
-        if (slot == 2 && town.Notices == 0) { return; }
-        if (slot == 3 && town.Barricades == 0) { return; }
+        if (slot == 1 && town.Remains == 0) { m_Activity.HCHit("no_visual"); return; }
+        if (slot == 2 && town.Notices == 0) { m_Activity.HCHit("no_visual"); return; }
+        if (slot == 3 && town.Barricades == 0) { m_Activity.HCHit("no_visual"); return; }
         vector point = m_Catalog.Places[index].Position;
         // Candidate offsets are design inputs, never surveyed-safe coordinates.
         // Runtime vetoes reject water, roads, slope and occupied geometry.
@@ -337,21 +401,23 @@ class HCSettlementDecay : HCModule
         }
         HCGroundSnap.Snap(prop);
         m_Props.Insert(prop);
+        m_Activity.HCHit("props");
     }
 
     override void OnTick(float deltaTime)
     {
+        if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HollowCountry] V2 settlement decay", " initialized=" + m_Initialized.ToString() + " fault=" + m_Fault.ToString()); }
         if (m_Fault || !(deltaTime > 0)) { return; }
         m_Elapsed += Math.Min(deltaTime, 60);
         if (!m_HistoryPending && m_Elapsed < 10) { return; }
         HCWorldModule world = HCWorldModule.Get();
-        if (!world) { return; }
+        if (!world) { m_Activity.HCRefuse("world_unavailable"); return; }
         int now = HCWorldClock.UTC();
         if (now < world.Epoch()) { Fail(); return; }
         if (!m_Initialized && !Initialize(world, now)) { Fail(); return; }
         if (m_State.Epoch != world.Epoch() || now < m_State.SavedUtc) { Fail(); return; }
         m_WorkBudget.HCReset(1);
-        if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        if (!m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), 1); return; }
         int index = m_Cursor;
         HCReached.Mark("settlement_decay.row");
         HCSettlementTown town = m_State.Towns[index];
@@ -366,7 +432,8 @@ class HCSettlementDecay : HCModule
         int sliceSeverity;
         m_FactNext = world.HCScanDamage(town.Id, m_TownNow, m_FactNext, sliceSeverity);
         m_FactSeverity = Math.Max(m_FactSeverity, sliceSeverity);
-        if (m_FactNext >= 0) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        if (m_FactNext >= 0) { m_Activity.HCHit("history_pending"); m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        m_Activity.HCHit("rows");
         m_HistoryPending = false;
         m_Elapsed = 0;
         m_Cursor = (m_Cursor + 1) % m_State.Towns.Count();
@@ -376,7 +443,7 @@ class HCSettlementDecay : HCModule
         if (town.Ransack >= 1) { town.Remains = 1; town.Notices = 1; }
         if (town.Ransack >= 2) { town.Barricades = Math.Max(town.Barricades, 1); }
         if (HCEscalationClock.Pressure("raiders") >= 0.55 && town.Ransack >= 2) { town.Barricades = 2; }
-        if (before != town.Ransack + town.Barricades + town.Remains + town.Notices) { changed = 1; }
+        if (before != town.Ransack + town.Barricades + town.Remains + town.Notices) { changed = 1; m_Activity.HCHit("changed"); }
         if (town.LastDay != world.Day() || changed > 0)
         {
             town.LastDay = world.Day();

@@ -265,6 +265,7 @@ class HCWreckSalvage
 
 class HCWreckSalvageModule : HCModule
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("checks eligible begun completed debits created refused start begin completion part debit create fault service busy capacity session_changed salvage_unavailable storage_unavailable nothing wreck_table_full wreck_journal_save_failed");
     static bool HCFieldsPresent(string text)
     {
         return HCJsonFields.Every(text, "Budget", 3) && HCJsonFields.Every(text, "Left", 3);
@@ -322,6 +323,7 @@ class HCWreckSalvageModule : HCModule
 
     bool Fault()
     {
+        m_Activity.HCRefuse("fault");
         m_Active = false;
         m_HCStatus.HCPublish("refused", "wreck_journal_or_config_fault");
         HCReport("refused", "wreck_journal_or_config_fault");
@@ -520,6 +522,8 @@ class HCWreckSalvageModule : HCModule
 
     protected bool HCRefuseStart(string reason)
     {
+        m_Activity.HCHit("start");
+        m_Activity.HCRefuse(reason);
         if (m_HCStartRefusal != reason)
             Print("[HC WreckSalvage] start refused reason=" + reason + " runtime=PENDING");
         m_HCStartRefusal = reason;
@@ -528,6 +532,8 @@ class HCWreckSalvageModule : HCModule
 
     protected void HCRefuseBegin(string reason)
     {
+        m_Activity.HCHit("begin");
+        m_Activity.HCRefuse(reason);
         if (m_HCBeginRefusal != reason)
             Print("[HC WreckSalvage] begin refused reason=" + reason + " runtime=PENDING");
         m_HCBeginRefusal = reason;
@@ -543,6 +549,7 @@ class HCWreckSalvageModule : HCModule
     bool CanStart(PlayerBase player, ActionTarget target, ItemBase item)
     {
         if (!GetGame() || !GetGame().IsServer()) return false;
+        m_Activity.HCHit("checks");
         if (!m_Active) return HCRefuseStart(HCRefusal.SERVICE);
         if (m_Busy) return HCRefuseStart(HCRefusal.BUSY);
         // Unreachable from the action (it always passes a player); kept so every false names a reason.
@@ -552,6 +559,7 @@ class HCWreckSalvageModule : HCModule
         int index = Enroll(target.GetObject());
         if (index < 0) return HCRefuseStart(HCEnrollReason());
         if (m_State.Rows[index].Left <= 0) return HCRefuseStart(HCRefusal.NOTHING);
+        m_Activity.HCHit("eligible");
         m_HCStartRefusal = "";
         return true;
     }
@@ -628,6 +636,7 @@ class HCWreckSalvageModule : HCModule
             return;
         }
         m_Sessions.Insert(data);
+        m_Activity.HCHit("begun");
         m_HCBeginRefusal = "";
     }
 
@@ -644,13 +653,15 @@ class HCWreckSalvageModule : HCModule
 
     void Complete(HCWreckSalvageActionData data)
     {
-        if (!Continuing(data) || GetGame().GetTime() - data.StartedMs < HCWreckSalvageConfig.Get().ActionSeconds * 1000 - HCWreckSalvageConfig.Get().CompletionGraceMs) return;
+        if (!Continuing(data) || GetGame().GetTime() - data.StartedMs < HCWreckSalvageConfig.Get().ActionSeconds * 1000 - HCWreckSalvageConfig.Get().CompletionGraceMs) { m_Activity.HCRefuse("completion"); return; }
+        m_Activity.HCHit("completed");
         data.Completed = true;
         m_Busy = true;
         HCWreckSalvageRow row = m_State.Rows[data.Index];
         string partType = HCWreckSalvage.HCPartForWreck(row.WreckClass, row.Key, row.Left);
-        if (partType == "") { m_Busy = false; return; }
-        if (!Debit(data.Index)) { m_Busy = false; return; }
+        if (partType == "") { m_Activity.HCRefuse("part"); m_Busy = false; return; }
+        if (!Debit(data.Index)) { m_Activity.HCRefuse("debit"); m_Busy = false; return; }
+        m_Activity.HCHit("debits");
         // Server only, native ground inventory creation exactly at actor's feet.
         // Tool stays in hands; no client inventory state or retry/fallback spawn.
         InventoryLocation ground = new InventoryLocation;
@@ -662,9 +673,11 @@ class HCWreckSalvageModule : HCModule
         m_Busy = false;
         if (!part)
         {
+            m_Activity.HCRefuse("create");
             Print("[HollowCountry] V2 wreck salvage create failed; debit retained class=" + row.WreckClass + " part=" + partType);
             return;
         }
+        m_Activity.HCHit("created");
         if (partType == "MetalPlate") part.SetQuantity(1);
         HCSearchNoise.Emit(data.m_Player);
         Print("[HollowCountry] V2 wreck salvaged class=" + row.WreckClass + " part=" + partType + " left=" + row.Left.ToString());
@@ -678,6 +691,7 @@ class HCWreckSalvageModule : HCModule
 
     override void OnTick(float deltaTime)
     {
+        if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HC WreckSalvage]", " state=" + m_HCStatus.HCState() + " sessions=" + m_Sessions.Count().ToString()); }
         if (m_Active) Purge(); // At most 16 sessions; no world scans.
         if (m_Active) { HCReached.Mark("wreck_salvage.maintenance_tick"); }
     }

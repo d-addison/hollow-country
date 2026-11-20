@@ -77,6 +77,7 @@ class HCFlipJob
 }
 class HCVehicleFlipModule : HCModule
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("requests queued pulses finished refused candidate capacity cooldown duplicate safety expiry mass service");
     protected static HCVehicleFlipModule s_Instance;
     protected ref array<ref HCFlipJob> m_Jobs;
     protected ref array<Man> m_Players;
@@ -153,28 +154,32 @@ class HCVehicleFlipModule : HCModule
     }
     bool HCQueue(PlayerBase actor, CarScript vehicle)
     {
-        if (s_Instance != this || !GetGame().IsServer()) { return false; }
-        if (!HCCandidate(actor, vehicle) || m_Jobs.Count() >= 4) { return false; }
+        m_Activity.HCHit("requests");
+        if (s_Instance != this || !GetGame().IsServer()) { m_Activity.HCRefuse("service"); return false; }
+        if (!HCCandidate(actor, vehicle)) { m_Activity.HCRefuse("candidate"); return false; }
+        if (m_Jobs.Count() >= 4) { m_Activity.HCRefuse("capacity"); return false; }
         float now = GetGame().GetTickTime();
-        if (now < vehicle.m_HCFlipAfter) { return false; }
+        if (now < vehicle.m_HCFlipAfter) { m_Activity.HCRefuse("cooldown"); return false; }
         foreach (HCFlipJob pending : m_Jobs)
         {
-            if (pending.Vehicle == vehicle) { return false; }
+            if (pending.Vehicle == vehicle) { m_Activity.HCRefuse("duplicate"); return false; }
         }
         m_Players.Clear();
         GetGame().GetPlayers(m_Players);
-        if (m_Players.Count() > 32 || !HCReady(actor, vehicle)) { return false; }
+        if (m_Players.Count() > 32 || !HCReady(actor, vehicle)) { m_Activity.HCRefuse("safety"); return false; }
         HCFlipJob job = new HCFlipJob;
         job.Actor = actor;
         job.Vehicle = vehicle;
         job.Until = now + 12;
         m_Jobs.Insert(job);
+        m_Activity.HCHit("queued");
         vehicle.m_HCFlipAfter = now + 30;
         Print("[HollowCountry] W5 vehicle-flip queued pulses<=3 cooldown=30");
         return true;
     }
     override void OnTick(float deltaTime)
     {
+        if (s_Instance == this && m_Jobs && m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HollowCountry] W5 vehicle-flip", " jobs=" + m_Jobs.Count().ToString()); }
         if (s_Instance != this || !m_Jobs || m_Jobs.Count() == 0 || !(deltaTime > 0)) { return; }
         if (m_Cursor >= m_Jobs.Count()) { m_Cursor = 0; }
         HCFlipJob job = m_Jobs.Get(m_Cursor);
@@ -186,12 +191,14 @@ class HCVehicleFlipModule : HCModule
         if (safe) { safe = HCReady(job.Actor, job.Vehicle); }
         if (!safe)
         {
+            if (now < 0 || now >= job.Until) { m_Activity.HCRefuse("expiry"); }
+            else { m_Activity.HCRefuse("safety"); }
             Print("[HollowCountry] W5 vehicle-flip ended safety-or-expiry");
             m_Jobs.RemoveOrdered(m_Cursor);
             return;
         }
         float mass = dBodyGetMass(job.Vehicle);
-        if (!(mass > 0 && mass <= 5000)) { m_Jobs.RemoveOrdered(m_Cursor); return; }
+        if (!(mass > 0 && mass <= 5000)) { m_Activity.HCRefuse("mass"); m_Jobs.RemoveOrdered(m_Cursor); return; }
         vector transform[4];
         job.Vehicle.GetTransform(transform);
         vector right = transform[0];
@@ -204,8 +211,9 @@ class HCVehicleFlipModule : HCModule
         dBodyApplyTorqueImpulse(job.Vehicle, axis * mass * HCVehicleFlipConfig.Get().TorqueMassScale * direction);
         dBodyApplyImpulse(job.Vehicle, Vector(0, mass * HCVehicleFlipConfig.Get().LiftMassScale, 0));
         job.Pulses++;
+        m_Activity.HCHit("pulses");
         Print("[HollowCountry] W5 vehicle-flip impulse pulse=" + job.Pulses.ToString());
-        if (job.Pulses >= HCVehicleFlipConfig.Get().Pulses) { m_Jobs.RemoveOrdered(m_Cursor); }
+        if (job.Pulses >= HCVehicleFlipConfig.Get().Pulses) { m_Activity.HCHit("finished"); m_Jobs.RemoveOrdered(m_Cursor); }
         else { m_Cursor++; }
     }
     override void OnStop()

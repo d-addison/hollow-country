@@ -101,6 +101,7 @@ modded class HCWorldModule
 
 class HCWorldMaterializer : HCModule
 {
+    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("rings rows proposals claims materialized traces refused prerequisite cap no_players budget cooldown row_unavailable custody ring faction population sequence reserve provider_timeout");
     static const int MAX_PLAYERS = 32;
     static const int ROWS_PER_RING = 32;
     static const int PROVIDER_TIMEOUT = 120;
@@ -180,6 +181,7 @@ class HCWorldMaterializer : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !(deltaTime > 0) || deltaTime > 3600) { return; }
+        if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HollowCountry] V2 materializer", " active=" + m_Active.Count().ToString() + " custody_ready=" + m_CustodyReady.ToString()); }
         m_Clock += deltaTime;
         m_RingSeconds += deltaTime;
         m_LogSeconds += deltaTime;
@@ -193,7 +195,7 @@ class HCWorldMaterializer : HCModule
         if (m_LogSeconds >= LOG_SECONDS)
         {
             m_LogSeconds = 0;
-            Print("[HollowCountry] V2 materializer proposals=" + m_Proposals.ToString() + " materialized=" + m_Materialized.ToString() + " traces=" + m_Traces.ToString());
+            // Activity summary above includes window and lifetime outcomes.
             this.HCPlanLine("on");
         }
     }
@@ -424,6 +426,7 @@ class HCWorldMaterializer : HCModule
         if (m_Custody.Rows.Count() >= HCAIPartyCustody.MAX_ROWS) { return false; }
         m_Custody.Rows.Insert(row);
         if (!this.HCSaveCustody()) { return false; }
+        m_Activity.HCHit("claims");
         candidate.Claimed = true;
         return true;
     }
@@ -510,8 +513,9 @@ class HCWorldMaterializer : HCModule
         {
             if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { Print("[HC AI] custody fold-back strength failed runtime=PENDING"); return; }
             m_Materialized++;
+            m_Activity.HCHit("materialized");
         }
-        else { m_Traces++; }
+        else { m_Traces++; m_Activity.HCHit("traces"); }
     }
 
     protected void Expire()
@@ -525,7 +529,7 @@ class HCWorldMaterializer : HCModule
             }
             else
             {
-                if (HCWorldMaterializer.NoProvider(m_Active[leaseIndex].Claimed, m_Clock - m_Active[leaseIndex].Created)) { this.Resolve(leaseIndex, false, 0); }
+                if (HCWorldMaterializer.NoProvider(m_Active[leaseIndex].Claimed, m_Clock - m_Active[leaseIndex].Created)) { m_Activity.HCRefuse("provider_timeout"); this.Resolve(leaseIndex, false, 0); }
             }
             leaseIndex -= 1;
         }
@@ -644,13 +648,14 @@ class HCWorldMaterializer : HCModule
 
     protected void InterestRing()
     {
+        m_Activity.HCHit("rings");
         HCWorldModule world = HCWorldModule.Get();
-        if (!world || !GetGame() || !m_CustodyReady) { return; }
+        if (!world || !GetGame() || !m_CustodyReady) { m_Activity.HCRefuse("prerequisite"); return; }
         int unresolvedLeases = this.HCCustodyDebt(false);
-        if (m_Active.Count() + unresolvedLeases >= HCAILimits.Get().MaxMaterialized) { return; }
+        if (m_Active.Count() + unresolvedLeases >= HCAILimits.Get().MaxMaterialized) { m_Activity.HCRefuse("cap"); return; }
         array<Man> players = HCPerfPlayers.HCGet();
         int playerCount = players.Count();
-        if (playerCount < 1) { return; }
+        if (playerCount < 1) { m_Activity.HCRefuse("no_players"); return; }
         int playerWork = playerCount;
         if (playerWork > MAX_PLAYERS) { playerWork = MAX_PLAYERS; }
         array<vector> interests = new array<vector>;
@@ -683,15 +688,17 @@ class HCWorldMaterializer : HCModule
         m_UnitBudget.HCReset(4);
         for (int rowWork = 0; rowWork < ROWS_PER_RING; rowWork++)
         {
-            if (m_Active.Count() + unresolvedLeases >= HCAILimits.Get().MaxMaterialized) { return; }
-            if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
-            if (!m_UnitBudget.HCTake(1)) { m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
+            if (m_Active.Count() + unresolvedLeases >= HCAILimits.Get().MaxMaterialized) { m_Activity.HCRefuse("cap"); return; }
+            if (!m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
+            if (!m_UnitBudget.HCTake(1)) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
             if (m_RowCursor >= totalRows) { m_RowCursor = 0; }
             int rowIndex = m_RowCursor;
             m_RowCursor++;
-            if (m_Cooldowns[rowIndex] > m_Clock) { continue; }
+            m_Activity.HCHit("rows");
+            if (m_Cooldowns[rowIndex] > m_Clock) { m_Activity.HCHit("cooldown"); continue; }
             HCWorldProposal row = world.MaterializerRow(rowIndex);
-            if (!row || !this.HCCustodyAllows(row.Identity)) { continue; }
+            if (!row) { m_Activity.HCRefuse("row_unavailable"); continue; }
+            if (!this.HCCustodyAllows(row.Identity)) { m_Activity.HCRefuse("custody"); continue; }
             bool nearby = false;
             bool insideRing = false;
             foreach (vector point : interests)
@@ -702,21 +709,22 @@ class HCWorldMaterializer : HCModule
                 if (!HCWorldMaterializer.HCSpawnDistanceAllowed(playerDistanceSquared)) { insideRing = true; break; }
                 if (playerDistanceSquared <= interestMaximumSquared) { nearby = true; }
             }
-            if (!nearby || insideRing) { continue; }
+            if (!nearby || insideRing) { m_Activity.HCRefuse("ring"); continue; }
             int factionActors;
             if (!activeFactions.Find(row.FactionId, factionActors)) { factionActors = 0; }
             bool duplicate = activeRows.Contains(row.Id);
             HCWorldFaction faction = world.GetFaction(row.FactionId);
-            if (!faction || duplicate || row.ActorCap + factionActors > faction.Strength || !CanPropose(m_Active.Count() + unresolvedLeases, reservedActors, row.ActorCap)) { continue; }
+            if (!faction || duplicate || row.ActorCap + factionActors > faction.Strength) { m_Activity.HCRefuse("faction"); continue; }
+            if (!CanPropose(m_Active.Count() + unresolvedLeases, reservedActors, row.ActorCap)) { m_Activity.HCRefuse("population"); continue; }
             HCWorldProposalLease lease = new HCWorldProposalLease;
             lease.RowId = row.Id;
             lease.RowIndex = rowIndex;
             // Persisted sequence makes callbacks unique across retries/restarts,
             // independent of the (up to 96-character) stable party identity.
-            if (m_Custody.NextLease >= 2147483647) { return; }
+            if (m_Custody.NextLease >= 2147483647) { m_Activity.HCRefuse("sequence"); return; }
             row.Id = "lease:" + m_Custody.NextLease.ToString();
             m_Custody.NextLease++;
-            if (!HCAIBudget.TryReserve(row.Id, row.ActorCap)) { continue; }
+            if (!HCAIBudget.TryReserve(row.Id, row.ActorCap)) { m_Activity.HCRefuse("reserve"); continue; }
             lease.Proposal = row;
             lease.Created = m_Clock;
             m_Active.Insert(lease);
@@ -725,6 +733,7 @@ class HCWorldMaterializer : HCModule
             reservedActors += row.ActorCap;
             m_Cooldowns[rowIndex] = m_Clock + ROW_COOLDOWN;
             m_Proposals++;
+            m_Activity.HCHit("proposals");
         }
     }
 }
