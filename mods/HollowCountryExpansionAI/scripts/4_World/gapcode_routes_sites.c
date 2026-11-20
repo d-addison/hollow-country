@@ -47,8 +47,13 @@ modded class HCXAISiteDirector
         if (routeStatus.HCState() == "off") { return inheritedStatus; }
         return routeStatus;
     }
+    override protected bool HCSurveyReady()
+    {
+        return !m_GapcodeRoutes || !m_GapcodeRoutes.HCNeedsWork();
+    }
     override protected void Bind(HCXAISiteState state)
     {
+        if (!state || state.Bound || state.Failed) { return; }
         if (m_GapcodeRoutes && state && !state.Transient && state.Site && state.LocalityId != "")
         {
             HCGapcodeRoutesRow route = m_GapcodeRoutes.HCFind(state.LocalityId);
