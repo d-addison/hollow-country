@@ -16,7 +16,7 @@ acceptance. Acceptance still requires one server and at most one client.
 
 | Check | Evidence required / finding |
 | --- | --- |
-| W001 | Config class lacks a statically resolved production creation route. Routes include positive CE types, event children, spawnable attachments/cargo, enabled object-spawner layers, or class values flowing to CreateObject*/SpawnEntity*/CreateInInventory. Diagnostic strings, config queries and unused catalogues do not count. Admin-only routes are identified separately. |
+| W001 | Config class lacks a statically resolved production creation route. Routes include positive CE types, event children, spawnable attachments/cargo, enabled object-spawner layers, generated infected CE substitutions, class values flowing to CreateObject*/SpawnEntity*/CreateInInventory, or ammo descriptors flowing to native damage calls. Diagnostic strings, config queries and unused catalogues do not count. Admin-only routes are identified separately. |
 | W001b | Public indexed class has nominal zero in every authored HC types row. This older census remains advisory triage; W009 is the mandatory shipped-row check. |
 | W002 | Authored mission/profile file has no consumer or shipping reference. Being shipped does not prove runtime consumption. |
 | W003 | Registered key lacks a resolved getter-key, owner field or typed receiver read. HCAdd's declared owner takes precedence over the shared settings mirror. Methods returning another settings DTO connect wrapper owners to that DTO. Same-named fields, including `Enabled`, cannot satisfy another owner's key. Unresolved receiver matches remain findings. |
@@ -48,8 +48,21 @@ roots; static helpers require callers. The production and admin lanes are separa
 This is deliberately a conservative syntactic analysis: conditions, dynamic dispatch,
 reflection, complex expressions, array aliases and full engine callback reachability
 remain unproven. A finding means no route was resolved, not that no engine route can
-exist. CfgAmmo damage descriptors may be native damage effects rather than inventory
-entities; their W001 findings require that distinction to be reviewed.
+exist. CfgAmmo damage descriptors are native damage effects rather than inventory
+entities. The flow pass follows argument four of `ProcessDirectDamage` and
+`CloseCombatDamage`, including class-qualified string constants. The inspected
+native `DayZPlayerMeleeFightLogic_LightHeavy.DummyHitSelector` out-ammo callback
+also feeds `CloseCombatDamage` (native script lines 673-699). Arbitrary out
+parameters and config-query strings do not count. Native `Object.c:1130-1138`
+defines the fourth direct-damage argument as the ammo damage descriptor.
+
+Infected substitutions use `infected_variety.POLICY` and its actual pure
+`substitute(stock, stock, policy)` transform against the approved stock events.
+The transform checks its pinned stock hash, donor availability, positive shares
+and conserved child budgets before the resulting CE children count as routes.
+A disabled policy contributes no substituted routes. The installer invokes this
+production transform by default; merely mentioning a variant in JSON does not
+establish a route. No HC variant class names are hardcoded in the audit.
 
 At this checkout, `HC_ZmbM_Sitter` has a source route through Variety's selected
 `bodyClass`, `HCLODMaterialize(type, ...)`, and `CreateObjectEx(type, ...)`. Its admin
@@ -97,7 +110,8 @@ The seed contains exactly the 24 nominal-zero authored rows at the fix-round HEA
 23 Expansion vehicle entities, each checked against an exact `events.xml` child,
 and Cannabis, deliberately excluded as a plant entity rather than inventory loot.
 Vehicle spawning and horticulture behavior remain unverified. These exceptions do
-not exempt future classes or the two newly detected zeroed pack magazines.
+not exempt future classes. Both formerly zeroed pack magazine rows now pass the
+mandatory shipped-row check without adding exceptions.
 
 ## W010: portable bundle closure
 
@@ -115,33 +129,9 @@ plugin imports require separate review. Diagnostic/points CLI branches in a ship
 module are included in closure because the tool itself ships. The audit never runs
 an installer, builds a bundle or writes to the installed mission.
 
-The lead must extend `BUNDLE_TOOLS` with these existing package entries:
-
-```text
-pbo.py
-ce_coverage.py
-interior_templates.py
-interior_catalog.py
-search_context.py
-essential_routes.json
-interior_prop_boxes.json
-```
-
-The lead must also ship these paths explicitly (the package catalogue cannot place
-files in `tools/audit`, `tools/setup`, or `config`):
-
-```text
-tools/audit/interior_points.py
-tools/setup/interior_sampler.py
-tools/setup/ce_probe.py
-tools/setup/diagnostic_mission.py
-tools/setup/probe_runtime.py
-config/loot-dispositions.json
-```
-
-That is 13 unique missing files. The detailed dependency-edge list below is the
-source of truth; several importers need the same missing file. Adding all these
-files requires rerunning closure against the resulting bundle catalogue.
+At the r11 starting checkout the previously reported bundle dependency gaps are
+resolved: W010 reports zero missing edges. This worker did not change the bundle
+catalogue or relax closure checks.
 
 ## Class-index coverage and baseline
 
@@ -161,81 +151,87 @@ python3 -B -m tools.validate.wiring_audit --update-baseline
 ```
 
 This now **only prunes resolved existing entries**. It never auto-accepts new
-findings. Identity remains `(id, subject, file)` so line movement is quiet. The fix
-round adds no baseline acceptances: there are no new genuine class-index gaps.
-Existing intentional source-locality entries remain existing review debt.
+findings. Identity remains `(id, subject, file)` so line movement is quiet.
+Round r11 adds only the five explicitly reviewed source-local helper entries
+listed below; no new class-index gaps are accepted. Existing intentional
+source-locality entries remain review debt.
 
-No Enforce source changed. There are no existing unit tests for this new Python
-module; no new unit tests, Enforce translator or engine harness were added. Native
-compile/boot and one-server/one-client behavior remain for the lead.
+## Round r11 result (2026-11-20)
 
-## Fix-round result (2026-11-20)
+Before: **472 total / 16 new**. After: **462 total / 1 new**; exit **1**.
+The requested zero-new end state is **not yet reached** because the remaining
+HC43 binding belongs to another worker's provider file.
 
-Before: **469 total / 4 new**. After: **494 total / 29 new**; exit **1**.
-
-| Check | Total | New |
+| Check | Before total / new | After total / new |
 | --- | ---: | ---: |
-| W001 | 4 | 4 |
-| W001b | 1 | 0 |
-| W002 | 0 | 0 |
-| W003 | 2 | 2 |
-| W004 | 345 | 3 |
-| W005 | 1 | 0 |
-| W006 | 3 | 0 |
-| W007 | 118 | 0 |
-| W008 | 0 | 0 |
-| W009 | 2 | 2 |
-| W010 | 18 | 18 |
+| W001 | 8 / 8 | 0 / 0 |
+| W003 | 1 / 1 | 0 / 0 |
+| W004 | 340 / 7 | 339 / 1 |
+| W009 | 0 / 0 | 0 / 0 |
+| W010 | 0 / 0 | 0 / 0 |
 
-Baseline: 465 entries, zero stale entries, no new acceptances and no W009/W010 entries.
-W009: 2,382 retained stock rows and 1,336 fragment rows inspected.
-W010: 32 transitive installer modules inspected; 18 missing edges / 13 unique files.
+W001 now resolves all four melee damage descriptors and all four newly flagged
+CE infected classes through production routes. `WildlifeProviders.TargetPairsEnabled`
+already has runtime reads (contact sweeps/recording); W003 sees them. Provider
+validation now explicitly rejects unsupported `config.Version` before registry
+range validation, making the schema decision a real resolved consumer.
 
-Every new finding follows. Ammo descriptors require native damage-route review;
-source-local classes and unread settings require their owning module review.
+Removed `HCEventBriefing`: an uncalled string formatter with no presentation,
+notification or environmental clue consumer. No event lifecycle or gameplay
+provider depended on it. Removed `HCTapedHelmetQualification`: an unconstructed
+duplicate of the shared `HCTapedLightV1Qualification` wearable adapter. Live held
+mount actions already construct the shared adapter, whose exact helmet branch
+checks `HCTapedWearableCatalog.Admitted()`. No mount route was disabled.
 
-| Check | Subject | Source | Explanation |
-| --- | --- | --- | --- |
-| W001 | `HCMeleeChip` | `mods/HollowCountry/config.cpp:1299` | No statically resolved production creation route |
-| W001 | `HCMeleeCripple` | `mods/HollowCountry/config.cpp:1286` | No statically resolved production creation route |
-| W001 | `HCMeleeExecute` | `mods/HollowCountry/config.cpp:1273` | No statically resolved production creation route |
-| W001 | `HCMeleeShove` | `mods/HollowCountry/config.cpp:1272` | No statically resolved production creation route |
-| W003 | `WildlifeProviders.TargetPairsEnabled` | `mods/HollowCountry/scripts/3_Game/HCSettings.c:292` | Registered key has no resolved getter-key, member or owning-class field read |
-| W003 | `WildlifeProviders.Version` | `mods/HollowCountry/scripts/3_Game/HCSettings.c:280` | Registered key has no resolved getter-key, member or owning-class field read; ambiguous receiver matches require review |
-| W004 | `HC43ContentManifest` | `mods/HollowCountry/scripts/3_Game/World/HCWorldData.c:264` | No reference outside definition file (engine/config callbacks may be intentional) |
-| W004 | `HCEventBriefing` | `mods/HollowCountry/scripts/4_World/Events/HCEventBriefing.c:4` | No reference outside definition file (engine/config callbacks may be intentional) |
-| W004 | `HCTapedHelmetQualification` | `mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c:83` | No reference outside definition file (engine/config callbacks may be intentional) |
-| W009 | `TF_Mag_AKM_PMAG30Rnd_Banana` | `tools/package/tactical_flava_allowlist.json:227` | previous nominal=0; shipped nominal=0 min=0; zeroed spawnable has no exact reason in config/zeroed-items.json |
-| W009 | `TF_Mag_SCAR_H_20Rnd_Shd` | `tools/package/tactical_flava_allowlist.json:679` | previous nominal=0; shipped nominal=0 min=0; zeroed spawnable has no exact reason in config/zeroed-items.json |
-| W010 | `config/loot-dispositions.json` | `tools/package/datamined_items.py:23` | Install-time repository data is absent from bundle |
-| W010 | `tools/audit/interior_points.py` | `tools/package/interior_templates.py:35` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/audit/interior_points.py` | `tools/package/loot_boost.py:1091` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/audit/interior_points.py` | `tools/package/search_context.py:17` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/audit/interior_points.py` | `tools/setup/interior_sampler.py:52` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/package/ce_coverage.py` | `tools/package/loot_boost.py:1126` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/package/essential_routes.json` | `tools/package/economy.py:492` | Install-time repository data is absent from bundle |
-| W010 | `tools/package/interior_catalog.py` | `tools/package/interior_templates.py:36` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/package/interior_prop_boxes.json` | `tools/package/interior_templates.py:1261` | Install-time repository data is absent from bundle |
-| W010 | `tools/package/interior_templates.py` | `tools/package/loot_boost.py:1060` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/package/pbo.py` | `tools/package/overlay_remove.py:97` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/package/search_context.py` | `tools/package/interior_templates.py:1026` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/setup/ce_probe.py` | `tools/setup/interior_sampler.py:45` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/setup/diagnostic_mission.py` | `tools/setup/ce_probe.py:28` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/setup/diagnostic_mission.py` | `tools/setup/probe_runtime.py:25` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/setup/interior_sampler.py` | `tools/package/interior_templates.py:267` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/setup/probe_runtime.py` | `tools/setup/ce_probe.py:29` | Transitive install-time local import is absent from bundle |
-| W010 | `tools/setup/probe_runtime.py` | `tools/setup/interior_sampler.py:46` | Transitive install-time local import is absent from bundle |
+Five exact W004 baseline additions document actual same-file consumers:
 
-Validation: Python `compile()` and all JSON inputs passed; `git diff --check` passed.
-No existing unit tests target `wiring_audit.py`; none were added or run.
-Enforce lint/perf gates are not applicable because no `.c` source changed.
-Native compile, native boot, observed CE supply, RPC/gameplay behavior and
-one-server/one-client acceptance remain unproven.
+- `HCPresentationTuningServer`: MissionServer start/connect/finish callbacks.
+- `HCXAIFortification`: HCXAIAdapter lifecycle and HCXAISiteDirector spawn callback.
+- `HCXAIFortificationSite`: the fortification service's Admit/Step queue DTO.
+- `HCXAIFortificationState`: the service's load/save persistence DTO.
+- `HCTapedLightV1Qualification`: the live taped-light runtime's shared adapter,
+  now source-local after removal of its duplicate helmet wrapper.
 
-Suggested README/MODULE_STATUS line: “Static wiring audit now checks typed setting
-reads, production creation routes, zeroed item supply and portable bundle closure;
-29 new source findings remain for owner fixes/review; DayZ acceptance pending.”
+Nine resolved prior baseline entries were pruned. The baseline has 461 entries,
+all with reasons; W009/W010 remain mandatory and unbaselinable. No new allowlists,
+zeroed-item exceptions, settings keys or module slots were added.
 
-Integration note: `/docs/*` currently ignores this document. The lead must add an
-exact `.gitignore` exception or explicitly include this file; the worker cannot
-edit that lead-owned file or write Git metadata.
+### Integration still needed from other owners
+
+**HC43 remains NEW W004, deliberately unbaselined.** `mission/hollow-country/ai/sites.json`
+contains an authored `HC43` block; `HCWorldData.c` declares the intended shared DTO.
+`HCXAISitePolicy` in `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c`
+has no `HC43` field. The provider owner must bind `ref HC43ContentManifest HC43`
+and consume/validate the manifest in its locality/content selection or receipt
+path, or explicitly replace that authored contract with its current equivalent.
+Adding a field alone establishes decoding, not selection or native eligibility.
+This worker cannot edit the HCX owner's file or reference HCX classes from base HC.
+The source comment now records the missing binding honestly.
+
+**Retire the legacy `EnableMealBuffs` key through settings ownership.** Meal heat
+hooks are already retired by HC-2/#150. The live V2 summary no longer reads/logs
+a fake preference and the non-module receipt says `MealBuffs=retired`. The
+settings owner must remove the key from `shared_settings.json`, regenerate the
+compiled registry through `settings_consistency`'s render path, and remove its
+HCSettings DTO field, missing-field default restoration and effective-value log.
+Check shipped settings JSON for stale entries as part of that owner's change.
+W003 still sees HCSettings' own effective-value log, so zero findings do not prove
+this legacy key has been removed. No meal feature was newly disabled here.
+
+Validation tails:
+
+```text
+enforce_lint: pass findings=1 new=0 stale=0 native=yes
+enforce_perf: pass findings=65 new=0
+```
+
+Python AST parsing and `git diff --check` pass. No existing unit tests target
+`wiring_audit.py`; no unit tests, Enforce translators or engine harnesses were
+added or run. Native compile/boot is reserved for the lead, and native damage,
+shove, CE spawning, helmet geometry, persistence and one-server/one-client
+behavior remain unproven.
+
+Suggested README/MODULE_STATUS line: “Static wiring audit resolves native melee
+ammo and generated CE variant routes; W001/W003/W009/W010 have no new findings.
+HC43 provider binding remains open; legacy meal-buff setting retirement needs
+settings integration. Native compile/boot and one-client gameplay remain pending.”

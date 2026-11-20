@@ -161,7 +161,8 @@ class HCWildlifeProviders
 
     static bool HCValid(HCWildlifeProviderConfig config)
     {
-        if (!config || !config.Sites) { return false; }
+        // The decoder supports schema 1 only; registry range validation follows.
+        if (!config || config.Version != 1 || !config.Sites) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.Version", config.Version)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.TickMs", config.TickMs)) { return false; }
         if (!HCOperatorSettingsRegistry.HCValid("WildlifeProviders.WorkUnits", config.WorkUnits)) { return false; }

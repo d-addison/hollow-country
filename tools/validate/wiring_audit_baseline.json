@@ -13,7 +13,7 @@
       "id": "W004",
       "subject": "CAContinuousHCSiphonFuel",
       "file": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
-      "line": 151,
+      "line": 167,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -133,7 +133,7 @@
       "id": "W004",
       "subject": "HCActionSiphonFuelCB",
       "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
-      "line": 131,
+      "line": 132,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -141,7 +141,7 @@
       "id": "W004",
       "subject": "HCActionSiphonFuelFromCar",
       "file": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
-      "line": 405,
+      "line": 424,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -149,7 +149,7 @@
       "id": "W004",
       "subject": "HCActionSiphonFuelFromCarCB",
       "file": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
-      "line": 396,
+      "line": 415,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -267,38 +267,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCAuditLeatherPantsBeige",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 177,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherPantsBlack",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 185,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherPantsBrown",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 193,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherPantsNatural",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 201,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCAuditLeatherPolicy",
       "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
       "line": 76,
@@ -310,38 +278,6 @@
       "subject": "HCAuditLeatherRecipe",
       "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
       "line": 141,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherVestBeige",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 209,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherVestBlack",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 217,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherVestBrown",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 225,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
-      "subject": "HCAuditLeatherVestNatural",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/auditleather_recipes.c",
-      "line": 233,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -365,7 +301,7 @@
       "id": "W004",
       "subject": "HCBuildingClaimSave",
       "file": "mods/HollowCountry/scripts/4_World/Camps/HCBuildingClaim.c",
-      "line": 479,
+      "line": 517,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "Legacy local save adapter; live claim service uses owner.HCCheckpointJob()."
     },
@@ -621,7 +557,7 @@
       "id": "W004",
       "subject": "HCEventDwell",
       "file": "mods/HollowCountry/scripts/4_World/Events/HCEventNativeObserver.c",
-      "line": 20,
+      "line": 23,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -949,7 +885,7 @@
       "id": "W004",
       "subject": "HCHoldoutBody",
       "file": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
-      "line": 191,
+      "line": 192,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -957,7 +893,7 @@
       "id": "W004",
       "subject": "HCHoldoutSaveJob",
       "file": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
-      "line": 1268,
+      "line": 1339,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -965,7 +901,7 @@
       "id": "W004",
       "subject": "HCHoldoutState",
       "file": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
-      "line": 182,
+      "line": 183,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1021,7 +957,7 @@
       "id": "W004",
       "subject": "HCInfectedLODContributor",
       "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
-      "line": 914,
+      "line": 976,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1029,7 +965,7 @@
       "id": "W004",
       "subject": "HCInfectedLODModule",
       "file": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c",
-      "line": 409,
+      "line": 469,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1045,7 +981,7 @@
       "id": "W004",
       "subject": "HCInfectedMemoryModule",
       "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
-      "line": 329,
+      "line": 335,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1101,7 +1037,7 @@
       "id": "W004",
       "subject": "HCInfectedReachVehicle",
       "file": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
-      "line": 138,
+      "line": 155,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1149,7 +1085,7 @@
       "id": "W004",
       "subject": "HCInfectedSaveJob",
       "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c",
-      "line": 1366,
+      "line": 1384,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1157,7 +1093,7 @@
       "id": "W004",
       "subject": "HCInfectedVarietyContributor",
       "file": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c",
-      "line": 159,
+      "line": 186,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1531,14 +1467,6 @@
     },
     {
       "id": "W004",
-      "subject": "HCNoConstruction",
-      "file": "mods/HollowCountry/scripts/4_World/Crafting/HCNoConstruction.c",
-      "line": 14,
-      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
-      "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
-    },
-    {
-      "id": "W004",
       "subject": "HCNonPlayerMoves",
       "file": "mods/HollowCountry/scripts/4_World/World/HCPickers.c",
       "line": 37,
@@ -1661,9 +1589,17 @@
       "id": "W004",
       "subject": "HCPoseCommand",
       "file": "mods/HollowCountryAnims/scripts/4_World/HCPoseInfected.c",
-      "line": 31,
+      "line": 38,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCPresentationTuningServer",
+      "file": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCPresentationTuningMission.c",
+      "line": 7,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Source-local server helper: MissionServer.OnInit calls HCStart; connection callbacks call HCSendTo; OnMissionFinish removes the scheduled refresh. Same-file callbacks are outside W004 external-file detection; native delivery remains unverified."
     },
     {
       "id": "W004",
@@ -1733,7 +1669,7 @@
       "id": "W004",
       "subject": "HCSceneCheckpointJob",
       "file": "mods/HollowCountry/scripts/4_World/Scenes/HCSceneChains.c",
-      "line": 541,
+      "line": 545,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1805,7 +1741,7 @@
       "id": "W004",
       "subject": "HCSearchRefreshPilotJournal",
       "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 1074,
+      "line": 1104,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1813,7 +1749,7 @@
       "id": "W004",
       "subject": "HCSearchRefreshSaveJob",
       "file": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "line": 845,
+      "line": 873,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1861,7 +1797,7 @@
       "id": "W004",
       "subject": "HCSettlementDecayStore",
       "file": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
-      "line": 36,
+      "line": 97,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1869,7 +1805,7 @@
       "id": "W004",
       "subject": "HCSettlementSaveJob",
       "file": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
-      "line": 407,
+      "line": 474,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1877,7 +1813,7 @@
       "id": "W004",
       "subject": "HCSettlementState",
       "file": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
-      "line": 27,
+      "line": 88,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1885,7 +1821,7 @@
       "id": "W004",
       "subject": "HCShelterModule",
       "file": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
-      "line": 31,
+      "line": 32,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1909,7 +1845,7 @@
       "id": "W004",
       "subject": "HCSiphonDiagnosticLocks",
       "file": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
-      "line": 51,
+      "line": 52,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -1989,9 +1925,17 @@
       "id": "W004",
       "subject": "HCTapedLightV1Custody",
       "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
-      "line": 223,
+      "line": 238,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
+    },
+    {
+      "id": "W004",
+      "subject": "HCTapedLightV1Qualification",
+      "file": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c",
+      "line": 105,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Source-local shared adapter constructed by HCTapedLightRuntime in HCTapedLightNative.c; HCWearableRow checks exact helmet admission. Replaces the unused duplicate helmet adapter; native mounting and geometry remain unverified."
     },
     {
       "id": "W004",
@@ -2069,7 +2013,7 @@
       "id": "W004",
       "subject": "HCVisualSeasonSaveJob",
       "file": "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasonStore.c",
-      "line": 97,
+      "line": 104,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -2331,6 +2275,30 @@
     },
     {
       "id": "W004",
+      "subject": "HCXAIFortification",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFortification.c",
+      "line": 19,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Source-local service: modded HCXAIAdapter starts/ticks/stops it and HCXAISiteDirector.Spawned enqueues sites in the same file. W004 requires another file, so these real callbacks need an exact exception; native placement remains unverified."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIFortificationSite",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFortification.c",
+      "line": 12,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Source-local queue DTO constructed in HCXAIFortification.Admit and consumed by Step in the same file; the local service is called by HCXAIAdapter and HCXAISiteDirector callbacks. Native behavior remains unverified."
+    },
+    {
+      "id": "W004",
+      "subject": "HCXAIFortificationState",
+      "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFortification.c",
+      "line": 6,
+      "why": "No reference outside definition file (engine/config callbacks may be intentional)",
+      "reason": "Source-local persistence DTO constructed/loaded by HCXAIFortification.Load and saved before placement in Step; service lifecycle is supplied by same-file HCXAIAdapter callbacks. Native persistence remains unverified."
+    },
+    {
+      "id": "W004",
       "subject": "HCXAIGroupStyle",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIFormations.c",
       "line": 393,
@@ -2573,7 +2541,7 @@
       "id": "W004",
       "subject": "HCXCotPermissionPort",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXCotPermissions.c",
-      "line": 29,
+      "line": 33,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -2661,7 +2629,7 @@
       "id": "W004",
       "subject": "HCXZoneGuardsDebug",
       "file": "mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c",
-      "line": 22,
+      "line": 23,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },
@@ -2701,7 +2669,7 @@
       "id": "W004",
       "subject": "auditseason_Phase",
       "file": "mods/HollowCountry/scripts/4_World/Weather/HCVisualSeasons.c",
-      "line": 245,
+      "line": 292,
       "why": "No reference outside definition file (engine/config callbacks may be intentional)",
       "reason": "File-local support type or locally registered module; same-file references intentionally do not satisfy W004."
     },

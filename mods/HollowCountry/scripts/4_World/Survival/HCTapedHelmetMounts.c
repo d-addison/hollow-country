@@ -75,30 +75,8 @@ class HCTapedHelmetMounts : HCModule
     }
 }
 
-// Separate HC-7 qualification port: do not append wearable rows to the weapon
-// catalogue or grant them the weapon adapter's default local-acceptance opt-in.
-// The held action retains the same service/port, custody and journal. Ready
-// follows native slot availability and unverified startup admission.
-// There is deliberately no synthetic measurement digest or new range.
-class HCTapedHelmetQualification : HCTapedLightQualification
-{
-    override bool Ready()
-    {
-        return HCTapedWearableCatalog.Admitted();
-    }
-
-    override HCTapedLightBinding Resolve(EntityAI host, ItemBase light)
-    {
-        if (!Ready() || !host || host.GetType() != "Mich2001Helmet") { return null; }
-        HCTapedLightV1Qualification nativeQualification = new HCTapedLightV1Qualification;
-        return nativeQualification.Resolve(host, light);
-    }
-
-    override bool HasLOS(PlayerBase actor, EntityAI host, HCTapedLightBinding binding)
-    {
-        return Ready() && actor && host && actor.GetItemInHands() == host && host.GetHierarchyRootPlayer() == actor;
-    }
-}
+// Held mount/remove actions use HCTapedLightV1Qualification.HCWearableRow,
+// which checks this module's exact helmet admission before resolving the slot.
 
 modded class HCModuleRegistry
 {

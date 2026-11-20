@@ -225,6 +225,15 @@ class Audit:
             p = self.safe(self.rules['vanilla_mission']) / rel
             if p.is_file():
                 data[p] = self.read(p)
+        # Use the production transform, including its pinned-stock and conserved
+        # child-budget checks. Policy strings alone are not CE creation evidence.
+        from tools.package import infected_variety
+        policy = json.loads(self.read(infected_variety.POLICY))
+        if policy['production_enabled']:
+            stock_events = self.safe(self.rules['vanilla_mission']) / infected_variety.TARGET
+            self.read(stock_events)  # enforce the input size/path bounds before bytes
+            stock = stock_events.read_bytes()
+            data[stock_events] = infected_variety.substitute(stock, stock, policy).decode('utf-8-sig')
         for p, text in data.items():
             if p.suffix != '.xml':
                 continue
@@ -309,6 +318,10 @@ class Audit:
                     end += 1
                 params = [part.strip().split()[-1] for part in m[3].split(',') if part.strip()]
                 methods.append((p, m[2], bool(m[1]), params, c['body'][m.end():end - 1], c['name']))
+        constants = {}
+        for _, c in script_classes:
+            for name, value in re.findall(r'\bconst\s+string\s+(\w+)\s*=\s*"([^"\n]+)"\s*;', c['body']):
+                constants[(c['name'], name)] = value.lower()
         byname = defaultdict(list)
         for i, (_, name, _, _, _, _) in enumerate(methods):
             byname[name].append(i)
@@ -347,7 +360,9 @@ class Audit:
                     callee = resolve(call[1], i)
                     if callee is not None:
                         return returned[callee]
-                return variables[(i, expr)]
+                parts = expr.split('.')
+                constant = constants.get((parts[-2] if len(parts) > 1 else methods[i][5], parts[-1]))
+                return {constant} if constant is not None else variables[(i, expr)]
             for _ in range(12):
                 count = sum(map(len, variables.values())) + sum(map(len, returned.values()))
                 for i in active:
@@ -360,6 +375,10 @@ class Audit:
                         args = call[2].split(',')
                         if re.fullmatch(r'CreateObject\w*|SpawnEntity\w*|CreateInInventory', call[1].rsplit('.', 1)[-1]):
                             (admin if diagnostic else routes).update(names(args[0], i))
+                        elif call[1].rsplit('.', 1)[-1] in ('ProcessDirectDamage', 'CloseCombatDamage') and len(args) >= 4:
+                            # Native damage descriptors occupy argument four, not
+                            # an inventory creation slot (Object.c / DamageSystem).
+                            (admin if diagnostic else routes).update(names(args[3], i))
                         else:
                             callee = resolve(call[1], i)
                             if callee is None:
@@ -368,6 +387,14 @@ class Audit:
                                 variables[(callee, param)].update(names(arg, i))
                 if count == sum(map(len, variables.values())) + sum(map(len, returned.values())):
                     break
+            # Installed vanilla LightHeavy.EvaluateHit_Common consumes this
+            # callback's out ammoType via CloseCombatDamage. An arbitrary output
+            # parameter or diagnostic ammo string cannot establish that route.
+            for i in active:
+                p, name, _, params, body, owner = methods[i]
+                if owner == 'DayZPlayerMeleeFightLogic_LightHeavy' and name == 'DummyHitSelector' and len(params) == 2:
+                    for assignment in re.finditer(r'\b' + re.escape(params[1]) + r'\s*=(?!=)\s*(' + expression + r')\s*;', body):
+                        (admin if diagnostic else routes).update(names(assignment[1], i))
         self.notes.append(f'Creation routes: production={len(routes)} admin-only={len(admin - routes)}')
         return routes, admin
 
