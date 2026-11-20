@@ -39,6 +39,18 @@ def _names(value, what):
     return list(value)
 
 
+def validate_collision_support(value):
+    """Open-structure exemptions for the loot support audit (shipped with the bundle)."""
+    if (not isinstance(value, dict) or set(value) != {'open_structure_prefixes', 'open_structure_classes', 'note'}
+            or not isinstance(value['note'], str) or not value['note']):
+        raise ValueError('collision_support policy shape')
+    for key in ('open_structure_prefixes', 'open_structure_classes'):
+        if (not isinstance(value[key], list) or len(value[key]) > 256
+                or any(not isinstance(n, str) or not loot_boost.NAME.fullmatch(n) for n in value[key])):
+            raise ValueError('collision_support policy names')
+    return value
+
+
 def parse_policy(data):
     """Validated exact-class policy; refuses unknown or unbounded values."""
     if len(data) > MAX_POLICY_BYTES:
@@ -50,8 +62,7 @@ def parse_policy(data):
     if not KEYS - {'note', 'receivers', 'collision_support'} <= set(doc):
         raise ValueError('floor policy is missing a named field')
     if 'collision_support' in doc:
-        from tools.package.loot_support_audit import validate_policy
-        validate_policy(doc['collision_support'])
+        validate_collision_support(doc['collision_support'])
     floor_categories = _names(doc['floor_categories'], 'floor_categories')
     shelf_categories = _names(doc['shelf_categories'], 'shelf_categories')
     if not set(floor_categories) <= {'clothes'} or not set(shelf_categories) <= SHELF_CATEGORY_CHOICES:

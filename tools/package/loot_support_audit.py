@@ -18,6 +18,7 @@ import xml.etree.ElementTree as ET
 
 from tools.audit import pbo_config as pbo
 from tools.package import interior_points_gen as gen, loot_boost as loot
+from tools.package.loot_floor_policy import validate_collision_support as validate_policy
 from tools.package.loot_reach_audit import (
     Scene, cross, dot, intersection, lod_for, model_point, subtract, triangles,
 )
@@ -28,17 +29,6 @@ COLLISION = (('geometry', 1e13), ('roadway', 3e15), ('view-geometry', 6e15))
 FOOTPRINT = ((0, 0), (.12, 0), (-.12, 0), (0, .12), (0, -.12),
              (.085, .085), (.085, -.085), (-.085, .085), (-.085, -.085))
 METHOD = 'collision-support-v1: Geometry/Roadway/View-Geometry only; 0..0.08m below; 12cm footprint and 50cm vertical clearance; building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback'
-
-
-def validate_policy(value):
-    if (not isinstance(value, dict) or set(value) != {'open_structure_prefixes', 'open_structure_classes', 'note'}
-            or not isinstance(value['note'], str) or not value['note']):
-        raise ValueError('collision_support policy shape')
-    for key in ('open_structure_prefixes', 'open_structure_classes'):
-        if (not isinstance(value[key], list) or len(value[key]) > 256
-                or any(not isinstance(n, str) or not loot.NAME.fullmatch(n) for n in value[key])):
-            raise ValueError('collision_support policy names')
-    return value
 
 
 def proxy_table(data, model, lod):
