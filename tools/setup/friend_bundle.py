@@ -55,7 +55,14 @@ SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('snafu_optional.py', 'tactical_flava_optional.py', 'snafu_allowlist.json',
                 'tactical_flava_allowlist.json', 'firearms.py', 'hash_cache.py', 'xml_text.py', 'optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
                 'datamined_items.py', 'datamined_items.json', 'overlay_remove.py', 'loot_boost.py', 'loot_floor_policy.py', 'firearms_roster.json',
-                'hc_events.py', 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py')
+                'hc_events.py', 'map_overlay.py', 'infected_variety.py', 'HCWildlife_habitats.py',
+                'military_loot.py', 'military_loot_allowlist.json', 'pbo.py', 'ce_coverage.py', 'interior_templates.py',
+                'interior_catalog.py', 'search_context.py', 'essential_routes.json', 'interior_prop_boxes.json',
+                'loot_reach_audit.py', 'interior_points_gen.py', 'loot_support_audit.py')
+# Other repo files the shipped tools import or read at install time (wiring audit W010 bundle closure).
+BUNDLE_EXTRA_FILES = ('tools/audit/interior_points.py', 'tools/setup/interior_sampler.py', 'tools/setup/ce_probe.py',
+                      'tools/setup/diagnostic_mission.py', 'tools/setup/probe_runtime.py',
+                      'config/loot-dispositions.json', 'config/military-loot.json')
 # The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
 MAP_OVERLAY_CONFIG = 'config/map-overlays'
 
@@ -598,6 +605,7 @@ def freshness_report(stage, mission):
     expected['mission-patches.json'] = mission_patches(regenerated, baseline, vanilla_gameplay, stage.parent)
     expected.update({path.relative_to(lts.ROOT).as_posix(): overlays.read(path)
                      for path in (lts.ROOT / MAP_OVERLAY_CONFIG).rglob('*.json')})
+    expected.update({rel: overlays.read(lts.ROOT / rel) for rel in BUNDLE_EXTRA_FILES if rel.startswith('config/')})
     actual = {path.relative_to(stage).as_posix() for root in ('mission', 'mission-overlay', 'profiles', 'config')
               for path in (stage / root).rglob('*') if path.is_file()}
     actual.add('mission-patches.json')
@@ -698,6 +706,8 @@ def build(args):
             overlays.read(lts.ROOT / 'tools/package' / name)
         for name in SETUP_TOOLS + SETUP_BATS:
             overlays.read(lts.ROOT / 'tools/setup' / name)
+        for rel in BUNDLE_EXTRA_FILES:
+            overlays.read(lts.ROOT / rel)
     except (OSError, ValueError) as error:
         raise Refused('optional overlay source missing or invalid: %s' % error) from error
     m_keep, m_drop = mission_files(mission)
@@ -717,6 +727,8 @@ def build(args):
         path = lts.ROOT / 'tools/package' / name
         plan.append(('tools/package/' + name, overlays.read(path)))
     plan.append(('tools/audit/pbo_config.py', overlays.read(lts.ROOT / 'tools/audit/pbo_config.py')))
+    for rel in BUNDLE_EXTRA_FILES:
+        plan.append((rel, overlays.read(lts.ROOT / rel)))
     config_root = lts.ROOT / MAP_OVERLAY_CONFIG
     try:
         config_files = sorted(p for p in config_root.rglob('*.json') if p.is_file())
