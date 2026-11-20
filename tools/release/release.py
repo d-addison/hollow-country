@@ -1,7 +1,8 @@
 """Build signed release artifacts from an isolated commit, never the live checkout.
 
 Usage: python3 -B -m tools.release.release BUILD [--commit HEAD] [--allow-unpushed]
-Templates are an explicit external build input; only the disposable tree receives them.
+The interior template pack defaults to the committed mission pack at that commit; only the
+disposable tree receives it (--templates overrides it for a diagnostic build).
 """
 import argparse
 from contextlib import contextmanager
@@ -19,7 +20,9 @@ import tempfile
 from tools.package.sign_wine import CACHE, sign
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATES = Path('/mnt/d/HollowCountryLocal/local-v1-test-1/profiles/HollowCountry/templates')
+# Default PBO template pack: the committed mission pack at the pinned commit, so the
+# Workshop PBO and the friend bundle carry the same interiors.
+TEMPLATES_REL = 'mission/hollow-country/interiors/templates'
 ADDONS = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/Addons')
 
 
@@ -148,7 +151,7 @@ def build(args):
             shutil.copytree(target, backup, symlinks=True)
         try:
             sources = source_json(tree)
-            templates = copy_templates(args.templates.absolute(), target)
+            templates = copy_templates(args.templates.absolute() if args.templates else tree / TEMPLATES_REL, target)
             py = [sys.executable, '-B']
             print('Packing pinned commit ' + sha, flush=True)
             for mod, name, prefix in (
@@ -222,7 +225,7 @@ def main(argv=None):
     parser.add_argument('build', type=build_number)
     parser.add_argument('--commit', default='HEAD')
     parser.add_argument('--allow-unpushed', action='store_true')
-    parser.add_argument('--templates', type=Path, default=TEMPLATES)
+    parser.add_argument('--templates', type=Path, help='override pack (default: the commit\'s ' + TEMPLATES_REL + ')')
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--out', type=Path)
     args = parser.parse_args(argv)
