@@ -369,8 +369,14 @@ class HCGapcodeRoutesCatalog
     HCOperationalStatus HCGetOperationalStatus(HCOperationalStatus owner)
     {
         if (!m_Enabled) { m_Status.HCPublish("off", "operator_opt_out"); }
-        else if (m_Phase != "loaded" || m_Reason != "") { m_Status.HCPublish("degraded", m_Reason); }
+        else if (m_Phase != "loaded") { m_Status.HCPublish("degraded", m_Reason); }
         else if (!owner) { m_Status.HCPublish("degraded", "ROUTE_SITE_OWNER_MISSING"); }
+        // Candidate-local refusals (island access, a site binding) keep every other
+        // candidate running, so they are admitted coverage gaps, not an owner fault
+        // (101: 4 of 88 island candidates left both AI modules degraded all boot).
+        else if (m_Reason == "ROUTE_CANDIDATES_PENDING_ACCESS_OR_BINDING" && owner.HCState() == "ready")
+        { m_Status.HCPublish("ready", "routes_loaded_candidates_pending_access_or_binding"); }
+        else if (m_Reason != "") { m_Status.HCPublish("degraded", m_Reason); }
         else { m_Status.HCPublish(owner.HCState(), owner.HCReason()); }
         return m_Status;
     }
