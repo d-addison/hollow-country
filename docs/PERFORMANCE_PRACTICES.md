@@ -85,3 +85,31 @@ the server boot is still the test ([HC Perf], [HC TickCost], [HC Step], [HC Save
    one-time cost above about 50 ms per tick is still worth splitting.
 
 Budgets stay provisional until they are measured at the target load of 3–6 players.
+
+## Lint rules
+
+Run `python3 -B -m tools.validate.enforce_perf`. These deterministic offline
+rules report review candidates, without timing or native acceptance claims:
+
+| Rule | Candidate | Limits |
+| --- | --- | --- |
+| HC-P001 | Unbounded string scans inside lexical loops | Recognizes small bounds and HCTextWindow; does not track arbitrary string aliases. |
+| HC-P003 | File I/O reachable from tick/save-step roots | Typed authored call graph, shortest BFS witness, at most 24 edges; staged writer boundaries stop traversal except synchronous Finish drains. |
+| HC-P004 | Nested array/map/set loops containing equality, or array Find/Contains/IndexOf/Get inside a loop | Skips literal upper bounds <=16; declared receivers only. Indexed Get is included as a broad candidate and may need no change. |
+| HC-P005 | Print inside a lexical loop on a tick path | Uses P003 reachability; cannot infer latches, actual frequency or intentional bounded summaries. |
+| HC-P006 | Literal HC_WORK_* arguments to HCTakeFor/HCCharge shared by different owner classes | Modded definitions share their base class name; computed slots and runtime competition are not resolved. |
+| HC-P007 | Missing consumer profile, weight field/load, settings or report registration, or insufficient HC_WORK_CONSUMERS | Cross-file structural check; HC_WORK_UNBOUNDED is an arithmetic sentinel, not a consumer. |
+| HC-P008 | Save on a declared type ending in Store on a tick path | Uses P003 reachability; review durability barriers manually and prefer dirty state plus HCSaveScheduler for routine work. |
+
+P002 remains omitted because source-only configured float bounds are ambiguous.
+The tick roots are OnTick, OnUpdate, HCStep* and names containing SaveStage or
+StageSave. Engine callbacks, reflection, function pointers and path feasibility
+are outside the call graph; unseen paths can be missed.
+
+Findings use rule/path/symbol/operation keys with occurrence counters rather
+than line numbers (P007 keys identify the slot and missing piece). The checked-in
+baseline acknowledges existing candidates; only new identities fail. After
+review, explicitly acknowledge the current full project with
+`python3 -B -m tools.validate.enforce_perf --write-baseline`. Baseline entries
+are not native acceptance, and provisional budgets still require target-load
+measurement.
