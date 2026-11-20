@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<eventposdef>
+  <event name="ItemHCSceneCacheKamenka">
+    <pos x="2512.352" z="2054.215" a="0" />
+  </event>
+  <event name="ItemHCSceneCacheStaroye">
+    <pos x="10676.524" z="4579.396" a="0" />
+  </event>
+  <event name="ItemHCSceneCacheKumyrna">
+    <pos x="8393.078" z="5998.555" a="0" />
+  </event>
+</eventposdef>

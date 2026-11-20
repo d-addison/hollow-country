@@ -36,6 +36,7 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  # W6 #60 authored survey inputs only; generated trigger instances never ship.
                  'cellars/classes.json', 'cellars/README.md',
                  # V2 scene chains catalog, its native/class provenance and the operator handoff.
+                 'events/cache-events.xml', 'events/cache-eventspawns.xml',
                  'events/README.md', 'events/scene-chains.json', 'events/scene-provenance.json',
                  'economy-profiles/baseline.json', 'economy-profiles/contextual-pilot.json',
                  'economy-profiles/diagnostic.json', 'gameplay-profiles/hollow-country-v1.json',

@@ -18,6 +18,7 @@ SOURCE = Path(__file__).resolve().parents[2] / 'mission/hollow-country'
 MANAGED = 'hollow-country-events'
 DATA = ('hc-events.xml', 'hc-eventspawns.xml', 'hc-eventgroups.xml',
         'hc-event-proto.xml', 'hc-event-sites.json')
+CACHE_DATA = ('cache-events.xml', 'cache-eventspawns.xml')
 ROOTS = ('events', 'eventposdef', 'eventgroupdef', 'prototype')
 PATCHED = ('cfgeconomycore.xml', 'cfgeventspawns.xml', 'cfgeventgroups.xml', 'mapgroupproto.xml')
 GENERATED = MANAGED + '/events.xml'
@@ -165,9 +166,41 @@ def validate(source=SOURCE):
         source_keys.add(key)
     template_count = len(groups)
     groups = _anchor_groups(positions, groups)
+    # Cache stock uses the same CE registration, collision checks, merged spawn
+    # positions and rollback receipt as encounters. CE alone creates the cases.
+    data.update({name: economy.read_plain(source, 'events/' + name) for name in CACHE_DATA})
+    caches, cache_positions = [economy.xml(data[n], tag)
+                              for n, tag in zip(CACHE_DATA, ('events', 'eventposdef'))]
+    cache_names = {'ItemHCSceneCache' + site for site in ('Kamenka', 'Staroye', 'Kumyrna')}
+    for root in (caches, cache_positions):
+        economy._unique(root)
+        if len(root) != 3 or {e.get('name') for e in root} != cache_names:
+            raise ValueError('cache event/position ownership mismatch')
+    for event in caches:
+        children = event.findall('children/child')
+        if (event.findtext('active') != '1' or event.findtext('position') != 'fixed'
+                or event.findtext('limit') != 'mixed'
+                or any(event.findtext(n) != '1' for n in ('nominal', 'min', 'max'))
+                or not 1800 <= int(event.findtext('lifetime')) <= 5400
+                or not 60 <= int(event.findtext('restock')) <= 600
+                or len(children) != 1 or children[0].attrib != {
+                    'lootmax': '0', 'lootmin': '0', 'max': '1', 'min': '1',
+                    'type': 'SmallProtectorCase'}):
+            raise ValueError('invalid cache stock lifecycle')
+    for event in cache_positions:
+        anchors = event.findall('pos')
+        if len(anchors) != 1:
+            raise ValueError('cache requires one fixed anchor')
+        x, z = (float(anchors[0].get(axis)) for axis in ('x', 'z'))
+        if not (0 < x < 15360 and 0 < z < 15360):
+            raise ValueError('invalid cache anchor')
+    encounter_count = len(events)
+    events.extend(caches)
+    positions.extend(cache_positions)
     return data, (events, positions, groups, proto), evidence, {
-        'event_types': len(events), 'nominal': nominal, 'positions': count,
+        'event_types': encounter_count, 'nominal': nominal, 'positions': count,
         'group_templates': template_count,
+        'cache_event_types': len(caches), 'cache_nominal': len(caches),
         'groups': len(groups), 'objects_in_groups': sum(len(g) for g in groups),
         'observer_headroom': MAX_OBSERVERS, 'event_budgets': budgets,
         'runtime': 'PENDING'}
@@ -176,7 +209,7 @@ def validate(source=SOURCE):
 def _digest(data):
     # A prior receipt with shared template identities must require reinstall,
     # even when the authored XML itself has not changed.
-    return economy.sha(GROUP_POLICY + b''.join(n.encode() + b'\0' + data[n] for n in DATA))
+    return economy.sha(GROUP_POLICY + b''.join(n.encode() + b'\0' + data[n] for n in (*DATA, *CACHE_DATA)))
 
 
 def plan(target, source=SOURCE):
@@ -252,7 +285,7 @@ def plan(target, source=SOURCE):
     registration = ET.SubElement(core, 'ce', folder=MANAGED)
     ET.SubElement(registration, 'file', name='events.xml', type='events')
     files = dict(zip(PATCHED, map(_serialized, (core, spawns, target_groups, target_proto))))
-    files[GENERATED] = data['hc-events.xml']
+    files[GENERATED] = _serialized(events)
     return {'before': before, 'files': files, 'source': _digest(data), 'report': report}
 
 

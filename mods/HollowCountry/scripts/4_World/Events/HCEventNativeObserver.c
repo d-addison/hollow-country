@@ -16,6 +16,9 @@ class HCEventNativeLease
     ItemBase DeliveryContainer;
     Object Presence;
     ZombieBase Infected;
+    bool SceneCache;
+    float CacheProbeAfter;
+    float CacheStartedAt;
 }
 class HCEventDwell
 {
@@ -31,6 +34,53 @@ class HCEventNativeObserver : HCEventObjectiveProvider
     protected ref array<ref HCEventTarget> m_Targets = new array<ref HCEventTarget>();
     protected ref array<ref HCEventNativeLease> m_Leases = new array<ref HCEventNativeLease>();
     protected ref array<ref HCEventDwell> m_Dwells = new array<ref HCEventDwell>();
+
+    // Only the three unchanged reviewed recovery definitions use this asynchronous
+    // CE route. Operator edits do not gain a new spawn/target capability.
+    bool HCSceneCache(HCEventMission mission)
+    {
+        if (!mission || !mission.RewardCache || mission.Family != HCEventFamily.RECOVERY) { return false; }
+        array<ref HCEventSite> sites = HCEventReviewedSites.Curated();
+        foreach (HCEventSite site : sites)
+        {
+            if (mission.SiteId == site.Id && mission.Id == site.Id + "-1" && mission.WorldName == site.WorldName && mission.Source == site.Position && mission.Destination == site.Destination && mission.ItemClass == site.ItemClass)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    // Normal CE events in events/cache-events.xml own creation and replenishment.
+    // Borrow one actual ground container, including persisted empty containers:
+    // the case itself is the recovery objective. Never manufacture cargo or claim
+    // that a class/position match proves incident ownership.
+    void HCBindSceneCache(HCEventNativeLease binding)
+    {
+        if (binding.Item || GetGame().GetTickTime() < binding.CacheProbeAfter) { return; }
+        binding.CacheProbeAfter = GetGame().GetTickTime() + 30;
+        HCEventMission mission = binding.Objective;
+        HCEventTarget current = Target(mission.Id);
+        if (current && HCEventCacheSpawner.HCPhysicalGround(current.Item))
+        {
+            binding.Item = current.Item;
+            return;
+        }
+        int consumer = HCUnitBudget.HC_WORK_SITUATIONS;
+        if (!HCServer.HCTickWork().HCTakeFor(consumer, 8)) { return; }
+        array<Object> nearby = HCEventWorldBinding.Query(mission.Source, 15);
+        if (!nearby) { return; }
+        ItemBase selected;
+        foreach (Object candidate : nearby)
+        {
+            ItemBase item = ItemBase.Cast(candidate);
+            if (!HCEventCacheSpawner.HCPhysicalGround(item) || item.GetType() != mission.ItemClass) { continue; }
+            if (selected) { return; } // Ambiguity never creates a substitute or picks arbitrary stock.
+            selected = item;
+        }
+        if (!selected || !RegisterTarget(mission.Id, selected)) { return; }
+        binding.Item = selected;
+        Print("[HC Events] scene cache bound; " + mission.Id + "; route=normal_ce; cargo_granted=0 runtime=PENDING");
+    }
 
     // HC-41 uses a separate server receipt capability, never the retired quest
     // target registration or a class/position match as CE incident ownership.
@@ -182,6 +232,12 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         {
             return false;
         }
+        // Admit a bounded wait as a real runtime mission so its normal durable
+        // expiry closes it even when nobody joins or CE never produces the case.
+        if (HCSceneCache(mission))
+        {
+            return HCEventSitesGate.Admitted() && HCEventCacheSpawner.HCPhysicalEnabled();
+        }
         HCEventTarget target = Target(mission.Id);
         if (mission.Family == HCEventFamily.PRESENCE)
         {
@@ -228,7 +284,14 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         HCEventNativeLease binding = new HCEventNativeLease;
         binding.Lease = lease;
         binding.Objective = mission;
-        if (mission.Family != HCEventFamily.INVESTIGATION)
+        if (HCSceneCache(mission))
+        {
+            binding.SceneCache = true;
+            binding.CacheStartedAt = GetGame().GetTickTime();
+            HCBindSceneCache(binding);
+            Print("[HC Events] scene cache mission opened; " + mission.Id + "; route=normal_ce; timeout_s=" + mission.LifetimeSeconds.ToString() + " runtime=PENDING");
+        }
+        else if (mission.Family != HCEventFamily.INVESTIGATION)
         {
             HCEventTarget target = Target(mission.Id);
             binding.Item = target.Item;
@@ -285,6 +348,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
             return null;
         }
         HCEventMission mission = selected.Objective;
+        if (selected.SceneCache) { HCBindSceneCache(selected); }
         bool observed = false;
         if (mission.Family == HCEventFamily.INVESTIGATION)
         {
@@ -372,6 +436,16 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         // Recovery and salvage expose only an existing native item; no grant.
         return item.GetHierarchyRootPlayer() == participant && (mission.Family == HCEventFamily.RECOVERY || Near(participant.GetPosition(), mission.Source, mission.Radius));
     }
+    void HCSceneCacheClosed(HCEventNativeLease binding)
+    {
+        // Runtime owns the two-hour reoffer cooldown; closing releases this lease
+        // without permanently blacklisting a site whose CE stock can return.
+        if (!binding.SceneCache) { return; }
+        string reason = "runtime_closed";
+        if (!binding.Item) { reason = "target_unavailable_on_close"; }
+        if (!binding.Item && GetGame().GetTickTime() - binding.CacheStartedAt >= binding.Objective.LifetimeSeconds) { reason = "ce_target_timeout"; }
+        Print("[HC Events] scene cache mission closed; " + binding.Objective.Id + "; reason=" + reason + "; refill=0 runtime=PENDING");
+    }
     override bool Release(string lease)
     {
         if (!GetGame().IsServer())
@@ -384,7 +458,9 @@ class HCEventNativeObserver : HCEventObjectiveProvider
             HCEventNativeLease binding = m_Leases[index];
             if (binding.Lease == lease)
             {
+                HCSceneCacheClosed(binding);
                 m_Leases.Remove(index);
+                if (binding.SceneCache) { ResetUnleasedTarget(binding.Objective.Id); }
             }
             index = index - 1;
         }
