@@ -65,13 +65,33 @@ class HCGroupWorldIcons
         float iconSize = 16 * settings.IconScale;
         float textHeight = 24 * settings.LabelScale;
         float labelLeft = iconSize + 8;
-        root.SetSize(labelLeft + 180 * settings.LabelScale, Math.Max(iconSize, textHeight));
+        root.SetSize(labelLeft + 360 * settings.LabelScale, Math.Max(iconSize, textHeight));
         image.SetPos(0, 0);
         image.SetSize(iconSize, iconSize);
         label.SetPos(labelLeft, 0);
-        label.SetSize(180 * settings.LabelScale, textHeight);
+        label.SetSize(360 * settings.LabelScale, textHeight);
         label.SetTextExactSize(Math.Round(textHeight));
         label.SetColor(ARGB(255,255,255,255));
+    }
+
+    // Native 1.30.164289: 1_Core/proto/EnConvert.c:30 int.ToString.
+    static string StatusLabel(HCGroupMember member, bool compact = false)
+    {
+        if (!member.HasPosition || !member.Online || !member.Alive) return "";
+        if (member.HealthBand < 0 || member.BloodBand < 0) return "";
+        string text = "  HP " + member.HealthBand.ToString() + "/4  BL " + member.BloodBand.ToString() + "/4";
+        if (compact) text = " H" + member.HealthBand.ToString() + " B" + member.BloodBand.ToString();
+        if (member.Bleeding)
+        {
+            if (compact) text += " BLEED";
+            else text += " BLEEDING";
+        }
+        if (member.Unconscious)
+        {
+            if (compact) text += " UNC";
+            else text += " UNCONSCIOUS";
+        }
+        return text;
     }
 
     static string RoleLabel(int role)
@@ -137,10 +157,11 @@ class HCGroupWorldIcons
                 mHCImages.Get(used).SetColor(ARGB(255,86,180,233));
                 mHCStyled.Set(used, mHCStyleEpoch);
             }
-            if (!mHCTexted.Get(used) || mHCNames.Get(used) != member.Name)
+            string displayName = "[Team] " + member.Name + StatusLabel(member, true);
+            if (!mHCTexted.Get(used) || mHCNames.Get(used) != displayName)
             {
-                mHCLabels.Get(used).SetText("[Team] " + member.Name);
-                mHCNames.Set(used, member.Name);
+                mHCLabels.Get(used).SetText(displayName);
+                mHCNames.Set(used, displayName);
                 mHCTexted.Set(used, true);
             }
             vector screen = GetGame().GetScreenPos(member.Position);

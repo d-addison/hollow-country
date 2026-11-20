@@ -2,7 +2,7 @@
 // third-party collision freedom and live delivery remain qualification work.
 class HCGroupProtocol
 {
-    static const int VERSION = 3;
+    static const int VERSION = 4;
     static const int RPC_REQUEST = 4853701;
     static const int RPC_SNAPSHOT = 4853702;
     static const int RPC_REPLY = 4853703;

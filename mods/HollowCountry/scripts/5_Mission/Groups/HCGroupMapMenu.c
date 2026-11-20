@@ -18,6 +18,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     protected vector mHCPoint;
     protected bool mHCHasPoint;
     protected bool mHCOpening = true;
+    protected bool mHCHintDismissed;
     protected float mHCRenderTime;
     protected ref HCGroupMarker mHCOriginal;
     protected ref HCGroupMapLayers mHCLayers;
@@ -163,6 +164,17 @@ class HCGroupMapMenu extends UIScriptedMenu
                 return;
             }
             if (mHCLayers) mHCLayers.Draw(mHCMap, frame, viewer);
+            // Native 1.30.164289: 1_Core/proto/EnWidgets.c:443 SetItem.
+            // Position frames update Members in place; refresh status at existing UI cadence.
+            if (mHCMembers)
+            {
+                int statusRows = Math.Min(frame.Members.Count(), mHCMembers.GetNumItems());
+                for (int statusRow = 0; statusRow < statusRows; statusRow++)
+                {
+                    HCGroupMember statusMember = frame.Members.Get(statusRow);
+                    mHCMembers.SetItem(statusRow, MemberLabel(statusMember), null, 0);
+                }
+            }
             mHCRenderTime = 0;
         }
         if (mHCStatus)
@@ -170,6 +182,10 @@ class HCGroupMapMenu extends UIScriptedMenu
             if (mHCMessage != "")
             {
                 mHCStatus.SetText(mHCMessage);
+            }
+            else if (frame.GroupId == 0 && frame.Invitations.Count() == 0 && !client.IsBusy() && !mHCHintDismissed)
+            {
+                mHCStatus.SetText("Create a group here and invite friends.");
             }
             else
             {
@@ -180,6 +196,11 @@ class HCGroupMapMenu extends UIScriptedMenu
         if (EditBoxWidget.Cast(GetFocus())) return;
         if (GetGame().GetInput().LocalPress_ID(UAMapToggle, false))
             Close();
+    }
+
+    string MemberLabel(HCGroupMember member)
+    {
+        return member.Name + HCGroupWorldIcons.StatusLabel(member) + " [" + HCGroupWorldIcons.RoleLabel(member.Role) + "]";
     }
 
     void ClearLists()
@@ -236,7 +257,7 @@ class HCGroupMapMenu extends UIScriptedMenu
         {
             if (mHCMembers)
             {
-                int ur = mHCMembers.AddItem(member.Name + " [" + HCGroupWorldIcons.RoleLabel(member.Role) + "]", null, 0);
+                int ur = mHCMembers.AddItem(MemberLabel(member), null, 0);
                 if (member.Id == memberId) mHCMembers.SelectRow(ur);
             }
         }
@@ -320,7 +341,7 @@ class HCGroupMapMenu extends UIScriptedMenu
             if (!HCGroupRules.TextValid(q.Name, 48, false)) return true;
         }
         if (!FillSelection(q)) return true;
-        client.Send(q);
+        if (client.Send(q)) mHCHintDismissed = true;
         return true;
     }
 
@@ -443,6 +464,7 @@ class HCGroupMapMenu extends UIScriptedMenu
             mHCStatus.SetText("");
         mHCBound = null;
         mHCOpening = true;
+        mHCHintDismissed = false;
         // Inherited OnShow owns LockControls; release it exactly once here.
         super.OnHide();
     }

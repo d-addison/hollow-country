@@ -454,17 +454,54 @@ class HCGroupService
         { Reply(peer, request.RequestId, HCGroupCode.NOT_FOUND, true); return; }
         if ((request.Op == HCGroupOp.MARKER_CREATE || request.Op == HCGroupOp.MARKER_UPDATE) && (request.Position[0] > GetGame().GetWorld().GetWorldSize() || request.Position[2] > GetGame().GetWorld().GetWorldSize()))
         { Reply(peer, request.RequestId, HCGroupCode.INVALID, true); return; }
-        HCGroupState candidate;
-        if (!Clone(candidate)) { Reply(peer, request.RequestId, HCGroupCode.STORAGE, true); Stop(); return; }
-        // Durable expiry rides the batch; an expired marker never holds a slot.
-        HCGroupRules.ExpireMarkers(candidate, now, false);
-        int result = HCGroupRules.Apply(candidate, m_Config, request, uid, now);
-        if (result == HCGroupCode.OK) result = Commit(candidate);
+        int result = HCApplyMutation(request, uid, now);
         if (result == HCGroupCode.STORAGE)
         { Reply(peer, request.RequestId, HCGroupCode.STORAGE, true); Stop(); return; }
         Reply(peer, request.RequestId, result, true);
         if (result == HCGroupCode.OK) Broadcast();
         if (result == HCGroupCode.CONFLICT) SendSnapshot(peer, HCGroupSnapshotKind.FULL, request.RequestId);
+    }
+
+    // Shared transaction for map requests and the native nearby interaction.
+    // Every path retains INVITE's ACL, group/invite caps, expiry and persistence.
+    protected int HCApplyMutation(HCGroupRequest request, string uid, int now)
+    {
+        HCGroupState candidate;
+        if (!Clone(candidate)) return HCGroupCode.STORAGE;
+        HCGroupRules.ExpireMarkers(candidate, now, false);
+        int result = HCGroupRules.Apply(candidate, m_Config, request, uid, now);
+        if (result == HCGroupCode.OK) result = Commit(candidate);
+        return result;
+    }
+
+    // Native 1.30.164289: 3_Game/Entities/Man.c:21 GetIdentity;
+    // gameplay.c:368 GetId; Entities/Object.c:287,517 GetPosition/IsAlive;
+    // 4_World/Entities/ManBase/PlayerBase.c:3925 IsUnconscious.
+    int HCInviteNearby(PlayerBase actor, PlayerBase target)
+    {
+        if (!m_Healthy || !GetGame().IsServer()) return HCGroupCode.DISABLED;
+        if (!actor || !actor.GetIdentity() || !actor.IsAlive() || actor.IsUnconscious()) return HCGroupCode.DENIED;
+        HCGroupPeer peer = Peer(actor.GetIdentity().GetId());
+        if (!Live(peer) || peer.Player != actor || peer.Identity != actor.GetIdentity()) return HCGroupCode.DENIED;
+        if (!Admit(peer)) return HCGroupCode.RATE;
+        if (!target || target == actor || !target.IsAlive() || !target.GetIdentity()) return HCGroupCode.NOT_FOUND;
+        HCGroupPeer invitee = Peer(target.GetIdentity().GetId());
+        if (!Live(invitee) || invitee.Player != target || invitee.Identity != target.GetIdentity()) return HCGroupCode.NOT_FOUND;
+        vector reach = target.GetPosition() - actor.GetPosition();
+        if (reach[0] * reach[0] + reach[1] * reach[1] + reach[2] * reach[2] > 9.0) return HCGroupCode.DENIED;
+        HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
+        if (!group) return HCGroupCode.DENIED;
+        int now = HCGroupClock.Utc();
+        if (now < m_LastUtc) { Stop(); return HCGroupCode.DISABLED; }
+        m_LastUtc = now;
+        HCGroupRequest request = new HCGroupRequest;
+        request.Op = HCGroupOp.INVITE;
+        request.TargetId = invitee.Id;
+        request.ExpectedRevision = group.Revision;
+        int result = HCApplyMutation(request, peer.Id, now);
+        if (result == HCGroupCode.STORAGE) Stop();
+        if (result == HCGroupCode.OK) Broadcast();
+        return result;
     }
 
     bool Clone(out HCGroupState candidate)
@@ -692,6 +729,17 @@ class HCGroupService
         return changed;
     }
 
+    // Coarse quarter bands: zero is empty, 1..4 are the occupied quarters.
+    static int HCStatusBand(float value, float maximum)
+    {
+        if (!(maximum > 0) || !(value >= 0)) { return -1; }
+        if (value <= 0) { return 0; }
+        if (value <= maximum * 0.25) { return 1; }
+        if (value <= maximum * 0.5) { return 2; }
+        if (value <= maximum * 0.75) { return 3; }
+        return 4;
+    }
+
     HCGroupMember Member(string uid, HCGroupPeer recipient, bool position)
     {
         HCGroupMember member = new HCGroupMember;
@@ -716,6 +764,14 @@ class HCGroupService
                 member.Position = actual;
                 member.HasPosition = true;
                 member.SampleUtc = m_LastUtc;
+                // Native 1.30.164289: 3_Game/Entities/Object.c:994,1008 health/max;
+                // 4_World/Entities/ManBase/PlayerBase.c:2973,3925 bleeding/unconscious;
+                // 4_World/Classes/BleedingSources/BleedingSourcesManagerBase.c:321 count.
+                member.HealthBand = HCStatusBand(source.Player.GetHealth("", "Health"), source.Player.GetMaxHealth("", "Health"));
+                member.BloodBand = HCStatusBand(source.Player.GetHealth("", "Blood"), source.Player.GetMaxHealth("", "Blood"));
+                BleedingSourcesManagerServer bleeding = source.Player.GetBleedingManagerServer();
+                member.Bleeding = bleeding && bleeding.GetBleedingSourcesCount() > 0;
+                member.Unconscious = source.Player.IsUnconscious();
             }
         }
         return member;

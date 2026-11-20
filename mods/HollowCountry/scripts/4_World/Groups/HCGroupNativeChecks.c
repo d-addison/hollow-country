@@ -227,8 +227,8 @@ class HCGroupNativeChecks
         HCGroupSnapshot snapshot = new HCGroupSnapshot;
         HCGroupReply reply = new HCGroupReply;
         HCGroupReceipt receipt = new HCGroupReceipt;
-        if (!Require(HCGroupProtocol.VERSION == 3 && request.Version == 3, "wire_version")) return false;
-        if (!Require(snapshot.Version == 3 && reply.Version == 3, "wire_dto_version")) return false;
+        if (!Require(HCGroupProtocol.VERSION == 4 && request.Version == 4, "wire_version")) return false;
+        if (!Require(snapshot.Version == 4 && reply.Version == 4, "wire_dto_version")) return false;
         if (!Require(m_State.Version == 1 && receipt.Version == 1, "durable_version")) return false;
         if (!BeginCases()) return false;
         if (!MarkerCases()) return false;

@@ -49,7 +49,7 @@ class HCGroupSettingDefaults
 
 class HCGroupRequest
 {
-    int Version = 3;
+    int Version = 4;
     int RequestId = 0;
     int Op = 0;
     int ExpectedRevision = 0;
@@ -74,6 +74,11 @@ class HCGroupMember
     bool HasPosition = false;
     vector Position;
     int SampleUtc = 0;
+    // -1 means undisclosed, including candidates, offline and hidden members.
+    int HealthBand = -1;
+    int BloodBand = -1;
+    bool Bleeding = false;
+    bool Unconscious = false;
 }
 class HCGroupInvitation
 {
@@ -97,7 +102,7 @@ class HCGroupMarker
 }
 class HCGroupSnapshot
 {
-    int Version = 3;
+    int Version = 4;
     int Kind = 0;
     int RequestId = 0;
     // Session counter floor, not acknowledgment of the snapshot RequestId.
@@ -119,7 +124,7 @@ class HCGroupSnapshot
 }
 class HCGroupReply
 {
-    int Version = 3;
+    int Version = 4;
     int RequestId = 0;
     int LastMutationId = 0;
     int Code = 0;
@@ -188,4 +193,12 @@ class HCGroupPlaceCatalog
 {
     int SchemaVersion = 1;
     ref array<ref HCGroupPlace> Places = new array<ref HCGroupPlace>();
+}
+
+// Layer bridge: World actions consult the Mission snapshot cache. Preview only;
+// the server-owned INVITE rules remain the mutation authority.
+class HCGroupInviteBridge
+{
+    static ref HCGroupInviteBridge Client;
+    bool HCAllowsInvite(Object target) { return false; }
 }

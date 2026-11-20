@@ -1,5 +1,5 @@
 // Client cache only. Membership, permissions and mutations remain server-owned.
-class HCGroupClient
+class HCGroupClient : HCGroupInviteBridge
 {
     protected static ref HCGroupClient s_Instance;
     protected ref HCGroupSnapshot m_View;
@@ -24,6 +24,8 @@ class HCGroupClient
     protected float m_LastSend;
     protected float m_PositionsReceived;
     protected bool m_Listening;
+    protected bool m_CanInvite;
+    protected ref map<string, bool> m_InviteMembers = new map<string, bool>;
     protected string m_Notice = "Waiting for group service";
 
     static bool FrameOrder(int kind, int sequence, int lastSequence, int revision, int lastRevision, int groupId, int lastGroupId, int epoch, int lastEpoch)
@@ -154,6 +156,7 @@ class HCGroupClient
             m_SyncTicket = 0;
             m_Quarantined = false;
         }
+        HCRefreshInvitePreview();
         if (!frame.Enabled)
             ClearView();
         return true;
@@ -174,6 +177,7 @@ class HCGroupClient
             return;
         DayZGame.Event_OnRPC.Insert(OnRPC);
         m_Listening = true;
+        HCGroupInviteBridge.Client = this;
     }
 
     void Stop()
@@ -181,6 +185,7 @@ class HCGroupClient
         if (m_Listening)
             DayZGame.Event_OnRPC.Remove(OnRPC);
         m_Listening = false;
+        if (HCGroupInviteBridge.Client == this) HCGroupInviteBridge.Client = null;
         ResetSession();
         m_LocalPlayer = null;
         if (s_Instance == this)
@@ -190,6 +195,8 @@ class HCGroupClient
     void ClearView()
     {
         m_View = null;
+        m_CanInvite = false;
+        m_InviteMembers.Clear();
         m_PositionsReceived = 0;
     }
 
@@ -310,6 +317,10 @@ class HCGroupClient
         if (!HCGroupRules.TextValid(member.Name, 64, false))
             return false;
         if (member.Alive && !member.Online)
+            return false;
+        if (member.HealthBand < -1 || member.HealthBand > 4 || member.BloodBand < -1 || member.BloodBand > 4)
+            return false;
+        if (!member.HasPosition && (member.HealthBand != -1 || member.BloodBand != -1 || member.Bleeding || member.Unconscious))
             return false;
         if (member.HasPosition)
         {
@@ -455,6 +466,35 @@ class HCGroupClient
         return true;
     }
 
+    // Native 1.30.164289: 3_Game/Entities/Man.c:21 identity; gameplay.c:368 id.
+    // 1_Core/proto/EnScript.c:857,902,917 map Clear/Set/Contains.
+    // Rebuild only on accepted snapshots, capped by validated MaxMembers.
+    void HCRefreshInvitePreview()
+    {
+        m_CanInvite = false;
+        m_InviteMembers.Clear();
+        PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!m_View || !m_View.Enabled || m_View.GroupId < 1 || !viewer || !viewer.GetIdentity()) return;
+        string localId = viewer.GetIdentity().GetId();
+        foreach (HCGroupMember member : m_View.Members)
+        {
+            m_InviteMembers.Set(member.Id, true);
+            if (member.Id == localId && member.Role >= HCGroupRole.OFFICER) m_CanInvite = true;
+        }
+        if (m_View.Members.Count() >= m_View.Settings.MaxMembers) m_CanInvite = false;
+    }
+
+    override bool HCAllowsInvite(Object target)
+    {
+        if (!m_Listening || m_Quarantined || m_Pending || !m_CanInvite) return false;
+        PlayerBase other = PlayerBase.Cast(target);
+        if (!other) return false;
+        if (!other.GetIdentity()) return true;
+        string targetId = other.GetIdentity().GetId();
+        if (targetId == "") return true;
+        return !m_InviteMembers.Contains(targetId);
+    }
+
     void ReceiveReply(HCGroupReply reply)
     {
         if (!reply || reply.Version != HCGroupProtocol.VERSION || reply.Session != m_Session || !m_Pending)
@@ -557,6 +597,10 @@ class HCGroupClient
             {
                 member.HasPosition = false;
                 member.Position = vector.Zero;
+                member.HealthBand = -1;
+                member.BloodBand = -1;
+                member.Bleeding = false;
+                member.Unconscious = false;
             }
         }
     }
