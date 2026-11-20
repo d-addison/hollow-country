@@ -42,7 +42,6 @@ class HCSearchHouseJournal
     protected ref map<string, int> m_Sites = new map<string, int>;
     protected ref array<string> m_ReleasedSites = new array<string>;
     protected ref HCSearchRetirementStore m_Retired;
-    protected ref map<string, bool> m_LegacyNames = new map<string, bool>;
 
     bool Fail(string reason)
     {
@@ -73,8 +72,9 @@ class HCSearchHouseJournal
     {
         if (m_Supplies.Contains(supplyId)) { return true; }
         if (m_Retired && m_Retired.Contains(supplyId)) { return true; }
-        // Legacy files are immutable until retirement; cache their names at open.
-        return m_LegacyNames.Contains("spent_" + supplyId + ".json");
+        // One validated existence probe, independent of legacy directory size.
+        string legacyPath = TombstonePath(supplyId);
+        return legacyPath != "" && FileExist(legacyPath);
     }
 
     string TombstonePath(string supplyId)
@@ -150,25 +150,8 @@ class HCSearchHouseJournal
         {
             if (!EnsureRetirement()) { return false; }
         }
-        CacheLegacyNames();
         if (!Restore()) return false;
         return true;
-    }
-
-    // Native 1_Core/proto/EnSystem.c:520-522 directory enumeration; immutable
-    // legacy names are loaded once with journal recovery, never probed per supply.
-    protected void CacheLegacyNames()
-    {
-        string name;
-        FileAttr attributes;
-        FindFileHandle handle = FindFile(m_Root + "/spent_*.json", name, attributes, FindFileFlags.DIRECTORIES);
-        bool more = name != "";
-        while (more)
-        {
-            m_LegacyNames.Set(name, true);
-            more = FindNextFile(handle, name, attributes);
-        }
-        CloseFindFile(handle);
     }
 
     string PathFor(int index, string kind)

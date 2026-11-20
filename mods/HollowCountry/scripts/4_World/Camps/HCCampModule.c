@@ -148,6 +148,7 @@ class HCCampModule : HCModule
     protected static bool s_FireCapLogged;
     protected ref HCCampSaveJob m_SaveJob;
     protected int m_CheckpointRevision;
+    protected int m_CheckpointSnapshotRevision;
     protected int m_DurableRevision;
     protected ref array<ref HCCampRecognition> m_Recognitions = new array<ref HCCampRecognition>;
     protected ref HCCampRecord m_VisitorCamp;
@@ -271,6 +272,8 @@ class HCCampModule : HCModule
     }
 
     HCSaveJob HCCheckpointJob() { return m_SaveJob; }
+    bool HCCheckpointInFlight() { return m_CheckpointWriter.SaveInFlight(); }
+    bool HCPendingCheckpoint() { return m_Running && m_CheckpointRevision > m_DurableRevision; }
     int HCRequestCheckpoint(int now, bool barrier = true)
     {
         if (!m_Running || !m_SaveJob || now < m_LastUtc) { Fail(); return -1; }
@@ -311,11 +314,14 @@ class HCCampModule : HCModule
         {
             m_CheckpointUtc = now;
             if (!HCCampStore.CanCheckpoint(m_Data, now)) { Fail(); return HCSaveJob.STEP_FAILED; }
+            m_CheckpointSnapshotRevision = m_CheckpointRevision;
         }
-        int result = m_CheckpointWriter.SaveStep(HCCampStore.PATH, m_Data, HCCampStore.BYTES, m_CheckpointRevision);
+        // Keep this image fixed. Later mutations belong to the next snapshot,
+        // which must yield to other jobs before acquiring the writer again.
+        int result = m_CheckpointWriter.SaveStep(HCCampStore.PATH, m_Data, HCCampStore.BYTES, m_CheckpointSnapshotRevision);
         if (result == HCSaveJob.STEP_FAILED) { Fail(); }
         // Use the snapshot timestamp so a later automatic Commit remains due.
-        if (result == HCSaveJob.STEP_DONE) { m_LastSaved = m_CheckpointUtc; m_DurableRevision = m_CheckpointRevision; if (m_SaveJob) { m_SaveJob.HCDirty = false; m_SaveJob.HCUrgent = false; } }
+        if (result == HCSaveJob.STEP_DONE) { m_LastSaved = m_CheckpointUtc; m_DurableRevision = m_CheckpointSnapshotRevision; }
         return result;
     }
 
@@ -750,6 +756,7 @@ class HCCampSaveJob : HCSaveJob
 {
     HCCampModule Owner;
     override string HCName() { return "Camps"; }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCPendingCheckpoint(); }
     override int HCStep()
     {
         if (!Owner) { return STEP_FAILED; }

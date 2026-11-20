@@ -81,6 +81,8 @@ class HCSaveJob
     bool HCFaulted;
     int HCPeakTicks;   // slowest stage logged so far; the [HC Save] line prints only on a new peak
     string HCName() { return "job"; }
+    // Snapshot owners may have newer requests after a committed image.
+    bool HCPendingCheckpoint() { return false; }
     bool HCWrite() { return false; }
     int HCStep()
     {
@@ -169,13 +171,13 @@ class HCSaveScheduler : HCModule
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
-        while (result == HCSaveJob.STEP_MORE && guard < config.SaveFlushStageLimit)
+        while ((result == HCSaveJob.STEP_MORE || (result == HCSaveJob.STEP_DONE && job.HCPendingCheckpoint())) && guard < config.SaveFlushStageLimit)
         {
             result = job.HCStep();
             guard = guard + 1;
         }
         job.HCInFlight = false;
-        if (result != HCSaveJob.STEP_DONE)
+        if (result != HCSaveJob.STEP_DONE || job.HCPendingCheckpoint())
         {
             job.HCFaulted = true;
             Print("[HC WorldRuntime] save_flush_failed job=" + job.HCName() + " stages=" + guard.ToString() + " runtime=PENDING");
@@ -201,7 +203,7 @@ class HCSaveScheduler : HCModule
         if (!job || job.HCFaulted || !job.HCUrgent || !job.HCDirty || (HCPerfConfig.HCGet().EnableSharedSaves && HCRegistered(job))) { return; }
         int result = job.HCStep();
         job.HCInFlight = result == HCSaveJob.STEP_MORE;
-        if (result == HCSaveJob.STEP_DONE) { job.HCDirty = false; job.HCUrgent = false; }
+        if (result == HCSaveJob.STEP_DONE) { job.HCDirty = job.HCPendingCheckpoint(); if (!job.HCDirty) { job.HCUrgent = false; } }
         if (result == HCSaveJob.STEP_FAILED) { job.HCFaulted = true; }
     }
 
@@ -237,8 +239,8 @@ class HCSaveScheduler : HCModule
         m_Active = null;
         if (result == HCSaveJob.STEP_DONE)
         {
-            job.HCDirty = false;
-            job.HCUrgent = false;
+            job.HCDirty = job.HCPendingCheckpoint();
+            if (!job.HCDirty) { job.HCUrgent = false; }
             job.HCDue = now + config.SaveCoalesceSeconds;
             if (m_StageMax > job.HCPeakTicks)
             {

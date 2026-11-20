@@ -377,6 +377,9 @@ class HCBuildingClaim
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !groups.HCClaimHealthy()) { return; }
         HCHintRound(groups);
+        // Preserve the fixed checkpoint image; online time still advances so
+        // the existing capped absence credit accounts for the paused walk.
+        if (m_Owner.HCCheckpointInFlight()) { return; }
         if (m_Data.Claims.Count() == 0) { return; }
         m_Units.HCReset(40);
         m_Work.HCReset(40);
