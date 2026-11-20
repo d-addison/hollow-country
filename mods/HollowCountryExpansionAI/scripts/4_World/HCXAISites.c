@@ -232,6 +232,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
     override void SetupAI(eAIBase ai)
     {
         super.SetupAI(ai);
+        HCXAffiliationCues.Actor(ai, m_Faction);
         ai.eAI_SetUnlimitedReload(0);
         ai.eAI_SetLootingBehavior(0);
         ai.m_eAI_EnableFlankingOutsideCombat = false;
