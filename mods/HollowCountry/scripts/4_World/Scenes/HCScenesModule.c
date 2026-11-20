@@ -46,7 +46,8 @@ class HCScenesModule : HCModule
     protected ref array<ref HCSceneLease> m_Leases = new array<ref HCSceneLease>();
     protected int m_Cursor;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
-    protected ref HCSceneSaveJob m_SaveJob;
+    protected ref HCSaveJob m_SaveJob;
+    protected int m_StoryOfferPending;
     protected int m_Placed;
     protected int m_Refused;
     // Last refusal per retained chain; release keys when a terminal row is released.
@@ -146,9 +147,7 @@ class HCScenesModule : HCModule
         }
         m_LastNow = now;
         m_Stopping = false;
-        m_SaveJob = new HCSceneSaveJob;
-        m_SaveJob.Owner = this;
-        HCSaveScheduler.HCRegister(m_SaveJob);
+        m_SaveJob = m_Store.HCCheckpointJob(m_State);
         m_Running = true;
         s_DebugOwner = this;
         if (!m_SummaryPrinted) { Summary(); }
@@ -166,14 +165,13 @@ class HCScenesModule : HCModule
     bool Commit(int now)
     {
         m_State.LastNow = now;
-        if (m_Store.Save(m_State))
+        if (m_Store.HCRequestCheckpoint(m_State) < 0)
         {
-            SaveBarrierDone();
-            return true;
+            m_Fault = "scene_save_failed";
+            OnStop();
         }
-        m_Fault = "scene_save_failed";
-        m_Running = false;
-        OnStop();
+        // The chain/event identity is retained. Next Work revalidates its site,
+        // kit and director after the shared checkpoint completes.
         return false;
     }
 
@@ -201,21 +199,9 @@ class HCScenesModule : HCModule
         if (m_State.Stories) { nextSequence = m_State.Stories.NextSequence; }
         if (m_Stories.HCStep(now, released))
         {
-            SaveBarrierDone();
-            // HCStep returned only after its synchronous story save succeeded.
-            // Retirement also saves: offer only a newly issued identity.
             if (m_State.Stories && m_State.Stories.NextSequence != nextSequence)
             {
-                HCWildlifeScenes wildlife = HCEcologyRuntimeModule.HCWildlife();
-                foreach (HCSceneChain arrived : m_State.Chains)
-                {
-                    if (arrived.StorySequence == m_State.Stories.NextSequence - 1)
-                    {
-                        HCEventModule.HCStoryArrived(arrived);
-                        if (wildlife) { wildlife.HCOffer(arrived, m_State); }
-                        break;
-                    }
-                }
+                m_StoryOfferPending = m_State.Stories.NextSequence - 1;
             }
             return;
         }
@@ -335,6 +321,28 @@ class HCScenesModule : HCModule
         if (m_AdvertiseRefusals.Find(key) >= 0 || m_AdvertiseRefusals.Count() >= 12) { return; }
         m_AdvertiseRefusals.Insert(key);
         Print("[HollowCountry] V2 scene advertise refused id=" + lease.ChainId + " stage=" + lease.Stage.ToString() + " reason=" + reason + "; retry pending");
+    }
+
+    // Re-run the established clearance check after waiting for a note receipt.
+    static bool HCNotePlacementAllowed(string sceneId, vector position)
+    {
+        if (!s_DebugOwner || !s_DebugOwner.m_Running) { return false; }
+        HCSceneLease lease = s_DebugOwner.Lease(sceneId);
+        if (!lease || lease.Closing || !HCSceneKits.Healthy(lease)) { return false; }
+        for (int index = 0; index < s_DebugOwner.m_State.Chains.Count(); index++)
+        {
+            HCSceneChain chain = s_DebugOwner.m_State.Chains[index];
+            if (chain.Id != sceneId || chain.Complete || chain.Cancelled) { continue; }
+            HCEventSite site = HCSceneChains.HCPlanSite(s_DebugOwner.m_State.Catalog.Chains[index]);
+            HCSceneKit kit = new HCSceneKit;
+            kit.Id = "scene-paper";
+            HCSceneKits.Add(kit, "Paper", 0, 7, 0, 0.3);
+            array<vector> positions;
+            int variant;
+            if (!site || !HCSceneKits.Preflight(kit, site, positions, variant) || positions.Count() < 1) { return false; }
+            return vector.DistanceSq(position, positions[0]) < 0.01;
+        }
+        return false;
     }
 
     static bool SceneNote(HCNoteLedger notes, HCWorldLead lead, string sceneId, string placeId, vector position, int now)
@@ -536,6 +544,22 @@ class HCScenesModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !GetGame() || !GetGame().IsServer()) { return; }
+        m_Store.HCPumpCheckpoint();
+        if (!m_Store.HCCheckpointHealthy()) { m_Fault = "scene_save_failed"; OnStop(); return; }
+        if (m_Store.HCCheckpointPending()) { return; }
+        if (m_StoryOfferPending > 0)
+        {
+            HCWildlifeScenes wildlife = HCEcologyRuntimeModule.HCWildlife();
+            foreach (HCSceneChain arrived : m_State.Chains)
+            {
+                if (arrived.StorySequence != m_StoryOfferPending) { continue; }
+                HCEventModule.HCStoryArrived(arrived);
+                if (wildlife) { wildlife.HCOffer(arrived, m_State); }
+                break;
+            }
+            m_StoryOfferPending = 0;
+            if (m_Store.HCCheckpointPending()) { return; }
+        }
         m_WorkElapsed = m_WorkElapsed + deltaTime;
         m_LogElapsed = m_LogElapsed + deltaTime;
         m_WorkBudget.HCReset(1);
@@ -570,10 +594,10 @@ class HCScenesModule : HCModule
             Work(now);
             // ResumeAfterGap must see the old heartbeat before HCCommit writes
             // LastNow. A Work barrier already used this slot's synchronous save.
-            if (m_Running && m_State.Revision == revision) { StoryStep(now); }
+            if (m_Running && !m_Store.HCCheckpointPending() && m_State.Revision == revision) { StoryStep(now); }
             // Persist a heartbeat even while every chain is waiting; otherwise
             // an ordinary long stage would be mistaken for server downtime.
-            if (m_Running && now - m_State.LastNow >= 60) { m_SaveJob.HCDirty = true; }
+            if (m_Running && now - m_State.LastNow >= 60) { m_State.LastNow = now; m_Store.HCRequestCheckpoint(m_State, false); }
         }
         if (m_LogElapsed >= 600)
         {
@@ -656,17 +680,6 @@ class HCScenesModule : HCModule
         s_CleanupOwner = this;
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(CleanupStopped);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CleanupStopped, 10000, true);
-    }
-}
-
-class HCSceneSaveJob : HCSaveJob
-{
-    override string HCName() { return "Scenes"; }
-    HCScenesModule Owner;
-    override int HCStep()
-    {
-        if (!Owner) { return HCSaveJob.STEP_FAILED; }
-        return Owner.HCStepRoutine();
     }
 }
 

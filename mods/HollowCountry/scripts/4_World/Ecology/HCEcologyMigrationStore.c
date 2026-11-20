@@ -99,22 +99,38 @@ class HCEcologyMigrationStore
 		return state;
 	}
 
-	bool Save(HCEcologyMigrationJournal state)
-	{
-		if (!HCEcologyMigrationNative.BuildSupported()) { return false; }
-		if (m_Fault || !HCEcologyMigrationRules.JournalValid(state, m_World)) { return false; }
-		if (state.Revision != m_Revision + 1) { return false; }
-		string text = HCEcologyMigrationIO.Encode(state);
-		if (text.Length() < 1 || text.Length() > 16384) { return false; }
-		string imagePath = m_Root + "/migration-state-" + m_World + ".json";
-		string pendingPath = m_Root + "/migration-pending-" + m_World + ".json";
-		m_Fault = true;
-		if (!HCEcologyRuntimeIO.WriteNew(pendingPath, text, 16384)) { return false; }
-		if (!HCEcologyRuntimeIO.Write(imagePath, text, 16384)) { return false; }
-		if (HCEcologyRuntimeIO.Read(imagePath, 16384) != text) { return false; }
-		if (!DeleteFile(pendingPath)) { return false; }
-		m_Revision = state.Revision;
-		m_Fault = false;
-		return true;
-	}
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
+    protected int m_SaveRevision;
+
+    int SaveStep(HCEcologyMigrationJournal state)
+    {
+        if (m_Fault || !HCEcologyMigrationNative.BuildSupported()) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Image.Active())
+        {
+            if (!HCEcologyMigrationRules.JournalValid(state, m_World) || state.Revision != m_Revision + 1) { m_Fault = true; return HCSaveJob.STEP_FAILED; }
+            string text = HCEcologyMigrationIO.Encode(state);
+            string imagePath = m_Root + "/migration-state-" + m_World + ".json";
+            string pendingPath = m_Root + "/migration-pending-" + m_World + ".json";
+            if (!m_Image.Begin(imagePath, text, 16384, false, false, "", HCStagedSaveImage.HC_IMAGE_REPLACE, pendingPath)) { m_Fault = true; return HCSaveJob.STEP_FAILED; }
+            m_SaveRevision = state.Revision;
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_Image.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { m_Fault = true; }
+        if (result == HCSaveJob.STEP_DONE) { m_Revision = m_SaveRevision; }
+        return result;
+    }
+
+    bool Save(HCEcologyMigrationJournal state)
+    {
+        int result = HCSaveJob.STEP_MORE;
+        int stages;
+        // Open/recovery only. Runtime prepares/completions queue the same stages.
+        while (result == HCSaveJob.STEP_MORE && stages < HCStagedSaveImage.HC_MAX_STAGES)
+        {
+            result = SaveStep(state);
+            stages++;
+        }
+        return result == HCSaveJob.STEP_DONE;
+    }
 }

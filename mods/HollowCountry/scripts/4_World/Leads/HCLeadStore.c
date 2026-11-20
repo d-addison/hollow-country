@@ -74,9 +74,10 @@ class HCLeadStore
     protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected int m_SaveStage;
     protected int m_Revision;
+    protected int m_DurableRevision;
     protected int m_SnapshotRevision;
     protected string m_PendText;
-    protected string m_PendPrior;
+    protected string m_VerifiedText;
     protected string m_Path = "$profile:HollowCountry/leads.json";
 
     static HCLeadStore Get() { return s_Instance; }
@@ -316,7 +317,8 @@ class HCLeadStore
         if (FileExist(m_Path + ".tmp")) { return Fault(); }
         if (FileExist(m_Path))
         {
-            Data = Decode(HCWorldStore.Read(m_Path));
+            m_VerifiedText = HCWorldStore.Read(m_Path);
+            Data = Decode(m_VerifiedText);
             if (!Data) { return Fault(); }
         }
         else
@@ -349,6 +351,18 @@ class HCLeadStore
         m_SaveJob.HCDirty = true;
     }
 
+    int HCRequestBarrier()
+    {
+        if (!m_Healthy || !m_SaveJob) { return -1; }
+        HCRequestCheckpoint();
+        m_SaveJob.HCUrgent = true;
+        m_SaveJob.HCDue = GetGame().GetTickTime();
+        return m_Revision;
+    }
+
+    bool HCDurable(int revision) { return m_Healthy && revision >= 0 && m_DurableRevision >= revision; }
+    void HCPumpCheckpoint() { HCSaveScheduler.HCPumpFallback(m_SaveJob); }
+
     void HCCloseCheckpoint()
     {
         if (!m_SaveJob) { return; }
@@ -361,7 +375,6 @@ class HCLeadStore
     {
         m_SaveStage = 0;
         m_PendText = "";
-        m_PendPrior = "";
         Fault();
         return HCSaveJob.STEP_FAILED;
     }
@@ -387,26 +400,20 @@ class HCLeadStore
             if (!JsonFileLoader<HCLeadData>.MakeData(Data, m_PendText, error)) { return HCSaveFailed(); }
             if (m_PendText.Length() > HCWorldStore.MAX_BYTES) { return HCSaveFailed(); }
             m_SnapshotRevision = m_Revision;
-            m_PendPrior = "";
             m_SaveStage = 1;
             return HCSaveJob.STEP_MORE;
         }
         if (m_SaveStage == 1)
         {
-            HCSaveJob.HCOperation = "read_prior";
-            if (FileExist(m_Path))
-            {
-                m_PendPrior = HCWorldStore.Read(m_Path);
-                if (!Decode(m_PendPrior)) { m_FaultAt = "save_prior_" + m_FaultAt; return HCSaveFailed(); }
-            }
+            // The startup decoder/last commit already validated this exact
+            // image; stream its comparison at the shared prior-read boundary.
             m_SaveStage = 2;
-            return HCSaveJob.STEP_MORE;
         }
         if (m_SaveStage == 2)
         {
             if (m_SnapshotRevision != m_Revision) { m_SaveStage = 0; return HCSaveJob.STEP_MORE; }
             m_FaultAt = "save_commit";
-            if (!m_SaveImage.Begin(m_Path, m_PendText, HCWorldStore.MAX_BYTES, m_PendPrior != "", false)) { return HCSaveFailed(); }
+            if (!m_SaveImage.Begin(m_Path, m_PendText, HCWorldStore.MAX_BYTES, m_VerifiedText != "", m_VerifiedText != "", m_VerifiedText)) { return HCSaveFailed(); }
             m_SaveStage = 3;
         }
         // Never clear intent over an obsolete cleanup snapshot: a crash must
@@ -427,27 +434,28 @@ class HCLeadStore
         if (result == HCSaveJob.STEP_FAILED) { return HCSaveFailed(); }
         if (result == HCSaveJob.STEP_MORE) { return result; }
         m_SaveStage = 0;
+        m_VerifiedText = m_PendText;
         m_PendText = "";
-        m_PendPrior = "";
         if (m_SnapshotRevision != m_Revision) { return HCSaveJob.STEP_MORE; }
+        m_DurableRevision = m_SnapshotRevision;
         return HCSaveJob.STEP_DONE;
     }
 
     bool Save()
     {
         if (!m_Healthy) { return false; }
-        // Creation/read receipts finish any disk intent before serializing Data.
-        if (m_SaveImage.Active() && !m_SaveImage.Finish()) { HCSaveFailed(); return false; }
-        m_SaveStage = 0;
+        // Force freshness through the same continuation, including an older
+        // intent already in flight. Never bypass its verified-image bookkeeping.
+        m_Revision++;
         if (m_SaveJob) { m_SaveJob.HCInFlight = false; }
         int result = HCSaveJob.STEP_MORE;
         int steps;
-        while (result == HCSaveJob.STEP_MORE && steps < 8)
+        while (result == HCSaveJob.STEP_MORE && steps < HCStagedSaveImage.HC_MAX_STAGES * 2 + 6)
         {
             result = HCCheckpointStep();
             steps++;
         }
-        if (m_SaveJob) { m_SaveJob.HCDirty = false; }
+        if (m_SaveJob && result == HCSaveJob.STEP_DONE) { m_SaveJob.HCDirty = false; m_SaveJob.HCUrgent = false; }
         return result == HCSaveJob.STEP_DONE;
     }
 

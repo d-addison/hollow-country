@@ -91,6 +91,7 @@ class HCSituationProfileRow
     bool Enabled;
     int LifetimeSeconds;
     bool Attempted;
+    bool EndPending;
     ref HCSituationState Opportunity;
     ref HCSituationActorPort Actors;
 }
@@ -222,7 +223,7 @@ class HCSituationDirector
 
     protected bool HCCommit()
     {
-        if (m_Fault || !HCHistoryValid(m_State.Stories) || !m_Store.Save(m_State))
+        if (m_Fault || !HCHistoryValid(m_State.Stories) || m_Store.HCRequestCheckpoint(m_State) < 0)
         {
             m_Fault = true;
             m_Enabled = false;
@@ -321,7 +322,7 @@ class HCSituationDirector
 
     bool HCOffer(HCSceneChain chain)
     {
-        if (!m_Enabled || !chain) { return false; }
+        if (!m_Enabled || !chain || m_Store.HCCheckpointPending()) { return false; }
         if (chain.Complete || chain.Cancelled || m_State.Chains.Find(chain) < 0) { return false; }
         if (chain.StorySequence <= m_State.Stories.LegacyThrough || chain.StorySequence >= m_State.Stories.NextSequence) { return false; }
         bool changed = false;
@@ -369,7 +370,7 @@ class HCSituationDirector
         slot.Opportunity.Phase = "closed";
         slot.Opportunity.Outcome = outcome;
         if (!HCCommit()) { return false; }
-        slot.Actors.HCEnd(slot.Opportunity);
+        slot.EndPending = true;
         return true;
     }
 
@@ -408,8 +409,15 @@ class HCSituationDirector
             row.Lease = lease;
             row.Phase = "intent";
             if (slot.Profile == "survivor") { m_Effective = "ready"; m_Reason = "observed_actor_port_ready"; }
-            if (!HCCommit()) { return; }
-            if (!slot.Actors.HCBegin(row)) { HCFinish(slot, "unknown"); return; }
+            HCCommit();
+            return; // intent must commit before the retained actor can begin
+
+        }
+        if (row.Phase == "intent" && slot.Attempted)
+        {
+            // HCBegin re-resolves this exact lease and checks current native
+            // ownership, exclusions and living roster; selection is never replayed.
+            if (!slot.Actors || !slot.Actors.HCReady() || !slot.Actors.HCBegin(row)) { HCFinish(slot, "unknown"); return; }
             row.Phase = "active";
             HCCommit();
             return;
@@ -423,6 +431,16 @@ class HCSituationDirector
     void HCStep(int now)
     {
         if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return; }
+        m_Store.HCPumpCheckpoint();
+        if (!m_Store.HCCheckpointHealthy()) { m_Fault = true; m_Enabled = false; m_Reason = "SITUATION_STORE_UNCERTAIN"; HCReport(); return; }
+        if (m_Store.HCCheckpointPending()) { return; }
+        foreach (HCSituationProfileRow ended : m_Rows)
+        {
+            if (!ended.EndPending) { continue; }
+            ended.EndPending = false;
+            if (ended.Actors) { ended.Actors.HCEnd(ended.Opportunity); }
+            return;
+        }
         if (now < m_State.LastNow || now > 999000000) { return; }
         m_Units.HCReset(1);
         m_Work.HCReset(1);
@@ -438,6 +456,7 @@ class HCSituationDirector
         if (needsOffer && m_State.Chains && m_State.Chains.Count() > 0)
         {
             HCOffer(m_State.Chains[m_Cursor % m_State.Chains.Count()]);
+            if (m_Store.HCCheckpointPending()) { return; }
         }
         // Find one retained nonterminal row; bounded by the five-profile cap.
         // Empty/off rows cost no actor calls; survivor-only cadence is unchanged.
@@ -455,16 +474,24 @@ class HCSituationDirector
 
     void HCClose()
     {
-        // Clear bindings after a single release even when a close barrier fails.
+        // Shutdown is the explicit synchronous flush boundary. Persist closed
+        // receipts before releasing live actor bindings; never replay an intent.
+        foreach (HCSituationProfileRow closing : m_Rows)
+        {
+            HCSituationState row = closing.Opportunity;
+            if (row && closing.Actors && (row.Phase == "intent" || row.Phase == "active") && !m_Fault)
+            {
+                HCFinish(closing, "unknown");
+            }
+        }
+        if (m_Store && !m_Store.HCFlushCheckpoint()) { m_Fault = true; }
         foreach (HCSituationProfileRow slot : m_Rows)
         {
-            HCSituationState row = slot.Opportunity;
-            if (row && slot.Actors && (row.Phase == "intent" || row.Phase == "active"))
+            if (slot.Actors && slot.Opportunity && (slot.EndPending || slot.Opportunity.Phase == "intent" || slot.Opportunity.Phase == "active"))
             {
-                bool ended = false;
-                if (!m_Fault) { ended = HCFinish(slot, "unknown"); }
-                if (!ended) { slot.Actors.HCEnd(row); }
+                slot.Actors.HCEnd(slot.Opportunity);
             }
+            slot.EndPending = false;
             slot.Actors = null;
         }
         m_Enabled = false;

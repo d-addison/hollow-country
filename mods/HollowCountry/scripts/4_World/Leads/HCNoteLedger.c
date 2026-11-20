@@ -93,10 +93,19 @@ class HCNoteTextMatches
     }
 }
 
+// Session-only continuation; reservations persist, native creation never replays.
+class HCPendingNote
+{
+    ref HCLeadNote Entry;
+    vector Position;
+    int Revision;
+}
+
 class HCNoteLedger : HCModule
 {
     protected static HCNoteLedger s_Instance;
     protected ref HCLeadStore m_Store;
+    protected ref array<ref HCPendingNote> m_PendingNotes = new array<ref HCPendingNote>;
     protected float m_Elapsed;
     protected float m_LogElapsed = 600;
     protected int m_LastCount = -1;
@@ -252,9 +261,30 @@ class HCNoteLedger : HCModule
         entry.Lead = HCLeadPolicy.Copy(lead);
         entry.Expires = lead.Expires;
         m_Store.Data.Notes.Insert(entry);
-        // Durable reservation precedes entity creation. An interrupted spawn is
-        // quarantined in its slot, never replayed into a second physical note.
-        if (!m_Store.Save()) { return null; }
+        HCPendingNote pending = new HCPendingNote;
+        pending.Entry = entry;
+        pending.Position = position;
+        pending.Revision = m_Store.HCRequestBarrier();
+        if (pending.Revision < 0) { return null; }
+        m_PendingNotes.Insert(pending); // <=10, charged against Data.Notes immediately
+        return null;
+    }
+
+    void HCAdvancePendingNote()
+    {
+        if (m_PendingNotes.Count() < 1) { return; }
+        HCPendingNote pending = m_PendingNotes[0];
+        if (!m_Store.HCDurable(pending.Revision)) { return; }
+        m_PendingNotes.RemoveOrdered(0); // at most one native creation per tick
+        HCLeadNote entry = pending.Entry;
+        HCWorldLead lead = entry.Lead;
+        vector position = pending.Position;
+        string text = entry.NativeText;
+        if (entry.Expires <= HCWorldClock.UTC() || !HCScenesModule.HCNotePlacementAllowed(entry.Row.SceneId, position))
+        {
+            // Keep the durable reservation: a changed scene is not spawn permission.
+            return;
+        }
         Paper paper = Paper.Cast(GetGame().CreateObjectEx("Paper", position, ECE_PLACE_ON_SURFACE));
         if (!paper || !paper.GetWrittenNoteData())
         {
@@ -262,7 +292,7 @@ class HCNoteLedger : HCModule
             m_Store.Data.Notes.RemoveItem(entry);
             m_Store.HCRequestCheckpoint(); // rollback of an unspawned note; the reservation barrier above already held
             RadioFallback(lead);
-            return null;
+            return;
         }
         paper.GetWrittenNoteData().SetNoteText(text);
         if (paper.GetWrittenNoteData().GetNoteText() != text)
@@ -271,18 +301,18 @@ class HCNoteLedger : HCModule
             m_Store.Data.Notes.RemoveItem(entry);
             m_Store.HCRequestCheckpoint(); // rollback of an unspawned note; the reservation barrier above already held
             RadioFallback(lead);
-            return null;
+            return;
         }
         paper.HCAssignNote(entry.Row.Id);
         // Leave cleanup time before native CE expiry; carried/offline items
         // remain reserved until positively identified on a later load.
-        paper.SetLifetime(entry.Expires - entry.Row.CreatedAt + 3600);
+        paper.SetLifetime(entry.Expires - HCWorldClock.UTC() + 3600);
         entry.Phase = 1;
         m_Store.HCRequestCheckpoint(); // materialized marker; the reserved row is already durable
         LogCount();
         // A factual note never implies a death or authorizes a corpse/cache.
         m_Store.HCPlan("ready", "note_reserved_once");
-        return paper;
+        return;
     }
 
     void Read(PlayerBase player, Paper paper)
@@ -303,6 +333,7 @@ class HCNoteLedger : HCModule
     {
         if (!m_Ready || !m_Store || !(deltaTime > 0)) { return; }
         if (!m_Store.Healthy()) { HCRefuse("LEAD_STORE_UNCERTAIN"); return; }
+        HCAdvancePendingNote();
         m_Elapsed += deltaTime;
         m_LogElapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
@@ -350,6 +381,7 @@ class HCNoteLedger : HCModule
     {
         m_Ready = false;
         if (m_Store) { m_Store.HCCloseCheckpoint(); }
+        m_PendingNotes.Clear();
         m_Store = null;
         s_Instance = null;
         m_Status.HCPublish("off", "stopped");

@@ -32,6 +32,7 @@ class HCV2ThreatStore<Class T>
 
     protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected bool m_SaveFault;
+    protected int m_SnapshotRevision;
 
     bool SaveInFlight() { return m_SaveImage.Active(); }
     bool FinishSave()
@@ -46,7 +47,7 @@ class HCV2ThreatStore<Class T>
     // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
     // copy_backup retains old primary/backup + intent; copy_primary/read_primary
     // retain new primary, old backup and intent; clear_intent admits new primary.
-    int SaveStep(string path, T state, int limit)
+    int SaveStep(string path, T state, int limit, int revision = 0)
     {
         if (m_SaveFault) { return HCSaveJob.STEP_FAILED; }
         if (!m_SaveImage.Active())
@@ -59,6 +60,15 @@ class HCV2ThreatStore<Class T>
                 m_SaveFault = true;
                 return HCSaveJob.STEP_FAILED;
             }
+            m_SnapshotRevision = revision;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_SaveImage.HCReadyToClearIntent() && revision != m_SnapshotRevision)
+        {
+            string refreshed;
+            string refreshError;
+            if (!JsonFileLoader<T>.MakeData(state, refreshed, refreshError) || !m_SaveImage.HCRefreshIntent(refreshed)) { m_SaveFault = true; return HCSaveJob.STEP_FAILED; }
+            m_SnapshotRevision = revision;
             return HCSaveJob.STEP_MORE;
         }
         int result = m_SaveImage.HCStepImage();

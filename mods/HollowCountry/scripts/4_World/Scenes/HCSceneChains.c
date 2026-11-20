@@ -378,6 +378,46 @@ class HCSceneChainStore
         return state;
     }
 
+    protected ref HCSceneCheckpointJob m_Checkpoint;
+    protected ref HCSceneChainState m_CheckpointState;
+    protected int m_Mutations;
+    protected int m_SnapshotMutations;
+    protected int m_DurableMutations;
+
+    HCSaveJob HCCheckpointJob(HCSceneChainState state)
+    {
+        if (!m_Checkpoint)
+        {
+            m_CheckpointState = state;
+            m_Checkpoint = new HCSceneCheckpointJob;
+            m_Checkpoint.Owner = this;
+            HCSaveScheduler.HCRegister(m_Checkpoint);
+        }
+        return m_Checkpoint;
+    }
+
+    int HCRequestCheckpoint(HCSceneChainState state, bool barrier = true)
+    {
+        HCSaveJob job = HCCheckpointJob(state);
+        if (m_Fault || job.HCFaulted || m_CheckpointState != state) { return -1; }
+        m_Mutations++;
+        job.HCDirty = true;
+        if (barrier) { job.HCUrgent = true; job.HCDue = GetGame().GetTickTime(); }
+        return m_Mutations;
+    }
+
+    bool HCCheckpointPending() { return m_Checkpoint && (m_Checkpoint.HCDirty || m_Checkpoint.HCInFlight); }
+    bool HCDurable(int mutation) { return !m_Fault && mutation >= 0 && m_DurableMutations >= mutation; }
+    void HCPumpCheckpoint() { HCSaveScheduler.HCPumpFallback(m_Checkpoint); }
+    bool HCFlushCheckpoint() { return HCSaveScheduler.HCFlush(m_Checkpoint); }
+    bool HCCheckpointHealthy() { return !m_Fault && (!m_Checkpoint || !m_Checkpoint.HCFaulted); }
+
+    int HCStepCheckpoint()
+    {
+        if (!m_CheckpointState) { return HCSaveJob.STEP_FAILED; }
+        return SaveStep(m_CheckpointState);
+    }
+
     bool SaveInFlight() { return m_SaveStage != 0; }
 
     // Only pre-intent snapshots may be abandoned. Once intent work begins,
@@ -435,25 +475,34 @@ class HCSceneChainStore
             state.Revision = m_Revision;
             if (encoded == "") { return SaveFailed(); }
             m_PendText = encoded;
+            m_SnapshotMutations = m_Mutations;
             m_PendRevision = m_Revision + 1;
             m_SaveStage = 1;
             return HCSaveJob.STEP_MORE;
         }
         if (m_SaveStage == 1)
         {
-            HCSaveJob.HCOperation = "read_prior";
-            if (FileExist(m_Path))
-            {
-                string actual = ReadImage(m_Path);
-                if (actual == "" || actual != m_Image) { return SaveFailed(); }
-            }
+            // Open/last commit retain the exact validated primary. The shared
+            // writer verifies it in chunks before touching the next intent.
             m_SaveStage = 2;
-            return HCSaveJob.STEP_MORE;
         }
         if (m_SaveStage == 2)
         {
-            if (!m_SaveImage.Begin(m_Path, m_PendText, 65536, true, false)) { return SaveFailed(); }
+            if (!m_SaveImage.Begin(m_Path, m_PendText, 65536, m_Image != "", m_Image != "", m_Image)) { return SaveFailed(); }
             m_SaveStage = 3;
+        }
+        if (m_SaveImage.HCReadyToClearIntent() && m_SnapshotMutations != m_Mutations)
+        {
+            // All three scene writers share this intent. Never admit an older
+            // snapshot over a newer story/actor reservation.
+            if (!HCSceneChains.StateValid(state)) { return SaveFailed(); }
+            state.Revision = m_PendRevision;
+            string refreshed = Encode(state);
+            state.Revision = m_Revision;
+            if (refreshed == "" || !m_SaveImage.HCRefreshIntent(refreshed)) { return SaveFailed(); }
+            m_PendText = refreshed;
+            m_SnapshotMutations = m_Mutations;
+            return HCSaveJob.STEP_MORE;
         }
         int result = m_SaveImage.HCStepImage();
         if (result == HCSaveJob.STEP_FAILED) { return SaveFailed(); }
@@ -461,6 +510,7 @@ class HCSceneChainStore
         state.Revision = m_PendRevision;
         m_Revision = m_PendRevision;
         m_Image = m_PendText;
+        m_DurableMutations = m_SnapshotMutations;
         m_SaveStage = 0;
         m_PendText = "";
         return HCSaveJob.STEP_DONE;
@@ -471,7 +521,7 @@ class HCSceneChainStore
     {
         if (m_Fault) { return Fault(); }
         int remainingStages;
-        while (SaveInFlight() && remainingStages < 8)
+        while (SaveInFlight() && remainingStages < HCStagedSaveImage.HC_MAX_STAGES + 3)
         {
             remainingStages++;
             if (SaveStep(state) == HCSaveJob.STEP_FAILED) { return false; }
@@ -479,11 +529,22 @@ class HCSceneChainStore
         if (SaveInFlight()) { return false; }
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
-        while (result == HCSaveJob.STEP_MORE && guard < 8)
+        while (result == HCSaveJob.STEP_MORE && guard < HCStagedSaveImage.HC_MAX_STAGES + 3)
         {
             result = SaveStep(state);
             guard = guard + 1;
         }
         return result == HCSaveJob.STEP_DONE;
+    }
+}
+
+class HCSceneCheckpointJob : HCSaveJob
+{
+    HCSceneChainStore Owner;
+    override string HCName() { return "Scenes"; }
+    override int HCStep()
+    {
+        if (!Owner) { return HCSaveJob.STEP_FAILED; }
+        return Owner.HCStepCheckpoint();
     }
 }

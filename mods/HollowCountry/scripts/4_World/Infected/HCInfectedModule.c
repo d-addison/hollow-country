@@ -651,7 +651,8 @@ class HCInfectedModule : HCModule
             {
                 result = pack.Retarget(sweep.Stimulus, m_Now);
             }
-            // 0=pre-path rejection; 1=path attempted/failed; 2=accepted.
+            // 0=pre-path rejection; 1=path attempted/failed; 2=accepted;
+            // 3=durable migration continuation pending (no ordinary fallback).
             // Failed geometry remains charged, cooldown/attempts remain spent.
             if (HCInfectedPolicy.RetargetSpent(result))
             {
@@ -1061,6 +1062,7 @@ class HCInfectedModule : HCModule
     override void OnTick(float deltaTime)
     {
         HCNativeInfectedPack.RetryPendingReleases();
+        HCEcologyMigration.Tick();
         if (!m_Healthy || !GetGame().IsServer())
             return;
         int nowUtc = HCInfectedClock.UtcSeconds();

@@ -44,6 +44,18 @@ class HCPerfConfig
     int TickWeight_AI_ROUTES = 1;
     int TickWeight_POLICE_BIND = 1;
     int TickWeight_ROADS = 1;
+    int TickWeight_INFECTED_VARIETY = 1;
+    int TickWeight_INFECTED_VARIETY_ROUTES = 1;
+    int TickWeight_SITUATION_RUNTIME = 1;
+    int TickWeight_SITUATION_SMOKE = 1;
+    int TickWeight_ADMIN_VISITOR = 1;
+    int TickWeight_TACTICS_SCAN = 1;
+    int TickWeight_AI_TRADE_PRODUCER = 1;
+    int TickWeight_CONVOY_ROUTE = 1;
+    int TickWeight_CONVOY_RUN = 1;
+    int TickWeight_SEARCH_COVERAGE = 1;
+    int TickWeight_SEARCH_RETIREMENT = 1;
+    int TickWeight_WILDLIFE = 1;
     protected static ref HCPerfConfig s_Config;
 
     static HCPerfConfig HCGet()
@@ -98,6 +110,18 @@ class HCPerfConfig
         if (HCJsonFields.Has(text, "TickWeight_AI_ROUTES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_ROUTES", decoded.TickWeight_AI_ROUTES)) { TickWeight_AI_ROUTES = decoded.TickWeight_AI_ROUTES; }
         if (HCJsonFields.Has(text, "TickWeight_POLICE_BIND") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_POLICE_BIND", decoded.TickWeight_POLICE_BIND)) { TickWeight_POLICE_BIND = decoded.TickWeight_POLICE_BIND; }
         if (HCJsonFields.Has(text, "TickWeight_ROADS") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ROADS", decoded.TickWeight_ROADS)) { TickWeight_ROADS = decoded.TickWeight_ROADS; }
+        if (HCJsonFields.Has(text, "TickWeight_INFECTED_VARIETY") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INFECTED_VARIETY", decoded.TickWeight_INFECTED_VARIETY)) { TickWeight_INFECTED_VARIETY = decoded.TickWeight_INFECTED_VARIETY; }
+        if (HCJsonFields.Has(text, "TickWeight_INFECTED_VARIETY_ROUTES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_INFECTED_VARIETY_ROUTES", decoded.TickWeight_INFECTED_VARIETY_ROUTES)) { TickWeight_INFECTED_VARIETY_ROUTES = decoded.TickWeight_INFECTED_VARIETY_ROUTES; }
+        if (HCJsonFields.Has(text, "TickWeight_SITUATION_RUNTIME") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SITUATION_RUNTIME", decoded.TickWeight_SITUATION_RUNTIME)) { TickWeight_SITUATION_RUNTIME = decoded.TickWeight_SITUATION_RUNTIME; }
+        if (HCJsonFields.Has(text, "TickWeight_SITUATION_SMOKE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SITUATION_SMOKE", decoded.TickWeight_SITUATION_SMOKE)) { TickWeight_SITUATION_SMOKE = decoded.TickWeight_SITUATION_SMOKE; }
+        if (HCJsonFields.Has(text, "TickWeight_ADMIN_VISITOR") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_ADMIN_VISITOR", decoded.TickWeight_ADMIN_VISITOR)) { TickWeight_ADMIN_VISITOR = decoded.TickWeight_ADMIN_VISITOR; }
+        if (HCJsonFields.Has(text, "TickWeight_TACTICS_SCAN") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_TACTICS_SCAN", decoded.TickWeight_TACTICS_SCAN)) { TickWeight_TACTICS_SCAN = decoded.TickWeight_TACTICS_SCAN; }
+        if (HCJsonFields.Has(text, "TickWeight_AI_TRADE_PRODUCER") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_TRADE_PRODUCER", decoded.TickWeight_AI_TRADE_PRODUCER)) { TickWeight_AI_TRADE_PRODUCER = decoded.TickWeight_AI_TRADE_PRODUCER; }
+        if (HCJsonFields.Has(text, "TickWeight_CONVOY_ROUTE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CONVOY_ROUTE", decoded.TickWeight_CONVOY_ROUTE)) { TickWeight_CONVOY_ROUTE = decoded.TickWeight_CONVOY_ROUTE; }
+        if (HCJsonFields.Has(text, "TickWeight_CONVOY_RUN") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_CONVOY_RUN", decoded.TickWeight_CONVOY_RUN)) { TickWeight_CONVOY_RUN = decoded.TickWeight_CONVOY_RUN; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_COVERAGE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_COVERAGE", decoded.TickWeight_SEARCH_COVERAGE)) { TickWeight_SEARCH_COVERAGE = decoded.TickWeight_SEARCH_COVERAGE; }
+        if (HCJsonFields.Has(text, "TickWeight_SEARCH_RETIREMENT") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SEARCH_RETIREMENT", decoded.TickWeight_SEARCH_RETIREMENT)) { TickWeight_SEARCH_RETIREMENT = decoded.TickWeight_SEARCH_RETIREMENT; }
+        if (HCJsonFields.Has(text, "TickWeight_WILDLIFE") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_WILDLIFE", decoded.TickWeight_WILDLIFE)) { TickWeight_WILDLIFE = decoded.TickWeight_WILDLIFE; }
         if (HCJsonFields.Has(text, "EnableSharedSaves")) { EnableSharedSaves = decoded.EnableSharedSaves; }
         if (HCJsonFields.Has(text, "SliceMs") && HCOperatorSettingsRegistry.HCValid("Performance.SliceMs", decoded.SliceMs)) { SliceMs = decoded.SliceMs; }
         if (HCJsonFields.Has(text, "SaveStageTargetMs") && HCOperatorSettingsRegistry.HCValid("Performance.SaveStageTargetMs", decoded.SaveStageTargetMs)) { SaveStageTargetMs = decoded.SaveStageTargetMs; }

@@ -11,7 +11,7 @@ class HCWorldRuntimeConfig
     int SaveFirstDelaySeconds = 30;
     int SaveStaggerSeconds = 1;
     int SaveCoalesceSeconds = 60;
-    int SaveFlushStageLimit = 64;
+    int SaveFlushStageLimit = 4096;
     int SaveScanSliceMs = 4;
     int BudgetDeferredLogSeconds = 600;
     int MaxFacts = 256;
@@ -96,7 +96,7 @@ modded class HCOperatorSettingsRegistry
         HCAdd("WorldRuntime.SaveFirstDelaySeconds", "int", 30, 0, 3600, "HCWorldRuntimeConfig");
         HCAdd("WorldRuntime.SaveStaggerSeconds", "int", 1, 0, 60, "HCWorldRuntimeConfig");
         HCAdd("WorldRuntime.SaveCoalesceSeconds", "int", 60, 1, 3600, "HCWorldRuntimeConfig");
-        HCAdd("WorldRuntime.SaveFlushStageLimit", "int", 64, 1, 64, "HCWorldRuntimeConfig");
+        HCAdd("WorldRuntime.SaveFlushStageLimit", "int", 4096, 1, 4096, "HCWorldRuntimeConfig");
         HCAdd("WorldRuntime.SaveScanSliceMs", "int", 4, 1, 4, "HCWorldRuntimeConfig");
         HCAdd("WorldRuntime.BudgetDeferredLogSeconds", "int", 600, 1, 3600, "HCWorldRuntimeConfig");
         HCAdd("WorldRuntime.MaxFacts", "int", 256, 1, 256, "HCWorldRuntimeConfig");

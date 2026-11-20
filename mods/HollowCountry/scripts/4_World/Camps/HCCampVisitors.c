@@ -23,15 +23,11 @@ class HCCampVisitors
         // Signal changes are not visitor-state transitions. Preserve the
         // refusal through restart; only acknowledge a successful durable write.
         if (camp.VisitorRefusal == "VISITOR_BODY_NOT_OBSERVED") { return; }
-        string previousRefusal = camp.VisitorRefusal;
         camp.VisitorRefusal = "VISITOR_BODY_NOT_OBSERVED";
         camp.LastSignal = now;
-        if (!module.Commit(now))
-        {
-            camp.VisitorRefusal = previousRefusal;
-            return;
-        }
-        Print("[HC Plan] HC-16 camp=" + camp.Id + " level=" + camp.Tier.ToString() + " supply=0 roles=0 state=refused refusal=VISITOR_BODY_NOT_OBSERVED runtime=PENDING");
+        int receipt = module.HCRequestCheckpoint(now);
+        if (receipt < 1) { return; }
+        module.HCVisitorReceipt(camp, receipt);
         // Legacy Neighbours fields are preserved for migration only. No visit,
         // settlement, combat, loss, notification or world fact is manufactured.
     }

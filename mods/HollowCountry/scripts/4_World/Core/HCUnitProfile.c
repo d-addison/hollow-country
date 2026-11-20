@@ -1,4 +1,4 @@
-// #230: fixed 31-slot observer for the shared core budget only. Native TickCount:
+// #230: fixed consumer observer for the shared core budget only. Native TickCount:
 // scripts-1.30.164289/1_Core/proto/EnSystem.c:106; same raw ticks as [HC Save].
 // Task measurement convention: 100 ns/tick; preserve raw units for calibration.
 // Spans end at the next budget request/refusal or module return. Setup before the
@@ -62,8 +62,18 @@ class HCUnitProfile
         HCRegister("AI_ROUTES", config.TickWeight_AI_ROUTES);
         HCRegister("POLICE_BIND", config.TickWeight_POLICE_BIND);
         HCRegister("ROADS", config.TickWeight_ROADS);
-        // Preserve HCUnitBudget's existing clamping to 0..30.
-        while (m_Costs.Count() < 31) { HCRegister("UNASSIGNED_" + m_Costs.Count().ToString(), 1); }
+        HCRegister("INFECTED_VARIETY", config.TickWeight_INFECTED_VARIETY);
+        HCRegister("INFECTED_VARIETY_ROUTES", config.TickWeight_INFECTED_VARIETY_ROUTES);
+        HCRegister("SITUATION_RUNTIME", config.TickWeight_SITUATION_RUNTIME);
+        HCRegister("SITUATION_SMOKE", config.TickWeight_SITUATION_SMOKE);
+        HCRegister("ADMIN_VISITOR", config.TickWeight_ADMIN_VISITOR);
+        HCRegister("TACTICS_SCAN", config.TickWeight_TACTICS_SCAN);
+        HCRegister("AI_TRADE_PRODUCER", config.TickWeight_AI_TRADE_PRODUCER);
+        HCRegister("CONVOY_ROUTE", config.TickWeight_CONVOY_ROUTE);
+        HCRegister("CONVOY_RUN", config.TickWeight_CONVOY_RUN);
+        HCRegister("SEARCH_COVERAGE", config.TickWeight_SEARCH_COVERAGE);
+        HCRegister("SEARCH_RETIREMENT", config.TickWeight_SEARCH_RETIREMENT);
+        HCRegister("WILDLIFE", config.TickWeight_WILDLIFE);
     }
 
     protected void HCRegister(string label, int weight)
@@ -125,7 +135,7 @@ class HCUnitProfile
         foreach (HCUnitCost entry : m_Costs) { entry.HCReset(); }
     }
 
-    // Hard cap: 31 compact lines/window, only ids with admitted work. No hot-path strings.
+    // Hard cap: HC_WORK_CONSUMERS compact lines/window, only ids with admitted work. No hot-path strings.
     void HCPrintWindow(int windowIndex)
     {
         HCCloseSpan();

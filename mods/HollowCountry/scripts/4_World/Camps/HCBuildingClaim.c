@@ -55,7 +55,7 @@ class HCBuildingClaim
     protected ref HCBuildingClaimConfig m_Config;
     protected HCCampModule m_Owner;
     protected HCCampData m_Data;
-    protected ref HCBuildingClaimSave m_Save;
+    protected HCSaveJob m_Save;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -123,11 +123,9 @@ class HCBuildingClaim
         if (FileExist(path) && !HCGroupJson<HCBuildingClaimConfig>.Load(path, 4096, service.m_Config)) { service.HCFail(); return false; }
         service.m_LastUtc = HCWorldClock.UTC();
         if (service.m_LastUtc < 1 || service.m_LastUtc < data.SavedUtc || !service.m_Config || !service.m_Config.HCValid() || !HCCampStore.HCClaimsValid(data, service.m_LastUtc, service.m_Config.ExpiryDays)) { service.HCFail(); return false; }
-        service.m_Save = new HCBuildingClaimSave;
-        service.m_Save.Owner = service;
+        service.m_Save = owner.HCCheckpointJob();
         service.m_Healthy = true;
         Print("[HC ClaimTargets] admitted schema=2 provenance=claim cooldowns=independent runtime=PENDING");
-        HCSaveScheduler.HCRegister(service.m_Save);
         HCModuleReadiness.HCDerive(service.m_Status, service.m_Healthy, "", "", "claim_journal_loaded_native_acceptance_pending");
         Print(HCV2Admission.Line("BuildingClaims", true, "HC-17-N2-N7-N15", false) + " runtime=PENDING");
         Print("[HC Plan] HC-17 claims=per-group state=" + service.m_Status.HCState() + " expiry_days=" + service.m_Config.ExpiryDays.ToString() + " construction=off count=" + data.Claims.Count().ToString() + " legacy_camps=" + data.Camps.Count().ToString() + " runtime=PENDING");
@@ -140,7 +138,6 @@ class HCBuildingClaim
     {
         m_Healthy = false;
         m_Status.HCPublish("refused", "claim_config_clock_or_journal_fault");
-        HCSaveScheduler.HCUnregister(m_Save);
         m_Observers.Clear();
         m_Examining = null;
         Print("[HC Plan] HC-17 claims=off state=refused reason=config_clock_or_journal_fault construction=off count=0 runtime=PENDING");
@@ -219,7 +216,7 @@ class HCBuildingClaim
         int credit = Math.Min(m_OnlineSeconds - previous, creditCap);
         if (credit <= 0) { return; }
         row.AbsentSeconds = Math.Min(row.AbsentSeconds + credit, m_Config.ExpiryDays * 86400);
-        m_Save.HCDirty = true;
+        m_Owner.HCRequestCheckpoint(HCWorldClock.UTC(), false);
     }
 
     static bool HCActor(PlayerBase player)
@@ -419,7 +416,7 @@ class HCBuildingClaim
         {
             m_Examining.LastVisitUtc = m_VisitObservedUtc;
             m_Examining.AbsentSeconds = 0;
-            m_Save.HCDirty = true;
+            m_Owner.HCRequestCheckpoint(HCWorldClock.UTC(), false);
         }
         bool expired = HCShouldExpire(m_Examining, now, groupState);
         if (expired) { m_LastSteps.Remove(m_Examining.BuildingId); }
@@ -430,7 +427,7 @@ class HCBuildingClaim
             m_Data.Claims.RemoveOrdered(m_Cursor);
             // Release metadata only. Never enumerate/delete/unlock containers
             // or doors, and never restore an expired claim on a failed write.
-            if (!HCCommit(now)) { return; }
+            if (m_Owner.HCRequestCheckpoint(now) < 1) { HCFail(); return; }
         }
         else { m_Cursor++; }
     }
@@ -468,7 +465,6 @@ class HCBuildingClaim
     {
         if (!s_Instance) { return; }
         if (s_Instance.m_Healthy) { HCSaveScheduler.HCFlush(s_Instance.m_Save); }
-        HCSaveScheduler.HCUnregister(s_Instance.m_Save);
         s_Instance.m_Observers.Clear();
         s_Instance.m_Examining = null;
         s_Instance.m_Healthy = false;

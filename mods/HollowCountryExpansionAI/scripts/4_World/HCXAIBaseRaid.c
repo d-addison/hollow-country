@@ -188,7 +188,18 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     override bool HCSeen(HCCampRecord camp, HCCampScan scan)
     {
-        if (!camp || !scan || m_Reserved || !m_Seen || !HCLiveParty()) { return false; }
+        if (m_Reserved) { return false; }
+        return HCObservedCamp(camp, scan);
+    }
+
+    override bool HCRetainedSeen(HCCampRecord camp, HCCampScan scan)
+    {
+        return m_Reserved && m_Camp == camp && HCObservedCamp(camp, scan);
+    }
+
+    protected bool HCObservedCamp(HCCampRecord camp, HCCampScan scan)
+    {
+        if (!camp || !scan || !m_Seen || !HCLiveParty()) { return false; }
         if (!HCPerceive(m_Seen, m_Point)) { return false; }
         if (m_Source)
         {
@@ -211,7 +222,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_Camp = camp;
         m_Reserved = true;
         m_Due = 0;
-        m_Ends = 0;
+        m_Ends = now + 60; // Finite reservation while the camp checkpoint is staged.
         m_Reason = "";
         return true;
     }
@@ -366,8 +377,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
         // [HC TickCost] window 12 of 096: admit this pass once; helpers charge work actually done.
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASE_RAID, 1)) { return; }
         if (!m_Reserved) { HCSense(); return; }
-        if (!HCLiveParty() || now < m_Camp.LastProbe || now >= m_Ends || m_Due < 1) { HCCancel(); return; }
-        if (now < m_Due) { return; }
+        if (!HCLiveParty() || now < m_Camp.LastProbe || now >= m_Ends) { HCCancel(); return; }
+        if (m_Due < 1 || now < m_Due) { return; }
         if (!HCBaseRaid.HCUnattended(m_Owner, m_Camp, m_Point)) { HCCancel(); return; }
         if (m_Actor.GetGroup().IsInCombat()) { HCCancel(); return; }
         if (!m_Walking && !HCWalkTo(m_Point)) { HCCancel(); return; }
@@ -417,6 +428,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
 // native EnConvert.c:210 DistanceSq. No spawn or coordinate-driven perception.
 class HCAdminVisitorParty : HCXAIBaseRaid
 {
+    protected int m_VisitReceipt;
     protected HCXAIAdapter m_HCAdapter;
     protected HCXAISiteDirector m_HCDirector;
 
@@ -467,10 +479,8 @@ class HCAdminVisitorParty : HCXAIBaseRaid
         if (!HCReserve(owner, camp, now)) { return false; }
         camp.LastVisit = now;
         // Intent debit before any route changes; uncertain save never replays.
-        if (!owner.Commit(now)) { HCCancel(); return false; }
-        m_Due = now;
-        m_Ends = now + m_Config.RaidSeconds;
-        Print("[HC CampVisitors] reserved walk=pending runtime=PENDING");
+        m_VisitReceipt = owner.HCRequestCheckpoint(now);
+        if (m_VisitReceipt < 1) { HCCancel(); return false; }
         return true;
     }
 
@@ -480,7 +490,14 @@ class HCAdminVisitorParty : HCXAIBaseRaid
         // [HC TickCost] window 12 of 096: admit this pass once; helpers charge work actually done.
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ADMIN_VISITOR, 1)) { return; }
         if (!m_Reserved) { HCSense(); return; }
-        if (!HCLiveParty() || now < m_Camp.LastVisit || now >= m_Ends) { HCCancel(); return; }
+        if (!HCLiveParty() || !m_Owner || m_Owner != HCCampModule.Get() || now < m_Camp.LastVisit || now >= m_Ends) { HCCancel(); return; }
+        if (m_Due < 1)
+        {
+            if (!m_Owner.HCDurable(m_VisitReceipt)) { return; }
+            m_Due = now;
+            m_Ends = now + m_Config.RaidSeconds;
+            Print("[HC CampVisitors] reserved walk=pending runtime=PENDING");
+        }
         if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { HCCancel(); return; }
         if (!HCBaseRaid.HCUnattended(m_Owner, m_Camp, m_Point)) { HCCancel(); return; }
         if (m_Actor.GetGroup().IsInCombat()) { HCCancel(); return; }

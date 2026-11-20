@@ -178,6 +178,9 @@ modded class HCGroupService
 {
     protected int m_HCPinsCursor;
     protected int m_HCPinsLogCursor;
+    protected HCGroupPeer m_TrailExplorer;
+    protected ref HCGroupStringIndex m_TrailPrior;
+    protected int m_TrailGroup;
 
     void HCPinsDeath(PlayerBase player, HCDeathPins pins)
     {
@@ -196,7 +199,7 @@ modded class HCGroupService
 
     void HCPinsDiscover()
     {
-        if (!m_Healthy || !m_Config.DiscoveryLayer || m_Peers.Count() == 0) { return; }
+        if (!m_Healthy || m_PendingState || !m_Config.DiscoveryLayer || m_Peers.Count() == 0) { return; }
         if (GetGame().GetTickTime() < m_DiscoveryBlockedUntil) { return; }
         if (m_HCPinsCursor >= m_Peers.Count()) { m_HCPinsCursor = 0; }
         HCGroupPeer explorer = m_Peers.Get(m_HCPinsCursor);
@@ -233,25 +236,37 @@ modded class HCGroupService
         if (!candidate) { return; }
         if (candidateGroup.Revision >= 1000000000) { return; }
         HCGroupRules.Touch(candidateGroup, false);
-        int result = Commit(candidate);
+        int result = HCQueueCommit(candidate);
         if (result == HCGroupCode.LIMIT) { m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60; }
         if (result == HCGroupCode.STORAGE) { Stop(); return; }
         if (result == HCGroupCode.OK)
         {
-            Broadcast();
-            HCGroupStringIndex committedTrails = new HCGroupStringIndex(candidateGroup.HCTrailPlaceIds);
-            // Notify only after the discovery ledger was committed successfully.
-            for (int noticeIndex = 0; noticeIndex < shelterCount; noticeIndex++)
+            m_TrailExplorer = explorer;
+            m_TrailPrior = trails;
+            m_TrailGroup = candidateGroup.Id;
+        }
+    }
+
+    override void HCPostBatchSave()
+    {
+        super.HCPostBatchSave();
+        HCGroupPeer explorer = m_TrailExplorer;
+        HCGroupStringIndex prior = m_TrailPrior;
+        m_TrailExplorer = null;
+        m_TrailPrior = null;
+        if (!Live(explorer) || !prior || !explorer.Player.IsAlive() || explorer.Player.IsUnconscious()) { return; }
+        HCGroupRecord group = HCGroupRules.FindGroup(m_State, explorer.Id);
+        if (!group || group.Id != m_TrailGroup) { return; }
+        HCGroupStringIndex committed = new HCGroupStringIndex(group.HCTrailPlaceIds);
+        int shelterCount = Math.Min(HCShelterCatalog.Count(), HCGCCampGroupConfig.Get().ShelterQueries);
+        for (int noticeIndex = 0; noticeIndex < shelterCount; noticeIndex++)
+        {
+            HCShelterEntry shelter = HCShelterCatalog.Get(noticeIndex);
+            if (!shelter || !shelter.Placed) { continue; }
+            string id = "hc-found:" + shelter.Name;
+            if (!prior.Has(id) && committed.Has(id))
             {
-                HCShelterEntry discoveredShelter = HCShelterCatalog.Get(noticeIndex);
-                if (!discoveredShelter || !discoveredShelter.Placed) { continue; }
-                string discoveredId = "hc-found:" + discoveredShelter.Name;
-                bool newlyFound = !trails.Has(discoveredId);
-                bool committedFound = committedTrails.Has(discoveredId);
-                if (newlyFound && committedFound)
-                {
-                    NotificationSystem.SendNotificationToPlayerExtended(explorer.Player, 10, discoveredShelter.Name, discoveredShelter.History);
-                }
+                NotificationSystem.SendNotificationToPlayerExtended(explorer.Player, 10, shelter.Name, shelter.History);
             }
         }
     }

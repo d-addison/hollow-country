@@ -17,9 +17,9 @@ class HCGroupStringIndex
 // 'Bad type HCGroupJson' from Groups/HCDeathPin.c compiled before HCGroupStore.c).
 class HCGroupIO
 {
-    // The one cap for every bounded raw profile read/write here (1 MiB). Read it qualified
+    // The one cap for every bounded raw profile read/write here (8 MiB). Read it qualified
     // (HCGroupIO.HC_RAW_READ_CAP) inside static methods.
-    static const int HC_RAW_READ_CAP = 1048576;
+    static const int HC_RAW_READ_CAP = 8388608;
 
     static bool Read(string path, int limit, out string text)
     {

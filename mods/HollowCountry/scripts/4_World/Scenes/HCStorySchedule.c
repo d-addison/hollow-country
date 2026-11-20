@@ -244,11 +244,9 @@ class HCStorySchedule
     bool HCCommit(int now)
     {
         m_State.LastNow = now;
-        // A synchronous creation/retirement barrier interrupts any staged
-        // heartbeat using the existing store.Save protocol. Caller clears its
-        // HCSceneSaveJob.HCInFlight/HCDirty after a successful HCStep mutation.
-        // On failure the owner MUST stop Scenes, never materialize live state.
-        if (!m_Store.Save(m_State)) { return HCRefuse("save-failed"); }
+        // Shared checkpoint queues this mutation; Scenes defers arrival offers
+        // and native work until the store has committed it.
+        if (m_Store.HCRequestCheckpoint(m_State) < 0) { return HCRefuse("save-failed"); }
         HCReport("ready");
         return true;
     }

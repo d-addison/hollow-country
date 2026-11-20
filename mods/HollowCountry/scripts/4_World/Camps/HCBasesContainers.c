@@ -111,9 +111,7 @@ modded class HCCampModule
             if (hearthStorage.FireRef == "") { hearthStorage.FireRef = hearthStorage.Id + "-hearth"; }
             hearthStorage.LastLit = now;
             hearthStorage.LastScan = 0;
-            if (!Commit(now)) { return; }
-            Tell(hearthStorage, "Your group's fire is recognised as a camp. Nearby native structures determine its tier.");
-            Print("[HC Plan] HC-17 containers=promoted_to_hearth camp=" + hearthStorage.Id + " runtime=PENDING");
+            HCRecognise(hearthStorage, now, 1);
             return;
         }
         super.Candidate(fire, now);
@@ -184,8 +182,7 @@ modded class HCCampModule
         stashCamp.FireRef = stashRef;
         stashCamp.LastLit = now;
         m_Data.Camps.Insert(stashCamp);
-        if (!Commit(now)) { return; }
-        Print("[HC Plan] HC-17 containers=recognised camp=" + stashCamp.Id + " persistence=native runtime=PENDING");
+        HCRecognise(stashCamp, now, 2);
     }
 
     override void OnTick(float deltaTime)

@@ -29,8 +29,8 @@
 // perf window by HCWindowReport; there is no per-tick print.
 class HCUnitBudget
 {
-    // Consumer ids for HCTakeFor. One id per independent item loop family; the bit mask below
-    // supports up to 31 ids, HC_WORK_CONSUMERS is the number in use.
+    // Consumer ids for HCTakeFor. Fixed storage supports 64 independent consumers.
+    // Native fixed arrays: scripts-1.30.164289/3_Game/CfgBunkerBroadcastJsonData.c:56.
     static const int HC_WORK_INFECTED = 0;
     static const int HC_WORK_INTERIORS = 1;
     static const int HC_WORK_SEARCH_BIND = 2;
@@ -77,7 +77,6 @@ class HCUnitBudget
     // starved ticks, so the 38820-node graph got at most 8 nodes per tick (099).
     static const int HC_WORK_ROADS = 26;
     // #264/#265 perf batches: own slots for consumers that shared one before.
-    // Values above 30 need the core served/starved masks widened (lead core pass).
     static const int HC_WORK_INFECTED_VARIETY = 27;
     static const int HC_WORK_INFECTED_VARIETY_ROUTES = 28;
     static const int HC_WORK_SITUATION_RUNTIME = 29;
@@ -87,7 +86,10 @@ class HCUnitBudget
     static const int HC_WORK_AI_TRADE_PRODUCER = 33;
     static const int HC_WORK_CONVOY_ROUTE = 34;
     static const int HC_WORK_CONVOY_RUN = 35;
-    static const int HC_WORK_CONSUMERS = 36;
+    static const int HC_WORK_SEARCH_COVERAGE = 36;
+    static const int HC_WORK_SEARCH_RETIREMENT = 37;
+    static const int HC_WORK_WILDLIFE = 38;
+    static const int HC_WORK_CONSUMERS = 39;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
@@ -99,8 +101,8 @@ class HCUnitBudget
     protected int m_Limit;
     protected int m_Used;
     protected int m_Items;
-    // Shared-budget bookkeeping: consumers served this tick (bit mask) and forced first requests.
-    protected int m_Served;
+    // Shared-budget bookkeeping, allocated with the owner, never on a tick.
+    protected bool m_Served[64];
     protected int m_Starved;
     // Perf-window figures, rolled once per tick by HCEndTick.
     protected int m_WindowUsedMax;
@@ -116,7 +118,7 @@ class HCUnitBudget
         if (m_Limit < 1) { m_Limit = 1; }
         m_Used = 0;
         m_Items = 0;
-        m_Served = 0;
+        for (int slot = 0; slot < HC_WORK_CONSUMERS; slot++) { m_Served[slot] = false; }
         m_Starved = 0;
     }
 
@@ -138,29 +140,28 @@ class HCUnitBudget
 
     // Shared-budget request: HCTake, plus ONE forced item per consumer per tick when the pool is
     // exhausted (see the header). A forced item is charged, so HCUsed may exceed the limit by the
-    // forced units. Ids outside 0..30 are clamped.
+    // forced units. Invalid ids clamp to the first/last registered consumer.
     bool HCTakeFor(int consumer, int cost)
     {
         int slot = consumer;
         if (slot < 0) { slot = 0; }
-        if (slot > 30) { slot = 30; }
+        if (slot >= HC_WORK_CONSUMERS) { slot = HC_WORK_CONSUMERS - 1; }
         HCCloseSpan();
         int units = cost;
         if (units < 1) { units = 1; }
         if (m_Profile) { units = m_Profile.HCWeightedUnits(slot, units); }
-        int bit = 1 << slot;
         if (HCTryTake(units))
         {
-            m_Served = m_Served | bit;
+            m_Served[slot] = true;
             if (m_Profile) { m_Profile.HCItem(slot, units, false); }
             return true;
         }
-        if ((m_Served & bit) != 0)
+        if (m_Served[slot])
         {
             if (m_Profile) { m_Profile.HCRefused(slot); }
             return false;
         }
-        m_Served = m_Served | bit;
+        m_Served[slot] = true;
         m_Starved = m_Starved + 1;
         m_Used = m_Used + units;
         m_Items = m_Items + 1;

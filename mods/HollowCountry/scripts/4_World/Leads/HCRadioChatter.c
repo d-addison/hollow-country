@@ -159,6 +159,8 @@ class HCRadioChatter : HCModule
     protected int m_Recipients;
     protected float m_Elapsed = 60;
     protected bool m_Committed;
+    protected int m_ChannelReceipt = -1;
+    protected bool m_ReceiptPending;
     protected bool m_FromFallback;
     protected bool m_Ready;
     protected bool m_AdmissionPrinted;
@@ -386,6 +388,7 @@ class HCRadioChatter : HCModule
         m_ListenerCursor = 0;
         m_Recipients = 0;
         m_Committed = false;
+        m_ChannelReceipt = -1;
     }
 
     bool RetainReport(HCWorldLead report, PlayerBase listener)
@@ -398,7 +401,9 @@ class HCRadioChatter : HCModule
         string groupId = HCLeadPolicy.SoloGroup(listener.GetIdentity().GetId());
         if (groups) { groupId = groups.HCLeadGroup(listener); }
         if (groupId == "") { return false; }
-        return leads.ReceiveResult(report, groupId, "radio") == HCLeadReceiveResult.RETAINED;
+        int result = leads.ReceiveResult(report, groupId, "radio");
+        m_ReceiptPending = result == HCLeadReceiveResult.PENDING;
+        return result == HCLeadReceiveResult.RETAINED;
     }
 
     void HCRefuse(string reason)
@@ -450,25 +455,27 @@ class HCRadioChatter : HCModule
         if (!m_LegacyRates.Allowed(identity.GetId().Hash(), now)) { return; }
         if (!m_Committed)
         {
-            // Existing shared channel receipt is the synchronous transaction
-            // barrier before the FIRST recipient. No separate Morse reservation.
-            // A crash can lose a line; channel cooldowns cannot replay a burst.
-            m_Channel.LastSent = now;
-            m_Channel.Sequence = m_Channel.Sequence + 1;
-            if (!m_Store.Save())
+            // Keep this roster cursor until the channel receipt has committed.
+            // A crash may lose text, but cannot replay a channel cooldown.
+            if (m_ChannelReceipt < 0)
             {
-                HCRefuse("channel_receipt_fault");
-                return;
+                m_Channel.LastSent = now;
+                m_Channel.Sequence = m_Channel.Sequence + 1;
+                m_ChannelReceipt = m_Store.HCRequestBarrier();
+                if (m_ChannelReceipt < 0) { HCRefuse("channel_receipt_fault"); return; }
             }
+            if (!m_Store.HCDurable(m_ChannelReceipt)) { m_ListenerCursor--; return; }
             m_Committed = true;
             if (m_Reports < 2147483647) { m_Reports = m_Reports + 1; }
         }
+        m_ReceiptPending = false;
         if (!RetainReport(m_Report, listener))
         {
+            if (m_ReceiptPending) { m_ListenerCursor--; }
             if (!m_Store.Healthy()) { HCRefuse("lead_receipt_fault"); }
             return;
         }
-        // Revalidate after both synchronous barriers. Never pass a null identity
+        // Revalidate after both durable receipts. Never pass a null identity
         // to native notification: null there means ALL players, not a refusal.
         if (listener.GetIdentity() != identity || !Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { return; }
         float receiveFrequency = HCRadioDefaults.Tuned(m_Channel.Frequency);
@@ -495,6 +502,7 @@ class HCRadioChatter : HCModule
         m_Reports = 0;
         m_Recipients = 0;
         m_Committed = false;
+        m_ChannelReceipt = -1;
         m_Text = "";
         m_Status.HCPublish("off", "server_stopped");
     }

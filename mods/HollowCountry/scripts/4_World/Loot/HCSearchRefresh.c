@@ -339,7 +339,7 @@ class HCSearchRetirementStore
         HCUnitBudget legacyWork = HCServer.HCTickWork();
         while (more && examined < limit)
         {
-            if (!legacyWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_COMPACT, 1)) { break; }
+            if (!legacyWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_RETIREMENT, 1)) { break; }
             examined++;
             string legacyPath = m_Root + "/" + legacyName;
             HCSearchRecord legacy;
@@ -420,6 +420,36 @@ class HCSearchRefreshStore
     static const string PATH = "$profile:HollowCountry/search-refresh.json";
     static const int MAX_BYTES = 8388608;
     protected bool m_Fault;
+    protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
+    protected int m_ImageRevision;
+    protected int m_SavedRevision;
+
+    int SavedRevision() { return m_SavedRevision; }
+
+    // Keep the original .tmp/.bak admission protocol. Mutations during a write
+    // refresh its intent before it can admit an obsolete Ready/revisit snapshot.
+    int CheckpointStep(HCSearchRefreshState state, int revision)
+    {
+        if (m_Fault || !state) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Image.Active() || (m_Image.HCReadyToClearIntent() && m_ImageRevision != revision))
+        {
+            HCSaveJob.HCOperation = "encode";
+            string text;
+            string error;
+            if (!JsonFileLoader<HCSearchRefreshState>.MakeData(state, text, error)) { Fault(); return HCSaveJob.STEP_FAILED; }
+            bool encoded;
+            if (m_Image.Active()) { encoded = m_Image.HCRefreshIntent(text); }
+            else { encoded = m_Image.Begin(PATH, text, MAX_BYTES); }
+            if (!encoded) { Fault(); return HCSaveJob.STEP_FAILED; }
+            m_ImageRevision = revision;
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_Image.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { Fault(); }
+        if (result == HCSaveJob.STEP_DONE) { m_SavedRevision = m_ImageRevision; }
+        return result;
+    }
+
 
     bool Healthy() { return !m_Fault; }
 
@@ -488,6 +518,48 @@ class HCSearchRefreshModule : HCModule
     protected static HCSearchRefreshModule s_Instance;
     protected HCSettings m_Settings;
     protected ref HCSearchRefreshStore m_Store;
+    protected ref HCSearchRefreshSaveJob m_SaveJob;
+    protected int m_CheckpointRevision;
+    // Session-only authorization: reset cooldown must commit before fresh binding.
+    protected ref map<string, int> m_RefreshReservations = new map<string, int>;
+
+    bool HCRequestCheckpoint(bool barrier = false)
+    {
+        if (!Active() || !m_SaveJob) { return false; }
+        m_CheckpointRevision++;
+        m_SaveJob.HCDirty = true;
+        if (barrier) { m_SaveJob.HCUrgent = true; m_SaveJob.HCDue = GetGame().GetTickTime(); }
+        return true;
+    }
+
+    bool HCCheckpointPending() { return m_SaveJob && (m_SaveJob.HCDirty || m_SaveJob.HCInFlight); }
+
+    int HCCheckpointStep()
+    {
+        if (!Active()) { return HCSaveJob.STEP_FAILED; }
+        return m_Store.CheckpointStep(m_State, m_CheckpointRevision);
+    }
+
+    static bool HCRefreshReserved(string scope, string siteId)
+    {
+        return s_Instance && s_Instance.m_RefreshReservations.Contains(Key(scope, siteId));
+    }
+
+    static bool HCReserveRefresh(string scope, string siteId)
+    {
+        if (!s_Instance || !s_Instance.Active()) { return false; }
+        string key = Key(scope, siteId);
+        int revision;
+        if (s_Instance.m_RefreshReservations.Find(key, revision))
+        {
+            return !s_Instance.HCCheckpointPending() && s_Instance.m_Store.SavedRevision() >= revision;
+        }
+        if (!Ready(scope, siteId)) { return false; }
+        s_Instance.RecordSearch(scope, siteId, false);
+        s_Instance.m_RefreshReservations.Set(key, s_Instance.m_CheckpointRevision);
+        return false;
+    }
+
     protected ref HCSearchRefreshState m_State;
     protected ref map<string, int> m_Index = new map<string, int>;
     protected ref HCSearchRefreshPilotHouses m_Pilot;
@@ -570,6 +642,9 @@ class HCSearchRefreshModule : HCModule
         }
         m_Pilot = new HCSearchRefreshPilotHouses;
         m_Pilot.Start(settings);
+        m_SaveJob = new HCSearchRefreshSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         s_Instance = this;
     }
 
@@ -577,7 +652,16 @@ class HCSearchRefreshModule : HCModule
     // rows had no wall clock: their conservative interval starts on first revisit.
     static void Mark(string scope, string siteId, bool onlyMissing = false)
     {
-        if (s_Instance && s_Instance.Active()) s_Instance.RecordSearch(scope, siteId, onlyMissing);
+        if (!s_Instance || !s_Instance.Active()) { return; }
+        string key = Key(scope, siteId);
+        int revision;
+        if (!onlyMissing && s_Instance.m_RefreshReservations.Find(key, revision))
+        {
+            // Successful binding consumes the already committed timer reset.
+            s_Instance.m_RefreshReservations.Remove(key);
+            return;
+        }
+        s_Instance.RecordSearch(scope, siteId, onlyMissing);
     }
 
     void RecordSearch(string scope, string siteId, bool onlyMissing)
@@ -602,21 +686,21 @@ class HCSearchRefreshModule : HCModule
         row.IntervalSeconds = HCSearchRefreshPolicy.Interval(siteId);
         row.Ready = false;
         m_State.LastUtc = now;
-        m_Store.Save(m_State);
+        HCRequestCheckpoint(true);
     }
 
     static bool Ready(string scope, string siteId)
     {
         if (!s_Instance) return false;
         HCSearchRefreshRow row = s_Instance.FindRow(scope, siteId);
-        return row && row.Ready;
+        return row && row.Ready && !s_Instance.HCCheckpointPending();
     }
 
     static bool Revisited(string scope, string siteId)
     {
         if (!s_Instance) return false;
         HCSearchRefreshRow row = s_Instance.FindRow(scope, siteId);
-        return row && row.Revisited;
+        return row && row.Revisited && !s_Instance.HCCheckpointPending();
     }
 
     bool RecycleReadyTimer()
@@ -648,7 +732,7 @@ class HCSearchRefreshModule : HCModule
         HCSearchRefreshRow expired = s_Instance.FindRow(scope, siteId);
         if (!expired || !expired.Ready || expired.Revisited) { return; }
         s_Instance.RemoveReadyTimer(expired);
-        s_Instance.m_Store.Save(s_Instance.m_State);
+        s_Instance.HCRequestCheckpoint();
     }
 
     void RemoveReadyTimer(HCSearchRefreshRow expired)
@@ -676,6 +760,7 @@ class HCSearchRefreshModule : HCModule
     override void OnTick(float deltaTime)
     {
         if (!Active() || !(deltaTime > 0.0)) return;
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
         m_Minute += deltaTime;
         HCReached.Mark("search_refresh.tick");
         m_Hour += deltaTime;
@@ -728,7 +813,7 @@ class HCSearchRefreshModule : HCModule
             {
                 m_BatchChanged = false;
                 m_State.LastUtc = now;
-                if (!m_Store.Save(m_State)) return;
+                if (!HCRequestCheckpoint()) return;
             }
         }
         if (m_Hour >= 3600.0)
@@ -741,11 +826,30 @@ class HCSearchRefreshModule : HCModule
 
     override void OnStop()
     {
+        if (m_SaveJob)
+        {
+            HCSaveScheduler.HCFlush(m_SaveJob);
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+            m_SaveJob.Owner = null;
+            m_SaveJob = null;
+        }
+        m_RefreshReservations.Clear();
         if (m_Pilot) m_Pilot.Stop();
         if (s_Instance == this) s_Instance = null;
         m_BatchLeft = 0;
         m_BatchChanged = false;
         m_Settings = null;
+    }
+}
+
+class HCSearchRefreshSaveJob : HCSaveJob
+{
+    HCSearchRefreshModule Owner;
+    override string HCName() { return "SearchRefresh"; }
+    override int HCStep()
+    {
+        if (!Owner) { return HCSaveJob.STEP_FAILED; }
+        return Owner.HCCheckpointStep();
     }
 }
 
@@ -852,7 +956,7 @@ modded class HCSearchHouses
         {
             string scope = m_Journal.RefreshScope();
             if (m_Journal.RefreshHasHistory(hit.SiteId)) HCSearchRefreshModule.Mark(scope, hit.SiteId, true);
-            if (HCSearchRefreshModule.Ready(scope, hit.SiteId) && HCRefreshPreparationAllowed(hit, player))
+            if (HCRefreshPreparationAllowed(hit, player) && HCSearchRefreshModule.HCReserveRefresh(scope, hit.SiteId))
             {
                 // Bind ignores old SupplyKnown ids, including ambiguous/failed moves.
                 // Append only real newly observed supplies; leave all old rows intact.
@@ -864,6 +968,8 @@ modded class HCSearchHouses
                     return OpenRow(hit.SiteId, player);
                 }
             }
+            // Do not fall through to base Bind while the reset is still staged.
+            if (HCSearchRefreshModule.HCRefreshReserved(scope, hit.SiteId)) { return -1; }
         }
         return super.Prepare(slot, hit, player);
     }

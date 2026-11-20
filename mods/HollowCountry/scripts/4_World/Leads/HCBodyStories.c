@@ -74,6 +74,8 @@ class HCBodyStories : HCModule
     protected ref HCLeadStore m_Store;
     protected ref array<Object> m_Observed = new array<Object>();
     protected ref array<string> m_ObservedIds = new array<string>();
+    protected ref array<int> m_ReceiptRevisions = new array<int>;
+    protected int m_ReceiptCursor;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -234,12 +236,16 @@ class HCBodyStories : HCModule
         story.Phase = 2; // actual corpse already exists; never replay on restart
         receipt.BodyId = story.Id;
         m_Store.Data.Bodies.Insert(story);
-        if (!m_Store.Save()) { HCRefreshStatus(); return false; }
+        // This is an observation of an already-dead native body, with no
+        // creation, inventory mutation or replay. Reserve in memory immediately;
+        // the shared checkpoint owns schedule/shutdown durability.
+        int revision = m_Store.HCRequestBarrier();
+        if (revision < 0) { HCRefreshStatus(); return false; }
         m_Observed.Insert(corpse);
         m_ObservedIds.Insert(story.Id);
+        m_ReceiptRevisions.Insert(revision);
         m_LastRefusal = "";
         HCRefreshStatus();
-        m_Store.HCPlan(m_Status.HCState(), "BODY_SCENE_RECEIPT_BOUND_inventory_untouched");
         return true;
     }
 
@@ -248,6 +254,17 @@ class HCBodyStories : HCModule
         if (!m_Ready || !m_Store || !(deltaTime > 0)) { return; }
         HCRefreshStatus();
         if (!m_Store.Healthy()) { return; }
+        if (m_ReceiptRevisions.Count() > 0)
+        {
+            if (m_ReceiptCursor >= m_ReceiptRevisions.Count()) { m_ReceiptCursor = 0; }
+            int receipt = m_ReceiptRevisions[m_ReceiptCursor];
+            if (receipt >= 0 && m_Store.HCDurable(receipt))
+            {
+                m_ReceiptRevisions[m_ReceiptCursor] = -1;
+                m_Store.HCPlan(m_Status.HCState(), "BODY_SCENE_RECEIPT_BOUND_inventory_untouched");
+            }
+            m_ReceiptCursor++;
+        }
         m_Elapsed += deltaTime;
         if (m_Elapsed < m_Config.MaintenanceSeconds) { return; }
         m_Elapsed = 0;
@@ -269,6 +286,7 @@ class HCBodyStories : HCModule
         {
             m_Observed.RemoveOrdered(observedIndex);
             m_ObservedIds.RemoveOrdered(observedIndex);
+            m_ReceiptRevisions.RemoveOrdered(observedIndex);
         }
         m_Store.Data.Bodies.RemoveOrdered(bodyIndex);
         m_Store.HCRequestCheckpoint();
@@ -280,6 +298,8 @@ class HCBodyStories : HCModule
         m_Pending.Clear();
         m_Observed.Clear();
         m_ObservedIds.Clear();
+        m_ReceiptRevisions.Clear();
+        m_ReceiptCursor = 0;
         m_Store = null;
         s_Instance = null;
         m_Status.HCPublish("off", "stopped");
