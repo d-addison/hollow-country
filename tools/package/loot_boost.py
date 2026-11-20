@@ -122,8 +122,10 @@ def shipped_points(repo=REPO_ROOT):
 
     Every file uses the existing overlay schema (groups keyed by native class,
     stock_sha256 pin, family, containers lootHCFloor/lootHCSurface with lootmax,
-    categories, tags and xyz points). Group ownership is disjoint: a repeated
-    group, JSON key, or coordinate within a group is an error, never last-wins.
+    categories, tags and xyz points). A group may appear in several files only
+    when each file adds a different container and the family and stock pin
+    agree; the containers are then merged. A repeated container, JSON key, or
+    coordinate within a group is an error, never last-wins.
     Bounds are 12 floor / 32 surface points per group, 12 slots per added
     container, and 16,000 aggregate points. The merged bytes and per-file hashes
     are deterministic receipt inputs.
@@ -143,10 +145,17 @@ def shipped_points(repo=REPO_ROOT):
         if merged is None:
             merged = doc
         else:
-            duplicates = set(merged['groups']) & set(doc['groups'])
-            if duplicates:
-                raise ValueError('duplicate loot point groups: ' + ', '.join(sorted(duplicates)))
-            merged['groups'].update(doc['groups'])
+            for name, spec in doc['groups'].items():
+                prior = merged['groups'].get(name)
+                if prior is None:
+                    merged['groups'][name] = spec
+                    continue
+                if (prior['family'] != spec['family'] or prior['stock_sha256'] != spec['stock_sha256']
+                        or set(prior['containers']) & set(spec['containers'])):
+                    raise ValueError('conflicting loot point group across files: ' + name)
+                prior['containers'].update(spec['containers'])
+                for key, value in spec.items():
+                    prior.setdefault(key, value)
     merged['sources'] = sources
     data = economy.encode(merged)
     parse_overlay(data)  # enforce the aggregate bound too

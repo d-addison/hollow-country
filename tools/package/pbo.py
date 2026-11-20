@@ -46,6 +46,8 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  # Optional Expansion AI patrol contract and examples; inert without the addon and its marker.
                  'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json',
                  'ai/AIPatrolSettings.override.json',
+                 # Default ZoneGuards zones; an operator ai/zones.json takes precedence.
+                 'ai/zones.sample.json',
                  'ai/localities.json', 'ai/sites.json', 'ai/picker-routes.json', 'ai/loadouts/HollowCountry_Patrol.json', 'ai/loadouts/HollowCountry_Scavenger.json',
                  'ai/loadouts/HollowCountry_Holdout.json',
                  # HC-43 finite Raider/Traveller loadouts (not yet mapped by HCXAISites).
@@ -63,7 +65,7 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  'events/transit-situations.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
-                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json', 'loot-points/floor-policy.json',
+                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json', 'loot-points/additions-interiors.json', 'loot-points/floor-policy.json',
                  # HC-14 infected variety policy read by tools/package/infected_variety.py install/rollback.
                  'infected/variants.json',
                  # HC-33 authored forage route dispositions (native generator stays in charge).
