@@ -23,6 +23,7 @@ class HCGroundCELoot
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
     protected static bool s_Scheduled;
     protected static bool s_Reporting;
+    protected static bool s_FirstEnqueueLogged;
     protected static int s_Count;
     protected static int s_Enqueued;
     protected static int s_Processed;
@@ -52,21 +53,28 @@ class HCGroundCELoot
         s_Count++;
         s_Enqueued++;
         if (s_Count > s_Peak) { s_Peak = s_Count; }
+        if (!s_FirstEnqueueLogged)
+        {
+            s_FirstEnqueueLogged = true;
+            Print("[HC Ground] source=ce_queue first_enqueue type=" + item.GetType() + " runtime=PENDING");
+        }
         if (!s_Reporting)
         {
             s_Reporting = true;
             // Keep the minute receipt after drain completion so pending=0 is visible.
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Summary, 60000, true);
+            // Native missionServer uses class-qualified static CallLater targets.
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
         }
         if (!s_Scheduled)
         {
             s_Scheduled = true;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Drain, 50, false);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Drain, 50, false);
         }
     }
 
     static void Drain()
     {
+        if (!GetGame() || !GetGame().IsServer()) { return; }
         s_Budget.HCReset(4, HCPerfConfig.HCGet().SliceMs);
         while (s_Count > 0 && s_Budget.HCContinue())
         {
@@ -86,20 +94,28 @@ class HCGroundCELoot
             else { s_Ineligible++; }
         }
         bool pending = s_Count > 0;
-        if (pending) { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Drain, 50, false); }
+        if (pending) { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Drain, 50, false); }
         else { s_Scheduled = false; }
     }
 
     static void Summary()
     {
-        s_Stats.Summary("ce");
+        if (!GetGame() || !GetGame().IsServer()) { return; }
         // processed counts dequeued entries, including deleted/reparented items.
         // enqueued = processed + pending; overflow is zero (no capacity drops).
         string line = "[HC Ground] source=ce_queue overflow=0 enqueued=" + s_Enqueued.ToString();
         line += " processed=" + s_Processed.ToString() + " pending=" + s_Count.ToString();
         line += " peak=" + s_Peak.ToString() + " ineligible=" + s_Ineligible.ToString();
         Print("" + line);
+        s_Stats.Summary("ce");
         HCGroundSnap.Placed.Summary("hc_placements");
+        // One final empty receipt, then sleep until another successful admission.
+        // Retain the reporting flag while pending so Enqueue cannot arm duplicates.
+        if (s_Count > 0)
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
+        }
+        else { s_Reporting = false; }
     }
 }
 
