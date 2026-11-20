@@ -8,6 +8,11 @@
 // CanAttackToPosition per admitted MOVE frame (vanilla calls it every attack
 // frame), a once-per-second admission probe otherwise; native rays only once
 // per landed swing. No position writes, teleports or synthetic noise.
+// Climb: on the MOVE frame after the module chose a climb, one native
+// StartCommand_Vault(type) (DayZInfected.c:109); the vanilla HandleVault
+// (ZombieBase.c:413-437) then owns WasLand, m_KnuckleLand and the end of the
+// command. This hook only watches: COMMANDID_VAULT frames and GetCommand_Vault
+// (DayZInfected.c:118) WasLand are recorded for the outcome line.
 // Native evidence, installed scripts-1.30.164289:
 // 4_World/Entities/Creatures/Infected/ZombieBase.c:14 m_KnuckleLand, :609-611
 // m_ActualTarget/m_AttackCooldownTime/m_ActualAttackType, :631-674 WasHit branch
@@ -71,6 +76,7 @@ modded class ZombieBase
             }
             return consumed;
         }
+        if (state.VaultAt > 0) { HCReachWatchVault(state, pCurrentCommandID); }
         if (consumed || pCurrentCommandFinished || pCurrentCommandID != DayZInfectedConstants.COMMANDID_MOVE)
         {
             return consumed;
@@ -78,9 +84,25 @@ modded class ZombieBase
         return HCReachMove(reach, state);
     }
 
+    // Passive: record the native vault command's frames and landing; the module
+    // resolves the outcome once the infected is back in a non-vault command.
+    protected void HCReachWatchVault(HCInfectedReachState state, int commandId)
+    {
+        float now = GetGame().GetTickTime();
+        if (commandId == DayZInfectedConstants.COMMANDID_VAULT)
+        {
+            state.VaultSeen = true;
+            DayZInfectedCommandVault vaultCommand = GetCommand_Vault();
+            if (state.VaultLandAt <= 0 && vaultCommand && vaultCommand.WasLand()) { state.VaultLandAt = now; }
+            return;
+        }
+        if (state.VaultEndAt <= 0 && now - state.VaultAt > 0.25) { state.VaultEndAt = now; }
+    }
+
     // Once per second while unslotted: CHASE/FIGHT infected whose own native
-    // target is a player standing 0.8 m+ above it, or seated in a vehicle,
-    // within 4 m horizontal. Never chooses or changes the native target.
+    // target is a player standing above it (reach band, or the lower climb band),
+    // or seated in a vehicle, within 4 m horizontal. Never chooses or changes the
+    // native target.
     protected void HCReachProbe(HCInfectedReachModule reach)
     {
         float now = GetGame().GetTickTime();
@@ -96,7 +118,7 @@ modded class ZombieBase
         vector delta = target.GetPosition() - GetPosition();
         float horizontal = Math.Sqrt(delta[0] * delta[0] + delta[2] * delta[2]);
         if (horizontal > 4) { return; }
-        if (delta[1] < 0.8 && !target.GetCommand_Vehicle()) { return; }
+        if (delta[1] < reach.ProbeMinHeight() && !target.GetCommand_Vehicle()) { return; }
         m_HCReachSlot = reach.Admit(this, target, now);
     }
 
@@ -126,12 +148,11 @@ modded class ZombieBase
         float dz = aim[2] - own[2];
         float horizontal = Math.Sqrt(dx * dx + dz * dz);
 
-        // HC-47: no forced locomotion/vault without native traversal receipts.
-        // Clearing transient intent leaves native movement/audio intact.
+        // HC-47: no forced locomotion (controller steering) without native
+        // traversal receipts. The climb is a native command, not steering.
         if (!HCInfectedReachPolicy.HCForcedMovementSupported())
         {
             state.Phase = HCInfectedReachPolicy.PhaseNone();
-            state.VaultType = -1;
         }
         // Unreachable back-off: native locomotion steered by controller
         // overrides, re-applied each frame, released the moment it ends.
@@ -158,18 +179,15 @@ modded class ZombieBase
         HCReachReleaseSteering();
         if (m_DamageHitToProcess) { return false; }
 
-        // Vault experiment: native command only, never a position write.
-        if (state.VaultType >= 0)
+        // Climb over the measured obstacle: native vault command only, never a
+        // position write. A stale choice expires in the module after 2 s.
+        if (state.ClimbType >= 0 && state.VaultAt <= 0 && reach.ClimbStillValid(this, vertical, horizontal, dx, dz))
         {
-            int vaultType = state.VaultType;
-            state.VaultType = -1;
-            if (!reach.VaultRetired() && vertical >= 0.8 && horizontal <= 1.6)
-            {
-                reach.VaultStarted(state, own[1], now, vaultType);
-                m_KnuckleLand = false;
-                StartCommand_Vault(vaultType);
-                return true;
-            }
+            int climbType = state.ClimbType;
+            m_KnuckleLand = false;
+            DayZInfectedCommandVault started = StartCommand_Vault(climbType);
+            reach.ClimbStarted(state, own[1], now, climbType, started != null, vertical, horizontal);
+            return true;
         }
 
         if (now < state.NextStrike) { return false; }

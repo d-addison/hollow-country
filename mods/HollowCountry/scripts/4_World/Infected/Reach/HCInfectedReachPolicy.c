@@ -1,10 +1,10 @@
-// #137 infected anti-cheese: pure decision rules. No engine calls; executed by
-// tests/unit/test_infected_reach.py. Thresholds follow the installed vanilla
-// tables in scripts-1.30.164289: 3_Game/Entities/DayZInfectedType.c:80-81 FIGHT up
-// attacks reach 1.7 m at pitch 1; 4_World/Entities/Creatures/Infected/ZombieBase.c
-// :401-410 GetVaultType bands (<=1.1 type 1, <=1.6 type 2, else 3) and :768
-// GetAttackPitch (infected head at +1.8 m, 0.3 m centre band). Offline execution
-// proves only these rules, never native animation, landing or damage behaviour.
+// #137 infected anti-cheese: pure decision rules. No engine calls. Thresholds follow
+// the installed vanilla tables in scripts-1.30.164289: 3_Game/Entities/DayZInfectedType.c
+// :80-81 FIGHT up attacks reach 1.7 m at pitch 1; 4_World/Entities/Creatures/Infected/
+// ZombieBase.c:401-411 GetVaultType bands (<=0.6 type 0, <=1.1 type 1, <=1.6 type 2,
+// else 3; the module calls that vanilla method directly) and :768 GetAttackPitch
+// (infected head at +1.8 m, 0.3 m centre band). These rules prove nothing about native
+// animation, landing or damage behaviour.
 class HCInfectedReachPolicy
 {
     // HC-47 / #121. Legacy scalar experiments below are retained for traceability,
@@ -57,7 +57,7 @@ class HCInfectedReachPolicy
         }
         string line = "[HC Plan] HC-47 reach=refused vision=" + vision + " refusals=3";
         line = line + " extra_reach=" + HCInfectedReachPolicy.HC_LEG_STRIKES_REFUSAL;
-        line = line + " forced_movement=traversal_unqualified";
+        line = line + " forced_movement=traversal_unqualified climb=native_vault";
         return line + " rooms=" + HCInfectedRoomCatalog.HCThreatRoomReason() + " runtime=PENDING";
     }
 
@@ -100,46 +100,52 @@ class HCInfectedReachPolicy
         return hitDistance >= segment - 0.3;
     }
 
-    static int VaultType(float height)
+    // Climb (2026-11-20 owner report): a CHASE/FIGHT infected below an elevated
+    // target plays the native vault command when the target is in the height band,
+    // close horizontally, an obstacle blocks the way and no navmesh route exists.
+    static bool ClimbBand(float vertical, float horizontal, float minHeight, float maxHeight, float maxHorizontal)
     {
-        if (height < HCInfectedTuning.Get().Reach.VaultMin || height > HCInfectedTuning.Get().Reach.VaultMax)
-        {
-            return -1;
-        }
-        if (height <= HCInfectedTuning.Get().Reach.VaultLow)
-        {
-            return 1;
-        }
-        if (height <= HCInfectedTuning.Get().Reach.VaultHigh)
-        {
-            return 2;
-        }
-        return 3;
+        if (!(vertical >= minHeight) || !(vertical <= maxHeight)) { return false; }
+        return horizontal >= 0 && horizontal <= maxHorizontal;
     }
 
-    static bool MayVault(float height, float horizontal, float facing, bool platformAhead, float now, float nextVault, int concurrent, bool retired)
+    // Measured obstacle top above the infected's feet. Below 0.3 m is a kerb the
+    // native walk already handles; above the band is a wall no vault clears.
+    static bool ClimbObstacle(float height, float maxHeight)
     {
-        if (retired || !platformAhead || now < nextVault || concurrent >= HCInfectedTuning.Get().Reach.VaultConcurrent)
-        {
-            return false;
-        }
-        if (HCInfectedReachPolicy.VaultType(height) < 0)
-        {
-            return false;
-        }
-        return horizontal <= HCInfectedTuning.Get().Reach.VaultHorizontal && Math.AbsFloat(facing) <= HCInfectedTuning.Get().Reach.VaultFacing;
+        return height >= 0.3 && height <= maxHeight;
     }
 
-    static bool VaultLanded(float startY, float nowY)
+    static bool ClimbMayStart(float facing, float maxFacing, float now, float nextClimb, int concurrent, int maxConcurrent, bool retired)
     {
-        return nowY - startY >= 0.6;
+        if (retired || now < nextClimb || concurrent >= maxConcurrent) { return false; }
+        return Math.AbsFloat(facing) <= maxFacing;
     }
 
-    // Six attempts with zero landings on top retires the experiment for the
-    // session: recorded as the native limit, reach and battering remain.
-    static bool VaultRetired(int attempts, int landings)
+    // A navmesh route reaches the target when its final waypoint lies within 1 m
+    // horizontally and 0.7 m vertically of the sampled target (FindPath may return
+    // a partial path that stops at the nearest reachable poly).
+    static bool RouteReaches(vector finalWaypoint, vector goal)
     {
-        return attempts >= 6 && landings == 0;
+        float dx = finalWaypoint[0] - goal[0];
+        float dz = finalWaypoint[2] - goal[2];
+        if (dx * dx + dz * dz > 1.0) { return false; }
+        return Math.AbsFloat(finalWaypoint[1] - goal[1]) <= 0.7;
+    }
+
+    // On top: the infected ended at least (height - 0.4 m), and at least 0.3 m,
+    // above where it started. A landed vault with less rise went over the obstacle.
+    static bool ClimbOnTop(float rise, float height)
+    {
+        float need = height - 0.4;
+        if (need < 0.3) { need = 0.3; }
+        return rise >= need;
+    }
+
+    // Retire for the session when the native command never ends on top.
+    static bool ClimbRetired(int attempts, int onTop, int retireAttempts)
+    {
+        return attempts >= retireAttempts && onTop == 0;
     }
 
     static bool Unreachable(float vertical, float horizontal, bool offNavmesh, float sinceHit, float sinceAdmit)

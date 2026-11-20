@@ -92,6 +92,14 @@ class GCActorsReachConfig
 // evaluation issues at most 4 native queries (1 line ray, 1 floor ray or vehicle
 // lookup, 1 vehicle-contact or platform ray, 1 navmesh sample) -> <=24 per tick.
 // Per landed swing, the infected adds at most one ray (see HCInfectedReachNative.c).
+// Climb (2026-11-20): an in-band candidate (target 0.5-2.2 m up, <=2.5 m away, facing
+// it, not seated) takes one more HCWorkBudget unit for <=2 rays (forward obstacle,
+// downward top) and, on a cache miss (<=1 per slot per RouteCacheSeconds), two navmesh
+// samples plus one FindPath (AIWorld.c:98); probes are paced to 1 per slot per second.
+// The infected then plays the NATIVE StartCommand_Vault (DayZInfected.c:109) with the
+// vanilla GetVaultType band (ZombieBase.c:401) of the measured obstacle; the vanilla
+// HandleVault owns WasLand and the end of the command. No position write anywhere.
+// Ladder discovery (HCInfectedLadderPolicy) reuses the floor-ray hit; ladder climb off.
 // Vehicle hit spacing uses <=8 entries with 60 s expiry. No allocation per tick.
 // Native evidence, installed scripts-1.30.164289:
 // 3_Game/Global/Game.c:914 GetTickTime, :931 GetWorld, :1120 IsServer;
@@ -129,10 +137,19 @@ class HCInfectedReachState
     float PhaseSince;
     int Side = 1;
     float BackoffAfter;
-    int VaultType = -1;
+    int ClimbType = -1;
+    float ClimbAt;
+    float ClimbHeight;
     float VaultAt;
     float VaultStartY;
+    float VaultLandAt;
+    float VaultEndAt;
+    bool VaultSeen;
     float NextVault;
+    float RouteAt = -100;
+    bool RouteOk;
+    Object FloorObject;
+    bool LadderChecked;
 }
 
 class HCInfectedReachVehicle
@@ -152,12 +169,29 @@ class HCInfectedReachModule : HCModule
     protected ref set<Object> m_Hits = new set<Object>;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected ref PGFilter m_Filter;
+    protected ref PGFilter m_RouteFilter;
+    protected ref HCInfectedClimbConfig m_Climb;
+    protected ref TVectorArray m_Path = new TVectorArray;
     protected int m_Cursor;
     protected int m_Live;
     protected int m_VaultActive;
-    protected int m_VaultAttempts;
-    protected int m_VaultLandings;
-    protected bool m_VaultRetired;
+    protected bool m_ClimbRetired;
+    protected int m_ClimbTotal;
+    protected int m_ClimbTotalOnTop;
+    protected int m_ClimbStarted;
+    protected int m_ClimbLanded;
+    protected int m_ClimbOnTop;
+    protected int m_ClimbFailed;
+    protected int m_ClimbNoCommand;
+    protected int m_WaitFacing;
+    protected int m_WaitBusy;
+    protected int m_WaitObstacle;
+    protected int m_WaitRoute;
+    protected int m_ClimbOutcomeLines;
+    protected bool m_FirstClimb;
+    protected int m_LadderSeen;
+    protected int m_LadderEligible;
+    protected bool m_FirstLadder;
     protected int m_Strikes;
     protected int m_Blocked;
     protected int m_Batters;
@@ -205,6 +239,18 @@ class HCInfectedReachModule : HCModule
         // Same walkable filter as HCInfectedNavigation.c:110-111.
         m_Filter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
         m_Filter.SetCost(PGAreaType.DOOR_CLOSED, m_Limits.DoorNavmeshCost);
+        // Climb route check: what native infected locomotion may traverse, including
+        // native jump/climb links (those already drive the vanilla vault).
+        m_RouteFilter = new PGFilter;
+        m_RouteFilter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.JUMP | PGPolyFlags.CLIMB, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+        m_RouteFilter.SetCost(PGAreaType.DOOR_CLOSED, m_Limits.DoorNavmeshCost);
+        m_Climb = new HCInfectedClimbConfig;
+        m_Climb.HCLoad();
+        m_Climb.HCLog();
+        m_ClimbRetired = false;
+        m_ClimbTotal = 0;
+        m_ClimbTotalOnTop = 0;
+        m_ClimbOutcomeLines = 0;
         m_Running = true;
         s_Instance = this;
         m_SummaryAfter = GetGame().GetTickTime() + m_Limits.SummarySeconds;
@@ -213,6 +259,8 @@ class HCInfectedReachModule : HCModule
         Print(started + " vehicles=" + m_Limits.Vehicles.ToString() + " runtime=PENDING");
         string capabilities = "[HC Reach] capabilities extended_reach=" + HCV2Admission.OnOff(HCInfectedReachPolicy.HCExtendedReachSupported());
         Print(capabilities + " forced_movement=" + HCV2Admission.OnOff(HCInfectedReachPolicy.HCForcedMovementSupported()) + " runtime=PENDING");
+        string climbLine = "[HC Reach] capabilities climb=" + HCV2Admission.OnOff(ClimbActive()) + " command=StartCommand_Vault bands=vanilla_GetVaultType";
+        Print(climbLine + " ladder_climb=" + HCV2Admission.OnOff(HCInfectedLadderPolicy.HC_LADDER_CLIMB_SUPPORTED) + " ladder_reason=" + HCInfectedLadderPolicy.HC_LADDER_REFUSAL + " ladder_discovery=shadow runtime=PENDING");
     }
 
     override void OnStop()
@@ -232,7 +280,23 @@ class HCInfectedReachModule : HCModule
         return s_Instance;
     }
 
-    bool VaultRetired() { return m_VaultRetired; }
+    bool ClimbActive() { return m_Running && m_Climb && m_Climb.Enabled && !m_ClimbRetired; }
+
+    // Lowest target elevation worth a slot: reach band or climb band.
+    float ProbeMinHeight()
+    {
+        float low = HCInfectedTuning.Get().Reach.ElevatedMin;
+        if (ClimbActive() && m_Climb.MinHeightMetres < low) { low = m_Climb.MinHeightMetres; }
+        return low;
+    }
+
+    // Re-check on the start frame (arithmetic only, no queries).
+    bool ClimbStillValid(ZombieBase infected, float vertical, float horizontal, float dx, float dz)
+    {
+        if (!ClimbActive()) { return false; }
+        if (!HCInfectedReachPolicy.ClimbBand(vertical, horizontal, m_Climb.MinHeightMetres, m_Climb.MaxHeightMetres, m_Climb.MaxHorizontalMetres)) { return false; }
+        return FacingDegrees(infected, dx, dz, horizontal) <= m_Climb.FacingDegrees;
+    }
 
     HCInfectedReachState StateFor(ZombieBase infected, int slot)
     {
@@ -272,9 +336,9 @@ class HCInfectedReachModule : HCModule
         return vacant;
     }
 
-    protected void Release(int slot, HCInfectedReachState state)
+    protected void Release(int slot, HCInfectedReachState state, float now)
     {
-        if (state.VaultAt > 0 && m_VaultActive > 0) { m_VaultActive--; }
+        if (state.VaultAt > 0) { ClimbResolve(state, state.Infected, now, true); }
         m_States.Set(slot, null);
         if (m_Live > 0) { m_Live--; }
     }
@@ -312,7 +376,7 @@ class HCInfectedReachModule : HCModule
         PlayerBase target = state.Target;
         if (!infected || !target || !infected.IsAlive() || !target.IsAlive())
         {
-            Release(slot, state);
+            Release(slot, state, now);
             return;
         }
         DayZInfectedInputController controller = infected.GetInputController();
@@ -329,7 +393,7 @@ class HCInfectedReachModule : HCModule
         float distance = vector.Distance(own, aim);
         if (!HCInfectedReachPolicy.Keep(true, sameTarget, engaged, distance, now, state.Expires))
         {
-            Release(slot, state);
+            Release(slot, state, now);
             return;
         }
         float vertical = aim[1] - own[1];
@@ -348,11 +412,11 @@ class HCInfectedReachModule : HCModule
         }
         else if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin)
         {
-            state.Vehicle = FloorVehicle(target);
+            state.Vehicle = FloorVehicle(state, target);
             state.OnVehicle = state.Vehicle != null;
         }
         // Bounded lifetime: context refresh never extends the configured admission deadline.
-        if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin || state.InVehicle)
+        if (vertical >= ProbeMinHeight() || state.InVehicle)
         {
             state.Expires = Math.Min(now + m_Limits.ContextSeconds, state.Admitted + m_Limits.MaxLifetimeSeconds);
         }
@@ -366,27 +430,14 @@ class HCInfectedReachModule : HCModule
             state.VehicleAt = now;
         }
 
+        ClimbEvaluate(state, infected, own, aim, vertical, horizontal, dx, dz, now);
+        LadderShadow(state, infected, target, vertical);
+
         if (!HCInfectedReachPolicy.HCForcedMovementSupported()) { return; }
         state.OffNavmesh = false;
         if (vertical >= HCInfectedTuning.Get().Reach.ElevatedMin && !state.InVehicle)
         {
             state.OffNavmesh = !OnWalkableNavmesh(aim);
-        }
-
-        VaultOutcome(state, infected, now);
-        if (!state.InVehicle && state.Phase == HCInfectedReachPolicy.PhaseNone() && state.VaultType < 0)
-        {
-            float facing = FacingDegrees(infected, dx, dz, horizontal);
-            bool ahead = false;
-            if (HCInfectedReachPolicy.VaultType(vertical) >= 0 && horizontal <= HCInfectedTuning.Get().Reach.VaultHorizontal)
-            {
-                ahead = ContactDistance(infected, null, m_Limits.VaultContactMetres) >= 0;
-            }
-            if (HCInfectedReachPolicy.MayVault(vertical, horizontal, facing, ahead, now, state.NextVault, m_VaultActive, m_VaultRetired))
-            {
-                state.VaultType = HCInfectedReachPolicy.VaultType(vertical);
-                state.NextVault = now + HCInfectedTuning.Get().Reach.VaultCooldown;
-            }
         }
 
         if (state.Phase == HCInfectedReachPolicy.PhaseNone() && now >= state.BackoffAfter)
@@ -409,8 +460,9 @@ class HCInfectedReachModule : HCModule
 
     // Downward ray under the target: the first object is a Transport (roof,
     // bed or hood) or a part of one. Terrain, buildings and rocks return null.
-    protected Transport FloorVehicle(PlayerBase target)
+    protected Transport FloorVehicle(HCInfectedReachState state, PlayerBase target)
     {
+        state.FloorObject = null;
         vector origin = target.GetPosition() + "0 0.3 0";
         vector finish = target.GetPosition() + "0 -0.6 0";
         vector contact;
@@ -419,6 +471,7 @@ class HCInfectedReachModule : HCModule
         m_Hits.Clear();
         bool hit = DayZPhysics.RaycastRV(origin, finish, contact, normal, component, m_Hits, null, target, true, false, ObjIntersectFire);
         if (!hit || m_Hits.Count() == 0) { return null; }
+        state.FloorObject = m_Hits.Get(0);
         return HCRootVehicle(m_Hits.Get(0));
     }
 
@@ -506,34 +559,191 @@ class HCInfectedReachModule : HCModule
         return Math.Acos(cosine) * Math.RAD2DEG;
     }
 
-    // Vault experiment bookkeeping; the infected starts the native command.
-    void VaultStarted(HCInfectedReachState state, float startY, float now, int type)
+    // Climb candidate: cheap gates first, then one extra budget unit for the rays
+    // and the (cached) route check. Sets ClimbType; the infected starts the native
+    // command on its next MOVE frame (HCInfectedReachNative.c).
+    protected void ClimbEvaluate(HCInfectedReachState state, ZombieBase infected, vector own, vector aim, float vertical, float horizontal, float dx, float dz, float now)
     {
-        state.VaultAt = now;
-        state.VaultStartY = startY;
-        m_VaultActive++;
-        m_VaultAttempts++;
-        Print("[HC Reach] vault attempt type=" + type.ToString() + " attempts=" + m_VaultAttempts.ToString() + " experiment runtime=PENDING");
+        ClimbResolve(state, infected, now, false);
+        // A chosen climb the infected never started (no MOVE frame, band left) expires.
+        if (state.ClimbType >= 0 && now - state.ClimbAt > 2) { state.ClimbType = -1; }
+        if (!ClimbActive() || state.InVehicle || state.VaultAt > 0 || state.ClimbType >= 0) { return; }
+        if (now < state.NextVault || infected.IsCrawling()) { return; }
+        if (!HCInfectedReachPolicy.ClimbBand(vertical, horizontal, m_Climb.MinHeightMetres, m_Climb.MaxHeightMetres, m_Climb.MaxHorizontalMetres)) { return; }
+        float facing = FacingDegrees(infected, dx, dz, horizontal);
+        if (!HCInfectedReachPolicy.ClimbMayStart(facing, m_Climb.FacingDegrees, now, state.NextVault, m_VaultActive, m_Climb.Concurrent, m_ClimbRetired))
+        {
+            if (facing > m_Climb.FacingDegrees) { m_WaitFacing++; }
+            else { m_WaitBusy++; }
+            return;
+        }
+        if (!m_Budget.HCContinue()) { return; }
+        state.NextVault = now + 1;
+        float height = ObstacleHeight(infected, state.Target, dx, dz, horizontal);
+        if (!HCInfectedReachPolicy.ClimbObstacle(height, m_Climb.MaxHeightMetres))
+        {
+            m_WaitObstacle++;
+            return;
+        }
+        if (RouteExists(state, own, aim, now))
+        {
+            m_WaitRoute++;
+            return;
+        }
+        state.ClimbType = infected.GetVaultType(height);
+        state.ClimbAt = now;
+        state.ClimbHeight = height;
+        state.NextVault = now + m_Climb.CooldownSeconds;
     }
 
-    protected void VaultOutcome(HCInfectedReachState state, ZombieBase infected, float now)
+    // Forward ray at knee height along the horizontal direction to the target, then
+    // a downward ray just past the contact for the obstacle top, both against
+    // collision geometry (ObjIntersectGeom, constants.c:35). Returns the top height
+    // above the infected's feet, or -1 for no object, a creature/player, terrain, or
+    // no upward-facing top.
+    protected float ObstacleHeight(ZombieBase infected, PlayerBase target, float dx, float dz, float horizontal)
     {
-        if (state.VaultAt <= 0 || now - state.VaultAt < m_Limits.VaultOutcomeSeconds) { return; }
+        if (horizontal <= 0.05) { return -1; }
+        vector heading = Vector(dx / horizontal, 0, dz / horizontal);
+        vector feet = infected.GetPosition();
+        vector origin = feet + "0 0.4 0";
+        vector finish = origin + heading * m_Limits.VaultContactMetres;
+        vector contact;
+        vector normal;
+        int component;
+        m_Hits.Clear();
+        bool hit = DayZPhysics.RaycastRV(origin, finish, contact, normal, component, m_Hits, null, infected, true, false, ObjIntersectGeom);
+        if (!hit || m_Hits.Count() == 0) { return -1; }
+        Object blocker = m_Hits.Get(0);
+        if (PlayerBase.Cast(blocker) || DayZCreature.Cast(blocker)) { return -1; }
+        vector probe = contact + heading * 0.3;
+        vector high = Vector(probe[0], feet[1] + m_Climb.MaxHeightMetres + 0.5, probe[2]);
+        vector low = Vector(probe[0], feet[1] + 0.1, probe[2]);
+        vector topContact;
+        vector topNormal;
+        m_Hits.Clear();
+        bool top = DayZPhysics.RaycastRV(high, low, topContact, topNormal, component, m_Hits, null, target, true, false, ObjIntersectGeom);
+        if (!top || topNormal[1] < 0.5) { return -1; }
+        return topContact[1] - feet[1];
+    }
+
+    // True when native locomotion has a navmesh route to the target, so the native
+    // AI keeps the job. Cached per slot for RouteCacheSeconds. A target off the
+    // walkable navmesh (car roofs, wrecks, crates, wall tops) has no route.
+    protected bool RouteExists(HCInfectedReachState state, vector own, vector aim, float now)
+    {
+        if (now - state.RouteAt < m_Climb.RouteCacheSeconds) { return state.RouteOk; }
+        state.RouteAt = now;
+        state.RouteOk = true;
+        // Fail closed: without a navmesh verdict the native AI keeps the job.
+        if (!GetGame().GetWorld() || !GetGame().GetWorld().GetAIWorld()) { return true; }
+        state.RouteOk = false;
+        AIWorld navigation = GetGame().GetWorld().GetAIWorld();
+        vector goal;
+        if (!navigation.SampleNavmeshPosition(aim, m_Limits.NavmeshSampleMetres, m_RouteFilter, goal)) { return false; }
+        if (Math.AbsFloat(goal[1] - aim[1]) > m_Limits.NavmeshHeightToleranceMetres) { return false; }
+        vector start;
+        if (!navigation.SampleNavmeshPosition(own, 1.0, m_RouteFilter, start)) { return false; }
+        m_Path.Clear();
+        if (!navigation.FindPath(start, goal, m_RouteFilter, m_Path) || m_Path.Count() == 0) { return false; }
+        state.RouteOk = HCInfectedReachPolicy.RouteReaches(m_Path.Get(m_Path.Count() - 1), goal);
+        return state.RouteOk;
+    }
+
+    void ClimbStarted(HCInfectedReachState state, float startY, float now, int type, bool command, float vertical, float horizontal)
+    {
+        state.ClimbType = -1;
+        state.VaultAt = now;
+        state.VaultStartY = startY;
+        state.VaultLandAt = 0;
+        state.VaultEndAt = 0;
+        state.VaultSeen = false;
+        m_VaultActive++;
+        m_ClimbStarted++;
+        m_ClimbTotal++;
+        if (!command) { m_ClimbNoCommand++; }
+        if (m_FirstClimb) { return; }
+        m_FirstClimb = true;
+        int heightCm = Math.Round(state.ClimbHeight * 100);
+        int verticalCm = Math.Round(vertical * 100);
+        int horizontalCm = Math.Round(horizontal * 100);
+        string line = "[HC Reach] first climb started type=" + type.ToString() + " obstacle_cm=" + heightCm.ToString() + " target_up_cm=" + verticalCm.ToString();
+        Print(line + " target_away_cm=" + horizontalCm.ToString() + " command=" + HCV2Admission.OnOff(command) + " via native StartCommand_Vault runtime=PENDING");
+    }
+
+    // Outcome once the native vault command has ended (the infected is back in a
+    // non-vault command), at the OutcomeCapSeconds cap, or on slot release.
+    void ClimbResolve(HCInfectedReachState state, ZombieBase infected, float now, bool force)
+    {
+        if (!state || state.VaultAt <= 0 || !m_Climb) { return; }
+        bool ended = state.VaultEndAt > 0;
+        if (!force && !ended && now - state.VaultAt < m_Climb.OutcomeCapSeconds) { return; }
+        float rise = 0;
+        bool alive = infected && infected.IsAlive();
+        if (infected) { rise = infected.GetPosition()[1] - state.VaultStartY; }
+        bool landed = state.VaultLandAt > 0;
+        bool onTop = alive && HCInfectedReachPolicy.ClimbOnTop(rise, state.ClimbHeight);
+        if (landed) { m_ClimbLanded++; }
+        if (onTop)
+        {
+            m_ClimbOnTop++;
+            m_ClimbTotalOnTop++;
+        }
+        if (!landed && !onTop) { m_ClimbFailed++; }
+        if (m_ClimbOutcomeLines < 8)
+        {
+            m_ClimbOutcomeLines++;
+            string end = "native";
+            if (!ended) { end = "cap"; }
+            if (force && !ended) { end = "released"; }
+            int riseCm = Math.Round(rise * 100);
+            int heightCm = Math.Round(state.ClimbHeight * 100);
+            string line = "[HC Reach] climb outcome obstacle_cm=" + heightCm.ToString() + " rise_cm=" + riseCm.ToString() + " vault_seen=" + HCV2Admission.OnOff(state.VaultSeen);
+            Print(line + " landed=" + HCV2Admission.OnOff(landed) + " on_top=" + HCV2Admission.OnOff(onTop) + " end=" + end + " runtime=PENDING");
+        }
         state.VaultAt = 0;
+        state.VaultLandAt = 0;
+        state.VaultEndAt = 0;
+        state.VaultSeen = false;
         if (m_VaultActive > 0) { m_VaultActive--; }
-        int rise = Math.Round((infected.GetPosition()[1] - state.VaultStartY) * 100);
-        string landed = "0";
-        if (HCInfectedReachPolicy.VaultLanded(state.VaultStartY, infected.GetPosition()[1]))
+        if (!m_ClimbRetired && HCInfectedReachPolicy.ClimbRetired(m_ClimbTotal, m_ClimbTotalOnTop, m_Climb.RetireAttempts))
         {
-            landed = "1";
-            m_VaultLandings++;
+            m_ClimbRetired = true;
+            Print("[HC Reach] climb retired for this session: native vault never ended on top attempts=" + m_ClimbTotal.ToString() + " on_top=0; reach strike and vehicle battering remain");
         }
-        Print("[HC Reach] vault outcome landed_on_top=" + landed + " rise_cm=" + rise.ToString() + " attempts=" + m_VaultAttempts.ToString() + " landings=" + m_VaultLandings.ToString());
-        if (!m_VaultRetired && HCInfectedReachPolicy.VaultRetired(m_VaultAttempts, m_VaultLandings))
+    }
+
+    // Shadow ladder discovery (ladder climb disabled by evidence, see
+    // HCInfectedLadderPolicy): once per slot when the target is above the vault band,
+    // read the ladders of the building under the target. Reuses the floor-ray hit.
+    protected void LadderShadow(HCInfectedReachState state, ZombieBase infected, PlayerBase target, float vertical)
+    {
+        if (state.LadderChecked || state.InVehicle || !state.FloorObject || !m_Climb) { return; }
+        if (vertical <= m_Climb.MaxHeightMetres) { return; }
+        state.LadderChecked = true;
+        Building host = Building.Cast(state.FloorObject);
+        if (!host)
         {
-            m_VaultRetired = true;
-            Print("[HC Reach] vault experiment retired: native limit observed attempts=" + m_VaultAttempts.ToString() + " landings=0; reach strike and vehicle battering remain");
+            EntityAI part = EntityAI.Cast(state.FloorObject);
+            if (part) { host = Building.Cast(part.GetHierarchyRoot()); }
         }
+        if (!host) { return; }
+        vector bottom;
+        vector top;
+        bool modelSpace;
+        int index = HCInfectedLadderPolicy.NearestLadder(host, target.GetPosition(), infected.GetPosition(), bottom, top, modelSpace);
+        if (index < 0) { return; }
+        bool eligible = HCInfectedLadderPolicy.VariantMayClimb(infected);
+        m_LadderSeen++;
+        if (eligible) { m_LadderEligible++; }
+        if (m_FirstLadder) { return; }
+        m_FirstLadder = true;
+        string space = "raw";
+        if (modelSpace) { space = "model"; }
+        int riseCm = Math.Round((top[1] - bottom[1]) * 100);
+        int seconds = Math.Round(HCInfectedLadderPolicy.ClimbSeconds(top[1] - bottom[1]));
+        string line = "[HC Reach] ladder candidate building=" + host.GetType() + " ladder=" + index.ToString() + " rise_cm=" + riseCm.ToString() + " space=" + space;
+        Print(line + " variant_eligible=" + HCV2Admission.OnOff(eligible) + " slow_climb_s=" + seconds.ToString() + " climb=off reason=" + HCInfectedLadderPolicy.HC_LADDER_REFUSAL + " runtime=PENDING");
     }
 
     // Per-vehicle spacing shared by every infected: one hit per 2 s, <=8 vehicles.
@@ -608,16 +818,30 @@ class HCInfectedReachModule : HCModule
     {
         if (now < m_SummaryAfter) { return; }
         m_SummaryAfter = now + m_Limits.SummarySeconds;
-        if (m_Admitted == 0 && m_Refused == 0) { return; }
+        if (m_Admitted == 0 && m_Refused == 0 && m_ClimbStarted == 0 && m_Live == 0) { return; }
         string summary = "[HC Reach] summary active=" + m_Live.ToString() + " admitted=" + m_Admitted.ToString() + " refused=" + m_Refused.ToString();
         summary = summary + " strikes=" + m_Strikes.ToString() + " blocked=" + m_Blocked.ToString() + " batters=" + m_Batters.ToString();
-        Print(summary + " backoffs=" + m_Backoffs.ToString() + " vaults=" + m_VaultAttempts.ToString() + " landed=" + m_VaultLandings.ToString());
+        summary = summary + " backoffs=" + m_Backoffs.ToString() + " vaults=" + m_ClimbStarted.ToString() + " landed=" + m_ClimbLanded.ToString();
+        summary = summary + " on_top=" + m_ClimbOnTop.ToString() + " failed=" + m_ClimbFailed.ToString() + " no_command=" + m_ClimbNoCommand.ToString();
+        summary = summary + " climb_wait=facing:" + m_WaitFacing.ToString() + ",busy:" + m_WaitBusy.ToString() + ",no_obstacle:" + m_WaitObstacle.ToString() + ",route:" + m_WaitRoute.ToString();
+        Print(summary + " ladders=seen:" + m_LadderSeen.ToString() + ",eligible:" + m_LadderEligible.ToString() + " climb=" + HCV2Admission.OnOff(ClimbActive()));
         m_Admitted = 0;
         m_Refused = 0;
         m_Strikes = 0;
         m_Blocked = 0;
         m_Batters = 0;
         m_Backoffs = 0;
+        m_ClimbStarted = 0;
+        m_ClimbLanded = 0;
+        m_ClimbOnTop = 0;
+        m_ClimbFailed = 0;
+        m_ClimbNoCommand = 0;
+        m_WaitFacing = 0;
+        m_WaitBusy = 0;
+        m_WaitObstacle = 0;
+        m_WaitRoute = 0;
+        m_LadderSeen = 0;
+        m_LadderEligible = 0;
     }
 
     void Landed(HCInfectedReachState state, float now)
