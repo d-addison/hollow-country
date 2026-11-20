@@ -49,6 +49,13 @@ class HCVisualSeasonIO
         }
         else if (!HCV2ThreatStore<HCVisualSeasonConfig>.Save(CONFIG_PATH, config, LIMIT)) { return null; }
         if (!config || !config.HCValid()) { return null; }
+        // Older profiles shipped 120 seconds. Keep their validated clock tuning,
+        // but give the shared saver at least five minutes of crash-loss headroom.
+        if (config.MaxUncheckpointedSeconds < 300)
+        {
+            config.MaxUncheckpointedSeconds = 300;
+            Print("[HC Plan] HC-6 checkpoint_cap=300 reason=legacy_cap_floor runtime=PENDING");
+        }
         HCSeasonVisualPolicy.HCConfigure(config);
         return config;
     }
@@ -107,6 +114,7 @@ class HCVisualSeasonSaveJob : HCSaveJob
 
 class HCVisualSeasonStore
 {
+    HCVisualSeasons HCClockOwner;
     protected ref HCVisualSeasonState m_State;
     protected ref HCVisualSeasonState m_Snapshot;
     protected ref HCVisualSeasonSaveJob m_Job;
@@ -116,6 +124,7 @@ class HCVisualSeasonStore
     protected int m_PersistedSeconds;
 
     bool HCHealthy() { return m_Healthy; }
+    int HCCheckpointedSeconds() { return m_PersistedSeconds; }
     int HCElapsed()
     {
         if (!m_State) { return 0; }
@@ -190,6 +199,7 @@ class HCVisualSeasonStore
         m_PersistedSeconds = m_Snapshot.ElapsedSeconds;
         m_Snapshot = null;
         m_SaveStage = 0;
+        if (HCClockOwner) { HCClockOwner.HCCheckpointSaved(); }
         return HCSaveJob.STEP_DONE;
     }
 

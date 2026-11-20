@@ -1,4 +1,4 @@
-// #61 / EXP-A2: source implemented; native compile and two-client visibility
+// #61 / EXP-A2: source implemented; native compile and one-client visibility
 // acceptance pending. The SAME ChernarusPlusData owner as v1 writes every knob.
 // V2 replaces its forecast selection while active; no mission XML/config edits,
 // mission-weather takeover, frozen-state bypass, lighting table or client loop.
@@ -164,8 +164,7 @@ modded class ChernarusPlusData
     int HCSeasonPhaseCode()
     {
         if (!HCWeatherDaysAuthority() || !m_HCVisualSeasons) { return -1; }
-        if (!m_HCVisualSeasons.HCActive()) { return -1; }
-        return m_HCVisualSeasons.HCPhase();
+        return m_HCVisualSeasons.HCReadActivePhase();
     }
 
     protected void HCPublishSeason()

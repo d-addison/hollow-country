@@ -1,4 +1,4 @@
-// #226 optional client-local tuning, defaults ON. No server/gameplay writes.
+// #226 profile tuning with shipped mission fallback, defaults ON. No gameplay writes.
 // Native scripts-1.30.164289: EnSystem.c:397 FileExist (1_Core/proto),
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; EnDebug.c:96 Print (1_Core/proto).
 // HCGroupIO bounds reads; HCJsonFields prevents zero-fill erasing defaults.
@@ -19,6 +19,7 @@ class auditleaves_Config
         HCOperatorSettingsRegistry.HCAuditLeavesInit();
         auditleaves_Config config = new auditleaves_Config;
         string path = "$profile:HollowCountry/auditleaves_settings.json";
+        if (!FileExist(path)) { path = "$mission:hollow-country/auditleaves_settings.json"; }
         if (!FileExist(path)) { return config; }
         string image;
         string error;
