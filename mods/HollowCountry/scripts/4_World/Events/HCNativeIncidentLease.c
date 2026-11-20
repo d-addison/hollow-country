@@ -56,9 +56,17 @@ class HCNativeIncidentSource
         if (index >= 0) { s_Crashes.Remove(index); }
     }
 
+    protected static bool s_MarkerProbed;
+    protected static bool s_MarkerOff;
     bool HCReady()
     {
-        bool enabled = !FileExist("$profile:HollowCountry/acceptance/w38_incidents.disable");
+        // Operator marker is probed once per process, like the other acceptance markers.
+        if (!s_MarkerProbed)
+        {
+            s_MarkerProbed = true;
+            s_MarkerOff = FileExist("$profile:HollowCountry/acceptance/w38_incidents.disable");
+        }
+        bool enabled = !s_MarkerOff;
         if (!GetGame() || !GetGame().IsServer() || !enabled || !HCW38SituationPolicy.HCGet()) { return false; }
         if (!s_AdmissionPrinted)
         {

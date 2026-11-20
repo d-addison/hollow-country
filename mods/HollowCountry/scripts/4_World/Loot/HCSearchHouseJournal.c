@@ -340,14 +340,17 @@ class HCSearchHouseJournal
         // One pass over the rows (not one scan per row): a site is settled when all of its rows reached phase 2.
         array<string> settledSites = new array<string>;
         array<bool> settledFlags = new array<bool>;
+        map<string, int> settledAt = new map<string, int>;
         array<ref HCSearchHouseRow> restoredRows = m_Rows;
         foreach (HCSearchHouseRow restored : restoredRows)
         {
             if (!restored) { continue; }
             bool rowSettled = restored.Phase >= 2;
-            int siteAt = settledSites.Find(restored.SiteId);
+            int siteAt = -1;
+            if (!settledAt.Find(restored.SiteId, siteAt)) { siteAt = -1; }
             if (siteAt < 0)
             {
+                settledAt.Set(restored.SiteId, settledSites.Count());
                 settledSites.Insert(restored.SiteId);
                 settledFlags.Insert(rowSettled);
             }
@@ -359,12 +362,15 @@ class HCSearchHouseJournal
         }
         int releasedCount = 0;
         int flagAt = 0;
+        map<string, bool> alreadyReleased = new map<string, bool>;
+        foreach (string releasedSite : m_ReleasedSites) { alreadyReleased.Set(releasedSite, true); }
         foreach (string settledSite : settledSites)
         {
             bool isSettled = settledFlags[flagAt];
             flagAt++;
-            if (!isSettled || m_ReleasedSites.Find(settledSite) >= 0) { continue; }
+            if (!isSettled || alreadyReleased.Contains(settledSite)) { continue; }
             m_ReleasedSites.Insert(settledSite);
+            alreadyReleased.Set(settledSite, true);
             releasedCount++;
         }
         if (releasedCount > 0) { Print("[HC Search Houses] spent bindings released at restore sites=" + releasedCount.ToString()); }

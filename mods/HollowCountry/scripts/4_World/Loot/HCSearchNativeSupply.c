@@ -252,11 +252,18 @@ class HCSearchSupplyRegistry
 
     protected void ForgetHandles()
     {
+        // One pass over the process-wide handle list against a set of this registry's handles.
+        map<EntityAI, bool> releasing = new map<EntityAI, bool>;
         foreach (HCSearchOwnedSupply released : m_Entries)
         {
-            if (!released.ItemHandle) continue;
-            int position = s_Registered.Find(released.ItemHandle);
-            if (position >= 0) s_Registered.Remove(position);
+            if (released.ItemHandle) releasing.Set(released.ItemHandle, true);
+        }
+        int position = s_Registered.Count() - 1;
+        while (position >= 0)
+        {
+            EntityAI registered = s_Registered[position];
+            if (registered && releasing.Contains(registered)) s_Registered.Remove(position);
+            position = position - 1;
         }
         m_Entries.Clear();
     }
