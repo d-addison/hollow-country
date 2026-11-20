@@ -3,7 +3,8 @@
 // and no HollowCountry_* loadouts ("loadout file missing"), and AI_ENCOUNTER
 // waited for sites forever). The reviewed defaults ship inside this addon's PBO
 // under HollowCountryExpansionAI/data/defaults/ (byte-identical to
-// mission/hollow-country/ai; the full 528-site map policy since #236). Operator files are never
+// mission/hollow-country/ai; the full 528-site map policy since #236 and the
+// matching 523-row locality catalogue). Operator files are never
 // overwritten; a stale operator policy is only reported.
 // Native evidence (scripts-1.30.164289): 1_Core/proto/EnSystem.c:397 FileExist,
 // :528 DeleteFile, :531 CopyFile; 1_Core/proto/EnString.c:286 Contains;

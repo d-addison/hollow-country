@@ -569,31 +569,30 @@ class HCXAISiteDirector : Managed
     {
         int unknown = 0;
         m_LocalitiesWithoutSites = 0;
+        // One pass builds the policy id set; the 523-row catalog would otherwise
+        // rescan all 528 sites for every catalog id in a single startup tick.
+        map<string, bool> policyIds = new map<string, bool>();
+        foreach (HCXAISite candidate : m_Policy.Sites) { policyIds.Set(candidate.Id, true); }
         foreach (HCXAILocality locality : m_Localities.Localities)
         {
             int siteIndex = locality.SiteIds.Count() - 1;
             while (siteIndex >= 0)
             {
-                bool known = false;
-                foreach (HCXAISite candidate : m_Policy.Sites)
-                {
-                    if (candidate.Id == locality.SiteIds[siteIndex]) { known = true; break; }
-                }
-                if (!known) { locality.SiteIds.RemoveOrdered(siteIndex); unknown++; }
+                if (!policyIds.Contains(locality.SiteIds[siteIndex])) { locality.SiteIds.RemoveOrdered(siteIndex); unknown++; }
                 siteIndex--;
             }
             if (locality.SiteIds.Count() == 0) { m_LocalitiesWithoutSites++; }
         }
         if (unknown > 0) { Print("[HC Plan] HC-18 catalog_unknown_site skipped=" + unknown.ToString() + " operator policy retained runtime=PENDING"); }
         int syntheticIndex = 0;
+        map<string, bool> mappedIds = new map<string, bool>();
+        foreach (HCXAILocality mappedLocality : m_Localities.Localities)
+        {
+            foreach (string mappedId : mappedLocality.SiteIds) { mappedIds.Set(mappedId, true); }
+        }
         foreach (HCXAISite site : m_Policy.Sites)
         {
-            bool mapped = false;
-            foreach (HCXAILocality mappedLocality : m_Localities.Localities)
-            {
-                if (mappedLocality.SiteIds.Find(site.Id) >= 0) { mapped = true; break; }
-            }
-            if (mapped) { continue; }
+            if (mappedIds.Contains(site.Id)) { continue; }
             if (m_Localities.Localities.Count() >= HCXAISiteRules.HCMaxCatalogRows()) { return false; }
             string id = site.Id;
             bool collision = true;

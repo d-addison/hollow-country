@@ -226,8 +226,8 @@ def repo_profile_sources():
         'HollowCountry/settings.json': lts.ROOT / 'config/hollow-country-settings.json',
         'HollowCountry/stamina.json': lts.ROOT / 'config/hollow-country-stamina.json',
         'HollowCountry/expansion-ai-sites.json': SOURCE / 'ai/sites.json',
-        # Runtime AI localities use the 88-settlement catalogue. The mission's localities.json
-        # is the separate story-site catalogue, so basename matching would select the wrong data.
+        # Runtime AI localities come from the addon default, which is kept byte-identical to the
+        # mission's 523-row HC-18 catalogue (all 528 sites). Story sites live in events/story-sites.json.
         'ExpansionMod/Settings/AISettings.json': SOURCE / 'ai/AISettings.merge.json',
     }
     defaults = lts.ROOT / 'mods/HollowCountryExpansionAI/data/defaults'
