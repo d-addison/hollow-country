@@ -1,0 +1,7 @@
+{
+  "Disabled": false,
+  "CooldownDays": 2,
+  "MaxChangesPerDay": 2,
+  "MaxZones": 128,
+  "MaxOverrunMembers": 6
+}

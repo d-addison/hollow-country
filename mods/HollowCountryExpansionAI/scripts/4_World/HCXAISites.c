@@ -1831,6 +1831,8 @@ class HCXAISiteDirector : Managed
         if (site.Kind == "scavenger") { populationKind = "party"; }
         int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, site.Id, populationKind);
         if (state.Transient) { population = site.NumberOfAIMax; }
+        HCXZoneGuardsSite zoneSite = HCXZoneGuardsSite.Cast(site);
+        if (zoneSite) { population = zoneSite.Members; }
         site.NumberOfAI = population;
         site.NumberOfAIMax = population;
         config.NumberOfAI = population;
@@ -1840,6 +1842,7 @@ class HCXAISiteDirector : Managed
         config.Behaviour = HCXAISiteRules.PatrolBehaviour(site.Behaviour, state.OpenRoute);
         config.Faction = HCXFactions.SiteFaction(site);
         if (state.Transient) { config.Faction = state.ProviderFaction; }
+        if (zoneSite) { config.Faction = zoneSite.ProviderFaction; }
         config.Loadout = site.Loadout;
         config.Persist = false;
         config.CanBeLooted = true;
