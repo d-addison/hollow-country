@@ -2598,6 +2598,14 @@
     "owner": "HCWorldRuntimeConfig"
   },
   {
+    "key": "WorldRuntime.SaveStagesPerTick",
+    "type": "int",
+    "default": 8,
+    "min": 1,
+    "max": 8,
+    "owner": "HCWorldRuntimeConfig"
+  },
+  {
     "key": "WorldRuntime.SaveFirstDelaySeconds",
     "type": "int",
     "default": 30,

@@ -8,6 +8,7 @@ class HCWorldRuntimeConfig
 {
     int SaveJobLimit = 32;
     int SaveScanLimit = 32;
+    int SaveStagesPerTick = 8;
     int SaveFirstDelaySeconds = 30;
     int SaveStaggerSeconds = 1;
     int SaveCoalesceSeconds = 60;
@@ -30,6 +31,7 @@ class HCWorldRuntimeConfig
     {
         if (s_Config) { return s_Config; }
         HCOperatorSettingsRegistry.HCWorldRuntimeInit();
+        HCOperatorSettingsRegistry.HCSaveThroughputInit();
         s_Config = new HCWorldRuntimeConfig;
         string path = "$profile:HollowCountry/world-runtime.json";
         string image;
@@ -51,6 +53,7 @@ class HCWorldRuntimeConfig
     {
         if (HCJsonFields.Has(image, "SaveJobLimit") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveJobLimit", decoded.SaveJobLimit)) { SaveJobLimit = decoded.SaveJobLimit; }
         if (HCJsonFields.Has(image, "SaveScanLimit") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveScanLimit", decoded.SaveScanLimit)) { SaveScanLimit = decoded.SaveScanLimit; }
+        if (HCJsonFields.Has(image, "SaveStagesPerTick") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveStagesPerTick", decoded.SaveStagesPerTick)) { SaveStagesPerTick = decoded.SaveStagesPerTick; }
         if (HCJsonFields.Has(image, "SaveFirstDelaySeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveFirstDelaySeconds", decoded.SaveFirstDelaySeconds)) { SaveFirstDelaySeconds = decoded.SaveFirstDelaySeconds; }
         if (HCJsonFields.Has(image, "SaveStaggerSeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveStaggerSeconds", decoded.SaveStaggerSeconds)) { SaveStaggerSeconds = decoded.SaveStaggerSeconds; }
         if (HCJsonFields.Has(image, "SaveCoalesceSeconds") && HCOperatorSettingsRegistry.HCValid("WorldRuntime.SaveCoalesceSeconds", decoded.SaveCoalesceSeconds)) { SaveCoalesceSeconds = decoded.SaveCoalesceSeconds; }
@@ -71,6 +74,7 @@ class HCWorldRuntimeConfig
 
     void HCLog()
     {
+        Print("[HC WorldRuntime] SaveStagesPerTick=" + SaveStagesPerTick.ToString() + " runtime=PENDING");
         Print("[HC WorldRuntime]" + " SaveJobLimit=" + SaveJobLimit.ToString() + " SaveScanLimit=" + SaveScanLimit.ToString() + " SaveFirstDelaySeconds=" + SaveFirstDelaySeconds.ToString() + " runtime=PENDING");
         Print("[HC WorldRuntime]" + " SaveStaggerSeconds=" + SaveStaggerSeconds.ToString() + " SaveCoalesceSeconds=" + SaveCoalesceSeconds.ToString() + " SaveFlushStageLimit=" + SaveFlushStageLimit.ToString() + " runtime=PENDING");
         Print("[HC WorldRuntime]" + " SaveScanSliceMs=" + SaveScanSliceMs.ToString() + " BudgetDeferredLogSeconds=" + BudgetDeferredLogSeconds.ToString() + " runtime=PENDING");
