@@ -157,6 +157,13 @@ def shipped_points(repo=REPO_ROOT):
                         or set(prior['containers']) & set(spec['containers'])):
                     raise ValueError('conflicting loot point group across files: ' + name)
                 prior['containers'].update(spec['containers'])
+                # Per-container support proofs follow their containers; a shallow
+                # setdefault kept only the first file's proofs for shared groups.
+                if isinstance(spec.get('collision_support'), dict):
+                    proofs = prior.setdefault('collision_support', {})
+                    if not isinstance(proofs, dict) or set(proofs) & set(spec['collision_support']):
+                        raise ValueError('conflicting collision_support across files: ' + name)
+                    proofs.update(spec['collision_support'])
                 for key, value in spec.items():
                     prior.setdefault(key, value)
     merged['sources'] = sources
