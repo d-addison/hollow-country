@@ -141,6 +141,8 @@ class HCCellarSampler : HCModule
         {
             HCCellarSamplerClass definition = m_Data.Classes[classIndex];
             if (!definition || !definition.Instances) { return false; }
+            // Multi-character IndexOf is only trusted on text of at most 1 KB.
+            if (definition.BuildingClass.Length() > 1024) { return false; }
             if (definition.BuildingClass.IndexOf("Land_") != 0) { return false; }
             for (int priorIndex = 0; priorIndex < classIndex; priorIndex++)
             {
