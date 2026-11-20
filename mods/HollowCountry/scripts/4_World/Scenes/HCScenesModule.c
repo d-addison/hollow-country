@@ -425,8 +425,15 @@ class HCScenesModule : HCModule
         Print("[HollowCountry] V2 scene preflight refused id=" + chainId + " reason=" + reason);
     }
 
+    string HCPacingIdentity(HCSceneChain chain)
+    {
+        return "scene:" + chain.Id + ":" + chain.Stage.ToString();
+    }
+
     void Fail(HCSceneChain chain, int now, string reason)
     {
+        HCEventModule.HCCancelSituation(HCPacingIdentity(chain));
+        HCEventModule.HCEndedSituation(HCPacingIdentity(chain));
         HCSceneChains.Cancel(chain, now);
         m_Refused = m_Refused + 1;
         if (!Commit(now)) { return; }
@@ -452,6 +459,8 @@ class HCScenesModule : HCModule
         HCSceneLease lease = Lease(chain.Id);
         if (chain.Cancelled || chain.Complete)
         {
+            HCEventModule.HCCancelSituation(HCPacingIdentity(chain));
+            HCEventModule.HCEndedSituation(HCPacingIdentity(chain));
             Cleanup(lease);
             return;
         }
@@ -471,6 +480,8 @@ class HCScenesModule : HCModule
         if (status == HCEventStatus.COMPLETED)
         {
             if (!Cleanup(lease)) { return; }
+            // End this stage's active pacing before the identity moves on.
+            HCEventModule.HCEndedSituation(HCPacingIdentity(chain));
             if (chain.Stage + 1 >= plan.Stages.Count())
             {
                 chain.Complete = true;
@@ -486,21 +497,26 @@ class HCScenesModule : HCModule
         if (now < chain.DueAt) { return; }
         if (!lease)
         {
-            if (m_Leases.Count() >= 2) { m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "lease-cap"); return; }
+            if (m_Leases.Count() >= 2) { HCEventModule.HCCancelSituation(HCPacingIdentity(chain)); m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "lease-cap"); return; }
             HCEventSite site = HCSceneChains.HCPlanSite(plan);
             if (!site) { Fail(chain, now, "missing-reviewed-site"); return; }
             // A later chain may reuse this reviewed anchor, but never while an
             // earlier lease (even a closing/partially removed one) still owns it.
-            if (!SiteAvailable(site.Position)) { m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "site-unavailable"); return; }
+            if (!SiteAvailable(site.Position)) { HCEventModule.HCCancelSituation(HCPacingIdentity(chain)); m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "site-unavailable"); return; }
             HCSceneKit kit = HCSceneKits.Find(stage.Kit);
             array<vector> positions;
             int variant;
             if (!HCSceneKits.Preflight(kit, site, positions, variant))
             {
+                HCEventModule.HCCancelSituation(HCPacingIdentity(chain));
                 m_Refused = m_Refused + 1;
                 PreflightRefused(chain.Id, HCSceneKits.Refusal());
                 return;
             }
+            // Pacing precedes the existing durable Begin intent and native
+            // placement. Blocked stages retain their original expiry and skip
+            // through CancelExpired; disabled Events uses the owner rules.
+            if (!HCEventModule.HCPaceSituation(HCPacingIdentity(chain), site.Position, chain.ExpiresAt - now)) { return; }
             if (chain.EventId == 0)
             {
                 if (!HCSceneChains.Begin(chain, stage, now)) { Fail(chain, now, "director-refused"); return; }
@@ -522,6 +538,7 @@ class HCScenesModule : HCModule
         if (!HCSceneKits.Healthy(lease)) { Fail(chain, now, "partial-or-missing-lease"); return; }
         if (!lease.StoryPublished)
         {
+            HCEventModule.HCStartedSituation(HCPacingIdentity(chain));
             lease.StoryPublished = true;
             m_Placed = m_Placed + lease.Objects.Count();
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
@@ -668,6 +685,10 @@ class HCScenesModule : HCModule
     {
         if (m_Stopping) { return; }
         m_Stopping = true;
+        if (m_State)
+        {
+            foreach (HCSceneChain stoppingChain : m_State.Chains) { HCEventModule.HCCancelSituation(HCPacingIdentity(stoppingChain)); }
+        }
         HCSituationSource.HCClear(m_State);
         if (m_StoryIndex) { m_StoryIndex.HCStop(); }
         if (m_Stories) { m_Stories.HCStop(); }

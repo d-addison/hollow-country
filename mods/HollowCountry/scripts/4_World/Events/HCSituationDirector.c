@@ -47,6 +47,7 @@ class HCSituationPacingReceipt
     vector Anchor;
     int StartedAt;
     int ActiveUntil;
+    bool PendingStart; // additive: legacy receipts remain confirmed
 }
 
 modded class HCStoryProgress
@@ -306,9 +307,35 @@ class HCSituationDirector
         return true;
     }
 
+    bool HCExternalAvailable() { return m_Enabled && !m_Fault; }
+
+    // Refusal releases only an unstarted reservation. Completed starts retain
+    // their spacing/heat tail. RequestCheckpoint queues behind an in-flight
+    // immutable image, so cancellation and confirmation cannot be dropped.
+    void HCCancelExternal(string identity)
+    {
+        if (!m_Enabled || m_Fault || !m_Store.HCCheckpointHealthy()) { return; }
+        HCSituationPacingReceipt receipt = HCPacingFind(identity);
+        if (!receipt || !receipt.PendingStart) { return; }
+        m_State.Stories.HCPacing.RemoveItem(receipt);
+        HCCommit();
+    }
+
+    // A finished or cancelled confirmed start stops counting as active at once;
+    // StartedAt is kept, so the spacing/decay tail still applies.
+    void HCEndExternal(string identity)
+    {
+        if (!m_Enabled || m_Fault || !m_Store.HCCheckpointHealthy()) { return; }
+        HCSituationPacingReceipt receipt = HCPacingFind(identity);
+        if (!receipt || receipt.PendingStart) { return; }
+        int now = HCPacingNow();
+        if (now < receipt.StartedAt || now >= receipt.ActiveUntil) { return; }
+        receipt.ActiveUntil = now;
+        HCCommit();
+    }
+
     // External HC owners retry the SAME stable identity after the shared store
-    // barrier drains. A failed provider start conservatively consumes the finite
-    // reservation until its declared lifetime; no duplicate spawn/refund path.
+    // barrier drains. Provider ownership/journals still prevent spawn replay.
     bool HCReserveExternal(string identity, vector anchor, int lifetimeSeconds)
     {
         if (!m_Enabled || m_Fault || !HCEventDirector.TextValid(identity, 96)) { return false; }
@@ -319,10 +346,25 @@ class HCSituationDirector
         if (retained)
         {
             if (now < retained.StartedAt) { return false; }
-            if (now < retained.ActiveUntil) { return retained.Anchor == anchor && HCPacingAllows(anchor, now, 0, identity); }
+            if (now < retained.ActiveUntil)
+            {
+                // Restoring an already issued scene/event remains the native
+                // owner's decision; its durable identity prevents replay.
+                if (!retained.PendingStart) { return HCPacingAllows(anchor, now, 0, identity); }
+                if (!HCPacingAllows(anchor, now, 0, identity)) { return false; }
+                if (vector.DistanceSq(retained.Anchor, anchor) > 10000)
+                {
+                    retained.Anchor = anchor;
+                    HCCommit();
+                    return false;
+                }
+                return true;
+            }
             if (now - retained.StartedAt < HCSituationLimits.PACING_DECAY) { return false; }
         }
         if (!HCPacingAllows(anchor, now) || !HCPacingReserve(identity, anchor, now, now + lifetimeSeconds)) { return false; }
+        HCSituationPacingReceipt pending = HCPacingFind(identity);
+        pending.PendingStart = true;
         HCCommit();
         return false; // durable reservation first, provider only on a later tick
     }
@@ -331,10 +373,11 @@ class HCSituationDirector
     // next start's spacing run from an old reservation rather than the start.
     void HCConfirmExternal(string identity)
     {
-        if (!m_Enabled || m_Fault || m_Store.HCCheckpointPending()) { return; }
+        if (!m_Enabled || m_Fault || !m_Store.HCCheckpointHealthy()) { return; }
         HCSituationPacingReceipt receipt = HCPacingFind(identity);
         int now = HCPacingNow();
-        if (!receipt || now < receipt.StartedAt || now >= receipt.ActiveUntil) { return; }
+        if (!receipt || !receipt.PendingStart || now < receipt.StartedAt) { return; }
+        receipt.PendingStart = false;
         int lifetime = receipt.ActiveUntil - receipt.StartedAt;
         receipt.StartedAt = now;
         receipt.ActiveUntil = now + lifetime;
@@ -547,7 +590,8 @@ class HCSituationDirector
     {
         HCSituationPacingReceipt pacing = HCPacingFind(slot.Opportunity.Id);
         int now = HCPacingNow();
-        if (pacing && now >= pacing.StartedAt && now < pacing.ActiveUntil) { pacing.ActiveUntil = now; }
+        if (pacing && slot.Opportunity.Phase == "intent") { m_State.Stories.HCPacing.RemoveItem(pacing); }
+        else if (pacing && now >= pacing.StartedAt && now < pacing.ActiveUntil) { pacing.ActiveUntil = now; }
         slot.Opportunity.Phase = "closed";
         slot.Opportunity.Outcome = outcome;
         if (!HCCommit()) { return false; }
@@ -600,7 +644,10 @@ class HCSituationDirector
         if (row.Phase == "intent" && slot.Attempted)
         {
             HCSituationPacingReceipt reserved = HCPacingFind(row.Id);
-            if (!reserved || !HCPacingAllows(reserved.Anchor, now, 0, row.Id)) { return; }
+            vector liveAnchor;
+            if (!reserved || !slot.Actors || !slot.Actors.HCAnchor(row.Lease, liveAnchor)) { return; }
+            if (!HCPacingAllows(liveAnchor, now, 0, row.Id)) { return; }
+            reserved.Anchor = liveAnchor;
             // HCBegin re-resolves this exact lease and checks current native
             // ownership, exclusions and living roster; selection is never replayed.
             if (!slot.Actors || !slot.Actors.HCReady() || !slot.Actors.HCBegin(row)) { HCFinish(slot, "unknown"); return; }

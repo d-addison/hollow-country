@@ -177,8 +177,21 @@ class HCEventModule : HCModule
     // confirm success. CE spawning and native aggro must never call this gate.
     static bool HCPaceSituation(string identity, vector anchor, int lifetimeSeconds)
     {
-        if (!s_SituationOwner || !s_SituationOwner.m_Situations) { return false; }
+        // Optional owner/source off or unavailable: original owners keep their
+        // own safety, capacity, finite stock and expiry rules.
+        if (!s_SituationOwner || !s_SituationOwner.m_SituationEnabled || !s_SituationOwner.m_Config || !s_SituationOwner.m_Config.Enabled) { return true; }
+        if (!s_SituationOwner.m_Situations || !s_SituationOwner.m_Situations.HCExternalAvailable()) { return true; }
         return s_SituationOwner.m_Situations.HCReserveExternal(identity, anchor, lifetimeSeconds);
+    }
+
+    static void HCCancelSituation(string identity)
+    {
+        if (s_SituationOwner && s_SituationOwner.m_Situations) { s_SituationOwner.m_Situations.HCCancelExternal(identity); }
+    }
+
+    static void HCEndedSituation(string identity)
+    {
+        if (s_SituationOwner && s_SituationOwner.m_Situations) { s_SituationOwner.m_Situations.HCEndExternal(identity); }
     }
 
     static void HCStartedSituation(string identity)
@@ -434,12 +447,16 @@ class HCEventModule : HCModule
     {
         if (mission && mission.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            if (!m_Situations || !m_Situations.HCReserveExternal("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { return HCEventCode.BLOCKED; }
+            if (!HCPaceSituation("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { return HCEventCode.BLOCKED; }
         }
         int result = m_Runtime.Announce(mission, context);
         if (result == HCEventCode.OK && mission.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            m_Situations.HCConfirmExternal("event:" + mission.Id);
+            HCStartedSituation("event:" + mission.Id);
+        }
+        else if (mission && mission.Family == HCEventFamily.AI_ENCOUNTER)
+        {
+            HCCancelSituation("event:" + mission.Id);
         }
         return result;
     }

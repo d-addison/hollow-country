@@ -2,6 +2,12 @@
 // in HCW38SituationRuntime.c. HC-38 owns intent/save/history; HC-10 owns bodies.
 class HCXAIRaidAdapter : HCCampRaidActorPort
 {
+    override bool HCAnchor(string lease, out vector anchor)
+    {
+        if (HCXSituationAnchor.HCGet(lease, anchor)) { return true; }
+        return super.HCAnchor(lease, anchor);
+    }
+
     override bool HCReady() { return HCW38SituationRuntime.HCReady(); }
     override string HCRefusal() { return HCW38SituationRuntime.HCReason(); }
     override string HCSelect(HCSituationState opportunity) { return HCW38SituationRuntime.HCSelect(opportunity); }

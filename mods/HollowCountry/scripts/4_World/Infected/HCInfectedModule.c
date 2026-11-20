@@ -49,6 +49,9 @@ class HCInfectedModule : HCModule
     protected string m_LastRouteRefusal;
     protected bool m_Healthy;
     protected bool m_Hordes;
+    protected string m_PacingHordeId;
+    protected int m_PacingHordeAttempts;
+    protected bool m_PacingHordeWaiting;
     protected bool m_Chains;
     protected bool m_Dirty;
     protected ref HCInfectedSaveJob m_SaveJob;
@@ -738,6 +741,20 @@ class HCInfectedModule : HCModule
 
     protected void TryAdopt(int nowUtc)
     {
+        m_PacingHordeWaiting = false;
+        HCTryAdoptPaced(nowUtc);
+        if (!m_PacingHordeWaiting && m_PacingHordeId != "")
+        {
+            // Includes early eligibility/prepare failures; no native start is
+            // replayed. A confirmed start is immune to this cancellation.
+            HCEventModule.HCCancelSituation(m_PacingHordeId);
+            m_PacingHordeId = "";
+            m_PacingHordeAttempts = 0;
+        }
+    }
+
+    protected void HCTryAdoptPaced(int nowUtc)
+    {
         if (!HCInfectedPolicy.AdoptionWorkReady(m_WorkCap)) return;
         if (!m_Hordes || !m_Admission.CEAdoption)
         {
@@ -852,6 +869,17 @@ class HCInfectedModule : HCModule
         HCHordeRecovery.Capture(candidates, record);
         if (record.RecoveryConflicted)
             return;
+        if (m_PacingHordeId == "") { m_PacingHordeId = "horde:" + nowUtc.ToString(); }
+        m_PacingHordeAttempts++;
+        // Six ordinary admission passes, then skip this offer. The existing
+        // adoption interval and cursor select a later offer; never force a pack
+        // into a busy region or hold the same offer indefinitely.
+        if (m_PacingHordeAttempts > 6) { return; }
+        if (!HCEventModule.HCPaceSituation(m_PacingHordeId, anchor, 600))
+        {
+            m_PacingHordeWaiting = true;
+            return;
+        }
         // Never persist a partial roster or identities of supplemental bodies.
         if (requested < target) { record.MemberIds.Clear(); }
         // PREPARE: the reservation is durable before any native membership
@@ -926,6 +954,8 @@ class HCInfectedModule : HCModule
             succeeded = succeeded && !pack.IsReleasing();
             releasing = pack.IsReleasing();
         }
+        if (succeeded) { HCEventModule.HCStartedSituation(m_PacingHordeId); }
+        else { HCEventModule.HCCancelSituation(m_PacingHordeId); }
         record.AdoptionStage = HCInfectedPolicy.AdoptionOutcome(true, attempted, succeeded, releasing);
         if (record.AdoptionStage == 2)
         {
@@ -1234,6 +1264,8 @@ class HCInfectedModule : HCModule
 
     override void OnStop()
     {
+        if (m_PacingHordeId != "") { HCEventModule.HCCancelSituation(m_PacingHordeId); }
+        m_PacingHordeId = "";
         HCInfectedVisionQualification.HCThreatReset(false);
         ReleasePacks();
         if (m_Healthy && m_Hordes && m_Dirty && GetGame().IsServer())
