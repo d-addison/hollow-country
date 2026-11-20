@@ -925,13 +925,29 @@ modded class HCSearchBinding
     {
         if (!super.BuildInputs()) return false;
         HCSearchRefreshPilotCatalog.Clear();
+        // Index the sites by id once; each volume then reads only its own sites (same order as the old rescan).
+        map<string, ref array<HCInteriorSite>> sitesById = new map<string, ref array<HCInteriorSite>>;
+        array<ref HCInteriorSite> siteRows = m_Sites;
+        foreach (HCInteriorSite site : siteRows)
+        {
+            array<HCInteriorSite> sameId;
+            if (!sitesById.Find(site.Id, sameId))
+            {
+                sameId = new array<HCInteriorSite>;
+                sitesById.Set(site.Id, sameId);
+            }
+            sameId.Insert(site);
+        }
         int index;
         while (index < m_Volumes.Count())
         {
-            array<ref HCInteriorSite> siteRows = m_Sites;
-            foreach (HCInteriorSite site : siteRows)
+            array<HCInteriorSite> matching;
+            if (sitesById.Find(m_Volumes[index].SiteId, matching))
             {
-                if (site.Id == m_Volumes[index].SiteId) HCSearchRefreshPilotCatalog.Remember(site, m_Volumes[index], m_Contexts[index]);
+                foreach (HCInteriorSite matched : matching)
+                {
+                    HCSearchRefreshPilotCatalog.Remember(matched, m_Volumes[index], m_Contexts[index]);
+                }
             }
             index++;
         }

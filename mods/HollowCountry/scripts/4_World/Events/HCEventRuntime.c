@@ -26,6 +26,7 @@ class HCEventRuntime
     protected int m_PurgeCursor;
     protected ref HCWorkBudget m_WorkBudget;
     protected ref array<string> m_BlockedLogged = new array<string>();
+    protected string m_RetentionBlockedLine;
     // At most one cooldown per retained current-session record (32).
     protected ref array<int> m_ReofferIds = new array<int>();
     protected ref array<int> m_ReofferAfter = new array<int>();
@@ -47,6 +48,7 @@ class HCEventRuntime
         m_StopRequested = false;
         m_Subscriptions = new array<ref HCEventSubscription>();
         m_BlockedLogged = new array<string>();
+        m_RetentionBlockedLine = "";
         m_ReofferIds = new array<int>();
         m_ReofferAfter = new array<int>();
         m_Refusal = "";
@@ -217,7 +219,13 @@ class HCEventRuntime
             if (state.Runs[0].Phase != HCEventRunPhase.CLOSED || !HCEventDirector.PruneFirst(state.Director))
             {
                 int phase = state.Runs[0].Phase;
-                Print("[HC Events] retention blocked by oldest run " + state.Runs[0].Lease + " phase " + phase.ToString() + "; new announcements refused until it closes");
+                // Roster refresh retries every few seconds; print each distinct blocker once.
+                string blocked = "[HC Events] retention blocked by oldest run " + state.Runs[0].Lease + " phase " + phase.ToString() + "; new announcements refused until it closes";
+                if (blocked != m_RetentionBlockedLine)
+                {
+                    m_RetentionBlockedLine = blocked;
+                    Print("" + blocked);
+                }
                 return false;
             }
             state.Runs.RemoveOrdered(0);

@@ -253,15 +253,15 @@ class HCEventCacheSpawner
 
     protected static bool s_PhysicalPendingPrinted;
     protected static bool s_PhysicalAdmissionPrinted;
+    protected static bool s_PhysicalEnabled;
     static bool HCPhysicalEnabled()
     {
-        bool enabled = !FileExist("$profile:HollowCountry/acceptance/w38_rewards.disable");
-        if (!s_PhysicalAdmissionPrinted)
-        {
-            s_PhysicalAdmissionPrinted = true;
-            Print(HCV2Admission.Line("PhysicalSpoils", enabled, "w38_rewards", false) + " runtime=PENDING");
-        }
-        return enabled;
+        // Operator marker is probed once per process, like the other acceptance markers.
+        if (s_PhysicalAdmissionPrinted) { return s_PhysicalEnabled; }
+        s_PhysicalAdmissionPrinted = true;
+        s_PhysicalEnabled = !FileExist("$profile:HollowCountry/acceptance/w38_rewards.disable");
+        Print(HCV2Admission.Line("PhysicalSpoils", s_PhysicalEnabled, "w38_rewards", false) + " runtime=PENDING");
+        return s_PhysicalEnabled;
     }
 
     static void HCPhysicalPending()
