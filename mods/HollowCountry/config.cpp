@@ -1382,3 +1382,13 @@ class CfgWeapons
         };
     };
 };
+
+// HC runtime constants read by script on client and server alike.
+class CfgHollowCountry
+{
+    class Firearms
+    {
+        // Highest weapon health level that never jams: 0 pristine, 1 worn (owner 2026-11-20), -1 native.
+        noJamMaxHealthLevel = 1;
+    };
+};
