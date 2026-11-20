@@ -127,6 +127,14 @@ class HCCampTheft
         if (!pickers) { s_Status.HCPublish("degraded", "THEFT_PICKER_UNAVAILABLE"); return s_Status; }
         HCOperationalStatus observed = pickers.HCGetOperationalStatus();
         s_Status.HCPublish(observed.HCState(), observed.HCReason());
+        if (observed.HCState() != "ready") { return s_Status; }
+        HCScavengeTrip trip = pickers.HCTrip();
+        if (!trip || !trip.m_IO || !trip.m_State || !trip.m_Ready) { s_Status.HCPublish("degraded", "THEFT_PICKER_TRIP_UNAVAILABLE"); return s_Status; }
+        string walkRefusal = trip.m_IO.HCWalkRefusal();
+        if (walkRefusal != "") { s_Status.HCPublish("degraded", walkRefusal); return s_Status; }
+        // Capability is bound even when proximity admission has materialised no
+        // party. Do not turn normal idle into a missing-provider diagnosis.
+        if (trip.m_State.Phase == "idle") { s_Status.HCPublish("ready", "THEFT_WAITING_FOR_TRAVELLING_PARTY"); }
         return s_Status;
     }
 

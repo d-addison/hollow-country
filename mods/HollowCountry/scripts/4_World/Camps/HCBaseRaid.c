@@ -58,6 +58,8 @@ class HCBaseRaidPort
     bool HCVisit(HCCampModule owner, HCCampRecord camp, int now) { return false; }
     bool HCReady() { return false; }
     string HCRefusal() { return "PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"; }
+    // Cached sensing state only; status reads must not search for a party.
+    string HCWaitingReason() { return ""; }
     bool HCSeen(HCCampRecord camp, HCCampScan scan) { return false; }
     bool HCReserve(HCCampModule owner, HCCampRecord camp, int now) { return false; }
     void HCWarned(HCCampRecord camp, int now) {}
@@ -128,6 +130,8 @@ class HCBaseRaid
         if (!port) { s_Status.HCPublish("degraded", "PROBE_PLAYER_BASE_DISPATCH_UNAVAILABLE"); return s_Status; }
         if (!port.HCReady()) { s_Status.HCPublish("degraded", port.HCRefusal()); return s_Status; }
         s_Status.HCPublish("ready", "base_raid_provider_bound");
+        string waiting = port.HCWaitingReason();
+        if (waiting != "") { s_Status.HCPublish("ready", waiting); }
         return s_Status;
     }
 
@@ -190,6 +194,8 @@ modded class HCCampModule
 {
     protected ref HCOperationalOwner m_HCBaseRaidStatus;
     protected ref HCOperationalOwner m_HCVisitorStatus;
+    protected string m_HCBaseRaidLine;
+    protected string m_HCVisitorLine;
 
     // Exact recipient list used by Tell in this synchronous camp scan; a
     // different player cache must not turn an undelivered warning into a debit.
@@ -215,6 +221,21 @@ modded class HCCampModule
         if (m_HCVisitorStatus) { m_HCVisitorStatus.HCObserve(true, visitors, GetGame().GetTickTime()); }
         HCOperationalStatus raid = HCBaseRaid.HCGetOperationalStatus();
         if (m_HCBaseRaidStatus) { m_HCBaseRaidStatus.HCObserve(true, raid, GetGame().GetTickTime()); }
+        // Camps starts before the addon. Its boot-only unavailable lines are
+        // superseded here on the existing 15-second status refresh, like theft.
+        // Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print.
+        string raidLine = "[HC CampGroup] probes=" + raid.HCState() + " reason=" + raid.HCReason();
+        if (raidLine != m_HCBaseRaidLine)
+        {
+            m_HCBaseRaidLine = raidLine;
+            Print(raidLine + " mailbox=retired runtime=PENDING");
+        }
+        string visitorLine = "[HC CampGroup] visitors=" + visitors.HCState() + " reason=" + visitors.HCReason();
+        if (visitorLine != m_HCVisitorLine)
+        {
+            m_HCVisitorLine = visitorLine;
+            Print(visitorLine + " runtime=PENDING");
+        }
         return inherited;
     }
 }
