@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Workshop PBO and the friend bundle carry the same interiors.
 TEMPLATES_REL = 'mission/hollow-country/interiors/templates'
 ADDONS = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/Addons')
+NATIVE_SCRIPTS = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 
 
 def run(command, cwd=ROOT):
@@ -153,6 +154,13 @@ def build(args):
             sources = source_json(tree)
             templates = copy_templates(args.templates.absolute() if args.templates else tree / TEMPLATES_REL, target)
             py = [sys.executable, '-B']
+            # Build 098 shipped a keyword name that only the native compiler refused; lint the
+            # pinned tree first so known compile refusals never reach a signed build.
+            lint = [*py, '-m', 'tools.validate.enforce_lint']
+            if NATIVE_SCRIPTS.is_dir():
+                lint += ['--native-scripts', NATIVE_SCRIPTS]
+            print('Linting pinned commit ' + sha, flush=True)
+            run(lint, cwd=tree)
             print('Packing pinned commit ' + sha, flush=True)
             for mod, name, prefix in (
                     ('HollowCountry', 'hollowcountry', 'HollowCountry'),
