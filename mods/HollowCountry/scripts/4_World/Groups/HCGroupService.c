@@ -408,7 +408,8 @@ class HCGroupService
             peer = Peer(uid);
         }
         if (!Live(peer) || peer.Identity != sender) return;
-        if (!Admit(peer)) { Reply(peer, 0, HCGroupCode.RATE); return; }
+        // Over-budget packets must not allocate/serialize a reliable reply.
+        if (!Admit(peer)) { return; }
         HCGroupRequest request;
         if (!ctx || !ctx.Read(request) || !request) { Reply(peer, 0, HCGroupCode.INVALID); return; }
         if (request.Version != HCGroupProtocol.VERSION || request.Session.Length() > 80 || request.Name.Length() > 64 || request.Note.Length() > 512 || request.TargetId.Length() > 128 || !HCGroupRules.MutationIdValid(request.RequestId))
