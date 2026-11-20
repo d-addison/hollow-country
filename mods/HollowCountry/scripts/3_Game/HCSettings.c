@@ -67,27 +67,28 @@ class HCJsonFields
     static bool KeyMatchesAt(HCTextWindow text, int start, int stop, string key)
     {
         if (start < 0 || stop > text.Length() || start > stop) { return false; }
+        HCTextWindow keyText = new HCTextWindow(key);
         int cursor = start;
         int keyIndex = 0;
-        while (cursor < stop && keyIndex < key.Length())
+        while (cursor < stop && keyIndex < keyText.Length())
         {
             string letter = text.At(cursor);
             if (letter == "\\")
             {
                 if (cursor + 5 >= stop || text.At(cursor + 1) != "u") { return false; }
                 string hexDigits = text.Range(cursor + 2, 4);
-                string expected = key.Get(keyIndex);
+                string expected = keyText.At(keyIndex);
                 if (hexDigits.HexToInt() != expected.ToAscii()) { return false; }
                 cursor = cursor + 6;
             }
             else
             {
-                if (letter != key.Get(keyIndex)) { return false; }
+                if (letter != keyText.At(keyIndex)) { return false; }
                 cursor = cursor + 1;
             }
             keyIndex = keyIndex + 1;
         }
-        return cursor == stop && keyIndex == key.Length();
+        return cursor == stop && keyIndex == keyText.Length();
     }
 
     static bool Check(string text, string key, int targetDepth, bool every, string selector = "")
