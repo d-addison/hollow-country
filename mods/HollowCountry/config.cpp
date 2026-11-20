@@ -5,7 +5,7 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "DZ_Weapons_Firearms_Scout", "DZ_Weapons_Lights", "DZ_Characters_Backpacks", "DZ_Characters_Belts", "DZ_Characters_Glasses", "DZ_Characters_Gloves", "DZ_Characters_Headgear", "DZ_Characters_Masks", "DZ_Characters_Shoes", "DZ_Gear_Books", "DZ_Gear_Camping", "DZ_Gear_Consumables", "DZ_Gear_Crafting", "DZ_Gear_Cultivation", "DZ_Gear_Drinks", "DZ_Gear_Food", "DZ_Gear_Medical", "DZ_Gear_Tools", "DZ_Gear_Traps", "DZ_Radio", "DZ_Weapons_Melee_Blade", "DZ_Weapons_Melee_Blunt", "DZ_Weapons_Melee_Powered", "DZ_Gear_Cooking", "DZ_Gear_Navigation", "DZ_Gear_Optics"};
+        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "DZ_Weapons_Firearms_Scout", "DZ_Pistols_pb6p9", "DZ_Weapons_Lights", "DZ_Characters_Backpacks", "DZ_Characters_Belts", "DZ_Characters_Glasses", "DZ_Characters_Gloves", "DZ_Characters_Headgear", "DZ_Characters_Masks", "DZ_Characters_Shoes", "DZ_Gear_Books", "DZ_Gear_Camping", "DZ_Gear_Consumables", "DZ_Gear_Crafting", "DZ_Gear_Cultivation", "DZ_Gear_Drinks", "DZ_Gear_Food", "DZ_Gear_Medical", "DZ_Gear_Tools", "DZ_Gear_Traps", "DZ_Radio", "DZ_Weapons_Melee_Blade", "DZ_Weapons_Melee_Blunt", "DZ_Weapons_Melee_Powered", "DZ_Gear_Cooking", "DZ_Gear_Navigation", "DZ_Gear_Optics"};
     };
 };
 class CfgMods
@@ -1276,5 +1276,58 @@ class CfgWeapons
     {
         // Preserve every installed vanilla slot; colour variants inherit this addition.
         attachments[] = {"weaponWrap", "weaponOptics", "weaponMuzzleM4", "weaponFlashlight"};
+    };
+    // Vanilla MakarovPB (weapons_pistols.pbo pb6p9, CfgPatches DZ_Pistols_pb6p9) is unfinished
+    // content our datamined roster spawns. Its class chain (MakarovPB_Base -> Pistol_Base ->
+    // PistolCore -> DefaultWeapon -> Weapon_Base) has no Particles class, so shots had no
+    // configured muzzle flash or smoke; 18 of 20 public vanilla pistols resolve one. Mirror the
+    // installed MakarovIJ70_Base particles. Visual result UNOBSERVED.
+    class Pistol_Base;
+    class MakarovPB_Base: Pistol_Base
+    {
+        class Particles
+        {
+            class OnFire
+            {
+                class SmokeCloud
+                {
+                    overrideParticle = "weapon_shot_winded_smoke";
+                };
+                class MuzzleFlash
+                {
+                    overrideParticle = "weapon_shot_fnx_01";
+                    ignoreIfSuppressed = 1;
+                    illuminateWorld = 1;
+                    positionOffset[] = {0, 0, 0};
+                };
+            };
+            class OnOverheating
+            {
+                maxOverheatingValue = 8;
+                shotsToStartOverheating = 8;
+                overheatingDecayInterval = 1;
+                class SmokingBarrel1
+                {
+                    overrideParticle = "smoking_barrel_small";
+                    onlyWithinOverheatLimits[] = {0, 1};
+                    positionOffset[] = {0, 0, 0};
+                    onlyWithinRainLimits[] = {0, 1};
+                };
+                class OpenChamberSmoke
+                {
+                    onlyIfBoltIsOpen = 1;
+                    overrideParticle = "smoking_barrel_small";
+                    overridePoint = "Nabojnicestart";
+                };
+            };
+            class OnBulletCasingEject
+            {
+                class ChamberSmokeRaise
+                {
+                    overrideParticle = "weapon_shot_chamber_smoke";
+                    overridePoint = "Nabojnicestart";
+                };
+            };
+        };
     };
 };
