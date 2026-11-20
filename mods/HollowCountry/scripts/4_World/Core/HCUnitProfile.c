@@ -58,6 +58,7 @@ class HCUnitProfile
         HCRegister("SEARCH_COMPACT", config.TickWeight_SEARCH_COMPACT);
         HCRegister("SHELTER", config.TickWeight_SHELTER);
         HCRegister("AI_SITES", config.TickWeight_AI_SITES);
+        HCRegister("STORY_INDEX", config.TickWeight_STORY_INDEX);
         // Preserve HCUnitBudget's existing clamping to 0..30.
         while (m_Costs.Count() < 31) { HCRegister("UNASSIGNED_" + m_Costs.Count().ToString(), 1); }
     }

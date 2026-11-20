@@ -228,7 +228,8 @@ class HCGapcodeStoryIndex
         {
             // One shared unit per batch of ReadLinesPerTick lines: the shared budget is usually spent
             // by earlier consumers, and one unit per line read the 1075-line index at ~1 line/s.
-            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+            // STORY_INDEX, not SITUATIONS: Events claims that slot's starved take every tick.
+            if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
             m_Work.HCReset(m_Limits.ReadLinesPerTick);
             string line;
             for (int row = 0; row < m_Limits.ReadLinesPerTick; row++)
@@ -251,7 +252,7 @@ class HCGapcodeStoryIndex
             return;
         }
         if (!m_Complete || m_Qualified < 1 || m_Selected) { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SITUATIONS, 1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_STORY_INDEX, 1)) { return; }
         if (m_Cursor >= m_Pairs.Count()) { m_Cursor = 0; }
         HCGapcodeStoryCandidate candidate = m_Pairs[m_Cursor];
         m_Cursor = m_Cursor + 1;
