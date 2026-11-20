@@ -61,6 +61,8 @@ class HCInteriorPackJob
     int LeafFiles;
     bool LeafLogged;
     int Bytes;
+    int CachedBytes;
+    ref map<string, string> RawFiles = new map<string, string>;
     bool Started;
     bool Ready;
     ref HCInteriorPackRoot Header;
@@ -110,6 +112,8 @@ class HCInteriorPackIndex
         job.Ready = false;
         job.Index = null;
         job.Header = null;
+        job.RawFiles.Clear();
+        job.CachedBytes = 0;
         job.Pins.Clear();
         job.Schemas.Clear();
         int chunks = HCChunks(job);
@@ -140,6 +144,8 @@ class HCInteriorPackIndex
         job.Ready = false;
         job.Header = null;
         job.Index = null;
+        job.RawFiles.Clear();
+        job.CachedBytes = 0;
         job.Pins.Clear();
         job.Schemas.Clear();
     }
@@ -152,20 +158,9 @@ class HCInteriorPackIndex
             HCFail(job, "file_cap");
             return "";
         }
-        FileHandle handle = OpenFile(job.Root + fileName, FileMode.READ);
-        if (!handle)
-        {
-            HCFail(job, "file_size_or_read:" + fileName);
-            return "";
-        }
-        string content;
-        int count = ReadFile(handle, content, 32768);
-        CloseFile(handle);
-        if (count < 1 || count > 32767 || count != content.Length())
-        {
-            HCFail(job, "file_size_or_read:" + fileName);
-            return "";
-        }
+        string content = job.RawFiles.Get(fileName);
+        int count = content.Length();
+        if (count < 1) { HCFail(job, "file_size_or_read:" + fileName); return ""; }
         job.Files = job.Files + 1;
         job.Bytes = job.Bytes + count;
         if (job.Bytes > 20971520)
@@ -179,6 +174,50 @@ class HCInteriorPackIndex
             Print("[HC Plan] HC-24 read=" + fileName + " bytes=" + count.ToString() + " length=" + content.Length().ToString() + " runtime=PENDING");
         }
         return content;
+    }
+
+    // OnStart only: cache immutable pack inputs. Decoding/validation of leaves stays sliced.
+    // Native EnSystem.c:417/425/443 OpenFile/ReadFile/CloseFile; EnScript.c:866/902 maps.
+    static void HCReadAtStart(HCInteriorPackJob job, string fileName)
+    {
+        if (job.Reason != "" || job.RawFiles.Contains(fileName)) { return; }
+        FileHandle handle = OpenFile(job.Root + fileName, FileMode.READ);
+        if (!handle)
+        {
+            HCFail(job, "file_size_or_read:" + fileName);
+            return;
+        }
+        string content;
+        int count = ReadFile(handle, content, 32768);
+        CloseFile(handle);
+        if (count < 1 || count > 32767 || count != content.Length())
+        {
+            HCFail(job, "file_size_or_read:" + fileName);
+            return;
+        }
+        job.CachedBytes = job.CachedBytes + count;
+        if (job.RawFiles.Count() >= 627 || job.CachedBytes > 20971520)
+        {
+            HCFail(job, "pack_size");
+            return;
+        }
+        job.RawFiles.Set(fileName, content);
+    }
+
+    static void HCPrimeAtStart(HCInteriorPackJob job)
+    {
+        // Header admits at most 16 pages. Merge each once to discover exact leaf names.
+        for (int page = 0; page < 16 && !job.Ready && job.Reason == ""; page++)
+        {
+            HCReadAtStart(job, job.Header.IndexFiles[job.NextPage].FileName);
+            HCMetadataPage(job);
+        }
+        if (!job.Ready || job.Reason != "") { return; }
+        foreach (string fileName, string pin : job.Pins)
+        {
+            HCReadAtStart(job, fileName);
+            if (job.Reason != "") { return; }
+        }
     }
 
     static bool HCStart(HCInteriorPackJob job, string root)
@@ -199,6 +238,7 @@ class HCInteriorPackIndex
             return HCFail(job, "pack_missing");
         }
         Print("[HC Plan] HC-24 pack_chunks=0 classes=0 refused=none state=pending hash_refused=runtime_sha256_unavailable runtime=PENDING");
+        HCReadAtStart(job, "index.json");
         string raw = HCRead(job, "index.json");
         if (raw == "")
         {
@@ -326,6 +366,11 @@ class HCInteriorPackIndex
         {
             return 1;
         }
+        return HCMetadataPage(job);
+    }
+
+    protected static int HCMetadataPage(HCInteriorPackJob job)
+    {
         HCInteriorTemplateFile binding = job.Header.IndexFiles.Get(job.NextPage);
         string raw = HCRead(job, binding.FileName);
         if (raw == "") { return 2; }
@@ -422,6 +467,8 @@ class HCInteriorPackIndex
     static void HCReceipt(HCInteriorPackJob job, int classes, bool enabled)
     {
         HCFinishDuration(job);
+        job.RawFiles.Clear(); // All leaf consumers are finished before the admission receipt.
+        job.CachedBytes = 0;
         string state = "off";
         string refused = "none";
         if (enabled)

@@ -30,6 +30,8 @@ class HCInteriorJson<Class T>
 
 class HCInteriorStore
 {
+    // Native EnScript.c:866/902 map Get/Set; journal snapshot loaded by Open.
+    protected ref map<int, bool> m_Held = new map<int, bool>;
     protected string m_Root;
     protected bool m_Fault;
     protected string m_LastRefusal;
@@ -161,6 +163,7 @@ class HCInteriorStore
     {
         for (int slot = 0; slot < 12; slot++)
         {
+            m_Held.Set(slot, FileExist(HoldPath(slot)));
             HCInteriorAllocation entry = m_Pool.FindSlot(slot);
             if (!entry)
             {
@@ -171,7 +174,7 @@ class HCInteriorStore
             site.SlotId = slot;
             site.Id = entry.SiteId;
             site.Item = entry.Item;
-            site.Phase = RecoverSite(site);
+            site.Phase = ReadRecoverySite(site);
         }
         return true;
     }
@@ -191,7 +194,7 @@ class HCInteriorStore
 
     bool IsHeld(int slot)
     {
-        return FileExist(HoldPath(slot));
+        return m_Held.Get(slot);
     }
 
     // Permanent per-epoch retirement. No reclaimed escrow or automatic prop
@@ -214,11 +217,20 @@ class HCInteriorStore
         hold.Item = site.Item;
         hold.Phase = 3;
         hold.PlayerId = "SERVER_HOLD:" + reason;
+        m_Held.Set(slot, true); // Exclude before the durability barrier, including failure.
         if (!HCInteriorJson<HCInteriorClaim>.WriteNew(HoldPath(slot), hold)) return Fail("orphan hold write/readback failed; preserve state");
         return true;
     }
 
     int RecoverSite(HCInteriorSite site)
+    {
+        // Open reconciles every allocation before placement. Pool tracks all later transitions.
+        if (!site || !m_Pool || !m_Pool.Matches(site)) return 3;
+        HCInteriorAllocation entry = m_Pool.FindSlot(site.SlotId);
+        return entry.Phase;
+    }
+
+    protected int ReadRecoverySite(HCInteriorSite site)
     {
         if (!site)
         {
