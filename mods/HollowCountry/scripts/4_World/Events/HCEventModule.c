@@ -172,6 +172,20 @@ class HCEventModule : HCModule
         if (s_SituationOwner) { s_SituationOwner.HCOfferSituation(chain); }
     }
 
+    // Trusted server-owner seam for other HC situations (e.g. horde owner).
+    // Retry a stable, namespaced identity until true, then start once and
+    // confirm success. CE spawning and native aggro must never call this gate.
+    static bool HCPaceSituation(string identity, vector anchor, int lifetimeSeconds)
+    {
+        if (!s_SituationOwner || !s_SituationOwner.m_Situations) { return false; }
+        return s_SituationOwner.m_Situations.HCReserveExternal(identity, anchor, lifetimeSeconds);
+    }
+
+    static void HCStartedSituation(string identity)
+    {
+        if (s_SituationOwner && s_SituationOwner.m_Situations) { s_SituationOwner.m_Situations.HCConfirmExternal(identity); }
+    }
+
     void HCOfferSituation(HCSceneChain chain)
     {
         if (!m_SituationEnabled || !m_Situations) { return; }
@@ -325,7 +339,7 @@ class HCEventModule : HCModule
                 foreach (HCEventMission mission : roster)
                 {
                     HCEventCacheSpawner.PoliceObjectiveClass(mission);
-                    int result = m_Runtime.Announce(mission, context);
+                    int result = HCAnnouncePaced(mission, context);
                     if (result == HCEventCode.OK)
                     {
                         RememberAnnounced(mission.Id);
@@ -413,6 +427,23 @@ class HCEventModule : HCModule
             }
         }
     }
+    // Only HC-owned AI starts consume the situation budget. Native CE events,
+    // existing infected objectives and passive recovery/delivery offers keep
+    // their own owners and are never disabled by this pacing gate.
+    int HCAnnouncePaced(HCEventMission mission, HCEventContext context)
+    {
+        if (mission && mission.Family == HCEventFamily.AI_ENCOUNTER)
+        {
+            if (!m_Situations || !m_Situations.HCReserveExternal("event:" + mission.Id, mission.Source, mission.LifetimeSeconds)) { return HCEventCode.BLOCKED; }
+        }
+        int result = m_Runtime.Announce(mission, context);
+        if (result == HCEventCode.OK && mission.Family == HCEventFamily.AI_ENCOUNTER)
+        {
+            m_Situations.HCConfirmExternal("event:" + mission.Id);
+        }
+        return result;
+    }
+
     void RefreshRoster(HCEventContext context)
     {
         if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0) { return; }
@@ -478,7 +509,7 @@ class HCEventModule : HCModule
                     return;
                 }
                 HCEventCacheSpawner.PoliceObjectiveClass(mission);
-                int admission = m_Runtime.Announce(mission, context);
+                int admission = HCAnnouncePaced(mission, context);
                 if (admission == HCEventCode.OK)
                 {
                     // Remembered once, so this line appears once per mission id.

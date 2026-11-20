@@ -6,10 +6,21 @@
 // 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnScript.c:380 Count, :394 Find, :407 Insert; EnString.c:199 Length.
 // Backup scene-chains.json with world/custody AND engine inventory.
+// Pacing native evidence (same installed snapshot): Game.c:945 GetPlayers
+// via HCPerfPlayers; Object.c:287/517 GetPosition/IsAlive;
+// 1_Core/proto/EnConvert.c:210 vector.DistanceSq. No new engine API.
 
 class HCSituationLimits
 {
     static const int MAX_PROFILE_ROWS = 5;
+    static const int PACING_RECEIPTS = 32;
+    static const int PACING_PLAYERS = 16;
+    static const int PACING_SPACING = 300;
+    static const int PACING_DECAY = 900;
+    static const int PACING_LEAD = 120;
+    static const int PACING_ACTIVE = 2;
+    static const float PACING_RADIUS_SQ = 1000000;
+    static const float PACING_HEAT = 2;
 }
 
 class HCSituationState
@@ -28,8 +39,20 @@ class HCSituationState
     string Refusal;
 }
 
+// Sparse recent starts, not player identities. Prune only after both the
+// activity reservation and the linear heat tail expire; no separate save file.
+class HCSituationPacingReceipt
+{
+    string Id;
+    vector Anchor;
+    int StartedAt;
+    int ActiveUntil;
+}
+
 modded class HCStoryProgress
 {
+    int HCPacingBeganAt;
+    ref array<ref HCSituationPacingReceipt> HCPacing;
     ref HCSituationState HCFirstSurvivor;
     ref array<ref HCSituationState> HCSituations;
 }
@@ -44,6 +67,22 @@ class HCSituationActorPort
     bool HCBegin(HCSituationState opportunity) { return false; }
     string HCObserve(HCSituationState opportunity) { return ""; }
     void HCEnd(HCSituationState opportunity) {}
+    // Existing detached proposal anchor, NOT live actor tracking. Providers may
+    // override with their current observed leader position. Never infer a player
+    // target or move a party to satisfy pacing. Materializer has <=24 leases.
+    bool HCAnchor(string lease, out vector anchor)
+    {
+        HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
+        if (!materializer || materializer.HCDebugProposalCount() > 24) { return false; }
+        for (int index = 0; index < 24 && index < materializer.HCDebugProposalCount(); index++)
+        {
+            HCDebugProposalRow proposal = materializer.HCDebugProposal(index);
+            if (!proposal || proposal.Id != lease || proposal.State != "claimed") { continue; }
+            anchor = proposal.Position;
+            return HCEventRuntimePolicy.PositionValid(anchor);
+        }
+        return false;
+    }
 }
 
 class HCSituationActors
@@ -142,7 +181,7 @@ class HCSituationDirector
 
     static bool HCHistoryValid(HCStoryProgress progress)
     {
-        if (!progress || !HCValid(progress.HCFirstSurvivor, progress)) { return false; }
+        if (!progress || !HCPacingValid(progress) || !HCValid(progress.HCFirstSurvivor, progress)) { return false; }
         map<string, bool> profiles = new map<string, bool>();
         map<string, bool> identities = new map<string, bool>();
         map<string, bool> leases = new map<string, bool>();
@@ -167,6 +206,139 @@ class HCSituationDirector
             if (row.Lease != "") { leases.Insert(row.Lease, true); }
         }
         return true;
+    }
+
+    static int HCPacingNow()
+    {
+        int utc = HCGroupClock.Utc();
+        if (utc < 1577836801) { return 0; }
+        return utc - 1577836800;
+    }
+
+    static bool HCPacingValid(HCStoryProgress progress)
+    {
+        if (progress.HCPacingBeganAt < 0 || progress.HCPacingBeganAt > 999000000) { return false; }
+        if (!progress.HCPacing) { return true; } // additive legacy image
+        if (progress.HCPacing.Count() > HCSituationLimits.PACING_RECEIPTS) { return false; }
+        map<string, bool> seen = new map<string, bool>;
+        array<ref HCSituationPacingReceipt> receipts = progress.HCPacing;
+        foreach (HCSituationPacingReceipt receipt : receipts)
+        {
+            if (!receipt || !HCEventDirector.TextValid(receipt.Id, 96) || seen.Contains(receipt.Id)) { return false; }
+            if (!HCEventRuntimePolicy.PositionValid(receipt.Anchor)) { return false; }
+            if (receipt.StartedAt < 1 || receipt.StartedAt > 999000000 || receipt.ActiveUntil < receipt.StartedAt || receipt.ActiveUntil > 1000086400) { return false; }
+            seen.Insert(receipt.Id, true);
+        }
+        return true;
+    }
+
+    protected HCSituationPacingReceipt HCPacingFind(string identity)
+    {
+        if (!m_State.Stories.HCPacing) { return null; }
+        array<ref HCSituationPacingReceipt> receipts = m_State.Stories.HCPacing;
+        foreach (HCSituationPacingReceipt receipt : receipts)
+        {
+            if (receipt.Id == identity) { return receipt; }
+        }
+        return null;
+    }
+
+    // One candidate, <=16 living observers x <=32 receipts. No object scan,
+    // RNG, player IDs, CE control or actor creation. Check EVERY nearby player:
+    // the quietest member cannot admit more pressure for an already busy group.
+    protected bool HCPacingAllows(vector anchor, int now, int dueAt = 0, string excluding = "")
+    {
+        if (!HCEventRuntimePolicy.PositionValid(anchor) || now < m_State.Stories.HCPacingBeganAt) { return false; }
+        array<Man> players = HCPerfPlayers.HCGet();
+        if (!players || players.Count() > HCSituationLimits.PACING_PLAYERS) { return false; }
+        bool nearby = false;
+        array<ref HCSituationPacingReceipt> receipts = m_State.Stories.HCPacing;
+        for (int index = 0; index < 16 && index < players.Count(); index++)
+        {
+            Man observer = players[index];
+            if (!observer || !observer.IsAlive()) { continue; }
+            vector point = observer.GetPosition();
+            if (vector.DistanceSq(point, anchor) > HCSituationLimits.PACING_RADIUS_SQ) { continue; }
+            nearby = true;
+            int active = 0;
+            float heat = 0;
+            int last = m_State.Stories.HCPacingBeganAt;
+            if (receipts)
+            {
+                for (int recent = 0; recent < 32 && recent < receipts.Count(); recent++)
+                {
+                    HCSituationPacingReceipt receipt = receipts[recent];
+                    if (receipt.Id == excluding) { continue; }
+                    if (vector.DistanceSq(point, receipt.Anchor) > HCSituationLimits.PACING_RADIUS_SQ) { continue; }
+                    if (receipt.StartedAt > now) { return false; }
+                    if (receipt.StartedAt > last) { last = receipt.StartedAt; }
+                    if (now < receipt.ActiveUntil) { active++; }
+                    int age = now - receipt.StartedAt;
+                    if (age < HCSituationLimits.PACING_SPACING) { return false; }
+                    if (age < HCSituationLimits.PACING_DECAY) { heat += 1.0 - age / 900.0; }
+                }
+            }
+            if (active >= HCSituationLimits.PACING_ACTIVE || heat + 1 > HCSituationLimits.PACING_HEAT) { return false; }
+            // Normal eligible offers settle for two minutes. After 15 quiet
+            // minutes the next eligible offer skips that wait, never its native
+            // eligibility, DueAt, ownership, visibility or safety checks.
+            if (dueAt > 0 && now - last < HCSituationLimits.PACING_DECAY && now - dueAt < HCSituationLimits.PACING_LEAD) { return false; }
+        }
+        return nearby;
+    }
+
+    protected bool HCPacingReserve(string identity, vector anchor, int now, int until)
+    {
+        if (!m_State.Stories.HCPacing) { m_State.Stories.HCPacing = new array<ref HCSituationPacingReceipt>; }
+        array<ref HCSituationPacingReceipt> receipts = m_State.Stories.HCPacing;
+        for (int index = receipts.Count() - 1; index >= 0; index--)
+        {
+            HCSituationPacingReceipt prior = receipts[index];
+            if (now >= prior.ActiveUntil && now - prior.StartedAt >= HCSituationLimits.PACING_DECAY) { receipts.Remove(index); }
+        }
+        if (receipts.Count() >= HCSituationLimits.PACING_RECEIPTS) { return false; }
+        HCSituationPacingReceipt receipt = new HCSituationPacingReceipt;
+        receipt.Id = identity;
+        receipt.Anchor = anchor;
+        receipt.StartedAt = now;
+        receipt.ActiveUntil = until;
+        receipts.Insert(receipt);
+        return true;
+    }
+
+    // External HC owners retry the SAME stable identity after the shared store
+    // barrier drains. A failed provider start conservatively consumes the finite
+    // reservation until its declared lifetime; no duplicate spawn/refund path.
+    bool HCReserveExternal(string identity, vector anchor, int lifetimeSeconds)
+    {
+        if (!m_Enabled || m_Fault || !HCEventDirector.TextValid(identity, 96)) { return false; }
+        if (m_Store.HCCheckpointPending() || !m_Store.HCCheckpointHealthy()) { return false; }
+        int now = HCPacingNow();
+        if (now < 1 || now < m_State.LastNow || lifetimeSeconds < 1 || lifetimeSeconds > 86400) { return false; }
+        HCSituationPacingReceipt retained = HCPacingFind(identity);
+        if (retained)
+        {
+            if (now < retained.StartedAt) { return false; }
+            if (now < retained.ActiveUntil) { return retained.Anchor == anchor && HCPacingAllows(anchor, now, 0, identity); }
+            if (now - retained.StartedAt < HCSituationLimits.PACING_DECAY) { return false; }
+        }
+        if (!HCPacingAllows(anchor, now) || !HCPacingReserve(identity, anchor, now, now + lifetimeSeconds)) { return false; }
+        HCCommit();
+        return false; // durable reservation first, provider only on a later tick
+    }
+
+    // Stamp actual success too: checkpoint latency/retries must never make the
+    // next start's spacing run from an old reservation rather than the start.
+    void HCConfirmExternal(string identity)
+    {
+        if (!m_Enabled || m_Fault || m_Store.HCCheckpointPending()) { return; }
+        HCSituationPacingReceipt receipt = HCPacingFind(identity);
+        int now = HCPacingNow();
+        if (!receipt || now < receipt.StartedAt || now >= receipt.ActiveUntil) { return; }
+        int lifetime = receipt.ActiveUntil - receipt.StartedAt;
+        receipt.StartedAt = now;
+        receipt.ActiveUntil = now + lifetime;
+        HCCommit();
     }
 
     protected void HCAddProfile(string profile)
@@ -316,6 +488,12 @@ class HCSituationDirector
                 if (!HCFinish(restored, "unknown")) { return false; }
             }
         }
+        if (m_State.Stories.HCPacingBeganAt == 0)
+        {
+            m_State.Stories.HCPacingBeganAt = HCPacingNow();
+            if (m_State.Stories.HCPacingBeganAt < 1 || !HCCommit()) { return false; }
+        }
+        Print("[HC Situations] pacing radius_m=1000 active_cap=2 heat_cap=2 decay_s=900 spacing_s=300 quiet_s=900 lead_s=120 receipts=32 players=16 anchor=proposal runtime=PENDING");
         HCReport();
         return true;
     }
@@ -367,6 +545,9 @@ class HCSituationDirector
 
     protected bool HCFinish(HCSituationProfileRow slot, string outcome)
     {
+        HCSituationPacingReceipt pacing = HCPacingFind(slot.Opportunity.Id);
+        int now = HCPacingNow();
+        if (pacing && now >= pacing.StartedAt && now < pacing.ActiveUntil) { pacing.ActiveUntil = now; }
         slot.Opportunity.Phase = "closed";
         slot.Opportunity.Outcome = outcome;
         if (!HCCommit()) { return false; }
@@ -405,6 +586,9 @@ class HCSituationDirector
                 }
                 return;
             }
+            vector anchor;
+            if (!slot.Actors.HCAnchor(lease, anchor) || !HCPacingAllows(anchor, now, row.DueAt)) { return; }
+            if (!HCPacingReserve(row.Id, anchor, now, row.EndsAt)) { return; }
             slot.Attempted = true;
             row.Lease = lease;
             row.Phase = "intent";
@@ -415,9 +599,13 @@ class HCSituationDirector
         }
         if (row.Phase == "intent" && slot.Attempted)
         {
+            HCSituationPacingReceipt reserved = HCPacingFind(row.Id);
+            if (!reserved || !HCPacingAllows(reserved.Anchor, now, 0, row.Id)) { return; }
             // HCBegin re-resolves this exact lease and checks current native
             // ownership, exclusions and living roster; selection is never replayed.
             if (!slot.Actors || !slot.Actors.HCReady() || !slot.Actors.HCBegin(row)) { HCFinish(slot, "unknown"); return; }
+            HCSituationPacingReceipt started = HCPacingFind(row.Id);
+            if (started) { started.StartedAt = now; }
             row.Phase = "active";
             HCCommit();
             return;
