@@ -228,7 +228,13 @@ class HCHoldouts : HCModule
     protected int m_FoundedWindow;
     protected int m_RecoveryAttemptsWindow;
     protected int m_StructureBlockedWindow;
-    protected int m_SpotBlockedWindow;
+    protected int m_SpotNoTemplateWindow;
+    protected int m_SpotNoFitWindow;
+    protected int m_SpotCollidingWindow;
+    protected int m_SpotBudgetWindow;
+    // Runtime-only search for the current staged row: <=16 rooms x 9 points.
+    protected int m_SpotCandidate;
+    protected bool m_SpotHadFit;
     protected int m_ObserverBlockedWindow;
     protected bool m_WaitReported;
     protected bool m_CatalogDirty;
@@ -844,33 +850,76 @@ class HCHoldouts : HCModule
         return occupied;
     }
 
-    // Small crate footprint in an authored room corner, outside every keepout
-    // including 0.6 m around doors. Refuse when room geometry cannot contain it.
-    bool CacheSpot(Object structure, HCHoldoutRow row)
+    // Stable room order, then four inset corners, centre, and four edge midpoints.
+    // Preserve the original low-corner inset and floor height. The complete crate
+    // footprint and all door/stair/CE keepouts still veto each candidate.
+    protected vector HCCacheCandidate(HCInteriorTemplateRoom room, int candidate)
+    {
+        float lowX = room.Min[0] + 0.55;
+        float highX = room.Max[0] - 0.55;
+        float lowZ = room.Min[2] + 0.45;
+        float highZ = room.Max[2] - 0.45;
+        float midX = (room.Min[0] + room.Max[0]) * 0.5;
+        float midZ = (room.Min[2] + room.Max[2]) * 0.5;
+        float spotX = lowX;
+        float spotZ = lowZ;
+        switch (candidate)
+        {
+            case 1: spotX = highX; break;
+            case 2: spotZ = highZ; break;
+            case 3: spotX = highX; spotZ = highZ; break;
+            case 4: spotX = midX; spotZ = midZ; break;
+            case 5: spotX = midX; break;
+            case 6: spotX = midX; spotZ = highZ; break;
+            case 7: spotZ = midZ; break;
+            case 8: spotX = highX; spotZ = midZ; break;
+        }
+        return Vector(spotX, room.FloorY + 0.03, spotZ);
+    }
+
+    protected bool HCCacheFits(HCInteriorTemplate layout, HCInteriorTemplateRoom room, vector spot)
+    {
+        array<float> minimum = {spot[0] - 0.45, spot[1], spot[2] - 0.35};
+        array<float> maximum = {spot[0] + 0.45, spot[1] + 0.5, spot[2] + 0.35};
+        if (!HCInteriorTemplates.Inside(minimum, room.Min, room.Max) || !HCInteriorTemplates.Inside(maximum, room.Min, room.Max)) return false;
+        // Admitted templates contain at most 32 keepouts; never skip one.
+        if (!layout.KeepOuts || layout.KeepOuts.Count() > 32) return false;
+        for (int keepIndex = 0; keepIndex < layout.KeepOuts.Count() && keepIndex < 32; keepIndex++)
+        {
+            HCInteriorTemplateKeepOut keepout = layout.KeepOuts[keepIndex];
+            if (HCInteriorTemplates.Intersects(minimum, maximum, keepout.Min, keepout.Max, 0.6)) return false;
+        }
+        return true;
+    }
+
+    // 1 found, 0 exhausted/refused, -1 budget spent (retain row stage/cursor).
+    // Exactly one refusal/continuation counter per unsuccessful call. Colliding
+    // means at least one geometrically fitting candidate existed but all collided.
+    int CacheSpot(Object structure, HCHoldoutRow row)
     {
         HCInteriorTemplate layout = HCInteriorTemplates.Template(row.Ledger.HouseClass);
-        if (!layout) return false;
-        int examined = 0;
-        foreach (HCInteriorTemplateRoom room : layout.Rooms)
+        if (!layout || !layout.Rooms) { m_SpotNoTemplateWindow++; return 0; }
+        int probes = 0;
+        HCEncounterCacheIO probe = new HCEncounterCacheIO;
+        for (int examined = 0; examined < 144; examined++)
         {
-            examined++;
-            if (examined > 16) break;
-            vector spot = Vector(room.Min[0] + 0.55, room.FloorY + 0.03, room.Min[2] + 0.45);
-            array<float> minimum = {spot[0] - 0.45, spot[1], spot[2] - 0.35};
-            array<float> maximum = {spot[0] + 0.45, spot[1] + 0.5, spot[2] + 0.35};
-            if (!HCInteriorTemplates.Inside(minimum, room.Min, room.Max) || !HCInteriorTemplates.Inside(maximum, room.Min, room.Max)) continue;
-            bool clear = true;
-            foreach (HCInteriorTemplateKeepOut keepout : layout.KeepOuts)
-            {
-                if (HCInteriorTemplates.Intersects(minimum, maximum, keepout.Min, keepout.Max, 0.6)) clear = false;
-            }
-            if (!clear) continue;
+            int roomIndex = m_SpotCandidate / 9;
+            if (roomIndex >= layout.Rooms.Count() || roomIndex >= 16) break;
+            if (probes >= 8) { m_SpotBudgetWindow++; return -1; }
+            int candidate = m_SpotCandidate % 9;
+            m_SpotCandidate++;
+            HCInteriorTemplateRoom room = layout.Rooms[roomIndex];
+            vector spot = HCCacheCandidate(room, candidate);
+            if (!HCCacheFits(layout, room, spot)) continue;
+            m_SpotHadFit = true;
             row.Cache.Position = structure.ModelToWorld(spot);
             row.Cache.Orientation = structure.GetOrientation();
-            HCEncounterCacheIO probe = new HCEncounterCacheIO;
-            if (probe.Clear(row.Cache, structure)) return true;
+            probes++;
+            if (probe.Clear(row.Cache, structure)) return 1;
         }
-        return false;
+        if (m_SpotHadFit) { m_SpotCollidingWindow++; }
+        else { m_SpotNoFitWindow++; }
+        return 0;
     }
 
     // Materializer integration: bind only its admitted ordinary, killable body.
@@ -1056,7 +1105,10 @@ class HCHoldouts : HCModule
         line += " cache_phase0=" + phase0.ToString() + " cache_phase1=" + phase1.ToString() + " cache_phase2=" + phase2.ToString() + " cache_phase3=" + phase3.ToString();
         line += " rows_stepped_window=" + m_RowsSteppedWindow.ToString() + " rows_completed_window=" + m_RowsCompletedWindow.ToString();
         line += " recovery_attempts_window=" + m_RecoveryAttemptsWindow.ToString() + " structure_blocked_window=" + m_StructureBlockedWindow.ToString();
-        line += " spot_blocked_window=" + m_SpotBlockedWindow.ToString() + " observer_blocked_window=" + m_ObserverBlockedWindow.ToString();
+        int spotBlocked = m_SpotNoTemplateWindow + m_SpotNoFitWindow + m_SpotCollidingWindow + m_SpotBudgetWindow;
+        line += " spot_blocked_window=" + spotBlocked.ToString() + " observer_blocked_window=" + m_ObserverBlockedWindow.ToString();
+        line += " spot_no_template=" + m_SpotNoTemplateWindow.ToString() + " spot_no_fit=" + m_SpotNoFitWindow.ToString();
+        line += " spot_colliding=" + m_SpotCollidingWindow.ToString() + " spot_budget=" + m_SpotBudgetWindow.ToString();
         line += " founded=" + occupied.ToString() + " pending=" + pending.ToString() + " tick_phase=" + m_TickPhase.ToString();
         line += " catalog_pending_rows=" + catalogPending.ToString() + " catalog_cursor=" + m_CatalogCursor.ToString();
         line += " ready=" + m_Ready.ToString() + " reason=" + reason;
@@ -1066,7 +1118,10 @@ class HCHoldouts : HCModule
         m_FoundedWindow = 0;
         m_RecoveryAttemptsWindow = 0;
         m_StructureBlockedWindow = 0;
-        m_SpotBlockedWindow = 0;
+        m_SpotNoTemplateWindow = 0;
+        m_SpotNoFitWindow = 0;
+        m_SpotCollidingWindow = 0;
+        m_SpotBudgetWindow = 0;
         m_ObserverBlockedWindow = 0;
     }
 
@@ -1093,6 +1148,8 @@ class HCHoldouts : HCModule
             if (m_Elapsed < 1) { return; }
             m_Elapsed = 0;
             if (m_Next >= Count()) m_Next = 0;
+            m_SpotCandidate = 0;
+            m_SpotHadFit = false;
             m_TickIndex = m_Next;
             m_Next++;
             m_TickPhase = 1;
@@ -1149,15 +1206,22 @@ class HCHoldouts : HCModule
             if (row.Cache.Phase == 0)
             {
                 if (!HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500)) { m_ObserverBlockedWindow++; }
-                else if (!CacheSpot(structure, row)) { m_SpotBlockedWindow++; }
-                else if (!HCObserverTransitionGate.CanTransition(row.Cache.Position, 500)) { m_ObserverBlockedWindow++; }
                 else
                 {
-                    row.Cache.Phase = 1;
-                    m_Dirty = true;
-                    if (!SaveChanged()) { return; }
-                    m_Caches[index].Create(row.Cache);
-                    m_Dirty = true;
+                    int spotResult = CacheSpot(structure, row);
+                    if (spotResult < 0) { return; }
+                    if (spotResult > 0)
+                    {
+                        if (!HCObserverTransitionGate.CanTransition(row.Cache.Position, 500)) { m_ObserverBlockedWindow++; }
+                        else
+                        {
+                            row.Cache.Phase = 1;
+                            m_Dirty = true;
+                            if (!SaveChanged()) { return; }
+                            m_Caches[index].Create(row.Cache);
+                            m_Dirty = true;
+                        }
+                    }
                 }
             }
             if (row.Ledger.CacheRef != row.Cache.EntityRef)
