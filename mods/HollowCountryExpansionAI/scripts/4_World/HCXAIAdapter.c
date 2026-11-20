@@ -1,4 +1,6 @@
 // Original calls against pinned Expansion 1.9.84. Qualification remains pending.
+// Timing API inspected in scripts-1.30.164289: EnSystem.c:106 TickCount;
+// 3_Game/Global/Game.c:914 GetTickTime; EnScript.c:902/917 map Set/Find.
 // Trusted server ports. No RPC/JSON capability flag installs these hooks.
 // Begin/MemberCreated/MemberGone/End must be durable, idempotent ledger operations.
 // False is uncertain, never permission to free reservations or repeat creation.
@@ -72,6 +74,9 @@ class HCXAIAdapter extends HCModule
     protected ref HCXAICampRoutine m_CampRoutine;
     protected ref HCAICaravan m_Caravan;
     protected bool m_CaravanRequested;
+    protected ref HCWorkBudget m_AdjunctWork = new HCWorkBudget;
+    protected int m_AdjunctCursor;
+    protected ref map<string, int> m_StagePeaks = new map<string, int>;
 
     // Declared here so the later operational modded link can publish cached
     // adjunct status without an earlier link calling an undeclared method.
@@ -100,6 +105,8 @@ class HCXAIAdapter extends HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        m_AdjunctCursor = 0;
+        m_StagePeaks.Clear();
         m_ReadinessStarted = GetGame().GetTickTime();
         m_ReadinessProbeAfter = 0;
         m_ReadinessDependency = "";
@@ -640,21 +647,55 @@ class HCXAIAdapter extends HCModule
         evidence.Token = lease.ReceiptToken;
         return evidence;
     }
+    // Raw ticks use the same counter as HC Perf; divide by that window's
+    // ticks_per_ms. Log only a new peak above the cooperative 16 ms target.
+    protected void HCStageCost(string stage, int began, float started)
+    {
+        int ticks = TickCount(began);
+        float elapsed = GetGame().GetTickTime() - started;
+        if (elapsed < 0.016) { return; }
+        int peak;
+        if (m_StagePeaks.Find(stage, peak) && ticks <= peak) { return; }
+        m_StagePeaks.Set(stage, ticks);
+        Print("[HC Expansion AI] tick_stage=" + stage + " ticks_max=" + ticks.ToString() + " runtime=PENDING");
+    }
+
     override void OnTick(float deltaTime)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        // Keep the site's maintenance priority. After a long native call, yield
+        // adjunct work rather than adding it to the same module tick. A retained
+        // round-robin cursor prevents a costly adjunct starving the next one.
+        // Stop starting adjunct stages at 12 ms, leaving 4 ms of the 16 ms
+        // target for the final stage. Atomic native work can still exceed it.
+        m_AdjunctWork.HCReset(3, 12);
+        int began = TickCount(0);
+        float started = GetGame().GetTickTime();
         if (m_Sites) { m_Sites.Step(); }
-        if (m_CampRoutine) { m_CampRoutine.Step(); }
-        if (m_Caravan)
+        this.HCStageCost("sites", began, started);
+        for (int step = 0; step < 3; step++)
         {
-            m_Caravan.Step();
-            this.HCDropCaravanHandles();
-        }
-        this.HCPublishCaravanStatus(false);
-        if (m_Encounters)
-        {
-            m_Encounters.Step();
-            this.HCRefreshReadiness();
+            if (!m_AdjunctWork.HCContinue()) { break; }
+            int stage = m_AdjunctCursor;
+            m_AdjunctCursor = (m_AdjunctCursor + 1) % 3;
+            began = TickCount(0);
+            started = GetGame().GetTickTime();
+            if (stage == 0)
+            {
+                if (m_CampRoutine) { m_CampRoutine.Step(); }
+                this.HCStageCost("camp", began, started);
+            }
+            else if (stage == 1)
+            {
+                if (m_Caravan) { m_Caravan.Step(); this.HCDropCaravanHandles(); }
+                this.HCPublishCaravanStatus(false);
+                this.HCStageCost("caravan", began, started);
+            }
+            else
+            {
+                if (m_Encounters) { m_Encounters.Step(); this.HCRefreshReadiness(); }
+                this.HCStageCost("encounters", began, started);
+            }
         }
         // Retired lease spawner: m_Profile is never installed by OnStart now.
         if (!m_Profile) { return; }

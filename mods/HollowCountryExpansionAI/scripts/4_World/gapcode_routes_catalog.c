@@ -308,9 +308,32 @@ class HCGapcodeRoutesCatalog
         // The nearest mainland node cannot establish island-local access.
         if (row.island) { this.HCRowRefuse(row, "ROUTE_ISLAND_LOCAL_ACCESS_PENDING"); }
     }
+    HCXAICaravanRoads HCGraph()
+    {
+        HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
+        if (roads) { return roads; }
+        // Open the shared reader while pinning is in progress. No candidate is
+        // resolved/admitted until every original source check has completed.
+        string corridorText = HCWorldStore.Read("$mission:hollow-country/ai/caravans.json");
+        string corridorError;
+        HCCaravanCorridor corridor;
+        if (!JsonFileLoader<HCCaravanCorridor>.LoadData(corridorText, corridor, corridorError) || !corridor)
+        { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); return null; }
+        corridor.HCApplyDefaults(corridorText);
+        if (!corridor.HCNetworkValid()) { this.HCRefuse("ROUTE_GRAPH_CONFIG_INVALID"); return null; }
+        HCXAICaravanRoads.HCOpen(corridor);
+        m_OpenedRoadOwner = true;
+        return HCXAICaravanRoads.HCGet();
+    }
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
+        // ROADS has its own fair admission and one 4 ms loading slice per tick.
+        // Pump independently of AI_ROUTES so source checks and node parsing overlap.
+        HCXAICaravanRoads roads = this.HCGraph();
+        if (!roads || m_Phase == "failed") { return; }
+        if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
+        if (roads.Phase == "loading") { roads.HCStep(); }
         // One shared admission per tick from the AI_ROUTES slot; the local budget
         // bounds the batch (page_size <= 8 units, 4 ms). Taking AI_SITES per unit
         // after the site director starved the source check for the whole boot (096).
@@ -322,24 +345,8 @@ class HCGapcodeRoutesCatalog
             if (m_Phase == "pinning") { this.HCPinStep(); }
             else
             {
-                HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
-                if (!roads)
-                {
-                    // The road service also supports routes when caravans are
-                    // opted out. Reuse its reader/config, never duplicate it.
-                    string corridorText = HCWorldStore.Read("$mission:hollow-country/ai/caravans.json");
-                    string corridorError;
-                    HCCaravanCorridor corridor;
-                    if (!JsonFileLoader<HCCaravanCorridor>.LoadData(corridorText, corridor, corridorError) || !corridor)
-                    { this.HCRefuse("ROUTE_GRAPH_CONFIG_MISSING"); return; }
-                    corridor.HCApplyDefaults(corridorText);
-                    if (!corridor.HCNetworkValid()) { this.HCRefuse("ROUTE_GRAPH_CONFIG_INVALID"); return; }
-                    HCXAICaravanRoads.HCOpen(corridor);
-                    m_OpenedRoadOwner = true;
-                    return;
-                }
+                if (roads.Phase == "loading") { return; }
                 if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
-                if (roads.Phase == "loading") { roads.HCStep(); return; }
                 if (roads.Phase == "cold") { this.HCRefuse("ROUTE_GRAPH_NOT_OPENED"); return; }
                 if (roads.Nodes.Count() != Data.graph.nodes || roads.Config.RoadDataPath != Data.sources.road_virtual_path || Data.graph.max_degree > roads.Config.MaxRoadDegree)
                 { this.HCRefuse("ROUTE_GRAPH_SOURCE_MISMATCH"); return; }

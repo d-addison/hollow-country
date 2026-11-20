@@ -12,6 +12,8 @@
 // EnString.c:199/20/59 Length/ToInt/ToVector; Global/Game.c:1120 IsServer;
 // Object.c:287 GetPosition; EnConvert.c:210/196 DistanceSq/Distance; EnScript.c:380/407
 // arrays Count/Insert. Inherited item/actor calls are cited by HCTradeInventory.
+// Timing API inspected in scripts-1.30.164289: EnSystem.c:106 TickCount;
+// 3_Game/Global/Game.c:914 GetTickTime, :1535 GetTime.
 // All walking/geometry/arrival/loot/replication acceptance remains runtime=PENDING.
 class HCXAICaravanRoadNode
 {
@@ -41,6 +43,13 @@ class HCXAICaravanRoads
     float m_StartGap;
     float m_EndGap;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    // Loading is independent of live route search. Retain the operator's search
+    // quantum, but amortise cheap file/node steps within the same 4 ms deadline.
+    protected int m_LoadFrame = -1;
+    protected int m_LoadSlices;
+    protected int m_LoadTicks;
+    protected int m_LoadMaxTicks;
+    protected float m_LoadStarted;
     float m_Length;
     vector From;
     vector To;
@@ -91,6 +100,7 @@ class HCXAICaravanRoads
         {
             HCRefuse("CARAVAN_ROAD_DATA_HEADER_INVALID"); return;
         }
+        m_LoadStarted = GetGame().GetTickTime();
         Phase = "loading";
     }
     void HCLoadNode()
@@ -119,7 +129,6 @@ class HCXAICaravanRoads
         {
             CloseFile(m_File); m_FileOpen = false;
             Phase = "idle";
-            Print("[HC Caravan] roads=loaded source=installed_expansion route_acceptance=unverified runtime=PENDING");
         }
     }
     bool HCPlan(vector origin, vector destination)
@@ -169,12 +178,23 @@ class HCXAICaravanRoads
     void HCStep()
     {
         if (Phase == "idle" || Phase == "ready" || Phase == "failed") { return; }
+        if (Phase == "loading" && m_LoadFrame == GetGame().GetTime()) { return; }
         // One shared admission per tick from the ROADS slot; the local budget bounds the
         // batch. Taking TRADE per 8 nodes after AITrade held the graph at 8 nodes per tick (099).
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
-        m_Work.HCReset(Config.RoadWorkPerTick);
+        bool loading = Phase == "loading";
+        int limit = Config.RoadWorkPerTick;
+        if (loading)
+        {
+            // Both the route catalog and caravan may pump this shared reader.
+            // One loading slice per mission tick, even with spare shared units.
+            m_LoadFrame = GetGame().GetTime();
+            limit = Math.Min(limit * 8, 4096);
+        }
+        int began = TickCount(0);
+        m_Work.HCReset(limit);
         int unit = 0;
-        for (unit = 0; unit < Config.RoadWorkPerTick; unit++)
+        for (unit = 0; unit < limit; unit++)
         {
             if (!m_Work.HCContinue()) { break; }
             if (Phase == "loading") { HCLoadNode(); }
@@ -192,7 +212,22 @@ class HCXAICaravanRoads
                 Path.Insert(routePoint);
                 m_Scan = Nodes[m_Scan].Parent;
             }
-            else { return; }
+            else { break; }
+        }
+        if (loading)
+        {
+            int ticks = TickCount(began);
+            m_LoadSlices++;
+            m_LoadTicks += ticks;
+            if (ticks > m_LoadMaxTicks) { m_LoadMaxTicks = ticks; }
+            if (Phase == "idle")
+            {
+                float elapsed = GetGame().GetTickTime() - m_LoadStarted;
+                string line = "[HC Caravan] roads=loaded source=installed_expansion nodes=" + Nodes.Count().ToString();
+                line += " slices=" + m_LoadSlices.ToString() + " elapsed_s=" + elapsed.ToString();
+                line += " ticks_sum=" + m_LoadTicks.ToString() + " ticks_max=" + m_LoadMaxTicks.ToString();
+                Print(line + " route_acceptance=unverified runtime=PENDING");
+            }
         }
     }
 }
