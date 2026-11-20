@@ -55,14 +55,30 @@ class HCTapedLightAdmission
 class HCTapedLightStartup : HCModule
 {
     protected bool m_Printed;
+    protected float m_SummaryElapsed;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     override string GetName() { return "TapedLight"; }
     override bool IsEnabled(HCSettings settings) { return settings != null; }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
     override void OnStop()
     {
+        if (m_Printed) { PrintSummary(); }
         m_Printed = false;
+        m_SummaryElapsed = 0;
         m_Status.HCStop();
+    }
+    override void OnTick(float deltaTime)
+    {
+        m_SummaryElapsed += deltaTime;
+        if (m_SummaryElapsed < 300) { return; }
+        m_SummaryElapsed = 0;
+        PrintSummary();
+    }
+    protected void PrintSummary()
+    {
+        int weaponPairs = HCTapedLightCatalog.Rows().Count();
+        bool admitted = HCTapedLightAdmission.Admitted();
+        Print("[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client " + HCTapedLightRuntime.ActivitySummary() + " runtime=PENDING");
     }
     override void OnStart(HCSettings settings)
     {
@@ -72,9 +88,8 @@ class HCTapedLightStartup : HCModule
         if (admitted) { m_Status.HCPublish("ready", "admitted_unverified"); }
         else { m_Status.HCPublish("off", "operator_disable_file"); }
         Print(HCV2Admission.Line("TapedLight", admitted, "TAPED-LIGHT-V1", HCTapedLightAdmission.Qualified()));
-        int weaponPairs = HCTapedLightCatalog.Rows().Count();
         HCReached.Mark("taped_light.catalog_read");
-        Print("[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client runtime=PENDING");
+        PrintSummary();
     }
 }
 
@@ -317,6 +332,17 @@ class HCTapedLightRuntime
 {
     protected static bool s_Busy;
     protected static bool s_Stopped;
+    // Server action outcomes and committed native-detach receipts only. A
+    // preview refusal or a native light without HC custody is not an outcome.
+    protected static int s_Attached;
+    protected static int s_Detached;
+    protected static int s_Failed;
+    protected static int s_LastResult;
+
+    static string ActivitySummary()
+    {
+        return "attached=" + s_Attached.ToString() + " detached=" + s_Detached.ToString() + " failed=" + s_Failed.ToString() + " last_result=" + s_LastResult.ToString() + " stopped=" + s_Stopped.ToString();
+    }
     // Host types in the evidence catalog, built once. Used only to stop the
     // per-frame client scan early; the server still validates in full.
     protected static ref map<string, bool> s_HostTypes;
@@ -485,12 +511,21 @@ class HCTapedLightRuntime
 
     static int Execute(PlayerBase actor, ItemBase host, bool mounting)
     {
-        if (!CanExecute(actor, host, mounting)) { return HCTapedLightCode.DENIED; }
+        if (!GetGame() || !GetGame().IsServer()) { return HCTapedLightCode.DENIED; }
+        if (!CanExecute(actor, host, mounting))
+        {
+            s_Failed++;
+            s_LastResult = HCTapedLightCode.DENIED;
+            return s_LastResult;
+        }
         s_Busy = true;
         int result = ExecuteOwned(actor, host, mounting);
         HCTapedLightPermit.End();
         s_Busy = false;
-        Print("[HollowCountry] Taped light result=" + result.ToString() + " runtime acceptance PENDING");
+        s_LastResult = result;
+        if (result != HCTapedLightCode.OK) { s_Failed++; }
+        else if (mounting) { s_Attached++; }
+        else { s_Detached++; }
         return result;
     }
 
@@ -501,13 +536,28 @@ class HCTapedLightRuntime
         if (!GetGame() || !GetGame().IsServer() || !host || !light || s_Busy || s_Stopped) { return; }
         if (light.GetType() != "TLRLight" && light.GetType() != "UniversalLight") { return; }
         if (slotName != "weaponFlashlight" && slotName != "pistolFlashlight" && slotName != "helmetFlashlight" && slotName != "Chemlight") { return; }
-        if (!FileExist("$profile:HollowCountry/TapedLights/v1/build.txt")) { return; }
+        if (!KnownHost(ItemBase.Cast(host))) { return; }
+        // Configure owns journal creation and build validation. Requiring its
+        // build marker here prevents first-use initialization. Retire existing
+        // custody even after an operator opts out; never move or refund items.
         s_Busy = true;
-        if (!RecordDetach(host, light, slotName)) { s_Stopped = true; }
+        bool recorded;
+        if (!RecordDetach(host, light, slotName, recorded))
+        {
+            s_Stopped = true;
+            s_Failed++;
+            s_LastResult = HCTapedLightCode.QUARANTINED;
+        }
+        else if (recorded)
+        {
+            s_Detached++;
+            s_LastResult = HCTapedLightCode.OK;
+        }
         s_Busy = false;
     }
-    protected static bool RecordDetach(EntityAI host, EntityAI light, string slotName)
+    protected static bool RecordDetach(EntityAI host, EntityAI light, string slotName, out bool recorded)
     {
+        recorded = false;
         HCTapedLightJournal journal = new HCTapedLightJournal;
         if (!journal.Configure("v1")) { return false; }
         HCTapedLightState state = new HCTapedLightState;
@@ -549,7 +599,9 @@ class HCTapedLightRuntime
         receipt.BeforeData = before;
         state.Records.Insert(receipt);
         if (!HCTapedLightService.StateValid(state)) { return false; }
-        return journal.Checkpoint();
+        if (!journal.Checkpoint()) { return false; }
+        recorded = true;
+        return true;
     }
 
     protected static int ExecuteOwned(PlayerBase actor, ItemBase host, bool mounting)
