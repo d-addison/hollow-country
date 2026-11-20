@@ -30,23 +30,24 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
         if (!m_IO.WriteNew(name, "HC-POLICE-STOCK v1 " + siteId, 128)) { Fault(); return null; }
         return plan;
     }
-}
-// Native: 4_World/Entities/ItemBase/Barrel_ColorBase.c:52/59 store hooks;
-// 1_Core/proto/Serializer.c:57/58 Write/Read. Older untagged barrels stay unowned.
-// Persist only ownership, never cargo contents or a replenishment instruction.
-modded class Barrel_Green
-{
-    string HCPoliceStockSite;
-    override void OnStoreSave(ParamsWriteContext ctx)
+
+    // Ownership lives in this ledger, never in entity storage: extending Barrel_Green
+    // OnStoreSave broke every persisted barrel ("Scripted variables corrupted", 103 boot).
+    bool RecordCache(string siteId, vector position)
     {
-        super.OnStoreSave(ctx);
-        ctx.Write(HCPoliceStockSite);
+        if (!m_IO || m_Fault) { return false; }
+        return m_IO.WriteNew(siteId + ".pos", position.ToString(false), 96);
     }
-    override bool OnStoreLoad(ParamsReadContext ctx, int version)
+
+    bool CachePosition(string siteId, out vector position)
     {
-        if (!super.OnStoreLoad(ctx, version)) { return false; }
-        if (!ctx.Read(HCPoliceStockSite)) { HCPoliceStockSite = ""; }
-        return true;
+        position = vector.Zero;
+        if (!m_IO || m_Fault || !m_IO.Exists(siteId + ".pos")) { return false; }
+        string text = m_IO.Read(siteId + ".pos", 96);
+        if (text == "") { return false; }
+        text.Trim();
+        position = text.ToVector();
+        return position != vector.Zero;
     }
 }
 // Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition, :65 PGFilter.SetFlags;
@@ -195,6 +196,9 @@ class HCEventCacheSpawner
         int remaining = policy.PhysicalScanObjects;
         bool matchingStock = false;
         Barrel_Green ownedCache;
+        vector ownedPosition;
+        HCEventPoliceStockLedger stockLedger = HCEventPoliceStockLedger.Cast(PoliceLedger());
+        bool hasOwnedPosition = stockLedger && stockLedger.CachePosition(mission.SiteId, ownedPosition);
         ItemBase groundItem;
         ItemBase deliveryContainer;
         array<string> classes;
@@ -209,7 +213,7 @@ class HCEventCacheSpawner
             if (police)
             {
                 Barrel_Green tagged = Barrel_Green.Cast(cache);
-                if (tagged && tagged.HCPoliceStockSite == mission.SiteId) { ownedCache = tagged; }
+                if (tagged && hasOwnedPosition && vector.DistanceSq(tagged.GetPosition(), ownedPosition) <= 4) { ownedCache = tagged; }
                 // Persisted stock has no new-CE callback this boot. Borrow the
                 // actual uncarried item; this path neither clones nor claims CE ownership.
                 if (!groundItem && PoliceItemMatches(cache, mission, classes) && !PoliceItemUsed(cache)) { groundItem = cache; }
@@ -271,7 +275,12 @@ class HCEventCacheSpawner
         if (!plan) { PoliceRefused("police_cache_reserved_or_spent"); return null; }
         Barrel_Green cache = Barrel_Green.Cast(GetGame().CreateObjectEx("Barrel_Green", position, ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS));
         if (!cache) { PoliceRefused("police_cache_create_failed"); return null; }
-        cache.HCPoliceStockSite = mission.SiteId;
+        HCEventPoliceStockLedger owner = HCEventPoliceStockLedger.Cast(PoliceLedger());
+        if (!owner || !owner.RecordCache(mission.SiteId, cache.GetPosition()))
+        {
+            // Reservation already spent; an unrecorded cache is still finite native loot.
+            Print("[HC Events] police cache position not recorded; " + mission.SiteId + " runtime=PENDING");
+        }
         // Native: ItemBase/Barrel_ColorBase.c:87 Open, :512 cargo requires IsOpen.
         // Open only the new owned cache before its initial cargo is created.
         cache.Open();
