@@ -2,22 +2,40 @@
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:914 GetTickTime (seconds),
 // :1535 GetTime (mission milliseconds), :945 GetPlayers; Object.c:287 GetPosition;
 // 1_Core/proto/EnScript.c:380 Count, :394 Find, :407 Insert, :463 Remove;
-// 1_Core/proto/EnDebug.c:96 Print; EnConvert.c:30 int.ToString.
+// 1_Core/proto/EnDebug.c:96 Print; EnConvert.c:30 int.ToString;
+// EnSystem.c:106 TickCount (performance-counter ticks since prev).
 // Bound: guard O(1); callers retain cursors BEFORE yielding. A native call or
 // JSON serialization cannot be preempted; 4 ms is a cooperative target only.
+// #278: GetTickTime stays fixed inside a server tick. Use TickCount for slices.
 class HCWorkBudget
 {
+    // TickCount units are undocumented. Boot 117 observed 10,000 ticks/ms;
+    // use that until HCPerfSampler publishes a validated window conversion.
+    protected static float s_TicksPerMs = 10000.0;
     protected float m_Deadline;
-    protected float m_Began;
+    protected int m_SliceStart;
+    protected float m_SliceTicksPerMs;
     protected int m_Limit;
     protected int m_Used;
     protected float m_LogAfter;
 
+    // Invalid/stopped sampler windows discard the old rate. Snapshot on reset
+    // so a rate publication cannot change the deadline of an active slice.
+    static void HCSetTicksPerMs(float ticksPerMs)
+    {
+        s_TicksPerMs = 10000.0;
+        if (ticksPerMs >= HC_PERF_MIN_TICKS_PER_MS && ticksPerMs <= HC_PERF_MAX_TICKS_PER_MS)
+        {
+            s_TicksPerMs = ticksPerMs;
+        }
+    }
+
     void HCReset(int limit, float milliseconds = 4)
     {
-        m_Began = GetGame().GetTickTime();
-        // Compare a delta: adding 0.004 to a long-running float clock can round
-        // back to the same timestamp and starve every future slice.
+        m_SliceStart = TickCount(0);
+        m_SliceTicksPerMs = s_TicksPerMs;
+        // Keep HCMayContinue's elapsed-seconds contract and compare deltas,
+        // avoiding precision loss from adding a small slice to an uptime.
         m_Deadline = milliseconds / 1000.0;
         m_Limit = limit;
         m_Used = 0;
@@ -30,7 +48,22 @@ class HCWorkBudget
         return true;
     }
 
-    bool HCContinue() { return HCMayContinue(GetGame().GetTickTime() - m_Began); }
+    bool HCContinue()
+    {
+        // Preserve first-unit progress under a positive deadline/unit cap,
+        // including work done between reset and this first guard. Zero/negative
+        // deadlines and exhausted unit caps still refuse in HCMayContinue.
+        float elapsed = 0;
+        if (m_Used > 0)
+        {
+            int elapsedTicks = TickCount(m_SliceStart);
+            // Negative deltas refuse the remainder of this slice; reset seeds
+            // a fresh counter next time. Never convert a raw uptime to float.
+            if (elapsedTicks < 0) { return false; }
+            elapsed = (float)elapsedTicks / m_SliceTicksPerMs / 1000.0;
+        }
+        return HCMayContinue(elapsed);
+    }
 
     void HCDeferred(string moduleName, int count)
     {

@@ -82,6 +82,7 @@ class HCPerfSampler
         m_WindowIndex = 0;
         m_CostMaxTicks.Clear();
         m_TicksPerMs = 0;
+        HCWorkBudget.HCSetTicksPerMs(0);
         HCRefreshEcologyCalibration();
         m_EcologyIndex = -1;
         m_ModuleNames.Clear();
@@ -332,6 +333,7 @@ class HCPerfSampler
         EmitCosts(0);
         m_Active = false;
         m_TicksPerMs = 0;
+        HCWorkBudget.HCSetTicksPerMs(0);
         HCRefreshEcologyCalibration();
         ResetWindow();
         Print("[HollowCountry] Perf sampler stopped");
@@ -496,6 +498,7 @@ class HCPerfSampler
         {
             m_TicksPerMs = ticksPerMs;
         }
+        HCWorkBudget.HCSetTicksPerMs(m_TicksPerMs);
         HCRefreshEcologyCalibration();
         EmitCosts(m_TicksPerMs);
         Print("" + report);
