@@ -271,10 +271,14 @@ class HCGapcodeRoutesCatalog
     void HCStep(HCXAILocalityCatalog localities, HCXAISitePolicy policy)
     {
         if (!m_Enabled || m_Phase == "failed" || m_Phase == "loaded") { return; }
+        // One shared admission per tick from the AI_ROUTES slot; the local budget
+        // bounds the batch (page_size <= 8 units, 4 ms). Taking AI_SITES per unit
+        // after the site director starved the source check for the whole boot (096).
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, 1)) { return; }
         m_Work.HCReset(Data.limits.page_size);
         for (int unit = 0; unit < Data.limits.page_size; unit++)
         {
-            if (!m_Work.HCContinue() || !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
+            if (!m_Work.HCContinue()) { return; }
             if (m_Phase == "pinning") { this.HCPinStep(); }
             else
             {

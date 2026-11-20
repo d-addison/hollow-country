@@ -41,6 +41,7 @@ class HCPerfConfig
     int TickWeight_SHELTER = 1;
     int TickWeight_AI_SITES = 1;
     int TickWeight_STORY_INDEX = 1;
+    int TickWeight_AI_ROUTES = 1;
     protected static ref HCPerfConfig s_Config;
 
     static HCPerfConfig HCGet()
@@ -92,6 +93,7 @@ class HCPerfConfig
         if (HCJsonFields.Has(text, "TickWeight_SHELTER") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_SHELTER", decoded.TickWeight_SHELTER)) { TickWeight_SHELTER = decoded.TickWeight_SHELTER; }
         if (HCJsonFields.Has(text, "TickWeight_AI_SITES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_SITES", decoded.TickWeight_AI_SITES)) { TickWeight_AI_SITES = decoded.TickWeight_AI_SITES; }
         if (HCJsonFields.Has(text, "TickWeight_STORY_INDEX") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_STORY_INDEX", decoded.TickWeight_STORY_INDEX)) { TickWeight_STORY_INDEX = decoded.TickWeight_STORY_INDEX; }
+        if (HCJsonFields.Has(text, "TickWeight_AI_ROUTES") && HCOperatorSettingsRegistry.HCValid("Performance.TickWeight_AI_ROUTES", decoded.TickWeight_AI_ROUTES)) { TickWeight_AI_ROUTES = decoded.TickWeight_AI_ROUTES; }
         if (HCJsonFields.Has(text, "EnableSharedSaves")) { EnableSharedSaves = decoded.EnableSharedSaves; }
         if (HCJsonFields.Has(text, "SliceMs") && HCOperatorSettingsRegistry.HCValid("Performance.SliceMs", decoded.SliceMs)) { SliceMs = decoded.SliceMs; }
         if (HCJsonFields.Has(text, "SaveStageTargetMs") && HCOperatorSettingsRegistry.HCValid("Performance.SaveStageTargetMs", decoded.SaveStageTargetMs)) { SaveStageTargetMs = decoded.SaveStageTargetMs; }

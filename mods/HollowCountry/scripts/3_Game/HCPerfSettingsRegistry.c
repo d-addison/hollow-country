@@ -33,6 +33,7 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Performance.TickWeight_SHELTER", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.TickWeight_AI_SITES", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.TickWeight_STORY_INDEX", "int", 1, 1, 64, "HCPerfConfig");
+        HCAdd("Performance.TickWeight_AI_ROUTES", "int", 1, 1, 64, "HCPerfConfig");
         HCAdd("Performance.EnableSharedSaves", "bool", 1, 0, 1, "HCPerfConfig");
         HCAdd("Performance.SliceMs", "int", 4, 1, 10, "HCPerfConfig");
         HCAdd("Performance.SaveStageTargetMs", "int", 10, 1, 10, "HCPerfConfig");

@@ -69,7 +69,10 @@ class HCUnitBudget
     // HC-42 story index line batches. Own slot: Events takes SITUATIONS first on
     // every tick, so a shared slot left the index refused for the whole boot (095).
     static const int HC_WORK_STORY_INDEX = 23;
-    static const int HC_WORK_CONSUMERS = 24;
+    // HC-18 regional road route source check and resolve. Own slot: it steps after the
+    // site director in the same Step, which took AI_SITES first every tick (096).
+    static const int HC_WORK_AI_ROUTES = 24;
+    static const int HC_WORK_CONSUMERS = 25;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;
