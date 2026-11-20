@@ -234,6 +234,8 @@ class HCForageModule : HCModule
     protected int m_SaveStage;
     protected ref HCForageState m_Snapshot;
     protected ref HCForageSaveJob m_SaveJob;
+    protected ref HCForageNode m_PendingSpawn;
+    protected string m_PendingType;
     protected ref HCUnitBudget m_Units = new HCUnitBudget;
     protected ref HCWorkBudget m_Work = new HCWorkBudget;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -324,6 +326,8 @@ class HCForageModule : HCModule
         m_Revision = 0;
         m_SnapshotRevision = 0;
         m_Dirty = false;
+        m_PendingSpawn = null;
+        m_PendingType = "";
         Print(HCV2Admission.Line("Forage", settings.EnableForage, "W5-129", false));
         if (!settings.EnableForage || !HCSurvivalRuntime.HCIsServer())
         {
@@ -601,6 +605,13 @@ class HCForageModule : HCModule
     {
         if (!m_Healthy) { return; }
         if (!(deltaTime > 0 && deltaTime <= 60)) { return; }
+        // Reservation continuation: never drain HCFlush's entire IO pipeline
+        // inside a forage unit. The shared scheduler owns the durable image.
+        if (m_PendingSpawn)
+        {
+            HCResumeSpawn();
+            return;
+        }
         m_Elapsed = m_Elapsed + deltaTime;
         if (m_Elapsed < 10) { return; }
         m_Elapsed = 0;
@@ -656,9 +667,44 @@ class HCForageModule : HCModule
         // Creation still persists its reservation before allocating an item.
         if (m_Dirty && m_SaveJob && now - m_SaveUtc >= 60) { m_SaveJob.HCDirty = true; }
         if (!selected) { return; }
-        if (!HCFlush()) { return; }
+        m_PendingSpawn = selected;
+        m_PendingType = type;
+        m_SaveJob.HCDirty = true;
+    }
+
+    protected void HCResumeSpawn()
+    {
+        if (m_Dirty)
+        {
+            // An operator may disable routine dispatch. Still advance just one
+            // existing save stage per core tick, preserving reservation safety.
+            if (!HCPerfConfig.HCGet().EnableSharedSaves)
+            {
+                if (!HCServer.HCTickWork().HCTake(1)) { return; }
+                int result = HCStepCheckpoint();
+                if (result == HCSaveJob.STEP_DONE) { m_SaveJob.HCDirty = false; }
+            }
+            return;
+        }
+        if (!HCServer.HCTickWork().HCTake(8)) { return; }
+        HCForageNode selected = m_PendingSpawn;
+        string type = m_PendingType;
+        // Clear before creation; a failure spends the already durable cooldown.
+        m_PendingSpawn = null;
+        m_PendingType = "";
+        int now = HCGroupClock.Utc();
+        if (now < m_LastUtc || now > 2146000000) { HCFail(); return; }
+        m_LastUtc = now;
+        if (now >= selected.Spot.ReadyUtc || selected.Item || selected.WasLive) { return; }
+        m_Players = HCPerfPlayers.HCGet();
+        if (m_Players.Count() == 0 || m_Players.Count() > 16) { return; }
+        vector position = HCPosition(selected.Spot.CellX, selected.Spot.CellZ, selected.Spot.NodeSlot);
+        // Observers may have moved during the save; reapply every placement veto.
+        if (!HCClearCandidate(position)) { return; }
+        // Native scripts-1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx;
+        // 3_Game/Entities/EntityAI.c:3377 SetLifetime. One allocation per slice.
         int flags = ECE_SETUP | ECE_TRACE | ECE_CREATEPHYSICS | ECE_DYNAMIC_PERSISTENCY;
-        Object created = GetGame().CreateObjectEx(type, HCPosition(selected.Spot.CellX, selected.Spot.CellZ, selected.Spot.NodeSlot), flags);
+        Object created = GetGame().CreateObjectEx(type, position, flags);
         selected.Item = ItemBase.Cast(created);
         if (!selected.Item)
         {
@@ -673,6 +719,8 @@ class HCForageModule : HCModule
 
     override void OnStop()
     {
+        m_PendingSpawn = null;
+        m_PendingType = "";
         m_Deferred = 0;
         if (m_Healthy) { HCFlush(); }
         if (m_SaveJob)
