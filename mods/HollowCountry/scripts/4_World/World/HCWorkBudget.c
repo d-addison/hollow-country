@@ -182,6 +182,13 @@ class HCSaveScheduler : HCModule
         return true;
     }
 
+    // True when routine dispatch owns this job; a job refused at save_job_capacity must
+    // advance its own stages (bounded) or it never clears its dirty state.
+    static bool HCRegistered(HCSaveJob job)
+    {
+        return job && s_Jobs.Find(job) >= 0;
+    }
+
     static void HCUnregister(HCSaveJob job)
     {
         int index = s_Jobs.Find(job);

@@ -676,9 +676,10 @@ class HCForageModule : HCModule
     {
         if (m_Dirty)
         {
-            // An operator may disable routine dispatch. Still advance just one
-            // existing save stage per core tick, preserving reservation safety.
-            if (!HCPerfConfig.HCGet().EnableSharedSaves)
+            // An operator may disable routine dispatch, or the scheduler may have refused
+            // registration (save_job_capacity). Still advance just one existing save stage
+            // per core tick, preserving reservation safety.
+            if (!HCPerfConfig.HCGet().EnableSharedSaves || !HCSaveScheduler.HCRegistered(m_SaveJob))
             {
                 if (!HCServer.HCTickWork().HCTake(1)) { return; }
                 int result = HCStepCheckpoint();
