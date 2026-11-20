@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import re
@@ -19,7 +20,8 @@ import time
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-from tools.package import pbo
+from tools.package import pbo, weapon_pack_guards
+from tools.audit.pbo_config import parse_text_config, read_config_members
 from tools.setup import wine_compile_probe as probe
 
 SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
@@ -120,7 +122,7 @@ def private(text):
 
 def git(tree, *args):
     result = subprocess.run(['git', '-C', str(tree), *args],
-                            capture_output=True, check=False)
+                            capture_output=True, check=False, timeout=120)
     if result.returncode:
         raise ValueError('git read failed: ' + result.stderr.decode(errors='replace'))
     return result.stdout
@@ -156,6 +158,79 @@ def source_tree(tree, commit, cache):
         yield root
 
 
+def validate_adapter_dependencies(tree, extra_mods):
+    """Reject an incomplete installed stack before starting the native compiler.
+
+    Only config metadata is inspected; no installed scripts/assets are staged.
+    The adapter has one authored CfgPatches requiredAddons array. Refuse a changed
+    declaration shape rather than silently skipping dependency validation.
+    """
+    config = (tree / 'mods/HollowCountryExpansionAI/config.cpp').read_text()
+    config = re.sub(r'/\*.*?\*/|//[^\n]*', '', config, flags=re.S)
+    arrays = re.findall(r'\brequiredAddons\s*\[\s*\]\s*=\s*\{([^{}]*)\}\s*;', config)
+    if len(arrays) != 1:
+        raise ValueError('HCX requiredAddons declaration changed; review required')
+    required = set(re.findall(r'"([^"\n]+)"', arrays[0]))
+    if not required or re.sub(r'"[^"\n]+"|[\s,]', '', arrays[0]):
+        raise ValueError('HCX requiredAddons must be a nonempty literal string array')
+    base = (tree / 'mods/HollowCountry/config.cpp').read_bytes()
+    providers = set(parse_text_config(base, ('CfgPatches',))['CfgPatches'])
+    for mod in extra_mods:
+        for addon in sorted((mod / 'addons').iterdir()):
+            if addon.is_file() and addon.suffix.lower() == '.pbo':
+                try:
+                    for _, roots in read_config_members(addon, ('CfgPatches',)):
+                        providers.update(roots['CfgPatches'])
+                except (OSError, ValueError) as error:
+                    raise ValueError('cannot inspect staged dependency config: '
+                                     + mod.name + '/' + addon.name) from error
+    missing = sorted(required - providers)
+    if missing:
+        raise ValueError('HCX requiredAddons missing from staged stack: ' + ', '.join(missing))
+    print('compile_gate: HCX requiredAddons verified=' + str(len(required))
+          + ' dependency_mods=' + str(len(extra_mods)))
+
+
+@contextlib.contextmanager
+def compatibility_inputs(tree, workshop, cache):
+    """Stage our original addons only; load installed dependency mods read-only."""
+    manifest_path = tree / 'tools/setup/workshop_mods.json'
+    if not weapon_pack_guards.declared(manifest_path):
+        print('compile_gate: weapon_pack_guards=absent (pack not declared)')
+        yield {}
+        return
+    if not (workshop / weapon_pack_guards.ITEM).exists():
+        raise ValueError('declared weapon pack missing; complete compile stack required')
+    manifest = json.loads(manifest_path.read_bytes())
+    # Match the friend server's entire declared dependency stack, including the
+    # living-pack providers required by the full adapter. No Wine exclusions.
+    dependencies = [row for row in manifest['mods'] if not row['publish']]
+    extra_mods = [workshop / row['id'] for row in sorted(dependencies, key=lambda row: row['rank'])]
+    # Validate before launching: partial dependency stacks must fail, never silently
+    # compile only the base mod and label that as guard acceptance.
+    probe.referenced_mods(extra_mods)
+    validate_adapter_dependencies(tree, extra_mods)
+    with tempfile.TemporaryDirectory(prefix='guard-inputs-', dir=cache) as directory:
+        root = Path(directory)
+        guard_mod = root / '@HCWeaponPackGuards'
+        result = subprocess.run(
+            [sys.executable, '-B', '-m', 'tools.package.weapon_pack_guards', '--declared-stack',
+             '--workshop', str(workshop), '--out', str(guard_mod / 'addons')],
+            cwd=tree, capture_output=True, text=True,
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'), timeout=300)
+        if result.returncode:
+            raise ValueError('weapon-pack guard generation failed; installed API review required')
+        receipt = json.loads((guard_mod / 'addons/weapon-pack-guards.json').read_bytes())
+        if receipt.get('status') != 'generated':
+            raise ValueError('installed pack did not produce the required guard')
+        adapter = root / 'hollowcountryexpansionai.pbo'
+        adapter.write_bytes(pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountryExpansionAI',
+                                                      prefix='HollowCountryExpansionAI'),
+                                     prefix='HollowCountryExpansionAI'))
+        print('compile_gate: weapon_pack_guards=staged sha256=' + receipt['sha256'])
+        yield {'extra_mods': extra_mods + [guard_mod], 'server_mod': adapter}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tree', type=Path, default=Path.cwd(), help='source checkout (default: current directory)')
@@ -164,6 +239,8 @@ def main():
     parser.add_argument('--prefix', type=Path, help='existing reusable isolated Wine prefix')
     parser.add_argument('--cache', type=Path, default=Path.home() / '.cache/hollow-country/compile-gate')
     parser.add_argument('--seconds', type=int, default=300, help='Wine probe budget, 15..900 seconds (default 300; use 900 on a busy host)')
+    parser.add_argument('--workshop', type=Path, default=weapon_pack_guards.WORKSHOP,
+                        help='installed Workshop content root; compile guard and HCX when pack is installed')
     parser.add_argument('--prepare-only', action='store_true', help='package inputs only; NEVER establishes compiler acceptance')
     args = parser.parse_args()
     if not args.prepare_only:
@@ -177,7 +254,8 @@ def main():
         cache = args.cache.expanduser().resolve()
         probe.safe(cache)
         cache.mkdir(parents=True, exist_ok=True)
-        with source_tree(args.tree.resolve(), args.commit, cache) as tree:
+        with source_tree(args.tree.resolve(), args.commit, cache) as tree, \
+                compatibility_inputs(tree, args.workshop.expanduser().resolve(), cache) as inputs:
             blob = pbo.pack(pbo.collect_addon(tree / 'mods/HollowCountry'))
             digest = hashlib.sha256(blob).hexdigest()
             package = cache / (digest + '.pbo')
@@ -200,7 +278,7 @@ def main():
             # never reused. Only the server install, Wine prefix and PBO persist.
             experiment = cache / ('run-' + str(time.time_ns()))
             report = probe.run(args.server_root.expanduser().resolve(), package, experiment,
-                               args.prefix.expanduser().resolve(), seconds=args.seconds)
+                               args.prefix.expanduser().resolve(), seconds=args.seconds, **inputs)
             text, _, skipped = probe.collect_logs(experiment)
             modules, script_errors, script_skipped = script_summary(experiment)
             errors = [line for line in text.splitlines()

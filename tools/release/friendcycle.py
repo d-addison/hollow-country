@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+from tools.package.weapon_pack_guards import WORKSHOP, PBO_NAME, declared
 from tools.release.release import (ADDONS, TEMPLATES_REL, build, build_number, digest,
                                    native_compile_gate, resolve_commit, run, worktree)
 
@@ -100,10 +101,19 @@ def cycle(args):
     if any(p.suffix.lower() == '.biprivatekey' for p in signed.rglob('*')):
         raise ValueError('Private key in release refused')
     with worktree(sha, args.build + '-friend') as tree:
+        guard = manifest.get('weapon_pack_guards', {})
+        guard_path = '@HollowCountryExpansionAI/addons/' + PBO_NAME
+        wanted = declared(tree / 'tools/setup/workshop_mods.json')
+        if not isinstance(guard, dict):
+            raise ValueError('Invalid release weapon-pack guard receipt; rebuild required')
+        if ((wanted and (guard.get('status') != 'generated' or guard_path not in actual
+                        or manifest['files'].get(guard_path) != guard.get('sha256')))
+                or (not wanted and (guard.get('status') != 'absent' or guard_path in actual))):
+            raise ValueError('Release weapon-pack guard differs from declared stack; rebuild required')
         if not built:
             # Reusing signed artifacts must not bypass today's available gate.
             # The manifest is outside its own hashed file inventory.
-            manifest['compile_gate'] = native_compile_gate(tree, sha)
+            manifest['compile_gate'] = native_compile_gate(tree, sha, args.workshop)
             manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
         command = [sys.executable, '-B', '-m', 'tools.setup.friend_bundle', 'build']
         help_text = run([*command, '--help'], tree)
@@ -129,6 +139,7 @@ def main(argv=None):
     parser.add_argument('--allow-unpushed', action='store_true')
     parser.add_argument('--templates', type=Path, help='override pack (default: the commit\'s ' + TEMPLATES_REL + ')')
     parser.add_argument('--addons', type=Path, default=ADDONS)
+    parser.add_argument('--workshop', type=Path, default=WORKSHOP, help='installed Workshop content root for building/compiling')
     parser.add_argument('--out', type=Path, help='signed release directory')
     parser.add_argument('--bundle-out', type=Path)
     parser.add_argument('--mission', type=Path, required=True)

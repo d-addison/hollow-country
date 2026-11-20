@@ -18,6 +18,7 @@ import sys
 import tempfile
 
 from tools.package.sign_wine import CACHE, sign
+from tools.package.weapon_pack_guards import WORKSHOP
 from tools.release import compile_gate
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -134,7 +135,7 @@ def copy_templates(source, dest):
     return rows
 
 
-def native_compile_gate(tree, sha):
+def native_compile_gate(tree, sha, workshop=WORKSHOP):
     server_root, prefix, reason = compile_gate.prerequisites()
     if reason:
         print('compile gate not run: ' + reason, flush=True)
@@ -144,7 +145,7 @@ def native_compile_gate(tree, sha):
     result = subprocess.run(
         [sys.executable, '-B', str(ROOT / 'tools/release/compile_gate.py'),
          '--tree', str(tree), '--commit', sha, '--server-root', str(server_root),
-         '--prefix', str(prefix)], cwd=tree, capture_output=True, text=True,
+         '--prefix', str(prefix), '--workshop', str(workshop)], cwd=tree, capture_output=True, text=True,
         env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', GIT_OPTIONAL_LOCKS='0'), timeout=1800)
     for line in (result.stdout + '\n' + result.stderr).splitlines():
         print(compile_gate.private(line), flush=True)
@@ -191,7 +192,14 @@ def build(args):
                 lint += ['--native-scripts', NATIVE_SCRIPTS]
             print('Linting pinned commit ' + sha, flush=True)
             run(lint, cwd=tree)
-            gate_result = native_compile_gate(tree, sha)
+            workshop = Path(getattr(args, 'workshop', WORKSHOP)).absolute()
+            guard_dir = scratch / 'weapon-pack-guards'
+            run([*py, '-m', 'tools.package.weapon_pack_guards', '--declared-stack',
+                 '--workshop', workshop, '--out', guard_dir], tree)
+            guard_receipt = json.loads((guard_dir / 'weapon-pack-guards.json').read_bytes())
+            gate_result = native_compile_gate(tree, sha, workshop)
+            if guard_receipt['status'] == 'generated' and gate_result['passed'] is True:
+                guard_receipt['native_compile'] = 'passed'
             print('Packing pinned commit ' + sha, flush=True)
             for mod, name, prefix in (
                     ('HollowCountry', 'hollowcountry', 'HollowCountry'),
@@ -211,9 +219,14 @@ def build(args):
             stage = scratch / 'output'
             stage.mkdir()
             reports = {}
-            for name, mod, label in (('hollowcountry', 'HollowCountry', 'base'),
-                                     ('hollowcountryanims', 'HollowCountry', 'anims'),
-                                     ('hollowcountryexpansionai', 'HollowCountryExpansionAI', 'addon')):
+            signing_inputs = [('hollowcountry', 'HollowCountry', 'base'),
+                              ('hollowcountryanims', 'HollowCountry', 'anims'),
+                              ('hollowcountryexpansionai', 'HollowCountryExpansionAI', 'addon')]
+            if guard_receipt['status'] == 'generated':
+                guard_name = guard_receipt['pbo']
+                shutil.copyfile(guard_dir / guard_name, scratch / guard_name)
+                signing_inputs.append((Path(guard_name).stem, 'HollowCountryExpansionAI', 'weapon-pack-guards'))
+            for name, mod, label in signing_inputs:
                 print('Signing and verifying ' + name, flush=True)
                 signed = scratch / ('signed-' + label)
                 reports[label] = sign(scratch / (name + '.pbo'), signed)
@@ -242,7 +255,8 @@ def build(args):
                                   'wine': run(['/usr/lib/wine/wine64', '--version']).strip(),
                                   'signing_tools': reports['base']['tools'],
                                   'source_tools': {str(p): digest(tree / p) for p in (
-                                      'tools/package/pbo.py', 'tools/anim/build_infected_clips.py',
+                                      'tools/package/pbo.py', 'tools/package/weapon_pack_guards.py',
+                                      'tools/setup/workshop_mods.json', 'tools/anim/build_infected_clips.py',
                                       'tools/anim/build_anims_addon.py')},
                                   'driver_tools': {p: digest(ROOT / p) for p in (
                                       'tools/release/release.py', 'tools/release/compile_gate.py', 'tools/package/sign.py',
@@ -252,12 +266,13 @@ def build(args):
                 # friend_bundle --build-manifest compares this exact PBO catalogue.
                 'pbos': {p.relative_to(stage).as_posix(): digest(p)
                          for p in sorted(stage.rglob('*.pbo')) if p.is_file()},
+                'weapon_pack_guards': guard_receipt,
                 'templates': templates, 'attachment_scale': attachment_scale, 'source_json': sources,
                 'signatures_verified': True, 'compile_gate': gate_result, 'runtime_acceptance': 'pending'}
             (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
             out.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(stage, out)
-            print('Release complete; all three signatures verified; BUILD_MANIFEST.json written')
+            print('Release complete; all PBO signatures verified; BUILD_MANIFEST.json written')
         finally:
             # Restore only our exact injection; retain unexpected changes for inspection.
             if injected_attachment_config is not None and attachment_config.read_bytes() == injected_attachment_config:
@@ -277,6 +292,7 @@ def main(argv=None):
     parser.add_argument('--allow-unpushed', action='store_true')
     parser.add_argument('--templates', type=Path, help='override pack (default: the commit\'s ' + TEMPLATES_REL + ')')
     parser.add_argument('--addons', type=Path, default=ADDONS)
+    parser.add_argument('--workshop', type=Path, default=WORKSHOP, help='installed Workshop content root for guard verification')
     parser.add_argument('--out', type=Path)
     args = parser.parse_args(argv)
     try:

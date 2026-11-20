@@ -763,6 +763,19 @@ def build(args):
     plan += [('keys/' + name, path) for name, path in sorted(keys.items())]
     if getattr(args, 'build_manifest', None):
         release = validate_build_manifest(args.build_manifest, plan)
+        # Signed compatibility addons travel in the ordinary HCX file plan. Keep
+        # the release receipt tied to those exact bytes without rebuilding here.
+        guard = json.loads(release).get('weapon_pack_guards')
+        if guard is not None:
+            if not isinstance(guard, dict):
+                raise Refused('invalid weapon-pack guard receipt')
+            guard_path = '@HollowCountryExpansionAI/addons/hollowcountry_weapon_pack_guards.pbo'
+            guard_files = [source for dest, source in plan if dest == guard_path]
+            if (guard.get('status') not in ('generated', 'absent')
+                    or bool(guard_files) != (guard.get('status') == 'generated')):
+                raise Refused('weapon-pack guard receipt differs from addon plan')
+            if guard_files and hashlib.sha256(overlays.read(guard_files[0])).hexdigest() != guard.get('sha256'):
+                raise Refused('weapon-pack guard receipt hash differs from addon plan')
         plan.append(('BUILD_MANIFEST.json', release))
     else:
         print('build manifest: legacy input; PBO build provenance unverified')

@@ -10,7 +10,7 @@ separate PBO depends on it. An absent pack emits no PBO; an unfamiliar installed
 script refuses generation for review. No Workshop code is copied into output.
 
 The source .c is deliberately inactive in the ordinary adapter; only this builder
-activates it. The lead must wire this builder into release/native compile inputs.
+activates it. Release and native compile inputs activate only the separate PBO.
 """
 import argparse
 import hashlib
@@ -26,6 +26,7 @@ PATCH = 'script_a'
 SOURCE = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXWeaponPackGuards.c'
 MEMBER = 'weapon-pack-guards/4_World/HCXWeaponPackGuards.c'
 PBO_NAME = 'hollowcountry_weapon_pack_guards.pbo'
+WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
 # Read-only installed evidence, 2026-11-20. Pin the two relevant methods, not assets.
 PINS = {
     'Scripts/4_World/Weapons/Bipod/TF_BipodSway.c':
@@ -108,16 +109,36 @@ def generate(workshop):
     }
 
 
+def declared(manifest=None):
+    """Only the pinned repository's declared stack can activate this compatibility addon."""
+    data = json.loads(Path(manifest or ROOT / 'tools/setup/workshop_mods.json').read_bytes())
+    if data.get('schema') != 1 or not isinstance(data.get('mods'), list):
+        raise ValueError('invalid Workshop stack manifest')
+    return any(row.get('id') == ITEM and not row.get('publish') for row in data['mods'])
+
+
+def generate_for_stack(workshop, manifest=None):
+    if not declared(manifest):
+        return None, {'status': 'absent', 'reason': 'pack not declared', 'runtime': 'PENDING'}
+    blob, receipt = generate(workshop)
+    if blob is None:
+        raise ValueError('declared weapon pack is missing; guard generation required')
+    return blob, receipt
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--workshop', type=Path, required=True)
+    parser.add_argument('--declared-stack', action='store_true',
+                        help='require the guard when the repository stack declares the pack')
     parser.add_argument('--out', type=Path, required=True,
                         help='new staging directory; existing output is refused')
     args = parser.parse_args(argv)
     if args.out.exists():
         parser.exit(1, 'weapon_pack_guards: output already exists; use fresh staging\n')
     try:
-        blob, receipt = generate(args.workshop)
+        blob, receipt = (generate_for_stack(args.workshop) if args.declared_stack
+                         else generate(args.workshop))
     except (OSError, ValueError) as error:
         # OSError paths can contain account names; never echo them.
         reason = str(error) if isinstance(error, ValueError) else 'installed/source read failed'

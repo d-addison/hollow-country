@@ -1729,6 +1729,27 @@ def run_check(ctx):
         if not addons.is_dir() or not any(p.suffix.lower() == '.pbo' for p in addons.iterdir()):
             missing.append('missing_mod_folder: %s' % folder)
     result('mod_folders', missing, '%d mod folders present with signed PBOs' % len(expected))
+    # The signed guard is an ordinary HCX addon: analyze() copies it and moves its
+    # old PBO/signatures to backup when a later bundle no longer ships the pack.
+    guard_rel = '@HollowCountryExpansionAI/addons/hollowcountry_weapon_pack_guards.pbo'
+    guard_rows = [(rel, source) for rel, source in bundle_walk(ctx.bundle, ctx.manifest,
+                  '@HollowCountryExpansionAI') if rel.casefold() == guard_rel.casefold()
+                  or rel.casefold().startswith(guard_rel.casefold() + '.')]
+    problems = []
+    for rel, source in guard_rows:
+        target = server / rel
+        if not target.is_file() or sha256_file(target) != sha256_file(source):
+            problems.append('guard_missing_or_changed: ' + rel)
+    guard_addons = server / '@HollowCountryExpansionAI/addons'
+    wanted = {rel.casefold() for rel, _ in guard_rows}
+    if guard_addons.is_dir():
+        for path in guard_addons.iterdir():
+            rel = '@HollowCountryExpansionAI/addons/' + path.name
+            if (path.is_file() and (rel.casefold() == guard_rel.casefold()
+                    or rel.casefold().startswith(guard_rel.casefold() + '.'))
+                    and rel.casefold() not in wanted):
+                problems.append('stale_guard: ' + rel)
+    result('weapon_pack_guard', problems, 'signed guard matches bundle' if guard_rows else 'guard absent')
     names = set(p.name for p in (ctx.bundle / 'keys').glob('*.bikey')) if (ctx.bundle / 'keys').is_dir() else set()
     for folder in expected:
         keys = server / folder / 'keys'
