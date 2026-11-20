@@ -1524,32 +1524,48 @@ def military_zones(source):
               for i, k in enumerate(ranked)}
     zones = []
     for ident, sites in sorted(grouped.items()):
-        positions = [s['pos'] for _, s in sites]
-        center = [round(sum(p[i] for p in positions)/len(positions), 1) for i in range(3)]
-        # A runtime patrol owns at most six members; keep its spawn positions together.
-        anchor = min(sites, key=lambda item: (
-            {'hq': 0, 'outpost': 1, 'depot': 2, 'perimeter': 3}[item[1]['zone_role']],
-            math.hypot(item[1]['pos'][0]-center[0], item[1]['pos'][2]-center[2]), item[0]))[1]
-        center = [round(v, 1) for v in anchor['pos']]
-        slots = [[round(v, 1) for v in p] for p in anchor['guard_slots']]
-        # Rounding can move an edge candidate into an authored prop reserve.
-        slots = [p for p in slots if guard_clear(source, p, objects)]
-        if len(slots) < 3:
-            slots.extend([round(v, 1) for v in p] for _, site in sorted(sites)
-                         if site is not anchor for p in site['guard_slots']
-                         if math.dist(p, center) <= 1950
-                         and guard_clear(source, [round(v, 1) for v in p], objects))
-            slots = slots[:6]
-        if len(slots) < 3:
-            raise ValueError('zone needs at least three nearby guard slots: '+ident)
-        zones.append({'id': ident, 'area': next(a[0] for a in EXPANSION_AREAS
-                                              if re.sub(r'[^a-z0-9]+', '-', a[0].lower()).strip('-') == ident),
-                      'center': center, 'radius_m': min(2000.0, round(max(math.dist(p, center)
-                                                            for p in positions)+60, 1)),
-                      'tier': 4 if ident in high else 3,
-                      'sites': [key for key, _ in sorted(sites)],
-                      'guard_slots': slots,
-                      'default_state': states[ident]})
+        remaining = sorted(sites)
+        first = True
+        while remaining:
+            positions = [s['pos'] for _, s in remaining]
+            centroid = [sum(p[i] for p in positions)/len(positions) for i in range(3)]
+            # Keep the original primary anchor/ID. Peripheral clusters receive stable
+            # anchor-derived IDs without changing authored layer zone_id metadata.
+            anchor_key, anchor = min(remaining, key=lambda item: (
+                {'hq': 0, 'outpost': 1, 'depot': 2, 'perimeter': 3}[item[1]['zone_role']],
+                math.hypot(item[1]['pos'][0]-centroid[0], item[1]['pos'][2]-centroid[2]), item[0]))
+            center = [round(v, 1) for v in anchor['pos']]
+            # Leave 60 m around every member inside the runtime's 2 km cap.
+            members = [(key, site) for key, site in remaining if math.dist(site['pos'], center) <= 1940]
+            member_keys = {key for key, _ in members}
+            remaining = [(key, site) for key, site in remaining if key not in member_keys]
+            zone_id = ident if first else ident+'-'+sha(anchor_key.encode())[:8]
+            first = False
+            # A runtime patrol owns at most six members; keep its spawn positions together.
+            slots = [[round(v, 1) for v in p] for p in anchor['guard_slots']]
+            # Rounding can move an edge candidate into an authored prop reserve.
+            slots = [p for p in slots if math.dist(p, center) <= 1940 and guard_clear(source, p, objects)][:6]
+            if len(slots) < 3:
+                slots.extend([round(v, 1) for v in p] for _, site in members
+                             if site is not anchor for p in site['guard_slots']
+                             if math.dist([round(v, 1) for v in p], center) <= 1940
+                             and guard_clear(source, [round(v, 1) for v in p], objects))
+                slots = slots[:6]
+            if len(slots) < 3:
+                raise ValueError('zone needs at least three nearby guard slots: '+zone_id)
+            radius = round(max(math.dist(p, center) for p in
+                               [site['pos'] for _, site in members]+slots)+60, 1)
+            if not 20 <= radius <= 2000 or len(members) > 256 or len(zone_id) > 44:
+                raise ValueError('zone exceeds runtime bounds: '+zone_id)
+            zones.append({'id': zone_id, 'area': next(a[0] for a in EXPANSION_AREAS
+                                                    if re.sub(r'[^a-z0-9]+', '-', a[0].lower()).strip('-') == ident),
+                          'center': center, 'radius_m': radius,
+                          'tier': 4 if ident in high else 3,
+                          'sites': [key for key, _ in members],
+                          'guard_slots': slots,
+                          'default_state': states[ident]})
+    if len(zones) > 128:
+        raise ValueError('zone catalog exceeds runtime row cap')
     return {'zones': zones}
 
 
