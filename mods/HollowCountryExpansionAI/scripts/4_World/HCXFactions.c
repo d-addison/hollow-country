@@ -53,6 +53,11 @@ class HCXFactions
     static string SiteFaction(HCXAISite site)
     {
         if (!HCXAIQualification.EncountersEnabled()) { return site.Faction; }
+        return EncounterFaction(site);
+    }
+    // The provider faction a site runs under once encounters are armed.
+    static string EncounterFaction(HCXAISite site)
+    {
         if (site.ContentRole) { return site.ContentRole.ProviderFaction; }
         if (site.Kind == "scavenger") { return "HCScavengers"; }
         if (site.Kind == "holdout") { return "HCLocals"; }

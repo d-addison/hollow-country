@@ -1488,6 +1488,17 @@ class HCXAISiteDirector : Managed
         m_Phase = "bind";
         m_Cursor = 0;
     }
+    // Installed ai_scripts.pbo eAIFaction.c: GetType/Create. An empty name
+    // resolves to the unregistered base class, so it is skipped, not created.
+    protected bool HCFactionFair(string factionName, map<string, bool> factionChecked)
+    {
+        if (factionName == "" || factionChecked.Contains(factionName)) { return true; }
+        factionChecked.Set(factionName, true);
+        if (!eAIFaction.GetType(factionName)) { return false; }
+        eAIFaction faction = eAIFaction.Create(factionName);
+        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return false; }
+        return faction.GetMeleeDamageMultiplier() == 1 && faction.GetMeleeYeetForce() == 0;
+    }
     // Every admission input is observed here from the engine, never read from a file.
     protected HCXAISiteAdmission Observe()
     {
@@ -1506,14 +1517,16 @@ class HCXAISiteDirector : Managed
         if (adapter) { a.Globals = adapter.GlobalsProblem(); }
         else { a.Globals = "adapter not bound"; }
         if (a.Globals == "") { a.Globals = HCXAIQualification.ProviderProblem(); }
+        // Admission runs before encounters are armed, so check both the catalog
+        // faction and the provider faction the site takes once armed. Each name
+        // is created once; an empty catalog faction is skipped, because
+        // eAIFaction.Create("") spawns the unregistered base class.
+        map<string, bool> factionChecked = new map<string, bool>();
         foreach (HCXAISite factionSite : m_Policy.Sites)
         {
-            eAIFaction faction = eAIFaction.Create(HCXFactions.SiteFaction(factionSite));
-            if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0)
-            {
-                a.UnfairFaction = factionSite.Faction;
-                break;
-            }
+            if (!this.HCFactionFair(factionSite.Faction, factionChecked)) { a.UnfairFaction = factionSite.Faction; break; }
+            string armedFaction = HCXFactions.EncounterFaction(factionSite);
+            if (!this.HCFactionFair(armedFaction, factionChecked)) { a.UnfairFaction = armedFaction; break; }
         }
         // The reviewed catalog names a handful of loadouts across hundreds of sites: stat each name once.
         map<string, bool> loadoutChecked = new map<string, bool>();
