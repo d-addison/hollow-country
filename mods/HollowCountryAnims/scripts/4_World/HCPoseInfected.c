@@ -131,7 +131,9 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	{
 		if (!g_Game.IsServer() || !IsAlive())
 			return false;
-		if (pose != 0 && HCInfectedVariety.HCPosesOptedOut())
+		// Operator off switches: EnableInfectedVariety=false, infected_variety.disable
+		// (both via the variety owner) or infected_poses.disable. Wake/release stay open.
+		if (pose != 0 && (!HCInfectedVarietyModule.VarietyActive() || HCInfectedVariety.HCPosesOptedOut()))
 		{
 			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_OPTOUT);
 			return false;
@@ -378,6 +380,13 @@ class HC_ZmbM_Crawler extends ZmbM_CitizenASkinny_Base
 		if (!g_Game.IsServer())
 			return;
 		HCVarietyCounters.HCSpawned(HCVarietyCounters.KIND_CRAWL);
+		// Same operator gate as the posed classes: with variety off it stays a
+		// normal standing infected and counts as refused_optout.
+		if (!HCInfectedVarietyModule.VarietyActive())
+		{
+			HCVarietyCounters.HCAdd(HCVarietyCounters.REFUSED_OPTOUT);
+			return;
+		}
 		if (IsAlive() && !IsCrawling())
 			m_CrawlTransition = 0;
 	}

@@ -103,7 +103,8 @@ def substitute(original, stock, policy):
         if (set(child.attrib) != {'type', 'min', 'max', 'lootmin', 'lootmax'} or len(child)
                 or (child.text or '').strip() or type(share) is not int or share <= 0
                 or any(not re.fullmatch(r'[0-9]+', child.get(f, '')) for f in ('min', 'max', 'lootmin', 'lootmax'))
-                or int(child.get('min')) < share):
+                or int(child.get('min')) <= share):
+            # A donor always keeps a positive weight: no stock class leaves an event.
             raise ValueError('unsupported stock donor values: ' + donor)
         child.set('min', str(int(child.get('min')) - share))
         if variant in children:

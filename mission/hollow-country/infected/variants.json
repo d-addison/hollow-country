@@ -403,7 +403,7 @@
       "event": "InfectedCity",
       "from": "ZmbM_CitizenASkinny_Red",
       "to": "HC_ZmbM_Crawler",
-      "share": 2,
+      "share": 1,
       "min_delta": 0,
       "max_delta": 0
     },
@@ -4654,6 +4654,6 @@
     "heavy_labels": "native female Heavy classes use InfectedMSoldier; substitute normal soldier shares, never promise heavy AI",
     "Santa": "native class exists; rare year_round cityTier1 share; no winter scheduling",
     "unusable_native_only": "female patrol colours, HunterOld_Desert and UrbanC_BlueBright absent from pinned addon; duplicate case aliases emitted once",
-    "hc_variants": "issue_279 HollowCountryAnims CE children: Sitter/Sleeper/Riser/Feeder (custom-graph poses, MaxPosed bounds held poses) and Crawler (vanilla crawl request at spawn); shares 2-6 of ~100 per city/village/industrial/solitude/medic event (few per town, not hordes); donors are unused stock civilian males; loot inherits donor lootmin/lootmax; runtime PENDING"
+    "hc_variants": "issue_279 HollowCountryAnims CE children: Sitter/Sleeper/Riser/Feeder (custom-graph poses, MaxPosed bounds held poses) and Crawler (vanilla crawl request at spawn); shares 2-6 of ~100 per city/village/industrial/solitude/medic event (few per town, not hordes); donors are unused stock civilian males and each keeps a positive weight; loot inherits donor lootmin/lootmax; runtime PENDING"
   }
 }
