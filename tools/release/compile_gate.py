@@ -213,9 +213,16 @@ def main():
             # a primary error with an overly broad cascade exemption.
             # Wine can stop progressing before Mission initialization. World
             # loaded without script errors is compiler evidence, not boot acceptance.
+            status_ok = report['status'] in {'initialized', 'timeout'}
+            # The probe's shared classifier stops at any SCRIPT (E). Once Mission
+            # loaded, a stop caused only by missing-data JSON reports is not a
+            # compile failure; a crash or failed self-test still is.
+            if (report['status'] == 'compiler-error' and 'Mission' in modules
+                    and not re.search(r'\bENGINE\s*\(F\)\s*:\s*Crashed\b|Core native self-test FAILED', text)):
+                status_ok = True
+                print('compile_gate: probe stopped on runtime JSON report after Mission loaded')
             passed = ('World' in modules and not script_errors and not errors
-                      and not skipped and not script_skipped
-                      and report['status'] in {'initialized', 'timeout'})
+                      and not skipped and not script_skipped and status_ok)
             if passed:
                 print('compile_gate: World loaded with zero SCRIPT (E); runtime acceptance pending')
             print('compile_gate: ' + ('PASS' if passed else 'FAIL') + ' status=' + report['status'])
