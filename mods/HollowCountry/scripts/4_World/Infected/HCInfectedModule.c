@@ -51,6 +51,10 @@ class HCInfectedModule : HCModule
     protected bool m_Hordes;
     protected string m_PacingHordeId;
     protected int m_PacingHordeAttempts;
+    // Runtime-only offer: retry the same CE roster and fixed reservation anchor.
+    protected ref array<HCInfectedActor> m_PacingHordeCandidates = new array<HCInfectedActor>;
+    protected vector m_PacingHordeAnchor;
+    protected int m_PacingHordeTarget;
     protected bool m_PacingHordeWaiting;
     protected bool m_Chains;
     protected bool m_Dirty;
@@ -750,6 +754,9 @@ class HCInfectedModule : HCModule
             HCEventModule.HCCancelSituation(m_PacingHordeId);
             m_PacingHordeId = "";
             m_PacingHordeAttempts = 0;
+            m_PacingHordeCandidates.Clear();
+            m_PacingHordeAnchor = vector.Zero;
+            m_PacingHordeTarget = 0;
         }
     }
 
@@ -810,27 +817,64 @@ class HCInfectedModule : HCModule
         {
             return;
         }
+        bool retryOffer = m_PacingHordeId != "";
         ref array<HCInfectedActor> candidates = new array<HCInfectedActor>;
-        vector anchor;
+        vector anchor = m_PacingHordeAnchor;
         int scanCount = Math.Min(m_Actors.Count(), m_WorkCap - 6);
+        if (retryOffer) { scanCount = m_PacingHordeCandidates.Count(); }
         m_HCAdoptWork.HCReset(scanCount);
         HCUnitBudget adoptionWork = HCServer.HCTickWork();
-        if (!adoptionWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, scanCount)) { return; }
+        if (!adoptionWork.HCTakeFor(HCUnitBudget.HC_WORK_INFECTED, scanCount))
+        {
+            // A shared tick-budget deferral is not a changed/refused offer.
+            if (retryOffer)
+            {
+                m_PacingHordeAttempts++;
+                m_PacingHordeWaiting = m_PacingHordeAttempts < 6;
+            }
+            return;
+        }
         for (int scanned = 0; scanned < scanCount; scanned++)
         {
-            if (!m_HCAdoptWork.HCContinue()) { break; }
-            m_AdoptionCursor = m_AdoptionCursor % m_Actors.Count();
-            HCInfectedActor actor = m_Actors[m_AdoptionCursor];
-            m_AdoptionCursor = HCInfectedPolicy.NextAdoptionCursor(m_AdoptionCursor, m_Actors.Count());
-            if (actor.EverAssigned || actor.SearchPack || !actor.InfectedEntity || !actor.InfectedEntity.IsAlive() || actor.Profile == "native_injured")
+            if (!m_HCAdoptWork.HCContinue())
+            {
+                if (retryOffer)
+                {
+                    m_PacingHordeAttempts++;
+                    m_PacingHordeWaiting = m_PacingHordeAttempts < 6;
+                    return;
+                }
+                break;
+            }
+            HCInfectedActor actor;
+            if (retryOffer)
+            {
+                actor = m_PacingHordeCandidates[scanned];
+            }
+            else
+            {
+                m_AdoptionCursor = m_AdoptionCursor % m_Actors.Count();
+                actor = m_Actors[m_AdoptionCursor];
+                m_AdoptionCursor = HCInfectedPolicy.NextAdoptionCursor(m_AdoptionCursor, m_Actors.Count());
+            }
+            bool eligible = actor && !actor.EverAssigned && !actor.SearchPack && actor.InfectedEntity && actor.InfectedEntity.IsAlive() && actor.Profile != "native_injured";
+            if (eligible)
+            {
+                int mind = actor.InfectedEntity.GetMindStateSynced();
+                eligible = mind != DayZInfectedConstants.MINDSTATE_CHASE && mind != DayZInfectedConstants.MINDSTATE_FIGHT;
+            }
+            if (!eligible)
+            {
+                if (retryOffer) { return; }
                 continue;
-            int mind = actor.InfectedEntity.GetMindStateSynced();
-            if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
-                continue;
+            }
             vector position = actor.InfectedEntity.GetPosition();
             if (!HCInfectedStore.ValidPosition(position))
+            {
+                if (retryOffer) { return; }
                 continue;
-            if (candidates.Count() == 0)
+            }
+            if (!retryOffer && candidates.Count() == 0)
             {
                 // CE activates local population; routes never use a player fix.
                 if (HCHordeMigration.Active() && !HCHordeRoutes.Select(position, null)) { continue; }
@@ -838,11 +882,16 @@ class HCInfectedModule : HCModule
             }
             if (vector.DistanceSq(position, anchor) <= 10000)
                 candidates.Insert(actor);
+            else if (retryOffer) { return; }
             if (candidates.Count() >= Math.Min(HCHordeLimits.MAX_PACK, m_MemberCap - m_State.Reserved))
                 break;
         }
+        // A retained cohort is all-or-nothing; never replace members or move its
+        // anchor while waiting for the director's durable reservation barrier.
+        if (retryOffer && candidates.Count() != m_PacingHordeCandidates.Count()) { return; }
         int requested = candidates.Count();
-        int target = Math.Clamp(HCInfectedMemory.CohortSize(anchor, HCHordeLimits.MAX_PACK), 30, HCHordeLimits.MAX_PACK);
+        int target = m_PacingHordeTarget;
+        if (!retryOffer) { target = Math.Clamp(HCInfectedMemory.CohortSize(anchor, HCHordeLimits.MAX_PACK), 30, HCHordeLimits.MAX_PACK); }
         HCHordeRouteDefaults limits = HCHordeRoutes.Defaults();
         if (!limits || limits.MaxMembers < target) { return; }
         while (candidates.Count() > target) { candidates.Remove(candidates.Count() - 1); }
@@ -869,15 +918,19 @@ class HCInfectedModule : HCModule
         HCHordeRecovery.Capture(candidates, record);
         if (record.RecoveryConflicted)
             return;
-        if (m_PacingHordeId == "") { m_PacingHordeId = "horde:" + nowUtc.ToString(); }
+        if (!retryOffer)
+        {
+            m_PacingHordeId = "horde:" + nowUtc.ToString();
+            m_PacingHordeCandidates = candidates;
+            m_PacingHordeAnchor = anchor;
+            m_PacingHordeTarget = target;
+        }
         m_PacingHordeAttempts++;
-        // Six ordinary admission passes, then skip this offer. The existing
-        // adoption interval and cursor select a later offer; never force a pack
-        // into a busy region or hold the same offer indefinitely.
-        if (m_PacingHordeAttempts > 6) { return; }
+        // At most six passes for this fixed offer. Only after it terminates may
+        // the next admission resume selection at the already advanced cursor.
         if (!HCEventModule.HCPaceSituation(m_PacingHordeId, anchor, 600))
         {
-            m_PacingHordeWaiting = true;
+            m_PacingHordeWaiting = m_PacingHordeAttempts < 6;
             return;
         }
         // Never persist a partial roster or identities of supplemental bodies.
@@ -1266,6 +1319,11 @@ class HCInfectedModule : HCModule
     {
         if (m_PacingHordeId != "") { HCEventModule.HCCancelSituation(m_PacingHordeId); }
         m_PacingHordeId = "";
+        m_PacingHordeAttempts = 0;
+        m_PacingHordeWaiting = false;
+        m_PacingHordeCandidates.Clear();
+        m_PacingHordeAnchor = vector.Zero;
+        m_PacingHordeTarget = 0;
         HCInfectedVisionQualification.HCThreatReset(false);
         ReleasePacks();
         if (m_Healthy && m_Hordes && m_Dirty && GetGame().IsServer())
