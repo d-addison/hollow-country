@@ -332,8 +332,9 @@ class HCInteriorsModule : HCModule
     Object ResolveBuilding(HCInteriorCandidate candidate)
     {
         array<Object> objects = new array<Object>;
-        array<CargoBase> cargos = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(candidate.Position, 0.75, objects, cargos);
+        // Candidate broadphase as in the pack resolver; the exact transform
+        // check below retains the authored 3D building identity.
+        GetGame().GetObjectsAtPosition(candidate.Position, 0.75, objects, null);
         if (objects.Count() > 256) return null;
         Object found;
         foreach (Object object : objects)
@@ -350,11 +351,10 @@ class HCInteriorsModule : HCModule
     {
         reusable = null;
         array<Object> objects = new array<Object>;
-        array<CargoBase> cargos = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(point, 0.75, objects, cargos);
+        // Every furnished prop uses this orphan check. Avoid enumerating the
+        // building's unused cargo proxies on every slot (#275).
+        GetGame().GetObjectsAtPosition3D(point, 0.75, objects, null);
         if (objects.Count() > 256) return 3;
-        map<Object, bool> ownedIndex = new map<Object, bool>;
-        foreach (Object ownedObject : m_Objects) { ownedIndex.Set(ownedObject, true); }
         int matches;
         int ownedCount;
         bool exact = true;
@@ -362,7 +362,9 @@ class HCInteriorsModule : HCModule
         {
             if (!object || object.GetType() != type || vector.DistanceSq(object.GetPosition(), point) >= 0.0625) continue;
             matches++;
-            if (ownedIndex.Contains(object))
+            // Only exact nearby type/position matches need an ownership lookup;
+            // the retained prop array is capped by MaxFurnishedProps (<=1500).
+            if (m_Objects.Find(object) >= 0)
             {
                 ownedCount++;
                 reusable = object;

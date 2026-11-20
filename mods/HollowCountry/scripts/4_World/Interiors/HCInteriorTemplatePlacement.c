@@ -1,6 +1,6 @@
 // W5-PERF: production lifecycle uses HCInteriorPlacementCursor: <=1 prop attempt per
 // cursor step, <=2 tiny spatial queries; the module's HCUnitBudget bounds steps per tick.
-// Native scripts-1.30.164289: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D;
+// Native scripts-1.30.164289: 3_Game/Global/Game.c:923 GetObjectsAtPosition;
 // Object.c:287/305/311/873 position/orientation/set/model transform;
 // 1_Core/proto/EnScript.c:380/394/407 Count/Find/Insert;
 // EnConvert.c:30/210 ToString/DistanceSq; EnDebug.c:96 Print;
@@ -13,7 +13,7 @@
 // Resolve work is staged; placement predicates, flags and order remain unchanged.
 class HCInteriorTemplatePlacement
 {
-    static const int STEP_RESOLVE = 0;   // Resolve: Game.c:930 GetObjectsAtPosition3D at the house
+    static const int STEP_RESOLVE = 0;   // Resolve: Game.c:923 GetObjectsAtPosition at the house
     static const int STEP_LOOKUP = 1;    // template/slot lookup, Object.c:873 ModelToWorld, :305 GetOrientation
     static const int STEP_INSPECT = 2;   // Available -> InspectProp: a second GetObjectsAtPosition3D
     static const int STEP_CREATE = 3;    // Game.c:703 CreateObjectEx (CREATEPHYSICS|UPDATEPATHGRAPH)
@@ -123,7 +123,7 @@ class HCInteriorTemplatePlacement
     }
 
     // Native 1_Core/proto/EnScript.c:380/385/389/407 Count/Clear/Set/Insert.
-    // Reuse the unmodified 0.75 m native query for all slices/templates at this building centre.
+    // Reuse the 0.75 m native candidate query for all slices/templates at this building centre.
     // Filtering still runs on live object state in Resolve; cached failure snapshots retain #q.
     static HCInteriorResolveEntry HCFindResolveObjects(vector position)
     {
@@ -143,12 +143,14 @@ class HCInteriorTemplatePlacement
         if (cached) { return cached; }
         HCInteriorResolveEntry entry = new HCInteriorResolveEntry;
         entry.Position = position;
-        // #275: resolve consumes objects only. Do not request proxy-cargo
-        // enumeration on large buildings. Installed Game.c:930 has no notnull
-        // output requirement; native callers of its circle counterpart pass
-        // null for unused cargos (GeyserArea.c:210). The sphere/centre/radius
-        // and object cap are unchanged. Native timing/equivalence pending.
-        GetGame().GetObjectsAtPosition3D(position, 0.75, entry.Objects, null);
+        // #275: the sphere query still cost 20 ms on Tenement after cargo
+        // enumeration was removed (boot 117). Resolve needs a building origin,
+        // not a spherical geometry intersection. Use the native circle query
+        // (Game.c:923; GeyserArea.c:210 passes null for unused cargo), then keep
+        // the existing exact class / <=0.75 m 3D origin / ambiguity / tilt checks
+        // in the staged filter. Retain the 256-candidate cap. Native query cost
+        // and binding equivalence still require observation.
+        GetGame().GetObjectsAtPosition(position, 0.75, entry.Objects, null);
         entry.QuerySize = entry.Objects.Count();
         if (entry.QuerySize > 256)
         {

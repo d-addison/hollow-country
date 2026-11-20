@@ -49,6 +49,7 @@ class HCScenesModule : HCModule
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected ref HCSaveJob m_SaveJob;
     protected int m_StoryOfferPending;
+    protected bool m_IndexPlacementTurn;
     protected int m_Placed;
     protected int m_Refused;
     // Last refusal per retained chain; release keys when a terminal row is released.
@@ -621,6 +622,15 @@ class HCScenesModule : HCModule
             HCReached.Mark("scenes.placement_lease");
             // Review hardening: a lease whose kit failed to place waits for its Fail pass; never dereference it.
             if (!buildingLease.PlacementKit) { continue; }
+            // #275: a placement queue must not starve the read-only pair cursor.
+            // Alternate one index slice with one prop; never combine preflight
+            // and object creation in the same tick. Stop taking these turns
+            // once a candidate is cached, so placement retains every tick.
+            if (m_StoryIndex && m_Stories && m_Stories.HCReady() && m_StoryIndex.HCNeedsStep())
+            {
+                m_IndexPlacementTurn = !m_IndexPlacementTurn;
+                if (m_IndexPlacementTurn) { m_StoryIndex.HCStep(this); return; }
+            }
             if (!m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), 1); return; }
             HCSceneKits.HCPlaceOne(buildingLease);
             int pendingProps = buildingLease.PlacementKit.Props.Count() - buildingLease.Objects.Count();

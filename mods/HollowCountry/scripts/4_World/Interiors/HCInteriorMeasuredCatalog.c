@@ -1446,8 +1446,7 @@ class HCInteriorMeasuredCatalog
     static House MeasuredResolve(vector position, vector orientation)
     {
         array<Object> objects = new array<Object>();
-        array<CargoBase> cargos = new array<CargoBase>();
-        GetGame().GetObjectsAtPosition3D(position, 0.05, objects, cargos);
+        GetGame().GetObjectsAtPosition3D(position, 0.05, objects, null);
         if (objects.Count() > 256)
         {
             return null;

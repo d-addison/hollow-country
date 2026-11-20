@@ -114,6 +114,7 @@ class HCGapcodeStoryIndex
     // Loading parses the cached source. Selection only caches a candidate and
     // reads native clearance; neither path mutates scene/save state.
     bool HCLoading() { return m_Loading; }
+    bool HCNeedsStep() { return m_Loading || (m_Complete && m_Qualified > 0 && !m_Selected); }
     // Operational readiness is source admission, independent of transient
     // selection/observer clearance. Native placement acceptance stays pending.
     bool HCReady() { return m_Complete && m_Qualified > 0; }
