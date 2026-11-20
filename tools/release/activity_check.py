@@ -1,6 +1,6 @@
 """Streaming activity audit; readiness and runtime acceptance remain separate.
 
-python3 -B -m tools.release.activity_check server.RPT [--json]
+python3 -B -m tools.release.activity_check server.RPT [--client-rpt client.RPT] [--json]
 Exit 0: ACTIVE/WAITING only; 8: activity findings; 6: input error.
 """
 import argparse
@@ -15,6 +15,7 @@ from tools.setup.server_report import _EVENT, _PLAYER_ENABLED
 
 DEFAULT_EXPECTATIONS = Path(__file__).resolve().parents[2] / 'config/activity-expectations.json'
 STATUSES = ('ACTIVE', 'INERT', 'SILENT', 'NO_SIGNAL', 'WAITING')
+SCOPES = ('runtime', 'transport', 'client', 'diagnostic')
 TOKEN = re.compile(r'[A-Za-z0-9_.-]{1,96}\Z')
 CLOCK = re.compile(r'^\s*(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))?\b')
 READY_MODULE = re.compile(r'\[HC Ready\]\s+module=([A-Za-z0-9_.-]+)\s+enabled=(true|false)\b')
@@ -55,6 +56,8 @@ def load_expectations(path=DEFAULT_EXPECTATIONS):
             raise ValueError('expectations comparison/player')
         if entry['comparison'] == 'present' and entry['floor'] != 1:
             raise ValueError('presence floor must be 1')
+        if entry.get('scope', 'runtime') not in SCOPES:
+            raise ValueError('expectations scope')
         if 'signal' not in entry:
             raise ValueError('missing signal')
         signal = entry['signal']
@@ -75,21 +78,24 @@ def load_expectations(path=DEFAULT_EXPECTATIONS):
 
 class Activity:
     """Bounded counters only: raw player markers and identities are never retained."""
-    def __init__(self, expectations=DEFAULT_EXPECTATIONS):
+    def __init__(self, expectations=DEFAULT_EXPECTATIONS, *, client=False):
+        self.client = client
         self.entries = load_expectations(expectations)
         self.states = []
         self.by_tag = {}
         for entry in self.entries:
             state = dict(entry=entry, samples=0, value=None)
             self.states.append(state)
-            if entry['signal'] is not None:
+            if entry['signal'] is not None and (entry.get('scope') == 'client') == client:
                 signal = entry['signal']
                 state['pattern'] = re.compile(signal['regex'])
                 self.by_tag.setdefault(signal['tag'], []).append(state)
         self.modules = {}
         self.previous_clock = None
         self.now = 0.0
-        self.first_ready = None
+        # Companion clients need no server readiness or player-connect markers.
+        # Their independent exposure starts at their first timestamp.
+        self.first_ready = 0.0 if client else None
         self.player_seconds = 0.0
         self.players = 0
         self.presence_observations = 0
@@ -117,7 +123,7 @@ class Activity:
             self.clock_lines += 1
         # Privacy exception: reduce existing native connect events to counts only.
         # Never feed raw names, IDs, or event text into the result or error output.
-        if not _PLAYER_ENABLED.search(raw) and PLAYER_EVENT.search(raw) and _EVENT.search(raw):
+        if not self.client and not _PLAYER_ENABLED.search(raw) and PLAYER_EVENT.search(raw) and _EVENT.search(raw):
             if LEAVE.search(raw):
                 self.players = max(0, self.players - 1)
                 self.presence_observations += 1
@@ -128,11 +134,11 @@ class Activity:
         if not safe:
             return
         count = PLAYER_COUNT.search(safe)
-        if count:
+        if count and not self.client:
             self.players = min(256, int(count[1] or count[2]))
             self.presence_observations += 1
         ready = READY_MODULE.search(safe)
-        if ready:
+        if ready and not self.client:
             module, enabled = ready.groups()
             if module not in self.modules and len(self.modules) >= 256:
                 raise ValueError('module limit')
@@ -149,7 +155,7 @@ class Activity:
             # startup receipts, but start observation windows at readiness.
             elapsed = 0.0
             if self.first_ready is not None:
-                elapsed = self.player_seconds if entry['needs_player'] else self.now - self.first_ready
+                elapsed = self.elapsed(entry)
             match = state['pattern'].search(safe)
             if not match:
                 continue
@@ -177,6 +183,11 @@ class Activity:
             if not math.isfinite(state['value']):
                 raise ValueError('counter overflow')
 
+    def elapsed(self, entry):
+        if self.client:
+            return self.now
+        return self.player_seconds if entry['needs_player'] else self.now - self.first_ready
+
     def result(self):
         features = []
         declared = {e['module'] for e in self.entries}
@@ -184,7 +195,7 @@ class Activity:
             entry = state['entry']
             if not self.modules.get(entry['module'], False):
                 continue
-            elapsed = self.player_seconds if entry['needs_player'] else self.now - self.first_ready
+            elapsed = self.elapsed(entry)
             status = 'WAITING'
             if entry['signal'] is None:
                 status = 'NO_SIGNAL'
@@ -195,12 +206,12 @@ class Activity:
             features.append(dict(module=entry['module'], feature=entry['feature'], status=status,
                                  value=state['value'], samples=state['samples'], floor=entry['floor'],
                                  window_minutes=entry['window_minutes'], elapsed_minutes=round(elapsed / 60, 3),
-                                 needs_player=entry['needs_player']))
+                                 needs_player=entry['needs_player'], scope=entry.get('scope', 'runtime')))
         for module, enabled in self.modules.items():
             if enabled and module not in declared:
                 features.append(dict(module=module, feature='undeclared', status='NO_SIGNAL',
                                      value=None, samples=0, floor=None, window_minutes=None,
-                                     elapsed_minutes=None, needs_player=False))
+                                     elapsed_minutes=None, needs_player=False, scope='runtime'))
         features.sort(key=lambda row: (row['module'], row['feature']))
         totals = {status: 0 for status in STATUSES}
         totals.update(Counter(row['status'] for row in features))
@@ -208,16 +219,35 @@ class Activity:
         return dict(features=features, totals=totals, activity='inert' if count else 'ok', count=count,
                     readiness_observed=bool(self.modules), clock_observed=self.clock_lines > 1,
                     player_presence_observations=self.presence_observations,
-                    player_minutes=round(self.player_seconds / 60, 3))
+                    player_minutes=round(self.player_seconds / 60, 3), client_rpt_observed=False)
 
 
-def scan(path, expectations=DEFAULT_EXPECTATIONS):
+def scan(path, expectations=DEFAULT_EXPECTATIONS, *, client_rpt=None):
     activity = Activity(expectations)
     for raw in lines(path):
         activity.observe(raw)
     result = activity.result()
     if not result['readiness_observed']:
         raise ValueError('no readiness markers')
+    if client_rpt is not None:
+        client = Activity(expectations, client=True)
+        # Only the server determines enabled modules. Client readiness, server
+        # counters and player events cannot alter the authoritative audit.
+        client.modules = dict(activity.modules)
+        for raw in lines(client_rpt):
+            client.observe(raw)
+        if client.clock_lines < 2:
+            raise ValueError('insufficient client timestamps')
+        client_rows = {(row['module'], row['feature']): row
+                       for row in client.result()['features'] if row['scope'] == 'client'}
+        result['features'] = [client_rows.get((row['module'], row['feature']), row)
+                              for row in result['features']]
+        result['totals'] = {status: 0 for status in STATUSES}
+        result['totals'].update(Counter(row['status'] for row in result['features']))
+        result['count'] = sum(result['totals'][s] for s in ('INERT', 'SILENT', 'NO_SIGNAL'))
+        result['activity'] = 'inert' if result['count'] else 'ok'
+        result['client_minutes'] = round(client.now / 60, 3)
+    result['client_rpt_observed'] = client_rpt is not None
     return result
 
 
@@ -230,7 +260,7 @@ def print_result(result):
         value = 'none' if row['value'] is None else f"{row['value']:g}"
         print(f"{row['module']}/{row['feature']} {row['status']} value={value} samples={row['samples']} "
               f"floor={row['floor']} elapsed_minutes={row['elapsed_minutes']} window_minutes={row['window_minutes']} "
-              f"needs_player={str(row['needs_player']).lower()}")
+              f"needs_player={str(row['needs_player']).lower()} scope={row['scope']}")
     print('totals ' + ' '.join(f'{s}={result["totals"][s]}' for s in STATUSES))
     print(summary_line(result))
 
@@ -244,11 +274,12 @@ class InputParser(argparse.ArgumentParser):
 def main(argv=None):
     parser = InputParser(description=__doc__)
     parser.add_argument('rpt', type=Path)
+    parser.add_argument('--client-rpt', type=Path)
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--expectations', type=Path, default=DEFAULT_EXPECTATIONS)
     args = parser.parse_args(argv)
     try:
-        result = scan(args.rpt, args.expectations)
+        result = scan(args.rpt, args.expectations, client_rpt=args.client_rpt)
     except (OSError, ValueError, TypeError, KeyError, re.error):
         # Never echo a private filename, malformed RPT text or regex exception.
         if args.json:

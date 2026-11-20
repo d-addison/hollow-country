@@ -5,6 +5,7 @@ Run from the repository or the release bundle:
 ```sh
 python3 -B -m tools.release.activity_check server.RPT
 python3 -B -m tools.release.activity_check server.RPT --json
+python3 -B -m tools.release.activity_check server.RPT --client-rpt client.RPT --json
 python3 -B -m tools.release.activity_check server.RPT --expectations config/activity-expectations.json
 ```
 
@@ -18,6 +19,8 @@ Local expectation files are trusted operator configuration, including their rege
 `rpt_summary` includes the same results in its JSON `activity` section and text
 report. `checkstart` prints `activity=ok|inert count=N` at the end of observation.
 Neither tool changes its boot verdict or exit codes because of activity findings.
+These integrations remain server-only; use the standalone checker to include a
+companion client RPT.
 If the catalogue is missing or invalid, these integrations print
 `activity=unavailable count=0`; this is an audit error, never an activity pass.
 
@@ -25,9 +28,9 @@ If the catalogue is missing or invalid, these integrations print
 
 Each entry in `config/activity-expectations.json` belongs to a module token from
 `[HC Ready] module=... enabled=true`. Feature IDs are stable, short public tokens.
-One module may have several feature entries. Every registered module name in the
-current source survey has an entry, including the unregistered Morse compatibility
-shell; entries are reported only when their module is observed enabled in this RPT.
+One module may have several feature entries. All 64 module names in the
+current source survey have non-null signals, including the unregistered Morse
+compatibility shell; entries are reported only when their module is observed enabled in this RPT.
 An enabled module not in the catalogue automatically produces `NO_SIGNAL` with
 feature `undeclared`, so adding a new module cannot silently bypass the audit.
 Missing readiness markers are not proof that a module is disabled: a file with no
@@ -73,21 +76,53 @@ finite, nonnegative minutes. Never use a configuration limit, registration count
 refusal count, ready boolean, authored definition count or capability admission as
 proof of runtime work. `source` and `suggested_counter_location` are maintenance
 metadata; the latter identifies the owner to instrument when `signal` is null.
-Owners with no tick hook need a bounded periodic reporting hook added to their
-lifecycle, rather than another startup-only receipt. No gameplay code is changed
-by this tool.
+Owners with no tick hook need a bounded periodic reporting hook when runtime
+work has no existing receipt. The checker does not change gameplay. The shared
+taped-light runtime now counts successful exact-host wearable operations in its
+existing five-minute summary.
 
-The catalogue uses existing server receipts only. For example, infected sampling,
+The catalogue uses existing receipts from the declared input scope. For example, infected sampling,
 ecology visits and debug snapshot points prove those operations ran, not their
 visual/gameplay outcome. `[HC Reached] first_s` is a numeric first-operation marker,
 not a population count, and uses `present` (as does the SignsOfLife area marker).
 The catalogue audit found no ID fields used as counts; trade's `observed_complete`
 flag deliberately retains `max` with floor 1, so zero never proves completion.
-AI site activity requires actors, not qualified routes or
-controllers. Client-only appearance and startup mounting receipts have no reliable
-server activity counter and remain `NO_SIGNAL`.
+AI site activity requires actors, not qualified routes or controllers. Wearable
+mounting uses successful native custody operations, never authored/admitted pairs.
+The `scope` field distinguishes `runtime` (default), `transport`, `client`, and
+`diagnostic` evidence and is included in text and JSON results. Grade, Lighting
+and Polish use the shared presentation tuning send receipt (`transport`); this
+proves only a send, not delivery, rendering or a specific layer being enabled.
+OptionalPacks is a subscription-only shell with no gameplay tick: its
+`config-probed` diagnostic proves the probe ran and cannot establish CE animal or
+bicycle activity. Such diagnostic evidence is explicitly separate from runtime
+work and must never be cited as gameplay activity. SurvivalAlignment declares the
+client stamina HUD receipt; supply it using `--client-rpt client.RPT` alongside
+the server RPT. A server-only RPT can leave it SILENT/WAITING. Client
+HUD evidence does not establish stamina rates. A missing declaration still
+produces NO_SIGNAL; a declared but absent receipt remains an activity finding
+after its observation window.
 
 ## Windows and player presence
+
+The optional companion client RPT must come from the same build and play session
+as the server RPT; the operator must establish that pairing. The checker does not
+infer session identity from private identifiers. The server remains the sole
+source of enabled modules, server clocks, player presence and non-client signals.
+Only `scope=client` declarations consume companion lines; client receipts in the
+server input cannot satisfy them. Client readiness markers are neither required
+nor used. Client-scoped windows count elapsed timestamp time from the first
+timestamp in the companion file, independently of server readiness and player
+events. This includes client startup/menu time, so capture one boot and connect
+within the declared window. A late HUD receipt counts as a sample but cannot
+satisfy an expired window. Missing receipts remain SILENT/WAITING, and malformed
+or unreadable companion input (including fewer than two valid timestamps) exits
+6. The same privacy filter and bounded reader apply to both files. JSON reports
+`client_rpt_observed` and, when supplied, `client_minutes`. `elapsed_minutes` on
+client rows uses that client clock; `needs_player` retains the catalogue's
+server-only policy but requires no server-style connect event in companion mode.
+`rpt_summary` and `checkstart` continue to report their server-only audit; companion
+evidence is available through this standalone command.
 
 The observation clock starts at the first privacy-safe `[HC Ready]` marker in the
 RPT, including a pending or disabled module's marker. Later readiness updates do
@@ -139,46 +174,50 @@ formats or delayed startup can explain them. `ACTIVE` proves only the named sign
 never full gameplay correctness, native acceptance or multiplayer behaviour.
 Readiness boot acceptance still requires the separate native compile/boot gate.
 
-## Instrumentation backlog
+## Current signal map (round r11)
 
-The following lifecycle owners lack a suitable numeric runtime counter. Add bounded
-periodic successful-operation counts there (and the relevant action/provider), then
-replace the null declaration. Startup-only owners need a reporting hook. Morse is
-folded into Radio and is not registered; it is listed for source-name completeness.
+Existing `[HC Reached] first_s` operation markers cover AI incident lease steps,
+AI role leases, admin request dispatch, body death checks, camp respawn reservations,
+camp maintenance, dead-drop row checks, escalation clock steps, picker trip steps,
+search supply binding, weather ticks, world rows, incident sweeps and living AI
+actor checks. Their `present` reduction accepts a zero-second first operation.
+These markers prove the named code path ran, not its gameplay outcome. They are
+bounded to one line per feature per boot by HCReached; its shared 64-token cap
+can still make later markers silent if exhausted. No new reached tokens are added.
 
-| Module | Instrumentation owner (`file:function`) |
+| Modules | Signal and limitation |
 | --- | --- |
-| AIIncidents | `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c:OnTick` |
-| AIRoles | `mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c:OnTick` |
-| AdminMap | `mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c:OnTick` |
-| BodyStories | `mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c:OnTick` |
-| CampRespawn | `mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c:OnStart` |
-| Camps | `mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c:OnTick` |
-| Crafting | `mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c:OnStart` |
-| DeadDrops | `mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c:OnTick` |
-| Escalation | `mods/HollowCountry/scripts/4_World/World/HCEscalationClock.c:OnTick` |
-| Events | `mods/HollowCountry/scripts/4_World/Events/HCEventModule.c:OnTick` |
-| Grade | `mods/HollowCountry/scripts/4_World/Atmosphere/HCGradeModule.c:OnStart` |
-| Groups | `mods/HollowCountry/scripts/4_World/Groups/HCGroupModule.c:OnTick` |
-| Holdouts | `mods/HollowCountry/scripts/4_World/World/HCHoldouts.c:OnTick` |
-| Lighting | `mods/HollowCountry/scripts/4_World/Atmosphere/HCLightingModule.c:OnStart` |
-| Morse | `mods/HollowCountry/scripts/4_World/Leads/HCRadioChatter.c:OnTick` |
-| OptionalPacks | `mods/HollowCountry/scripts/4_World/Atmosphere/HCOptionalPacksModule.c:OnStart` |
-| Pickers | `mods/HollowCountry/scripts/4_World/World/HCPickers.c:OnTick` |
-| Polish | `mods/HollowCountry/scripts/4_World/Polish/HCPolishModule.c:OnStart` |
-| Scenes | `mods/HollowCountry/scripts/4_World/Scenes/HCScenesModule.c:OnTick` |
-| SearchBinding | `mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c:Attempt` |
-| SurvivalAlignment | `mods/HollowCountry/scripts/4_World/Survival/HCMealBuffs.c:OnStart` |
-| TapedHelmetMounts | `mods/HollowCountry/scripts/4_World/Survival/HCTapedHelmetMounts.c:OnStart` |
-| TapedLight | `mods/HollowCountry/scripts/4_World/Survival/HCTapedLightNative.c:OnStart` |
-| TapedPackMounts | `mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c:OnStart` |
-| WeatherDays | `mods/HollowCountry/scripts/4_World/Weather/HCWeatherDaysModule.c:OnTick` |
-| World | `mods/HollowCountry/scripts/4_World/World/HCWorldModule.c:OnTick` |
-| WorldIncidents | `mods/HollowCountry/scripts/4_World/World/HCWorldIncidents.c:OnTick` |
-| WreckSalvage | `mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c:OnTick` |
-| ZoneGuards | `mods/HollowCountryExpansionAI/scripts/4_World/HCXZoneGuards.c:OnTick` |
-| v2-expansion-living-world | `mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c:OnTick` |
+| Crafting | `completed_total`; successful recipes only |
+| LootRefresh | `refreshed_total`; zero timers or maintenance alone is insufficient |
+| Events | Situation `started_total`; refusals/source/store totals are not successes |
+| Scenes | `placed_total`; notes/work/refusals are not placements |
+| Radio / Morse compatibility | `delivered_total`; no player trade/talk requirement |
+| SettlementDecay | `changed_total`; rows inspected alone are insufficient |
+| Materializer | `materialized_total`; proposals/claims alone are insufficient |
+| VehicleFlip | `pulses_total`; requests/refusals alone are insufficient |
+| WreckSalvage | `created_total`; debit without creation is insufficient |
+| Progression | Window `gains`; skip/persistence totals are not gains |
+| Holdouts | Occupied/alert ledger rows; actor/cache recovery still unproven |
+| Groups | Group member samples from MapPins; group edits/delivery still unproven |
+| ZoneGuards | `actors_spawned`; authored sites/initialisation alone are insufficient |
+| TapedLight | Native `attached` + `detached` successful operations |
+| TapedHelmetMounts / TapedPackMounts | Exact-host `helmet_operations` / `pack_operations` in the shared HC-7 summary |
+| Grade / Lighting / Polish | Shared presentation RPC send, scope `transport` |
+| OptionalPacks | Config probe only, scope `diagnostic` |
+| SurvivalAlignment | Stamina HUD shown, scope `client`; needs a client RPT |
 
+Other previously declared signals retain their existing operations/populations.
+All cumulative totals use `max`, never `sum`. Regexes capture named fields without
+anchoring the end of a summary, so search refresh accepts signed/unavailable
+`timers=-1` and trailing `state_fault=<token>` without counting either as activity.
+Situation summaries accept the extra `source_w`, `source_total`, `store_w`,
+`store_total` fields after `identity_total` without counting prerequisites as starts.
+
+Optional cross-owner extension: `auditroutes` owns HCMealBuffs.c. If server-side
+SurvivalAlignment evidence is required, it must report actual stamina integration
+operations through that owner; the current startup drain/recovery settings and
+`hooks=0` receipt cannot prove them. The companion client option makes the current
+HUD declaration observable without that extension. No other worker's source is changed here.
 
 ## Build 117 RPT calibration (2026-11-20)
 
@@ -298,3 +337,104 @@ these changed tools. No Enforce files changed, so Enforce lint/perf and the nati
 compile/boot gate were not run. The actual `checkstart` server/process watch was
 not exercised. No new native acceptance or multiplayer claim follows from this
 parser correction.
+
+## Round r11 declaration and parser rehearsal (2026-11-20)
+
+The catalogue changed from 64 entries / 30 null signals to 64 entries / zero null
+signals. A source survey found 64 GetName overrides and no undeclared module names.
+The newest local profile RPT was copied read-only to scratch for this rehearsal:
+`DayZServer_x64_2026-11-20_12-24-42.RPT`, 30,355,568 bytes at copy time. It is a later
+snapshot of the same growing build-117 log used above, not a boot of these changes.
+The copy and temporary validation logs were removed after rehearsal.
+
+Observed enabled modules: 63. Observation exposure: 123.027 server minutes and
+60.500 player-present minutes. Standalone checker output (exit 8):
+
+```text
+totals ACTIVE=20 INERT=15 SILENT=26 NO_SIGNAL=0 WAITING=2
+activity=inert count=41
+```
+
+One ACTIVE result is OptionalPacks' configuration-probe diagnostic, explicitly
+`scope=diagnostic`; it is not runtime gameplay evidence. None of the transport or
+client-scoped declarations was ACTIVE in this old server log. The removed
+NO_SIGNAL findings became real declared observations or visible SILENT/WAITING
+findings; this is not evidence that the remaining gameplay bugs are fixed.
+Newer r10 summaries are absent from this build-117 snapshot. The next boot must
+exercise the current build and investigate the remaining activity findings.
+
+Focused in-memory parser rehearsal (no unit tests or Enforce translator):
+
+```text
+14 changed counter/marker/transport formats: PASS
+14 privacy-rejected counter lines: PASS
+zero situation starts with positive source/store prerequisites: stays zero
+Python source compilation: PASS
+enforce_lint: pass findings=1 new=0 stale=0 native=yes
+enforce_perf: pass findings=65 new=0
+git diff --check: PASS
+```
+
+The search fixture included `timers=-1` and `state_fault=store_unavailable`;
+the situation fixture included both new source/store window and total counters.
+Successful exact-host wearable counters are emitted by the existing HC-7 summary
+every five minutes, with saturating totals and no extra readiness lines or
+per-action logs. Native Object.c:467 GetType was inspected before adding host
+classification. No settings keys, modules, gameplay gates or unit tests were added.
+No existing tests target the changed Python checker. Native compile and boot are
+reserved for the lead; exact-host custody counting, current-build server/client
+observations, light geometry and all gameplay acceptance remain pending. The
+one-server/at-most-one-client bar remains unchanged; multiplayer is not proven.
+
+Suggested README/MODULE_STATUS wording for the lead:
+“Activity signals are declared for all 64 module names; build-117 replay reports
+NO_SIGNAL=0, with 41 remaining activity findings. Transport, client and diagnostic
+evidence is labelled separately; current-build native compile/boot and gameplay
+acceptance remain pending.”
+
+## Companion client review fix (round r11)
+
+The standalone checker now accepts `--client-rpt` so SurvivalAlignment's existing
+client HUD receipt can satisfy its declaration. Previously the supported command
+accepted only a server RPT, making that client declaration unobservable. Server
+readiness still selects enabled features; companion lines cannot enable modules,
+contribute server counters or change server player exposure. Client windows use a
+separate clock and need no server readiness/connect markers in the client file.
+Server-only integrations keep the same activity result, including explicit
+`client_rpt_observed=false` metadata.
+
+Focused ephemeral Python-tooling rehearsal (no test files added or updated):
+
+```text
+companion HUD receipt inside window: ACTIVE, scope=client
+receipt after 30-minute window: INERT, samples=1, value=none
+missing receipt after window: SILENT
+midnight, privacy filtering, enabled-module authority, clock isolation: PASS
+CLI JSON success and invalid companion input exit=6: PASS
+standalone/server integration result parity: PASS
+catalogue: 64 entries, zero null signals
+Python source compilation: PASS
+enforce_lint: pass findings=1 new=0 stale=0 native=yes
+enforce_perf: pass findings=65 new=0
+```
+
+No existing unit tests target this checker; no new unit tests, settings or Enforce
+changes were added for this review fix. Current-build paired server/client native
+observation remains unproven. The companion file must be paired by the operator;
+HUD visibility establishes neither native stamina rates nor multiplayer behavior.
+No cross-owner change is required to consume the declared HUD signal. Suggested
+README/MODULE_STATUS addition: “The standalone activity checker accepts a paired
+client RPT for client-scoped HUD evidence; native gameplay acceptance is pending.”
+
+Final server-only replay used a read-only copy of the same build-117 RPT, now
+38,738,991 bytes, with 67.314 player-present minutes. The temporary copy was removed:
+
+```text
+totals ACTIVE=20 INERT=17 SILENT=24 NO_SIGNAL=0 WAITING=2
+activity=inert count=41
+client_rpt_observed=false
+git diff --check: PASS
+```
+
+This newer snapshot still has 41 findings; it is not a current-build paired
+server/client acceptance run.

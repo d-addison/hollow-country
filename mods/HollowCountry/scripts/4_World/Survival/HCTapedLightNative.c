@@ -338,10 +338,14 @@ class HCTapedLightRuntime
     protected static int s_Detached;
     protected static int s_Failed;
     protected static int s_LastResult;
+    protected static int s_HelmetOperations;
+    protected static int s_PackOperations;
 
     static string ActivitySummary()
     {
-        return "attached=" + s_Attached.ToString() + " detached=" + s_Detached.ToString() + " failed=" + s_Failed.ToString() + " last_result=" + s_LastResult.ToString() + " stopped=" + s_Stopped.ToString();
+        string operations = "attached=" + s_Attached.ToString() + " detached=" + s_Detached.ToString() + " failed=" + s_Failed.ToString();
+        operations += " helmet_operations=" + s_HelmetOperations.ToString() + " pack_operations=" + s_PackOperations.ToString();
+        return operations + " last_result=" + s_LastResult.ToString() + " stopped=" + s_Stopped.ToString();
     }
     // Host types in the evidence catalog, built once. Used only to stop the
     // per-frame client scan early; the server still validates in full.
@@ -526,7 +530,18 @@ class HCTapedLightRuntime
         if (result != HCTapedLightCode.OK) { s_Failed++; }
         else if (mounting) { s_Attached++; }
         else { s_Detached++; }
+        if (result == HCTapedLightCode.OK) { HCNoteWearableOperation(host); }
         return result;
+    }
+
+    // Fixed exact host cohort, counted only after successful native custody work.
+    // The existing five-minute module summary owns reporting; no action log spam.
+    protected static void HCNoteWearableOperation(EntityAI host)
+    {
+        if (!host) { return; }
+        string hostType = host.GetType();
+        if (hostType == "Mich2001Helmet" && s_HelmetOperations < 2147483647) { s_HelmetOperations++; }
+        if (hostType == "TortillaBag" && s_PackOperations < 2147483647) { s_PackOperations++; }
     }
 
     // EEItemDetached is physical evidence, including native inventory moves.
@@ -551,6 +566,7 @@ class HCTapedLightRuntime
         else if (recorded)
         {
             s_Detached++;
+            HCNoteWearableOperation(host);
             s_LastResult = HCTapedLightCode.OK;
         }
         s_Busy = false;
