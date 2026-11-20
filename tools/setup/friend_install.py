@@ -48,7 +48,7 @@ import shutil
 import sys
 import tempfile
 
-from tools.package import map_overlay
+from tools.package import map_overlay, infected_variety
 from tools.package import optional_overlays as overlays
 from tools.setup import workshop_sync as ws
 
@@ -1065,7 +1065,8 @@ def install_dependencies(ctx, a):
 
 def overlay_fingerprint(ctx):
     rows = [(r['path'], r['sha256']) for r in ctx.manifest['files']
-            if r['path'].startswith('mission-overlay/') or r['path'] == 'mission-patches.json']
+            if r['path'].startswith('mission-overlay/') or r['path'] in
+            ('mission-patches.json', 'mission/hollow-country/infected/variants.json')]
     return sha256_bytes(json.dumps(sorted(rows)).encode())
 
 
@@ -1105,6 +1106,14 @@ def plan_overlay(ctx, a):
     want = overlay_fingerprint(ctx)
     if installed and ctx.receipt.get('overlay') == want:
         lines.append('the bundle overlay is already applied (same bundle)')
+        variety = mission / infected_variety.MANAGED
+        if getattr(ctx.args, 'infected_variety_off', False):
+            if variety.exists():
+                return 'planned', lines + ['restore infected variety backup (off)'], lambda: do_variety(ctx, mission)
+        else:
+            if not variety.exists():
+                return 'planned', lines + ['apply infected variety after the existing mission overlay'], lambda: do_variety(ctx, mission)
+            infected_variety.check(mission)
         return 'already-done', lines, None
     pack_dir, missing = overlay_pack_dir(ctx)
     fetching = {i['id'] for i in a.fetch} if 'workshop' not in ctx.skip else set()
@@ -1126,8 +1135,20 @@ def plan_overlay(ctx, a):
     return 'planned', lines, lambda: do_overlay(ctx, a, mission, installed, want)
 
 
+def do_variety(ctx, mission):
+    with tree_writer(ctx, mission):
+        infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False))
+    return 'done'
+
+
 def do_overlay(ctx, a, mission, installed, want):
-    track_target(ctx, mission.relative_to(ctx.server).as_posix(), tree=True)
+    with tree_writer(ctx, mission):
+        return _do_overlay_with_variety(ctx, a, mission, installed, want)
+
+
+def _do_overlay_with_variety(ctx, a, mission, installed, want):
+    # Infected variety is the last events.xml layer: undo it before habitat rollback.
+    infected_variety.rollback(mission)
     if installed and os.path.lexists(mission / map_overlay.MANAGED):
         # the map overlay patched the same cfggameplay.json; the mission rollback refuses while it is in place
         code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
@@ -1150,6 +1171,7 @@ def do_overlay(ctx, a, mission, installed, want):
                                         '--workshop-dir', str(pack_dir)])
     if code != 0:
         raise Refused('overlay', 'bundle-apply refused: %s' % err.strip())
+    infected_variety.install(mission, off=getattr(ctx.args, 'infected_variety_off', False))
     ctx.receipt['overlay'] = want
     save_receipt(ctx)
     return 'done'
@@ -1693,6 +1715,19 @@ def run_check(ctx):
                 result('map_overlays', ['outdated_map_overlay: installed layers differ from this bundle; run the installer'], '')
             else:
                 result('map_overlays', [], 'overlay receipt present and intact, layers match this bundle')
+    mission = map_mission(ctx)
+    variety_problems = []
+    if getattr(ctx.args, 'infected_variety_off', False):
+        if (mission / infected_variety.MANAGED).exists():
+            variety_problems.append('infected variety receipt remains; run --apply with --infected-variety-off')
+        variety_good = 'off; no variety receipt'
+    else:
+        try:
+            infected_variety.check(mission)
+        except (OSError, ValueError, KeyError, TypeError):
+            variety_problems.append('missing, outdated or damaged variety receipt; reconcile or run the installer')
+        variety_good = 'receipt and events.xml intact; policy matches; runtime=PENDING'
+    result('infected_variety', variety_problems, variety_good)
     say('check result: %s' % ('pass' if all(results) else 'fail'))
     return 0 if all(results) else 1
 
@@ -1832,6 +1867,8 @@ def build_parser():
     parser.add_argument('--bundle', default=str(BUNDLE_ROOT), help='the unzipped bundle (default: where this runs)')
     parser.add_argument('--apply', action='store_true', help='make the changes (default is a dry run)')
     parser.add_argument('--yes', action='store_true', help='do not ask before replacing existing files (each is backed up)')
+    parser.add_argument('--infected-variety-off', action='store_true',
+                        help='restore the infected variety backup before restart; leave the stock infected mix')
     parser.add_argument('--check', action='store_true', help='only verify an existing install; changes nothing')
     parser.add_argument('--plan-only', action='store_true', help='dry run without offering to apply')
     parser.add_argument('--skip', default='', help='comma list of steps to skip: ' + ', '.join(SKIPPABLE))
