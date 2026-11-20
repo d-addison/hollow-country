@@ -189,6 +189,9 @@ def main(argv=None):
             finally:
                 summary.close()
         print('boot_verdict=' + outcome)
+        if rpt is not None:
+            from tools.validate.tick_cost_report import print_rules
+            print_rules(rpt)
         return CODES.get(outcome, 9)
     except winproc.InteropError:
         print('boot_verdict=interop_unknown')
