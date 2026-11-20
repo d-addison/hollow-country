@@ -61,6 +61,7 @@ class HCUnitProfile
         HCRegister("STORY_INDEX", config.TickWeight_STORY_INDEX);
         HCRegister("AI_ROUTES", config.TickWeight_AI_ROUTES);
         HCRegister("POLICE_BIND", config.TickWeight_POLICE_BIND);
+        HCRegister("ROADS", config.TickWeight_ROADS);
         // Preserve HCUnitBudget's existing clamping to 0..30.
         while (m_Costs.Count() < 31) { HCRegister("UNASSIGNED_" + m_Costs.Count().ToString(), 1); }
     }

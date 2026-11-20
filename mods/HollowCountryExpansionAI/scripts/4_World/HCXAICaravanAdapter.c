@@ -166,13 +166,14 @@ class HCXAICaravanRoads
     void HCStep()
     {
         if (Phase == "idle" || Phase == "ready" || Phase == "failed") { return; }
+        // One shared admission per tick from the ROADS slot; the local budget bounds the
+        // batch. Taking TRADE per 8 nodes after AITrade held the graph at 8 nodes per tick (099).
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
         m_Work.HCReset(Config.RoadWorkPerTick);
-        for (int unit = 0; unit < Config.RoadWorkPerTick; unit++)
+        int unit = 0;
+        for (unit = 0; unit < Config.RoadWorkPerTick; unit++)
         {
-            // HCTake (no consumer starvation credit) until the lead assigns the
-            // independent HC_WORK_TRADE consumer slot. Never borrow another id.
-            if (!m_Work.HCContinue()) { return; }
-            if (unit % Config.RoadNodesPerWorkUnit == 0 && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_TRADE, 1)) { return; }
+            if (!m_Work.HCContinue()) { break; }
             if (Phase == "loading") { HCLoadNode(); }
             else if (Phase == "nearest") { HCNearest(); }
             else if (Phase == "search") { HCSearch(); }
