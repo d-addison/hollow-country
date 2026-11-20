@@ -53,7 +53,7 @@ modded class ChernarusPlusData
         HCConfigureAtmosphereDefaults();
         m_HCAtmosphereStarted = true;
         HCApplyNightLimits(true);
-        m_Weather.GetFog().SetLimits(0, 0.25);
+        m_Weather.GetFog().SetLimits(0, Math.Max(HCWeatherConfig.HCGet().FogBaseline, HCWeatherConfig.HCGet().FogMorningLevel));
         m_Weather.GetRain().SetLimits(0, 0.9);
         m_Weather.GetSnowfall().SetLimits(0, 0);
         m_Weather.GetWindMagnitude().SetLimits(0, 16);
@@ -81,7 +81,7 @@ modded class ChernarusPlusData
         CalculateVolFog(m_Weather.GetOvercast().GetActual(), m_Weather.GetWindSpeed(), 300);
         // One coarse idempotent dusk/dawn check; not per-frame. Day length can be
         // accelerated, so a real-time one-shot to the boundary would be unsound.
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyNightLimits, 10000, true, false);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCAtmosphereTick, 10000, true);
         Print("[HollowCountry][Atmosphere] EXPERIMENTAL ChernarusPlus script owner; bright-night lighting 0 forced, personal light untouched, night cloud/rain capped; other operator settings and seasonal curve retained; runtime acceptance PENDING");
         return true;
     }
@@ -116,13 +116,23 @@ modded class ChernarusPlusData
             m_Weather.GetOvercast().Set(cap, 60, 60);
     }
 
+    // #247: reuse the ten-second queue; V2 removes it before taking ownership.
+    // Keep this separate from HCApplyNightLimits, which V2 also calls each tick.
+    protected void HCAtmosphereTick()
+    {
+        if (!m_HCAtmosphereStarted || !GetGame() || !GetGame().IsServer() || !m_Weather) { return; }
+        if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen()) { return; }
+        HCApplyNightLimits(false);
+        HCForecast(EWeatherPhenomenon.FOG);
+    }
+
     // Owner shutdown (HCServer.Stop, also reached from OnMissionFinish): drop the
     // queued dusk/dawn check from the same category it was queued with and reset
     // the owner so a late callback or forecast cannot write weather. Idempotent.
     void HCStopAtmosphere()
     {
         if (GetGame())
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCApplyNightLimits);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCAtmosphereTick);
         m_HCAtmosphereStarted = false;
         m_HCNightLimited = false;
     }
@@ -139,7 +149,11 @@ modded class ChernarusPlusData
         else if (type == EWeatherPhenomenon.RAIN)
             m_Weather.GetRain().Set(HCAtmospherePolicy.RainTarget(cappedCloud), 180, 120);
         else if (type == EWeatherPhenomenon.FOG)
-            m_Weather.GetFog().Set(HCAtmospherePolicy.FogTarget(daytime), 300, 0);
+        {
+            float fog = HCAtmospherePolicy.FogTarget(daytime, HCAtmospherePolicy.FogDay(), cloud, m_Weather.GetWindSpeed());
+            m_Weather.GetFog().SetLimits(0, fog);
+            m_Weather.GetFog().Set(fog, 30, 0);
+        }
         else if (type == EWeatherPhenomenon.WIND_MAGNITUDE)
             m_Weather.GetWindMagnitude().Set(HCAtmospherePolicy.WindTarget(cappedCloud), 180, 120);
         else if (type == EWeatherPhenomenon.WIND_DIRECTION)
@@ -148,7 +162,9 @@ modded class ChernarusPlusData
             m_Weather.GetSnowfall().Set(0, 300, 300);
         else if (type != EWeatherPhenomenon.VOLFOG_HEIGHT_DENSITY && type != EWeatherPhenomenon.VOLFOG_DISTANCE_DENSITY && type != EWeatherPhenomenon.VOLFOG_HEIGHT_BIAS)
             return false;
-        CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 300);
+        float fogTransition = 300;
+        if (type == EWeatherPhenomenon.FOG) { fogTransition = 0; }
+        CalculateVolFog(cloud, m_Weather.GetWindSpeed(), fogTransition);
         return true;
     }
 
@@ -173,8 +189,12 @@ modded class ChernarusPlusData
             return;
         float daytime = GetGame().GetDayTime();
         float transition = HCAtmospherePolicy.TransitionTime(changeTime);
-        m_Weather.SetDynVolFogDistanceDensity(HCAtmospherePolicy.DistanceDensity(daytime, lerpValue, windMagnitude), transition);
-        m_Weather.SetDynVolFogHeightDensity(0.95, transition);
+        float fog = HCAtmospherePolicy.FogTarget(daytime, HCAtmospherePolicy.FogDay(), lerpValue, windMagnitude);
+        float strength = HCAtmospherePolicy.FogStrength(fog);
+        // Weather.c:360/:370 ranges are 0..1; vanilla ChernarusPlus.c:468
+        // couples both densities to weather. Clear days now have zero density.
+        m_Weather.SetDynVolFogDistanceDensity(Math.Clamp(HCAtmospherePolicy.DistanceDensity(daytime, lerpValue, windMagnitude) * strength, 0, 1), transition);
+        m_Weather.SetDynVolFogHeightDensity(0.35 * strength, transition);
         m_Weather.SetDynVolFogHeightBias(HCAtmospherePolicy.HeightBias(daytime), transition);
     }
 }

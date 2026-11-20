@@ -1,10 +1,10 @@
 // #61 extends #35; EXP-A2 remains unverified. Pure, deterministic policy.
 // Installed native snapshot: ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
-// 1_Core/proto/EnMath.c:427 Math.Floor (via HCAtmospherePolicy.CyclePosition).
+// 1_Core/proto/EnMath.c:427 Math.Floor, :566 Math.Max.
 // HC-51 receipt uses 1_Core/proto/EnConvert.c:30 int.ToString, :115 float.ToString.
 // No native weather writes here. HCWeatherDaysModule.c documents the sole owner.
-// Provisional tuning: 1/5 bad days, 2/5 fog mornings, three IN-GAME hours of calm.
-// Day is the UTC epoch day from HCGroupClock, independent of accelerated world date.
+// #247 provisional tuning: 1/5 bad days, at most 1/5 fog mornings.
+// Day is the bounded in-game calendar key; restarts do not reroll the profile.
 class HCWeatherDays
 {
     // HC-51: consume ONLY an active HC-6 phase; "unavailable" preserves the
@@ -25,13 +25,9 @@ class HCWeatherDays
 
     static float HCSeasonFog(string phase, int day, float hour, float calmHours)
     {
-        float baseline = HCWeatherDays.FogTarget(day, hour, calmHours);
-        if (!HCSeasonVisualPolicy.HCValidPhase(phase)) { return baseline; }
-        float target = HCSeasonVisualPolicy.HCFog(phase, baseline, HCAtmospherePolicy.IsNight(hour), calmHours > 0);
-        // Include selected fog mornings in the same dawn fade; their legacy
-        // baseline otherwise jumps from 0.04 to 0.60 exactly at 05:00.
-        float floorFog = HCSeasonVisualPolicy.BASELINE_FOG;
-        return floorFog + (target - floorFog) * HCSeasonVisualPolicy.HCFogDaylight(hour);
+        // #247: seasonal floors must not reintroduce daily/all-day fog. The
+        // weather owner applies observed cloud/wind suppression to this target.
+        return HCWeatherDays.FogTarget(day, hour, calmHours);
     }
 
     static float HCSeasonSnow(string phase, string profile, float cloud, float hour)
@@ -81,6 +77,14 @@ class HCWeatherDays
         return mixed;
     }
 
+    static bool IsFogDay(int day)
+    {
+        int seed = HCWeatherDays.Seed(day);
+        if (seed < 0) { return false; }
+        int bucket = seed % 5;
+        return bucket >= HCWeatherConfig.HCGet().BadDayBuckets && bucket < HCWeatherConfig.HCGet().FogMorningBuckets;
+    }
+
     static string Profile(int day, float hour, float calmHours)
     {
         int seed = HCWeatherDays.Seed(day);
@@ -88,20 +92,23 @@ class HCWeatherDays
         if (calmHours > 0) return "calm";
         if (HCAtmospherePolicy.IsNight(hour)) return "plain";
         if (seed % 5 < HCWeatherConfig.HCGet().BadDayBuckets) return "bad";
-        if (hour >= HCWeatherConfig.HCGet().FogStartHour && hour < HCWeatherConfig.HCGet().FogEndHour && seed % 5 < HCWeatherConfig.HCGet().FogMorningBuckets) return "fog";
+        if (hour >= HCWeatherConfig.HCGet().FogStartHour && hour < HCWeatherConfig.HCGet().FogEndHour && HCWeatherDays.IsFogDay(day)) return "fog";
         return "plain";
     }
 
     static float FogTarget(int day, float hour, float calmHours)
     {
         if (HCWeatherDays.Profile(day, hour, calmHours) != "fog") return HCWeatherConfig.HCGet().FogBaseline;
-        if (hour <= HCWeatherConfig.HCGet().FogPeakHour) return HCWeatherConfig.HCGet().FogMorningLevel;
-        return HCWeatherConfig.HCGet().FogBaseline + (HCWeatherConfig.HCGet().FogMorningLevel - HCWeatherConfig.HCGet().FogBaseline) * (HCWeatherConfig.HCGet().FogEndHour - hour) / (HCWeatherConfig.HCGet().FogEndHour - HCWeatherConfig.HCGet().FogPeakHour);
+        float baseline = HCWeatherConfig.HCGet().FogBaseline;
+        float peak = Math.Max(baseline, HCWeatherConfig.HCGet().FogMorningLevel);
+        return baseline + (peak - baseline) * HCAtmospherePolicy.MorningWeight(hour);
     }
 
     static float CloudTarget(string profile, float elapsed, float hour)
     {
-        if (profile == "calm" || profile == "fog") return HCWeatherConfig.HCGet().CalmCloud;
+        // Selected fog weather calls for an overcast, calm morning, not clear haze.
+        if (profile == "fog") return HCWeatherConfig.HCGet().WetCloud;
+        if (profile == "calm") return HCWeatherConfig.HCGet().CalmCloud;
         float phase = HCAtmospherePolicy.CyclePosition(elapsed);
         // Double the storm band on bad days, while retaining a clearing interval.
         if (profile == "bad" && phase >= HCWeatherConfig.HCGet().BadStormStartSeconds && phase < HCWeatherConfig.HCGet().StormEndSeconds)

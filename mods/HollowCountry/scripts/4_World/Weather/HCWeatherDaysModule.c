@@ -20,7 +20,8 @@
 // 3_Game/gameplay.c:742 Mission.GetWorldData; 1_Core/proto/EnScript.c:94 Cast;
 // 1_Core/proto/EnDebug.c:96 Print; 1_Core/proto/EnString.c:526 string.Format;
 // 1_Core/proto/EnMath.c:427 Math.Floor.
-// Existing HCGroupClock.Utc uses 1_Core/proto/EnSystem.c:76/:100 UTC time/date.
+// Game-date selection: Global/Game.c:931 GetWorld, Global/World.c:28 GetDate
+// through HCAtmospherePolicy.FogDay; no new clock or polling owner.
 // Existing v1 lighting owner uses CfgGameplayHandler.c:6 m_Data and
 // CfgGameplayDataJson.c:192 lightingConfig (0 = WorldLighting.c:17 default).
 class HCWeatherDaysModule : HCModule
@@ -220,10 +221,9 @@ modded class ChernarusPlusData
             reason = "weather-override-cleared; the real day profile resumes";
             return true;
         }
-        int utc = HCGroupClock.Utc();
+        int baseDay = HCAtmospherePolicy.FogDay();
         reason = "weather-clock-unavailable";
-        if (utc < 1) { return false; }
-        int baseDay = utc / 86400;
+        if (baseDay < 0) { return false; }
         int chosen = -1;
         for (int offset = 0; offset < 64; offset++)
         {
@@ -254,9 +254,9 @@ modded class ChernarusPlusData
     void HCBeginWeatherDays()
     {
         if (m_HCWeatherDaysActive || !m_Weather) return;
-        if (HCGroupClock.Utc() < 1)
+        if (HCAtmospherePolicy.FogDay() < 0)
         {
-            Print("[HollowCountry] V2 weather blocked: invalid UTC clock");
+            Print("[HollowCountry] V2 weather blocked: invalid game calendar");
             return;
         }
         if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen())
@@ -359,11 +359,8 @@ modded class ChernarusPlusData
             m_HCWeatherDaysSuspended = true;
             return;
         }
-        int utc = HCGroupClock.Utc();
-        if (utc < 1) return;
-        // Integer division keeps the day exact (no binary32 rounding into
-        // tomorrow near UTC midnight); '%' inside a float expression does not compile natively.
-        int day = utc / 86400;
+        int day = HCAtmospherePolicy.FogDay();
+        if (day < 0) return;
         if (m_HCWeatherAdminDay >= 0)
         {
             if (GetGame().GetTickTime() < m_HCWeatherAdminUntil) { day = m_HCWeatherAdminDay; }
@@ -394,17 +391,11 @@ modded class ChernarusPlusData
         m_HCWeatherProfile = profile;
         bool boundary = HCAtmospherePolicy.IsNight(hour) != m_HCNightLimited;
         HCApplyNightLimits(false);
-        // This remains the sole normalized fog writer. Fade the seasonal
-        // target at dawn/dusk and preserve observed fog inside the native cap.
-        float fog = HCWeatherDays.HCSeasonFog(phase, day, hour, m_HCWeatherCalm);
-        float actual = m_Weather.GetFog().GetActual();
-        // Never clamp observed stock fog down to a seasonal target. Native
-        // forecast interpolation performs the transition instead of a cap pop.
-        // With no season phase (HC-27 grade or seasons off) keep the v1 hard
-        // cap so a long native fog transition cannot linger past 09:00.
-        float fogCap = fog;
-        if (seasonCode >= 0) fogCap = Math.Max(fog, actual);
-        m_Weather.GetFog().SetLimits(0.0, fogCap);
+        // #247: seasonal floors cannot bypass rare mornings or observed weather.
+        float fog = HCObservedMorningFog(day, hour, cloud, m_Weather.GetWindSpeed());
+        // Native Weather.c:65-74 holds actual inside the cap. This also bounds
+        // lingering native interpolation after wind rises or the morning ends.
+        m_Weather.GetFog().SetLimits(0.0, fog);
         int slot = Math.Floor(hour * 4);
         if (changed || boundary || slot != m_HCWeatherSlot || m_HCWeatherDaysSuspended)
         {
@@ -421,9 +412,19 @@ modded class ChernarusPlusData
                 HCWeatherDaysForecast(EWeatherPhenomenon.WIND_DIRECTION);
                 HCWeatherDaysForecast(EWeatherPhenomenon.SNOWFALL);
             }
-            CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 30.0);
         }
+        // Follow the same observed target on this existing bounded server tick.
+        // Native weather values already interpolate; do not leave valley haze
+        // at its previous quarter-hour sample after wind rises or dawn ends.
+        CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 0.0);
         m_HCWeatherDaysSuspended = false;
+    }
+
+    protected float HCObservedMorningFog(int day, float hour, float cloud, float windSpeed)
+    {
+        float baseline = HCWeatherConfig.HCGet().FogBaseline;
+        float selected = HCWeatherDays.HCSeasonFog(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), day, hour, m_HCWeatherCalm);
+        return baseline + (selected - baseline) * HCAtmospherePolicy.FogWeatherWeight(cloud, windSpeed);
     }
 
     protected bool HCWeatherDaysForecast(EWeatherPhenomenon type)
@@ -437,7 +438,7 @@ modded class ChernarusPlusData
         else if (type == EWeatherPhenomenon.WIND_MAGNITUDE)
             m_Weather.GetWindMagnitude().Set(HCWeatherDays.WindTarget(m_HCWeatherProfile, cloud, hour), 180.0, 120.0);
         else if (type == EWeatherPhenomenon.FOG)
-            m_Weather.GetFog().Set(HCWeatherDays.HCSeasonFog(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherDay, hour, m_HCWeatherCalm), 30.0, 0.0);
+            m_Weather.GetFog().Set(HCObservedMorningFog(m_HCWeatherDay, hour, cloud, m_Weather.GetWindSpeed()), 30.0, 0.0);
         else if (type == EWeatherPhenomenon.WIND_DIRECTION)
             m_Weather.GetWindDirection().Set(HCAtmospherePolicy.WindDirectionTarget(m_Weather.GetTime()), 300.0, 300.0);
         else if (type == EWeatherPhenomenon.SNOWFALL)
@@ -464,12 +465,14 @@ modded class ChernarusPlusData
         }
         if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen() || !m_Weather.IsDynVolFogEnabled()) return;
         float hour = GetGame().GetDayTime();
-        // V2's selected mornings alone get extra valley density. Retain the v1
-        // wind damping, and immediately remove the extra term outside mornings.
-        float density = HCAtmospherePolicy.DistanceDensity(12, lerpValue, windMagnitude);
-        float extra = HCWeatherDays.HCSeasonFog(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherDay, hour, m_HCWeatherCalm) - 0.04;
-        m_Weather.SetDynVolFogDistanceDensity(density + extra * 0.12, 0);
-        m_Weather.SetDynVolFogHeightDensity(0.95, 0);
-        m_Weather.SetDynVolFogHeightBias(50 + extra * 70, 0);
+        float fog = HCObservedMorningFog(m_HCWeatherDay, hour, lerpValue, windMagnitude);
+        float strength = HCAtmospherePolicy.FogStrength(fog);
+        float transition = HCAtmospherePolicy.TransitionTime(changeTime);
+        // Weather.c:360/:370 density percentages; ChernarusPlus.c:468 couples
+        // both components to weather. No negative extra term or fixed haze floor.
+        float density = HCAtmospherePolicy.DistanceDensity(hour, lerpValue, windMagnitude);
+        m_Weather.SetDynVolFogDistanceDensity(Math.Clamp(density * strength, 0, 1), transition);
+        m_Weather.SetDynVolFogHeightDensity(0.35 * strength, transition);
+        m_Weather.SetDynVolFogHeightBias(HCAtmospherePolicy.HeightBias(hour), transition);
     }
 }

@@ -7,12 +7,14 @@ class HCWeatherConfig
 {
     static const int READ_LIMIT = 8192;
     int BadDayBuckets = 1;
-    int FogMorningBuckets = 3;
+    // Ordered five-bucket partition: [BadDayBuckets, FogMorningBuckets).
+    // Defaults select one bucket (about 20% of game dates), before weather suppression.
+    int FogMorningBuckets = 2;
     float FogStartHour = 5;
     float FogPeakHour = 7;
     float FogEndHour = 9;
-    float FogBaseline = 0.04;
-    float FogMorningLevel = 0.6;
+    float FogBaseline = 0.005;
+    float FogMorningLevel = 0.30;
     float NightStartHour = 20;
     float NightEndHour = 5;
     float NightCloudCap = 0.55;
@@ -22,7 +24,7 @@ class HCWeatherConfig
     float StormCloudThreshold = 0.85;
     float StormDurationSeconds = 90.0;
     float RainStopSeconds = 90.0;
-    float MorningFogLift = 0.2;
+    float MorningFogLift = 0.295;
     float CalmCloud = 0.25;
     float PlainCloud = 0.35;
     float BadCloud = 0.98;
@@ -45,9 +47,9 @@ class HCWeatherConfig
     float CalmHours = 3;
     float StormWindDirection = 0.8;
     float PlainWindDirection = -1.2;
-    float DistanceBase = 0.015;
-    float DistanceMorningLift = 0.04;
-    float DistanceCloudLift = 0.01;
+    float DistanceBase = 0.001;
+    float DistanceMorningLift = 0.015;
+    float DistanceCloudLift = 0.002;
     float HeightBase = 50;
     float HeightMorningLift = 40;
     float WindDampingDivisor = 20;
@@ -87,7 +89,7 @@ class HCWeatherConfig
             if (loaded.BadDayBuckets >= 0 && loaded.BadDayBuckets <= 5) { this.BadDayBuckets = loaded.BadDayBuckets; }
             else { invalid = true; }
         }
-        this.FogMorningBuckets = 3;
+        this.FogMorningBuckets = 2;
         if (HCJsonFields.Has(image, "FogMorningBuckets"))
         {
             if (loaded.FogMorningBuckets >= 0 && loaded.FogMorningBuckets <= 5) { this.FogMorningBuckets = loaded.FogMorningBuckets; }
@@ -111,16 +113,16 @@ class HCWeatherConfig
             if (loaded.FogEndHour >= 0.1 && loaded.FogEndHour <= 24) { this.FogEndHour = loaded.FogEndHour; }
             else { invalid = true; }
         }
-        this.FogBaseline = 0.04;
+        this.FogBaseline = 0.005;
         if (HCJsonFields.Has(image, "FogBaseline"))
         {
-            if (loaded.FogBaseline >= 0 && loaded.FogBaseline <= 1) { this.FogBaseline = loaded.FogBaseline; }
+            if (loaded.FogBaseline >= 0 && loaded.FogBaseline <= 0.01) { this.FogBaseline = loaded.FogBaseline; }
             else { invalid = true; }
         }
-        this.FogMorningLevel = 0.6;
+        this.FogMorningLevel = 0.30;
         if (HCJsonFields.Has(image, "FogMorningLevel"))
         {
-            if (loaded.FogMorningLevel >= 0 && loaded.FogMorningLevel <= 1) { this.FogMorningLevel = loaded.FogMorningLevel; }
+            if (loaded.FogMorningLevel >= 0 && loaded.FogMorningLevel <= 0.35) { this.FogMorningLevel = loaded.FogMorningLevel; }
             else { invalid = true; }
         }
         this.NightStartHour = 20;
@@ -177,10 +179,10 @@ class HCWeatherConfig
             if (loaded.RainStopSeconds >= 1 && loaded.RainStopSeconds <= 3600) { this.RainStopSeconds = loaded.RainStopSeconds; }
             else { invalid = true; }
         }
-        this.MorningFogLift = 0.2;
+        this.MorningFogLift = 0.295;
         if (HCJsonFields.Has(image, "MorningFogLift"))
         {
-            if (loaded.MorningFogLift >= 0 && loaded.MorningFogLift <= 1) { this.MorningFogLift = loaded.MorningFogLift; }
+            if (loaded.MorningFogLift >= 0 && loaded.MorningFogLift <= 0.35) { this.MorningFogLift = loaded.MorningFogLift; }
             else { invalid = true; }
         }
         this.CalmCloud = 0.25;
@@ -315,19 +317,19 @@ class HCWeatherConfig
             if (loaded.PlainWindDirection >= -3.14159 && loaded.PlainWindDirection <= 3.14159) { this.PlainWindDirection = loaded.PlainWindDirection; }
             else { invalid = true; }
         }
-        this.DistanceBase = 0.015;
+        this.DistanceBase = 0.001;
         if (HCJsonFields.Has(image, "DistanceBase"))
         {
             if (loaded.DistanceBase >= 0 && loaded.DistanceBase <= 1) { this.DistanceBase = loaded.DistanceBase; }
             else { invalid = true; }
         }
-        this.DistanceMorningLift = 0.04;
+        this.DistanceMorningLift = 0.015;
         if (HCJsonFields.Has(image, "DistanceMorningLift"))
         {
             if (loaded.DistanceMorningLift >= 0 && loaded.DistanceMorningLift <= 1) { this.DistanceMorningLift = loaded.DistanceMorningLift; }
             else { invalid = true; }
         }
-        this.DistanceCloudLift = 0.01;
+        this.DistanceCloudLift = 0.002;
         if (HCJsonFields.Has(image, "DistanceCloudLift"))
         {
             if (loaded.DistanceCloudLift >= 0 && loaded.DistanceCloudLift <= 1) { this.DistanceCloudLift = loaded.DistanceCloudLift; }
