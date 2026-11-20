@@ -67,6 +67,8 @@ class HCEventPoliceNav
 }
 class HCEventCacheSpawner
 {
+    // Upper bound for the native physical-stock sphere around a mission source (metres).
+    static const float SCAN_RADIUS_MAX = 25;
     protected static ref HCEventRewardLedger s_PoliceLedger;
     protected static ref array<ref HCEventTarget> s_PoliceTargets;
 
@@ -184,7 +186,12 @@ class HCEventCacheSpawner
         if (!HCServer.HCTickWork().HCTakeFor(consumer, 8)) { if (police) { PoliceRefused("police_work_budget"); } return null; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> proxies = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(anchor, mission.Radius, nearby, proxies);
+        // The native query cost grows with every object in the sphere (a 65 m sphere in a town
+        // cost 441 ms in one unit on build 102); the scan cap below only limits inspection.
+        // Caches sit at the source and police stock falls back to the owned cache, so a
+        // bounded sphere is enough. Native: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D.
+        float scanRadius = Math.Min(mission.Radius, SCAN_RADIUS_MAX);
+        GetGame().GetObjectsAtPosition3D(anchor, scanRadius, nearby, proxies);
         int remaining = policy.PhysicalScanObjects;
         bool matchingStock = false;
         Barrel_Green ownedCache;
