@@ -341,7 +341,7 @@ class HCSituationDirector
     bool HCReserveExternal(string identity, vector anchor, int lifetimeSeconds)
     {
         if (!m_Enabled || m_Fault || !HCEventDirector.TextValid(identity, 96)) { return false; }
-        if (m_Store.HCCheckpointPending() || !m_Store.HCCheckpointHealthy()) { return false; }
+        if (m_Store.HCBarrierPending() || !m_Store.HCCheckpointHealthy()) { return false; }
         int now = HCPacingNow();
         if (now < 1 || now < m_State.LastNow || lifetimeSeconds < 1 || lifetimeSeconds > 86400) { return false; }
         HCSituationPacingReceipt retained = HCPacingFind(identity);
@@ -545,7 +545,7 @@ class HCSituationDirector
 
     bool HCOffer(HCSceneChain chain)
     {
-        if (!m_Enabled || !chain || m_Store.HCCheckpointPending()) { return false; }
+        if (!m_Enabled || !chain || m_Store.HCBarrierPending()) { return false; }
         if (chain.Complete || chain.Cancelled || m_State.Chains.Find(chain) < 0) { return false; }
         if (chain.StorySequence <= m_State.Stories.LegacyThrough || chain.StorySequence >= m_State.Stories.NextSequence) { return false; }
         bool changed = false;
@@ -705,7 +705,7 @@ class HCSituationDirector
         m_Activity.HCHit("steps");
         m_Store.HCPumpCheckpoint();
         if (!m_Store.HCCheckpointHealthy()) { m_Fault = true; m_Enabled = false; m_Reason = "SITUATION_STORE_UNCERTAIN"; HCReport(); return; }
-        if (m_Store.HCCheckpointPending()) { m_Activity.HCRefuse("checkpoint"); return; }
+        if (m_Store.HCBarrierPending()) { m_Activity.HCRefuse("checkpoint"); return; }
         foreach (HCSituationProfileRow ended : m_Rows)
         {
             if (!ended.EndPending) { continue; }
@@ -728,7 +728,7 @@ class HCSituationDirector
         if (needsOffer && m_State.Chains && m_State.Chains.Count() > 0)
         {
             HCOffer(m_State.Chains[m_Cursor % m_State.Chains.Count()]);
-            if (m_Store.HCCheckpointPending()) { return; }
+            if (m_Store.HCBarrierPending()) { return; }
         }
         // Find one retained nonterminal row; bounded by the five-profile cap.
         // Empty/off rows cost no actor calls; survivor-only cadence is unchanged.

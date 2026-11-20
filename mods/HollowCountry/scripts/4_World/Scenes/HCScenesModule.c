@@ -1,6 +1,6 @@
 // W5-PERF-3: <=1 chain/10s OR <=1 prop creation/tick, never both.
-// Heartbeat saves coalesce through HCSaveScheduler; transition intents stay
-// synchronous. Preflight remains one 40m query with <=256 objects/64 doors.
+// Heartbeat saves coalesce through HCSaveScheduler; transition intents wait
+// for their mutation to be durable. Preflight: one 40m query, <=256 objects/64 doors.
 // Shared timer evidence: World/HCWorkBudget.c header (Game.c:914).
 // LC-T309/310, #93/#94/#120. EnableEncounters admits source by preference;
 // EXP-S3 is logged, never asserted accepted. No core registration edit required.
@@ -177,7 +177,7 @@ class HCScenesModule : HCModule
             OnStop();
         }
         // The chain/event identity is retained. Next Work revalidates its site,
-        // kit and director after the shared checkpoint completes.
+        // kit and director after the barrier mutation is durable.
         return false;
     }
 
@@ -491,7 +491,7 @@ class HCScenesModule : HCModule
         if (status == HCEventStatus.COMPLETED)
         {
             if (!Cleanup(lease)) { return; }
-            // Work runs only after the checkpoint settles. Count the observed
+            // Work runs only after the barrier is durable. Count the observed
             // completed stage once, before its identity advances or closes.
             m_Activity.HCHit("completed");
             Print("[HollowCountry] V2 scene stage complete id=" + chain.Id + " stage=" + chain.Stage.ToString());
@@ -588,13 +588,17 @@ class HCScenesModule : HCModule
             m_Activity.HCLog("[HollowCountry] V2 scenes", " active=" + activeScenes.ToString() + " chains=" + activityChains.ToString() + " running=" + m_Running.ToString());
         }
         if (!m_Running) { return; }
+        // Keep one due slot while a barrier or placement owns the tick. Reset
+        // only when Work runs, so a long wait cannot lose the slot or cause a burst.
+        m_WorkElapsed = m_WorkElapsed + deltaTime;
+        if (m_WorkElapsed > 10) { m_WorkElapsed = 10; }
         m_Store.HCPumpCheckpoint();
         if (!m_Store.HCCheckpointHealthy()) { m_Fault = "scene_save_failed"; OnStop(); return; }
-        if (m_Store.HCCheckpointPending())
+        if (m_Store.HCBarrierPending())
         {
             m_Activity.HCRefuse("checkpoint");
-            // Dirty includes routine checkpoints waiting for the shared save
-            // scheduler. Advance one budgeted HC-42 parsing batch OR candidate
+            // Only a non-durable barrier blocks native work. Routine saves
+            // never take this branch. Advance one budgeted HC-42 batch OR candidate
             // preflight: it only changes temporary selection/diagnostic caches.
             // Native clearance reads create no objects or saved-state mutations.
             // This branch returns before any prop creation or chain/save work.
@@ -612,9 +616,9 @@ class HCScenesModule : HCModule
                 break;
             }
             m_StoryOfferPending = 0;
-            if (m_Store.HCCheckpointPending()) { return; }
+            // Offers may queue their own durable receipt in the shared store.
+            if (m_Store.HCBarrierPending()) { return; }
         }
-        m_WorkElapsed = m_WorkElapsed + deltaTime;
         m_WorkBudget.HCReset(1);
         foreach (HCSceneLease buildingLease : m_Leases)
         {
@@ -655,8 +659,8 @@ class HCScenesModule : HCModule
             int revision = m_State.Revision;
             Work(now);
             // ResumeAfterGap must see the old heartbeat before HCCommit writes
-            // LastNow. A Work barrier already used this slot's synchronous save.
-            if (m_Running && !m_Store.HCCheckpointPending() && m_State.Revision == revision) { StoryStep(now); }
+            // LastNow. A Work barrier owns this slot until its mutation is durable.
+            if (m_Running && !m_Store.HCBarrierPending() && m_State.Revision == revision) { StoryStep(now); }
             // Persist a heartbeat even while every chain is waiting; otherwise
             // an ordinary long stage would be mistaken for server downtime.
             if (m_Running && now - m_State.LastNow >= 60) { m_State.LastNow = now; m_Store.HCRequestCheckpoint(m_State, false); }
