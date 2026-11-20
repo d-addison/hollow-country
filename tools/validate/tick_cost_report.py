@@ -98,6 +98,8 @@ def perf_rules(path):
                 CREATE INDEX calibration_line ON calibration(line);
                 CREATE TABLE spikes(owner TEXT, stage TEXT, heaviest TEXT, w INTEGER,
                                     line INTEGER, cost REAL, raw INTEGER);
+                CREATE TABLE steps(owner TEXT, w INTEGER, heaviest TEXT, line INTEGER);
+                CREATE INDEX steps_window ON steps(owner,w);
                 CREATE TABLE saves(job TEXT, op TEXT, w INTEGER, line INTEGER, cost REAL);
                 CREATE TABLE repeated(line TEXT PRIMARY KEY, n INTEGER);
             """)
@@ -162,6 +164,9 @@ def perf_rules(path):
                         db.execute("INSERT INTO spikes VALUES(?,?,?,?,?,?,0)",
                                    (fields.get("slowest_module", "unknown"), "module", "unknown", w, index, cost))
                 elif tag == "Step":
+                    if w is not None and fields.get("owner") and fields.get("heaviest", "unknown") != "unknown":
+                        db.execute("INSERT INTO steps VALUES(?,?,?,?)",
+                                   (fields["owner"], w, fields["heaviest"], index))
                     cost = number(fields, "worst_tick_ticks")
                     if cost is not None:
                         stages = [(number(fields, key), key) for key in fields
@@ -199,7 +204,12 @@ def perf_rules(path):
                 FROM spikes e WHERE line>?
             ), ranked AS (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY owner ORDER BY ms DESC,line) AS rank FROM measured
-            ) SELECT owner,stage,heaviest,ms,w FROM ranked WHERE rank=1 AND ms>16 ORDER BY owner"""
+            ) SELECT owner,stage,
+                CASE WHEN stage='module' AND heaviest='unknown' THEN
+                    COALESCE((SELECT s.heaviest FROM steps s WHERE s.owner=ranked.owner AND s.w=ranked.w
+                              ORDER BY s.line LIMIT 1), heaviest)
+                    ELSE heaviest END, ms,w
+                FROM ranked WHERE rank=1 AND ms>16 ORDER BY owner"""
             for owner, stage, heaviest, ms, window in db.execute(query, (last_ready,)):
                 yield (f"perf_rule=R2 owner={owner} stage={stage} heaviest={heaviest} "
                        f"ms={ms:.3f} window={window if window is not None else 'unknown'}")
