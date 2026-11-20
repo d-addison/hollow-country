@@ -26,7 +26,9 @@ class HCNativeInfectedPack
     // later modded class adds (DayZ 021 boot: Undefined function HCVarietyWalkerHerd).
     void HCVarietyWalkerHerd() {}
     // Physical route hook; the migration extension owns authored corridor state.
-    bool HCAdmitPatrol(HCHordeRouteSurvey route, int id, float now) { return false; }
+    bool HCAdmitPatrol(HCHordeRouteSurvey route, int id, float now, int target) { return false; }
+    bool HCReinforcePending() { return false; }
+    bool HCReinforceActive() { return false; }
     protected int m_RetargetAttempts;
     protected vector m_LastPosition;
     protected bool m_Search;
@@ -168,7 +170,7 @@ class HCNativeInfectedPack
         m_HCStartRan = true;
         if (s_PendingRelease.Count() > 0) return HCRefuse("release_pending");
         if (!GetGame().IsServer()) return HCRefuse("not_server");
-        if (!actors || actors.Count() < 1 || actors.Count() > 20) return HCRefuse("roster_bounds");
+        if (!actors || actors.Count() < 1 || actors.Count() > HCHordeLimits.MAX_PACK) return HCRefuse("roster_bounds");
         if (!GetAIWorld()) return HCRefuse("no_ai_world");
         if (expires <= now) return HCRefuse("clue_expired");
         // The exact template and its type=InfectedPack exist in installed
@@ -300,7 +302,7 @@ class HCNativeInfectedPack
             return 0;
         if (!clue.IsLive(now) || !HCInfectedStore.ValidPosition(clue.Origin))
             return 0;
-        if (m_Members.Count() < 1 || m_Members.Count() > 20 || now >= m_Expires)
+        if (m_Members.Count() < 1 || m_Members.Count() > HCHordeLimits.MAX_PACK || now >= m_Expires)
             return 0;
         ZombieBase leader;
         foreach (ZombieBase member : m_Members)

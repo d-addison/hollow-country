@@ -10,7 +10,7 @@
 // Length, DistanceSq; :30 int.ToString;
 // EnMath.c:553,566 Min/Max; EnScript.c:380,385,407 arrays; EnDebug.c:96 Print.
 // Existing CE bodies form admitted native packs and walk native paths.
-// No entity creation/deletion, teleport, synthetic sound or CE budget change.
+// CE seeds are adopted; HCHordeReinforce owns bounded supplemental creation/cleanup.
 // Runtime herd movement, perception, replication and two clients stay pending.
 // HC-46 / #121: finite observed noise, surveyed native points only. HC-11 owns
 // canonical spec/plan/tasks; owner Wave 3 task is the source contract here.
@@ -29,7 +29,7 @@ class HCHordeRouteDefaults
     float ArrivalMetres = 8;
     float NativeSegmentMetres = 120;
     float ProgressMetres = 1;
-    int MaxMembers = 20;
+    int MaxMembers = HCHordeLimits.MAX_PACK;
     int MaxHops = 2;
     float MaxNoiseSeconds = 60;
     float CooldownSeconds = 180;
@@ -78,7 +78,7 @@ class HCHordeRoutes
         if (!(cfg.NativeSegmentMetres > 0 && cfg.NativeSegmentMetres <= ceiling.NativeSegmentMetres)) { return false; }
         if (!(cfg.ArrivalMetres > 0 && cfg.ArrivalMetres <= ceiling.ArrivalMetres)) { return false; }
         if (!(cfg.ProgressMetres > 0 && cfg.ProgressMetres <= cfg.ArrivalMetres)) { return false; }
-        if (cfg.MaxMembers < 1 || cfg.MaxMembers > 20 || cfg.MaxHops < 0 || cfg.MaxHops > 2) { return false; }
+        if (cfg.MaxMembers < 1 || cfg.MaxMembers > HCHordeLimits.MAX_PACK || cfg.MaxHops < 0 || cfg.MaxHops > 2) { return false; }
         return cfg.MaxNoiseSeconds > 0 && cfg.MaxNoiseSeconds <= 60 && cfg.CooldownSeconds >= cfg.MaxNoiseSeconds && cfg.CooldownSeconds <= 600 && cfg.StallSeconds > 0 && cfg.StallSeconds <= 90;
     }
 
@@ -120,8 +120,8 @@ class HCHordeRoutes
         if (!document || document.SchemaVersion != 1 || document.WorldName != world || !ValidDefaults(document.Defaults)) { return false; }
         if (!document.Routes || document.Routes.Count() > 8) { return false; }
         // The shipped schema-1 pilot had a fixed six-member ceiling. Migrate
-        // that legacy default in memory; smaller explicit route caps survive.
-        if (document.Defaults.MaxMembers == 6) { document.Defaults.MaxMembers = 20; }
+        // legacy six/twenty defaults in memory; smaller explicit caps refuse 30+ patrols.
+        if (document.Defaults.MaxMembers == 6) { document.Defaults.MaxMembers = HCHordeLimits.MAX_PACK; }
         s_Document = document;
         s_Reason = "ROUTE_OPERATOR_OFF";
         if (!document.Enabled) { return false; }
@@ -255,7 +255,7 @@ modded class HCInfectedModule
         if (!m_Config || !m_State || !m_Admission) { return "infected_owner_state_missing"; }
         if (!m_Config.EnableHordeStimulusRoutes) { return "stimulus_routes_operator_off"; }
         if (!m_Admission.HordeStimulusRoutes) { return "stimulus_route_dependency_unavailable"; }
-        if (m_Packs.Count() > m_GroupCap || m_Packs.Count() != m_State.Groups.Count() || m_Actors.Count() > m_MemberCap) { return "cohort_roster_inconsistent"; }
+        if (m_Packs.Count() > m_GroupCap || m_Packs.Count() != m_State.Groups.Count() || m_Actors.Count() > m_Config.MaxTracked) { return "cohort_roster_inconsistent"; }
         return "";
     }
 
@@ -275,7 +275,7 @@ modded class HCInfectedModule
         if (!m_Healthy || !m_Hordes || !m_State || !HCHordeMigration.Active()) { return 0; }
         if (!m_Config.EnableHordeStimulusRoutes || !m_Admission.HordeStimulusRoutes || !HeardAdmitted()) { return 0; }
         int count = m_Packs.Count();
-        if (count < 1 || count > m_GroupCap || count != m_State.Groups.Count() || m_Actors.Count() > m_MemberCap) { return 0; }
+        if (count < 1 || count > m_GroupCap || count != m_State.Groups.Count() || m_Actors.Count() > m_Config.MaxTracked) { return 0; }
         int index = m_V2DriftCursor % count;
         m_V2DriftCursor = (index + 1) % count;
         HCNativeInfectedPack pack = m_Packs[index];
@@ -312,6 +312,12 @@ modded class HCInfectedModule
 
 modded class HCNativeInfectedPack
 {
+    protected int m_HCReinforceTarget;
+    protected int m_HCReinforced;
+    protected bool m_HCReinforceLogged;
+    protected float m_HCFarSince = -1;
+    override bool HCReinforcePending() { return m_HCReinforceTarget > m_Members.Count() && HCReinforceActive(); }
+    override bool HCReinforceActive() { return m_V2Drift && !m_Releasing; }
     protected bool m_V2Drift;
     protected bool m_V2Segment;
     protected vector m_V2Destination;
@@ -378,10 +384,11 @@ modded class HCNativeInfectedPack
     // Object.c:287 GetPosition (scripts-1.30.164289). No observer absence is
     // needed: membership is already physical and every waypoint is pathed.
     // This is a finite patrol lifetime, never a fabricated noise receipt.
-    override bool HCAdmitPatrol(HCHordeRouteSurvey route, int id, float now)
+    override bool HCAdmitPatrol(HCHordeRouteSurvey route, int id, float now, int target)
     {
         HCHordeRouteDefaults cfg = HCHordeRoutes.Defaults();
         if (!HCHordeMigration.Active() || !cfg || !route || !Group || m_Releasing || m_Search) { return false; }
+        if (target < 30 || target > cfg.MaxMembers || target > HCHordeLimits.MAX_PACK) { return false; }
         if (!HCHordeRecovery.HCRouteRoster(m_Members.Count(), cfg.MaxMembers, m_Members.Count(), false)) { return false; }
         ZombieBase leader = m_Members[0];
         if (!leader) { return false; }
@@ -401,12 +408,61 @@ modded class HCNativeInfectedPack
         m_V2Destination = route.Nodes[route.Nodes.Count() - 1];
         if (m_HCRouteReverse) { m_V2Destination = route.Nodes[0]; }
         m_V2MemberCount = m_Members.Count();
+        m_HCReinforceTarget = target;
+        m_HCReinforced = 0;
+        m_HCReinforceLogged = false;
+        m_HCFarSince = -1;
         m_V2Deadline = now + 600;
         m_V2Progress = now;
         m_V2Segment = false;
         m_V2Drift = true;
         HCRouteLog("admitted", "patrol");
         return true;
+    }
+
+    override bool Release()
+    {
+        HCReinforceLog();
+        return super.Release();
+    }
+
+    protected void HCReinforceLog()
+    {
+        if (m_HCReinforceTarget < 1 || m_HCReinforceLogged) { return; }
+        m_HCReinforceLogged = true;
+        Print("[HC Plan] HC-46 cohort=" + m_V2Id.ToString() + " reinforced=" + m_HCReinforced.ToString() + " total=" + m_Members.Count().ToString() + " runtime=PENDING");
+    }
+
+    protected void HCReinforceStep(float now)
+    {
+        HCInfectedModule owner = HCInfectedModule.Instance;
+        if (!owner || !Group || m_Releasing || !m_HCRoute || m_Members.Count() < 1) { return; }
+        vector entry = m_HCRoute.Nodes[0];
+        if (m_HCRouteReverse) { entry = m_HCRoute.Nodes[m_HCRoute.Nodes.Count() - 1]; }
+        // At most two attempts globally per core tick; the full reserved roster
+        // is already charged by HCServer.HCTickWork before pack.Tick.
+        for (int attempt = 0; attempt < 2 && m_Members.Count() < m_HCReinforceTarget; attempt++)
+        {
+            if (!owner.HCReinforceRoom()) { return; }
+            ZombieBase body = HCHordeReinforce.HCCreate(m_Members[0].GetType(), entry, this);
+            if (!body) { return; }
+            // Same transfer/receipt path as Start: AIGroup.c:11-12 Add/RemoveAgent,
+            // AIAgent.c:7 GetGroup; DayZAnimal.c:193 GetAIAgent (1.30.164289).
+            AIAgent agent = body.GetAIAgent();
+            if (!agent) { GetGame().ObjectDelete(body); return; }
+            AIGroup previous = agent.GetGroup();
+            if (previous) { previous.RemoveAgent(agent); }
+            Group.AddAgent(agent);
+            if (agent.GetGroup() != Group || !owner.HCReinforceTrack(body, m_V2Id))
+            {
+                GetGame().ObjectDelete(body);
+                return;
+            }
+            m_Members.Insert(body);
+            m_HCRouteMembers.Insert(body);
+            m_V2MemberCount = m_Members.Count();
+            m_HCReinforced++;
+        }
     }
 
     // Keep this shared segment port/registration stable. The 4 m waypoint
@@ -434,6 +490,7 @@ modded class HCNativeInfectedPack
 
     protected bool V2End(float now, int result)
     {
+        HCReinforceLog();
         if (m_V2Drift)
         {
             string phase = "refused_native_or_expired";
@@ -484,6 +541,20 @@ modded class HCNativeInfectedPack
         {
             if (vector.DistanceSq(clustered.GetPosition(), centroid) > cfg.CohesionMetres * cfg.CohesionMetres) { return V2End(now, 5); }
         }
+        if (m_HCReinforceTarget > 0 && m_Members.Count() < m_HCReinforceTarget)
+        {
+            HCReinforceStep(now);
+            if (m_Members.Count() < m_HCReinforceTarget) { return true; }
+        }
+        HCReinforceLog();
+        float nearest = HCInfectedLOD.NearestDistance(HCPerfPlayers.HCGet(), centroid);
+        // Cohesion bounds every member within 100 m, hence >=600 proves all >=500.
+        if (nearest >= 500 + cfg.CohesionMetres)
+        {
+            if (m_HCFarSince < 0) { m_HCFarSince = now; }
+            if (now - m_HCFarSince >= 60) { return V2End(now, 5); }
+        }
+        else { m_HCFarSince = -1; }
         // Physical cohorts walk under native AI, including when visible.
         // Observer-clear grace belongs to LOD/materialization, not locomotion.
         if (m_V2Segment)

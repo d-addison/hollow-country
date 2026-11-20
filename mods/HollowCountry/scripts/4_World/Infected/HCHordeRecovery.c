@@ -38,7 +38,7 @@ class HCHordeRecovery
     // survey points never authorize a replacement, extra member or reactivation.
     static bool HCRouteRoster(int members, int cap, int expected, bool conflicted)
     {
-        return !conflicted && cap >= 1 && cap <= 20 && members >= 1 && members <= cap && members == expected;
+        return !conflicted && cap >= 1 && cap <= HCHordeLimits.MAX_PACK && members >= 1 && members <= cap && members == expected;
     }
 
     // Persist the complete roster or none of it. Partial IDs cannot authorize

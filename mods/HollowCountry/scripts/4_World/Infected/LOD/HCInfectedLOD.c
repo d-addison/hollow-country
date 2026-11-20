@@ -316,7 +316,7 @@ modded class HCInfectedModule
     int HCLODTrackCap()
     {
         if (!m_Healthy || !m_Config) { return 0; }
-        return Math.Max(0, Math.Min(m_Config.MaxTracked, m_MemberCap) - 4);
+        return Math.Max(0, m_Config.MaxTracked - 4);
     }
 
     // Mirrors HCAdminSitter (Admin/HCAdminDirectors.c): same caps, flags,
@@ -325,7 +325,7 @@ modded class HCInfectedModule
     {
         if (!m_Healthy || !m_Config || !m_State) { return null; }
         HCLODPrune();
-        if (m_Actors.Count() >= Math.Min(m_Config.MaxTracked, m_MemberCap) || m_RegistrationAttempts >= m_WorkCap) { return null; }
+        if (m_Actors.Count() >= m_Config.MaxTracked || m_RegistrationAttempts >= m_WorkCap) { return null; }
         Object body = GetGame().CreateObjectEx(type, pos, ECE_INITAI | ECE_PLACE_ON_SURFACE);
         ZombieBase infected = ZombieBase.Cast(body);
         if (!infected)

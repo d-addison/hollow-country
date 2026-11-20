@@ -69,7 +69,7 @@ class HCInfectedPolicy
 
     static float CentroidWeight(int living)
     {
-        if (living < 1 || living > 20)
+        if (living < 1 || living > HCHordeLimits.MAX_PACK)
         {
             return 0;
         }
@@ -195,7 +195,7 @@ class HCInfectedPolicy
 
     static bool CompleteMembership(int reserved, int living, int dead, int accounted, bool ambiguous)
     {
-        if (!(reserved >= 3 && reserved <= 20 && living >= 0 && dead >= 0))
+        if (!(reserved >= 3 && reserved <= HCHordeLimits.MAX_PACK && living >= 0 && dead >= 0))
         {
             return false;
         }
@@ -208,11 +208,11 @@ class HCInfectedPolicy
         {
             return false;
         }
-        if (!(reserved >= 0 && memberCap > 0 && memberCap <= 128))
+        if (!(reserved >= 0 && memberCap > 0 && memberCap <= 256))
         {
             return false;
         }
-        return requested > 0 && requested <= 20 && reserved <= memberCap - requested;
+        return requested > 0 && requested <= HCHordeLimits.MAX_PACK && reserved <= memberCap - requested;
     }
 
     static bool RetargetSpent(int outcome)
@@ -233,7 +233,7 @@ class HCInfectedPolicy
         {
             return 6;
         }
-        if (ambiguous || living < 1 || living > 20 || arrived < 0 || arrived > living)
+        if (ambiguous || living < 1 || living > HCHordeLimits.MAX_PACK || arrived < 0 || arrived > living)
         {
             return 6;
         }
@@ -396,7 +396,7 @@ class HCInfectedPolicy
         {
             return false;
         }
-        if (!(groups >= 0 && groups <= 12 && memberCap > 0 && memberCap <= 128))
+        if (!(groups >= 0 && groups <= 12 && memberCap > 0 && memberCap <= 256))
         {
             return false;
         }
@@ -410,7 +410,7 @@ class HCInfectedPolicy
 
     static bool ValidGroupRecord(int id, int index, int reserved, int living, int state, int created, int signal, int saved)
     {
-        if (!(id == index + 1 && reserved >= 3 && reserved <= 20))
+        if (!(id == index + 1 && reserved >= 3 && reserved <= HCHordeLimits.MAX_PACK))
         {
             return false;
         }
@@ -604,11 +604,11 @@ class HCInfectedPolicy
         {
             return false;
         }
-        return recovered >= 0 && expected > 0 && expected <= 20 && recovered < expected;
+        return recovered >= 0 && expected > 0 && expected <= HCHordeLimits.MAX_PACK && recovered < expected;
     }
 
     static bool RecoveryComplete(int recovered, int living, int reserved, bool conflict)
     {
-        return !conflict && recovered > 0 && recovered == living && living <= reserved && reserved >= 3 && reserved <= 20;
+        return !conflict && recovered > 0 && recovered == living && living <= reserved && reserved >= 3 && reserved <= HCHordeLimits.MAX_PACK;
     }
 }

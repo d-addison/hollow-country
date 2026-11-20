@@ -19,7 +19,7 @@ class HCInfectedConfig
     ref array<int> CivilianVariants = new array<int>;
     ref array<int> MilitaryVariants = new array<int>;
     bool RunPolicySelfTests = false;
-    int MaxTracked = 128;
+    int MaxTracked = 256;
     int MaxVoiceQueue = 16;
     int MaxVoicePerTick = 8;
     int VoiceCooldownSeconds = 10;
@@ -54,7 +54,7 @@ class HCInfectedConfig
         Navigation.Normalize();
         if (!LevelOfDetail) { LevelOfDetail = new HCC1LOD; }
         LevelOfDetail.Normalize();
-        if (Memory.CohortBase + Memory.CohortHeat > 20) { Memory.CohortBase = 8; Memory.CohortHeat = 12; HCC1Range.s_Invalid = true; }
+        if (Memory.CohortBase + Memory.CohortHeat > HCHordeLimits.MAX_PACK) { Memory.CohortBase = 30; Memory.CohortHeat = 10; HCC1Range.s_Invalid = true; }
         if (Memory.ResponseBase + Memory.ResponseHeat > 12) { Memory.ResponseBase = 6; Memory.ResponseHeat = 6; HCC1Range.s_Invalid = true; }
         if (HCC1Range.s_Invalid && !s_HCTuningInvalidLogged)
         {
@@ -71,7 +71,7 @@ class HCInfectedConfig
             return false;
         if (!HCInfectedProfiles.ValidateMap(MilitaryVariants, false))
             return false;
-        if (!(SchemaVersion == 1 && MaxTracked >= 1 && MaxTracked <= 128))
+        if (!(SchemaVersion == 1 && MaxTracked >= 1 && MaxTracked <= 256))
             return false;
         if (!(MaxVoiceQueue >= 1 && MaxVoiceQueue <= 32 && MaxVoicePerTick >= 1 && MaxVoicePerTick <= 8))
             return false;
