@@ -326,6 +326,10 @@ def _row(item):
 
 
 def _apply(item, entry, usage_vocab, value_vocab):
+    # Only the two reviewed native SKS rows lack a category. Installer permissions
+    # independently allow this exact addition and retain every other native field.
+    if entry['class'] in {'SKS_Black', 'SKS_Green'} and item.find('category') is None:
+        item.append(ET.Element('category', {'name': 'weapons'}))
     for field, value in entry['set'].items():
         node = item.find(field)
         if node is None:
@@ -440,6 +444,9 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
     validate_roster(roster)
     changed_elements = []
     rows, totals = [], {'weapon_nominal_stock': 0, 'weapon_nominal_candidate': 0}
+    for kind in KINDS:
+        for phase in ('stock', 'candidate'):
+            totals[kind + '_nominal_' + phase] = 0
     stock_lower = {class_name.lower(): type_item for class_name, type_item in stock.items()}
     if len(stock_lower) != len(stock):
         raise ValueError('case-insensitive duplicate stock class')
@@ -491,10 +498,9 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
             rows[-1].update(family=entry['family'], disposition=entry['disposition'],
                             unit_rounds=entry.get('unit_rounds'), parts=entry.get('parts', []),
                             runtime_acceptance='pending')
-        if entry['kind'] == 'weapon':
-            if stock_row is not None:
-                totals['weapon_nominal_stock'] += stock_row['nominal']
-            totals['weapon_nominal_candidate'] += rows[-1]['candidate']['nominal']
+        if stock_row is not None:
+            totals[entry['kind'] + '_nominal_stock'] += stock_row['nominal']
+        totals[entry['kind'] + '_nominal_candidate'] += rows[-1]['candidate']['nominal']
     effective = dict(stock)
     effective.update({item.get('name'): item for item in changed_elements})
     effective_lower = {class_name.lower(): type_item for class_name, type_item in effective.items()}

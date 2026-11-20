@@ -10,15 +10,15 @@
       "role": "wood",
       "tier": "common",
       "set": {
-        "nominal": 90,
-        "min": 45,
+        "nominal": 135,
+        "min": 105,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x54"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Mosin9130",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -38,15 +38,15 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 40,
-        "min": 20,
+        "nominal": 60,
+        "min": 51,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x54"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Mosin9130",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -66,15 +66,15 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 28,
-        "min": 14,
+        "nominal": 42,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "SKS",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -93,14 +93,14 @@
       "tier": "rare",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "SKS",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -118,15 +118,15 @@
       "role": "wood",
       "tier": "common",
       "set": {
-        "nominal": 84,
-        "min": 42,
+        "nominal": 150,
+        "min": 141,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Izh18",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -146,8 +146,8 @@
       "role": "wood",
       "tier": "common",
       "set": {
-        "nominal": 83,
-        "min": 42,
+        "nominal": 165,
+        "min": 150,
         "restock": 300
       },
       "ammo": [
@@ -155,7 +155,7 @@
         "Ammo_12gaSlug"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Izh18Shotgun",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -175,8 +175,8 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 48,
-        "min": 24,
+        "nominal": 90,
+        "min": 78,
         "restock": 300
       },
       "ammo": [
@@ -184,7 +184,7 @@
         "Ammo_12gaSlug"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Izh43Shotgun",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -204,15 +204,15 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 48,
-        "min": 24,
+        "nominal": 90,
+        "min": 72,
         "restock": 300
       },
       "ammo": [
         "Ammo_357"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Repeater",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -232,15 +232,15 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 18,
-        "min": 9,
+        "nominal": 21,
+        "min": 15,
         "restock": 300
       },
       "ammo": [
         "Ammo_308Win"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Winchester70",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -260,8 +260,8 @@
       "role": "wood",
       "tier": "common",
       "set": {
-        "nominal": 50,
-        "min": 25,
+        "nominal": 75,
+        "min": 69,
         "restock": 300
       },
       "ammo": [
@@ -270,7 +270,7 @@
       "magazines": [
         "Mag_CZ527_5rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "CZ527",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -290,8 +290,8 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 50,
-        "min": 25,
+        "nominal": 75,
+        "min": 66,
         "restock": 300
       },
       "ammo": [
@@ -300,7 +300,7 @@
       "magazines": [
         "Mag_CZ527_5rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "CZ527",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -320,15 +320,15 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 36,
-        "min": 18,
+        "nominal": 54,
+        "min": 42,
         "restock": 300
       },
       "ammo": [
         "Ammo_308Win"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "B95",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -349,7 +349,7 @@
       "tier": "uncommon",
       "set": {
         "nominal": 36,
-        "min": 18,
+        "min": 24,
         "restock": 300
       },
       "ammo": [
@@ -358,7 +358,7 @@
       "magazines": [
         "Mag_LeeEnfield_10Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x historical authored baseline (entirely zero-stock family) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "LeeEnfield",
@@ -390,7 +390,7 @@
       "magazines": [
         "Mag_MP18_Drum32Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x historical authored baseline (entirely zero-stock family) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "MP18",
@@ -412,7 +412,7 @@
       "tier": "rare",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 300
       },
       "ammo": [
@@ -421,7 +421,7 @@
       "magazines": [
         "Mag_Luger_8Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x historical authored baseline (entirely zero-stock family) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "Luger",
@@ -445,15 +445,15 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 42,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent SKS (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "SKS",
@@ -473,15 +473,15 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 42,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent SKS (zero/absent CE row) nominal/min; runtime pending.",
       "set_value": [
         "Tier2",
         "Tier3",
@@ -501,15 +501,15 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 42,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent SKS (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "SKS",
@@ -529,15 +529,15 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 42,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x39"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent SKS (zero/absent CE row) nominal/min; runtime pending.",
       "set_value": [
         "Tier2",
         "Tier3",
@@ -557,15 +557,15 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 135,
+        "min": 105,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x54"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent Mosin9130 (zero/absent CE row) nominal/min; runtime pending.",
       "set_value": [
         "Tier1",
         "Tier2",
@@ -587,15 +587,15 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 135,
+        "min": 105,
         "restock": 300
       },
       "ammo": [
         "Ammo_762x54"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent Mosin9130 (zero/absent CE row) nominal/min; runtime pending.",
       "set_value": [
         "Tier1",
         "Tier2",
@@ -617,8 +617,8 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 12,
+        "min": 6,
         "restock": 300
       },
       "ammo": [
@@ -627,7 +627,7 @@
       "magazines": [
         "Mag_SVD_10Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent SVD (zero/absent CE row) nominal/min; runtime pending.",
       "set_value": [
         "Tier3",
         "Tier4"
@@ -646,8 +646,8 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 30,
+        "min": 24,
         "restock": 300
       },
       "ammo": [
@@ -655,7 +655,7 @@
         "Ammo_12gaSlug"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Mp133Shotgun",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -675,15 +675,15 @@
       "role": "wood",
       "tier": "uncommon",
       "set": {
-        "nominal": 38,
-        "min": 19,
+        "nominal": 75,
+        "min": 60,
         "restock": 300
       },
       "ammo": [
         "Ammo_357"
       ],
       "magazines": [],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Magnum",
       "disposition": "curated-family-split",
       "parts": [
@@ -715,7 +715,7 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 12,
+        "nominal": 9,
         "min": 6,
         "restock": 300
       },
@@ -727,7 +727,7 @@
         "Mag_AKM_Drum75Rnd",
         "Mag_AKM_Palm30Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "AKM",
       "disposition": "curated-family-split",
       "parts": [
@@ -751,8 +751,8 @@
       "role": "modern",
       "tier": "uncommon",
       "set": {
-        "nominal": 39,
-        "min": 20,
+        "nominal": 78,
+        "min": 66,
         "restock": 300
       },
       "ammo": [
@@ -761,7 +761,7 @@
       "magazines": [
         "Mag_1911_7Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Colt1911",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -783,8 +783,8 @@
       "role": "modern",
       "tier": "common",
       "set": {
-        "nominal": 105,
-        "min": 53,
+        "nominal": 210,
+        "min": 180,
         "restock": 300
       },
       "ammo": [
@@ -793,7 +793,7 @@
       "magazines": [
         "Mag_IJ70_8Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Makarov",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -815,8 +815,8 @@
       "role": "modern",
       "tier": "common",
       "set": {
-        "nominal": 75,
-        "min": 38,
+        "nominal": 150,
+        "min": 138,
         "restock": 300
       },
       "ammo": [
@@ -825,7 +825,7 @@
       "magazines": [
         "Mag_P1_8Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "P1",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -847,8 +847,8 @@
       "role": "modern",
       "tier": "uncommon",
       "set": {
-        "nominal": 60,
-        "min": 30,
+        "nominal": 120,
+        "min": 105,
         "restock": 300
       },
       "ammo": [
@@ -857,7 +857,7 @@
       "magazines": [
         "Mag_Glock_15Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Glock19",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -879,8 +879,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 21,
-        "min": 11,
+        "nominal": 42,
+        "min": 36,
         "restock": 300
       },
       "ammo": [
@@ -889,7 +889,7 @@
       "magazines": [
         "Mag_FNX45_15Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "FNX45",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -911,8 +911,8 @@
       "role": "modern",
       "tier": "uncommon",
       "set": {
-        "nominal": 30,
-        "min": 15,
+        "nominal": 60,
+        "min": 54,
         "restock": 300
       },
       "ammo": [
@@ -921,7 +921,7 @@
       "magazines": [
         "Mag_CZ75_15Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "CZ75",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -943,8 +943,8 @@
       "role": "modern",
       "tier": "common",
       "set": {
-        "nominal": 53,
-        "min": 27,
+        "nominal": 105,
+        "min": 75,
         "restock": 300
       },
       "ammo": [
@@ -954,7 +954,7 @@
         "Mag_Ruger1022_15Rnd",
         "Mag_Ruger1022_30Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Ruger1022",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -986,7 +986,7 @@
       "magazines": [
         "Mag_STANAG_30Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "M16A2",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1005,7 +1005,7 @@
       "tier": "rare",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 300
       },
       "ammo": [
@@ -1014,7 +1014,7 @@
       "magazines": [
         "Mag_AK74_30Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "AK74",
       "disposition": "curated-family-split",
       "parts": [
@@ -1037,8 +1037,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 48,
+        "min": 39,
         "restock": 300
       },
       "ammo": [
@@ -1048,7 +1048,7 @@
         "Mag_MP5_15Rnd",
         "Mag_MP5_30Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "MP5K",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1067,8 +1067,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 36,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
@@ -1080,7 +1080,7 @@
         "Mag_Saiga_5Rnd",
         "Mag_Saiga_Drum20Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Saiga",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1108,7 +1108,7 @@
       "magazines": [
         "Mag_SVD_10Rnd"
       ],
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "SVD",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1125,11 +1125,11 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 64,
-        "min": 32,
+        "nominal": 60,
+        "min": 45,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CZ527_5rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1152,11 +1152,11 @@
       "role": "support",
       "tier": "uncommon",
       "set": {
-        "nominal": 32,
-        "min": 16,
+        "nominal": 24,
+        "min": 12,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "magazine-Mag_LeeEnfield_10Rnd",
@@ -1180,11 +1180,11 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 16,
-        "min": 8,
+        "nominal": 12,
+        "min": 6,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "magazine-Mag_MP18_Drum32Rnd",
@@ -1210,11 +1210,11 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 32,
-        "min": 16,
+        "nominal": 24,
+        "min": 12,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "family": "magazine-Mag_Luger_8Rnd",
@@ -1238,11 +1238,11 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 9,
+        "min": 6,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_AKM_30Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1265,10 +1265,10 @@
       "tier": "uncommon",
       "set": {
         "nominal": 84,
-        "min": 42,
+        "min": 72,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_1911_7Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1291,10 +1291,10 @@
       "tier": "common",
       "set": {
         "nominal": 180,
-        "min": 90,
+        "min": 150,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_IJ70_8Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1318,10 +1318,10 @@
       "tier": "common",
       "set": {
         "nominal": 126,
-        "min": 63,
+        "min": 114,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_P1_8Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1345,10 +1345,10 @@
       "tier": "uncommon",
       "set": {
         "nominal": 90,
-        "min": 45,
+        "min": 75,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Glock_15Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1371,10 +1371,10 @@
       "tier": "rare",
       "set": {
         "nominal": 54,
-        "min": 27,
+        "min": 45,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_FNX45_15Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1397,10 +1397,10 @@
       "tier": "uncommon",
       "set": {
         "nominal": 66,
-        "min": 33,
+        "min": 48,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CZ75_15Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1423,10 +1423,10 @@
       "tier": "common",
       "set": {
         "nominal": 105,
-        "min": 53,
+        "min": 60,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Ruger1022_15Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1449,11 +1449,11 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 32,
-        "min": 16,
+        "nominal": 15,
+        "min": 6,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_STANAG_30Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1476,10 +1476,10 @@
       "tier": "rare",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 60,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_AK74_30Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1502,10 +1502,10 @@
       "tier": "rare",
       "set": {
         "nominal": 42,
-        "min": 21,
+        "min": 36,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_MP5_15Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1528,10 +1528,10 @@
       "tier": "rare",
       "set": {
         "nominal": 30,
-        "min": 15,
+        "min": 24,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_MP5_30Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1553,11 +1553,11 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 21,
+        "min": 15,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Saiga_8Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1579,11 +1579,11 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 12,
+        "min": 6,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_SVD_10Rnd",
       "disposition": "curated-family-split",
       "set_usage": [
@@ -1606,10 +1606,10 @@
       "tier": "common",
       "set": {
         "nominal": 180,
-        "min": 90,
+        "min": 135,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x54",
       "unit_rounds": 20,
       "disposition": "curated-family-split",
@@ -1635,10 +1635,10 @@
       "tier": "common",
       "set": {
         "nominal": 300,
-        "min": 150,
+        "min": 210,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x39",
       "unit_rounds": 20,
       "disposition": "curated-family-split",
@@ -1663,10 +1663,10 @@
       "tier": "uncommon",
       "set": {
         "nominal": 150,
-        "min": 75,
+        "min": 90,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_308Win",
       "unit_rounds": 20,
       "disposition": "curated-family-split",
@@ -1691,10 +1691,10 @@
       "tier": "common",
       "set": {
         "nominal": 270,
-        "min": 135,
+        "min": 210,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_22",
       "unit_rounds": 50,
       "disposition": "curated-family-split",
@@ -1719,10 +1719,10 @@
       "tier": "common",
       "set": {
         "nominal": 300,
-        "min": 150,
+        "min": 195,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_12gaSlug",
       "unit_rounds": 10,
       "disposition": "curated-family-split",
@@ -1748,10 +1748,10 @@
       "tier": "common",
       "set": {
         "nominal": 300,
-        "min": 150,
+        "min": 225,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_12gaPellets",
       "unit_rounds": 10,
       "disposition": "curated-family-split",
@@ -1777,10 +1777,10 @@
       "tier": "common",
       "set": {
         "nominal": 225,
-        "min": 113,
+        "min": 150,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_45ACP",
       "unit_rounds": 25,
       "disposition": "curated-family-split",
@@ -1804,10 +1804,10 @@
       "tier": "common",
       "set": {
         "nominal": 300,
-        "min": 150,
+        "min": 225,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_9x19",
       "unit_rounds": 25,
       "disposition": "curated-family-split",
@@ -1832,10 +1832,10 @@
       "tier": "common",
       "set": {
         "nominal": 270,
-        "min": 135,
+        "min": 195,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_357",
       "unit_rounds": 20,
       "disposition": "curated-family-split",
@@ -1860,10 +1860,10 @@
       "tier": "common",
       "set": {
         "nominal": 300,
-        "min": 150,
+        "min": 255,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_380",
       "unit_rounds": 35,
       "disposition": "curated-family-split",
@@ -1888,10 +1888,10 @@
       "tier": "uncommon",
       "set": {
         "nominal": 150,
-        "min": 75,
+        "min": 90,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_556x45",
       "unit_rounds": 20,
       "disposition": "curated-family-split",
@@ -1915,10 +1915,10 @@
       "tier": "uncommon",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 39,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_545x39",
       "unit_rounds": 20,
       "disposition": "curated-family-split",
@@ -1941,11 +1941,11 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 105,
-        "min": 53,
+        "nominal": 210,
+        "min": 180,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent MakarovIJ70 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "MakarovIJ70",
@@ -1979,10 +1979,10 @@
       "tier": "rare",
       "set": {
         "nominal": 180,
-        "min": 90,
+        "min": 150,
         "restock": 180
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "Mag_IJ70_8Rnd",
@@ -2010,11 +2010,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 14,
-        "min": 7,
+        "nominal": 21,
+        "min": 15,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent Winchester70 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "Winchester70",
@@ -2043,11 +2043,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 14,
-        "min": 7,
+        "nominal": 21,
+        "min": 15,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent Winchester70 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "Winchester70",
@@ -2076,11 +2076,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 36,
-        "min": 18,
+        "nominal": 54,
+        "min": 42,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent B95 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "B95",
@@ -2109,11 +2109,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 36,
-        "min": 18,
+        "nominal": 54,
+        "min": 42,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent B95 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "B95",
@@ -2142,11 +2142,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 50,
-        "min": 25,
+        "nominal": 75,
+        "min": 69,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent CZ527 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "CZ527",
@@ -2177,11 +2177,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 50,
-        "min": 25,
+        "nominal": 75,
+        "min": 69,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent CZ527 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "CZ527",
@@ -2212,11 +2212,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 75,
+        "min": 69,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent CZ527 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "CZ527",
@@ -2247,11 +2247,11 @@
       "role": "wood",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 75,
+        "min": 69,
         "restock": 300
       },
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x reviewed native parent CZ527 (zero/absent CE row) nominal/min; runtime pending.",
       "datamined": true,
       "acceptance": "pending-local",
       "new_type_parent": "CZ527",
@@ -2282,8 +2282,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 12,
+        "min": 6,
         "restock": 300
       },
       "ammo": [
@@ -2294,7 +2294,7 @@
         "Mag_AK101_30Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "AK101",
       "parts": [
         {
@@ -2316,8 +2316,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 16,
-        "min": 8,
+        "nominal": 24,
+        "min": 15,
         "restock": 300
       },
       "ammo": [
@@ -2329,7 +2329,7 @@
         "Mag_AK74_45Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "AKS74U",
       "set_usage": [
         "Military"
@@ -2346,8 +2346,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
-        "min": 3,
+        "nominal": 9,
+        "min": 6,
         "restock": 300
       },
       "ammo": [
@@ -2360,7 +2360,7 @@
         "Mag_Vikhr_30Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "ASVAL",
       "set_usage": [
         "Military"
@@ -2376,7 +2376,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
+        "nominal": 3,
         "min": 3,
         "restock": 300
       },
@@ -2394,10 +2394,11 @@
         "Mag_CMAG_40Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Aug",
       "set_usage": [
-        "Military"
+        "Military",
+        "ContaminatedArea"
       ],
       "set_value": [
         "Tier3",
@@ -2410,8 +2411,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 12,
+        "min": 9,
         "restock": 300
       },
       "ammo": [
@@ -2422,7 +2423,7 @@
         "Mag_Aug_30Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "AugShort",
       "parts": [
         {
@@ -2444,8 +2445,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 28,
-        "min": 14,
+        "nominal": 42,
+        "min": 36,
         "restock": 300
       },
       "ammo": [
@@ -2456,7 +2457,7 @@
         "Mag_CZ550_10Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "CZ550",
       "set_usage": [
         "Hunting",
@@ -2475,8 +2476,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 15,
+        "min": 12,
         "restock": 300
       },
       "ammo": [
@@ -2486,7 +2487,7 @@
         "Mag_CZ61_20Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "CZ61",
       "set_usage": [
         "Police"
@@ -2504,8 +2505,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 15,
+        "min": 9,
         "restock": 300
       },
       "ammo": [
@@ -2513,7 +2514,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Crossbow",
       "set_usage": [
         "Town",
@@ -2534,8 +2535,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 15,
+        "min": 9,
         "restock": 300
       },
       "ammo": [
@@ -2543,7 +2544,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Crossbow",
       "set_usage": [
         "Town",
@@ -2564,7 +2565,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
+        "nominal": 9,
         "min": 3,
         "restock": 300
       },
@@ -2573,7 +2574,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Crossbow",
       "set_usage": [
         "Town",
@@ -2594,8 +2595,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 38,
-        "min": 19,
+        "nominal": 75,
+        "min": 69,
         "restock": 300
       },
       "ammo": [
@@ -2605,7 +2606,7 @@
         "Mag_Deagle_9rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Deagle",
       "set_usage": [
         "Town",
@@ -2626,8 +2627,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 15,
+        "min": 6,
         "restock": 300
       },
       "ammo": [
@@ -2637,7 +2638,7 @@
         "Mag_Deagle_9rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Deagle",
       "set_usage": [
         "Town",
@@ -2658,8 +2659,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 30,
-        "min": 15,
+        "nominal": 60,
+        "min": 45,
         "restock": 300
       },
       "ammo": [
@@ -2667,7 +2668,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Derringer_Grey",
       "set_usage": [
         "Town",
@@ -2688,7 +2689,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 12,
+        "nominal": 15,
         "min": 6,
         "restock": 300
       },
@@ -2699,7 +2700,7 @@
         "Mag_1911_7Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Colt1911",
       "set_usage": [
         "Town",
@@ -2732,7 +2733,7 @@
         "Mag_FAL_20Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "FAL",
       "parts": [
         {
@@ -2741,7 +2742,8 @@
         }
       ],
       "set_usage": [
-        "Military"
+        "Military",
+        "ContaminatedArea"
       ],
       "set_value": [
         "Tier3",
@@ -2754,8 +2756,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 16,
-        "min": 8,
+        "nominal": 24,
+        "min": 18,
         "restock": 300
       },
       "ammo": [
@@ -2766,7 +2768,7 @@
         "Mag_FAMAS_25Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "FAMAS",
       "set_usage": [
         "Military"
@@ -2783,8 +2785,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 38,
-        "min": 19,
+        "nominal": 75,
+        "min": 60,
         "restock": 300
       },
       "ammo": [
@@ -2793,7 +2795,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "LongHorn",
       "set_usage": [
         "Town",
@@ -2827,7 +2829,7 @@
         "Mag_M14_20Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "M14",
       "set_usage": [
         "Military"
@@ -2843,7 +2845,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
+        "nominal": 3,
         "min": 3,
         "restock": 300
       },
@@ -2860,7 +2862,7 @@
         "Mag_CMAG_40Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "M4A1",
       "parts": [
         {
@@ -2877,7 +2879,8 @@
         }
       ],
       "set_usage": [
-        "Military"
+        "Military",
+        "ContaminatedArea"
       ],
       "set_value": [
         "Tier3",
@@ -2890,7 +2893,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
+        "nominal": 9,
         "min": 3,
         "restock": 300
       },
@@ -2904,7 +2907,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "M79",
       "set_usage": [
         "Military"
@@ -2921,8 +2924,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 45,
-        "min": 23,
+        "nominal": 90,
+        "min": 81,
         "restock": 300
       },
       "ammo": [
@@ -2932,7 +2935,7 @@
         "Mag_MKII_10Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "MKII",
       "set_usage": [
         "Town",
@@ -2953,7 +2956,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
+        "nominal": 3,
         "min": 3,
         "restock": 300
       },
@@ -2962,7 +2965,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Magnum",
       "parts": [
         {
@@ -2993,8 +2996,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 8,
-        "min": 4,
+        "nominal": 15,
+        "min": 12,
         "restock": 300
       },
       "ammo": [
@@ -3005,7 +3008,7 @@
         "Mag_PM73_15Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "PM73Rak",
       "set_usage": [
         "Police"
@@ -3023,8 +3026,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 21,
-        "min": 11,
+        "nominal": 42,
+        "min": 33,
         "restock": 300
       },
       "ammo": [
@@ -3034,7 +3037,7 @@
         "Mag_PP19_64Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "PP19",
       "set_usage": [
         "Police"
@@ -3052,8 +3055,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 18,
+        "min": 15,
         "restock": 300
       },
       "ammo": [
@@ -3063,7 +3066,7 @@
       ],
       "magazines": [],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "R12",
       "set_usage": [
         "Military"
@@ -3080,8 +3083,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 24,
-        "min": 12,
+        "nominal": 36,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
@@ -3092,7 +3095,7 @@
         "Mag_SSG82_5rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "SSG82",
       "set_usage": [
         "Hunting",
@@ -3123,7 +3126,7 @@
         "Mag_SV98_10Rnd"
       ],
       "disposition": "review-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "runtime_acceptance": "pending",
       "family": "SV98",
       "set_usage": [
@@ -3140,7 +3143,7 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 6,
+        "nominal": 3,
         "min": 3,
         "restock": 300
       },
@@ -3152,7 +3155,7 @@
         "Mag_Scout_5Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Scout",
       "set_usage": [
         "Military"
@@ -3168,8 +3171,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 10,
-        "min": 5,
+        "nominal": 15,
+        "min": 9,
         "restock": 300
       },
       "ammo": [
@@ -3180,7 +3183,7 @@
         "Mag_Scout_5Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Scout",
       "set_usage": [
         "Military"
@@ -3196,8 +3199,8 @@
       "role": "modern",
       "tier": "rare",
       "set": {
-        "nominal": 18,
-        "min": 9,
+        "nominal": 36,
+        "min": 30,
         "restock": 300
       },
       "ammo": [
@@ -3207,7 +3210,7 @@
         "Mag_UMP_25Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "UMP45",
       "set_usage": [
         "Police"
@@ -3221,6 +3224,36 @@
     },
     {
       "class": "VSS",
+      "kind": "weapon",
+      "role": "modern",
+      "tier": "rare",
+      "set": {
+        "nominal": 18,
+        "min": 12,
+        "restock": 300
+      },
+      "ammo": [
+        "Ammo_9x39",
+        "Ammo_9x39AP"
+      ],
+      "magazines": [
+        "Mag_VSS_10Rnd",
+        "Mag_VAL_20Rnd",
+        "Mag_Vikhr_30Rnd"
+      ],
+      "disposition": "keep-native-budget",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
+      "family": "VSS",
+      "set_usage": [
+        "Military"
+      ],
+      "set_value": [
+        "Tier3",
+        "Tier4"
+      ]
+    },
+    {
+      "class": "Vikhr",
       "kind": "weapon",
       "role": "modern",
       "tier": "rare",
@@ -3239,37 +3272,7 @@
         "Mag_Vikhr_30Rnd"
       ],
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
-      "family": "VSS",
-      "set_usage": [
-        "Military"
-      ],
-      "set_value": [
-        "Tier3",
-        "Tier4"
-      ]
-    },
-    {
-      "class": "Vikhr",
-      "kind": "weapon",
-      "role": "modern",
-      "tier": "rare",
-      "set": {
-        "nominal": 8,
-        "min": 4,
-        "restock": 300
-      },
-      "ammo": [
-        "Ammo_9x39",
-        "Ammo_9x39AP"
-      ],
-      "magazines": [
-        "Mag_VSS_10Rnd",
-        "Mag_VAL_20Rnd",
-        "Mag_Vikhr_30Rnd"
-      ],
-      "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native CE row nominal/min; runtime pending.",
       "family": "Vikhr",
       "set_usage": [
         "Military"
@@ -3287,11 +3290,11 @@
       "tier": "rare",
       "set": {
         "nominal": 60,
-        "min": 30,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_12gaPellets",
       "unit_rounds": 10,
       "set_usage": [
@@ -3314,11 +3317,11 @@
       "tier": "rare",
       "set": {
         "nominal": 48,
-        "min": 24,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_12gaRubberSlug",
       "unit_rounds": 10,
       "set_usage": [
@@ -3341,11 +3344,11 @@
       "tier": "rare",
       "set": {
         "nominal": 60,
-        "min": 30,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_12gaSlug",
       "unit_rounds": 10,
       "set_usage": [
@@ -3368,11 +3371,11 @@
       "tier": "rare",
       "set": {
         "nominal": 165,
-        "min": 83,
+        "min": 120,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_22",
       "unit_rounds": 50,
       "set_usage": [
@@ -3396,11 +3399,11 @@
       "tier": "rare",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 9,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_308Win",
       "unit_rounds": 20,
       "set_usage": [
@@ -3423,11 +3426,11 @@
       "tier": "rare",
       "set": {
         "nominal": 60,
-        "min": 30,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_308Win",
       "unit_rounds": 20,
       "set_usage": [
@@ -3454,7 +3457,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_357",
       "unit_rounds": 20,
       "set_usage": [
@@ -3478,11 +3481,11 @@
       "tier": "rare",
       "set": {
         "nominal": 60,
-        "min": 30,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_380",
       "unit_rounds": 35,
       "set_usage": [
@@ -3505,11 +3508,11 @@
       "tier": "rare",
       "set": {
         "nominal": 60,
-        "min": 30,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_45ACP",
       "unit_rounds": 25,
       "set_usage": [
@@ -3532,11 +3535,11 @@
       "tier": "rare",
       "set": {
         "nominal": 27,
-        "min": 14,
+        "min": 15,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_545x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -3559,11 +3562,11 @@
       "tier": "rare",
       "set": {
         "nominal": 51,
-        "min": 26,
+        "min": 36,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_545x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -3586,11 +3589,11 @@
       "tier": "rare",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 9,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_556x45",
       "unit_rounds": 20,
       "set_usage": [
@@ -3613,11 +3616,11 @@
       "tier": "rare",
       "set": {
         "nominal": 60,
-        "min": 30,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_556x45",
       "unit_rounds": 20,
       "set_usage": [
@@ -3640,11 +3643,11 @@
       "tier": "rare",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 9,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -3667,11 +3670,11 @@
       "tier": "rare",
       "set": {
         "nominal": 54,
-        "min": 27,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -3694,11 +3697,11 @@
       "tier": "rare",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 9,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x54",
       "unit_rounds": 20,
       "set_usage": [
@@ -3721,11 +3724,11 @@
       "tier": "rare",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 36,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x54",
       "unit_rounds": 20,
       "set_usage": [
@@ -3748,11 +3751,11 @@
       "tier": "rare",
       "set": {
         "nominal": 90,
-        "min": 45,
+        "min": 60,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_9x19",
       "unit_rounds": 25,
       "set_usage": [
@@ -3775,11 +3778,11 @@
       "tier": "rare",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_9x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -3802,11 +3805,11 @@
       "tier": "rare",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 9,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_9x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -3829,11 +3832,11 @@
       "tier": "rare",
       "set": {
         "nominal": 120,
-        "min": 60,
+        "min": 105,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_12gaRubberSlug",
       "unit_rounds": 10,
       "set_usage": [
@@ -3857,11 +3860,11 @@
       "tier": "rare",
       "set": {
         "nominal": 90,
-        "min": 45,
+        "min": 60,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_308Win",
       "unit_rounds": 20,
       "set_usage": [
@@ -3884,11 +3887,11 @@
       "tier": "rare",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 9,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_40mm_Chemgas",
       "unit_rounds": 1,
       "set_usage": [
@@ -3912,11 +3915,11 @@
       "tier": "rare",
       "set": {
         "nominal": 24,
-        "min": 12,
+        "min": 15,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_40mm_Explosive",
       "unit_rounds": 1,
       "set_usage": [
@@ -3939,11 +3942,11 @@
       "tier": "rare",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_40mm_Smoke_Black",
       "unit_rounds": 1,
       "set_usage": [
@@ -3966,11 +3969,11 @@
       "tier": "rare",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_40mm_Smoke_Green",
       "unit_rounds": 1,
       "set_usage": [
@@ -3993,11 +3996,11 @@
       "tier": "rare",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_40mm_Smoke_Red",
       "unit_rounds": 1,
       "set_usage": [
@@ -4020,11 +4023,11 @@
       "tier": "rare",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_40mm_Smoke_White",
       "unit_rounds": 1,
       "set_usage": [
@@ -4047,11 +4050,11 @@
       "tier": "rare",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_545x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -4074,11 +4077,11 @@
       "tier": "rare",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_556x45",
       "unit_rounds": 20,
       "set_usage": [
@@ -4101,11 +4104,11 @@
       "tier": "rare",
       "set": {
         "nominal": 135,
-        "min": 68,
+        "min": 90,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -4128,11 +4131,11 @@
       "tier": "rare",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_762x54",
       "unit_rounds": 20,
       "set_usage": [
@@ -4155,11 +4158,11 @@
       "tier": "rare",
       "set": {
         "nominal": 66,
-        "min": 33,
+        "min": 42,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_9x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -4182,11 +4185,11 @@
       "tier": "rare",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_9x39",
       "unit_rounds": 20,
       "set_usage": [
@@ -4209,11 +4212,11 @@
       "tier": "rare",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 54,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "Ammo_HuntingBolt",
       "unit_rounds": 5,
       "set_usage": [
@@ -4236,11 +4239,11 @@
       "tier": "rare",
       "set": {
         "nominal": 48,
-        "min": 24,
+        "min": 39,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_AK101_30Rnd",
       "set_usage": [
         "Hunting",
@@ -4266,7 +4269,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_AK74_45Rnd",
       "set_usage": [
         "Hunting",
@@ -4287,12 +4290,12 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 3,
+        "min": 0,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_AKM_Drum75Rnd",
       "set_usage": [
         "Hunting",
@@ -4313,12 +4316,12 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 12,
+        "nominal": 9,
         "min": 6,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_AKM_Palm30Rnd",
       "set_usage": [
         "Hunting",
@@ -4340,11 +4343,11 @@
       "tier": "rare",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Aug_30Rnd",
       "set_usage": [
         "Hunting",
@@ -4366,11 +4369,11 @@
       "tier": "rare",
       "set": {
         "nominal": 36,
-        "min": 18,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CMAG_10Rnd",
       "set_usage": [
         "Hunting",
@@ -4392,11 +4395,11 @@
       "tier": "rare",
       "set": {
         "nominal": 24,
-        "min": 12,
+        "min": 15,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CMAG_20Rnd",
       "set_usage": [
         "Hunting",
@@ -4418,11 +4421,11 @@
       "tier": "rare",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CMAG_30Rnd",
       "set_usage": [
         "Hunting",
@@ -4448,7 +4451,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CMAG_40Rnd",
       "set_usage": [
         "ContaminatedArea",
@@ -4471,11 +4474,11 @@
       "tier": "rare",
       "set": {
         "nominal": 24,
-        "min": 12,
+        "min": 15,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CZ550_10Rnd",
       "set_usage": [
         "Hunting",
@@ -4497,11 +4500,11 @@
       "tier": "rare",
       "set": {
         "nominal": 42,
-        "min": 21,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_CZ61_20Rnd",
       "set_usage": [
         "Hunting",
@@ -4523,11 +4526,11 @@
       "tier": "rare",
       "set": {
         "nominal": 90,
-        "min": 45,
+        "min": 60,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Deagle_9rnd",
       "set_usage": [
         "Hunting",
@@ -4550,11 +4553,11 @@
       "tier": "rare",
       "set": {
         "nominal": 27,
-        "min": 14,
+        "min": 18,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_FAL_20Rnd",
       "set_usage": [
         "ContaminatedArea",
@@ -4577,11 +4580,11 @@
       "tier": "rare",
       "set": {
         "nominal": 36,
-        "min": 18,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_FAMAS_25Rnd",
       "set_usage": [
         "Hunting",
@@ -4607,7 +4610,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_M14_10Rnd",
       "set_usage": [
         "Hunting",
@@ -4633,7 +4636,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_M14_20Rnd",
       "set_usage": [
         "Hunting",
@@ -4655,11 +4658,11 @@
       "tier": "rare",
       "set": {
         "nominal": 90,
-        "min": 45,
+        "min": 60,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_MKII_10Rnd",
       "set_usage": [
         "Hunting",
@@ -4682,11 +4685,11 @@
       "tier": "rare",
       "set": {
         "nominal": 36,
-        "min": 18,
+        "min": 24,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_PM73_15Rnd",
       "set_usage": [
         "Hunting",
@@ -4708,11 +4711,11 @@
       "tier": "rare",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 15,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_PM73_25Rnd",
       "set_usage": [
         "Hunting",
@@ -4734,11 +4737,11 @@
       "tier": "rare",
       "set": {
         "nominal": 36,
-        "min": 18,
+        "min": 30,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_PP19_64Rnd",
       "set_usage": [
         "Hunting",
@@ -4760,11 +4763,11 @@
       "tier": "rare",
       "set": {
         "nominal": 90,
-        "min": 45,
+        "min": 60,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Ruger1022_30Rnd",
       "set_usage": [
         "Hunting",
@@ -4787,11 +4790,11 @@
       "tier": "rare",
       "set": {
         "nominal": 30,
-        "min": 15,
+        "min": 21,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_SSG82_5rnd",
       "set_usage": [
         "Hunting",
@@ -4812,12 +4815,12 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 9,
+        "min": 3,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_STANAG_60Rnd",
       "set_usage": [
         "ContaminatedArea",
@@ -4844,7 +4847,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_SV98_10Rnd",
       "set_usage": [
         "Hunting",
@@ -4866,11 +4869,11 @@
       "tier": "rare",
       "set": {
         "nominal": 30,
-        "min": 15,
+        "min": 21,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Saiga_5Rnd",
       "set_usage": [
         "Hunting",
@@ -4891,12 +4894,12 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 9,
+        "min": 3,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Saiga_Drum20Rnd",
       "set_usage": [
         "Hunting",
@@ -4922,7 +4925,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Scout_5Rnd",
       "set_usage": [
         "Hunting",
@@ -4944,11 +4947,11 @@
       "tier": "rare",
       "set": {
         "nominal": 54,
-        "min": 27,
+        "min": 45,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_UMP_25Rnd",
       "set_usage": [
         "Hunting",
@@ -4974,7 +4977,7 @@
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_VAL_20Rnd",
       "set_usage": [
         "Hunting",
@@ -4996,11 +4999,11 @@
       "tier": "rare",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_VSS_10Rnd",
       "set_usage": [
         "Hunting",
@@ -5021,12 +5024,12 @@
       "role": "support",
       "tier": "rare",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 9,
+        "min": 3,
         "restock": 180
       },
       "disposition": "keep-native-budget",
-      "justification": "2026-11-20 TEST ABUNDANCE; explicit routes and tiers; bounded CE quantities, runtime pending.",
+      "justification": "Owner 2026-11-20: 3x native nominal/min; zero-stock reviewed magazines use 3x historical authored baseline; runtime pending.",
       "family": "magazine-Mag_Vikhr_30Rnd",
       "set_usage": [
         "Hunting",
@@ -5048,7 +5051,7 @@
       "tier": "common",
       "set": {
         "nominal": 30,
-        "min": 15,
+        "min": 18,
         "restock": 180
       },
       "set_usage": [
@@ -5074,7 +5077,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5100,7 +5103,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5126,7 +5129,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5152,7 +5155,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5178,7 +5181,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5204,7 +5207,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5230,7 +5233,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5256,7 +5259,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5281,8 +5284,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 6,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -5309,7 +5312,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5335,7 +5338,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5413,7 +5416,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5440,7 +5443,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5467,7 +5470,7 @@
       "tier": "common",
       "set": {
         "nominal": 48,
-        "min": 24,
+        "min": 39,
         "restock": 180
       },
       "set_usage": [
@@ -5493,7 +5496,7 @@
       "tier": "common",
       "set": {
         "nominal": 33,
-        "min": 17,
+        "min": 27,
         "restock": 180
       },
       "set_usage": [
@@ -5519,7 +5522,7 @@
       "tier": "common",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "set_usage": [
@@ -5544,8 +5547,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 3,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -5572,7 +5575,7 @@
       "tier": "common",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "set_usage": [
@@ -5598,7 +5601,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5624,7 +5627,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5650,7 +5653,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5676,7 +5679,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5702,7 +5705,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5728,7 +5731,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5754,7 +5757,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -5779,8 +5782,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 6,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -5833,7 +5836,7 @@
       "tier": "common",
       "set": {
         "nominal": 45,
-        "min": 23,
+        "min": 24,
         "restock": 180
       },
       "set_usage": [
@@ -5858,8 +5861,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 6,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -5884,8 +5887,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 6,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -5910,8 +5913,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 6,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -5937,7 +5940,7 @@
       "tier": "common",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 15,
         "restock": 180
       },
       "set_usage": [
@@ -5963,7 +5966,7 @@
       "tier": "common",
       "set": {
         "nominal": 21,
-        "min": 11,
+        "min": 15,
         "restock": 180
       },
       "set_usage": [
@@ -6041,7 +6044,7 @@
       "tier": "common",
       "set": {
         "nominal": 30,
-        "min": 15,
+        "min": 21,
         "restock": 180
       },
       "set_usage": [
@@ -6067,7 +6070,7 @@
       "tier": "common",
       "set": {
         "nominal": 30,
-        "min": 15,
+        "min": 21,
         "restock": 180
       },
       "set_usage": [
@@ -6093,7 +6096,7 @@
       "tier": "common",
       "set": {
         "nominal": 18,
-        "min": 9,
+        "min": 12,
         "restock": 180
       },
       "set_usage": [
@@ -6119,7 +6122,7 @@
       "tier": "common",
       "set": {
         "nominal": 105,
-        "min": 53,
+        "min": 75,
         "restock": 180
       },
       "set_usage": [
@@ -6223,7 +6226,7 @@
       "tier": "common",
       "set": {
         "nominal": 15,
-        "min": 8,
+        "min": 6,
         "restock": 180
       },
       "set_usage": [
@@ -6249,7 +6252,7 @@
       "tier": "common",
       "set": {
         "nominal": 75,
-        "min": 38,
+        "min": 66,
         "restock": 180
       },
       "set_usage": [
@@ -6275,8 +6278,8 @@
       "role": "support",
       "tier": "common",
       "set": {
-        "nominal": 12,
-        "min": 6,
+        "nominal": 3,
+        "min": 3,
         "restock": 180
       },
       "set_usage": [
@@ -6306,62 +6309,62 @@
     {
       "family": "Mosin9130",
       "kind": "weapon",
-      "nominal": 142,
-      "min": 71
+      "nominal": 465,
+      "min": 366
     },
     {
       "family": "SKS",
       "kind": "weapon",
-      "nominal": 70,
-      "min": 35
+      "nominal": 228,
+      "min": 162
     },
     {
       "family": "Izh18",
       "kind": "weapon",
-      "nominal": 84,
-      "min": 42
+      "nominal": 150,
+      "min": 141
     },
     {
       "family": "Izh18Shotgun",
       "kind": "weapon",
-      "nominal": 83,
-      "min": 42
+      "nominal": 165,
+      "min": 150
     },
     {
       "family": "Izh43Shotgun",
       "kind": "weapon",
-      "nominal": 48,
-      "min": 24
+      "nominal": 90,
+      "min": 78
     },
     {
       "family": "Repeater",
       "kind": "weapon",
-      "nominal": 48,
-      "min": 24
+      "nominal": 90,
+      "min": 72
     },
     {
       "family": "Winchester70",
       "kind": "weapon",
-      "nominal": 46,
-      "min": 23
+      "nominal": 63,
+      "min": 45
     },
     {
       "family": "CZ527",
       "kind": "weapon",
-      "nominal": 212,
-      "min": 106
+      "nominal": 450,
+      "min": 411
     },
     {
       "family": "B95",
       "kind": "weapon",
-      "nominal": 108,
-      "min": 54
+      "nominal": 162,
+      "min": 126
     },
     {
       "family": "LeeEnfield",
       "kind": "weapon",
       "nominal": 36,
-      "min": 18
+      "min": 24
     },
     {
       "family": "MP18",
@@ -6373,73 +6376,73 @@
       "family": "Luger",
       "kind": "weapon",
       "nominal": 18,
-      "min": 9
+      "min": 12
     },
     {
       "family": "SVD",
-      "kind": "weapon",
-      "nominal": 18,
-      "min": 9
-    },
-    {
-      "family": "Mp133Shotgun",
       "kind": "weapon",
       "nominal": 24,
       "min": 12
     },
     {
+      "family": "Mp133Shotgun",
+      "kind": "weapon",
+      "nominal": 30,
+      "min": 24
+    },
+    {
       "family": "Magnum",
       "kind": "weapon",
-      "nominal": 44,
-      "min": 22
+      "nominal": 78,
+      "min": 63
     },
     {
       "family": "AKM",
       "kind": "weapon",
-      "nominal": 12,
+      "nominal": 9,
       "min": 6
     },
     {
       "family": "Colt1911",
       "kind": "weapon",
-      "nominal": 51,
-      "min": 26
+      "nominal": 93,
+      "min": 72
     },
     {
       "family": "Makarov",
       "kind": "weapon",
-      "nominal": 210,
-      "min": 106
+      "nominal": 420,
+      "min": 360
     },
     {
       "family": "P1",
       "kind": "weapon",
-      "nominal": 75,
-      "min": 38
+      "nominal": 150,
+      "min": 138
     },
     {
       "family": "Glock19",
       "kind": "weapon",
-      "nominal": 60,
-      "min": 30
+      "nominal": 120,
+      "min": 105
     },
     {
       "family": "FNX45",
       "kind": "weapon",
-      "nominal": 21,
-      "min": 11
+      "nominal": 42,
+      "min": 36
     },
     {
       "family": "CZ75",
       "kind": "weapon",
-      "nominal": 30,
-      "min": 15
+      "nominal": 60,
+      "min": 54
     },
     {
       "family": "Ruger1022",
       "kind": "weapon",
-      "nominal": 53,
-      "min": 27
+      "nominal": 105,
+      "min": 75
     },
     {
       "family": "M16A2",
@@ -6451,265 +6454,265 @@
       "family": "AK74",
       "kind": "weapon",
       "nominal": 18,
-      "min": 9
+      "min": 12
     },
     {
       "family": "MP5K",
       "kind": "weapon",
-      "nominal": 24,
-      "min": 12
+      "nominal": 48,
+      "min": 39
     },
     {
       "family": "Saiga",
       "kind": "weapon",
-      "nominal": 24,
-      "min": 12
+      "nominal": 36,
+      "min": 30
     },
     {
       "family": "magazine-Mag_CZ527_5rnd",
       "kind": "magazine",
-      "nominal": 64,
-      "min": 32
+      "nominal": 60,
+      "min": 45
     },
     {
       "family": "magazine-Mag_LeeEnfield_10Rnd",
       "kind": "magazine",
-      "nominal": 32,
-      "min": 16
+      "nominal": 24,
+      "min": 12
     },
     {
       "family": "magazine-Mag_MP18_Drum32Rnd",
       "kind": "magazine",
-      "nominal": 16,
-      "min": 8
+      "nominal": 12,
+      "min": 6
     },
     {
       "family": "magazine-Mag_Luger_8Rnd",
       "kind": "magazine",
-      "nominal": 32,
-      "min": 16
+      "nominal": 24,
+      "min": 12
     },
     {
       "family": "magazine-Mag_AKM_30Rnd",
       "kind": "magazine",
-      "nominal": 24,
-      "min": 12
+      "nominal": 9,
+      "min": 6
     },
     {
       "family": "magazine-Mag_1911_7Rnd",
       "kind": "magazine",
       "nominal": 84,
-      "min": 42
+      "min": 72
     },
     {
       "family": "magazine-Mag_IJ70_8Rnd",
       "kind": "magazine",
       "nominal": 180,
-      "min": 90
+      "min": 150
     },
     {
       "family": "magazine-Mag_P1_8Rnd",
       "kind": "magazine",
       "nominal": 126,
-      "min": 63
+      "min": 114
     },
     {
       "family": "magazine-Mag_Glock_15Rnd",
       "kind": "magazine",
       "nominal": 90,
-      "min": 45
+      "min": 75
     },
     {
       "family": "magazine-Mag_FNX45_15Rnd",
       "kind": "magazine",
       "nominal": 54,
-      "min": 27
+      "min": 45
     },
     {
       "family": "magazine-Mag_CZ75_15Rnd",
       "kind": "magazine",
       "nominal": 66,
-      "min": 33
+      "min": 48
     },
     {
       "family": "magazine-Mag_Ruger1022_15Rnd",
       "kind": "magazine",
       "nominal": 105,
-      "min": 53
+      "min": 60
     },
     {
       "family": "magazine-Mag_STANAG_30Rnd",
       "kind": "magazine",
-      "nominal": 32,
-      "min": 16
+      "nominal": 15,
+      "min": 6
     },
     {
       "family": "magazine-Mag_AK74_30Rnd",
       "kind": "magazine",
       "nominal": 75,
-      "min": 38
+      "min": 60
     },
     {
       "family": "magazine-Mag_MP5_15Rnd",
       "kind": "magazine",
       "nominal": 42,
-      "min": 21
+      "min": 36
     },
     {
       "family": "magazine-Mag_MP5_30Rnd",
       "kind": "magazine",
       "nominal": 30,
-      "min": 15
+      "min": 24
     },
     {
       "family": "magazine-Mag_Saiga_8Rnd",
       "kind": "magazine",
-      "nominal": 24,
-      "min": 12
+      "nominal": 21,
+      "min": 15
     },
     {
       "family": "magazine-Mag_SVD_10Rnd",
       "kind": "magazine",
-      "nominal": 24,
-      "min": 12
+      "nominal": 12,
+      "min": 6
     },
     {
       "family": "Ammo_762x54",
       "kind": "ammo",
       "nominal": 6420,
-      "min": 3240
+      "min": 4500
     },
     {
       "family": "Ammo_762x39",
       "kind": "ammo",
       "nominal": 10200,
-      "min": 5120
+      "min": 7080
     },
     {
       "family": "Ammo_308Win",
       "kind": "ammo",
       "nominal": 6420,
-      "min": 3220
+      "min": 4080
     },
     {
       "family": "Ammo_22",
       "kind": "ammo",
       "nominal": 21750,
-      "min": 10900
+      "min": 16500
     },
     {
       "family": "Ammo_12gaSlug",
       "kind": "ammo",
       "nominal": 3600,
-      "min": 1800
+      "min": 2400
     },
     {
       "family": "Ammo_12gaPellets",
       "kind": "ammo",
       "nominal": 3600,
-      "min": 1800
+      "min": 2700
     },
     {
       "family": "Ammo_45ACP",
       "kind": "ammo",
       "nominal": 7125,
-      "min": 3575
+      "min": 4875
     },
     {
       "family": "Ammo_9x19",
       "kind": "ammo",
       "nominal": 9750,
-      "min": 4875
+      "min": 7125
     },
     {
       "family": "Ammo_357",
       "kind": "ammo",
       "nominal": 7200,
-      "min": 3600
+      "min": 4800
     },
     {
       "family": "Ammo_380",
       "kind": "ammo",
       "nominal": 12600,
-      "min": 6300
+      "min": 10500
     },
     {
       "family": "Ammo_556x45",
       "kind": "ammo",
       "nominal": 6120,
-      "min": 3080
+      "min": 3780
     },
     {
       "family": "Ammo_545x39",
       "kind": "ammo",
       "nominal": 4560,
-      "min": 2320
+      "min": 2400
     },
     {
       "family": "magazine-Mag_MakarovPB_8Rnd",
       "kind": "magazine",
       "nominal": 180,
-      "min": 90
+      "min": 150
     },
     {
       "family": "AK101",
       "kind": "weapon",
-      "nominal": 8,
-      "min": 4
+      "nominal": 12,
+      "min": 6
     },
     {
       "family": "AKS74U",
       "kind": "weapon",
-      "nominal": 16,
-      "min": 8
+      "nominal": 24,
+      "min": 15
     },
     {
       "family": "ASVAL",
       "kind": "weapon",
-      "nominal": 6,
-      "min": 3
+      "nominal": 9,
+      "min": 6
     },
     {
       "family": "Aug",
       "kind": "weapon",
-      "nominal": 6,
+      "nominal": 3,
       "min": 3
     },
     {
       "family": "AugShort",
       "kind": "weapon",
-      "nominal": 8,
-      "min": 4
+      "nominal": 12,
+      "min": 9
     },
     {
       "family": "CZ550",
       "kind": "weapon",
-      "nominal": 28,
-      "min": 14
+      "nominal": 42,
+      "min": 36
     },
     {
       "family": "CZ61",
       "kind": "weapon",
-      "nominal": 8,
-      "min": 4
+      "nominal": 15,
+      "min": 12
     },
     {
       "family": "Crossbow",
       "kind": "weapon",
-      "nominal": 22,
-      "min": 11
+      "nominal": 39,
+      "min": 21
     },
     {
       "family": "Deagle",
       "kind": "weapon",
-      "nominal": 46,
-      "min": 23
+      "nominal": 90,
+      "min": 75
     },
     {
       "family": "Derringer_Grey",
       "kind": "weapon",
-      "nominal": 30,
-      "min": 15
+      "nominal": 60,
+      "min": 45
     },
     {
       "family": "FAL",
@@ -6720,14 +6723,14 @@
     {
       "family": "FAMAS",
       "kind": "weapon",
-      "nominal": 16,
-      "min": 8
+      "nominal": 24,
+      "min": 18
     },
     {
       "family": "LongHorn",
       "kind": "weapon",
-      "nominal": 38,
-      "min": 19
+      "nominal": 75,
+      "min": 60
     },
     {
       "family": "M14",
@@ -6738,44 +6741,44 @@
     {
       "family": "M4A1",
       "kind": "weapon",
-      "nominal": 6,
+      "nominal": 3,
       "min": 3
     },
     {
       "family": "M79",
       "kind": "weapon",
-      "nominal": 6,
+      "nominal": 9,
       "min": 3
     },
     {
       "family": "MKII",
       "kind": "weapon",
-      "nominal": 45,
-      "min": 23
+      "nominal": 90,
+      "min": 81
     },
     {
       "family": "PM73Rak",
       "kind": "weapon",
-      "nominal": 8,
-      "min": 4
+      "nominal": 15,
+      "min": 12
     },
     {
       "family": "PP19",
       "kind": "weapon",
-      "nominal": 21,
-      "min": 11
+      "nominal": 42,
+      "min": 33
     },
     {
       "family": "R12",
       "kind": "weapon",
-      "nominal": 12,
-      "min": 6
+      "nominal": 18,
+      "min": 15
     },
     {
       "family": "SSG82",
       "kind": "weapon",
-      "nominal": 24,
-      "min": 12
+      "nominal": 36,
+      "min": 30
     },
     {
       "family": "SV98",
@@ -6786,86 +6789,86 @@
     {
       "family": "Scout",
       "kind": "weapon",
-      "nominal": 16,
-      "min": 8
+      "nominal": 18,
+      "min": 12
     },
     {
       "family": "UMP45",
       "kind": "weapon",
-      "nominal": 18,
-      "min": 9
+      "nominal": 36,
+      "min": 30
     },
     {
       "family": "VSS",
+      "kind": "weapon",
+      "nominal": 18,
+      "min": 12
+    },
+    {
+      "family": "Vikhr",
       "kind": "weapon",
       "nominal": 12,
       "min": 6
     },
     {
-      "family": "Vikhr",
-      "kind": "weapon",
-      "nominal": 8,
-      "min": 4
-    },
-    {
       "family": "Ammo_12gaRubberSlug",
       "kind": "ammo",
       "nominal": 1680,
-      "min": 840
+      "min": 1350
     },
     {
       "family": "Ammo_9x39",
       "kind": "ammo",
       "nominal": 2940,
-      "min": 1500
+      "min": 1740
     },
     {
       "family": "Ammo_40mm_Chemgas",
       "kind": "ammo",
       "nominal": 15,
-      "min": 8
+      "min": 9
     },
     {
       "family": "Ammo_40mm_Explosive",
       "kind": "ammo",
       "nominal": 24,
-      "min": 12
+      "min": 15
     },
     {
       "family": "Ammo_40mm_Smoke_Black",
       "kind": "ammo",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "Ammo_40mm_Smoke_Green",
       "kind": "ammo",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "Ammo_40mm_Smoke_Red",
       "kind": "ammo",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "Ammo_40mm_Smoke_White",
       "kind": "ammo",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "Ammo_HuntingBolt",
       "kind": "ammo",
       "nominal": 375,
-      "min": 190
+      "min": 270
     },
     {
       "family": "magazine-Mag_AK101_30Rnd",
       "kind": "magazine",
       "nominal": 48,
-      "min": 24
+      "min": 39
     },
     {
       "family": "magazine-Mag_AK74_45Rnd",
@@ -6876,38 +6879,38 @@
     {
       "family": "magazine-Mag_AKM_Drum75Rnd",
       "kind": "magazine",
-      "nominal": 12,
-      "min": 6
+      "nominal": 3,
+      "min": 0
     },
     {
       "family": "magazine-Mag_AKM_Palm30Rnd",
       "kind": "magazine",
-      "nominal": 12,
+      "nominal": 9,
       "min": 6
     },
     {
       "family": "magazine-Mag_Aug_30Rnd",
       "kind": "magazine",
       "nominal": 18,
-      "min": 9
+      "min": 12
     },
     {
       "family": "magazine-Mag_CMAG_10Rnd",
       "kind": "magazine",
       "nominal": 36,
-      "min": 18
+      "min": 30
     },
     {
       "family": "magazine-Mag_CMAG_20Rnd",
       "kind": "magazine",
       "nominal": 24,
-      "min": 12
+      "min": 15
     },
     {
       "family": "magazine-Mag_CMAG_30Rnd",
       "kind": "magazine",
       "nominal": 18,
-      "min": 9
+      "min": 12
     },
     {
       "family": "magazine-Mag_CMAG_40Rnd",
@@ -6919,31 +6922,31 @@
       "family": "magazine-Mag_CZ550_10Rnd",
       "kind": "magazine",
       "nominal": 24,
-      "min": 12
+      "min": 15
     },
     {
       "family": "magazine-Mag_CZ61_20Rnd",
       "kind": "magazine",
       "nominal": 42,
-      "min": 21
+      "min": 30
     },
     {
       "family": "magazine-Mag_Deagle_9rnd",
       "kind": "magazine",
       "nominal": 90,
-      "min": 45
+      "min": 60
     },
     {
       "family": "magazine-Mag_FAL_20Rnd",
       "kind": "magazine",
       "nominal": 27,
-      "min": 14
+      "min": 18
     },
     {
       "family": "magazine-Mag_FAMAS_25Rnd",
       "kind": "magazine",
       "nominal": 36,
-      "min": 18
+      "min": 30
     },
     {
       "family": "magazine-Mag_M14_10Rnd",
@@ -6961,43 +6964,43 @@
       "family": "magazine-Mag_MKII_10Rnd",
       "kind": "magazine",
       "nominal": 90,
-      "min": 45
+      "min": 60
     },
     {
       "family": "magazine-Mag_PM73_15Rnd",
       "kind": "magazine",
       "nominal": 36,
-      "min": 18
+      "min": 24
     },
     {
       "family": "magazine-Mag_PM73_25Rnd",
       "kind": "magazine",
       "nominal": 21,
-      "min": 11
+      "min": 15
     },
     {
       "family": "magazine-Mag_PP19_64Rnd",
       "kind": "magazine",
       "nominal": 36,
-      "min": 18
+      "min": 30
     },
     {
       "family": "magazine-Mag_Ruger1022_30Rnd",
       "kind": "magazine",
       "nominal": 90,
-      "min": 45
+      "min": 60
     },
     {
       "family": "magazine-Mag_SSG82_5rnd",
       "kind": "magazine",
       "nominal": 30,
-      "min": 15
+      "min": 21
     },
     {
       "family": "magazine-Mag_STANAG_60Rnd",
       "kind": "magazine",
-      "nominal": 12,
-      "min": 6
+      "nominal": 9,
+      "min": 3
     },
     {
       "family": "magazine-Mag_SV98_10Rnd",
@@ -7009,13 +7012,13 @@
       "family": "magazine-Mag_Saiga_5Rnd",
       "kind": "magazine",
       "nominal": 30,
-      "min": 15
+      "min": 21
     },
     {
       "family": "magazine-Mag_Saiga_Drum20Rnd",
       "kind": "magazine",
-      "nominal": 12,
-      "min": 6
+      "nominal": 9,
+      "min": 3
     },
     {
       "family": "magazine-Mag_Scout_5Rnd",
@@ -7027,7 +7030,7 @@
       "family": "magazine-Mag_UMP_25Rnd",
       "kind": "magazine",
       "nominal": 54,
-      "min": 27
+      "min": 45
     },
     {
       "family": "magazine-Mag_VAL_20Rnd",
@@ -7039,85 +7042,85 @@
       "family": "magazine-Mag_VSS_10Rnd",
       "kind": "magazine",
       "nominal": 18,
-      "min": 9
+      "min": 12
     },
     {
       "family": "magazine-Mag_Vikhr_30Rnd",
       "kind": "magazine",
-      "nominal": 12,
-      "min": 6
+      "nominal": 9,
+      "min": 3
     },
     {
       "family": "attachment_ACOGOptic",
       "kind": "attachment",
       "nominal": 30,
-      "min": 15
+      "min": 18
     },
     {
       "family": "attachment_ACOGOptic_6x",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK74_Hndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK74_WoodBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AKS74U_Bttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK_FoldingBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK_PlasticBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK_PlasticHndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK_RailHndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK_Suppressor",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 6,
+      "min": 3
     },
     {
       "family": "attachment_AK_WoodBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_AK_WoodHndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_BUISOptic",
@@ -7135,91 +7138,91 @@
       "family": "attachment_Fal_FoldingBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_Fal_OeBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_HoloOptic",
       "kind": "attachment",
       "nominal": 48,
-      "min": 24
+      "min": 39
     },
     {
       "family": "attachment_HuntingOptic",
       "kind": "attachment",
       "nominal": 33,
-      "min": 17
+      "min": 27
     },
     {
       "family": "attachment_KashtanOptic",
       "kind": "attachment",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "attachment_KazuarOptic",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 3,
+      "min": 3
     },
     {
       "family": "attachment_KobraOptic",
       "kind": "attachment",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "attachment_M4_CQBBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_CarryHandleOptic",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_MPBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_MPHndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_OEBttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_PlasticHndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_RISHndgrd",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_M4_Suppressor",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 6,
+      "min": 3
     },
     {
       "family": "attachment_M4_T3NRDSOptic",
@@ -7231,37 +7234,37 @@
       "family": "attachment_M68Optic",
       "kind": "attachment",
       "nominal": 45,
-      "min": 23
+      "min": 24
     },
     {
       "family": "attachment_MK4Optic_Black",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 6,
+      "min": 3
     },
     {
       "family": "attachment_MK4Optic_Green",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 6,
+      "min": 3
     },
     {
       "family": "attachment_MK4Optic_Tan",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 6,
+      "min": 3
     },
     {
       "family": "attachment_MP5_PlasticHndgrd",
       "kind": "attachment",
       "nominal": 21,
-      "min": 11
+      "min": 15
     },
     {
       "family": "attachment_MP5_RailHndgrd",
       "kind": "attachment",
       "nominal": 21,
-      "min": 11
+      "min": 15
     },
     {
       "family": "attachment_MP5k_StockBttstck",
@@ -7279,25 +7282,25 @@
       "family": "attachment_PSO11Optic",
       "kind": "attachment",
       "nominal": 30,
-      "min": 15
+      "min": 21
     },
     {
       "family": "attachment_PSO1Optic",
       "kind": "attachment",
       "nominal": 30,
-      "min": 15
+      "min": 21
     },
     {
       "family": "attachment_PSO6Optic",
       "kind": "attachment",
       "nominal": 18,
-      "min": 9
+      "min": 12
     },
     {
       "family": "attachment_PUScopeOptic",
       "kind": "attachment",
       "nominal": 105,
-      "min": 53
+      "min": 75
     },
     {
       "family": "attachment_PistolOptic",
@@ -7321,19 +7324,19 @@
       "family": "attachment_Saiga_Bttstck",
       "kind": "attachment",
       "nominal": 15,
-      "min": 8
+      "min": 6
     },
     {
       "family": "attachment_SportingOptic",
       "kind": "attachment",
       "nominal": 75,
-      "min": 38
+      "min": 66
     },
     {
       "family": "attachment_StarlightOptic",
       "kind": "attachment",
-      "nominal": 12,
-      "min": 6
+      "nominal": 3,
+      "min": 3
     }
   ],
   "refusals": [

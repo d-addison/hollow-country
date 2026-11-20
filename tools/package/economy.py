@@ -43,7 +43,7 @@ MUTABLE_ALLOWED = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 're
 # The datamined non-weapon rows (datamined_items.py) may change MUTABLE_ALLOWED on their own classes only.
 # A category may be ADDED, never changed, only on a named class whose stock row has none, and only as
 # the declared category (class -> category).
-CATEGORY_ADDED = {'FilteringBottle': 'tools'}
+CATEGORY_ADDED = {'FilteringBottle': 'tools', 'SKS_Black': 'weapons', 'SKS_Green': 'weapons'}
 
 
 def encode(value):
@@ -254,7 +254,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
               'geometry_changes': [], 'raw_geometry': raw, 'routes': routes,
               'unresolved_placement_names': sorted(n for n in placements if n not in proto),
               'diagnostics': profile['diagnostics'], 'supplementary_loot_budget': 0,
-              'population_budget': 'selected entries copy stock counts/flags; effective merging and world totals unobserved',
+              'population_budget': 'selected roster budgets override stock; native flags retained; effective merging and world totals unobserved',
               'datamined': datamined_report or {'enabled': False, 'classes': []},
               'firearms': firearms_report or {'enabled': False},
               'pending': ['DayZDiag eligibility/geometry', 'normal PBO/server load',
@@ -872,7 +872,7 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
             raise ValueError('new class needs explicit reviewed new-type permission')
         allowed = mutable | MUTABLE_ALLOWED if name in widened else mutable
         # A category may only be added, once, as the declared category, where stock has none.
-        add_category = name in datamined and name in CATEGORY_ADDED and stock[name].find('category') is None
+        add_category = (name in datamined or name in widened) and name in CATEGORY_ADDED and stock[name].find('category') is None
         if add_category:
             cats = item.findall('category')
             if len(cats) > 1 or any(dict(c.attrib) != {'name': CATEGORY_ADDED[name]} or len(c) or (c.text or '').strip()

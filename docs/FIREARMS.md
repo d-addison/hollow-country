@@ -1,104 +1,117 @@
 # Vanilla firearm test abundance (HC-21)
 
-The 2026-11-20 owner decision supersedes the earlier 2x scarcity policy. **TEST ABUNDANCE ships
-on by default; runtime acceptance remains pending.** Quantity and route proposals are for local
-testing with one server and at most one client; 3–6-player budgets remain provisional.
+The owner’s 2026-11-20 **3× vanilla/stock** decision supersedes r4’s 1.5–2×
+profile. Test abundance ships default-on. These are CE configuration budgets;
+spawn, loading, firing and target-load acceptance remain pending. Acceptance uses
+one server and at most one client; 3–6-player budgets remain provisional.
 
-The single knob is `economy_profile` in `tools/package/firearms_roster.json`: `test-abundance`
-(default) or `scarcity`. The embedded `scarcity_policy` preserves the previous entries and family
-caps exactly. Switch the knob, regenerate the release economy, then reinstall through the supported
-bundle flow; editing a deployed JSON alone does not replace CE XML or reset existing CE storage.
-The selector is shared by firearms generation, combined `economy.generate` and installer validation.
-Friend-bundle export already passes the roster with `include_datamined=True` and
-`include_roster_datamined=True`; no optional-pack or installer changes are required.
+`economy_profile` in `tools/package/firearms_roster.json` selects `test-abundance`
+(default) or `scarcity`. The embedded `scarcity_policy` retains its historical
+entries and caps unchanged. Regenerate and reinstall through the bundle flow;
+editing deployed JSON does not replace XML or reset CE storage.
 
-Abundance entries are explicit authored numbers derived from the inspected installed stock
-`db/types.xml`. Ordinary weapons use at least ceil(stock nominal × 1.5), military rifles and
-long rifles/snipers at least stock × 2; every class has a floor of 6. Previous roster shares × 3
-are also a floor. Parent-derived variants use their inspected parent's stock count when absent;
-zero-stock variants retain at least 6, never an inferred live spawn. Min is ceil(nominal / 2),
-restock 300 seconds. Family envelopes are recalculated from these shares, so the old caps cannot
-silently clamp abundance back to scarcity. All 78 weapon classes (including 3 crossbows) have
-explicit replacement usage and nonempty Tier1–4 values.
+The inspected stock mission has **906 weapon nominal**, including 13 crossbows.
+The brief’s 444 is the historical scarcity proposal, not vanilla stock. Every positive-stock
+weapon row receives exactly **3× its own native nominal and min**. Zero-stock or
+absent recolours use their reviewed native parent row as the baseline; this adds
+**1,110 nominal** separately from the native rows’ **2,718**. The justification on
+each roster entry names that parent. LeeEnfield, MP18 and Luger have entirely
+zero-stock families, so their historical authored baselines (12/8, 4/2, 6/4) receive
+3× separately: **66 nominal**. The enabled total is **3,894**, of which **3,855 are
+firearms** and 39 crossbows. Parent baselines are explicit exceptions, not claimed
+positive stock. Family envelopes sum these per-row allowances rather than sharing
+a parent budget across recolours.
+No positive minimum exceeds its nominal. Family envelopes are recomputed explicitly.
 
-Military weapons use Military Tier2–4; high-end AK101/AK74, ASVAL/VSS, SVD/SV98, M4, AUG,
-FAL (native LAR class), M14 and Scout use Tier3–4. Native CE has tier eligibility rather than a
-per-row numeric tier weight: restricting high-end weapons to Tier3/4 is the intended weighting.
-Police SMGs use Police, hunting rifles use Hunting/Village, pistols use Town/Village/Police/Military.
-M4/FAL/AUG are therefore no longer restricted to ContaminatedArea usage. Native flags, quantities,
-categories, tags and assemblies remain unchanged; native dynamic-event `deloot` flags remain and
-may affect which routes actually spawn a weapon.
+All 78 vanilla weapon rows have explicit usage and tiers. Aug, FAL and M4A1 retain
+ContaminatedArea **and** gain Military usage, with Tier3/4 values. SKS_Black and
+SKS_Green gain the missing `weapons` category, Military usage and Tier2–4 values.
+Only these two named category additions are permitted by both generator and installer;
+other native categories, flags, quantities, assemblies and cost remain unchanged.
 
-The 50 magazines and 47 ammo sources use at least 3× stock and 4× their former roster nominal,
-with a floor of 12, half min and 180-second restock. The 48 native CE-listed positive-stock
-optics, stocks, handguards and suppressors use at least 3× stock, floor 12 and the same restock/min.
-Support has explicit broad usage and Tier1–4. This includes loose/boxed/tracer/AP ammo without
-inventing compatibility, integral optics or cylinder loot. The old `optics` placeholder records a
-historical optional-pack decision; vanilla optics now have ordinary `attachment` support entries.
-Native carrier definitions and default assemblies are preserved and still validated.
+Positive native magazines, ammo and vanilla attachment support use **3× native
+nominal/min**, keeping their stock ratio to the native gun rows. Three zero-stock
+reviewed magazines use 3× their historical authored 20-item baseline (60 total);
+the stock-absent MakarovPB magazine uses 3× its parent’s 60 (180 total).
+Ammo budgets count both loose piles and boxes; their maximum-cartridge envelopes
+remain explicit. Restock remains bounded at 300 seconds for guns and 180 for vanilla
+support. Shared ammo pools and integral magazines mean item ratios are not per-gun
+loadout guarantees.
+
+Both optional allowlists now store the inspected pack’s **own shipped CE nominal/min**
+where a row exists. `test_abundance_multiplier: 3.0` applies to guns, magazines and
+ammo by default, including the friend installer’s `apply_weapon_packs` path.
+CLI `--nominal-scale 1` selects the pack baseline; explicit nominal/tier scales remain
+bounded to 0.25–4 effective scale. Existing optics/attachment budgets remain unchanged.
+Some concrete verified classes have no shipped CE row: their prior authored baselines
+remain explicit exceptions, listed in the rehearsal below. Shipped zero-nominal rows
+remain zero; alternative verified magazines provide compatible support. Optional
+family and shared aggregate validation ceilings cover the supported 4× maximum;
+ceilings are validation bounds, not extra spawned items. Both packs still require
+matching local verification and ordinary Workshop dependencies; nothing is repacked.
 
 <!-- HC21-GENERATED-BEGIN -->
 ## Current authored family policy
 
 Generated from `tools/package/firearms_roster.json`: 78 weapon classes, 53 weapon families, 50 magazine classes and 47 ammo sources (loose, boxed, tracer and specialist).
 
-Weapon nominal ceiling: **2009**; with datamined rows omitted: **1584**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
+Weapon nominal ceiling: **3894**; with datamined rows omitted: **2718**. These are provisional CE proposals for 3–6 players; runtime acceptance remains pending.
 
 | Family | Nominal / min cap | Explicit member shares (nominal / min) |
 | --- | --- | --- |
-| Mosin9130 | 142 / 71 | `Mosin9130` 90/45; `Mosin9130_Woodland` 40/20; `Mosin9130_Black` 6/3; `Mosin9130_Winter` 6/3 |
-| SKS | 70 / 35 | `SKS` 28/14; `SKS_Woodland` 18/9; `SKS_Black` 6/3; `SKS_Desert` 6/3; `SKS_Green` 6/3; `SKS_Winter` 6/3 |
-| Izh18 | 84 / 42 | `Izh18` 84/42 |
-| Izh18Shotgun | 83 / 42 | `Izh18Shotgun` 83/42 |
-| Izh43Shotgun | 48 / 24 | `Izh43Shotgun` 48/24 |
-| Repeater | 48 / 24 | `Repeater` 48/24 |
-| Winchester70 | 46 / 23 | `Winchester70` 18/9; `Winchester70_Black` 14/7; `Winchester70_Green` 14/7 |
-| CZ527 | 212 / 106 | `CZ527` 50/25; `CZ527_Woodland` 50/25; `CZ527_Camo` 50/25; `CZ527_Green` 50/25; `CZ527_desert` 6/3; `CZ527_winter` 6/3 |
-| B95 | 108 / 54 | `B95` 36/18; `B95_Black` 36/18; `B95_Green` 36/18 |
-| LeeEnfield | 36 / 18 | `LeeEnfield` 36/18 |
+| Mosin9130 | 465 / 366 | `Mosin9130` 135/105; `Mosin9130_Woodland` 60/51; `Mosin9130_Black` 135/105; `Mosin9130_Winter` 135/105 |
+| SKS | 228 / 162 | `SKS` 42/30; `SKS_Woodland` 18/12; `SKS_Black` 42/30; `SKS_Desert` 42/30; `SKS_Green` 42/30; `SKS_Winter` 42/30 |
+| Izh18 | 150 / 141 | `Izh18` 150/141 |
+| Izh18Shotgun | 165 / 150 | `Izh18Shotgun` 165/150 |
+| Izh43Shotgun | 90 / 78 | `Izh43Shotgun` 90/78 |
+| Repeater | 90 / 72 | `Repeater` 90/72 |
+| Winchester70 | 63 / 45 | `Winchester70` 21/15; `Winchester70_Black` 21/15; `Winchester70_Green` 21/15 |
+| CZ527 | 450 / 411 | `CZ527` 75/69; `CZ527_Woodland` 75/66; `CZ527_Camo` 75/69; `CZ527_Green` 75/69; `CZ527_desert` 75/69; `CZ527_winter` 75/69 |
+| B95 | 162 / 126 | `B95` 54/42; `B95_Black` 54/42; `B95_Green` 54/42 |
+| LeeEnfield | 36 / 24 | `LeeEnfield` 36/24 |
 | MP18 | 12 / 6 | `MP18` 12/6 |
-| Luger | 18 / 9 | `Luger` 18/9 |
-| SVD | 18 / 9 | `SVD_Wooden` 6/3; `SVD` 12/6 |
-| Mp133Shotgun | 24 / 12 | `Mp133Shotgun` 24/12 |
-| Magnum | 44 / 22 | `Magnum` 38/19; `Magnum_Gold` 6/3 |
-| AKM | 12 / 6 | `AKM` 12/6 |
-| Colt1911 | 51 / 26 | `Colt1911` 39/20; `Engraved1911` 12/6 |
-| Makarov | 210 / 106 | `MakarovIJ70` 105/53; `MakarovPB` 105/53 |
-| P1 | 75 / 38 | `P1` 75/38 |
-| Glock19 | 60 / 30 | `Glock19` 60/30 |
-| FNX45 | 21 / 11 | `FNX45` 21/11 |
-| CZ75 | 30 / 15 | `CZ75` 30/15 |
-| Ruger1022 | 53 / 27 | `Ruger1022` 53/27 |
+| Luger | 18 / 12 | `Luger` 18/12 |
+| SVD | 24 / 12 | `SVD_Wooden` 12/6; `SVD` 12/6 |
+| Mp133Shotgun | 30 / 24 | `Mp133Shotgun` 30/24 |
+| Magnum | 78 / 63 | `Magnum` 75/60; `Magnum_Gold` 3/3 |
+| AKM | 9 / 6 | `AKM` 9/6 |
+| Colt1911 | 93 / 72 | `Colt1911` 78/66; `Engraved1911` 15/6 |
+| Makarov | 420 / 360 | `MakarovIJ70` 210/180; `MakarovPB` 210/180 |
+| P1 | 150 / 138 | `P1` 150/138 |
+| Glock19 | 120 / 105 | `Glock19` 120/105 |
+| FNX45 | 42 / 36 | `FNX45` 42/36 |
+| CZ75 | 60 / 54 | `CZ75` 60/54 |
+| Ruger1022 | 105 / 75 | `Ruger1022` 105/75 |
 | M16A2 | 12 / 6 | `M16A2` 12/6 |
-| AK74 | 18 / 9 | `AK74` 18/9 |
-| MP5K | 24 / 12 | `MP5K` 24/12 |
-| Saiga | 24 / 12 | `Saiga` 24/12 |
-| AK101 | 8 / 4 | `AK101` 8/4 |
-| AKS74U | 16 / 8 | `AKS74U` 16/8 |
-| ASVAL | 6 / 3 | `ASVAL` 6/3 |
-| Aug | 6 / 3 | `Aug` 6/3 |
-| AugShort | 8 / 4 | `AugShort` 8/4 |
-| CZ550 | 28 / 14 | `CZ550` 28/14 |
-| CZ61 | 8 / 4 | `CZ61` 8/4 |
-| Crossbow | 22 / 11 | `Crossbow_Autumn` 8/4; `Crossbow_Black` 8/4; `Crossbow_Wood` 6/3 |
-| Deagle | 46 / 23 | `Deagle` 38/19; `Deagle_Gold` 8/4 |
-| Derringer_Grey | 30 / 15 | `Derringer_Grey` 30/15 |
+| AK74 | 18 / 12 | `AK74` 18/12 |
+| MP5K | 48 / 39 | `MP5K` 48/39 |
+| Saiga | 36 / 30 | `Saiga` 36/30 |
+| AK101 | 12 / 6 | `AK101` 12/6 |
+| AKS74U | 24 / 15 | `AKS74U` 24/15 |
+| ASVAL | 9 / 6 | `ASVAL` 9/6 |
+| Aug | 3 / 3 | `Aug` 3/3 |
+| AugShort | 12 / 9 | `AugShort` 12/9 |
+| CZ550 | 42 / 36 | `CZ550` 42/36 |
+| CZ61 | 15 / 12 | `CZ61` 15/12 |
+| Crossbow | 39 / 21 | `Crossbow_Autumn` 15/9; `Crossbow_Black` 15/9; `Crossbow_Wood` 9/3 |
+| Deagle | 90 / 75 | `Deagle` 75/69; `Deagle_Gold` 15/6 |
+| Derringer_Grey | 60 / 45 | `Derringer_Grey` 60/45 |
 | FAL | 6 / 3 | `FAL` 6/3 |
-| FAMAS | 16 / 8 | `FAMAS` 16/8 |
-| LongHorn | 38 / 19 | `LongHorn` 38/19 |
+| FAMAS | 24 / 18 | `FAMAS` 24/18 |
+| LongHorn | 75 / 60 | `LongHorn` 75/60 |
 | M14 | 6 / 3 | `M14` 6/3 |
-| M4A1 | 6 / 3 | `M4A1` 6/3 |
-| M79 | 6 / 3 | `M79` 6/3 |
-| MKII | 45 / 23 | `MKII` 45/23 |
-| PM73Rak | 8 / 4 | `PM73Rak` 8/4 |
-| PP19 | 21 / 11 | `PP19` 21/11 |
-| R12 | 12 / 6 | `R12` 12/6 |
-| SSG82 | 24 / 12 | `SSG82` 24/12 |
+| M4A1 | 3 / 3 | `M4A1` 3/3 |
+| M79 | 9 / 3 | `M79` 9/3 |
+| MKII | 90 / 81 | `MKII` 90/81 |
+| PM73Rak | 15 / 12 | `PM73Rak` 15/12 |
+| PP19 | 42 / 33 | `PP19` 42/33 |
+| R12 | 18 / 15 | `R12` 18/15 |
+| SSG82 | 36 / 30 | `SSG82` 36/30 |
 | SV98 | 6 / 3 | `SV98` 6/3 |
-| Scout | 16 / 8 | `Scout` 6/3; `Scout_Chernarus` 10/5 |
-| UMP45 | 18 / 9 | `UMP45` 18/9 |
-| VSS | 12 / 6 | `VSS` 12/6 |
-| Vikhr | 8 / 4 | `Vikhr` 8/4 |
+| Scout | 18 / 12 | `Scout` 3/3; `Scout_Chernarus` 15/9 |
+| UMP45 | 36 / 30 | `UMP45` 36/30 |
+| VSS | 18 / 12 | `VSS` 18/12 |
+| Vikhr | 12 / 6 | `Vikhr` 12/6 |
 
 ### Cartridge ceilings
 
@@ -106,27 +119,27 @@ Each nominal/min is multiplied by `unit_rounds`: native pile maximum or box reso
 
 | Ammo family | Nominal / min maximum cartridges | Sources |
 | --- | --- | --- |
-| Ammo_762x54 | 6420 / 3240 | `Ammo_762x54` 180/90 × 20; `AmmoBox_762x54Tracer_20Rnd` 21/11 × 20; `AmmoBox_762x54_20Rnd` 45/23 × 20; `Ammo_762x54Tracer` 75/38 × 20 |
-| Ammo_762x39 | 10200 / 5120 | `Ammo_762x39` 300/150 × 20; `AmmoBox_762x39Tracer_20Rnd` 21/11 × 20; `AmmoBox_762x39_20Rnd` 54/27 × 20; `Ammo_762x39Tracer` 135/68 × 20 |
-| Ammo_308Win | 6420 / 3220 | `Ammo_308Win` 150/75 × 20; `AmmoBox_308WinTracer_20Rnd` 21/11 × 20; `AmmoBox_308Win_20Rnd` 60/30 × 20; `Ammo_308WinTracer` 90/45 × 20 |
-| Ammo_22 | 21750 / 10900 | `Ammo_22` 270/135 × 50; `AmmoBox_22_50Rnd` 165/83 × 50 |
-| Ammo_12gaSlug | 3600 / 1800 | `Ammo_12gaSlug` 300/150 × 10; `AmmoBox_12gaSlug_10Rnd` 60/30 × 10 |
-| Ammo_12gaPellets | 3600 / 1800 | `Ammo_12gaPellets` 300/150 × 10; `AmmoBox_00buck_10rnd` 60/30 × 10 |
-| Ammo_45ACP | 7125 / 3575 | `Ammo_45ACP` 225/113 × 25; `AmmoBox_45ACP_25rnd` 60/30 × 25 |
-| Ammo_9x19 | 9750 / 4875 | `Ammo_9x19` 300/150 × 25; `AmmoBox_9x19_25rnd` 90/45 × 25 |
-| Ammo_357 | 7200 / 3600 | `Ammo_357` 270/135 × 20; `AmmoBox_357_20Rnd` 90/45 × 20 |
-| Ammo_380 | 12600 / 6300 | `Ammo_380` 300/150 × 35; `AmmoBox_380_35rnd` 60/30 × 35 |
-| Ammo_556x45 | 6120 / 3080 | `Ammo_556x45` 150/75 × 20; `AmmoBox_556x45Tracer_20Rnd` 21/11 × 20; `AmmoBox_556x45_20Rnd` 60/30 × 20; `Ammo_556x45Tracer` 75/38 × 20 |
-| Ammo_545x39 | 4560 / 2320 | `Ammo_545x39` 75/38 × 20; `AmmoBox_545x39Tracer_20Rnd` 27/14 × 20; `AmmoBox_545x39_20Rnd` 51/26 × 20; `Ammo_545x39Tracer` 75/38 × 20 |
-| Ammo_12gaRubberSlug | 1680 / 840 | `AmmoBox_12gaRubberSlug_10Rnd` 48/24 × 10; `Ammo_12gaRubberSlug` 120/60 × 10 |
-| Ammo_9x39 | 2940 / 1500 | `AmmoBox_9x39AP_20Rnd` 15/8 × 20; `AmmoBox_9x39_20Rnd` 21/11 × 20; `Ammo_9x39` 66/33 × 20; `Ammo_9x39AP` 45/23 × 20 |
-| Ammo_40mm_Chemgas | 15 / 8 | `Ammo_40mm_Chemgas` 15/8 × 1 |
-| Ammo_40mm_Explosive | 24 / 12 | `Ammo_40mm_Explosive` 24/12 × 1 |
-| Ammo_40mm_Smoke_Black | 45 / 23 | `Ammo_40mm_Smoke_Black` 45/23 × 1 |
-| Ammo_40mm_Smoke_Green | 45 / 23 | `Ammo_40mm_Smoke_Green` 45/23 × 1 |
-| Ammo_40mm_Smoke_Red | 45 / 23 | `Ammo_40mm_Smoke_Red` 45/23 × 1 |
-| Ammo_40mm_Smoke_White | 45 / 23 | `Ammo_40mm_Smoke_White` 45/23 × 1 |
-| Ammo_HuntingBolt | 375 / 190 | `Ammo_HuntingBolt` 75/38 × 5 |
+| Ammo_762x54 | 6420 / 4500 | `Ammo_762x54` 180/135 × 20; `AmmoBox_762x54Tracer_20Rnd` 21/9 × 20; `AmmoBox_762x54_20Rnd` 45/36 × 20; `Ammo_762x54Tracer` 75/45 × 20 |
+| Ammo_762x39 | 10200 / 7080 | `Ammo_762x39` 300/210 × 20; `AmmoBox_762x39Tracer_20Rnd` 21/9 × 20; `AmmoBox_762x39_20Rnd` 54/45 × 20; `Ammo_762x39Tracer` 135/90 × 20 |
+| Ammo_308Win | 6420 / 4080 | `Ammo_308Win` 150/90 × 20; `AmmoBox_308WinTracer_20Rnd` 21/9 × 20; `AmmoBox_308Win_20Rnd` 60/45 × 20; `Ammo_308WinTracer` 90/60 × 20 |
+| Ammo_22 | 21750 / 16500 | `Ammo_22` 270/210 × 50; `AmmoBox_22_50Rnd` 165/120 × 50 |
+| Ammo_12gaSlug | 3600 / 2400 | `Ammo_12gaSlug` 300/195 × 10; `AmmoBox_12gaSlug_10Rnd` 60/45 × 10 |
+| Ammo_12gaPellets | 3600 / 2700 | `Ammo_12gaPellets` 300/225 × 10; `AmmoBox_00buck_10rnd` 60/45 × 10 |
+| Ammo_45ACP | 7125 / 4875 | `Ammo_45ACP` 225/150 × 25; `AmmoBox_45ACP_25rnd` 60/45 × 25 |
+| Ammo_9x19 | 9750 / 7125 | `Ammo_9x19` 300/225 × 25; `AmmoBox_9x19_25rnd` 90/60 × 25 |
+| Ammo_357 | 7200 / 4800 | `Ammo_357` 270/195 × 20; `AmmoBox_357_20Rnd` 90/45 × 20 |
+| Ammo_380 | 12600 / 10500 | `Ammo_380` 300/255 × 35; `AmmoBox_380_35rnd` 60/45 × 35 |
+| Ammo_556x45 | 6120 / 3780 | `Ammo_556x45` 150/90 × 20; `AmmoBox_556x45Tracer_20Rnd` 21/9 × 20; `AmmoBox_556x45_20Rnd` 60/45 × 20; `Ammo_556x45Tracer` 75/45 × 20 |
+| Ammo_545x39 | 4560 / 2400 | `Ammo_545x39` 75/39 × 20; `AmmoBox_545x39Tracer_20Rnd` 27/15 × 20; `AmmoBox_545x39_20Rnd` 51/36 × 20; `Ammo_545x39Tracer` 75/30 × 20 |
+| Ammo_12gaRubberSlug | 1680 / 1350 | `AmmoBox_12gaRubberSlug_10Rnd` 48/30 × 10; `Ammo_12gaRubberSlug` 120/105 × 10 |
+| Ammo_9x39 | 2940 / 1740 | `AmmoBox_9x39AP_20Rnd` 15/6 × 20; `AmmoBox_9x39_20Rnd` 21/9 × 20; `Ammo_9x39` 66/42 × 20; `Ammo_9x39AP` 45/30 × 20 |
+| Ammo_40mm_Chemgas | 15 / 9 | `Ammo_40mm_Chemgas` 15/9 × 1 |
+| Ammo_40mm_Explosive | 24 / 15 | `Ammo_40mm_Explosive` 24/15 × 1 |
+| Ammo_40mm_Smoke_Black | 45 / 24 | `Ammo_40mm_Smoke_Black` 45/24 × 1 |
+| Ammo_40mm_Smoke_Green | 45 / 24 | `Ammo_40mm_Smoke_Green` 45/24 × 1 |
+| Ammo_40mm_Smoke_Red | 45 / 24 | `Ammo_40mm_Smoke_Red` 45/24 × 1 |
+| Ammo_40mm_Smoke_White | 45 / 24 | `Ammo_40mm_Smoke_White` 45/24 × 1 |
+| Ammo_HuntingBolt | 375 / 270 | `Ammo_HuntingBolt` 75/54 × 5 |
 
 ### Formerly off-roster positives
 
@@ -195,9 +208,10 @@ python3 -m tools.package.firearms generate --no-datamined --source <stock-missio
 ```
 
 Weapon and magazine families use item counts. Ammo families use maximum cartridge equivalents:
-`sum(nominal * unit_rounds)` and `sum(min * unit_rounds)`. Boxes, tracer and AP rows take shares from their
-existing loose-round allowance; they do not add a second allowance. Native `quantmin/quantmax`, flags,
-categories, cost, loading, firing and repair definitions are retained. Placement and restock follow the selected authored profile. Magazines retain
+`sum(nominal * unit_rounds)` and `sum(min * unit_rounds)`. Boxes, tracer and AP rows use the selected native-based support budgets;
+their item counts and maximum-cartridge envelopes are reported separately. Native `quantmin/quantmax`, flags,
+cost, loading, firing and repair definitions are retained. Categories remain native except
+the two explicitly reviewed missing SKS categories described above. Placement and restock follow the selected authored profile. Magazines retain
 separate item caps; actual filled-magazine rounds and attached/carrier throughput remain pending measurement.
 The empty `AmmoBox` storage container is not an ammunition box and remains native container loot.
 
@@ -252,90 +266,448 @@ datamined rows omitted), 360 magazine nominal / 248 min and 11,644 / 8,194 maxim
 ammo proposal. That historical mode restores its old placement fields too. The new loose optics/parts
 support rows are absent in scarcity, leaving their stock CE policy intact.
 
-## 2026-11-20 scratch rehearsal
+## 2026-11-20 r5 scratch rehearsal
 
-Read-only evidence: installed mission `db/types.xml`, `cfglimitsdefinition.xml` and
-`cfgspawnabletypes.xml`. The inspected copy differs from the lead's earlier live-107 measurement
-(409 nominal / approximately 122 Tier4-eligible): its 63 stock-backed overridden weapon classes
-sum to **406** nominal against **882** stock, with **102** Tier4-eligible nominal. Seven additional
-parent-derived rows give 70 overridden rows, 420 nominal and 110 Tier4-eligible nominal. These are
-file sums, not observed world populations. Case-insensitive class matching is used throughout.
+Read-only inputs: the installed mission’s native CE files, recorded rollback inputs,
+and each local pack’s shipped types XML and verifier evidence. The installed bundle’s
+full rollback refused unrelated `db/events.xml` drift. On the scratch copy only, the
+recorded bundle receipt supplied the baseline core; CE inputs were recovered from
+validated earlier-layer backups. The live mission was never written.
 
-| Comparison set | Before nominal | After nominal | Before Tier4-eligible nominal | After Tier4-eligible nominal |
-| --- | ---: | ---: | ---: | ---: |
-| Same 63 stock-backed overrides | 406 | 1,620 | 102 | 1,620 |
-| Same 70 installed overrides including parent-derived rows | 420 | 1,925 | 110 | 1,925 |
-| Complete 78-class authored roster | 444 (preserved scarcity) | 2,009 | inherited stock placement, not a fixed authored total | 2,009 |
+The native copied stock nominal total is 21,090. Table baselines for optional packs
+include the explicitly authored missing-row exceptions below. Vanilla support baselines
+exclude the separately stated absent/zero-row allowances. Weapon totals include crossbows.
 
-The 78 weapon rows include **75 firearms and 3 crossbows**; firearms alone total **1,987** nominal.
-The generated combined economy has **311 rows**, including all **223 roster rows**: 78 weapons,
-50 magazines (**2,204** nominal), 47 ammo sources (**4,845** nominal item/pile rows, **104,559**
-maximum-cartridge equivalents) and 48 optics/part rows (**1,164** nominal). Every weapon has explicit
-usage and nonempty tiers; all meet the 1.5× stock floor, and authored military/long rifles meet the
-2× stock floor and minimum 6. The checked-in CE overlay matches generated roster fields exactly and
-retains unrelated authored rows. No duplicate class rows were added.
+| Layer | Kind | Native/shipped baseline | r4 proposal | r5 default |
+| --- | --- | ---: | ---: | ---: |
+| vanilla | weapon | 906 | 2,009 | 3,894 |
+| vanilla | magazine | 624 | 2,204 | 2,112 |
+| vanilla | ammo | 1,615 | 4,845 | 4,845 |
+| vanilla | attachment | 372 | 1,164 | 1,116 |
+| SNAFU | weapon | 197 | 352 | 591 |
+| SNAFU | magazine | 178 | 1,273 | 534 |
+| SNAFU | ammo | 14 | 352 | 42 |
+| SNAFU | attachment | 6,887 | 6,887 | 6,887 |
+| TF | weapon | 313 | 336 | 939 |
+| TF | magazine | 249 | 890 | 747 |
+| TF | ammo | 93 | 168 | 279 |
+| TF | attachment | 5,383 | 5,383 | 5,383 |
 
-Top 20 generated weapon rows, ordered by nominal descending then class:
+Across all three layers: weapons **2,697 → 5,424** (+2,727), magazines
+**4,367 → 3,393** (−974), ammo item/pile rows **5,365 → 5,166** (−199),
+attachments **13,434 → 13,386** (−48). Net CE nominal change from r4: **+1,506**.
+The resulting aggregate ratios are 0.626 magazine items and 0.952 loose/boxed ammo
+items per weapon nominal; compatible sources are checked per gun, not inferred from
+aggregate ratios. Ammo and magazine scaling is 3× each positive baseline, matching
+gun-row scaling; quantities and carrier throughput remain engine-owned.
 
-| Class | Nominal | Min | Usage | Tiers |
-| --- | ---: | ---: | --- | --- |
-| `MakarovIJ70` | 105 | 53 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `MakarovPB` | 105 | 53 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Mosin9130` | 90 | 45 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Izh18` | 84 | 42 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Izh18Shotgun` | 83 | 42 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `P1` | 75 | 38 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Glock19` | 60 | 30 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Ruger1022` | 53 | 27 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `CZ527` | 50 | 25 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `CZ527_Camo` | 50 | 25 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `CZ527_Green` | 50 | 25 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `CZ527_Woodland` | 50 | 25 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Izh43Shotgun` | 48 | 24 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Repeater` | 48 | 24 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `MKII` | 45 | 23 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Mosin9130_Woodland` | 40 | 20 | Hunting, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Colt1911` | 39 | 20 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Deagle` | 38 | 19 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `LongHorn` | 38 | 19 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
-| `Magnum` | 38 | 19 | Military, Police, Town, Village | Tier1, Tier2, Tier3, Tier4 |
+The checked-in 470-row CE overlay preserves every unrelated row and changes total
+nominal **10,673 → 12,418** (+1,745). Fresh combined economy plus both optional layers
+has effective CE nominal **45,079** before ordinary loot boost, versus native-only
+**21,090** (+23,989, including existing non-weapon and attachment policies). With
+ordinary 2× loot boost and the main r4 geometry, effective nominal is **61,245**
+(+40,155 versus unboosted native-only); that boost does not multiply roster gun/support
+budgets again. These sums describe file overrides, never observed world populations.
 
-Rehearsal used an isolated `/tmp/hc-gunqty/` mission copied from the installed files. The installed
-release lacks the economy rollback receipt, so `friend_bundle.fresh_economy` on an untouched copy
-refuses with `no valid receipt and unexpected managed content; rollback refuses deletion`.
-The existing receipt safety check was preserved. Only the scratch copy was then prepared with stock
-CE registrations and no HC managed directories. On that clean scratch, the actual bundle helper,
-`economy.generate(..., include_datamined=True, roster=..., include_roster_datamined=True)`,
-`economy.install_delta` and rollback completed. The installed server was never written.
+### Missing shipped CE rows
 
-Rehearsal output tail:
+These exceptions use the prior authored nominal/min as a baseline, multiplied by 3.
+No native or vendor nominal is claimed for them.
+
+| Pack | Class | Authored baseline nominal/min | Default nominal/min |
+| --- | --- | ---: | ---: |
+| SNAFU | `SNAFUMDAR_30rndMagB` | 8/4 | 24/12 |
+| SNAFU | `SNAFUMDAR_30rndMagT` | 8/4 | 24/12 |
+| SNAFU | `SNAFUMDAR_60rndMagB` | 8/4 | 24/12 |
+| SNAFU | `SNAFUMDAR_60rndMagT` | 8/4 | 24/12 |
+| SNAFU | `SNAFU_Bren_30rdMag` | 8/4 | 24/12 |
+| SNAFU | `SNAFU_G3A3_20rdMag` | 8/4 | 24/12 |
+| SNAFU | `SNAFU_M60_100rdMag` | 8/4 | 24/12 |
+| SNAFU | `SG552_Gun` | 2/1 | 6/3 |
+| SNAFU | `SN_AKM` | 2/1 | 6/3 |
+| SNAFU | `SNAFUDSASA58_Gun` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_M4556_Modular10_GUN` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_M4556_Modular14DV_GUN` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARSBR_Black` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARSBR_Green` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARSBR_Tan` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARCAR_Black` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARCAR_Green` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARCAR_Tan` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARRIF_Black` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARRIF_Green` | 2/1 | 6/3 |
+| SNAFU | `SNAFUMDARRIF_Tan` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_AK5C` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_BR18` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_Bren` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_G3A3` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_M60` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_RDB` | 2/1 | 6/3 |
+| SNAFU | `SNAFU_M70` | 2/1 | 6/3 |
+| TF | `TF_Mag_SWORD_Mk18_10Rnd` | 18/9 | 54/27 |
+| TF | `TF_Ammo_40mm_HEDP` | 48/24 | 144/72 |
+| TF | `TF_M24` | 6/3 | 18/9 |
+| TF | `TF_SWORD_Mk18_Mjolnir` | 6/3 | 18/9 |
+
+### Rehearsal output tail
+
+Base `economy.generate/write_delta/install_delta` and optional
+`apply_weapon_packs` are the friend bundle’s existing entry points. The final
+rehearsal also completed reverse-stack rollback and reinstall with matching reports.
 
 ```text
-friend_bundle.fresh_economy generated 311 rows
-economy.install_delta OK
-economy.rollback OK: source hashes restored
-scarcity selector OK: 444 weapon nominal
-abundance floor/tiers/min and authored/export consistency OK
-scarcity selector generate/install/rollback OK: 444 nominal, source bytes restored
+base economy generate/install PASS
+optional weapons SNAFU: verify verified types=501
+optional weapons SNAFU: generate types=501 firearm_nominal=591
+optional weapons SNAFU: installed; receipt and rollback backup written; runtime=PENDING
+optional weapons TF: verify verified types=206
+optional weapons TF: generate types=206 firearm_nominal=939
+optional weapons TF: installed; receipt and rollback backup written; runtime=PENDING
+reverse-stack rollback PASS
+friend base economy entry points PASS 3894
+loot install PASS
+vanilla weapons 78 min/median 401 1744
+SNAFU firearms 176 min/median 401 1744
+TF firearms 56 min/median 401 1744
+under20 []
+REHEARSAL PASS runtime=PENDING
 ```
 
-Focused existing tooling checks (no new tests):
+Full `shipped_points()` currently refuses **81 overlapping groups** between
+`additions.json` and `additions-interiors.json`. Those files belong to other workers.
+The successful geometry rehearsal explicitly used the requested main r4
+`additions.json` plus current receivers/floor policy. The full friend geometry install
+remains blocked until the lead reconciles that overlap; it is not called accepted.
 
-```sh
-python3 -B -m unittest tests.slow.test_firearms_roster tests.slow.test_hc_firearm_families tests.slow.test_economy_contract
-```
+### Eligible prototype points per weapon
 
-Result: **Ran 77 tests / OK**. Existing scarcity assertions now explicitly exercise the archived
-selector; synthetic usage vocabularies and reviewed-parent expectations reflect authored replacement
-routes. The older fixed seven-row overlay fixture now allows additional authored CE rows.
+Counted from the final stock prototype plus main r4 additions and receivers using
+`loot_boost.plan/install` and `loot_floor_policy._scan/_matches`: positive group and
+container capacity, category intersection, usage intersection and retagged shelf
+eligibility. Counts are unique prototype point opportunities, not multiplied by
+building placements. Map area tiers, dynamic-event semantics, clearance and actual
+native spawn acceptance are unobserved. Min/median: **401 / 1,744** in each layer;
+all 310 weapon rows exceed 20. Vanilla includes three crossbows.
 
-Still unproven in DayZ: native CE merging, restock rates, usable shelf eligibility and placement,
-actual gun/ammo/magazine/optic acquisition, attachment compatibility with optional packs, SV98 function,
-server boot/error output and one-client inventory/assembly/use. Native dynamic-event flags remain
-unchanged and need observation. No multiplayer or 3–6-player performance proof is claimed.
-The loot-point worker owns the reported zero-compatible-shelf problem. The bundle owner needs to
-reconcile missing economy receipts on existing installed release copies if export from those copies
-is required; the clean-input generation path itself passes.
+| Layer | Weapon | Eligible proto points |
+| --- | --- | ---: |
+| vanilla | `Mosin9130` | 401 |
+| vanilla | `Mosin9130_Woodland` | 401 |
+| vanilla | `SKS` | 1,744 |
+| vanilla | `SKS_Woodland` | 1,744 |
+| vanilla | `Izh18` | 401 |
+| vanilla | `Izh18Shotgun` | 401 |
+| vanilla | `Izh43Shotgun` | 401 |
+| vanilla | `Repeater` | 401 |
+| vanilla | `Winchester70` | 401 |
+| vanilla | `CZ527` | 401 |
+| vanilla | `CZ527_Woodland` | 401 |
+| vanilla | `B95` | 401 |
+| vanilla | `LeeEnfield` | 401 |
+| vanilla | `MP18` | 515 |
+| vanilla | `Luger` | 2,355 |
+| vanilla | `SKS_Black` | 1,744 |
+| vanilla | `SKS_Desert` | 1,744 |
+| vanilla | `SKS_Green` | 1,744 |
+| vanilla | `SKS_Winter` | 1,744 |
+| vanilla | `Mosin9130_Black` | 401 |
+| vanilla | `Mosin9130_Winter` | 401 |
+| vanilla | `SVD_Wooden` | 1,744 |
+| vanilla | `Mp133Shotgun` | 401 |
+| vanilla | `Magnum` | 2,355 |
+| vanilla | `AKM` | 1,744 |
+| vanilla | `Colt1911` | 2,355 |
+| vanilla | `MakarovIJ70` | 2,355 |
+| vanilla | `P1` | 2,355 |
+| vanilla | `Glock19` | 2,355 |
+| vanilla | `FNX45` | 2,355 |
+| vanilla | `CZ75` | 2,355 |
+| vanilla | `Ruger1022` | 2,355 |
+| vanilla | `M16A2` | 1,744 |
+| vanilla | `AK74` | 1,744 |
+| vanilla | `MP5K` | 515 |
+| vanilla | `Saiga` | 1,744 |
+| vanilla | `SVD` | 1,744 |
+| vanilla | `MakarovPB` | 2,355 |
+| vanilla | `Winchester70_Black` | 401 |
+| vanilla | `Winchester70_Green` | 401 |
+| vanilla | `B95_Black` | 401 |
+| vanilla | `B95_Green` | 401 |
+| vanilla | `CZ527_Camo` | 401 |
+| vanilla | `CZ527_Green` | 401 |
+| vanilla | `CZ527_desert` | 401 |
+| vanilla | `CZ527_winter` | 401 |
+| vanilla | `AK101` | 1,744 |
+| vanilla | `AKS74U` | 1,744 |
+| vanilla | `ASVAL` | 1,744 |
+| vanilla | `Aug` | 1,744 |
+| vanilla | `AugShort` | 1,744 |
+| vanilla | `CZ550` | 401 |
+| vanilla | `CZ61` | 515 |
+| vanilla | `Crossbow_Autumn` | 2,355 |
+| vanilla | `Crossbow_Black` | 2,355 |
+| vanilla | `Crossbow_Wood` | 2,355 |
+| vanilla | `Deagle` | 2,355 |
+| vanilla | `Deagle_Gold` | 2,355 |
+| vanilla | `Derringer_Grey` | 2,355 |
+| vanilla | `Engraved1911` | 2,355 |
+| vanilla | `FAL` | 1,744 |
+| vanilla | `FAMAS` | 1,744 |
+| vanilla | `LongHorn` | 2,355 |
+| vanilla | `M14` | 1,744 |
+| vanilla | `M4A1` | 1,744 |
+| vanilla | `M79` | 1,744 |
+| vanilla | `MKII` | 2,355 |
+| vanilla | `Magnum_Gold` | 2,355 |
+| vanilla | `PM73Rak` | 515 |
+| vanilla | `PP19` | 515 |
+| vanilla | `R12` | 1,744 |
+| vanilla | `SSG82` | 401 |
+| vanilla | `SV98` | 1,744 |
+| vanilla | `Scout` | 1,744 |
+| vanilla | `Scout_Chernarus` | 1,744 |
+| vanilla | `UMP45` | 515 |
+| vanilla | `VSS` | 1,744 |
+| vanilla | `Vikhr` | 1,744 |
+| SNAFU | `GCGN_BenelliM4` | 401 |
+| SNAFU | `GCGN_HK416` | 1,744 |
+| SNAFU | `GCGN_M110_Black` | 1,744 |
+| SNAFU | `GCGN_M110_Green` | 1,744 |
+| SNAFU | `GCGN_M110_Tan` | 1,744 |
+| SNAFU | `GCGN_M1Garand` | 2,252 |
+| SNAFU | `GCGN_M200` | 1,744 |
+| SNAFU | `GCGN_M200_Tan` | 1,744 |
+| SNAFU | `SNAFU_M200Green` | 1,744 |
+| SNAFU | `SNAFU_M200SNOW` | 1,744 |
+| SNAFU | `GCGN_M249` | 1,744 |
+| SNAFU | `GCGN_M700` | 401 |
+| SNAFU | `GCGN_M82_Barret` | 1,744 |
+| SNAFU | `GCGN_MP7` | 2,252 |
+| SNAFU | `GCGN_Vepr` | 401 |
+| SNAFU | `GCGN_Vityaz` | 2,252 |
+| SNAFU | `AA12_Gun` | 1,744 |
+| SNAFU | `ACR_Gun` | 1,744 |
+| SNAFU | `HK416_Gun` | 1,744 |
+| SNAFU | `SNHK417_Gun` | 1,744 |
+| SNAFU | `IA2_Gun` | 1,744 |
+| SNAFU | `MK18_Gun` | 1,744 |
+| SNAFU | `SNSA58_Gun` | 1,744 |
+| SNAFU | `SCAR_Gun` | 1,744 |
+| SNAFU | `SG550_Gun` | 1,744 |
+| SNAFU | `SG552_Gun` | 1,744 |
+| SNAFU | `Spas12_Gun` | 1,744 |
+| SNAFU | `Tec9_Gun` | 2,252 |
+| SNAFU | `VR80_Gun` | 1,744 |
+| SNAFU | `SNAFU_AK103A` | 1,744 |
+| SNAFU | `SNAFU_AK12A` | 1,744 |
+| SNAFU | `SNAFU_AK19` | 1,744 |
+| SNAFU | `SNAFU_AK308` | 1,744 |
+| SNAFU | `SN_Auto_Shotgun` | 1,744 |
+| SNAFU | `SN_Glock19` | 2,252 |
+| SNAFU | `SN_M870` | 401 |
+| SNAFU | `SN_M9` | 2,252 |
+| SNAFU | `SN_Mp443` | 2,252 |
+| SNAFU | `SNAFU_PDW_9mm` | 1,744 |
+| SNAFU | `SNAFU_PDW_45ACP` | 1,744 |
+| SNAFU | `SNAFU_PL14HQP` | 2,252 |
+| SNAFU | `SNAFU_RPK16_Black` | 1,744 |
+| SNAFU | `SNAFU_RPK16_Green` | 1,744 |
+| SNAFU | `SNAFU_RPK16_Tan` | 1,744 |
+| SNAFU | `SN_Springfield` | 2,252 |
+| SNAFU | `SNAFU_TP82S` | 401 |
+| SNAFU | `SN_USP` | 2,252 |
+| SNAFU | `SNAFU_AEK545_Gun` | 1,744 |
+| SNAFU | `SN_AKM` | 1,744 |
+| SNAFU | `SNAFU_AWM_GUN` | 1,744 |
+| SNAFU | `SNAFU_CZ805_Gun` | 1,744 |
+| SNAFU | `SNAFU_KAC_Gun` | 1,744 |
+| SNAFU | `SNAFU_Agram_GUN` | 2,252 |
+| SNAFU | `SNAFU_AS50_GUN` | 1,744 |
+| SNAFU | `SNAFU_CALI_GUN` | 1,744 |
+| SNAFU | `SNAFU_Fort12_GUN` | 2,252 |
+| SNAFU | `SNAFU_MP9_GUN` | 2,252 |
+| SNAFU | `SNAFU_MPX_GUN` | 2,252 |
+| SNAFU | `Snafu_PKP_Black_GUN` | 1,744 |
+| SNAFU | `Snafu_PKP_NBlack_GUN` | 1,744 |
+| SNAFU | `SNAFUAX50_GUN` | 1,744 |
+| SNAFU | `SNAFUM24_GUN` | 1,744 |
+| SNAFU | `SNAFUM98B_Atac_GUN` | 1,744 |
+| SNAFU | `SNAFUM98B_Digi_GUN` | 1,744 |
+| SNAFU | `SNAFUM98B_Ger_GUN` | 1,744 |
+| SNAFU | `SNAFUM98B_Mc_GUN` | 1,744 |
+| SNAFU | `SNAFUM98B_Snow_GUN` | 1,744 |
+| SNAFU | `SNAFUM98B_Wood_GUN` | 1,744 |
+| SNAFU | `SNAFURSASS_Wood_GUN` | 1,744 |
+| SNAFU | `SNAFURSASS_od_GUN` | 1,744 |
+| SNAFU | `SNAFURSASS_dkmc_GUN` | 1,744 |
+| SNAFU | `SNAFUT5000_Dkmcc_GUN` | 1,744 |
+| SNAFU | `SNAFUT5000_Snow_GUN` | 1,744 |
+| SNAFU | `SNAFUT5000_Wood_GUN` | 1,744 |
+| SNAFU | `SNAFUVECTOR_9mm_GUN` | 2,252 |
+| SNAFU | `SNAFUVECTOR_45acp_GUN` | 2,252 |
+| SNAFU | `SNAFU_SR25_Gun` | 1,744 |
+| SNAFU | `SNAFU_ADAR_Modular16_GUN` | 1,744 |
+| SNAFU | `SNAFU_AR15_Modular16_GUN` | 1,744 |
+| SNAFU | `SNAFUDSASA58_Gun` | 1,744 |
+| SNAFU | `SNAFU_LVOA556_GUN` | 1,744 |
+| SNAFU | `SNAFU_M300BK` | 1,744 |
+| SNAFU | `SNAFU_M300TAN` | 1,744 |
+| SNAFU | `SNAFU_M300Green` | 1,744 |
+| SNAFU | `SNAFU_M4300AC_10_GUN` | 1,744 |
+| SNAFU | `SNAFU_M4300AC_14_GUN` | 1,744 |
+| SNAFU | `SNAFU_M4300AC_16_GUN` | 1,744 |
+| SNAFU | `SNAFU_M4300AC_14DV_GUN` | 1,744 |
+| SNAFU | `SNAFU_M4556_Modular10_GUN` | 1,744 |
+| SNAFU | `M4_6933_Gun` | 1,744 |
+| SNAFU | `SNAFU_M4556_Modular14_GUN` | 1,744 |
+| SNAFU | `SNAFU_M4556_Modular16_GUN` | 1,744 |
+| SNAFU | `SNAFU_M4556_Modular14DV_GUN` | 1,744 |
+| SNAFU | `GCGN_M4A1` | 1,744 |
+| SNAFU | `SNAFUMDARSBR_Black` | 1,744 |
+| SNAFU | `SNAFUMDARSBR_Green` | 1,744 |
+| SNAFU | `SNAFUMDARSBR_Tan` | 1,744 |
+| SNAFU | `SNAFUMDARCAR_Black` | 1,744 |
+| SNAFU | `SNAFUMDARCAR_Green` | 1,744 |
+| SNAFU | `SNAFUMDARCAR_Tan` | 1,744 |
+| SNAFU | `SNAFUMDARRIF_Black` | 1,744 |
+| SNAFU | `SNAFUMDARRIF_Green` | 1,744 |
+| SNAFU | `SNAFUMDARRIF_Tan` | 1,744 |
+| SNAFU | `SNAFU_MK4710Gun` | 1,744 |
+| SNAFU | `SNAFU_MK4716Gun` | 1,744 |
+| SNAFU | `SNAFU_Saint556_Gun` | 1,744 |
+| SNAFU | `SNAFU_Saint_Gun` | 1,744 |
+| SNAFU | `SNAFU_AR15SPRBK` | 1,744 |
+| SNAFU | `SNAFU_AR15SPRTAN` | 1,744 |
+| SNAFU | `SNAFUAR15_SPR_Black_GUN` | 1,744 |
+| SNAFU | `SNAFUAR15_SPR_Tan_GUN` | 1,744 |
+| SNAFU | `SNAFUVSSK` | 1,744 |
+| SNAFU | `SNAFUKivaari_Black_GUN` | 1,744 |
+| SNAFU | `SNAFUKivaari_Tan_GUN` | 1,744 |
+| SNAFU | `SNAFUKivaari_Grey_GUN` | 1,744 |
+| SNAFU | `SNAFUKivaari_Snow_GUN` | 1,744 |
+| SNAFU | `SNAFU_MAR10_Black_GUN` | 1,744 |
+| SNAFU | `Snafu_ScarH_Black_GUN` | 1,744 |
+| SNAFU | `Snafu_ScarH_DKMC_GUN` | 1,744 |
+| SNAFU | `Snafu_ScarH_OD_GUN` | 1,744 |
+| SNAFU | `Snafu_ScarH_Snow_GUN` | 1,744 |
+| SNAFU | `Snafu_ScarH_Tan_GUN` | 1,744 |
+| SNAFU | `SNAFUSR3_Vikhr` | 1,744 |
+| SNAFU | `SR3_Vikhr_Gun` | 1,744 |
+| SNAFU | `SNAFU_AK5C` | 1,744 |
+| SNAFU | `SNAFU_BR18` | 1,744 |
+| SNAFU | `SNAFU_Bren` | 1,744 |
+| SNAFU | `SNAFUChiappaRhino` | 2,252 |
+| SNAFU | `SNAFU_G3A3` | 1,744 |
+| SNAFU | `SNAFU_M60` | 1,744 |
+| SNAFU | `SNAFUPPSh` | 2,252 |
+| SNAFU | `SNAFU_RDB` | 1,744 |
+| SNAFU | `SNAFURPD` | 1,744 |
+| SNAFU | `SNAFUSten` | 2,252 |
+| SNAFU | `SNAFUSWM629` | 2,252 |
+| SNAFU | `SNAFUMagnum500` | 2,252 |
+| SNAFU | `SNAFUAlligator` | 1,744 |
+| SNAFU | `SNAFUAPS` | 2,252 |
+| SNAFU | `SNAFUTAR21_Black` | 1,744 |
+| SNAFU | `SNAFUTAR21_Tan` | 1,744 |
+| SNAFU | `SNAFUTAR21_Green` | 1,744 |
+| SNAFU | `SNAFUASh12` | 1,744 |
+| SNAFU | `SNAFUAUG` | 1,744 |
+| SNAFU | `SNAFUAUG_BK` | 1,744 |
+| SNAFU | `SNAFUDVL10M2` | 1,744 |
+| SNAFU | `SNAFUFAMAS` | 1,744 |
+| SNAFU | `SNAFUGevar_Grey` | 1,744 |
+| SNAFU | `SNAFUGevar_Black` | 1,744 |
+| SNAFU | `SNAFUGevar_Green` | 1,744 |
+| SNAFU | `SNAFUGevar_Tan` | 1,744 |
+| SNAFU | `SNAFUGM6Lynx` | 1,744 |
+| SNAFU | `SNAFUHoneyBadger_Black` | 1,744 |
+| SNAFU | `SNAFUHoneyBadger_Tan` | 1,744 |
+| SNAFU | `SNAFUKH9` | 1,744 |
+| SNAFU | `SNAFUM1A_Black` | 401 |
+| SNAFU | `SNAFUM1A_Green` | 401 |
+| SNAFU | `SNAFUM1A_Tan` | 401 |
+| SNAFU | `SNAFUM96` | 1,744 |
+| SNAFU | `SNAFUMarlin1895` | 401 |
+| SNAFU | `SNAFUMk12` | 1,744 |
+| SNAFU | `SNAFUP90` | 1,744 |
+| SNAFU | `SNAFUPPSKN` | 2,252 |
+| SNAFU | `SNAFUSA80` | 1,744 |
+| SNAFU | `SNAFUSRSA2` | 1,744 |
+| SNAFU | `SNAFUTac21` | 1,744 |
+| SNAFU | `SNAFUThompsonMk2` | 2,252 |
+| SNAFU | `SNAFUUzi` | 2,252 |
+| SNAFU | `SNAFU_M1918A2` | 2,252 |
+| SNAFU | `SNAFU_M70` | 1,744 |
+| SNAFU | `SNAFU_U100` | 1,744 |
+| SNAFU | `SNAFU_M14` | 1,744 |
+| SNAFU | `SNAFU_M76` | 1,744 |
+| SNAFU | `SNAFU_SKS` | 1,744 |
+| SNAFU | `SNAFU_Trenchgun` | 401 |
+| SNAFU | `SNAFU_FRF2` | 1,744 |
+| SNAFU | `SNAFU_M48` | 401 |
+| TF | `TF_ADAR2_15` | 401 |
+| TF | `TF_AK101` | 1,744 |
+| TF | `TF_AK102` | 1,744 |
+| TF | `TF_AK103` | 1,744 |
+| TF | `TF_AK104` | 1,744 |
+| TF | `TF_AK105` | 1,744 |
+| TF | `TF_AK105_Bullpup` | 1,744 |
+| TF | `TF_AK74M` | 1,744 |
+| TF | `TF_AKM` | 1,744 |
+| TF | `TF_AKMN` | 1,744 |
+| TF | `TF_AKS74U` | 1,744 |
+| TF | `TF_AN94` | 1,744 |
+| TF | `TF_AN94M` | 1,744 |
+| TF | `TF_Anzio20` | 1,744 |
+| TF | `TF_FiveSeven` | 2,252 |
+| TF | `TF_M14_DMR` | 1,744 |
+| TF | `TF_M14_EBR` | 1,744 |
+| TF | `TF_M14_STD` | 1,744 |
+| TF | `TF_M1A_Black` | 401 |
+| TF | `TF_M1A_OD` | 401 |
+| TF | `TF_M1A_Tan` | 401 |
+| TF | `TF_M4A1` | 1,744 |
+| TF | `TF_M4A1_CQBR` | 1,744 |
+| TF | `TF_M79` | 1,744 |
+| TF | `TF_M79_AOR1` | 1,744 |
+| TF | `TF_MAR10` | 1,744 |
+| TF | `TF_SCAR_L_FDE` | 1,744 |
+| TF | `TF_SCAR_L_Black` | 1,744 |
+| TF | `TF_SCAR_L_CQC_FDE` | 1,744 |
+| TF | `TF_SCAR_L_CQC_Black` | 1,744 |
+| TF | `TF_SCAR_H_FDE` | 1,744 |
+| TF | `TF_SCAR_H_Black` | 1,744 |
+| TF | `TF_SCAR_H_CQC_FDE` | 1,744 |
+| TF | `TF_SCAR_H_CQC_Black` | 1,744 |
+| TF | `TF_SCAR_20_FDE` | 1,744 |
+| TF | `TF_SCAR_20_Black` | 1,744 |
+| TF | `TF_SCAR_20_Shd` | 1,744 |
+| TF | `TF_MK47_CQBR` | 1,744 |
+| TF | `TF_MK47` | 1,744 |
+| TF | `TF_MP443` | 2,252 |
+| TF | `TF_OTs_12_Tiss` | 1,744 |
+| TF | `TF_OTs_14_Groza` | 1,744 |
+| TF | `TF_MakarovPB` | 2,252 |
+| TF | `TF_VPO136` | 401 |
+| TF | `TF_VPO190` | 401 |
+| TF | `TF_AEK999` | 1,744 |
+| TF | `TF_M16A4` | 1,744 |
+| TF | `TF_M240` | 1,744 |
+| TF | `TF_M249` | 1,744 |
+| TF | `TF_PKM` | 1,744 |
+| TF | `TF_PKP` | 1,744 |
+| TF | `TF_SR25` | 1,744 |
+| TF | `TF_SVCh308` | 1,744 |
+| TF | `TF_SVCh` | 1,744 |
+| TF | `TF_M24` | 1,744 |
+| TF | `TF_SWORD_Mk18_Mjolnir` | 1,744 |
+
+The four scoped existing Python modules ran 197 checks; seven assertions retain
+r4 fixed shares/floors, half-min assumptions or positive support-row assumptions and
+fail under the new stock-based policy. Their files are outside this worker’s edit
+scope; the lead must update those expectations. No Enforce changed, so native compile
+and performance gates were not run. Neither this rehearsal nor Python checks
+establishes DayZ spawns, firing, loading, single-client or multiplayer behaviour.
 
 ## Historical 2026-11-18 HC-21 evidence and remaining native work
 
@@ -766,7 +1138,7 @@ vanilla keybind overlap.
   trials, firing and ammo acceptance per weapon, 3-6 player counts.
 - Every datamined row (`acceptance: pending-local`) needs local acceptance before any production use, or the
   owner switches them off with `--no-datamined`. The nine parent-derived weapon variants are authored in the candidate; none has native functional acceptance.
-- Ordinary loot keeps the owner's approximately 2x target. Firearm family caps and ammo ceilings are separate provisional budgets; effective spawn totals are unobserved.
+- Ordinary loot keeps the owner's approximately 2x target. The default 3× native firearm family and support budgets above remain provisional; effective spawn totals are unobserved.
 - The roster nominals are proposals; effective CE merging and world totals are unobserved.
 - The SNAFU class list rests on one version (1.28.1); the verifier must be re-run on the real server copy.
 - Signed packaging of the roster/SNAFU deltas and signature handling for a signed server are pending.
