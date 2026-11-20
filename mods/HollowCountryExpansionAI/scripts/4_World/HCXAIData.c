@@ -148,6 +148,8 @@ class HCXAISiteLoot
 }
 class HCXAISite
 {
+    // Bound from HC43 authored content before native provider admission.
+    ref HC43RoleContent ContentRole;
     string Id;
     string Kind;
     string Faction;
@@ -293,6 +295,7 @@ class HCRespawnSiteRegistry
 
 class HCXAISitePolicy
 {
+    ref HC43ContentManifest HC43;
     int SchemaVersion = 1;
     string WorldName = "chernarusplus";
     string BuildVersion = "1.30.164289";
@@ -313,4 +316,87 @@ class HCXAISitePolicy
     int RaidCooldownFloorSeconds = 0; // optional legacy operator minimum
     float ActivationRadiusScale = 0; // absent/zero means 1.0
     ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
+    // Startup-only bounded joins. Content supplies identities and roles, never
+    // routes, actors or runtime receipts; existing qualification stays mandatory.
+    bool HCBindContent(HCXAILocalityCatalog catalog)
+    {
+        if (!HC43) { return true; } // legacy operator policies retain their sites
+        int cap = HCXAISiteRules.HCMaxCatalogRows();
+        if (!catalog || !catalog.Localities || !Sites) { return false; }
+        if (HC43.SchemaVersion != 1 || !HC43.Localities || !HC43.Roles || !HC43.ResidentialClusters) { return false; }
+        if (HC43.Localities.Count() > cap || HC43.Roles.Count() > 16 || HC43.ResidentialClusters.Count() > cap || catalog.Localities.Count() > cap || Sites.Count() > cap) { return false; }
+        map<string, HC43RoleContent> roles = new map<string, HC43RoleContent>();
+        foreach (HC43RoleContent role : HC43.Roles)
+        {
+            if (!role || !HCXAIRules.Token(role.Id) || !HCXAIRules.Token(role.ProviderFaction) || !HCXAIRules.Token(role.Loadout) || roles.Contains(role.Id)) { return false; }
+            roles.Set(role.Id, role);
+        }
+        int references = 0;
+        foreach (HC43LocalityContent checked : HC43.Localities)
+        {
+            if (!checked || !HCXAIRules.Token(checked.Id) || !checked.SiteIds || !roles.Contains(checked.Role)) { return false; }
+            references += checked.SiteIds.Count();
+            if (references > cap) { return false; }
+        }
+        map<string, HCXAISite> sites = new map<string, HCXAISite>();
+        foreach (HCXAISite site : Sites) { sites.Set(site.Id, site); }
+        map<string, HCXAILocality> localities = new map<string, HCXAILocality>();
+        map<string, bool> mapped = new map<string, bool>();
+        map<string, string> residentialRoles = new map<string, string>();
+        foreach (HC43ResidentialContent residential : HC43.ResidentialClusters)
+        {
+            if (!residential || !roles.Contains(residential.Role)) { return false; }
+            residentialRoles.Set("HC43.ResidentialClusters/" + residential.Id, residential.Role);
+        }
+        int bound = 0;
+        int pending = 0;
+        int catalogReferences = 0;
+        foreach (HCXAILocality existing : catalog.Localities)
+        {
+            if (!existing || !existing.SiteIds) { return false; }
+            localities.Set(existing.Id, existing);
+            catalogReferences += existing.SiteIds.Count();
+            if (catalogReferences > cap) { return false; }
+            foreach (string existingId : existing.SiteIds)
+            {
+                mapped.Set(existingId, true);
+                // Residential membership comes from the explicit source binding,
+                // never a radius proxy or invented access to a nearby house.
+                if (!residentialRoles.Contains(existing.Source) || !sites.Contains(existingId)) { continue; }
+                HCXAISite residentialSite = sites.Get(existingId);
+                residentialSite.ContentRole = roles.Get(residentialRoles.Get(existing.Source));
+                residentialSite.Loadout = residentialSite.ContentRole.Loadout;
+                bound++;
+            }
+        }
+        foreach (HC43LocalityContent content : HC43.Localities)
+        {
+            HCXAILocality locality = localities.Get(content.Id);
+            if (!locality)
+            {
+                if (catalog.Localities.Count() >= cap) { return false; }
+                locality = new HCXAILocality();
+                locality.Id = content.Id;
+                locality.Source = content.Source;
+                locality.Island = content.Island;
+                catalog.Localities.Insert(locality);
+                localities.Set(locality.Id, locality);
+            }
+            foreach (string siteId : content.SiteIds)
+            {
+                if (!sites.Contains(siteId)) { pending++; continue; } // no fabricated route
+                HCXAISite selected = sites.Get(siteId);
+                selected.ContentRole = roles.Get(content.Role);
+                selected.Loadout = selected.ContentRole.Loadout;
+                bound++;
+                if (mapped.Contains(siteId)) { continue; }
+                if (catalogReferences >= cap) { return false; }
+                locality.SiteIds.Insert(siteId);
+                catalogReferences++;
+                mapped.Set(siteId, true);
+            }
+        }
+        Print("[HC Expansion AI] HC43 content bound=" + bound.ToString() + " pending_site_refs=" + pending.ToString() + " named=" + HC43.Localities.Count().ToString() + " residential=" + HC43.ResidentialClusters.Count().ToString() + " runtime=PENDING");
+        return true;
+    }
 }

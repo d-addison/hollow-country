@@ -175,7 +175,7 @@ modded class HCXAISiteDirector
     {
         super.Step();
         if (!GetGame() || !GetGame().IsServer() || m_Phase != "run") { return; }
-        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CUES, HCUnitBudget.HC_WORK_AI_SITES, 2)) { return; }
         m_HCAffiliationCues.Step(m_States, this);
     }
 

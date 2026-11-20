@@ -85,7 +85,7 @@ class HCXAIPickerWalk : HCScavengeInventory
         if (points.Count() < 1 || points.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_ROUTE_LEG_INVALID"; return false; }
         array<vector> previous = group.GetWaypoints();
         if (!m_Group && previous.Count() > Survey.MaxWaypoints) { m_WalkRefusal = "PICKER_PATROL_WAYPOINT_CAP"; return false; }
-        if (!HCServer.HCTickWork().HCTake(1)) { m_WalkRefusal = "PICKER_WALK_WORK_BUDGET"; return false; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_WALK, HCUnitBudget.HC_WORK_AI_SITES, 1)) { m_WalkRefusal = "PICKER_WALK_WORK_BUDGET"; return false; }
         if (!m_Group)
         {
             m_PreviousPoints.Clear();
@@ -107,7 +107,7 @@ class HCXAIPickerWalk : HCScavengeInventory
     {
         if (!m_Group || !HCLive() || !Survey) { return false; }
         if (Actor.GetGroup() != m_Group) { return false; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return false; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_WALK, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return false; }
         m_Group.ClearWaypoints();
         m_Group.AddWaypoint(point);
         m_Group.SetWaypointBehaviour(eAIWaypointBehavior.ONCE);

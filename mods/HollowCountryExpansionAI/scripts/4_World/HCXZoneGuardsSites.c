@@ -114,6 +114,7 @@ modded class HCXAISiteDirector
             zone.Site = new HCXAISiteState;
             zone.Site.Site = site;
             m_States.Insert(zone.Site);
+            m_AdmittedTotal++;
             return;
         }
         HCXAISiteState state = zone.Site;

@@ -91,7 +91,7 @@ modded class HCXAISiteDirector
             return;
         }
         if (!survey.Routes || survey.Routes.Count() == 0) { return; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_CACHE, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         int endpoints = survey.Routes.Count() * 2;
         if (m_HCPickerCacheCursor >= endpoints) { m_HCPickerCacheCursor = 0; }
         HCPickerRoute route = survey.Routes[m_HCPickerCacheCursor / 2];

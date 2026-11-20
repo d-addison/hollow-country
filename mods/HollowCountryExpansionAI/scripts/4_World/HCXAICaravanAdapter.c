@@ -387,7 +387,7 @@ modded class HCXAISiteDirector
     override protected void StepTransients()
     {
         super.StepTransients();
-        if (m_States.Count() == 0 || !HCServer.HCTickWork().HCTake(1)) { return; }
+        if (m_States.Count() == 0 || !HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 1)) { return; }
         m_HCJourneyCursor = m_HCJourneyCursor % m_States.Count();
         HCXAISiteState state = m_States[m_HCJourneyCursor];
         m_HCJourneyCursor++;

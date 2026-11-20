@@ -88,6 +88,7 @@ class HCGapcodeRoutesCatalog
     protected int m_Hashed;
     protected int m_PagesRead;
     protected int m_Cursor;
+    protected int m_PinPeakTicks;
     protected int m_Pending;
     protected bool m_OpenedRoadOwner;
     protected string m_Reason;
@@ -308,6 +309,8 @@ class HCGapcodeRoutesCatalog
         // The nearest mainland node cannot establish island-local access.
         if (row.island) { this.HCRowRefuse(row, "ROUTE_ISLAND_LOCAL_ACCESS_PENDING"); }
     }
+    bool HCNeedsWork() { return m_Enabled && m_Phase != "failed" && m_Phase != "loaded"; }
+
     HCXAICaravanRoads HCGraph()
     {
         HCXAICaravanRoads roads = HCXAICaravanRoads.HCGet();
@@ -334,15 +337,24 @@ class HCGapcodeRoutesCatalog
         if (!roads || m_Phase == "failed") { return; }
         if (roads.Phase == "failed") { this.HCRefuse(roads.Reason); return; }
         if (roads.Phase == "loading") { roads.HCStep(); }
-        // One shared admission per tick from the AI_ROUTES slot; the local budget
-        // bounds the batch (page_size <= 8 units, 4 ms). Taking AI_SITES per unit
-        // after the site director starved the source check for the whole boot (096).
+        // One shared admission and one retained source/resolve unit per visit.
+        // AI_ROUTES stays independent from site qualification under exhaustion.
+        // Each sampled source hash is <=4096 bytes and remains atomic.
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_AI_ROUTES, 1)) { return; }
-        m_Work.HCReset(Data.limits.page_size);
-        for (int unit = 0; unit < Data.limits.page_size; unit++)
+        m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
         {
             if (!m_Work.HCContinue()) { return; }
-            if (m_Phase == "pinning") { this.HCPinStep(); }
+            if (m_Phase == "pinning")
+            {
+                int pinBegan = TickCount(0);
+                this.HCPinStep();
+                int pinTicks = TickCount(pinBegan);
+                if (pinTicks > m_PinPeakTicks)
+                {
+                    m_PinPeakTicks = pinTicks;
+                    if (pinTicks >= 40000) { Print("[HC Routes] source_page_ticks_max=" + pinTicks.ToString() + " runtime=PENDING"); }
+                }
+            }
             else
             {
                 if (roads.Phase == "loading") { return; }

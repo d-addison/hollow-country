@@ -8,6 +8,7 @@
 modded class HCXAISiteDirector
 {
     protected ref HCGapcodeRoutesCatalog m_GapcodeRoutes;
+    protected bool m_HCRouteCatalogTurn;
 
     override void Start()
     {
@@ -22,13 +23,15 @@ modded class HCXAISiteDirector
     }
     override void Step()
     {
-        // Original owner runs first: maintenance and native qualification keep
-        // their existing scheduling priority. The loader retains its cursor.
-        super.Step();
-        if (m_GapcodeRoutes && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused")
+        // A source-page hash remains atomic because Expansion's hasher is
+        // global. Isolate one page/unit from site native qualification; never
+        // retain that global hash state across ticks. Time the atomic page.
+        if (m_GapcodeRoutes && m_GapcodeRoutes.HCNeedsWork() && m_Phase != "off" && m_Phase != "stopped" && m_Phase != "refused")
         {
-            m_GapcodeRoutes.HCStep(m_Localities, m_Policy);
+            m_HCRouteCatalogTurn = !m_HCRouteCatalogTurn;
+            if (m_HCRouteCatalogTurn) { m_GapcodeRoutes.HCStep(m_Localities, m_Policy); return; }
         }
+        super.Step();
     }
     override void Stop()
     {

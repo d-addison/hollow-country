@@ -649,11 +649,10 @@ class HCXAIAdapter extends HCModule
     }
     // Raw ticks use the same counter as HC Perf; divide by that window's
     // ticks_per_ms. Log only a new peak above the cooperative 16 ms target.
-    protected void HCStageCost(string stage, int began, float started)
+    protected void HCStageCost(string stage, int began)
     {
         int ticks = TickCount(began);
-        float elapsed = GetGame().GetTickTime() - started;
-        if (elapsed < 0.016) { return; }
+        if (ticks < 160000) { return; }
         int peak;
         if (m_StagePeaks.Find(stage, peak) && ticks <= peak) { return; }
         m_StagePeaks.Set(stage, ticks);
@@ -670,31 +669,30 @@ class HCXAIAdapter extends HCModule
         // target for the final stage. Atomic native work can still exceed it.
         m_AdjunctWork.HCReset(3, 12);
         int began = TickCount(0);
-        float started = GetGame().GetTickTime();
+        int moduleBegan = began;
         if (m_Sites) { m_Sites.Step(); }
-        this.HCStageCost("sites", began, started);
+        this.HCStageCost("sites", began);
         for (int step = 0; step < 3; step++)
         {
-            if (!m_AdjunctWork.HCContinue()) { break; }
+            if (TickCount(moduleBegan) >= 120000 || !m_AdjunctWork.HCContinue()) { break; }
             int stage = m_AdjunctCursor;
             m_AdjunctCursor = (m_AdjunctCursor + 1) % 3;
             began = TickCount(0);
-            started = GetGame().GetTickTime();
             if (stage == 0)
             {
                 if (m_CampRoutine) { m_CampRoutine.Step(); }
-                this.HCStageCost("camp", began, started);
+                this.HCStageCost("camp", began);
             }
             else if (stage == 1)
             {
                 if (m_Caravan) { m_Caravan.Step(); this.HCDropCaravanHandles(); }
                 this.HCPublishCaravanStatus(false);
-                this.HCStageCost("caravan", began, started);
+                this.HCStageCost("caravan", began);
             }
             else
             {
                 if (m_Encounters) { m_Encounters.Step(); this.HCRefreshReadiness(); }
-                this.HCStageCost("encounters", began, started);
+                this.HCStageCost("encounters", began);
             }
         }
         // Retired lease spawner: m_Profile is never installed by OnStart now.

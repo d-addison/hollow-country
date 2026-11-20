@@ -53,6 +53,7 @@ class HCXFactions
     static string SiteFaction(HCXAISite site)
     {
         if (!HCXAIQualification.EncountersEnabled()) { return site.Faction; }
+        if (site.ContentRole) { return site.ContentRole.ProviderFaction; }
         if (site.Kind == "scavenger") { return "HCScavengers"; }
         if (site.Kind == "holdout") { return "HCLocals"; }
         return "HCVolunteers";

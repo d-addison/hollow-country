@@ -24,7 +24,7 @@ class HCXAIScavengeAdapter
     void Step()
     {
         if (!m_Enabled || m_Bound) { return; }
-        if (!HCServer.HCTickWork().HCTake(1)) { return; }
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_BIND, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         HCPickers pickers = HCPickers.Get();
         if (pickers && pickers.HCBindProvider(m_Port))
         {

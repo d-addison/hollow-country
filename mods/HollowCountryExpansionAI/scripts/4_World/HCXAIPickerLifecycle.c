@@ -35,7 +35,7 @@ modded class HCXAISiteDirector
     {
         super.StepTransients();
         if (!GetGame() || !GetGame().IsServer() || !HCPickers.Get()) { return; }
-        if (m_States.Count() == 0 || !HCServer.HCTickWork().HCTake(1)) { return; }
+        if (m_States.Count() == 0 || !HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_PICKER_PARTY, HCUnitBudget.HC_WORK_AI_SITES, 1)) { return; }
         if (m_HCPickerCursor >= m_States.Count()) { m_HCPickerCursor = 0; }
         HCXAISiteState pickerState = m_States[m_HCPickerCursor];
         m_HCPickerCursor++;

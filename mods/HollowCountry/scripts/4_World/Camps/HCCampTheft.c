@@ -1,3 +1,60 @@
+// Finite AI adjuncts share existing profile weights but need independent first-item
+// fairness. Keep these nine subconsumers on the SAME core pool; no private pool,
+// new module, settings or unbounded grants. Reset with the owning core tick.
+// Worst case adds one forced item per active subconsumer, once per tick.
+modded class HCUnitBudget
+{
+    static const int HC_AI_RING = 0;
+    static const int HC_AI_PICKER_PARTY = 1;
+    static const int HC_AI_PICKER_WALK = 2;
+    static const int HC_AI_PICKER_CACHE = 3;
+    static const int HC_AI_PICKER_BIND = 4;
+    static const int HC_AI_CARAVAN = 5;
+    static const int HC_AI_ANCHOR = 6;
+    static const int HC_AI_THEFT = 7;
+    static const int HC_AI_CUES = 8;
+    protected bool m_HCAIServed[9];
+
+    override void HCReset(int limit)
+    {
+        super.HCReset(limit);
+        for (int index = 0; index < 9; index++) { m_HCAIServed[index] = false; }
+    }
+
+    bool HCTakeAISlice(int consumer, int profileSlot, int cost)
+    {
+        if (consumer < 0 || consumer >= 9 || profileSlot < 0 || profileSlot >= HC_WORK_CONSUMERS) { return false; }
+        HCCloseSpan();
+        int units = Math.Max(1, cost);
+        if (m_Profile) { units = m_Profile.HCWeightedUnits(profileSlot, units); }
+        bool admitted = HCTryTake(units);
+        bool forced = false;
+        if (!admitted)
+        {
+            if (m_HCAIServed[consumer])
+            {
+                if (m_Profile) { m_Profile.HCRefused(profileSlot); }
+                return false;
+            }
+            forced = true;
+            m_Starved++;
+            m_Used += units;
+            m_Items++;
+        }
+        m_HCAIServed[consumer] = true;
+        if (m_Profile) { m_Profile.HCItem(profileSlot, units, forced); }
+        return true;
+    }
+}
+
+// Runtime cursor only; legacy camp journals remain unchanged. Native attribute:
+// scripts-1.30.164289/3_Game/Client/SyncPlayer.c:7 NonSerialized.
+modded class HCCampRecord
+{
+    [NonSerialized()]
+    int HCTheftCrateCursor;
+}
+
 // LC-T415 / EXP-L9, EXP-L4. EnableCamps admits via HCCampModule.OnStart;
 // verdict is diagnostic only. Native acceptance/compile remain PENDING.
 // Installed scripts-1.30.164289 evidence:
@@ -193,16 +250,20 @@ class HCCampTheft
         // #209: a refusal specific to one crate moves on to the next bounded
         // candidate; success and global faults still stop the scan at once.
         string lastRefusal = "THEFT_NO_PARTY_NEAR_CAMP";
-        for (int crateIndex = 0; crateIndex < scan.Crates.Count(); crateIndex++)
+        // Exactly one candidate per camp visit, with a retained cursor. A
+        // spent pool cannot pin the scan on an ineligible first crate, or add
+        // eight attendance/observer checks to one tick.
+        if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_THEFT, HCUnitBudget.HC_WORK_BASES, 1)) { HCRefuse("THEFT_WORK_BUDGET"); return; }
         {
-            if (!HCServer.HCTickWork().HCTake(1)) { HCRefuse("THEFT_WORK_BUDGET"); return; }
-            ItemBase crate = scan.Crates[crateIndex];
-            if (!trip.m_IO.HCTheftNear(crate)) { continue; }
+            if (camp.HCTheftCrateCursor >= scan.Crates.Count()) { camp.HCTheftCrateCursor = 0; }
+            ItemBase crate = scan.Crates[camp.HCTheftCrateCursor];
+            camp.HCTheftCrateCursor++;
+            if (!trip.m_IO.HCTheftNear(crate)) { HCRefuse(lastRefusal); return; }
             bool clear = HCAllowed(module, camp, crate);
             if (!Candidate(crate, camp, now, clear, clear))
             {
-                lastRefusal = "THEFT_CAMP_INELIGIBLE";
-                continue;
+                HCRefuse("THEFT_CAMP_INELIGIBLE");
+                return;
             }
             string refusal = trip.HCTheftPickup(module, camp, crate, now, s_Config.MaxAttemptsPerDay);
             if (!HCCandidateRefusal(refusal))
