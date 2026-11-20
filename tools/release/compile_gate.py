@@ -26,6 +26,10 @@ SCRIPT_ERROR = re.compile(r'SCRIPT\s*\(E\)', re.I)
 COMPILE_FAILURE = re.compile(
     r"Can't compile|Cannot compile|Failed to load .*script|script.*module.*(?:failed|failure)|"
     r'(?:failed|unable|cannot) to load.*(?:script|module)', re.I)
+# JsonFileLoader reports unreadable data as SCRIPT (E) "JSON ERROR" at runtime. The
+# gate runs the vanilla mission without HC mission data, so after every module
+# (Mission included) loaded these are missing-data reports, not compile failures.
+RUNTIME_JSON_ERROR = re.compile(r'SCRIPT\s*\(E\):\s*JSON ERROR\b', re.I)
 MODULE_LOADED = re.compile(r'\bModule:\s*([A-Za-z0-9_]+);\s*loaded\s+\d+x?\s+files', re.I)
 
 
@@ -89,8 +93,15 @@ def script_summary(experiment):
     script = '\n'.join(texts)
     modules = list(dict.fromkeys(MODULE_LOADED.findall(script)))
     errors = [line for line in script.splitlines() if SCRIPT_ERROR.search(line)]
+    runtime = []
+    if 'Mission' in modules:
+        runtime = [line for line in errors if RUNTIME_JSON_ERROR.search(line)]
+        errors = [line for line in errors if not RUNTIME_JSON_ERROR.search(line)]
     print('compile_gate: modules_loaded=' + (','.join(modules) or 'none')
-          + ' SCRIPT (E)=' + str(len(errors)))
+          + ' SCRIPT (E)=' + str(len(errors))
+          + ' runtime_json_errors=' + str(len(runtime)))
+    for line in runtime[:3]:
+        print('compile_gate: runtime_json_error (gate mission lacks HC data): ' + private(line)[:400])
     for line in errors[:5]:
         print('compile_gate: script_error: ' + private(line)[:1200])
     return modules, errors, skipped
@@ -194,6 +205,8 @@ def main():
             modules, script_errors, script_skipped = script_summary(experiment)
             errors = [line for line in text.splitlines()
                       if COMPILE_FAILURE.search(line) or SCRIPT_ERROR.search(line)]
+            if 'Mission' in modules:
+                errors = [line for line in errors if not RUNTIME_JSON_ERROR.search(line)]
             for line in [line for line in errors if not SCRIPT_ERROR.search(line)][:5]:
                 print('compile_gate: ' + private(line)[:1200])
             # Conservatively reject cascade errors too, rather than risk hiding
