@@ -98,8 +98,11 @@ module readiness, gameplay, client delivery or multiplayer behavior.
 same six). `--commit HEAD` (5218d8de) compiled GameLib, Game and World without a
 `SCRIPT (E)` line, then timed out at 300 s while loading the world, before the
 Mission module. The host load average was about 35 on 14 cores (a Windows server,
-Workbench and four workers). A HEAD pass under the 900 s budget on a quiet host is
-still unmeasured.
+Workbench and four workers). `--commit HEAD` (18124f91) with `--seconds 900` and no
+other DayZ server running also timed out (wall 910 s, load average about 25 from
+unrelated builds): the Wine server was still loading world geometry after 11 minutes,
+with no `SCRIPT (E)` line. A Wine HEAD pass is still unmeasured; the native Windows
+boot remains the compile evidence.
 
 **Headless Workbench: unverified / blocked.** The `HC_TxaBuild.c` pattern and
 installed `dayz.gproj` syntax informed this planned single-instance invocation:
