@@ -46,6 +46,81 @@ MUTABLE_ALLOWED = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 're
 CATEGORY_ADDED = {'FilteringBottle': 'tools', 'SKS_Black': 'weapons', 'SKS_Green': 'weapons'}
 
 
+
+# Reviewed CE acquisition rows; built entities (Fence, Watchtower, TerritoryFlag,
+# Shelter*) remain native persistence rows and are never rewritten here.
+CONSTRUCTION_KITS = {
+    'FenceKit': (20, 12, ('Farm', 'Industrial')),
+    'WatchtowerKit': (8, 4, ('Farm', 'Industrial')),
+    'TerritoryFlagKit': (4, 2, ('Industrial',)),
+    'ShelterKit': (16, 8, ('Farm', 'Hunting')),
+}
+
+
+def construction_kit(stock, name):
+    """Clone native quantity/count/persistence fields; author only reviewed acquisition."""
+    row = copy.deepcopy(stock[name])
+    nominal, minimum, usages = CONSTRUCTION_KITS[name]
+    for field, value in (('nominal', nominal), ('min', minimum), ('lifetime', 14400)):
+        row.find(field).text = str(value)
+    row.find('flags').set('crafted', '0')
+    for field in ('category', 'tag', 'usage'):
+        for node in list(row.findall(field)):
+            row.remove(node)
+    ET.SubElement(row, 'category', {'name': 'tools'})
+    ET.SubElement(row, 'tag', {'name': 'shelves'})
+    for usage in usages:
+        ET.SubElement(row, 'usage', {'name': usage})
+    _validate_budget(row)
+    return row
+
+
+def placement_budget(layers, proto_bytes, pos_bytes):
+    """Offline usage/tag pressure estimate, never engine-qualified placement capacity.
+
+    Later type layers replace earlier rows. Nominals with several usages/tags
+    are divided evenly (they are alternatives, not independent populations).
+    Container slots are bounded by physical points and group lootmax; shared
+    group headroom is divided proportionally, then divided across usage/tag
+    alternatives. Category, tier, item size and live occupancy can reduce actual
+    capacity further. Wildcard buckets describe unrestricted rows/groups, not
+    a separate exclusive route. These are pressure estimates, not placeable-point
+    certification or independent route capacities.
+    """
+    rows = {}
+    for data in layers:
+        rows.update(_unique(xml(data, 'types').findall('type')))
+    placed = Counter(g.get('name') for g in xml(pos_bytes, 'map').findall('group'))
+    proto = xml(proto_bytes, 'prototype')
+    defaults = {d.get('name'): int(d.get('lootmax', '0')) for d in proto.iter('default')}
+    buckets = {}
+    def bucket(usage, tag):
+        return buckets.setdefault(usage + '/' + tag, {'nominal': 0.0, 'point_slots': 0.0})
+    for row in rows.values():
+        nominal = int(row.findtext('nominal') or 0)
+        usages = [n.get('name') for n in row.findall('usage')] or ['*']
+        tags = [n.get('name') for n in row.findall('tag')] or ['*']
+        for usage in usages:
+            for tag in tags:
+                bucket(usage, tag)['nominal'] += nominal / (len(usages) * len(tags))
+    for group in proto.findall('group'):
+        usages = [u.get('name') for u in group.findall('usage')] or ['*']
+        containers = [(c, min(int(c.get('lootmax', str(defaults.get('container', 0)))),
+                              len(c.findall('point')))) for c in group.findall('container')]
+        total = sum(n for c, n in containers)
+        slots = min(int(group.get('lootmax', str(defaults.get('group', 0)))), total)
+        for container, count in containers:
+            tags = [t.get('name') for t in container.findall('tag')] or ['*']
+            for usage in usages:
+                for tag in tags:
+                    bucket(usage, tag)['point_slots'] += (count * slots / max(1, total)
+                        * placed[group.get('name')] / (len(usages) * len(tags)))
+    return {'runtime_acceptance': 'pending', 'method': 'usage/tag alternatives split evenly; shared group slots proportional; geometry eligibility unobserved',
+            'nominal': sum(int(r.findtext('nominal') or 0) for r in rows.values()),
+            'by_usage_tag': {k: {f: round(v, 3) for f, v in values.items()}
+                             for k, values in sorted(buckets.items())}}
+
+
 def encode(value):
     return (json.dumps(value, sort_keys=True, indent=2) + '\n').encode()
 
@@ -244,6 +319,11 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
                                       'stock_nominal': int(types[n].findtext('nominal')) if n in types else None}
                                      for n in sorted(emitted)],
                             'note': 'budgets are proposals; CE spawn of unused vanilla rows is unobserved'}
+    if supply:
+        authored = {n.get('name') for n in xml(authored_types, 'types')} if authored_types else set()
+        for name in CONSTRUCTION_KITS:
+            if name in types and name not in authored:
+                out.append(construction_kit(types, name))
     ce_extensions.refuse_collisions((n.get('name') for n in out), registered)
     fragment = ET.Element('economycore')
     if len(out):
@@ -879,6 +959,12 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
             continue
         if name not in stock:
             raise ValueError('new class needs explicit reviewed new-type permission')
+        if name in CONSTRUCTION_KITS:
+            if _full(item) != _full(construction_kit(stock, name)):
+                raise ValueError('construction kit differs from reviewed native clone: ' + name)
+            if any(n.get('name') not in vocabulary for n in item.findall('usage')):
+                raise ValueError('construction kit usage unavailable: ' + name)
+            continue
         allowed = mutable | MUTABLE_ALLOWED if name in widened else mutable
         # A category may only be added, once, as the declared category, where stock has none.
         add_category = (name in datamined or name in widened) and name in CATEGORY_ADDED and stock[name].find('category') is None

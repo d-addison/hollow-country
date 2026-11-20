@@ -5,7 +5,10 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
 
 * ``db/types.xml`` and every types file registered in ``cfgeconomycore.xml`` (except the generated
   optional-pack folder for quantity scaling): ``nominal`` and ``min``
-  are multiplied for the building-loot categories in SCALED_CATEGORIES only. Weapons, explosives,
+  are multiplied for the building-loot categories in SCALED_CATEGORIES only.
+  With the strict floor policy and map placements available, shelf pressure
+  suppresses the extra equipment multiplier (native/authored quantities remain);
+  clothing/exact-garbage floors retain the boost. Reviewed kit budgets are exact. Weapons, explosives,
   lootdispatch, uncategorised rows (vehicle parts) and every firearms-roster class keep their exact
   supply quantities, so firearms, ammunition, magazines and attachments stay at the scarcity the owner chose.
   The default-on strict floor policy separately retags every loaded equipment row, including these classes
@@ -89,7 +92,7 @@ NAME = re.compile(r'[A-Za-z0-9_]{1,80}')
 LABEL = re.compile(r'[a-z][a-z0-9_]{0,31}')
 MANAGED_FILE = re.compile(r'(receipt\.json|[0-9]{2}\.backup|[0-9]{2}\.next)')
 PENDING = 'pending'
-ADVISORY = ('offline generation only: CE spawning on the added containers, the doubled density and respawn '
+ADVISORY = ('offline generation only: CE spawning on the added containers, density and respawn '
             'throughput are unobserved until a native server session')
 
 
@@ -216,11 +219,12 @@ def _roster_names():
 
 def _scales(categories, name, roster):
     cats = {c.lower() for c in categories}
-    return bool(cats) and cats <= SCALED_CATEGORIES and not cats & KEPT_CATEGORIES and name.lower() not in roster
+    return (bool(cats) and cats <= SCALED_CATEGORIES and not cats & KEPT_CATEGORIES and name.lower() not in roster
+            and name.casefold() not in {n.casefold() for n in economy.CONSTRUCTION_KITS})
 
 
-def scale_types(data, multiplier, roster=frozenset()):
-    """Return (bytes, scaled_count) with nominal/min multiplied for building-loot categories only."""
+def scale_types(data, multiplier, roster=frozenset(), floor_only=None):
+    """Scale eligible building loot; floor_only preserves shelf quantities under pressure."""
     economy.xml(data, 'types')
     text = data.decode('utf-8-sig')
     masked = _mask(text)
@@ -235,6 +239,11 @@ def scale_types(data, multiplier, roster=frozenset()):
         body = masked[opening.end():close]
         if not _scales(re.findall(r'<category\s+name="([^"]*)"', body), name, roster):
             continue
+        if floor_only is not None:
+            from tools.package import loot_floor_policy
+            categories = re.findall(r'<category\s+name="([^"]*)"', body)
+            if not all(loot_floor_policy.floor_eligible(name, c, floor_only) for c in categories):
+                continue  # keep authored/native quantities; scarce shelves cannot absorb an extra boost
         values = {}
         for field in ('nominal', 'min'):
             found = list(re.finditer(r'(<%s>\s*)(\d+)(\s*</%s>)' % (field, field), body))
@@ -672,7 +681,7 @@ def _floor_policy(floor_policy):
     return (parsed if parsed['enabled'] else None), _sha(raw)
 
 
-def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
+def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_shelves=False):
     """All edits computed in memory from the mission's current bytes; nothing written."""
     from tools.package import loot_floor_policy
     mission = _target(mission)
@@ -680,17 +689,19 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
     overlay = parse_overlay(points) if points is not None else None
     roster = _roster_names()
     policy, policy_sha = _floor_policy(floor_policy)
-    outputs, counts, tag_rows = [], {'types': {}}, []
+    outputs, counts, tag_rows, type_layers = [], {'types': {}}, [], []
     for name in types_files(mission, include_optional=policy is not None):
         before = economy.read_plain(mission, name)
         after, count = before, 0
         if not name.startswith(OPTIONAL_FOLDER + '/'):
-            after, count = scale_types(before, multiplier, roster)
+            after, count = scale_types(before, multiplier, roster, policy if _limit_shelves else None)
         counts['types'][name] = count
         if policy is not None:
             after, rows = loot_floor_policy.retag_types(after, policy, roster)
             tag_rows.append(rows)
         outputs.append((name, before, after))
+        # Keep every registered type layer in CE load order, irrespective of filename.
+        type_layers.append(after)
     before = economy.read_plain(mission, GLOBALS)
     after, knobs = scale_globals(before, multiplier)
     counts['globals'] = knobs
@@ -709,6 +720,36 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED):
         floor = {'enabled': False}
     counts['floor_policy'] = floor
     outputs.append((PROTO, proto_before, proto_after))
+    positions = economy.child(mission, 'mapgrouppos.xml')
+    if policy is not None and positions.is_file():
+        budget = economy.placement_budget(type_layers, proto_after, positions.read_bytes())
+        pressure = [k for k, v in budget['by_usage_tag'].items()
+                    if not k.startswith('*/') and k.endswith('/' + policy['shelf_tag'])
+                    and v['nominal'] > v['point_slots']]
+        # Usage-free items compete for the same shelves as usage-restricted rows.
+        # Reserve the latter's demand first; wildcard group slots join the shared
+        # pool once, rather than being counted separately for every usage.
+        shared_key = '*/' + policy['shelf_tag']
+        shared = budget['by_usage_tag'].get(shared_key, {'nominal': 0, 'point_slots': 0})
+        available = shared['point_slots'] + sum(
+            max(0, v['point_slots'] - v['nominal'])
+            for k, v in budget['by_usage_tag'].items()
+            if k != shared_key and k.endswith('/' + policy['shelf_tag']))
+        budget['shared_shelf_demand'] = {'nominal': shared['nominal'],
+                                         'remaining_point_slots': round(available, 3)}
+        if shared['nominal'] > available:
+            pressure.append(shared_key)
+        if pressure and not _limit_shelves and multiplier > 1:
+            limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=True)
+            limited['counts']['placement_budget']['before_shelf_limit'] = budget
+            limited['counts']['placement_budget']['trigger_usages'] = pressure
+            return limited
+        budget['shelf_boost_limited'] = _limit_shelves
+        budget['remaining_pressure'] = pressure
+        counts['placement_budget'] = budget
+    else:
+        counts['placement_budget'] = {'runtime_acceptance': 'pending',
+                                    'unavailable': 'usage/tag budgeting needs mapgrouppos and floor policy'}
     files = [(n, b, a) for n, b, a in outputs if a != b]
     return {'multiplier': multiplier, 'points_sha256': _sha(points) if points is not None else None,
             'floor_policy_sha256': policy_sha, 'files': files, 'counts': counts, 'proto_before': _sha(proto_before)}
@@ -948,6 +989,12 @@ def describe(result):
         lines.append('    family %s groups=%d points=%d' % (family, row['groups'], row['points']))
     from tools.package import loot_floor_policy
     lines.append('  ' + loot_floor_policy.describe(counts.get('floor_policy', {'enabled': False})))
+    budget = counts.get('placement_budget', {})
+    if 'nominal' in budget:
+        before = budget.get('before_shelf_limit', budget)
+        lines.append('  CE nominal=%d->%d shelf_boost_limited=%s usage_tag_pressure=%d (offline estimate)'
+                     % (before['nominal'], budget['nominal'], budget['shelf_boost_limited'],
+                        len(budget['remaining_pressure'])))
     lines.append('  runtime acceptance pending: ' + ADVISORY)
     return lines
 
