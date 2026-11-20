@@ -170,6 +170,18 @@ modded class HCGroupService
     }
 }
 
+modded class PlayerBase
+{
+    // #252: provider seam for hostility toward the respawning account.
+    // Native identity/weapon stance does not establish AI allegiance. Keep
+    // the existing conservative refusal until an adapter supplies that fact;
+    // friendly/neutral AI acceptance is pending the adapter implementation.
+    bool HCCampRespawnDanger(string account)
+    {
+        return true;
+    }
+}
+
 modded class HCCampModule
 {
     bool HCRespawnPosition(string account, int now, int last, out vector position)
@@ -200,7 +212,9 @@ modded class HCCampModule
         foreach (Man person : players)
         {
             PlayerBase player = PlayerBase.Cast(person);
-            if (!player || !player.IsAlive()) { continue; }
+            // AI allegiance is checked in the local hazard pass below, even
+            // when a provider also includes its humans in GetPlayers.
+            if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
             // Any existing living avatar for this identity refuses the shortcut.
             if (player.GetIdentity() && player.GetIdentity().GetId() == account) { return false; }
             if (vector.DistanceSq(player.GetPosition(), selected.Position) <= 10000 && GroupId(player) != groupId) { return false; }
@@ -211,11 +225,14 @@ modded class HCCampModule
         if (objects.Count() > 128) { return false; }
         foreach (Object hazard : objects)
         {
-            // Fail closed for nearby infected, animals and non-player AI men.
-            bool creature = DayZInfected.Cast(hazard) || DayZAnimal.Cast(hazard);
-            Man human = Man.Cast(hazard);
-            if (creature && hazard.IsAlive()) { return false; }
-            if (human && human.IsAlive() && !human.GetIdentity()) { return false; }
+            if (!hazard || !hazard.IsAlive()) { continue; }
+            if (DayZInfected.Cast(hazard)) { return false; }
+            // Native DayZAnimal.c:404 defaults false; AnimalBase.c:96/452
+            // marks wolves/bears dangerous. Benign fauna no longer vetoes.
+            DayZAnimal animal = DayZAnimal.Cast(hazard);
+            if (animal && animal.IsDanger()) { return false; }
+            PlayerBase human = PlayerBase.Cast(hazard);
+            if (human && !human.GetIdentity() && human.HCCampRespawnDanger(account)) { return false; }
         }
         array<Object> excluded = new array<Object>;
         for (int attempt = 0; attempt < 16; attempt++)
@@ -233,7 +250,7 @@ modded class HCCampModule
             foreach (Man observer : players)
             {
                 PlayerBase outsider = PlayerBase.Cast(observer);
-                if (!outsider || !outsider.IsAlive()) { continue; }
+                if (!outsider || !outsider.IsAlive() || !outsider.GetIdentity()) { continue; }
                 if (GroupId(outsider) != groupId && vector.DistanceSq(outsider.GetPosition(), candidate) <= 10000) { unsafe = true; break; }
             }
             foreach (HCCampRecord neighbourCamp : m_Data.Camps)
