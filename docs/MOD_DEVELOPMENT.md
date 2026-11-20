@@ -61,6 +61,63 @@ Run 046 compiled the earlier default-off wiring in normal DayZ Server under Wine
 Enabled loading, native network delivery/order, prediction, reconnect and rendered
 HUD agreement still require qualification before production use.
 
+## Native compile gate
+
+The gate packages `mods/HollowCountry` and calls the existing Wine compiler
+probe. Supply a complete isolated server copy on a Linux filesystem and its
+reusable Wine prefix. **Execution launches `DayZServer_x64.exe` and stops its
+owned process group**; the active session must permit this. The probe refuses
+another Linux-visible DayZ server. Never use the live server installation.
+
+```sh
+python3 -B tools/release/compile_gate.py --server-root "$HC_SERVER_ROOT" --prefix "$HC_WINE_PREFIX"
+python3 -B tools/release/compile_gate.py --commit 37e68fb4 --server-root "$HC_SERVER_ROOT" --prefix "$HC_WINE_PREFIX"
+python3 -B tools/release/compile_gate.py --commit HEAD --server-root "$HC_SERVER_ROOT" --prefix "$HC_WINE_PREFIX"
+```
+
+`--tree "$HC_CHECKOUT"` selects another checkout (default: current directory).
+`--commit` exports the exact tracked commit into a temporary detached source tree
+under `~/.cache/hollow-country/compile-gate/` and removes it even on failure.
+`git archive` is used instead of a worktree, so the gate never writes Git
+metadata. Uncommitted files are excluded in commit mode.
+
+Exit is nonzero for `Can't compile`, `Cannot compile`, any `SCRIPT (E)`
+(conservatively including cascades), missing/incomplete logs, crash, timeout,
+input drift or failure to initialize. Output includes up to twelve first
+privacy-filtered errors and `wall_seconds`, including packaging and cleanup.
+Raw logs stay in fresh cache run directories outside Git. `--seconds` controls
+the probe budget (15..900, default 300; use 900 on a busy host); staging and cleanup add to wall time.
+Only content-addressed PBO bytes, the isolated install and Wine prefix are
+reused; profiles, storage and compile observations are always fresh. No compiler
+speedup is established. Wine compilation does not accept native Windows boot,
+module readiness, gameplay, client delivery or multiplayer behavior.
+
+**History validation, 2026-11-19.** `--commit 37e68fb4` failed natively in
+42.6 s with the six `Undefined function 'HCInteriorMeasuredCatalogCursor.HCAt'` /
+`HCRange` / `HCSetContent` errors that broke that build (lint HC-E012 reports the
+same six). `--commit HEAD` (5218d8de) compiled GameLib, Game and World without a
+`SCRIPT (E)` line, then timed out at 300 s while loading the world, before the
+Mission module. The host load average was about 35 on 14 cores (a Windows server,
+Workbench and four workers). A HEAD pass under the 900 s budget on a quiet host is
+still unmeasured.
+
+**Headless Workbench: unverified / blocked.** The `HC_TxaBuild.c` pattern and
+installed `dayz.gproj` syntax informed this planned single-instance invocation:
+`workbenchApp.exe -gproj=<Windows-TEMP-scratch>/hc_compile.gproj -wbmodule=ResourceManager -plugin=HC_CompileGateExit -doLogs`.
+The scratch project would combine native modules with `37e68fb4` HC scripts;
+the plugin would call `Workbench.Exit(0)`. The controller had a 900-second outer
+timeout, reserved cleanup time and kill restricted to its own PID, with
+stdout/stderr and scratch `.log`/`.rpt` files as proposed error channels.
+
+Absolute `cmd.exe`/`powershell.exe` interop works despite absence from PATH.
+`cmd.exe /c echo %TEMP%` resolved in 0.065 s; no D: scratch writes were attempted.
+The guarded attempt returned in 10.095 s without a compile receipt. Follow-up
+inspection confirmed one Workbench instance predating the attempt and no
+experiment scratch directory. The guard prevented a second instance; no owned
+PID was created or killed. TEMP write/staging, machine-readable compiler errors,
+catching HCAt and speed relative to Wine remain unverified. Retry when the
+existing Workbench has exited and isolated Wine execution is authorized.
+
 ## Fixed native observation probes
 
 The development helpers provide fixed disposable missions for infected death and

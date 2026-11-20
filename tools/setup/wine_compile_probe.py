@@ -318,8 +318,9 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         raise ValueError('selftests require explicit diagnostic server mode')
     if native_autotest_scripts is not None and (not diagnostic or diagnostic_selftests):
         raise ValueError('native autotest requires diagnostic mode and one mission hook')
-    if not 15 <= seconds <= 300:
-        raise ValueError('probe duration must be 15..300 seconds')
+    # A cold Chernarus world load under Wine on a busy host exceeded 300 s (2026-11-19).
+    if not 15 <= seconds <= 900:
+        raise ValueError('probe duration must be 15..900 seconds')
     if not 0 <= hold_seconds <= 240 or hold_seconds >= seconds:
         raise ValueError('hold must be 0..240 seconds and shorter than probe duration')
     seeds = read_state_seed(state_seed) if state_seed is not None else {}
