@@ -168,7 +168,9 @@ def main(argv=None):
             script = ("$ErrorActionPreference='Stop'; Start-Process -FilePath "
                       + psquote(args.server_root.rstrip('\\/') + '\\start-server.bat')
                       + ' -WorkingDirectory ' + psquote(args.server_root)
-                      + " -WindowStyle Minimized; Write-Output 'HC launch acknowledged'")
+                      # /min: the server window starts minimized and never takes focus
+                      # from a game the owner is playing (cmd START /MIN does not activate).
+                      + " -ArgumentList '/min' -WindowStyle Hidden; Write-Output 'HC launch acknowledged'")
             started = winproc.run('powershell', [script], **dict(args.interop, attempts=1))
             if started.returncode:
                 print('start failed')

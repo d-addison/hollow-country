@@ -402,7 +402,10 @@ def launcher(items):
     args = ' '.join('"%s"' % line for line in ws.launch_lines(items))
     lines = ['@echo off', 'rem Hollow Country dedicated server. Run from the DayZServer folder.',
              'cd /d "%~dp0"',
-             'start "" DayZServer_x64.exe -config=serverDZ.cfg -profiles=profiles -port=2302 %s '
+             'rem start-server.bat /min starts the server minimized without taking focus.',
+             'set "HC_WINDOW="',
+             'if /i "%~1"=="/min" set "HC_WINDOW=/min"',
+             'start "" %%HC_WINDOW%% DayZServer_x64.exe -config=serverDZ.cfg -profiles=profiles -port=2302 %s '
              '-dologs -adminlog -netlog -freezecheck' % args, '']
     return '\r\n'.join(lines)
 
